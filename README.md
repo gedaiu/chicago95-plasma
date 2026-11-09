@@ -44,12 +44,17 @@ sudo dnf install python3-pyside6 python3-pyxdg python3-dbus python3-gobject \
 git clone https://github.com/grassmunk/Chicago95 ~/src/Chicago95
 ```
 
+The grassmunk/Chicago95 checkout is a dependency (themes and icons come from
+it); the installer lives in this repository.
+
 Fonts: MS W98 UI (OTF) and More Perfect DOS VGA, dropped into
 `~/.local/share/fonts`.
 
 ## Install
 
 ```
+git clone https://github.com/gedaiu/chicago95-plasma ~/src/chicago95-plasma
+cd ~/src/chicago95-plasma
 ./install.sh
 ```
 
