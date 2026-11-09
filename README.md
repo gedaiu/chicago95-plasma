@@ -53,32 +53,65 @@ Fonts: MS W98 UI (OTF) and More Perfect DOS VGA, dropped into
 ./install.sh
 ```
 
-The script copies files, substitutes your home directory into the entries
-that need an absolute path, symlinks the Chicago95 icon theme where KDE can
-find it, adds `Inherits=hicolor,breeze` to it, applies the colour scheme,
-widget style, decoration and Plasma style, installs the systemd drop-in
-and unit, and restarts plasmashell. It does not touch Plymouth or SDDM;
-those need root and are two commands in the tutorial.
+Setup runs as a full-screen text installer in the style of Windows 95
+Setup: it collects information about the computer, lets you pick
+components and options, copies files with a progress bar, and reloads
+Plasma.
 
-Afterwards, build the panel once with the Plasma script in
-`plasmoids/panel-layout.js` (System Settings > Plasma scripting console,
-or `evaluateScript` over D-Bus).
+It detects the distribution and package manager, the Plasma version, the
+primary screen's logical resolution and scale, an existing Chicago95
+checkout (or clones one), the XScreenSaver hack directory, the Firefox
+profile in daily use, whether Thunar and qmmp are installed, and missing
+Python modules, with the install command for your distribution.
+
+Components, each optional: Chicago95 base theme, decoration and Plasma
+style, taskbar plasmoids, Start menu and Shut Down dialog, notifications,
+Office Assistant, extra tools, screensaver, Winamp, Explorer (Thunar or
+Dolphin), lock screen, splash screen, Firefox colours.
+
+Options are pre-filled from detection and editable on the Setup Options
+screen or as flags:
+
+| Flag | Default | Effect |
+| --- | --- | --- |
+| `--screen=WxH@scale` | detected | Positions of Start menu, Clippy, notifications; X11 DPI |
+| `--panel=28` | 28 | Taskbar height used in the window rules |
+| `--explorer=thunar` or `dolphin` | Thunar if installed | Which file manager gets the Explorer setup |
+| `--saver=deepstars` | deepstars | XScreenSaver hack name |
+| `--idle=5` | 5 | Minutes before the screensaver starts |
+| `--cursor=48` | 48 at fractional scale, else 32 | Cursor size |
+| `--clippy=yes` or `no` | yes | Start the Office Assistant at login |
+| `--font="MS W98 UI"` | MS W98 UI | UI font family, applied if installed |
+
+Other modes: `--yes` takes every default without questions,
+`--components base,look,taskbar` installs only those, `--dry-run` writes
+nothing and logs every action, `--plain` replaces the full-screen UI with
+plain output.
+
+Every file Setup replaces is backed up to
+`~/.local/share/chicago95/backup-<date>/`, and every file it writes is
+listed in `~/.local/share/chicago95/installed-files.txt`. `./uninstall.sh`
+reads that list, removes the files and window rules, restores the backups
+and switches Plasma back to Breeze. Window rules are merged into an
+existing `~/.config/kwinrulesrc` as text, so your own rules are kept.
+
+After Setup, build the taskbar once: remove the stock panel and run
+`~/.local/share/chicago95/panel-layout.js` in the Plasma scripting
+console. Plymouth and SDDM need root and are not touched:
+
+```
+sudo cp -r ~/src/Chicago95/Plymouth/Chicago95 /usr/share/plymouth/themes/
+sudo plymouth-set-default-theme -R Chicago95
+sudo cp -r ~/src/Chicago95/Extras/sddm/Chicago95 /usr/share/sddm/themes/
+```
 
 ## Resolution
 
-Three KWin rules in `config/kwin/kwinrulesrc` position windows that
-Wayland does not let clients position themselves: the Start menu, Clippy,
-and the notification host. Their `position=` values are for a 2560x1440
-logical screen with a 28 px panel. On another resolution, recompute:
-
-| Rule | Formula (logical px) |
-| --- | --- |
-| `chicago95-startmenu` | `0, height - 28 - 189` |
-| `chicago95-clippy` | `width - 124 - 24, height - 28 - 93 - 24` |
-| `chicago95-notifyd` | `width - 340, height - 28 - 1100` |
-
-Edit that file as plain text. Running `kwriteconfig6` against it drops
-every rule group.
+Wayland does not let clients position their own windows, so the Start
+menu, Clippy and the notification column are placed by KWin rules that
+Setup computes from the screen size and taskbar height. After a
+resolution change, rerun
+`./install.sh --components startmenu,notifications,clippy`.
 
 ## Fractional scaling
 
