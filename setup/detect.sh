@@ -10,8 +10,9 @@ detect_all() {
 }
 
 detect_distro() {
-    SETUP_DISTRO=unknown; SETUP_PKG=""
+    SETUP_DISTRO=unknown; SETUP_DISTRO_LIKE=""; SETUP_PKG=""
     [ -r /etc/os-release ] && SETUP_DISTRO=$(. /etc/os-release; printf '%s' "${ID:-unknown}")
+    [ -r /etc/os-release ] && SETUP_DISTRO_LIKE=$(. /etc/os-release; printf '%s' "${ID_LIKE:-}")
     for manager in dnf apt-get pacman zypper; do command -v $manager >/dev/null 2>&1 && { SETUP_PKG=$manager; break; }; done
 }
 
@@ -66,13 +67,15 @@ detect_python() {
     done
 }
 
+# Package names differ per distribution, not per package manager: Fedora and RHEL both use dnf.
 detect_plasma_hint() {
-    case "$SETUP_PKG" in
-        dnf) echo "sudo dnf install @kde-desktop-environment";;
-        apt-get) echo "sudo apt install kde-plasma-desktop";;
-        pacman) echo "sudo pacman -S plasma-meta";;
-        zypper) echo "sudo zypper install -t pattern kde_plasma";;
-        *) echo "install KDE Plasma 6 with your package manager";;
+    case " $SETUP_DISTRO $SETUP_DISTRO_LIKE " in
+        *" fedora "*) [ "$SETUP_DISTRO" = fedora ] && { echo "sudo dnf install @kde-desktop-environment"; return; }
+            echo "sudo dnf install epel-release && sudo dnf group install \"KDE Plasma Workspaces\"";;
+        *" ubuntu "*|*" debian "*) echo "sudo apt install kde-plasma-desktop   (Plasma 6 needs Debian 13 / Ubuntu 25.04 or newer)";;
+        *" arch "*) echo "sudo pacman -S plasma-meta";;
+        *" suse "*|*" opensuse "*) echo "sudo zypper install -t pattern kde_plasma";;
+        *) echo "install KDE Plasma 6 with your distribution's package manager";;
     esac
 }
 

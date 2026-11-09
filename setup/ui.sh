@@ -8,6 +8,7 @@ UI_COLS=80
 UI_ROWS=25
 UI_STEPS=()
 UI_STEP_DONE=()
+UI_ON_STEPS=0
 
 ui_init() {
     if [ "${1:-}" = plain ] || [ ! -t 1 ] || ! command -v tput >/dev/null 2>&1; then
@@ -25,6 +26,7 @@ ui_restore() {
 }
 
 ui_field() {        # paint the blue field and the title band
+    UI_ON_STEPS=0
     printf '\e[44m\e[97m'; tput clear
     tput cup 0 0; printf '\e[47m\e[34m%-*s\e[44m\e[97m' "$UI_COLS" "  $UI_TITLE"
     tput cup $((UI_ROWS - 1)) 0; printf '\e[47m\e[34m%-*s\e[44m\e[97m' "$UI_COLS" "  ENTER=Continue   Ctrl+C=Exit Setup"
@@ -43,6 +45,7 @@ ui_set_steps() { UI_STEPS=("$@"); UI_STEP_DONE=(); for _ in "$@"; do UI_STEP_DON
 
 ui_steps() {        # draws the checklist from row 4 with the current step highlighted
     local index=0 marker
+    [ "$UI_ON_STEPS" = 1 ] || { ui_field; UI_ON_STEPS=1; }
     for step in "${UI_STEPS[@]}"; do
         marker="[ ]"; [ "${UI_STEP_DONE[$index]}" = 1 ] && marker="[X]"
         tput cup $((4 + index)) 6
@@ -53,13 +56,16 @@ ui_steps() {        # draws the checklist from row 4 with the current step highl
 
 ui_step_start() {   # ui_step_start <index>
     UI_STEP_DONE[$1]=2
-    if [ "$UI_PLAIN" = 1 ]; then printf '\n== %s\n' "${UI_STEPS[$1]}"; else ui_field; ui_steps; fi
+    if [ "$UI_PLAIN" = 1 ]; then printf '\n== %s\n' "${UI_STEPS[$1]}"; elif [ "$UI_ON_STEPS" = 1 ]; then ui_steps; fi
 }
 
-ui_step_done() { UI_STEP_DONE[$1]=1; [ "$UI_PLAIN" = 1 ] || ui_steps; }
+# The checklist is drawn when a step has something to show; painting it for a step that ends
+# in a fraction of a second only flashes before the next screen replaces it.
+ui_step_done() { UI_STEP_DONE[$1]=1; [ "$UI_PLAIN" = 0 ] && [ "$UI_ON_STEPS" = 1 ] && ui_steps; return 0; }
 
 ui_status() {       # one-line status under the step list
     if [ "$UI_PLAIN" = 1 ]; then printf '   %s\n' "$1"; return; fi
+    [ "$UI_ON_STEPS" = 1 ] || ui_steps
     tput cup $((6 + ${#UI_STEPS[@]})) 6; printf '%-*s' $((UI_COLS - 12)) "$1"
 }
 
@@ -68,6 +74,7 @@ ui_progress() {     # ui_progress <done> <total> <label>
     # A terminal redraws one line in place; a log or pipe gets one line per file.
     if [ "$UI_PLAIN" = 1 ] && [ ! -t 1 ]; then printf '   %-60s (%d/%d)\n' "$label" "$done" "$total"; return 0; fi
     if [ "$UI_PLAIN" = 1 ]; then printf '\r   %-60s (%d/%d)' "$label" "$done" "$total"; if [ "$done" -ge "$total" ]; then printf '\n'; fi; return 0; fi
+    [ "$UI_ON_STEPS" = 1 ] || ui_steps
     filled=$(( total > 0 ? done * width / total : width ))
     local row=$((UI_ROWS / 2 + 3)) col=$(( (UI_COLS - width - 2) / 2 ))
     tput cup $((row - 2)) 6; printf '%-*s' $((UI_COLS - 12)) "Setup is now copying files to your computer..."
