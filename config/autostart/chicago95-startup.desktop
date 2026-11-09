@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Chicago95 startup sound
+Exec=pw-play @HOME@/.local/share/sounds/Chicago95/stereo/desktop-login.wav
+NoDisplay=true
+Terminal=false
+X-KDE-autostart-phase=2

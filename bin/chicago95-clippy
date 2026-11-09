@@ -1,0 +1,448 @@
+#!/usr/bin/env python3
+"""Office Assistant for Chicago95: a top-right paperclip that never shuts up."""
+import os, sys; sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95")); import win95ui  # noqa: E401,E702
+
+import argparse
+import base64
+import json
+import random
+import re
+import shutil
+import signal
+import subprocess
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from PySide6.QtCore import QPoint, QRect, QSize, Qt, QTimer
+from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPixmap, QPolygon
+from PySide6.QtWidgets import QMenu, QPushButton, QWidget
+
+ASSET_DIR = Path.home() / ".local/share/chicago95/clippy"
+SOUND_CACHE_DIR = Path.home() / ".cache/chicago95-clippy"
+PID_FILE = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "chicago95-clippy.pid"
+
+SCALE = 1
+SCREEN_MARGIN = 24
+HIDE_MINUTES = 10
+IDLE_INTERVAL_SECONDS = (8, 20)
+TIP_INTERVAL_SECONDS = (90, 240)
+BALLOON_TIMEOUT_MS = 20_000
+BALLOON_TEXT_WIDTH = 260
+BALLOON_PADDING = 10
+BALLOON_RADIUS = 8
+BALLOON_FILL = QColor("#FFFFCC")
+TAIL_HEIGHT = 18
+
+TIP_ANIMATIONS = ["GetAttention", "Explain", "Thinking", "Searching", "Writing", "Alert", "Congratulate", "LookRight"]
+
+TIPS = [
+    "It looks like you're writing a letter. Would you like to use KWrite?",
+    "Press Meta+D to show the desktop. Press it again to bring everything back.",
+    "You can run Winamp from the desktop. It really whips the llama's ass.",
+    "Tip: Meta+Tab switches activities. Nobody knows why.",
+    "It looks like you're using Wayland. Legacy apps run under XWayland at 1.5x.",
+    "Press Ctrl+Alt+T... oh, this isn't Ubuntu. Try Meta+Enter? No? Use the Start menu.",
+    "Your Recycle Bin is actually ~/.local/share/Trash.",
+    "It looks like you're trying to install Flatpaks. Are you sure? Remember the fontconfig cache.",
+    "Pi-hole is blocking ads for the whole LAN. You're welcome.",
+    "The Start menu opens with the Meta key. Just like 1995, except it works.",
+    "Press Meta+E to open Dolphin. It's like Explorer, but it remembers your tabs.",
+    "Press Alt+Space to open KRunner. Type a calculation, a program name or a unit conversion.",
+    "Press Meta+V to open the clipboard history. Everything you ever copied is in there. Everything.",
+    "Press Print Screen to open Spectacle. Shift+Print grabs the whole screen without asking.",
+    "Press Meta+Left or Meta+Right to tile a window to half the screen.",
+    "Press Ctrl+Alt+Esc and then click any window to kill it. Use it responsibly.",
+    "It looks like a window is frozen. Try Meta+Esc to open the System Monitor.",
+    "Press Meta+W to see every open window at once. It's called Overview now, not Task View.",
+    "Press Ctrl+Alt+Shift+F12 to turn off desktop effects if your GPU drivers are feeling 1995.",
+    "It looks like you're updating Fedora. Run sudo dnf upgrade --refresh and go make a coffee.",
+    "Press Meta+L to lock the screen. If the lock screen crashes, blame the fontconfig cache.",
+    "It looks like you're configuring KDE. Right-click almost anything. There's a setting for it.",
+    "Press Meta+P to pick a display layout when you plug in a projector.",
+    "Your taskbar is a Plasma panel. Right-click it and choose Enter Edit Mode to rearrange it.",
+    "It looks like you're trying to find a file. Press Alt+Space and start typing. Baloo already indexed it.",
+    "Press Meta+Shift+S to take a screenshot of a region, straight to the clipboard.",
+]
+
+
+@dataclass(frozen=True)
+class Frame:
+    duration_ms: int
+    images: tuple[tuple[int, int], ...]
+    sound: str | None
+    exit_branch: int | None
+
+
+@dataclass(frozen=True)
+class Animation:
+    name: str
+    frames: tuple[Frame, ...]
+    use_exit_branching: bool = False
+
+
+@dataclass
+class Playback:
+    animation: Animation
+    frame_index: int = 0
+    stop_requested: bool = False
+    on_finished: object = None
+
+
+def extract_js_object(text: str) -> str:
+    return text[text.index("{"): text.rindex("}") + 1]
+
+
+def parse_agent_js(text: str) -> dict[str, Animation]:
+    definition = json.loads(extract_js_object(text))
+    animations = {}
+    for name, raw_animation in definition["animations"].items():
+        frames = tuple(
+            Frame(
+                duration_ms=raw_frame.get("duration", 100),
+                images=tuple((offset[0], offset[1]) for offset in raw_frame.get("images", [])),
+                sound=raw_frame.get("sound"),
+                exit_branch=raw_frame.get("exitBranch"),
+            )
+            for raw_frame in raw_animation["frames"]
+        )
+        animations[name] = Animation(name, frames, bool(raw_animation.get("useExitBranching", False)))
+    return animations
+
+
+SOUND_ENTRY_PATTERN = re.compile(r"['\"](\d+)['\"]\s*:\s*['\"]data:audio/ogg;base64,([A-Za-z0-9+/=]+)['\"]")
+
+
+def parse_sounds_js(text: str) -> dict[str, bytes]:
+    return {sound_id: base64.b64decode(encoded) for sound_id, encoded in SOUND_ENTRY_PATTERN.findall(text)}
+
+
+def write_sound_cache(sounds: dict[str, bytes]) -> dict[str, Path]:
+    SOUND_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    paths = {}
+    for sound_id, payload in sounds.items():
+        path = SOUND_CACHE_DIR / f"{sound_id}.ogg"
+        if not path.exists():
+            path.write_bytes(payload)
+        paths[sound_id] = path
+    return paths
+
+
+def last_frame_with_images(animation: Animation) -> Frame:
+    return next(frame for frame in reversed(animation.frames) if frame.images)
+
+
+def random_seconds(bounds: tuple[int, int]) -> int:
+    return random.randint(*bounds) * 1000
+
+
+class SoundPlayer:
+    def __init__(self, sound_paths: dict[str, Path], muted: bool):
+        self.sound_paths = sound_paths
+        self.player_binary = shutil.which("pw-play") or shutil.which("paplay")
+        self.muted = muted or self.player_binary is None
+
+    def play(self, sound_id: str | None):
+        if self.muted or sound_id not in self.sound_paths:
+            return
+        subprocess.Popen(
+            [self.player_binary, str(self.sound_paths[sound_id])],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+
+class SpriteSheet:
+    def __init__(self, sheet: QPixmap, frame_size: QSize):
+        self.sheet = sheet
+        self.frame_size = frame_size
+
+    def paint_frame(self, painter: QPainter, frame: Frame):
+        painter.setRenderHint(QPainter.SmoothPixmapTransform, False)
+        painter.scale(SCALE, SCALE)
+        for offset_x, offset_y in frame.images:
+            source = QRect(offset_x, offset_y, self.frame_size.width(), self.frame_size.height())
+            painter.drawPixmap(0, 0, self.sheet, source.x(), source.y(), source.width(), source.height())
+
+
+class Balloon(QWidget):
+    def __init__(self, font, owner=None):
+        # A popup with Clippy as its parent: Wayland positions popups relative to the parent surface,
+        # whereas a free-standing top-level can never be moved by the client.
+        # ToolTip maps as a grab-less popup on Wayland; Qt.Popup wants an input grab and is refused when Clippy is unfocused.
+        super().__init__(owner, Qt.ToolTip | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint)
+        self.owner = owner
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setFont(font)
+        self.text = ""
+        self.text_rect = QRect()
+        self.ok_button = QPushButton("OK", self)
+        self.ok_button.setFont(font)
+        self.ok_button.setFixedSize(60, 23)
+        self.ok_button.clicked.connect(self.hide)
+        self.close_timer = QTimer(self)
+        self.close_timer.setSingleShot(True)
+        self.close_timer.timeout.connect(self.hide)
+
+    def show_tip(self, text: str, anchor_top_center: QPoint):
+        self.text = text
+        metrics = self.fontMetrics()
+        self.text_rect = metrics.boundingRect(
+            QRect(0, 0, BALLOON_TEXT_WIDTH, 1000), Qt.TextWordWrap | Qt.AlignLeft, text
+        )
+        width = BALLOON_TEXT_WIDTH + 2 * BALLOON_PADDING
+        body_height = self.text_rect.height() + 3 * BALLOON_PADDING + self.ok_button.height()
+        self.resize(width, body_height + TAIL_HEIGHT)
+        self.ok_button.move(width - BALLOON_PADDING - self.ok_button.width(), body_height - BALLOON_PADDING - self.ok_button.height())
+        self.move(anchor_top_center.x() - width + 40, anchor_top_center.y() - self.height() - 4)
+        if self.owner is not None and self.owner.windowHandle() is not None:
+            self.winId()
+            self.windowHandle().setTransientParent(self.owner.windowHandle())
+        self.show()
+        self.raise_()
+        self.close_timer.start(BALLOON_TIMEOUT_MS)
+
+    def body_rect(self) -> QRect:
+        return QRect(0, 0, self.width() - 1, self.height() - TAIL_HEIGHT - 1)
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        body = self.body_rect()
+        path = QPainterPath()
+        path.addRoundedRect(body, BALLOON_RADIUS, BALLOON_RADIUS)
+        tail_base_x = body.right() - 50
+        # Start the tail a few pixels inside the body so the union erases the body's bottom edge at the join.
+        tail = QPolygon([
+            QPoint(tail_base_x, body.bottom() - 3),
+            QPoint(tail_base_x + 22, body.bottom() - 3),
+            QPoint(tail_base_x + 22, body.bottom() + TAIL_HEIGHT),
+        ])
+        path.addPolygon(tail)
+        path.closeSubpath()
+        painter.setPen(QPen(Qt.black, 1))
+        painter.setBrush(BALLOON_FILL)
+        painter.drawPath(path.simplified())
+        painter.setPen(Qt.black)
+        painter.setFont(self.font())
+        painter.drawText(
+            QRect(BALLOON_PADDING, BALLOON_PADDING, BALLOON_TEXT_WIDTH, self.text_rect.height()),
+            Qt.TextWordWrap | Qt.AlignLeft,
+            self.text,
+        )
+
+    def mousePressEvent(self, _event):
+        self.hide()
+
+
+class ClippyWindow(QWidget):
+    def __init__(self, animations: dict[str, Animation], sprites: SpriteSheet, sounds: SoundPlayer, font):
+        super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.animations = animations
+        self.sprites = sprites
+        self.sounds = sounds
+        self.setFixedSize(sprites.frame_size * SCALE)
+        self.current_frame: Frame | None = None
+        self.playback: Playback | None = None
+        self.drag_offset: QPoint | None = None
+        self.balloon = Balloon(font, self)
+
+        self.frame_timer = QTimer(self)
+        self.frame_timer.setSingleShot(True)
+        self.frame_timer.timeout.connect(self.advance_frame)
+        self.idle_timer = QTimer(self)
+        self.idle_timer.setSingleShot(True)
+        self.idle_timer.timeout.connect(self.play_random_idle)
+        self.tip_timer = QTimer(self)
+        self.tip_timer.setSingleShot(True)
+        self.tip_timer.timeout.connect(self.show_random_tip)
+
+        self.idle_names = [name for name in animations if name.startswith("Idle")]
+        self.action_names = [name for name in animations if not name.startswith("Idle")]
+
+    def move_to_corner(self):
+        available = self.screen().availableGeometry()
+        self.move(available.right() - self.width() - SCREEN_MARGIN, available.bottom() - self.height() - SCREEN_MARGIN)
+
+    def start_schedule(self):
+        self.play("Greeting")
+        self.idle_timer.start(random_seconds(IDLE_INTERVAL_SECONDS))
+        self.tip_timer.start(random_seconds(TIP_INTERVAL_SECONDS))
+
+    def play(self, name: str, on_finished=None):
+        self.playback = Playback(self.animations[name], on_finished=on_finished)
+        self.show_frame()
+
+    def show_frame(self):
+        playback = self.playback
+        if playback is None or playback.frame_index >= len(playback.animation.frames):
+            self.finish_playback()
+            return
+        frame = playback.animation.frames[playback.frame_index]
+        self.current_frame = frame
+        self.sounds.play(frame.sound)
+        self.update()
+        self.frame_timer.start(frame.duration_ms)
+
+    def advance_frame(self):
+        playback = self.playback
+        if playback is None:
+            return
+        frame = playback.animation.frames[playback.frame_index]
+        if playback.stop_requested and playback.animation.use_exit_branching and frame.exit_branch is not None:
+            playback.frame_index = frame.exit_branch
+        else:
+            playback.frame_index += 1
+        self.show_frame()
+
+    def finish_playback(self):
+        finished = self.playback
+        self.playback = None
+        if finished is not None and finished.on_finished is not None:
+            finished.on_finished()
+
+    def interrupt(self):
+        if self.playback is not None:
+            self.playback.stop_requested = True
+
+    def play_random_idle(self):
+        if self.playback is None:
+            self.play(random.choice(self.idle_names))
+        self.idle_timer.start(random_seconds(IDLE_INTERVAL_SECONDS))
+
+    def play_random_action(self):
+        self.interrupt()
+        self.play(random.choice(self.action_names))
+
+    def show_random_tip(self):
+        self.interrupt()
+        self.play(random.choice(TIP_ANIMATIONS))
+        anchor = self.mapToGlobal(QPoint(self.width() // 2, 0))
+        self.balloon.show_tip(random.choice(TIPS), anchor)
+        self.tip_timer.start(random_seconds(TIP_INTERVAL_SECONDS))
+
+    def hide_for_a_while(self):
+        self.balloon.hide()
+        self.play("Hide", on_finished=self.hide)
+        QTimer.singleShot(HIDE_MINUTES * 60_000, self.come_back)
+
+    def come_back(self):
+        self.show()
+        self.play("Show")
+
+    def paintEvent(self, _event):
+        if self.current_frame is None:
+            return
+        painter = QPainter(self)
+        self.sprites.paint_frame(painter, self.current_frame)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            # Wayland ignores client move(); ask the compositor to drag the window instead.
+            handle = self.windowHandle()
+            if handle is not None and handle.startSystemMove():
+                self.drag_offset = None
+                return
+            self.drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+
+    def mouseMoveEvent(self, event):
+        if self.drag_offset is not None and event.buttons() & Qt.LeftButton:
+            self.move(event.globalPosition().toPoint() - self.drag_offset)
+
+    def mouseReleaseEvent(self, _event):
+        self.drag_offset = None
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.show_random_tip()
+
+    def contextMenuEvent(self, event):
+        menu = QMenu(self)
+        menu.setFont(self.font())
+        menu.addAction("Animate", self.play_random_action)
+        menu.addAction("Hide", self.hide_for_a_while)
+        menu.addAction("Options...").setEnabled(False)
+        menu.addSeparator()
+        menu.addAction("Exit", self.exit_application)
+        menu.exec(event.globalPos())
+
+    def exit_application(self):
+        self.balloon.hide()
+        self.play("GoodBye", on_finished=lambda: self.window().close() or sys.exit(0))
+
+
+def render_screenshot(animations: dict[str, Animation], sprites: SpriteSheet, font, output_path: Path):
+    balloon = Balloon(font)
+    balloon.show_tip(TIPS[0], QPoint(0, 0))
+    balloon_image = balloon.grab().toImage()
+    sprite_width, sprite_height = sprites.frame_size.width() * SCALE, sprites.frame_size.height() * SCALE
+    sprite_left = balloon_image.width() - 40
+    composed = QImage(sprite_left + sprite_width, balloon_image.height() + 4 + sprite_height, QImage.Format_ARGB32)
+    composed.fill(QColor("#008080"))
+    painter = QPainter(composed)
+    painter.drawImage(0, 0, balloon_image)
+    painter.translate(sprite_left, balloon_image.height() + 4)
+    sprites.paint_frame(painter, last_frame_with_images(animations["Greeting"]))
+    painter.end()
+    composed.save(str(output_path))
+
+
+def signal_running_instance() -> bool:
+    if not PID_FILE.exists():
+        return False
+    pid = int(PID_FILE.read_text().strip() or 0)
+    try:
+        os.kill(pid, signal.SIGUSR1)
+    except (ProcessLookupError, ValueError):
+        return False
+    return True
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Chicago95 Office Assistant")
+    parser.add_argument("--mute", action="store_true", help="never play sounds")
+    parser.add_argument("--screenshot", metavar="PATH", help="render Greeting frame plus a balloon to PNG and exit")
+    parser.add_argument("--once", metavar="ANIMATION", help="play one animation then exit")
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    if args.screenshot or args.once:
+        os.environ["QT_QPA_PLATFORM"] = "offscreen"
+    elif signal_running_instance():
+        return 0
+
+    app = win95ui.make_app("chicago95-clippy")
+    font = win95ui.ui_font()
+    animations = parse_agent_js((ASSET_DIR / "agent.js").read_text())
+    sprites = SpriteSheet(QPixmap(str(ASSET_DIR / "map.png")), QSize(124, 93))
+
+    if args.screenshot:
+        render_screenshot(animations, sprites, font, Path(args.screenshot))
+        return 0
+
+    sounds = SoundPlayer({} if args.mute else write_sound_cache(parse_sounds_js((ASSET_DIR / "sounds-ogg.js").read_text())), args.mute)
+    clippy = ClippyWindow(animations, sprites, sounds, font)
+
+    if args.once:
+        clippy.show()
+        clippy.play(args.once, on_finished=app.quit)
+        return app.exec()
+
+    PID_FILE.write_text(str(os.getpid()))
+    signal.signal(signal.SIGUSR1, lambda *_: QTimer.singleShot(0, clippy.show_random_tip))
+    signal.signal(signal.SIGTERM, lambda *_: app.quit())
+    wakeup_timer = QTimer()
+    wakeup_timer.timeout.connect(lambda: None)
+    wakeup_timer.start(250)
+    app.aboutToQuit.connect(lambda: PID_FILE.unlink(missing_ok=True))
+
+    clippy.show()
+    clippy.move_to_corner()
+    clippy.start_schedule()
+    return app.exec()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

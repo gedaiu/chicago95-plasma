@@ -1,0 +1,317 @@
+#!/usr/bin/env python3
+import os, sys; sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95")); import win95ui  # noqa: E702
+
+import platform
+import pwd
+import re
+import socket
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import (
+    QDialog,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
+
+DEVICE_MANAGER_PATH = Path.home() / ".local/bin/chicago95-devmgr"
+BUTTON_SIZE = (75, 23)
+VALUE_INDENT = 16
+KIB_PER_GIB = 1024 * 1024
+
+
+def run_output(command):
+    native_environment = {key: value for key, value in os.environ.items() if key != "QT_QPA_PLATFORM"}
+    try:
+        return subprocess.run(command, capture_output=True, text=True, timeout=3, env=native_environment).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def strip_ansi(text):
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+
+def read_os_name():
+    for line in Path("/etc/os-release").read_text().splitlines():
+        if line.startswith("PRETTY_NAME="):
+            return line.split("=", 1)[1].strip().strip('"')
+    return platform.system()
+
+
+def read_kernel():
+    return "Linux " + platform.release()
+
+
+def read_desktop():
+    version_match = re.search(r"(\d+\.\d+)", run_output(["plasmashell", "--version"]))
+    version = version_match.group(1) if version_match else "6"
+    session = os.environ.get("XDG_SESSION_TYPE", "wayland").capitalize()
+    return f"KDE Plasma {version} ({session})"
+
+
+def read_full_name():
+    entry = pwd.getpwuid(os.getuid())
+    gecos_name = entry.pw_gecos.split(",")[0].strip()
+    return gecos_name or entry.pw_name
+
+
+def read_product_key():
+    machine_id = Path("/etc/machine-id").read_text().strip()
+    digits = str(int(machine_id, 16))
+    return f"{digits[:5]}-OEM-{digits[5:12]}-{digits[12:17]}"
+
+
+def read_cpu_model():
+    model_match = re.search(r"Model name:\s*(.+)", run_output(["lscpu"]))
+    return model_match.group(1).strip() if model_match else platform.processor()
+
+
+def read_meminfo():
+    fields = {}
+    for line in Path("/proc/meminfo").read_text().splitlines():
+        key, value = line.split(":", 1)
+        fields[key] = int(value.split()[0])
+    return fields
+
+
+def kib_to_gb(kib):
+    return round(kib / KIB_PER_GIB)
+
+
+def read_display():
+    screen_output = strip_ansi(run_output(["kscreen-doctor", "-o"]))
+    geometry_match = re.search(r"Geometry:\s*\S+\s+(\d+)x(\d+)", screen_output)
+    scale_match = re.search(r"Scale:\s*([0-9.]+)", screen_output)
+    if not geometry_match:
+        return "Unknown display"
+    width, height = int(geometry_match.group(1)), int(geometry_match.group(2))
+    scale = float(scale_match.group(1)) if scale_match else 1.0
+    description = f"{width}x{height} at {scale:g}x"
+    if scale != 1.0:
+        description += f" ({round(width * scale)}x{round(height * scale)} panel)"
+    return description
+
+
+def read_swap_description(swap_total_kib):
+    swap_table = Path("/proc/swaps").read_text()
+    kind = " (zram)" if "zram" in swap_table else ""
+    return f"{kib_to_gb(swap_total_kib)} GB swap{kind}"
+
+
+def read_root_filesystem():
+    fstype = run_output(["findmnt", "-no", "FSTYPE", "/"]).strip()
+    return fstype.capitalize() if fstype else "Unknown"
+
+
+@dataclass(frozen=True)
+class SystemFacts:
+    os_name: str
+    kernel: str
+    desktop: str
+    owner: str
+    hostname: str
+    product_key: str
+    cpu_model: str
+    logical_processors: str
+    memory: str
+    display: str
+    resources_free: str
+    filesystem: str
+    virtual_memory: str
+
+
+def gather_system_facts():
+    meminfo = read_meminfo()
+    free_percent = round(100 * meminfo["MemAvailable"] / meminfo["MemTotal"])
+    return SystemFacts(
+        os_name=read_os_name(),
+        kernel=read_kernel(),
+        desktop=read_desktop(),
+        owner=read_full_name(),
+        hostname=socket.gethostname(),
+        product_key=read_product_key(),
+        cpu_model=read_cpu_model(),
+        logical_processors=f"{os.cpu_count()} logical processors",
+        memory=f"{kib_to_gb(meminfo['MemTotal'])} GB RAM",
+        display=read_display(),
+        resources_free=f"{free_percent}% free",
+        filesystem=read_root_filesystem(),
+        virtual_memory=read_swap_description(meminfo["SwapTotal"]),
+    )
+
+
+def plain_label(text, indent=0):
+    label = QLabel(text)
+    label.setFont(win95ui.ui_font())
+    label.setIndent(indent)
+    return label
+
+
+def fact_group(heading, values):
+    rows = [plain_label(heading)] + [plain_label(value, VALUE_INDENT) for value in values]
+    return rows
+
+
+def build_general_tab(facts):
+    tab = QWidget()
+    layout = QHBoxLayout(tab)
+    layout.setContentsMargins(12, 12, 12, 12)
+    layout.setSpacing(12)
+
+    icon_label = QLabel()
+    icon_label.setPixmap(QIcon.fromTheme("computer").pixmap(48, 48))
+    icon_label.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+    icon_label.setFixedWidth(64)
+    layout.addWidget(icon_label, 0, Qt.AlignTop)
+
+    column = QVBoxLayout()
+    column.setSpacing(2)
+    groups = [
+        ("System:", [facts.os_name, facts.kernel, facts.desktop]),
+        ("Registered to:", [facts.owner, facts.hostname, facts.product_key]),
+        ("Computer:", [facts.cpu_model, facts.logical_processors, facts.memory, facts.display]),
+    ]
+    for index, (heading, values) in enumerate(groups):
+        if index:
+            column.addSpacing(10)
+        for row in fact_group(heading, values):
+            column.addWidget(row)
+    column.addStretch()
+    layout.addLayout(column, 1)
+    return tab
+
+
+def launch_device_manager():
+    if DEVICE_MANAGER_PATH.exists():
+        subprocess.Popen([str(DEVICE_MANAGER_PATH)])
+
+
+def build_device_manager_tab():
+    tab = QWidget()
+    layout = QVBoxLayout(tab)
+    layout.setContentsMargins(12, 12, 12, 12)
+    layout.setSpacing(8)
+    layout.addWidget(plain_label("See Device Manager"))
+    open_button = QPushButton("Device Manager...")
+    open_button.setFixedSize(120, BUTTON_SIZE[1])
+    open_button.clicked.connect(launch_device_manager)
+    layout.addWidget(open_button, 0, Qt.AlignLeft)
+    layout.addStretch()
+    return tab
+
+
+def status_grid(rows):
+    grid = QGridLayout()
+    grid.setHorizontalSpacing(12)
+    grid.setVerticalSpacing(6)
+    for row_index, (name, value) in enumerate(rows):
+        grid.addWidget(plain_label(name), row_index, 0)
+        grid.addWidget(plain_label(value), row_index, 1)
+    grid.setColumnStretch(1, 1)
+    return grid
+
+
+def build_performance_tab(facts):
+    tab = QWidget()
+    layout = QVBoxLayout(tab)
+    layout.setContentsMargins(12, 12, 12, 12)
+    layout.setSpacing(10)
+
+    status_box = QGroupBox("Performance status")
+    status_box.setFont(win95ui.ui_font())
+    status_layout = QVBoxLayout(status_box)
+    status_layout.setContentsMargins(10, 8, 10, 10)
+    status_layout.addLayout(status_grid([
+        ("Memory:", facts.memory.replace(" RAM", " of RAM")),
+        ("System Resources:", facts.resources_free),
+        ("File System:", facts.filesystem),
+        ("Virtual Memory:", facts.virtual_memory),
+        ("Disk Compression:", "Not installed"),
+    ]))
+    status_layout.addSpacing(8)
+    status_layout.addWidget(plain_label("Your system is configured for optimal performance."))
+    layout.addWidget(status_box)
+
+    advanced_box = QGroupBox("Advanced settings")
+    advanced_box.setFont(win95ui.ui_font())
+    advanced_layout = QHBoxLayout(advanced_box)
+    advanced_layout.setContentsMargins(10, 8, 10, 10)
+    advanced_layout.setSpacing(6)
+    for caption in ("File System...", "Graphics...", "Virtual Memory..."):
+        button = QPushButton(caption)
+        button.setFixedHeight(BUTTON_SIZE[1])
+        button.setEnabled(False)
+        advanced_layout.addWidget(button)
+    layout.addWidget(advanced_box)
+    layout.addStretch()
+    return tab
+
+
+def dialog_button(caption, enabled=True):
+    button = QPushButton(caption)
+    button.setFixedSize(*BUTTON_SIZE)
+    button.setEnabled(enabled)
+    return button
+
+
+def register_icon_directories():
+    icon_directories = [str(Path.home() / ".local/share/icons"), "/usr/share/icons"]
+    QIcon.setThemeSearchPaths(icon_directories + QIcon.themeSearchPaths())
+
+
+def build_window(facts):
+    register_icon_directories()
+    window = QDialog()
+    window.setWindowTitle("System Properties")
+    window.setWindowIcon(QIcon.fromTheme("computer"))
+    window.setFixedSize(400, 440)
+
+    layout = QVBoxLayout(window)
+    layout.setContentsMargins(8, 8, 8, 8)
+    layout.setSpacing(8)
+
+    tabs = QTabWidget()
+    tabs.setFont(win95ui.ui_font())
+    tabs.addTab(build_general_tab(facts), "General")
+    tabs.addTab(build_device_manager_tab(), "Device Manager")
+    tabs.addTab(build_performance_tab(facts), "Performance")
+    layout.addWidget(tabs, 1)
+
+    button_row = QHBoxLayout()
+    button_row.setSpacing(6)
+    button_row.addStretch()
+    ok_button = dialog_button("OK")
+    cancel_button = dialog_button("Cancel")
+    ok_button.setDefault(True)
+    ok_button.clicked.connect(window.accept)
+    cancel_button.clicked.connect(window.reject)
+    for button in (ok_button, cancel_button, dialog_button("Apply", enabled=False)):
+        button_row.addWidget(button)
+    layout.addLayout(button_row)
+    return window
+
+
+def main():
+    arguments = sys.argv[1:]
+    screenshot_path = arguments[arguments.index("--screenshot") + 1] if "--screenshot" in arguments else None
+    app = win95ui.make_app("System Properties")
+    window = build_window(gather_system_facts())
+    if screenshot_path:
+        window.grab().save(screenshot_path)
+        return 0
+    window.show()
+    return app.exec()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

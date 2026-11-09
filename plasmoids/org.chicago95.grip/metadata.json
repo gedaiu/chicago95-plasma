@@ -1,0 +1,14 @@
+{
+  "KPackageStructure": "Plasma/Applet",
+  "KPlugin": {
+    "Authors": [{"Name": "Bending Unit 22"}],
+    "Category": "Windows and Tasks",
+    "Description": "Windows 98 taskbar grip handle",
+    "Icon": "view-more-symbolic",
+    "Id": "org.chicago95.grip",
+    "License": "GPL-3.0",
+    "Name": "Chicago95 Grip",
+    "Version": "1.0"
+  },
+  "X-Plasma-API-Minimum-Version": "6.0"
+}

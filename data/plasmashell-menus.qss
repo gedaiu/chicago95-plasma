@@ -1,0 +1,39 @@
+/* Chicago95: plasmashell paints its desktop/applet context menus as translucent QMenus
+   (ContainmentItem sets WA_TranslucentBackground) and the Windows style never fills the
+   panel, so the margin between frame and items shows the desktop. Loaded through the
+   plasma-plasmashell.service drop-in (-stylesheet). */
+QMenu {
+    background-color: #C0C0C0;
+    color: #000000;
+    border-style: solid;
+    border-width: 2px;
+    border-top-color: #FFFFFF;
+    border-left-color: #FFFFFF;
+    border-right-color: #000000;
+    border-bottom-color: #000000;
+    padding: 1px;
+}
+QMenu::item {
+    background-color: transparent;
+    padding: 3px 20px 3px 0px;
+}
+QMenu::item:selected {
+    background-color: #000080;
+    color: #FFFFFF;
+}
+QMenu::item:disabled {
+    color: #808080;
+}
+QMenu::separator {
+    height: 2px;
+    margin: 2px 1px;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #808080, stop:0.5 #808080, stop:0.51 #FFFFFF, stop:1 #FFFFFF);
+}
+QMenu::icon {
+    padding-left: 6px;
+}
+QMenu::right-arrow {
+    width: 7px;
+    height: 7px;
+    margin-right: 6px;
+}

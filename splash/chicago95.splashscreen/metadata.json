@@ -1,0 +1,14 @@
+{
+  "KPackageStructure": "Plasma/LookAndFeel",
+  "KPlugin": {
+    "Authors": [{"Name": "Grassmunk"}],
+    "Category": "KDE splashscreen",
+    "Description": "A Windows 95 inspired splash screen",
+    "Id": "chicago95.splashscreen",
+    "License": "GPL-3.0",
+    "Name": "Chicago95",
+    "Version": "0.1"
+  },
+  "X-KDE-fallbackPackage": "org.kde.breeze.desktop",
+  "X-Plasma-MainScript": "defaults"
+}

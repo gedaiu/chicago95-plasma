@@ -1,0 +1,103 @@
+"""Shared Windows 95 look for the Chicago95 PySide6 tools.
+
+Import this before any other PySide6 import: it pins the platform to XWayland,
+forces the Windows style and reads the Plasma scale so dialogs render sharp.
+Every tool then calls make_app() instead of QApplication() directly.
+"""
+import os
+import re
+import subprocess
+import sys
+
+
+def detect_scale():
+    try:
+        child_env = {key: value for key, value in os.environ.items() if key != "QT_QPA_PLATFORM"}
+        output = subprocess.run(["kscreen-doctor", "-o"], capture_output=True, text=True, timeout=3, env=child_env).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return "1"
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", output)
+    match = re.search(r"Scale:\s*([0-9.]+)", plain)
+    return match.group(1) if match else "1"
+
+
+# Native Wayland by default: Qt rasterises text once at the compositor scale and it stays crisp,
+# while the X11 path softened the Win98 UI font at every setting. A tool that must still run on
+# X11 sets CHICAGO95_PLATFORM=xcb before importing this module.
+os.environ.setdefault("QT_QPA_PLATFORM", os.environ.get("CHICAGO95_PLATFORM", "wayland"))
+os.environ.setdefault("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1")
+os.environ.setdefault("QT_STYLE_OVERRIDE", "Windows")
+# On XWayland the X server advertises the real DPI (Xft.dpi 144 via ~/.Xresources) and KWin's
+# "apps scale themselves" mode leaves it at that, so Qt already lands at the right scale.
+# Forcing QT_SCALE_FACTOR here stacked on top of that and rendered every tool at 2.25x.
+# Only the headless offscreen platform has no DPI to read, so it still needs the explicit factor.
+if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
+    os.environ.setdefault("QT_SCALE_FACTOR", detect_scale())
+os.environ.pop("QT_QPA_PLATFORMTHEME", None)
+
+from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPalette  # noqa: E402
+from PySide6.QtWidgets import QApplication, QFrame  # noqa: E402
+
+FACE, NAVY, LIGHT, SHADOW = QColor("#C0C0C0"), QColor("#000080"), QColor("#DFDFDF"), QColor("#808080")
+TEAL = QColor("#008080")
+UI_FONT_FAMILY = "MS W98 UI"
+ICON_SEARCH_PATHS = [
+    os.path.expanduser("~/.local/share/icons"), os.path.expanduser("~/.icons"), "/usr/share/icons", "/usr/share/pixmaps",
+]
+
+
+def win95_palette():
+    palette = QPalette()
+    for group in (QPalette.Active, QPalette.Inactive, QPalette.Disabled):
+        palette.setColor(group, QPalette.Window, FACE)
+        palette.setColor(group, QPalette.Button, FACE)
+        palette.setColor(group, QPalette.Base, Qt.white)
+        palette.setColor(group, QPalette.Text, Qt.black)
+        palette.setColor(group, QPalette.WindowText, Qt.black)
+        palette.setColor(group, QPalette.ButtonText, Qt.black)
+        palette.setColor(group, QPalette.Highlight, NAVY)
+        palette.setColor(group, QPalette.HighlightedText, Qt.white)
+        palette.setColor(group, QPalette.Light, Qt.white)
+        palette.setColor(group, QPalette.Midlight, LIGHT)
+        palette.setColor(group, QPalette.Dark, SHADOW)
+        palette.setColor(group, QPalette.Mid, SHADOW)
+        palette.setColor(group, QPalette.Shadow, Qt.black)
+    palette.setColor(QPalette.Disabled, QPalette.Text, SHADOW)
+    palette.setColor(QPalette.Disabled, QPalette.WindowText, SHADOW)
+    return palette
+
+
+def ui_font(point_size=9, bold=False):
+    family = UI_FONT_FAMILY if UI_FONT_FAMILY in QFontDatabase.families() else "Noto Sans"
+    font = QFont(family, point_size)
+    font.setBold(bold)
+    return font
+
+
+def make_app(app_name):
+    # Pass the fractional compositor scale through instead of rounding 1.5 up to 2.
+    QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    app = QApplication(sys.argv)
+    app.setDesktopFileName(app_name)
+    app.setApplicationName(app_name)
+    app.setStyle("Windows")
+    app.setPalette(win95_palette())
+    app.setFont(ui_font())
+    QIcon.setThemeSearchPaths(ICON_SEARCH_PATHS + QIcon.themeSearchPaths())
+    QIcon.setThemeName("Chicago95")
+    return app
+
+
+def sunken_panel():
+    panel = QFrame()
+    panel.setFrameStyle(QFrame.Panel | QFrame.Sunken)
+    panel.setLineWidth(2)
+    return panel
+
+
+def etched_line():
+    line = QFrame()
+    line.setFrameShape(QFrame.HLine)
+    line.setFrameShadow(QFrame.Sunken)
+    return line

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Chicago95 Start menu
+Exec=@HOME@/.local/bin/chicago95-startmenu --daemon
+NoDisplay=true
+Terminal=false

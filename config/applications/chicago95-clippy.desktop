@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Office Assistant
+Icon=help-browser
+Exec=@HOME@/.local/bin/chicago95-clippy
+NoDisplay=true
+Terminal=false

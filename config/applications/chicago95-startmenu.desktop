@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Chicago95 Start Menu
+Icon=start-here
+Exec=@HOME@/.local/bin/chicago95-startmenu
+NoDisplay=true
+Terminal=false

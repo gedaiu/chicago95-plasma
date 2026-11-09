@@ -1,0 +1,255 @@
+#!/usr/bin/env python3
+import os, sys; sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95")); import win95ui  # noqa: E401,E702
+
+import argparse
+import glob
+import shutil
+import subprocess
+
+from PySide6.QtCore import QRect, Qt, QTimer
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetrics, QIcon, QPalette
+from PySide6.QtWidgets import (
+    QDialog, QHBoxLayout, QLabel, QPushButton, QRadioButton, QVBoxLayout, QWidget,
+)
+
+SHUT_DOWN, RESTART, DOS_MODE, LOG_OFF = range(4)
+
+CHOICE_LABELS = (
+    "Shut down the computer?",
+    "Restart the computer?",
+    "Restart the computer in MS-DOS mode?",
+    "Close all programs and log on as a different user?",
+)
+
+KDE_SHUTDOWN_METHODS = {
+    SHUT_DOWN: "logoutAndShutdown",
+    RESTART: "logoutAndReboot",
+    LOG_OFF: "logout",
+}
+
+SYSTEMCTL_FALLBACKS = {
+    SHUT_DOWN: ["systemctl", "poweroff"],
+    RESTART: ["systemctl", "reboot"],
+    LOG_OFF: ["loginctl", "terminate-session", os.environ.get("XDG_SESSION_ID", "self")],
+}
+
+SAFE_TEXT = "It's now safe to turn off\nyour computer."
+SAFE_ORANGE = QColor("#FFA500")
+SAFE_FONT_PREFERENCES = (
+    "Fixedsys Excelsior", "IBM VGA 8x16", "Px437 IBM VGA8",
+    "More Perfect DOS VGA", "Less Perfect DOS VGA", "Monospace",
+)
+SAFE_SCREEN_DELAY_MS = 2500
+
+ICON_DIRS = (
+    os.path.expanduser("~/.local/share/icons"),
+    "/usr/share/icons",
+)
+
+SOUND_DIRS = (
+    os.path.expanduser("~/.local/share/sounds/Chicago95/stereo"),
+    "/usr/share/sounds/Chicago95/stereo",
+)
+
+
+def dbus_caller():
+    for binary in ("qdbus6", "qdbus"):
+        if shutil.which(binary):
+            return [binary, "org.kde.Shutdown", "/Shutdown"]
+    if shutil.which("busctl"):
+        return ["busctl", "--user", "call", "org.kde.Shutdown", "/Shutdown", "org.kde.Shutdown"]
+    return None
+
+
+def shutdown_command(choice, dbus_prefix=None):
+    if choice == DOS_MODE:
+        return ["konsole"]
+    if dbus_prefix:
+        return dbus_prefix + [KDE_SHUTDOWN_METHODS[choice]]
+    return SYSTEMCTL_FALLBACKS[choice]
+
+
+def shutdown_sound_file():
+    for sound_dir in SOUND_DIRS:
+        enabled = [path for path in glob.glob(os.path.join(sound_dir, "system-shutdown.*"))
+                   if not path.endswith(".disabled")]
+        if enabled:
+            return enabled[0]
+    return None
+
+
+def sound_player():
+    return shutil.which("pw-play") or shutil.which("paplay")
+
+
+def pick_safe_font_family():
+    installed = set(QFontDatabase.families())
+    return next((family for family in SAFE_FONT_PREFERENCES if family in installed), "Monospace")
+
+
+def fit_safe_font(family, screen_width):
+    font = QFont(family, 36)
+    widest_line = max(SAFE_TEXT.splitlines(), key=len)
+    measured = QFontMetrics(font).horizontalAdvance(widest_line)
+    font.setPointSizeF(36 * (screen_width / 3) / measured)
+    return font
+
+
+def virtual_screen_geometry(app):
+    geometry = QRect()
+    for screen in app.screens():
+        geometry = geometry.united(screen.geometry())
+    return geometry
+
+
+class SafeScreen(QWidget):
+    def __init__(self, geometry, hold_until_input):
+        super().__init__()
+        self.hold_until_input = hold_until_input
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setCursor(Qt.BlankCursor)
+        self.setGeometry(geometry)
+        self.setAutoFillBackground(True)
+        palette = self.palette()
+        palette.setColor(QPalette.Window, Qt.black)
+        self.setPalette(palette)
+
+        label = QLabel(SAFE_TEXT, self)
+        label.setAlignment(Qt.AlignCenter)
+        label.setFont(fit_safe_font(pick_safe_font_family(), geometry.width()))
+        label_palette = label.palette()
+        label_palette.setColor(QPalette.WindowText, SAFE_ORANGE)
+        label.setPalette(label_palette)
+        layout = QVBoxLayout(self)
+        layout.addWidget(label)
+
+    def keyPressEvent(self, event):
+        if self.hold_until_input:
+            self.close()
+
+    def mousePressEvent(self, event):
+        if self.hold_until_input:
+            self.close()
+
+
+class ShutDownDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Shut Down Windows")
+        self.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        self.setFixedSize(340, 180)
+        self.choice = None
+
+        icon_label = QLabel()
+        icon_label.setPixmap(QIcon.fromTheme("system-shutdown").pixmap(32, 32))
+        icon_label.setAlignment(Qt.AlignTop)
+        icon_label.setFixedWidth(32)
+
+        self.radios = [QRadioButton(label) for label in CHOICE_LABELS]
+        self.radios[SHUT_DOWN].setChecked(True)
+        options = QVBoxLayout()
+        options.setSpacing(2)
+        options.addWidget(QLabel("Are you sure you want to:"))
+        options.addSpacing(6)
+        for radio in self.radios:
+            options.addWidget(radio)
+        options.addStretch()
+
+        upper = QHBoxLayout()
+        upper.setSpacing(12)
+        upper.addWidget(icon_label)
+        upper.addLayout(options)
+
+        yes_button = QPushButton("&Yes")
+        yes_button.setDefault(True)
+        no_button = QPushButton("&No")
+        help_button = QPushButton("&Help")
+        help_button.setEnabled(False)
+        buttons = QHBoxLayout()
+        buttons.setSpacing(6)
+        buttons.addStretch()
+        for button in (yes_button, no_button, help_button):
+            button.setFixedSize(75, 23)
+            buttons.addWidget(button)
+        yes_button.clicked.connect(self.accept)
+        no_button.clicked.connect(self.reject)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.addLayout(upper)
+        layout.addLayout(buttons)
+
+    def accept(self):
+        self.choice = next(index for index, radio in enumerate(self.radios) if radio.isChecked())
+        super().accept()
+
+    def centre_on_screen(self):
+        screen_geometry = self.screen().availableGeometry()
+        self.move(screen_geometry.center() - self.rect().center())
+
+
+def run_command(argv, dry_run):
+    if dry_run:
+        print("dry-run, would run:", " ".join(argv))
+        return
+    subprocess.Popen(argv)
+
+
+def play_shutdown_sound(dry_run):
+    sound_file, player = shutdown_sound_file(), sound_player()
+    if sound_file and player:
+        run_command([player, sound_file], dry_run)
+
+
+def grab_widget(widget, path):
+    widget.show()
+    widget.grab().save(path)
+    print("saved", path)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Windows 95 Shut Down dialog for KDE")
+    parser.add_argument("--dry-run", action="store_true", help="print commands instead of running them")
+    parser.add_argument("--screenshot", metavar="PATH", help="save the dialog as PNG and exit")
+    parser.add_argument("--screenshot-safe", metavar="PATH", help="save the safe screen at 1280x720 and exit")
+    args = parser.parse_args()
+
+    app = win95ui.make_app("chicago95-shutdown")
+    QIcon.setThemeSearchPaths(list(ICON_DIRS) + QIcon.themeSearchPaths())
+
+    if args.screenshot:
+        grab_widget(ShutDownDialog(), args.screenshot)
+        return 0
+    if args.screenshot_safe:
+        grab_widget(SafeScreen(QRect(0, 0, 1280, 720), hold_until_input=False), args.screenshot_safe)
+        return 0
+
+    dialog = ShutDownDialog()
+    dialog.show()
+    dialog.centre_on_screen()
+    if dialog.exec() != QDialog.Accepted:
+        return 0
+
+    command = shutdown_command(dialog.choice, dbus_caller())
+    if dialog.choice in (DOS_MODE, LOG_OFF):
+        run_command(command, args.dry_run)
+        return 0
+
+    safe_screen = SafeScreen(virtual_screen_geometry(app), hold_until_input=args.dry_run)
+    safe_screen.showFullScreen()
+    play_shutdown_sound(args.dry_run)
+
+    def power_off():
+        run_command(command, args.dry_run)
+        if not args.dry_run:
+            app.quit()
+
+    QTimer.singleShot(SAFE_SCREEN_DELAY_MS, power_off)
+    if args.dry_run:
+        safe_screen.destroyed.connect(app.quit)
+    return app.exec()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

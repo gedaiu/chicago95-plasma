@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Chicago95 Notifications
+Icon=preferences-desktop-notification
+Exec=@HOME@/.local/bin/chicago95-notifyd
+NoDisplay=true
+Terminal=false

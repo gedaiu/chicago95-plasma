@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Office Assistant
+Exec=@HOME@/.local/bin/chicago95-clippy
+Icon=stock_help-agent
+OnlyShowIn=KDE;

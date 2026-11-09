@@ -1,0 +1,617 @@
+#!/usr/bin/env python3
+"""Windows 95 notification daemon.
+
+Owns org.freedesktop.Notifications and draws every desktop notification as a
+small Win95 window in the bottom-right corner, sliding in and out by itself.
+Plasma keeps the tray, the history bell and file-transfer progress. If this
+process exits, Plasma notices the name is free and takes it back.
+"""
+import argparse
+import os
+import re
+import signal
+import sys
+from configparser import ConfigParser
+from dataclasses import dataclass
+from functools import lru_cache
+from html import escape
+from pathlib import Path
+from urllib.parse import unquote
+
+# Scale now comes from the X server DPI; neither this daemon nor win95ui forces QT_SCALE_FACTOR.
+sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95"))
+import win95ui  # noqa: E402  must precede the other PySide6 imports
+
+import dbus  # noqa: E402
+import dbus.service  # noqa: E402
+from dbus.mainloop.glib import DBusGMainLoop  # noqa: E402
+from PySide6.QtCore import QEasingCurve, QObject, QPoint, QPropertyAnimation, QSize, Qt, QTimer, Signal  # noqa: E402
+from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QPainter, QPalette, QPixmap  # noqa: E402
+from PySide6.QtWidgets import QAbstractButton, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget  # noqa: E402
+
+SERVICE_NAME = "org.freedesktop.Notifications"
+OBJECT_PATH = "/org/freedesktop/Notifications"
+INTERFACE = "org.freedesktop.Notifications"
+CAPABILITIES = ["actions", "body", "body-hyperlinks", "body-markup", "icon-static"]
+
+POPUP_WIDTH = 320
+SCREEN_MARGIN = 10
+POPUP_SPACING = 8
+TITLE_BAR_HEIGHT = 18
+ICON_SIZE = 32
+IMAGE_SIZE = 48
+DEFAULT_TIMEOUT_MS = 6000
+HOVER_GRACE_MS = 2500
+MAX_STACK_SCREEN_FRACTION = 0.75
+SLIDE_IN_MS, FADE_IN_MS, SLIDE_OUT_MS, GLIDE_MS = 320, 220, 200, 220
+
+CLOSED_EXPIRED, CLOSED_DISMISSED, CLOSED_BY_CALL = 1, 2, 3
+URGENCY_CRITICAL = 2
+
+WHITE, BLACK = QColor("#FFFFFF"), QColor("#000000")
+WINDOW_RINGS = ((win95ui.LIGHT, BLACK), (WHITE, win95ui.SHADOW))
+RAISED_BUTTON_RINGS = ((WHITE, BLACK), (win95ui.LIGHT, win95ui.SHADOW))
+SUNKEN_BUTTON_RINGS = ((BLACK, WHITE), (win95ui.SHADOW, win95ui.LIGHT))
+CLOSE_GLYPH = ("XX....XX", ".XX..XX.", "..XXXX..", "...XX...", "..XXXX..", ".XX..XX.", "XX....XX")
+MARKUP_TAGS = {"a", "b", "br", "i", "u"}
+
+
+@dataclass(frozen=True)
+class AppOverride:
+    display_name: str
+    icon: str
+    summary_rewrites: tuple = ()
+
+
+APP_OVERRIDES = {
+    "qmmp": AppOverride("Winamp", "winamp", ((r"^\s*Qmmp now playing:?\s*$", "Now Playing"),)),
+}
+
+
+@dataclass
+class Notification:
+    notification_id: int
+    app_name: str
+    app_icon: str
+    summary: str
+    body: str
+    actions: list
+    hints: dict
+    timeout_ms: int
+
+    @property
+    def urgency(self):
+        return int(self.hints.get("urgency", 1))
+
+    @property
+    def resident(self):
+        return bool(self.hints.get("resident", False))
+
+    @property
+    def override(self):
+        return APP_OVERRIDES.get(self.app_name.lower()) or APP_OVERRIDES.get(str(self.hints.get("desktop-entry", "")).lower())
+
+    @property
+    def effective_timeout_ms(self):
+        if self.urgency == URGENCY_CRITICAL or self.timeout_ms == 0:
+            return 0
+        return DEFAULT_TIMEOUT_MS if self.timeout_ms < 0 else self.timeout_ms
+
+
+def to_python(value):
+    if isinstance(value, dbus.Boolean):
+        return bool(value)
+    if isinstance(value, (dbus.Byte, dbus.Int16, dbus.Int32, dbus.Int64, dbus.UInt16, dbus.UInt32, dbus.UInt64)):
+        return int(value)
+    if isinstance(value, dbus.Double):
+        return float(value)
+    if isinstance(value, (dbus.String, dbus.ObjectPath)):
+        return str(value)
+    if isinstance(value, dbus.ByteArray):
+        return bytes(value)
+    if isinstance(value, dbus.Array):
+        return bytes(value) if value.signature == "y" else [to_python(item) for item in value]
+    if isinstance(value, dbus.Struct):
+        return tuple(to_python(item) for item in value)
+    if isinstance(value, dbus.Dictionary):
+        return {str(key): to_python(item) for key, item in value.items()}
+    return value
+
+
+def pair_actions(flat_actions):
+    return [(str(flat_actions[index]), str(flat_actions[index + 1])) for index in range(0, len(flat_actions) - 1, 2)]
+
+
+def application_dirs():
+    data_dirs = os.environ.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":")
+    return [Path.home() / ".local/share", *map(Path, data_dirs),
+            Path.home() / ".local/share/flatpak/exports/share", Path("/var/lib/flatpak/exports/share")]
+
+
+@lru_cache(maxsize=128)
+def desktop_entry(entry_id):
+    for data_dir in application_dirs():
+        path = data_dir / "applications" / f"{entry_id}.desktop"
+        if not path.is_file():
+            continue
+        parser = ConfigParser(interpolation=None, strict=False)
+        parser.optionxform = str
+        parser.read(path, encoding="utf-8")
+        return dict(parser["Desktop Entry"]) if parser.has_section("Desktop Entry") else {}
+    return {}
+
+
+def display_name(notification):
+    entry = desktop_entry(str(notification.hints.get("desktop-entry", ""))) if notification.hints.get("desktop-entry") else {}
+    if notification.override:
+        return notification.override.display_name
+    return (notification.hints.get("x-kde-display-appname") or notification.app_name
+            or entry.get("Name") or "Windows")
+
+
+def rewritten_summary(notification):
+    summary = notification.summary
+    for pattern, replacement in (notification.override.summary_rewrites if notification.override else ()):
+        summary = re.sub(pattern, replacement, summary)
+    return summary
+
+
+def body_html(text):
+    if "<" not in text and "&" not in text:
+        return escape(text).replace("\n", "<br>")
+    kept = re.sub(r"<(/?)(\w+)([^>]*)>",
+                  lambda match: match.group(0) if match.group(2).lower() in MARKUP_TAGS else "", text)
+    return kept.replace("\n", "<br>")
+
+
+def scaled_pixmap(image, size, device_pixel_ratio):
+    target = round(size * device_pixel_ratio)
+    pixmap = QPixmap.fromImage(image).scaled(target, target, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+    pixmap.setDevicePixelRatio(device_pixel_ratio)
+    return pixmap
+
+
+def pixmap_from_spec(spec, size, device_pixel_ratio):
+    if not spec:
+        return None
+    path = unquote(spec[7:]) if spec.startswith("file://") else spec
+    if path.startswith("/"):
+        image = QImage(path)
+        return None if image.isNull() else scaled_pixmap(image, size, device_pixel_ratio)
+    icon = QIcon.fromTheme(spec)
+    return None if icon.isNull() else icon.pixmap(QSize(size, size), device_pixel_ratio)
+
+
+def pixmap_from_image_data(raw, size, device_pixel_ratio):
+    width, height, rowstride, has_alpha, _bits, _channels, pixels = raw
+    image_format = QImage.Format_RGBA8888 if has_alpha else QImage.Format_RGB888
+    image = QImage(pixels, width, height, rowstride, image_format).copy()
+    return None if image.isNull() else scaled_pixmap(image, size, device_pixel_ratio)
+
+
+def app_icon_spec(notification):
+    if notification.override:
+        return notification.override.icon
+    entry_id = str(notification.hints.get("desktop-entry", ""))
+    return notification.app_icon or (desktop_entry(entry_id).get("Icon", "") if entry_id else "")
+
+
+def title_pixmap(notification, device_pixel_ratio):
+    image_icon_name = next((str(notification.hints[key]) for key in ("image-path", "image_path")
+                            if notification.hints.get(key) and not str(notification.hints[key]).startswith(("/", "file://"))), "")
+    return (pixmap_from_spec(app_icon_spec(notification), 16, device_pixel_ratio)
+            or pixmap_from_spec(image_icon_name, 16, device_pixel_ratio)
+            or pixmap_from_spec("dialog-information", 16, device_pixel_ratio))
+
+
+def content_pixmap(notification, device_pixel_ratio):
+    if not notification.override:
+        for key in ("image-data", "image_data", "icon_data"):
+            if key in notification.hints:
+                return pixmap_from_image_data(notification.hints[key], IMAGE_SIZE, device_pixel_ratio)
+        for key in ("image-path", "image_path"):
+            if notification.hints.get(key):
+                return pixmap_from_spec(str(notification.hints[key]), IMAGE_SIZE, device_pixel_ratio)
+    fallback = "dialog-warning" if notification.urgency == URGENCY_CRITICAL else "dialog-information"
+    return (pixmap_from_spec(app_icon_spec(notification), ICON_SIZE, device_pixel_ratio)
+            or pixmap_from_spec(fallback, ICON_SIZE, device_pixel_ratio))
+
+
+def paint_bevel(painter, size, device_pixel_ratio, rings, face):
+    painter.save()
+    painter.scale(1 / device_pixel_ratio, 1 / device_pixel_ratio)
+    line = max(1, round(device_pixel_ratio))
+    left, top = 0, 0
+    right, bottom = round(size.width() * device_pixel_ratio), round(size.height() * device_pixel_ratio)
+    for top_left_color, bottom_right_color in rings:
+        painter.fillRect(left, top, right - left, bottom - top, bottom_right_color)
+        painter.fillRect(left, top, right - left - line, bottom - top - line, top_left_color)
+        left, top, right, bottom = left + line, top + line, right - line, bottom - line
+    painter.fillRect(left, top, right - left, bottom - top, face)
+    painter.restore()
+
+
+class CloseButton(QAbstractButton):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(16, 14)
+        self.setFocusPolicy(Qt.NoFocus)
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        device_pixel_ratio = self.devicePixelRatioF()
+        pressed = self.isDown()
+        paint_bevel(painter, self.size(), device_pixel_ratio,
+                    SUNKEN_BUTTON_RINGS if pressed else RAISED_BUTTON_RINGS, win95ui.FACE)
+        painter.scale(1 / device_pixel_ratio, 1 / device_pixel_ratio)
+        cell = max(1, round(device_pixel_ratio))
+        press_shift = cell if pressed else 0
+        origin_x = (round(self.width() * device_pixel_ratio) - 8 * cell) // 2 + press_shift
+        origin_y = (round(self.height() * device_pixel_ratio) - 7 * cell) // 2 + press_shift
+        for row, line in enumerate(CLOSE_GLYPH):
+            for column, mark in enumerate(line):
+                if mark == "X":
+                    painter.fillRect(origin_x + column * cell, origin_y + row * cell, cell, cell, BLACK)
+
+
+class TitleBar(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(TITLE_BAR_HEIGHT)
+        self.icon_label = QLabel()
+        self.icon_label.setFixedSize(16, 16)
+        self.title_label = QLabel()
+        self.title_label.setFont(win95ui.ui_font(9, bold=True))
+        title_palette = self.title_label.palette()
+        title_palette.setColor(QPalette.WindowText, WHITE)
+        self.title_label.setPalette(title_palette)
+        self.close_button = CloseButton()
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(2, 1, 2, 1)
+        layout.setSpacing(4)
+        layout.addWidget(self.icon_label)
+        layout.addWidget(self.title_label, 1)
+        layout.addWidget(self.close_button)
+
+    def set_content(self, pixmap, title):
+        self.icon_label.setPixmap(pixmap or QPixmap())
+        available = POPUP_WIDTH - 60
+        self.title_label.setText(self.title_label.fontMetrics().elidedText(title, Qt.ElideRight, available))
+
+    def paintEvent(self, _event):
+        QPainter(self).fillRect(self.rect(), win95ui.NAVY)
+
+
+class NotificationPopup(QWidget):
+    dismissed = Signal(int)
+    action_invoked = Signal(str)
+
+    def __init__(self, notification, host=None):
+        if host is None:
+            super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+                             | Qt.WindowDoesNotAcceptFocus | Qt.BypassWindowManagerHint)
+        else:
+            # Wayland ignores client-side window moves, so popups live inside one host window
+            # that KWin places by rule; stacking and sliding happen as child-widget moves.
+            super().__init__(host)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.title_bar = TitleBar()
+        self.icon_label = QLabel()
+        self.icon_label.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+        self.summary_label = QLabel()
+        self.summary_label.setFont(win95ui.ui_font(9, bold=True))
+        self.summary_label.setWordWrap(True)
+        self.summary_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.body_label = QLabel()
+        self.body_label.setWordWrap(True)
+        self.body_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.body_label.setTextFormat(Qt.RichText)
+        self.body_label.setOpenExternalLinks(True)
+        self.body_label.setTextInteractionFlags(Qt.LinksAccessibleByMouse)
+        self.action_row = QHBoxLayout()
+        self.action_row.setSpacing(6)
+        self.action_buttons = []
+
+        text_column = QVBoxLayout()
+        text_column.setSpacing(4)
+        text_column.addWidget(self.summary_label)
+        text_column.addWidget(self.body_label)
+        text_column.addLayout(self.action_row)
+        content = QHBoxLayout()
+        content.setContentsMargins(10, 10, 10, 10)
+        content.setSpacing(12)
+        icon_column = QVBoxLayout()
+        icon_column.addWidget(self.icon_label)
+        icon_column.addStretch(1)
+        content.addLayout(icon_column)
+        content.addLayout(text_column, 1)
+        frame = QVBoxLayout(self)
+        frame.setContentsMargins(3, 3, 3, 3)
+        frame.setSpacing(0)
+        frame.addWidget(self.title_bar)
+        frame.addLayout(content)
+
+        self.expiry_timer = QTimer(self)
+        self.expiry_timer.setSingleShot(True)
+        self.expiry_timer.timeout.connect(lambda: self.dismissed.emit(CLOSED_EXPIRED))
+        self.title_bar.close_button.clicked.connect(lambda: self.dismissed.emit(CLOSED_DISMISSED))
+        self.has_default_action = False
+        self.timeout_ms = 0
+        self.move_animation = None
+        self.fade_animation = None
+        self.update_content(notification)
+
+    def update_content(self, notification):
+        device_pixel_ratio = self.devicePixelRatioF()
+        self.title_bar.set_content(title_pixmap(notification, device_pixel_ratio), display_name(notification))
+        image = content_pixmap(notification, device_pixel_ratio)
+        self.icon_label.setPixmap(image or QPixmap())
+        self.icon_label.setVisible(image is not None)
+        if image is not None:
+            self.icon_label.setFixedSize(image.deviceIndependentSize().toSize())
+        summary = rewritten_summary(notification)
+        self.summary_label.setText(summary)
+        self.summary_label.setVisible(bool(summary))
+        self.body_label.setText(body_html(notification.body))
+        self.body_label.setVisible(bool(notification.body))
+        self.rebuild_actions(notification.actions)
+        self.timeout_ms = notification.effective_timeout_ms
+        self.fit_height()
+        self.restart_expiry(self.timeout_ms)
+
+    def rebuild_actions(self, actions):
+        for button in self.action_buttons:
+            button.deleteLater()
+        self.action_buttons = []
+        while self.action_row.count():
+            self.action_row.takeAt(0)
+        self.has_default_action = any(key == "default" for key, _label in actions)
+        visible_actions = [(key, label) for key, label in actions if key != "default" and label]
+        if not visible_actions:
+            return
+        self.action_row.addStretch(1)
+        for key, label in visible_actions:
+            button = QPushButton(label)
+            button.setMinimumSize(75, 23)
+            button.setFocusPolicy(Qt.NoFocus)
+            button.clicked.connect(lambda _checked=False, key=key: self.action_invoked.emit(key))
+            self.action_row.addWidget(button)
+            self.action_buttons.append(button)
+
+    def fit_height(self):
+        self.setFixedWidth(POPUP_WIDTH)
+        height = self.layout().totalHeightForWidth(POPUP_WIDTH)
+        self.setFixedSize(POPUP_WIDTH, height if height > 0 else self.sizeHint().height())
+        self.layout().activate()
+
+    def restart_expiry(self, milliseconds):
+        self.expiry_timer.stop()
+        if self.timeout_ms > 0:
+            self.expiry_timer.start(milliseconds)
+
+    def enterEvent(self, _event):
+        self.expiry_timer.stop()
+
+    def leaveEvent(self, _event):
+        self.restart_expiry(HOVER_GRACE_MS)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() != Qt.LeftButton:
+            return
+        if self.has_default_action:
+            self.action_invoked.emit("default")
+        else:
+            self.dismissed.emit(CLOSED_DISMISSED)
+
+    def paintEvent(self, _event):
+        paint_bevel(QPainter(self), self.size(), self.devicePixelRatioF(), WINDOW_RINGS, win95ui.FACE)
+
+    def slide_in(self, target):
+        self.move(target + QPoint(POPUP_WIDTH + SCREEN_MARGIN, 0))
+        self.setWindowOpacity(0.0)
+        self.show()
+        self.move_animation = self.animate(b"pos", target, SLIDE_IN_MS, QEasingCurve.OutBack)
+        self.fade_animation = self.animate(b"windowOpacity", 1.0, FADE_IN_MS, QEasingCurve.OutCubic)
+
+    def glide_to(self, target):
+        if self.move_animation and self.move_animation.state() == QPropertyAnimation.Running:
+            self.move_animation.setEndValue(target)
+            return
+        if self.pos() != target:
+            self.move_animation = self.animate(b"pos", target, GLIDE_MS, QEasingCurve.OutCubic)
+
+    def slide_out(self):
+        self.expiry_timer.stop()
+        for animation in (self.move_animation, self.fade_animation):
+            if animation:
+                animation.stop()
+        self.move_animation = self.animate(b"pos", self.pos() + QPoint(POPUP_WIDTH + SCREEN_MARGIN, 0),
+                                           SLIDE_OUT_MS, QEasingCurve.InCubic)
+        self.fade_animation = self.animate(b"windowOpacity", 0.0, SLIDE_OUT_MS, QEasingCurve.InQuad)
+        self.move_animation.finished.connect(self.deleteLater)
+
+    def animate(self, property_name, end_value, duration, curve):
+        animation = QPropertyAnimation(self, property_name, self)
+        animation.setDuration(duration)
+        animation.setEndValue(end_value)
+        animation.setEasingCurve(curve)
+        animation.start()
+        return animation
+
+
+class PopupHost(QWidget):
+    """Transparent, input-passing column at the bottom-right that holds the popup stack."""
+
+    def __init__(self):
+        # A plain managed top-level (not Qt.Tool) so KWin lists it and applies the placement rule on Wayland.
+        super().__init__(None, Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.WindowDoesNotAcceptFocus)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.setWindowTitle("chicago95-notifyd-host")
+        area = QGuiApplication.primaryScreen().availableGeometry()
+        self.column_height = int(area.height() * MAX_STACK_SCREEN_FRACTION) + 2 * SCREEN_MARGIN
+        self.setFixedSize(POPUP_WIDTH + 2 * SCREEN_MARGIN, self.column_height)
+
+
+class PopupStack(QObject):
+    closed = Signal(int, int)
+    action_invoked = Signal(int, str)
+
+    def __init__(self):
+        super().__init__()
+        self.popups = {}
+        self.host = PopupHost()
+
+    def sync_host(self):
+        if self.popups and not self.host.isVisible():
+            self.host.show()
+        elif not self.popups and self.host.isVisible():
+            QTimer.singleShot(SLIDE_OUT_MS + 50, lambda: None if self.popups else self.host.hide())
+
+    def show(self, notification):
+        existing = self.popups.get(notification.notification_id)
+        if existing:
+            existing.update_content(notification)
+            self.relayout()
+            return
+        popup = NotificationPopup(notification, self.host)
+        notification_id, resident = notification.notification_id, notification.resident
+        self.sync_host()
+        popup.dismissed.connect(lambda reason: self.close(notification_id, reason))
+        popup.action_invoked.connect(lambda key: self.invoke(notification_id, key, resident))
+        self.popups[notification_id] = popup
+        self.drop_overflow()
+        targets = self.targets()
+        popup.slide_in(targets[notification_id])
+        self.relayout(targets)
+
+    def close(self, notification_id, reason):
+        popup = self.popups.pop(notification_id, None)
+        if popup is None:
+            return
+        popup.slide_out()
+        self.relayout()
+        self.sync_host()
+        self.closed.emit(notification_id, reason)
+
+    def invoke(self, notification_id, key, resident):
+        self.action_invoked.emit(notification_id, key)
+        if not resident:
+            self.close(notification_id, CLOSED_DISMISSED)
+
+    def drop_overflow(self):
+        limit = self.host.height() - 2 * SCREEN_MARGIN
+        while len(self.popups) > 1 and sum(popup.height() + POPUP_SPACING for popup in self.popups.values()) > limit:
+            self.close(next(iter(self.popups)), CLOSED_EXPIRED)
+
+    def targets(self):
+        # Positions are inside the host window, whose bottom-right corner KWin pins to the screen corner.
+        positions = {}
+        bottom = self.host.height() - SCREEN_MARGIN
+        for notification_id, popup in reversed(self.popups.items()):
+            bottom -= popup.height()
+            positions[notification_id] = QPoint(SCREEN_MARGIN, bottom)
+            bottom -= POPUP_SPACING
+        return positions
+
+    def relayout(self, targets=None):
+        for notification_id, target in (targets or self.targets()).items():
+            self.popups[notification_id].glide_to(target)
+
+
+class NotificationService(dbus.service.Object):
+    def __init__(self, bus, stack):
+        super().__init__(bus, OBJECT_PATH)
+        self.stack = stack
+        self.last_id = 0
+        stack.closed.connect(lambda notification_id, reason: self.NotificationClosed(notification_id, reason))
+        stack.action_invoked.connect(lambda notification_id, key: self.ActionInvoked(notification_id, key))
+
+    @dbus.service.method(INTERFACE, in_signature="", out_signature="as")
+    def GetCapabilities(self):
+        return CAPABILITIES
+
+    @dbus.service.method(INTERFACE, in_signature="susssasa{sv}i", out_signature="u")
+    def Notify(self, app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout):
+        if int(replaces_id) > 0:
+            notification_id = int(replaces_id)
+        else:
+            self.last_id += 1
+            notification_id = self.last_id
+        self.stack.show(Notification(
+            notification_id=notification_id, app_name=str(app_name), app_icon=str(app_icon),
+            summary=str(summary), body=str(body), actions=pair_actions([str(item) for item in actions]),
+            hints={str(key): to_python(value) for key, value in hints.items()}, timeout_ms=int(expire_timeout)))
+        return dbus.UInt32(notification_id)
+
+    @dbus.service.method(INTERFACE, in_signature="u", out_signature="")
+    def CloseNotification(self, notification_id):
+        self.stack.close(int(notification_id), CLOSED_BY_CALL)
+
+    @dbus.service.method(INTERFACE, in_signature="", out_signature="ssss")
+    def GetServerInformation(self):
+        return ("Chicago95 Notifications", "Chicago95", "1.0", "1.2")
+
+    @dbus.service.signal(INTERFACE, signature="uu")
+    def NotificationClosed(self, notification_id, reason):
+        pass
+
+    @dbus.service.signal(INTERFACE, signature="us")
+    def ActionInvoked(self, notification_id, action_key):
+        pass
+
+
+def sample_notifications():
+    return [
+        Notification(1, "Dial-Up Networking", "modem", "Connected to Tailscale",
+                     "Connected at 2.5 Gbps.\nYour tailnet address is <b>100.64.0.1</b>.", [], {}, -1),
+        Notification(2, "Qmmp", "", "Qmmp now playing:", "Vangelis - To the Unknown Man\n9:02", [], {}, -1),
+        Notification(3, "Thunderbird", "internet-mail", "3 new messages",
+                     "From: Mom\nSubject: Did you eat?", [("default", "Open"), ("read", "Mark as Read"), ("open", "Open")],
+                     {"urgency": 2}, -1),
+    ]
+
+
+def save_samples(path):
+    popups = [NotificationPopup(notification) for notification in sample_notifications()]
+    height = sum(popup.height() + POPUP_SPACING for popup in popups) + POPUP_SPACING
+    canvas = QPixmap(POPUP_WIDTH + 2 * POPUP_SPACING, height)
+    canvas.fill(win95ui.TEAL)
+    painter = QPainter(canvas)
+    top = POPUP_SPACING
+    for popup in popups:
+        painter.drawPixmap(POPUP_SPACING, top, popup.grab())
+        top += popup.height() + POPUP_SPACING
+    painter.end()
+    canvas.save(path)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--screenshot", help="render three sample notifications into a PNG and exit")
+    args = parser.parse_args()
+    app = win95ui.make_app("chicago95-notifyd")
+    app.setQuitOnLastWindowClosed(False)
+    if args.screenshot:
+        save_samples(args.screenshot)
+        return 0
+    DBusGMainLoop(set_as_default=True)
+    bus = dbus.SessionBus()
+    try:
+        bus_name = dbus.service.BusName(SERVICE_NAME, bus, allow_replacement=False, replace_existing=False,
+                                        do_not_queue=True)
+    except dbus.exceptions.NameExistsException:
+        print(f"{SERVICE_NAME} is already owned; stop Plasma's notification server first", file=sys.stderr)
+        return 1
+    service = NotificationService(bus, PopupStack())
+    signal.signal(signal.SIGTERM, lambda *_: app.quit())
+    signal.signal(signal.SIGINT, lambda *_: app.quit())
+    signal_wakeup = QTimer()
+    signal_wakeup.start(500)
+    exit_code = app.exec()
+    del service, bus_name
+    return exit_code
+
+
+if __name__ == "__main__":
+    sys.exit(main())

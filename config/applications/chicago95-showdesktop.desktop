@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Show Desktop
+Comment=Minimize all windows and show the desktop
+Icon=user-desktop
+Exec=gdbus call --session --dest org.kde.kglobalaccel --object-path /component/kwin --method org.kde.kglobalaccel.Component.invokeShortcut "Show Desktop"
+NoDisplay=true
+Terminal=false

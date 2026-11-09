@@ -1,0 +1,13 @@
+{
+  "KPackageStructure": "Plasma/Theme",
+  "KPlugin": {
+    "Authors": [{"Name": "Bending Unit 22"}],
+    "Category": "Plasma Theme",
+    "Description": "Windows 95 taskbar and widgets, built on React Plus",
+    "Id": "Chicago95",
+    "License": "GPL-2.0+",
+    "Name": "Chicago95",
+    "Version": "1.0"
+  },
+  "X-Plasma-API": "5.0"
+}

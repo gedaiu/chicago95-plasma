@@ -1,0 +1,180 @@
+#!/usr/bin/env python3
+"""Load a Deezer playlist into Winamp (qmmp).
+
+Deezer's public API hands out the track list and a 30 second MP3 preview per
+track without any login, so the playlist shows up in Winamp with real titles
+and plays the previews. Full-length streams need a Deezer subscription and are
+only served to Deezer's own players, so that part stays in Firefox.
+"""
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+from pathlib import Path
+
+API = "https://api.deezer.com"
+PLAYLIST_DIR = Path.home() / ".qmmp" / "playlists"
+YOUTUBE_CACHE = Path.home() / ".cache" / "chicago95-deezer" / "youtube.json"
+
+
+@dataclass(frozen=True)
+class Track:
+    artist: str
+    title: str
+    duration_seconds: int
+    preview_url: str
+
+
+def fetch_json(url):
+    with urllib.request.urlopen(url, timeout=15) as response:
+        return json.load(response)
+
+
+def playlist_id_from(text):
+    match = re.search(r"(\d{5,})", text)
+    if not match:
+        raise SystemExit(f"no playlist id in {text!r}; paste the Deezer playlist link or its number")
+    return match.group(1)
+
+
+def fetch_playlist(playlist_id):
+    playlist = fetch_json(f"{API}/playlist/{playlist_id}")
+    if "error" in playlist:
+        raise SystemExit(f"Deezer says: {playlist['error'].get('message')} (private playlists are not readable)")
+    tracks = []
+    page_url = f"{API}/playlist/{playlist_id}/tracks?limit=100"
+    while page_url:
+        page = fetch_json(page_url)
+        tracks.extend(track for track in map(track_from, page["data"]) if track.preview_url)
+        page_url = page.get("next")
+    return playlist["title"], tracks
+
+
+def search_playlists(query):
+    return [(item["id"], item["title"], item["user"]["name"], item["nb_tracks"])
+            for item in fetch_json(f"{API}/search/playlist?q={urllib.request.quote(query)}&limit=15")["data"]]
+
+
+def user_playlists(user_id):
+    return [(item["id"], item["title"], item.get("creator", {}).get("name", ""), item["nb_tracks"])
+            for item in fetch_json(f"{API}/user/{user_id}/playlists")["data"]]
+
+
+def track_from(item):
+    return Track(item["artist"]["name"], item["title"], item["duration"], item.get("preview") or "")
+
+
+def fetch_preview(track_id):
+    """Deezer allows 50 calls per 5 seconds; a quota error is retried after a pause, a missing track is skipped."""
+    for _ in range(6):
+        item = fetch_json(f"{API}/track/{track_id}")
+        if "error" not in item:
+            return track_from(item)
+        if item["error"].get("code") != 4:
+            return None
+        time.sleep(5)
+    return None
+
+
+def fetch_loved_tracks(user_id):
+    """The user/tracks listing omits previews, so every track is looked up again, in parallel."""
+    user = fetch_json(f"{API}/user/{user_id}")
+    if "error" in user:
+        raise SystemExit(f"Deezer says: {user['error'].get('message')}")
+    track_ids = []
+    page_url = f"{API}/user/{user_id}/tracks?limit=100"
+    while page_url:
+        page = fetch_json(page_url)
+        if "error" in page:
+            raise SystemExit("Deezer says loved tracks are private; set 'Show my favourite tracks' to public in Deezer account settings")
+        track_ids.extend(item["id"] for item in page["data"])
+        page_url = page.get("next")
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        tracks = [track for track in pool.map(fetch_preview, track_ids) if track and track.preview_url]
+    return f"Loved Tracks ({user['name']})", tracks
+
+
+def youtube_search(query):
+    result = subprocess.run(
+        ["yt-dlp", "--quiet", "--no-warnings", "--print", "%(id)s", f"ytsearch1:{query}"],
+        capture_output=True, text=True, timeout=60)
+    video_id = result.stdout.strip().splitlines()[-1] if result.stdout.strip() else ""
+    return f"ytb://{video_id}" if video_id else ""
+
+
+def with_youtube_urls(tracks):
+    """Full-length audio: match every song on YouTube once and remember the match.
+
+    qmmp's YouTube plugin only accepts its own ytb://<video id> scheme, not watch?v= links.
+    """
+    cache = json.loads(YOUTUBE_CACHE.read_text()) if YOUTUBE_CACHE.exists() else {}
+    queries = [f"{track.artist} - {track.title}" for track in tracks]
+    missing = [query for query in dict.fromkeys(queries) if query not in cache]
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        cache.update(zip(missing, pool.map(youtube_search, missing)))
+    YOUTUBE_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    YOUTUBE_CACHE.write_text(json.dumps(cache, indent=1, ensure_ascii=False))
+    return [Track(track.artist, track.title, track.duration_seconds, cache[query])
+            for track, query in zip(tracks, queries) if cache[query]]
+
+
+def m3u_text(title, tracks):
+    lines = ["#EXTM3U", f"#PLAYLIST:{title}"]
+    for track in tracks:
+        lines.append(f"#EXTINF:{track.duration_seconds},{track.artist} - {track.title}")
+        lines.append(track.preview_url)
+    return "\n".join(lines) + "\n"
+
+
+def safe_filename(title):
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", title).strip("_") or "deezer"
+
+
+def load_in_qmmp(playlist_path):
+    subprocess.Popen(["qmmp", "--play", str(playlist_path)])
+
+
+def print_table(rows):
+    for playlist_id, title, owner, count in rows:
+        print(f"{playlist_id:>12}  {count:>4} tracks  {title}  [{owner}]")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("playlist", nargs="?", help="Deezer playlist link or id")
+    parser.add_argument("--search", help="list public playlists matching a name")
+    parser.add_argument("--user", help="list the public playlists of a Deezer user id")
+    parser.add_argument("--loved", metavar="USER_ID", help="load the loved tracks of a Deezer user id")
+    parser.add_argument("--no-play", action="store_true", help="write the m3u only")
+    parser.add_argument("--source", choices=["preview", "youtube"], default="preview",
+                        help="preview: Deezer 30 s clips; youtube: full songs through qmmp's YouTube plugin")
+    args = parser.parse_args()
+    if args.search:
+        print_table(search_playlists(args.search))
+        return 0
+    if args.user:
+        print_table(user_playlists(args.user))
+        return 0
+    if not args.playlist and not args.loved:
+        parser.error("give a playlist link/id, --loved USER_ID, --search NAME, or --user ID")
+    title, tracks = fetch_loved_tracks(args.loved) if args.loved else fetch_playlist(playlist_id_from(args.playlist))
+    if args.source == "youtube":
+        tracks = with_youtube_urls(tracks)
+        title = f"{title} [YouTube]"
+    PLAYLIST_DIR.mkdir(parents=True, exist_ok=True)
+    playlist_path = PLAYLIST_DIR / f"{safe_filename(title)}.m3u"
+    playlist_path.write_text(m3u_text(title, tracks))
+    print(f"{len(tracks)} tracks -> {playlist_path}")
+    if not args.no_play:
+        load_in_qmmp(playlist_path)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

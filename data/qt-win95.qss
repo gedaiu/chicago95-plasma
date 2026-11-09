@@ -1,0 +1,4 @@
+/* Chicago95: give Qt tab bars room for ascenders with the 9pt Win98 UI font. */
+QTabBar::tab { padding: 3px 10px 4px 10px; min-height: 18px; }
+QTabBar::tab:selected { padding-bottom: 6px; margin-top: 0px; }
+QTabBar::tab:!selected { margin-top: 2px; }

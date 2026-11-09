@@ -1,0 +1,15 @@
+{
+  "KPackageStructure": "Plasma/Applet",
+  "KPlugin": {
+    "Authors": [{"Name": "Bending Unit 22"}],
+    "Category": "Application Launchers",
+    "Description": "Windows 95 Start button that opens a cascading Start menu",
+    "Icon": "start-here",
+    "Id": "org.chicago95.start",
+    "License": "GPL-3.0",
+    "Name": "Chicago95 Start",
+    "Version": "1.0"
+  },
+  "X-Plasma-API-Minimum-Version": "6.0",
+  "X-Plasma-Provides": ["org.kde.plasma.launchermenu"]
+}

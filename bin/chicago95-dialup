@@ -1,0 +1,254 @@
+#!/usr/bin/env python3
+"""Windows 95 Dial-Up Networking, except the modem is Tailscale."""
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95"))
+import win95ui  # noqa: E402  must precede the other PySide6 imports
+
+from PySide6.QtCore import QProcess, Qt, QTimer  # noqa: E402
+from PySide6.QtGui import QIcon  # noqa: E402
+from PySide6.QtWidgets import (  # noqa: E402
+    QCheckBox, QComboBox, QDialog, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QVBoxLayout,
+    QWidget,
+)
+
+MODEM_SOUND = os.path.expanduser("~/.local/share/chicago95/sounds/modem.ogg")
+CONNECTION_NAME = "Tailscale"
+COORDINATION_SERVER = "controlplane.tailscale.com"
+DIAL_SECONDS = 9
+BUTTON_SIZE = (75, 23)
+
+
+def tailscale_status():
+    result = subprocess.run(["tailscale", "status", "--json"], capture_output=True, text=True, timeout=10)
+    return json.loads(result.stdout) if result.returncode == 0 and result.stdout else {}
+
+
+def tailscale_login_name(status):
+    self_node = status.get("Self", {})
+    user = status.get("User", {}).get(str(self_node.get("UserID", "")), {})
+    return user.get("LoginName") or os.environ.get("USER", "user")
+
+
+def tailscale_ipv4():
+    result = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True, timeout=10)
+    return result.stdout.strip() or "no address"
+
+
+def is_connected(status):
+    return status.get("BackendState") == "Running"
+
+
+def play_sound(path):
+    player = shutil.which("pw-play") or shutil.which("paplay")
+    if player and os.path.exists(path):
+        return subprocess.Popen([player, path])
+    return None
+
+
+def win95_button(text, enabled=True, default=False):
+    button = QPushButton(text)
+    button.setFixedSize(*BUTTON_SIZE)
+    button.setEnabled(enabled)
+    button.setDefault(default)
+    return button
+
+
+class ConnectToDialog(QDialog):
+    def __init__(self, status):
+        super().__init__()
+        self.setWindowTitle("Connect To")
+        self.setWindowIcon(QIcon.fromTheme("modem"))
+        self.setFixedSize(330, 230)
+
+        header = QHBoxLayout()
+        icon = QLabel()
+        icon.setPixmap(QIcon.fromTheme("modem").pixmap(32, 32))
+        title = QLabel(CONNECTION_NAME)
+        title.setFont(win95ui.ui_font(12, bold=True))
+        header.addWidget(icon)
+        header.addSpacing(8)
+        header.addWidget(title)
+        header.addStretch()
+
+        form = QGridLayout()
+        form.setHorizontalSpacing(10)
+        form.setVerticalSpacing(8)
+        self.user_name = QLineEdit(tailscale_login_name(status))
+        password = QLineEdit("hunter2hunter2")
+        password.setEchoMode(QLineEdit.Password)
+        password.setEnabled(False)
+        save_password = QCheckBox("Save password")
+        save_password.setChecked(True)
+        save_password.setEnabled(False)
+        phone_number = QLineEdit(COORDINATION_SERVER)
+        phone_number.setReadOnly(True)
+        location = QComboBox()
+        location.addItems(["Default Location"])
+        dial_properties = QPushButton("Dial Properties...")
+        dial_properties.setEnabled(False)
+
+        form.addWidget(QLabel("User name:"), 0, 0)
+        form.addWidget(self.user_name, 0, 1, 1, 2)
+        form.addWidget(QLabel("Password:"), 1, 0)
+        form.addWidget(password, 1, 1, 1, 2)
+        form.addWidget(save_password, 2, 1, 1, 2)
+        form.addWidget(QLabel("Phone number:"), 3, 0)
+        form.addWidget(phone_number, 3, 1, 1, 2)
+        form.addWidget(QLabel("Dialing from:"), 4, 0)
+        form.addWidget(location, 4, 1)
+        form.addWidget(dial_properties, 4, 2)
+
+        buttons = QHBoxLayout()
+        buttons.addStretch()
+        connect = win95_button("Connect", default=True)
+        cancel = win95_button("Cancel")
+        connect.clicked.connect(self.accept)
+        cancel.clicked.connect(self.reject)
+        buttons.addWidget(connect)
+        buttons.addSpacing(6)
+        buttons.addWidget(cancel)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.addLayout(header)
+        layout.addSpacing(6)
+        layout.addLayout(form)
+        layout.addStretch()
+        layout.addLayout(buttons)
+
+
+class DialingDialog(QDialog):
+    """Plays the handshake while `tailscale up` runs, then reports like a 1995 modem would."""
+
+    STAGES = ["Dialing...", "Verifying user name and password...", "Logging on to network..."]
+
+    def __init__(self, dry_run):
+        super().__init__()
+        self.dry_run = dry_run
+        self.setWindowTitle(f"Connecting to {CONNECTION_NAME}")
+        self.setFixedSize(300, 110)
+        self.status = QLabel("Status:  " + self.STAGES[0])
+        icon = QLabel()
+        icon.setPixmap(QIcon.fromTheme("modem").pixmap(32, 32))
+        cancel = win95_button("Cancel")
+        cancel.clicked.connect(self.reject)
+
+        row = QHBoxLayout()
+        row.addWidget(icon)
+        row.addSpacing(10)
+        row.addWidget(self.status, 1)
+        buttons = QHBoxLayout()
+        buttons.addStretch()
+        buttons.addWidget(cancel)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 10)
+        layout.addLayout(row)
+        layout.addStretch()
+        layout.addLayout(buttons)
+
+        self.sound = None
+        self.process = QProcess(self)
+        self.login_url = ""
+        self.process.readyReadStandardError.connect(self.read_process_output)
+        self.process.readyReadStandardOutput.connect(self.read_process_output)
+        self.process.finished.connect(self.process_finished)
+        self.rejected.connect(self.stop_everything)
+
+    def start(self):
+        self.sound = play_sound(MODEM_SOUND)
+        stage_ms = DIAL_SECONDS * 1000 // len(self.STAGES)
+        for index, stage in enumerate(self.STAGES[1:], start=1):
+            QTimer.singleShot(stage_ms * index, lambda stage=stage: self.status.setText("Status:  " + stage))
+        QTimer.singleShot(stage_ms, self.start_tailscale)
+        QTimer.singleShot(DIAL_SECONDS * 1000, self.finish_if_still_dialing)
+        self.show()
+
+    def start_tailscale(self):
+        if self.dry_run:
+            self.status.setText("Status:  (dry run) would run: tailscale up")
+            return
+        self.process.start("tailscale", ["up", "--timeout", "25s"])
+
+    def read_process_output(self):
+        text = bytes(self.process.readAllStandardError()).decode() + bytes(self.process.readAllStandardOutput()).decode()
+        for word in text.split():
+            if word.startswith("https://login.tailscale.com/"):
+                self.login_url = word
+                subprocess.Popen(["xdg-open", word])
+        if "Access denied" in text or "permission denied" in text.lower() or "operator" in text:
+            self.error_text = text.strip()
+
+    def process_finished(self):
+        self.finish()
+
+    def finish_if_still_dialing(self):
+        if self.process.state() == QProcess.NotRunning:
+            self.finish()
+
+    def finish(self):
+        self.stop_everything()
+        self.accept()
+
+    def stop_everything(self):
+        if self.sound and self.sound.poll() is None:
+            self.sound.terminate()
+        if self.process.state() != QProcess.NotRunning:
+            self.process.kill()
+
+
+def show_result(dry_run, dialing):
+    status = tailscale_status()
+    if is_connected(status) or dry_run:
+        address = "100.64.0.1 (dry run)" if dry_run else tailscale_ipv4()
+        box = QMessageBox(QMessageBox.Information, f"Connected to {CONNECTION_NAME}",
+                          f"Connected at 2.5 Gbps\n\nIP address: {address}\nLogin: {tailscale_login_name(status)}\n\n"
+                          "Duration: 000:00:01")
+        box.setIconPixmap(QIcon.fromTheme("network-transmit-receive").pixmap(32, 32))
+        details = box.addButton("Details...", QMessageBox.ActionRole)
+        details.setEnabled(shutil.which("trayscale") is not None)
+        box.addButton("Close", QMessageBox.AcceptRole)
+        box.exec()
+        if box.clickedButton() is details:
+            subprocess.Popen(["trayscale"])
+        return
+    reason = getattr(dialing, "error_text", "")
+    hint = ("Tailscale refused the connection.\n\nRun once as administrator:\n"
+            f"    sudo tailscale set --operator={os.environ.get('USER', 'user')}")
+    if dialing.login_url:
+        hint = "A browser window was opened to log in.\nFinish the login there, then dial again."
+    box = QMessageBox(QMessageBox.Critical, "Error Connecting to Tailscale",
+                      f"Error 691: {reason or 'The computer you are dialing in to cannot establish a Dial-Up Networking connection.'}\n\n{hint}")
+    box.setIconPixmap(QIcon.fromTheme("dialog-error").pixmap(32, 32))
+    box.addButton("OK", QMessageBox.AcceptRole)
+    box.exec()
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dry-run", action="store_true", help="play the whole show without running tailscale")
+    parser.add_argument("--screenshot", help="save the Connect To dialog as PNG and exit")
+    args = parser.parse_args()
+    app = win95ui.make_app("Dial-Up Networking")
+    status = {} if args.screenshot else tailscale_status()
+    connect_dialog = ConnectToDialog(status)
+    if args.screenshot:
+        connect_dialog.grab().save(args.screenshot)
+        return 0
+    if connect_dialog.exec() != QDialog.Accepted:
+        return 0
+    dialing = DialingDialog(args.dry_run)
+    dialing.start()
+    if dialing.exec() != QDialog.Accepted:
+        return 0
+    show_result(args.dry_run, dialing)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
