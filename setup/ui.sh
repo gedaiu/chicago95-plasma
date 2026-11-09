@@ -82,13 +82,26 @@ ui_progress() {     # ui_progress <done> <total> <label>
     tput cup "$row" "$col"; printf '\e[47m\e[34m['; printf '%*s' "$filled" '' | tr ' ' '#'; printf '%*s' $((width - filled)) '' | tr ' ' '.'; printf ']\e[44m\e[97m %3d%%' $(( total > 0 ? done * 100 / total : 100 ))
 }
 
-ui_message() {      # ui_message <title> <line>...   waits for Enter
+ui_card() {         # ui_card <title> <line>...   draws a titled page; leaves the cursor below it
     local title="$1"; shift
     if [ "$UI_PLAIN" = 1 ]; then printf '\n%s\n' "$title"; printf '  %s\n' "$@"; return; fi
-    ui_field; ui_center 3 "$title"; local row=6
-    for line in "$@"; do ui_text "$row" "$line"; row=$((row + 1)); done
-    tput cup $((row + 1)) 6; printf 'Press ENTER to continue.'
+    ui_field; ui_center 3 "$title"; UI_CARD_END=6
+    for line in "$@"; do ui_text "$UI_CARD_END" "$line"; UI_CARD_END=$((UI_CARD_END + 1)); done
+}
+
+ui_message() {      # ui_message <title> <line>...   waits for Enter
+    ui_card "$@"
+    [ "$UI_PLAIN" = 1 ] && return
+    tput cup $((UI_CARD_END + 1)) 6; printf 'Press ENTER to continue.'
     read -r _ </dev/tty
+}
+
+ui_shell() {        # ui_shell <command>...   runs a command on the bare terminal (sudo prompts, package output)
+    if [ "$UI_PLAIN" = 0 ]; then printf '\e[0m'; tput cnorm; tput clear; fi
+    local status=0
+    "$@" </dev/tty || status=$?
+    if [ "$UI_PLAIN" = 0 ]; then tput civis; UI_ON_STEPS=0; fi
+    return $status
 }
 
 ui_confirm() {      # ui_confirm <question>  -> 0 yes / 1 no ; honours SETUP_YES

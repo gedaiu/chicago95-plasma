@@ -91,6 +91,11 @@ step_base() {
     if [ "${SETUP_DRY_RUN:-0}" != 1 ] && ! grep -q '^Inherits=' ~/.icons/Chicago95/index.theme; then
         sed -i '/^\[Icon Theme\]/a Inherits=hicolor,breeze' ~/.icons/Chicago95/index.theme
     fi
+    local font
+    for font in "$src"/Fonts/vga_font/*.ttf; do
+        [ -e "$font" ] && put_file "$font" ~/.local/share/fonts/Chicago95/"$(basename "$font")"
+    done
+    run fc-cache -f ~/.local/share/fonts >/dev/null 2>&1 || true
     put_file "$REPO/config/xsettingsd/xsettingsd.conf" ~/.config/xsettingsd/xsettingsd.conf
     kconf kdeglobals Icons Theme Chicago95
     run plasma-apply-cursortheme Chicago95_Animated_Hourglass_Cursors_HiDPI --size "${SETUP_CURSOR:-32}" >>"$SETUP_LOG" 2>&1 || true
@@ -257,7 +262,7 @@ step_firefox() {
 step_fonts() {
     local family="${SETUP_FONT:-MS W98 UI}"
     if ! fc-list : family | grep -i "$family" >/dev/null; then
-        ui_status "Font '$family' not installed; UI text keeps your current font until it is (see README)"; return
+        ui_status "Font '$family' not installed; UI text keeps your current font until it is in ~/.local/share/fonts"; return
     fi
     kconf kdeglobals General font "$family,9,-1,5,50,0,0,0,0,0"
     kconf kdeglobals General menuFont "$family,9,-1,5,50,0,0,0,0,0"

@@ -59,7 +59,6 @@ ui_message "Welcome to Setup" \
     "$(detect_summary | sed -n 4p)" "$(detect_summary | sed -n 5p)" "$(detect_summary | sed -n 6p)" \
     "$(detect_summary | sed -n 7p)" "$(detect_summary | sed -n 8p)" "" \
     "Setup log: $SETUP_LOG"
-detect_summary >"$SETUP_LOG"
 
 if [ -z "$SETUP_PLASMA_VERSION" ] && [ "$SETUP_DRY_RUN" = 1 ]; then
     ui_message "KDE Plasma not found" "This is a KDE Plasma 6 theme; you are running $SETUP_DESKTOP." \
@@ -77,10 +76,25 @@ elif [ "$SETUP_IN_PLASMA" = 0 ]; then
     ui_message "Not in a Plasma session" "Plasma $SETUP_PLASMA_VERSION is installed, but you are running $SETUP_DESKTOP." \
         "Setup installs the files now; you will see them the next time you log into Plasma."
 fi
-if [ -n "$SETUP_PY_MISSING" ]; then
-    ui_message "Missing packages" "The Start menu, notifications and Clippy need:" "   $SETUP_PY_MISSING" "" \
-        "Install them with:" "   $(detect_install_hint)" "" "Those components will be skipped if you continue now."
+# Prerequisites: shown every run, with an offer to install the missing packages.
+detect_install_command
+mapfile -t prerequisites < <(detect_prerequisites)
+if ! detect_packages_missing; then
+    ui_message "Checking prerequisites" "${prerequisites[@]}"
+elif [ ${#SETUP_INSTALL_CMD[@]} -eq 0 ] || [ "$SETUP_DRY_RUN" = 1 ] || [ "$SETUP_YES" = 1 ]; then
+    ui_message "Checking prerequisites" "${prerequisites[@]}" "" "Install command:" "   $(detect_install_hint)" \
+        "Components whose prerequisites are missing are skipped."
+else
+    ui_card "Checking prerequisites" "${prerequisites[@]}" "" "Install command:" "   $(detect_install_hint)"
+    if ui_confirm "Install the missing packages now? (no = skip those components)"; then
+        ui_shell "${SETUP_INSTALL_CMD[@]}" || install_failed=1
+        detect_paths; detect_python
+        mapfile -t prerequisites < <(detect_prerequisites)
+        ui_message "Checking prerequisites" "${prerequisites[@]}" "" \
+            "$([ "${install_failed:-0}" = 1 ] && echo "The install command failed; components still missing prerequisites are skipped.")"
+    fi
 fi
+detect_summary >"$SETUP_LOG"
 ui_step_done 0
 
 # ---- 2. components ----------------------------------------------------------
@@ -138,7 +152,7 @@ ui_step_start 2
 TO_COPY=0; COPIED=0
 for component in $COMPONENTS; do
     case $component in
-        base) TO_COPY=$((TO_COPY + 1));;
+        base) TO_COPY=$((TO_COPY + 3));;
         look) TO_COPY=$((TO_COPY + $(count_files "$REPO/aurorae/theme" "$REPO/plasma-style/theme") + 6));;
         taskbar) TO_COPY=$((TO_COPY + $(count_files "$REPO"/plasmoids/org.chicago95.*) + 3));;
         startmenu) TO_COPY=$((TO_COPY + 5 + $(count_files "$REPO/data/qml") + 4));;

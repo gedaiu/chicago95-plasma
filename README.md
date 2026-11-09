@@ -35,20 +35,24 @@ Built and tested on Fedora 44, Plasma 6.8.2 (Wayland), 3840x2160 at 1.5x.
 
 ## Requirements
 
-Fedora package names; adjust for your distribution.
+KDE Plasma 6 and `git`. Setup handles the rest:
+
+- It clones [grassmunk/Chicago95](https://github.com/grassmunk/Chicago95) to
+  `~/src/Chicago95` when no checkout is found (themes, icons, cursors, sounds
+  and the More Perfect DOS VGA font come from it). Point `CHICAGO95_SRC` at an
+  existing checkout to reuse it.
+- When Python modules are missing it shows the package command for your
+  distribution and offers to run it with `sudo`. On Fedora that is:
 
 ```
 sudo dnf install python3-pyside6 python3-pyxdg python3-dbus python3-gobject \
-    python3-pillow ImageMagick icoutils thunar xsettingsd tumbler \
-    qmmp qmmp-plugin-pack xscreensaver-extras xscreensaver-gl-extras
-git clone https://github.com/grassmunk/Chicago95 ~/src/Chicago95
+    thunar xsettingsd tumbler qmmp qmmp-plugin-pack \
+    xscreensaver-extras xscreensaver-gl-extras
 ```
 
-The grassmunk/Chicago95 checkout is a dependency (themes and icons come from
-it); the installer lives in this repository.
-
-Fonts: MS W98 UI (OTF) and More Perfect DOS VGA, dropped into
-`~/.local/share/fonts`.
+The MS W98 UI font can't be redistributed. Drop the OTF into
+`~/.local/share/fonts` before running Setup, or pick another family with
+`--font=`.
 
 ## Install
 
