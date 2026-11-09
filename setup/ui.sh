@@ -65,6 +65,8 @@ ui_status() {       # one-line status under the step list
 
 ui_progress() {     # ui_progress <done> <total> <label>
     local done="$1" total="$2" label="$3" width=50 filled
+    # A terminal redraws one line in place; a log or pipe gets one line per file.
+    if [ "$UI_PLAIN" = 1 ] && [ ! -t 1 ]; then printf '   %-60s (%d/%d)\n' "$label" "$done" "$total"; return 0; fi
     if [ "$UI_PLAIN" = 1 ]; then printf '\r   %-60s (%d/%d)' "$label" "$done" "$total"; if [ "$done" -ge "$total" ]; then printf '\n'; fi; return 0; fi
     filled=$(( total > 0 ? done * width / total : width ))
     local row=$((UI_ROWS / 2 + 3)) col=$(( (UI_COLS - width - 2) / 2 ))

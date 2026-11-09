@@ -16,23 +16,25 @@ detect_distro() {
 }
 
 detect_plasma() {
-    SETUP_PLASMA_VERSION=$(plasmashell --version 2>/dev/null | awk '{print $2}')
+    SETUP_PLASMA_VERSION=$(plasmashell --version 2>/dev/null | awk '{print $2}' || true)
     SETUP_SESSION=${XDG_SESSION_TYPE:-unknown}
+    SETUP_DESKTOP=${XDG_CURRENT_DESKTOP:-unknown}
     SETUP_PLASMA_MAJOR=${SETUP_PLASMA_VERSION%%.*}
+    SETUP_IN_PLASMA=0
+    if [[ ":$SETUP_DESKTOP:" == *:KDE:* ]]; then SETUP_IN_PLASMA=1; fi
 }
 
 # Logical geometry of the primary (first enabled) output and its scale, from kscreen-doctor.
 detect_screen() {
     SETUP_WIDTH=2560; SETUP_HEIGHT=1440; SETUP_SCALE=1; SETUP_SCREEN_SOURCE=default
-    local dump
-    dump=$(kscreen-doctor -o 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g') || return 0
-    local geometry scale
+    local dump geometry scale
+    dump=$(kscreen-doctor -o 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' || true)
     geometry=$(printf '%s\n' "$dump" | awk '/enabled/{on=1} on && /Geometry:/{print $3; exit}')
     scale=$(printf '%s\n' "$dump" | awk '/enabled/{on=1} on && /Scale:/{print $2; exit}')
     if [[ "$geometry" =~ ^([0-9]+)x([0-9]+)$ ]]; then
         SETUP_WIDTH=${BASH_REMATCH[1]}; SETUP_HEIGHT=${BASH_REMATCH[2]}; SETUP_SCREEN_SOURCE=kscreen-doctor
     fi
-    [[ "$scale" =~ ^[0-9.]+$ ]] && SETUP_SCALE=$scale
+    if [[ "$scale" =~ ^[0-9.]+$ ]]; then SETUP_SCALE=$scale; fi
     SETUP_DPI=$(awk -v s="$SETUP_SCALE" 'BEGIN{printf "%d", 96*s + 0.5}')
 }
 
@@ -48,12 +50,13 @@ detect_paths() {
     SETUP_FIREFOX_PROFILE=""
     # The profile in daily use is the one whose prefs.js changed last.
     local newest
-    newest=$(ls -t "$HOME"/.mozilla/firefox/*/prefs.js 2>/dev/null | head -1)
+    newest=$(ls -t "$HOME"/.mozilla/firefox/*/prefs.js 2>/dev/null | head -1 || true)
     [ -n "$newest" ] && SETUP_FIREFOX_PROFILE=$(dirname "$newest")
     SETUP_HAS_THUNAR=0; command -v thunar >/dev/null 2>&1 && SETUP_HAS_THUNAR=1
     SETUP_HAS_QMMP=0; command -v qmmp >/dev/null 2>&1 && SETUP_HAS_QMMP=1
     SETUP_HAS_KWINRULES=0; [ -f "$HOME/.config/kwinrulesrc" ] && SETUP_HAS_KWINRULES=1
-    SETUP_SHELL_SRC=""; [ -d /usr/share/plasma/shells/org.kde.plasma.desktop ] && SETUP_SHELL_SRC=/usr/share/plasma/shells/org.kde.plasma.desktop
+    SETUP_SHELL_SRC=""
+    if [ -d /usr/share/plasma/shells/org.kde.plasma.desktop ]; then SETUP_SHELL_SRC=/usr/share/plasma/shells/org.kde.plasma.desktop; fi
 }
 
 detect_python() {
@@ -61,6 +64,16 @@ detect_python() {
     for module in PySide6:python3-pyside6 xdg:python3-pyxdg dbus:python3-dbus gi:python3-gobject; do
         python3 -c "import ${module%%:*}" 2>/dev/null || SETUP_PY_MISSING="$SETUP_PY_MISSING ${module#*:}"
     done
+}
+
+detect_plasma_hint() {
+    case "$SETUP_PKG" in
+        dnf) echo "sudo dnf install @kde-desktop-environment";;
+        apt-get) echo "sudo apt install kde-plasma-desktop";;
+        pacman) echo "sudo pacman -S plasma-meta";;
+        zypper) echo "sudo zypper install -t pattern kde_plasma";;
+        *) echo "install KDE Plasma 6 with your package manager";;
+    esac
 }
 
 # Names the packages for the detected manager; printed, never run.
@@ -77,7 +90,7 @@ detect_install_hint() {
 detect_summary() {
     cat <<EOF
 Distribution:      $SETUP_DISTRO ($SETUP_PKG)
-Plasma:            ${SETUP_PLASMA_VERSION:-not found} on $SETUP_SESSION
+Plasma:            ${SETUP_PLASMA_VERSION:-not found}, running $SETUP_DESKTOP on $SETUP_SESSION
 Screen (logical):  ${SETUP_WIDTH}x${SETUP_HEIGHT} at ${SETUP_SCALE}x  (${SETUP_SCREEN_SOURCE}); X11 DPI will be $SETUP_DPI
 Chicago95 source:  ${SETUP_CHICAGO95_SRC:-not found (will clone)}
 XScreenSaver:      ${SETUP_HACK_DIR:-hacks not installed}

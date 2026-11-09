@@ -42,6 +42,14 @@ done
 ui_init "$UI_MODE"
 ui_set_steps "Collecting information about your computer" "Selecting components" "Copying files" "Finishing Setup"
 
+# Shows the reason on the Setup screen, then leaves it in the terminal once the screen is gone.
+setup_abort() {
+    ui_message "Setup cannot continue" "$@"
+    ui_restore
+    [ "$UI_PLAIN" = 1 ] || printf '%s\n' "Setup cannot continue." "$@" >&2
+    exit 1
+}
+
 # ---- 1. collect -------------------------------------------------------------
 ui_step_start 0
 detect_all
@@ -53,11 +61,21 @@ ui_message "Welcome to Setup" \
     "Setup log: $SETUP_LOG"
 detect_summary >"$SETUP_LOG"
 
-if [ -z "${SETUP_PLASMA_VERSION:-}" ]; then
-    ui_message "Setup cannot continue" "plasmashell was not found. This is a KDE Plasma 6 theme." ; exit 1
-fi
-if [ "${SETUP_PLASMA_MAJOR:-0}" -lt 6 ]; then
-    ui_message "Setup cannot continue" "Plasma $SETUP_PLASMA_VERSION found; Plasma 6 is required."; exit 1
+if [ -z "$SETUP_PLASMA_VERSION" ] && [ "$SETUP_DRY_RUN" = 1 ]; then
+    ui_message "KDE Plasma not found" "This is a KDE Plasma 6 theme; you are running $SETUP_DESKTOP." \
+        "The dry run continues so you can see what Setup would do." "" \
+        "To install Plasma:" "   $(detect_plasma_hint)"
+elif [ -z "$SETUP_PLASMA_VERSION" ]; then
+    setup_abort "This is a KDE Plasma 6 theme, and Plasma is not installed." \
+        "You are running $SETUP_DESKTOP." "" \
+        "1. Install Plasma:" "      $(detect_plasma_hint)" \
+        "2. Log out, pick \"Plasma\" on the login screen, and run ./install.sh again." "" \
+        "To preview the changes without Plasma: ./install.sh --dry-run"
+elif [ "${SETUP_PLASMA_MAJOR:-0}" -lt 6 ]; then
+    setup_abort "Plasma $SETUP_PLASMA_VERSION found; Plasma 6 is required."
+elif [ "$SETUP_IN_PLASMA" = 0 ]; then
+    ui_message "Not in a Plasma session" "Plasma $SETUP_PLASMA_VERSION is installed, but you are running $SETUP_DESKTOP." \
+        "Setup installs the files now; you will see them the next time you log into Plasma."
 fi
 if [ -n "$SETUP_PY_MISSING" ]; then
     ui_message "Missing packages" "The Start menu, notifications and Clippy need:" "   $SETUP_PY_MISSING" "" \
@@ -147,7 +165,7 @@ ui_step_done 2
 
 # ---- 4. finish --------------------------------------------------------------
 ui_step_start 3
-ui_status "Reloading Plasma..."
+[ "$SETUP_IN_PLASMA" = 1 ] && ui_status "Reloading Plasma..."
 finish_session
 ui_step_done 3
 

@@ -270,7 +270,7 @@ finish_session() {
     run rm -rf ~/.cache/plasmashell/qmlcache ~/.cache/ksvg-elements ~/.cache/plasma_theme_Chicago95.kcache
     run systemctl --user daemon-reload
     kwin_reconfigure
-    if [ "${SETUP_DRY_RUN:-0}" != 1 ]; then
+    if [ "${SETUP_DRY_RUN:-0}" != 1 ] && [ "$SETUP_IN_PLASMA" = 1 ]; then
         systemctl --user stop plasma-plasmashell.service 2>/dev/null || true
         systemctl --user is-enabled chicago95-notifyd.service >/dev/null 2>&1 && systemctl --user restart chicago95-notifyd.service || true
         systemctl --user start plasma-plasmashell.service 2>/dev/null || true
