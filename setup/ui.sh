@@ -94,11 +94,12 @@ ui_confirm() {      # ui_confirm <question>  -> 0 yes / 1 no ; honours SETUP_YES
 ui_ask() {          # ui_ask <prompt> <default>  prints the answer; honours SETUP_YES
     local answer
     [ "${SETUP_YES:-0}" = 1 ] && { printf '%s' "$2"; return; }
+    exec 4>&1 1>/dev/tty
     if [ "$UI_PLAIN" = 1 ]; then printf '%s [%s]: ' "$1" "$2" >/dev/tty; else
         tput cup $((UI_ROWS - 4)) 6; printf '%-*s' $((UI_COLS - 12)) ''; tput cup $((UI_ROWS - 4)) 6; printf '%s [%s]: ' "$1" "$2"; tput cnorm
     fi
     read -r answer </dev/tty; [ "$UI_PLAIN" = 1 ] || tput civis
-    printf '%s' "${answer:-$2}"
+    printf '%s' "${answer:-$2}" >&4
 }
 
 # ui_pick_options <name|label|value>...   lets the user change values; prints name=value lines
@@ -108,6 +109,7 @@ ui_pick_options() {
         names+=("${entry%%|*}"); entry="${entry#*|}"; labels+=("${entry%%|*}"); values+=("${entry#*|}")
     done
     if [ "${SETUP_YES:-0}" != 1 ]; then
+        exec 4>&1 1>/dev/tty
         while :; do
             if [ "$UI_PLAIN" = 1 ]; then
                 printf '\nSetup Options (type a number to change it, ENTER to continue):\n'
@@ -125,6 +127,7 @@ ui_pick_options() {
             index=$((answer - 1)); [ "$index" -ge 0 ] && [ "$index" -lt "${#names[@]}" ] || continue
             values[$index]=$(ui_ask "${labels[$index]}" "${values[$index]}")
         done
+        exec 1>&4
     fi
     for index in "${!names[@]}"; do printf '%s=%s\n' "${names[$index]}" "${values[$index]}"; done
 }
@@ -135,27 +138,32 @@ ui_pick_components() {
     for entry in "$@"; do
         names+=("${entry%%:*}"); entry="${entry#*:}"; labels+=("${entry%:*}"); picked+=("${entry##*:}")
     done
-    [ "${SETUP_YES:-0}" = 1 ] && { for index in "${!names[@]}"; do [ "${picked[$index]}" = 1 ] && printf '%s ' "${names[$index]}"; done; return; }
-    while :; do
-        if [ "$UI_PLAIN" = 1 ]; then
-            printf '\nSelect Components (type a number to toggle, ENTER to continue):\n'
-            for index in "${!names[@]}"; do printf '  %2d. [%s] %s\n' $((index + 1)) "$([ "${picked[$index]}" = 1 ] && echo X || echo ' ')" "${labels[$index]}"; done
-            printf '> '
-        else
-            ui_field; ui_center 2 "Select Components"
-            ui_text 4 "To add or remove a component, type its number and press ENTER."
-            ui_text 5 "Press ENTER on an empty line when the list is right."
-            for index in "${!names[@]}"; do tput cup $((7 + index)) 8; printf '%2d. [%s] %s' $((index + 1)) "$([ "${picked[$index]}" = 1 ] && echo X || echo ' ')" "${labels[$index]}"; done
-            tput cup $((9 + ${#names[@]})) 8; printf 'Component number: '; tput cnorm
-        fi
-        read -r answer </dev/tty; [ "$UI_PLAIN" = 1 ] || tput civis
-        [ -z "$answer" ] && break
-        case "$answer" in
-            all) for index in "${!names[@]}"; do picked[$index]=1; done;;
-            none) for index in "${!names[@]}"; do picked[$index]=0; done;;
-            *[!0-9]*) ;;
-            *) index=$((answer - 1)); [ "$index" -ge 0 ] && [ "$index" -lt "${#names[@]}" ] && picked[$index]=$(( 1 - picked[$index] ));;
-        esac
+    if [ "${SETUP_YES:-0}" != 1 ]; then
+        exec 4>&1 1>/dev/tty
+        while :; do
+            if [ "$UI_PLAIN" = 1 ]; then
+                printf '\nSelect Components (type a number to toggle, ENTER to continue):\n'
+                for index in "${!names[@]}"; do printf '  %2d. [%s] %s\n' $((index + 1)) "$([ "${picked[$index]}" = 1 ] && echo X || echo ' ')" "${labels[$index]}"; done
+                printf '> '
+            else
+                ui_field; ui_center 2 "Select Components"
+                ui_text 4 "To add or remove a component, type its number and press ENTER."
+                ui_text 5 "Press ENTER on an empty line when the list is right."
+                for index in "${!names[@]}"; do tput cup $((7 + index)) 8; printf '%2d. [%s] %s' $((index + 1)) "$([ "${picked[$index]}" = 1 ] && echo X || echo ' ')" "${labels[$index]}"; done
+                tput cup $((9 + ${#names[@]})) 8; printf 'Component number: '; tput cnorm
+            fi
+            read -r answer </dev/tty; [ "$UI_PLAIN" = 1 ] || tput civis
+            [ -z "$answer" ] && break
+            case "$answer" in
+                all) for index in "${!names[@]}"; do picked[$index]=1; done;;
+                none) for index in "${!names[@]}"; do picked[$index]=0; done;;
+                *[!0-9]*) ;;
+                *) index=$((answer - 1)); [ "$index" -ge 0 ] && [ "$index" -lt "${#names[@]}" ] && picked[$index]=$(( 1 - picked[$index] ));;
+            esac
+        done
+        exec 1>&4
+    fi
+    for index in "${!names[@]}"; do
+        if [ "${picked[$index]}" = 1 ]; then printf '%s ' "${names[$index]}"; fi
     done
-    for index in "${!names[@]}"; do [ "${picked[$index]}" = 1 ] && printf '%s ' "${names[$index]}"; done
 }
