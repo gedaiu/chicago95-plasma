@@ -30,7 +30,8 @@ Built and tested on Fedora 44, Plasma 6.8.2 (Wayland), 3840x2160 at 1.5x.
 | `kwin-effects/` | `chicago95notifications`, the slide-in effect |
 | `lockscreen/` | The `contents/lockscreen` override for the Plasma desktop shell |
 | `splash/` | `chicago95.splashscreen` KSplash package |
-| `install.sh` | Copies everything into place under `~/.local` and `~/.config` |
+| `install.sh`, `setup/` | Windows 95 style Setup: detection, component and option screens, install steps |
+| `uninstall.sh` | Removes what Setup installed and restores backups |
 
 ## Requirements
 

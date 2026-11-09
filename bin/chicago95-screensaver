@@ -12,7 +12,8 @@ import time
 
 HACK = os.environ.get("CHICAGO95_SAVER", "pipes")
 IDLE_SECONDS = int(os.environ.get("CHICAGO95_SAVER_IDLE", "300"))
-HACK_DIR = "/usr/libexec/xscreensaver"
+HACK_DIR = next((d for d in ("/usr/libexec/xscreensaver", "/usr/lib/xscreensaver", "/usr/lib64/xscreensaver",
+                             "/usr/lib/x86_64-linux-gnu/xscreensaver") if os.path.isdir(d)), "/usr/libexec/xscreensaver")
 HACK_ARGS = {"pipes": [], "flyingtoasters": [], "maze": [], "starfield": [], "bsod": []}
 
 

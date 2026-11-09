@@ -1,0 +1,161 @@
+# Text-mode Setup screen in the style of the 1995 original: blue field, white band,
+# step list, copy progress. Sourced by install.sh. Falls back to plain output when
+# stdout is not a terminal or --plain is given.
+
+UI_PLAIN=0
+UI_TITLE="Windows 95 Setup"
+UI_COLS=80
+UI_ROWS=25
+UI_STEPS=()
+UI_STEP_DONE=()
+
+ui_init() {
+    if [ "${1:-}" = plain ] || [ ! -t 1 ] || ! command -v tput >/dev/null 2>&1; then
+        UI_PLAIN=1
+        return
+    fi
+    UI_COLS=$(tput cols); UI_ROWS=$(tput lines)
+    [ "$UI_COLS" -ge 60 ] && [ "$UI_ROWS" -ge 20 ] || UI_PLAIN=1
+    [ "$UI_PLAIN" = 1 ] || { tput civis; trap ui_restore EXIT INT TERM; }
+}
+
+ui_restore() {
+    [ "$UI_PLAIN" = 1 ] && return
+    printf '\e[0m'; tput cnorm; tput clear
+}
+
+ui_field() {        # paint the blue field and the title band
+    printf '\e[44m\e[97m'; tput clear
+    tput cup 0 0; printf '\e[47m\e[34m%-*s\e[44m\e[97m' "$UI_COLS" "  $UI_TITLE"
+    tput cup $((UI_ROWS - 1)) 0; printf '\e[47m\e[34m%-*s\e[44m\e[97m' "$UI_COLS" "  ENTER=Continue   Ctrl+C=Exit Setup"
+}
+
+ui_center() {       # ui_center <row> <text>
+    local row="$1" text="$2"
+    tput cup "$row" $(( (UI_COLS - ${#text}) / 2 )); printf '%s' "$text"
+}
+
+ui_text() {         # ui_text <row> <text>   (left column, indented)
+    tput cup "$1" 6; printf '%s' "$2"
+}
+
+ui_set_steps() { UI_STEPS=("$@"); UI_STEP_DONE=(); for _ in "$@"; do UI_STEP_DONE+=(0); done; }
+
+ui_steps() {        # draws the checklist from row 4 with the current step highlighted
+    local index=0 marker
+    for step in "${UI_STEPS[@]}"; do
+        marker="[ ]"; [ "${UI_STEP_DONE[$index]}" = 1 ] && marker="[X]"
+        tput cup $((4 + index)) 6
+        if [ "${UI_STEP_DONE[$index]}" = 2 ]; then printf '\e[93m%s %s\e[97m' "$marker" "$step"; else printf '%s %s' "$marker" "$step"; fi
+        index=$((index + 1))
+    done
+}
+
+ui_step_start() {   # ui_step_start <index>
+    UI_STEP_DONE[$1]=2
+    if [ "$UI_PLAIN" = 1 ]; then printf '\n== %s\n' "${UI_STEPS[$1]}"; else ui_field; ui_steps; fi
+}
+
+ui_step_done() { UI_STEP_DONE[$1]=1; [ "$UI_PLAIN" = 1 ] || ui_steps; }
+
+ui_status() {       # one-line status under the step list
+    if [ "$UI_PLAIN" = 1 ]; then printf '   %s\n' "$1"; return; fi
+    tput cup $((6 + ${#UI_STEPS[@]})) 6; printf '%-*s' $((UI_COLS - 12)) "$1"
+}
+
+ui_progress() {     # ui_progress <done> <total> <label>
+    local done="$1" total="$2" label="$3" width=50 filled
+    if [ "$UI_PLAIN" = 1 ]; then printf '\r   %-60s (%d/%d)' "$label" "$done" "$total"; if [ "$done" -ge "$total" ]; then printf '\n'; fi; return 0; fi
+    filled=$(( total > 0 ? done * width / total : width ))
+    local row=$((UI_ROWS / 2 + 3)) col=$(( (UI_COLS - width - 2) / 2 ))
+    tput cup $((row - 2)) 6; printf '%-*s' $((UI_COLS - 12)) "Setup is now copying files to your computer..."
+    tput cup $((row - 1)) 6; printf '%-*s' $((UI_COLS - 12)) "  $label"
+    tput cup "$row" "$col"; printf '\e[47m\e[34m['; printf '%*s' "$filled" '' | tr ' ' '#'; printf '%*s' $((width - filled)) '' | tr ' ' '.'; printf ']\e[44m\e[97m %3d%%' $(( total > 0 ? done * 100 / total : 100 ))
+}
+
+ui_message() {      # ui_message <title> <line>...   waits for Enter
+    local title="$1"; shift
+    if [ "$UI_PLAIN" = 1 ]; then printf '\n%s\n' "$title"; printf '  %s\n' "$@"; return; fi
+    ui_field; ui_center 3 "$title"; local row=6
+    for line in "$@"; do ui_text "$row" "$line"; row=$((row + 1)); done
+    tput cup $((row + 1)) 6; printf 'Press ENTER to continue.'
+    read -r _ </dev/tty
+}
+
+ui_confirm() {      # ui_confirm <question>  -> 0 yes / 1 no ; honours SETUP_YES
+    [ "${SETUP_YES:-0}" = 1 ] && return 0
+    local answer
+    if [ "$UI_PLAIN" = 1 ]; then printf '%s [Y/n] ' "$1"; read -r answer </dev/tty; else
+        tput cup $((UI_ROWS - 4)) 6; printf '%-*s' $((UI_COLS - 12)) ''; tput cup $((UI_ROWS - 4)) 6; printf '%s [Y/n] ' "$1"; tput cnorm; read -r answer </dev/tty; tput civis
+    fi
+    case "${answer:-y}" in [Yy]*) return 0;; *) return 1;; esac
+}
+
+ui_ask() {          # ui_ask <prompt> <default>  prints the answer; honours SETUP_YES
+    local answer
+    [ "${SETUP_YES:-0}" = 1 ] && { printf '%s' "$2"; return; }
+    if [ "$UI_PLAIN" = 1 ]; then printf '%s [%s]: ' "$1" "$2" >/dev/tty; else
+        tput cup $((UI_ROWS - 4)) 6; printf '%-*s' $((UI_COLS - 12)) ''; tput cup $((UI_ROWS - 4)) 6; printf '%s [%s]: ' "$1" "$2"; tput cnorm
+    fi
+    read -r answer </dev/tty; [ "$UI_PLAIN" = 1 ] || tput civis
+    printf '%s' "${answer:-$2}"
+}
+
+# ui_pick_options <name|label|value>...   lets the user change values; prints name=value lines
+ui_pick_options() {
+    local names=() labels=() values=() index=0 entry answer
+    for entry in "$@"; do
+        names+=("${entry%%|*}"); entry="${entry#*|}"; labels+=("${entry%%|*}"); values+=("${entry#*|}")
+    done
+    if [ "${SETUP_YES:-0}" != 1 ]; then
+        while :; do
+            if [ "$UI_PLAIN" = 1 ]; then
+                printf '\nSetup Options (type a number to change it, ENTER to continue):\n'
+                for index in "${!names[@]}"; do printf '  %2d. %-42s %s\n' $((index + 1)) "${labels[$index]}" "${values[$index]}"; done
+                printf '> '
+            else
+                ui_field; ui_center 2 "Setup Options"
+                ui_text 4 "Setup detected these values. Type a number to change one, ENTER to accept."
+                for index in "${!names[@]}"; do tput cup $((6 + index)) 8; printf '%2d. %-42s %s' $((index + 1)) "${labels[$index]}" "${values[$index]}"; done
+                tput cup $((8 + ${#names[@]})) 8; printf 'Option number: '; tput cnorm
+            fi
+            read -r answer </dev/tty; [ "$UI_PLAIN" = 1 ] || tput civis
+            [ -z "$answer" ] && break
+            case "$answer" in *[!0-9]*) continue;; esac
+            index=$((answer - 1)); [ "$index" -ge 0 ] && [ "$index" -lt "${#names[@]}" ] || continue
+            values[$index]=$(ui_ask "${labels[$index]}" "${values[$index]}")
+        done
+    fi
+    for index in "${!names[@]}"; do printf '%s=%s\n' "${names[$index]}" "${values[$index]}"; done
+}
+
+# ui_pick_components <name:label:default>...   prints the selected names, space separated
+ui_pick_components() {
+    local names=() labels=() picked=() index=0 entry answer
+    for entry in "$@"; do
+        names+=("${entry%%:*}"); entry="${entry#*:}"; labels+=("${entry%:*}"); picked+=("${entry##*:}")
+    done
+    [ "${SETUP_YES:-0}" = 1 ] && { for index in "${!names[@]}"; do [ "${picked[$index]}" = 1 ] && printf '%s ' "${names[$index]}"; done; return; }
+    while :; do
+        if [ "$UI_PLAIN" = 1 ]; then
+            printf '\nSelect Components (type a number to toggle, ENTER to continue):\n'
+            for index in "${!names[@]}"; do printf '  %2d. [%s] %s\n' $((index + 1)) "$([ "${picked[$index]}" = 1 ] && echo X || echo ' ')" "${labels[$index]}"; done
+            printf '> '
+        else
+            ui_field; ui_center 2 "Select Components"
+            ui_text 4 "To add or remove a component, type its number and press ENTER."
+            ui_text 5 "Press ENTER on an empty line when the list is right."
+            for index in "${!names[@]}"; do tput cup $((7 + index)) 8; printf '%2d. [%s] %s' $((index + 1)) "$([ "${picked[$index]}" = 1 ] && echo X || echo ' ')" "${labels[$index]}"; done
+            tput cup $((9 + ${#names[@]})) 8; printf 'Component number: '; tput cnorm
+        fi
+        read -r answer </dev/tty; [ "$UI_PLAIN" = 1 ] || tput civis
+        [ -z "$answer" ] && break
+        case "$answer" in
+            all) for index in "${!names[@]}"; do picked[$index]=1; done;;
+            none) for index in "${!names[@]}"; do picked[$index]=0; done;;
+            *[!0-9]*) ;;
+            *) index=$((answer - 1)); [ "$index" -ge 0 ] && [ "$index" -lt "${#names[@]}" ] && picked[$index]=$(( 1 - picked[$index] ));;
+        esac
+    done
+    for index in "${!names[@]}"; do [ "${picked[$index]}" = 1 ] && printf '%s ' "${names[$index]}"; done
+}

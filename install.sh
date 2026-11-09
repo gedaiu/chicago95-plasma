@@ -1,123 +1,164 @@
 #!/usr/bin/env bash
-# Installs chicago95-plasma into the current user's home. Re-runnable.
+# Chicago95 for Plasma: Setup.
+#
+#   ./install.sh                 interactive, Windows 95 Setup look
+#   ./install.sh --yes           every default component, no questions
+#   ./install.sh --components base,look,taskbar,startmenu
+#   ./install.sh --dry-run       show what would change, touch nothing
+#   ./install.sh --plain         no full-screen UI (logs, CI, screen readers)
+#   Options (asked interactively, or given as flags):
+#     --screen=2560x1440@1.5  --panel=28  --explorer=thunar|dolphin  --saver=maze
+#     --idle=5  --cursor=48  --clippy=yes|no  --font="MS W98 UI"
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CHICAGO95_SRC="${CHICAGO95_SRC:-$HOME/src/Chicago95}"
+SETUP_YES=0; SETUP_DRY_RUN=0; UI_MODE=screen; WANTED=""
+SETUP_LOG="${TMPDIR:-/tmp}/chicago95-setup-$(date +%Y%m%d-%H%M%S).log"
 
-say() { printf '\033[1m%s\033[0m\n' "$*"; }
-
-install_tree() {
-    local source="$1" target="$2"
-    mkdir -p "$(dirname "$target")"
-    rm -rf "$target"
-    cp -r "$source" "$target"
-}
-
-substitute_home() {
-    grep -rlI '@HOME@' "$@" 2>/dev/null | xargs -r sed -i "s|@HOME@|$HOME|g"
-}
-
-require() {
-    command -v "$1" >/dev/null 2>&1 || { echo "missing: $1" >&2; exit 1; }
-}
-
-require python3
-require kwriteconfig6
-require plasma-apply-colorscheme
-python3 -c 'import PySide6, xdg, dbus' 2>/dev/null || { echo "need python3-pyside6, python3-pyxdg, python3-dbus" >&2; exit 1; }
-
-say "Chicago95 base"
-if [ -d "$CHICAGO95_SRC" ]; then
-    mkdir -p ~/.themes ~/.icons ~/.local/share/icons ~/.local/share/sounds
-    [ -d ~/.themes/Chicago95 ] || cp -r "$CHICAGO95_SRC/Theme/Chicago95" ~/.themes/
-    [ -d ~/.icons/Chicago95 ] || cp -r "$CHICAGO95_SRC/Icons/Chicago95" ~/.icons/
-    [ -d ~/.icons/Chicago95_Animated_Hourglass_Cursors_HiDPI ] || cp -r "$CHICAGO95_SRC/Cursors/Chicago95_Animated_Hourglass_Cursors_HiDPI" ~/.icons/
-    [ -d ~/.local/share/sounds/Chicago95 ] || cp -r "$CHICAGO95_SRC/sounds/Chicago95" ~/.local/share/sounds/
-    ln -sfn ~/.icons/Chicago95 ~/.local/share/icons/Chicago95
-    grep -q '^Inherits=' ~/.icons/Chicago95/index.theme || sed -i '/^\[Icon Theme\]/a Inherits=hicolor,breeze' ~/.icons/Chicago95/index.theme
-else
-    echo "Chicago95 not found at $CHICAGO95_SRC; skipping the base theme (set CHICAGO95_SRC to override)" >&2
-fi
-
-say "Decoration and Plasma style"
-install_tree "$REPO/aurorae/theme" ~/.local/share/aurorae/themes/Chicago95
-cp "$REPO"/aurorae/{bevel.py,make_chicago95_aurorae.py,start-button.png,start-button-pressed.png} ~/.local/share/aurorae/themes/Chicago95/
-cp "$REPO/plasma-style/make_chicago95_plasmastyle.py" ~/.local/share/aurorae/themes/Chicago95/
-install_tree "$REPO/plasma-style/theme" ~/.local/share/plasma/desktoptheme/Chicago95
-mkdir -p ~/.local/share/color-schemes
-cp "$REPO/config/Chicago95.colors" ~/.local/share/color-schemes/
-
-say "Plasmoids, tools, data"
-for plasmoid in "$REPO"/plasmoids/org.chicago95.*; do
-    install_tree "$plasmoid" ~/.local/share/plasma/plasmoids/"$(basename "$plasmoid")"
+for arg in "$@"; do
+    case "$arg" in
+        --yes|-y) SETUP_YES=1;;
+        --dry-run) SETUP_DRY_RUN=1;;
+        --plain) UI_MODE=plain;;
+        --components=*) WANTED="${arg#*=}";;
+        --components) ;;  # value follows
+        --screen=*) OPT_SCREEN="${arg#*=}";;
+        --panel=*) OPT_PANEL="${arg#*=}";;
+        --explorer=*) OPT_EXPLORER="${arg#*=}";;
+        --saver=*) OPT_SAVER="${arg#*=}";;
+        --idle=*) OPT_IDLE="${arg#*=}";;
+        --cursor=*) OPT_CURSOR="${arg#*=}";;
+        --clippy=*) OPT_CLIPPY="${arg#*=}";;
+        --font=*) OPT_FONT="${arg#*=}";;
+        --help|-h) sed -n '2,12p' "$0"; exit 0;;
+        *) [ -z "$WANTED" ] && [[ "$arg" != --* ]] && WANTED="$arg";;
+    esac
 done
-mkdir -p ~/.local/bin ~/.local/lib/chicago95 ~/.local/share/chicago95
-cp "$REPO"/bin/chicago95-* ~/.local/bin/
-chmod +x ~/.local/bin/chicago95-*
-cp "$REPO/lib/win95ui.py" ~/.local/lib/chicago95/
-cp -r "$REPO"/data/. ~/.local/share/chicago95/
-install_tree "$REPO/kwin-effects/chicago95notifications" ~/.local/share/kwin/effects/chicago95notifications
-install_tree "$REPO/splash/chicago95.splashscreen" ~/.local/share/plasma/look-and-feel/chicago95.splashscreen
-substitute_home ~/.local/share/plasma/plasmoids/org.chicago95.start ~/.local/share/plasma/plasmoids/org.chicago95.trayframe
 
-say "Config"
-mkdir -p ~/.config/{autostart,environment.d,xsettingsd,gtk-3.0,xfce4/xfconf/xfce-perchannel-xml} \
-         ~/.config/systemd/user/plasma-plasmashell.service.d ~/.local/share/applications ~/.local/share/kxmlgui6/dolphin
-cp "$REPO"/config/autostart/*.desktop ~/.config/autostart/
-cp "$REPO"/config/applications/*.desktop ~/.local/share/applications/
-cp "$REPO/config/environment.d/chicago95.conf" ~/.config/environment.d/
-cp "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" ~/.config/systemd/user/plasma-plasmashell.service.d/chicago95-menus.conf
-cp "$REPO/config/systemd/chicago95-notifyd.service" ~/.config/systemd/user/
-cp "$REPO/config/xsettingsd/xsettingsd.conf" ~/.config/xsettingsd/
-cp "$REPO/config/dolphin/dolphinui.rc" ~/.local/share/kxmlgui6/dolphin/
-substitute_home ~/.config/autostart ~/.local/share/applications ~/.config/environment.d/chicago95.conf
-if [ ! -f ~/.config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml ]; then
-    cp "$REPO/config/thunar/thunar.xml" ~/.config/xfce4/xfconf/xfce-perchannel-xml/
+. "$REPO/setup/ui.sh"
+. "$REPO/setup/detect.sh"
+. "$REPO/setup/steps.sh"
+
+ui_init "$UI_MODE"
+ui_set_steps "Collecting information about your computer" "Selecting components" "Copying files" "Finishing Setup"
+
+# ---- 1. collect -------------------------------------------------------------
+ui_step_start 0
+detect_all
+ui_message "Welcome to Setup" \
+    "Setup prepares Chicago95 for KDE Plasma on this computer." "" \
+    "$(detect_summary | sed -n 1p)" "$(detect_summary | sed -n 2p)" "$(detect_summary | sed -n 3p)" \
+    "$(detect_summary | sed -n 4p)" "$(detect_summary | sed -n 5p)" "$(detect_summary | sed -n 6p)" \
+    "$(detect_summary | sed -n 7p)" "$(detect_summary | sed -n 8p)" "" \
+    "Setup log: $SETUP_LOG"
+detect_summary >"$SETUP_LOG"
+
+if [ -z "${SETUP_PLASMA_VERSION:-}" ]; then
+    ui_message "Setup cannot continue" "plasmashell was not found. This is a KDE Plasma 6 theme." ; exit 1
 fi
-if ! grep -q 'Chicago95 Thunar' ~/.config/gtk-3.0/gtk.css 2>/dev/null; then
-    cat "$REPO/config/gtk-3.0/gtk.css" >> ~/.config/gtk-3.0/gtk.css
+if [ "${SETUP_PLASMA_MAJOR:-0}" -lt 6 ]; then
+    ui_message "Setup cannot continue" "Plasma $SETUP_PLASMA_VERSION found; Plasma 6 is required."; exit 1
 fi
-if [ ! -f ~/.config/kwinrulesrc ]; then
-    cp "$REPO/config/kwin/kwinrulesrc" ~/.config/kwinrulesrc
+if [ -n "$SETUP_PY_MISSING" ]; then
+    ui_message "Missing packages" "The Start menu, notifications and Clippy need:" "   $SETUP_PY_MISSING" "" \
+        "Install them with:" "   $(detect_install_hint)" "" "Those components will be skipped if you continue now."
+fi
+ui_step_done 0
+
+# ---- 2. components ----------------------------------------------------------
+ui_step_start 1
+py_ok=1; [ -n "$SETUP_PY_MISSING" ] && py_ok=0
+if [ -n "$WANTED" ]; then
+    COMPONENTS=$(printf '%s' "$WANTED" | tr ',' ' ')
 else
-    echo "~/.config/kwinrulesrc exists; merge the rule groups from config/kwin/kwinrulesrc by hand (text editor, not kwriteconfig6)" >&2
+    COMPONENTS=$(ui_pick_components \
+        "base:Chicago95 base theme (GTK, icons, cursors, sounds):1" \
+        "look:Window decoration, Plasma style, colours, widget style:1" \
+        "taskbar:Taskbar plasmoids (Start button, grips, tray frame):1" \
+        "startmenu:Start menu and Shut Down dialog:$py_ok" \
+        "notifications:Windows 95 notifications:$py_ok" \
+        "clippy:Office Assistant:$py_ok" \
+        "extras:System Properties, Device Manager, Dial-Up Networking, login chime:$py_ok" \
+        "screensaver:Screensaver (XScreenSaver hacks):$([ -n "$SETUP_HACK_DIR" ] && echo 1 || echo 0)" \
+        "winamp:Winamp (qmmp launch entries and window rule):$SETUP_HAS_QMMP" \
+        "explorer:Explorer (Thunar settings, GTK CSS, Dolphin toolbar):$SETUP_HAS_THUNAR" \
+        "lockscreen:Lock screen:1" \
+        "splash:Splash screen:1" \
+        "firefox:Firefox system colours (user.js):$([ -n "$SETUP_FIREFOX_PROFILE" ] && echo 1 || echo 0)")
 fi
+printf 'Components: %s\n' "$COMPONENTS" >>"$SETUP_LOG"
 
-say "Lock screen override"
-shell_src=/usr/share/plasma/shells/org.kde.plasma.desktop
-shell_dst=~/.local/share/plasma/shells/org.kde.plasma.desktop
-if [ -d "$shell_src" ]; then
-    rm -rf "$shell_dst"
-    mkdir -p "$shell_dst/contents"
-    for entry in "$shell_src"/*; do
-        [ "$(basename "$entry")" = contents ] || ln -s "$entry" "$shell_dst/"
-    done
-    for entry in "$shell_src"/contents/*; do
-        [ "$(basename "$entry")" = lockscreen ] || ln -s "$entry" "$shell_dst/contents/"
-    done
-    cp -r "$REPO/lockscreen/lockscreen" "$shell_dst/contents/lockscreen"
-fi
+# Values that differ between machines. Flags pre-fill them; the screen lets the user edit.
+while IFS='=' read -r name value; do
+    case $name in
+        screen) [[ "$value" =~ ^([0-9]+)x([0-9]+)@([0-9.]+)$ ]] && { SETUP_WIDTH=${BASH_REMATCH[1]}; SETUP_HEIGHT=${BASH_REMATCH[2]}; SETUP_SCALE=${BASH_REMATCH[3]}; };;
+        panel) SETUP_PANEL=$value;;
+        saver) SETUP_SAVER=$value;;
+        idle) SETUP_IDLE_MIN=$value;;
+        explorer) SETUP_EXPLORER=$value;;
+        cursor) SETUP_CURSOR=$value;;
+        clippy) SETUP_CLIPPY_AUTOSTART=$value;;
+        font) SETUP_FONT=$value;;
+    esac
+done < <(ui_pick_options \
+    "screen|Screen size and scale (WxH@scale)|${OPT_SCREEN:-${SETUP_WIDTH}x${SETUP_HEIGHT}@${SETUP_SCALE}}" \
+    "panel|Taskbar height in pixels (Win95 is 28)|${OPT_PANEL:-28}" \
+    "explorer|File manager for Explorer (thunar/dolphin)|${OPT_EXPLORER:-$([ "$SETUP_HAS_THUNAR" = 1 ] && echo thunar || echo dolphin)}" \
+    "saver|Screensaver hack (pipes, maze, flyingtoasters, bsod...)|${OPT_SAVER:-deepstars}" \
+    "idle|Screensaver after (minutes)|${OPT_IDLE:-5}" \
+    "cursor|Cursor size (24/32/48)|${OPT_CURSOR:-$(awk -v s="$SETUP_SCALE" 'BEGIN{print (s>1)?48:32}')}" \
+    "clippy|Office Assistant at login (yes/no)|${OPT_CLIPPY:-yes}" \
+    "font|UI font family|${OPT_FONT:-MS W98 UI}")
+SETUP_DPI=$(awk -v s="$SETUP_SCALE" 'BEGIN{printf "%d", 96*s + 0.5}')
+PANEL_HEIGHT=${SETUP_PANEL:-28}
+printf 'Options: screen=%sx%s@%s panel=%s explorer=%s saver=%s idle=%s cursor=%s clippy=%s font=%s\n' \
+    "$SETUP_WIDTH" "$SETUP_HEIGHT" "$SETUP_SCALE" "$PANEL_HEIGHT" "$SETUP_EXPLORER" "$SETUP_SAVER" "$SETUP_IDLE_MIN" "$SETUP_CURSOR" "$SETUP_CLIPPY_AUTOSTART" "$SETUP_FONT" >>"$SETUP_LOG"
+ui_step_done 1
 
-say "Settings"
-kwriteconfig6 --file kdeglobals --group KDE --key widgetStyle Windows
-kwriteconfig6 --file kdeglobals --group Icons --key Theme Chicago95
-kwriteconfig6 --file kdeglobals --group General --key AccentColor --delete
-kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key library org.kde.kwin.aurorae
-kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme __aurorae__svg__Chicago95
-kwriteconfig6 --file kwinrc --group Plugins --key chicago95notificationsEnabled true
-kwriteconfig6 --file ksplashrc --group KSplash --key Theme chicago95.splashscreen
-plasma-apply-colorscheme Chicago95 >/dev/null
-plasma-apply-desktoptheme Chicago95 >/dev/null
-plasma-apply-cursortheme Chicago95_Animated_Hourglass_Cursors_HiDPI --size 48 >/dev/null 2>&1 || true
+# ---- 3. copy ----------------------------------------------------------------
+ui_step_start 2
+TO_COPY=0; COPIED=0
+for component in $COMPONENTS; do
+    case $component in
+        base) TO_COPY=$((TO_COPY + 1));;
+        look) TO_COPY=$((TO_COPY + $(count_files "$REPO/aurorae/theme" "$REPO/plasma-style/theme") + 6));;
+        taskbar) TO_COPY=$((TO_COPY + $(count_files "$REPO"/plasmoids/org.chicago95.*) + 3));;
+        startmenu) TO_COPY=$((TO_COPY + 5 + $(count_files "$REPO/data/qml") + 4));;
+        notifications) TO_COPY=$((TO_COPY + $(count_files "$REPO/kwin-effects") + 3));;
+        clippy) TO_COPY=$((TO_COPY + $(count_files "$REPO/data/clippy") + 3));;
+        extras) TO_COPY=$((TO_COPY + $(count_files "$REPO/data/sounds") + 5));;
+        screensaver) TO_COPY=$((TO_COPY + 2));;
+        winamp) TO_COPY=$((TO_COPY + 1));;
+        explorer) TO_COPY=$((TO_COPY + 2));;
+        lockscreen) TO_COPY=$((TO_COPY + $(count_files "$REPO/lockscreen")));;
+        splash) TO_COPY=$((TO_COPY + $(count_files "$REPO/splash")));;
+        firefox) TO_COPY=$((TO_COPY + 1));;
+    esac
+done
+[ "$SETUP_DRY_RUN" = 1 ] || { mkdir -p "$STATE_DIR"; : >"$MANIFEST"; }
+for component in $COMPONENTS; do
+    case $component in
+        base|look|taskbar|startmenu|notifications|clippy|extras|screensaver|winamp|explorer|lockscreen|splash|firefox) "step_$component";;
+        *) printf 'unknown component: %s\n' "$component" >>"$SETUP_LOG";;
+    esac
+done
+step_fonts
+ui_step_done 2
 
-say "Services"
-systemctl --user daemon-reload
-systemctl --user enable chicago95-notifyd.service >/dev/null
-rm -rf ~/.cache/plasmashell/qmlcache ~/.cache/ksvg-elements ~/.cache/plasma_theme_Chicago95.kcache
-gdbus call --session --dest org.kde.KWin --object-path /KWin --method org.kde.KWin.reconfigure >/dev/null 2>&1 || true
-systemctl --user stop plasma-plasmashell.service
-systemctl --user restart chicago95-notifyd.service
-systemctl --user start plasma-plasmashell.service
+# ---- 4. finish --------------------------------------------------------------
+ui_step_start 3
+ui_status "Reloading Plasma..."
+finish_session
+ui_step_done 3
 
-say "Done. Build the panel with plasmoids/panel-layout.js, then log out and back in once for the autostart entries and environment.d."
+lines=("Setup has finished installing Chicago95 for Plasma." "")
+[ "$SETUP_DRY_RUN" = 1 ] && lines=("Dry run: nothing was changed. The log lists every action:" "   $SETUP_LOG" "")
+lines+=("Next:" \
+    "  1. Remove the stock panel, then run ~/.local/share/chicago95/panel-layout.js" \
+    "     in the Plasma scripting console to build the taskbar." \
+    "  2. Log out and back in once, for autostart entries and environment.d." \
+    "  3. Plymouth and SDDM need root; see the README for the two commands." "" \
+    "Backups of every file Setup replaced: $BACKUP_DIR" \
+    "To remove everything: ./uninstall.sh")
+ui_message "Setup Complete" "${lines[@]}"
+ui_restore

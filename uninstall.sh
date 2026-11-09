@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Removes what install.sh put in place, using its manifest, and restores the most
+# recent backup of every file it replaced. Settings go back to Breeze defaults.
+set -euo pipefail
+
+STATE_DIR="$HOME/.local/share/chicago95"
+MANIFEST="$STATE_DIR/installed-files.txt"
+[ -f "$MANIFEST" ] || { echo "No install manifest at $MANIFEST; nothing to do."; exit 0; }
+
+latest_backup=$(ls -d "$STATE_DIR"/backup-* 2>/dev/null | sort | tail -1 || true)
+
+remove_kwin_rule() {
+    python3 - "$HOME/.config/kwinrulesrc" "$1" <<'EOF'
+import sys, re, os
+path, group = sys.argv[1:]
+if not os.path.exists(path):
+    sys.exit()
+text = open(path).read()
+text = re.sub(r"^\[%s\]\n(?:(?!\[).*\n?)*" % re.escape(group), "", text, flags=re.M)
+text = re.sub(r"^Order=(.*)$", lambda m: "Order=" + ",".join(n for n in m.group(1).split(",") if n and n != group), text, flags=re.M)
+open(path, "w").write(text)
+EOF
+}
+
+while IFS= read -r entry; do
+    case "$entry" in
+        kconf:*) IFS=: read -r _ file group key <<<"$entry"
+                 case "$key" in
+                     widgetStyle) kwriteconfig6 --file "$file" --group "$group" --key "$key" Breeze;;
+                     library) kwriteconfig6 --file "$file" --group "$group" --key "$key" org.kde.breeze;;
+                     theme|Theme|Engine|forceFontDPI|chicago95notificationsEnabled|AccentColor|BorderSize) kwriteconfig6 --file "$file" --group "$group" --key "$key" --delete;;
+                 esac;;
+        kwinrule:*) remove_kwin_rule "${entry#kwinrule:}";;
+        "$HOME"/*) rm -rf "$entry";;
+    esac
+done <"$MANIFEST"
+
+if [ -n "$latest_backup" ]; then
+    (cd "$latest_backup" && find . -mindepth 1 \( -type f -o -type l \) | while IFS= read -r rel; do
+        mkdir -p "$HOME/$(dirname "$rel")"; cp -a "$rel" "$HOME/$rel"
+    done)
+    echo "Restored backups from $latest_backup"
+fi
+
+plasma-apply-colorscheme BreezeLight >/dev/null 2>&1 || true
+plasma-apply-desktoptheme default >/dev/null 2>&1 || true
+systemctl --user disable --now chicago95-notifyd.service >/dev/null 2>&1 || true
+systemctl --user unset-environment QML_IMPORT_PATH >/dev/null 2>&1 || true
+systemctl --user daemon-reload
+rm -rf ~/.cache/plasmashell/qmlcache ~/.cache/ksvg-elements ~/.cache/plasma_theme_Chicago95.kcache
+gdbus call --session --dest org.kde.KWin --object-path /KWin --method org.kde.KWin.reconfigure >/dev/null 2>&1 || true
+systemctl --user restart plasma-plasmashell.service
+rm -f "$MANIFEST"
+echo "Chicago95 for Plasma removed. The stock panel is not recreated; add one with a right-click on the desktop."
