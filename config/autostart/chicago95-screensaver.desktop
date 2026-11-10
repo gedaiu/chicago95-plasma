@@ -1,6 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Chicago95 screensaver
-Exec=env CHICAGO95_SAVER=deepstars CHICAGO95_SAVER_IDLE=300 @HOME@/.local/bin/chicago95-screensaver
-NoDisplay=true
-Terminal=false
