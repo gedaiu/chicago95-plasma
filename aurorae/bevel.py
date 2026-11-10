@@ -1,4 +1,4 @@
-"""Pixel-exact Win95 bevel frames as plain SVG rects.
+"""Pixel-exact classic bevel frames as plain SVG rects.
 
 QtSvg has no clipPath support, so every nine-slice piece must be drawn
 from scratch instead of clipping a shared drawing.

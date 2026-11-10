@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Shut Down Windows
+Name=Shut Down
 Icon=system-shutdown
 Exec=@HOME@/.local/bin/chicago95-shutdown
 NoDisplay=true

@@ -248,7 +248,7 @@ Item {
         }
 
         Rectangle {
-            id: win95Dialog
+            id: retroDialog
             width: Math.min(parent.width - 40, 520)
             height: 350
             anchors.centerIn: parent

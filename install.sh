@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Chicago95 for Plasma: Setup.
 #
-#   ./install.sh                 interactive, Windows 95 Setup look
+#   ./install.sh                 interactive, Chicago95 Setup look
 #   ./install.sh --yes           every default component, no questions
 #   ./install.sh --components base,look,taskbar,startmenu
 #   ./install.sh --dry-run       show what would change, touch nothing
@@ -158,7 +158,7 @@ else
         "look:Window decoration, Plasma style, colours, widget style:1" \
         "taskbar:Taskbar plasmoids (Start button, grips, tray frame):1" \
         "startmenu:Start menu and Shut Down dialog:$py_ok" \
-        "notifications:Windows 95 notifications:$py_ok" \
+        "notifications:Chicago95 notifications:$py_ok" \
         "clippy:Office Assistant:$py_ok" \
         "extras:System Properties, Device Manager, Dial-Up Networking, login chime:$py_ok" \
         "screensaver:Screensaver (XScreenSaver hacks):$([ -n "$SETUP_HACK_DIR" ] && echo 1 || echo 0)" \
@@ -185,7 +185,7 @@ while IFS='=' read -r name value; do
     esac
 done < <(ui_pick_options \
     "screen|Screen size and scale (WxH@scale)|${OPT_SCREEN:-${SETUP_WIDTH}x${SETUP_HEIGHT}@${SETUP_SCALE}}" \
-    "panel|Taskbar height in pixels (Win95 is 28)|${OPT_PANEL:-28}" \
+    "panel|Taskbar height in pixels (classic is 28)|${OPT_PANEL:-28}" \
     "explorer|File manager for Explorer (thunar/dolphin)|${OPT_EXPLORER:-$([ "$SETUP_HAS_THUNAR" = 1 ] && echo thunar || echo dolphin)}" \
     "idle|Screensaver after (minutes)|${OPT_IDLE:-5}" \
     "cursor|Cursor size (24/32/48)|${OPT_CURSOR:-$(awk -v s="$SETUP_SCALE" 'BEGIN{print (s>1)?48:32}')}" \

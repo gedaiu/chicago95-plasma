@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, sys; sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95")); import win95ui  # noqa: E702
+import os, sys; sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95")); import chicago95ui  # noqa: E702
 
 import platform
 import pwd
@@ -152,7 +152,7 @@ def gather_system_facts():
 
 def plain_label(text, indent=0):
     label = QLabel(text)
-    label.setFont(win95ui.ui_font())
+    label.setFont(chicago95ui.ui_font())
     label.setIndent(indent)
     return label
 
@@ -228,7 +228,7 @@ def build_performance_tab(facts):
     layout.setSpacing(10)
 
     status_box = QGroupBox("Performance status")
-    status_box.setFont(win95ui.ui_font())
+    status_box.setFont(chicago95ui.ui_font())
     status_layout = QVBoxLayout(status_box)
     status_layout.setContentsMargins(10, 8, 10, 10)
     status_layout.addLayout(status_grid([
@@ -243,7 +243,7 @@ def build_performance_tab(facts):
     layout.addWidget(status_box)
 
     advanced_box = QGroupBox("Advanced settings")
-    advanced_box.setFont(win95ui.ui_font())
+    advanced_box.setFont(chicago95ui.ui_font())
     advanced_layout = QHBoxLayout(advanced_box)
     advanced_layout.setContentsMargins(10, 8, 10, 10)
     advanced_layout.setSpacing(6)
@@ -281,7 +281,7 @@ def build_window(facts):
     layout.setSpacing(8)
 
     tabs = QTabWidget()
-    tabs.setFont(win95ui.ui_font())
+    tabs.setFont(chicago95ui.ui_font())
     tabs.addTab(build_general_tab(facts), "General")
     tabs.addTab(build_device_manager_tab(), "Device Manager")
     tabs.addTab(build_performance_tab(facts), "Performance")
@@ -304,7 +304,7 @@ def build_window(facts):
 def main():
     arguments = sys.argv[1:]
     screenshot_path = arguments[arguments.index("--screenshot") + 1] if "--screenshot" in arguments else None
-    app = win95ui.make_app("System Properties")
+    app = chicago95ui.make_app("System Properties")
     window = build_window(gather_system_facts())
     if screenshot_path:
         window.grab().save(screenshot_path)

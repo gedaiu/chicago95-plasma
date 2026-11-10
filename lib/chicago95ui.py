@@ -1,4 +1,4 @@
-"""Shared Windows 95 look for the Chicago95 PySide6 tools.
+"""Shared Chicago95 look for the Chicago95 PySide6 tools.
 
 Import this before any other PySide6 import: it pins the platform to XWayland,
 forces the Windows style and reads the Plasma scale so dialogs render sharp.
@@ -23,7 +23,7 @@ def detect_scale():
 
 
 # Native Wayland by default: Qt rasterises text once at the compositor scale and it stays crisp,
-# while the X11 path softened the Win98 UI font at every setting. A tool that must still run on
+# while the X11 path softened the W98 UI font at every setting. A tool that must still run on
 # X11 sets CHICAGO95_PLATFORM=xcb before importing this module.
 os.environ.setdefault("QT_QPA_PLATFORM", os.environ.get("CHICAGO95_PLATFORM", "wayland"))
 os.environ.setdefault("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1")
@@ -62,7 +62,7 @@ def quit_on_signals(app, *signal_numbers):
     return wakeup
 
 
-def win95_palette():
+def retro_palette():
     palette = QPalette()
     for group in (QPalette.Active, QPalette.Inactive, QPalette.Disabled):
         palette.setColor(group, QPalette.Window, FACE)
@@ -97,7 +97,7 @@ def make_app(app_name):
     app.setDesktopFileName(app_name)
     app.setApplicationName(app_name)
     app.setStyle("Windows")
-    app.setPalette(win95_palette())
+    app.setPalette(retro_palette())
     app.setFont(ui_font())
     QIcon.setThemeSearchPaths(ICON_SEARCH_PATHS + QIcon.themeSearchPaths())
     QIcon.setThemeName("Chicago95")

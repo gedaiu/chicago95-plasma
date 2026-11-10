@@ -1,0 +1,10 @@
+[SddmGreeterTheme]
+Name=Chicago95 for Plasma
+Description=Chicago95 log on dialog with crisp bevels and whole-number scaling
+License=GPLv3
+Type=sddm-theme
+Version=1.0
+MainScript=main.qml
+ConfigFile=theme.conf
+Theme-Id=Chicago95Plasma
+Theme-API=2.0

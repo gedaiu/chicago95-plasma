@@ -1,13 +1,13 @@
 # chicago95-plasma
 
-Windows 95 on KDE Plasma 6, pixel for pixel, on Wayland.
+A classic desktop for KDE Plasma 6, inspired by Windows 95, pixel for pixel, on Wayland.
 
 ![Screenshot](screenshot.png)
 
 This repository holds everything Plasma-specific that sits on top of
 [Chicago95](https://github.com/grassmunk/Chicago95): a generated Aurorae
 window decoration, a generated Plasma style, three taskbar plasmoids, a
-cascading Start menu, a Win95 notification daemon, Clippy, the Shut Down
+cascading Start menu, a classic notification daemon, Clippy, the Shut Down
 dialog, a screensaver runner, and the configuration that ties it together.
 
 The long-form write-up of how and why each piece works is the tutorial that
@@ -24,13 +24,13 @@ Built and tested on Fedora 44, Plasma 6.8.2 (Wayland), 3840x2160 at 1.5x.
 | `plasma-style/` | `make_chicago95_plasmastyle.py` and the generated style under `theme/` |
 | `plasmoids/` | `org.chicago95.start`, `org.chicago95.grip`, `org.chicago95.trayframe` |
 | `bin/` | `chicago95-startmenu`, `chicago95-notifyd`, `chicago95-clippy`, `chicago95-shutdown`, `chicago95-screensaver`, `chicago95-sysprops`, `chicago95-devmgr`, `chicago95-dialup`, `chicago95-deezer` |
-| `lib/` | `win95ui.py`, the shared PySide6 look module |
+| `lib/` | `chicago95ui.py`, the shared PySide6 look module |
 | `data/` | Menu stylesheet for plasmashell, tray arrow, Clippy sprites and sounds, KRunner QML override, fastfetch preset |
 | `config/` | Colour scheme, KWin rules, systemd drop-in and unit, environment.d, autostart entries, Thunar, xsettingsd, GTK CSS, Dolphin toolbar, Firefox `user.js` |
 | `kwin-effects/` | `chicago95notifications`, the slide-in effect |
 | `lockscreen/` | The `contents/lockscreen` override for the Plasma desktop shell |
 | `splash/` | `chicago95.splashscreen` KSplash package |
-| `install.sh`, `setup/` | Windows 95 style Setup: detection, component and option screens, install steps |
+| `install.sh`, `setup/` | Chicago95 Setup: detection, component and option screens, install steps |
 | `uninstall.sh` | Removes what Setup installed and restores backups |
 
 ## Requirements
@@ -62,8 +62,8 @@ cd ~/src/chicago95-plasma
 ./install.sh
 ```
 
-Setup runs as a full-screen text installer in the style of Windows 95
-Setup: it collects information about the computer, lets you pick
+Setup runs as a full-screen text installer in the classic
+style: it collects information about the computer, lets you pick
 components and options, copies files with a progress bar, and reloads
 Plasma.
 
@@ -111,7 +111,7 @@ files and window rules, restores the oldest backup of each file and
 switches Plasma back to Breeze. Window rules are merged into an existing
 `~/.config/kwinrulesrc` as text, so your own rules are kept.
 
-At the end Setup offers to replace your panels with the Windows 95 taskbar
+At the end Setup offers to replace your panels with the Chicago95 taskbar
 (the old layout is backed up) and to log out, which the autostart entries
 need. It does neither without a yes.
 
@@ -127,7 +127,7 @@ image with `plymouth-set-default-theme -R`; uninstall switches back to the
 previous theme.
 
 The "Login screen" component asks for the administrator password on the
-Setup screen, copies the SDDM theme from `~/src/Chicago95/Extras/sddm` and
+Setup screen, installs the Chicago95 log on dialog from `sddm/Chicago95Plasma` (with the UI font, which the greeter cannot read from your home) and
 writes `/etc/sddm.conf.d/zz-chicago95.conf`. SDDM reads that folder in name
 order and the last file wins, so the `zz-` name beats a leftover theme
 setting from another file there. Both are off with `--yes`; ask for them with

@@ -1,7 +1,7 @@
 "use strict";
 
 // Durations are fixed on purpose: the desktop runs with AnimationDurationFactor=0
-// (instant, like Win95), and animationTime() would scale these to nothing too.
+// (instant, like the classic desktop), and animationTime() would scale these to nothing too.
 const SLIDE_IN_MS = 340;
 const SLIDE_OUT_MS = 220;
 const RESTACK_MS = 240;

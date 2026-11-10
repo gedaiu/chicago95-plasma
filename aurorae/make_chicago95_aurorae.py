@@ -152,7 +152,7 @@ PaddingRight=0
     "Id": "Chicago95",
     "License": "GPL-3.0",
     "Name": "Chicago95",
-    "Description": "Windows 95 window decoration",
+    "Description": "Chicago95 window decoration",
     "Version": "1.0"
   }
 }

@@ -53,7 +53,7 @@ PlasmoidItem {
         restyleTray()
     }
 
-    // The clock sits a pixel high against the tray icons; shift it down to the Win95 baseline.
+    // The clock sits a pixel high against the tray icons; shift it down to the classic baseline.
     property bool clockNudged: false
     function nudgeClock() {
         if (clockNudged || !trayItem) return
@@ -120,7 +120,7 @@ PlasmoidItem {
 
     Timer { interval: 1000; running: true; repeat: true; onTriggered: { if (!root.row) root.locate(); if (root.row && !root.trayItem) root.shrinkTray(); else if (root.trayItem) root.restyleTray(); if (root.row) root.restyleTasks() } }
 
-    // Win95 task buttons: 16px icon, vertically centred, bold label on the active window.
+    // classic task buttons: 16px icon, vertically centred, bold label on the active window.
     readonly property int taskIconSize: 16
     readonly property int taskInsetTop: 4
     readonly property int taskInsetBottom: 2

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Windows 95 style cascading Start menu for Plasma.
+"""Chicago95 style cascading Start menu for Plasma.
 
 The first launch stays resident; later launches just signal it (SIGUSR1) to
 toggle the menu, so the menu opens instantly. Runs under XWayland so the popup
@@ -39,7 +39,7 @@ os.environ.setdefault("QT_STYLE_OVERRIDE", "Windows")
 # Scale comes from the X server DPI (Xft.dpi 144); a QT_SCALE_FACTOR here would stack on it.
 os.environ.pop("QT_QPA_PLATFORMTHEME", None)
 sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95"))
-import win95ui  # noqa: E402  after the environment above, so its defaults do not override it
+import chicago95ui  # noqa: E402  after the environment above, so its defaults do not override it
 
 from PySide6.QtCore import QEasingCurve, QEvent, QPoint, QPropertyAnimation, QRect, QSize, Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QAction, QColor, QFont, QFontDatabase, QIcon, QKeyEvent, QPainter, QPalette  # noqa: E402
@@ -49,7 +49,7 @@ RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
 PID_FILE = RUNTIME_DIR / "chicago95-startmenu.pid"
 CACHE_FILE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "chicago95-startmenu.json"
 BANNER_WIDTH = round(21 * UI_SCALE)
-BANNER_TEXT = "Windows95"
+BANNER_TEXT = "Chicago95"
 ITEM_LEFT_PAD = round(6 * UI_SCALE)
 FACE, NAVY, LIGHT, SHADOW = QColor("#C0C0C0"), QColor("#000080"), QColor("#DFDFDF"), QColor("#808080")
 ROOT_ICON, SUB_ICON, ARROW = round(16 * UI_SCALE), round(16 * UI_SCALE), round(7 * UI_SCALE)
@@ -161,35 +161,35 @@ LOG_OFF_COMMAND = [SHUTDOWN_TOOL, "--log-off"]
 SHUT_DOWN_COMMAND = [SHUTDOWN_TOOL]
 
 
-class Win95Style(QProxyStyle):
-    """Windows style with Win95 menu metrics: bigger root icons, roomier rows, small submenu arrows."""
+class RetroMenuStyle(QProxyStyle):
+    """Windows style with classic menu metrics: bigger root icons, roomier rows, small submenu arrows."""
 
     def pixelMetric(self, metric, option=None, widget=None):
-        if metric == QStyle.PM_SmallIconSize and isinstance(widget, Win95Menu):
+        if metric == QStyle.PM_SmallIconSize and isinstance(widget, RetroMenu):
             return ROOT_ICON if widget.banner else SUB_ICON
         if metric == QStyle.PM_MenuPanelWidth:
-            # The root is a plain window on Wayland and paints its own Win95 bevel; submenus keep Qt's panel.
-            return 0 if isinstance(widget, Win95Menu) and widget.banner else round(2 * UI_SCALE)
+            # The root is a plain window on Wayland and paints its own classic bevel; submenus keep Qt's panel.
+            return 0 if isinstance(widget, RetroMenu) and widget.banner else round(2 * UI_SCALE)
         if metric in (QStyle.PM_MenuHMargin, QStyle.PM_MenuVMargin):
             return 0
         return super().pixelMetric(metric, option, widget)
 
     def sizeFromContents(self, kind, option, size, widget=None):
         result = super().sizeFromContents(kind, option, size, widget)
-        if kind == QStyle.CT_MenuItem and isinstance(widget, Win95Menu) and size.height() > 2:
+        if kind == QStyle.CT_MenuItem and isinstance(widget, RetroMenu) and size.height() > 2:
             result.setHeight(result.height() + round((2 if widget.banner else 0) * UI_SCALE))
             result.setWidth(result.width() + round((12 if widget.banner else 16) * UI_SCALE))
         return result
 
     def drawControl(self, element, option, painter, widget=None):
-        if element == QStyle.CE_MenuItem and isinstance(widget, Win95Menu) and option.menuItemType != QStyleOptionMenuItem.MenuItemType.Separator:
+        if element == QStyle.CE_MenuItem and isinstance(widget, RetroMenu) and option.menuItemType != QStyleOptionMenuItem.MenuItemType.Separator:
             if option.state & QStyle.State_Selected and option.state & QStyle.State_Enabled:
                 painter.fillRect(option.rect, option.palette.highlight())
             option.rect = option.rect.adjusted(ITEM_LEFT_PAD, 0, 0, 0)
         super().drawControl(element, option, painter, widget)
 
     def drawPrimitive(self, element, option, painter, widget=None):
-        if element == QStyle.PE_IndicatorArrowRight and isinstance(widget, Win95Menu):
+        if element == QStyle.PE_IndicatorArrowRight and isinstance(widget, RetroMenu):
             centre = option.rect.center()
             option.rect = QRect(centre.x() - ARROW // 2, centre.y() - ARROW // 2, ARROW, ARROW)
         super().drawPrimitive(element, option, painter, widget)
@@ -198,10 +198,10 @@ class Win95Style(QProxyStyle):
 SLIDE_MS = 90
 
 
-class Win95Menu(QMenu):
-    """QMenu with Win95 item inset and, for the root menu, the vertical navy banner.
+class RetroMenu(QMenu):
+    """QMenu with classic item inset and, for the root menu, the vertical navy banner.
 
-    Menus slide in the Windows 98 way by animating the window mask: the root
+    Menus slide in the classic way by animating the window mask: the root
     rises from the taskbar, submenus slide out to the right.
     """
 
@@ -336,7 +336,7 @@ def load_menu_tree():
 
 def fill_folder(menu, node):
     for folder in node["folders"]:
-        submenu = Win95Menu(folder["name"], menu)
+        submenu = RetroMenu(folder["name"], menu)
         submenu.setIcon(themed_icon("folder"))
         fill_folder(submenu, folder)
         menu.addMenu(submenu)
@@ -358,22 +358,22 @@ def fill_documents_menu(documents):
 
 
 def build_root_menu():
-    root = Win95Menu(banner=True)
-    programs = Win95Menu("&Programs", root)
+    root = RetroMenu(banner=True)
+    programs = RetroMenu("&Programs", root)
     programs.setIcon(themed_icon("folder-open"))
     programs.aboutToShow.connect(lambda: fill_programs_menu(programs))
     root.addMenu(programs)
-    documents = Win95Menu("&Documents", root)
+    documents = RetroMenu("&Documents", root)
     documents.setIcon(themed_icon("folder-documents"))
     documents.aboutToShow.connect(lambda: fill_documents_menu(documents))
     root.addMenu(documents)
-    settings = Win95Menu("&Settings", root)
+    settings = RetroMenu("&Settings", root)
     settings.setIcon(themed_icon("preferences-desktop"))
     add_entry(settings, "Control Panel", "preferences-system", lambda: launch(["systemsettings"]))
     add_entry(settings, "Printers", "printer", lambda: launch(["kcmshell6", "kcm_printer_manager"]))
     add_entry(settings, "Display", "preferences-desktop-display", lambda: launch(["kcmshell6", "kcm_kscreen"]))
     root.addMenu(settings)
-    find = Win95Menu("&Find", root)
+    find = RetroMenu("&Find", root)
     find.setIcon(themed_icon("system-search"))
     add_entry(find, "Files or Folders...", "system-search", lambda: launch(["kfind"]))
     add_entry(find, "Computer...", "network-workgroup", lambda: launch(["dolphin", "remote:/"]))
@@ -386,9 +386,9 @@ def build_root_menu():
     return root
 
 
-def apply_win95_look(app):
-    app.setStyle(Win95Style("Windows"))
-    # The KDE platform theme can switch menu icons off session-wide; Win95 menus always show them.
+def apply_retro_look(app):
+    app.setStyle(RetroMenuStyle("Windows"))
+    # The KDE platform theme can switch menu icons off session-wide; classic menus always show them.
     app.setAttribute(Qt.AA_DontShowIconsInMenus, False)
     palette = QPalette()
     for group in (QPalette.Active, QPalette.Inactive, QPalette.Disabled):
@@ -409,7 +409,7 @@ def apply_win95_look(app):
     palette.setColor(QPalette.Disabled, QPalette.WindowText, SHADOW)
     app.setPalette(palette)
     family = "MS W98 UI" if "MS W98 UI" in QFontDatabase.families() else "Noto Sans"
-    # Win95 menus use an 11px face regardless of DPI; a point size would grow with Xft.dpi 144.
+    # classic menus use an 11px face regardless of DPI; a point size would grow with Xft.dpi 144.
     menu_font = QFont(family)
     menu_font.setPixelSize(round(10 * UI_SCALE))
     app.setFont(menu_font)
@@ -494,11 +494,11 @@ def main():
     app.setDesktopFileName("chicago95-startmenu")
     app.setApplicationName("chicago95-startmenu")
     app.setQuitOnLastWindowClosed(False)
-    apply_win95_look(app)
+    apply_retro_look(app)
     PID_FILE.write_text(str(os.getpid()))
     controller = StartMenu(app)
     signal.signal(signal.SIGUSR1, lambda *_: QTimer.singleShot(0, controller.toggle))
-    heartbeat = win95ui.quit_on_signals(app, signal.SIGTERM)  # noqa: F841  kept alive for the event loop
+    heartbeat = chicago95ui.quit_on_signals(app, signal.SIGTERM)  # noqa: F841  kept alive for the event loop
     if "--daemon" not in sys.argv:
         QTimer.singleShot(0, controller.show)
     code = app.exec()

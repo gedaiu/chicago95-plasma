@@ -1,4 +1,4 @@
-// Builds the Windows 95 taskbar. Run once in the Plasma scripting console
+// Builds the Chicago95 taskbar. Run once in the Plasma scripting console
 // (System Settings has no entry for it; use `plasma-interactiveconsole`, or
 // pass this file's text to org.kde.PlasmaShell.evaluateScript over D-Bus).
 // Remove the stock panel first, or this adds a second one.

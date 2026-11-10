@@ -150,7 +150,7 @@ step_taskbar() {
 
 step_tools_common() {   # shared by every PySide6 component; idempotent
     [ "${TOOLS_COMMON_DONE:-0}" = 1 ] && return; TOOLS_COMMON_DONE=1
-    put_file "$REPO/lib/win95ui.py" ~/.local/lib/chicago95/win95ui.py
+    put_file "$REPO/lib/chicago95ui.py" ~/.local/lib/chicago95/chicago95ui.py
     put_file "$REPO/data/plasmashell-menus.qss" ~/.local/share/chicago95/plasmashell-menus.qss
     put_file "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" ~/.config/systemd/user/plasma-plasmashell.service.d/chicago95-menus.conf
     put_tree "$REPO/data/qml" ~/.local/share/chicago95/qml
@@ -276,29 +276,30 @@ step_splash() {
     kconf ksplashrc KSplash Engine KSplashQML
 }
 
-SDDM_THEME_SRC="$HOME/src/Chicago95/Extras/sddm/Chicago95"
-SDDM_THEME_DIR=/usr/share/sddm/themes/Chicago95
+SDDM_THEME_SRC="$REPO/sddm/Chicago95Plasma"
+SDDM_THEME_DIR=/usr/share/sddm/themes/Chicago95Plasma
+# The greeter runs as the sddm user, who cannot read fonts in a home folder, so the UI font goes next to the theme.
+SDDM_FONT="$HOME/.local/share/fonts/MSW98UI-Regular.otf"
 # sddm.conf.d is read in name order and the last file wins, so zz- beats leftovers such as
 # another theme's sddm.conf that would otherwise override Plasma's kde_settings.conf.
 SDDM_OVERRIDE=/etc/sddm.conf.d/zz-chicago95.conf
 
 step_sddm() {       # login screen; system files, so it asks for the administrator password first
-    [ -d "$SDDM_THEME_SRC" ] || [ -d "$SDDM_THEME_DIR" ] || { ui_status "Chicago95 SDDM theme not found in $SDDM_THEME_SRC; skipping login screen"; return; }
-    local commands=()
-    [ -d "$SDDM_THEME_SRC" ] && commands+=("sudo mkdir -p $SDDM_THEME_DIR" "sudo cp -r $SDDM_THEME_SRC/. $SDDM_THEME_DIR/")
-    commands+=("sudo tee $SDDM_OVERRIDE   (writes: [Theme] Current=Chicago95)")
+    local commands=("sudo mkdir -p $SDDM_THEME_DIR" "sudo cp -r $SDDM_THEME_SRC/. $SDDM_THEME_DIR/")
+    [ -f "$SDDM_FONT" ] && commands+=("sudo cp $SDDM_FONT $SDDM_THEME_DIR/")
+    commands+=("sudo tee $SDDM_OVERRIDE   (writes: [Theme] Current=Chicago95Plasma)")
     if ! ui_sudo "To change the login screen, Setup must write to a system folder." "${commands[@]}"; then
         ui_message "Login screen not changed" "No administrator password was accepted, so Setup skipped the login screen." \
             "Everything else is installed. Run ./install.sh --components=sddm to try again."
         return
     fi
-    if [ -d "$SDDM_THEME_SRC" ]; then
-        run sudo mkdir -p "$SDDM_THEME_DIR"; run sudo cp -r "$SDDM_THEME_SRC/." "$SDDM_THEME_DIR/"
-        local file
-        while IFS= read -r file; do show_copy "$file" "$SDDM_THEME_DIR/${file#"$SDDM_THEME_SRC"/}"; done < <(find "$SDDM_THEME_SRC" -type f | sort)
-    fi
-    if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run sudo tee "$SDDM_OVERRIDE"; else printf '[Theme]\nCurrent=Chicago95\n' | sudo tee "$SDDM_OVERRIDE" >/dev/null; fi
+    run sudo mkdir -p "$SDDM_THEME_DIR"; run sudo cp -r "$SDDM_THEME_SRC/." "$SDDM_THEME_DIR/"
+    local file
+    while IFS= read -r file; do show_copy "$file" "$SDDM_THEME_DIR/${file#"$SDDM_THEME_SRC"/}"; done < <(find "$SDDM_THEME_SRC" -type f | sort)
+    if [ -f "$SDDM_FONT" ]; then run sudo cp "$SDDM_FONT" "$SDDM_THEME_DIR/"; show_copy "$SDDM_FONT" "$SDDM_THEME_DIR/$(basename "$SDDM_FONT")"; fi
+    if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run sudo tee "$SDDM_OVERRIDE"; else printf '[Theme]\nCurrent=Chicago95Plasma\n' | sudo tee "$SDDM_OVERRIDE" >/dev/null; fi
     record "root:$SDDM_OVERRIDE"
+    record "root-dir:$SDDM_THEME_DIR"
     show_copy "(Setup)" "$SDDM_OVERRIDE"
 }
 
@@ -323,15 +324,15 @@ step_plymouth() {    # boot screen; system files and a rebuilt boot image, so it
 
 plasma_script() { gdbus call --session --dest org.kde.plasmashell --object-path /PlasmaShell --method org.kde.PlasmaShell.evaluateScript "$1"; }
 
-offer_taskbar() {   # replaces the panels with the Windows 95 taskbar once the user agrees; skipped when it is already there
+offer_taskbar() {   # replaces the panels with the Chicago95 taskbar once the user agrees; skipped when it is already there
     [ "$SETUP_IN_PLASMA" = 1 ] && [ "${SETUP_DRY_RUN:-0}" = 0 ] || return 0
     local attempt
     for attempt in 1 2 3 4 5 6 7 8 9 10; do plasma_script 'print("ready")' >/dev/null 2>&1 && break; sleep 1; done
     if [[ "$(plasma_script 'print(panels().some(panel => panel.widgets().some(widget => widget.type == "org.chicago95.start")))' 2>/dev/null)" == *true* ]]; then
-        ui_status "The Windows 95 taskbar is already in place"; return 0
+        ui_status "The Chicago95 taskbar is already in place"; return 0
     fi
     ui_card "Build the taskbar" \
-        "Setup can replace your Plasma panels with the Windows 95 taskbar: Start button," \
+        "Setup can replace your Plasma panels with the Chicago95 taskbar: Start button," \
         "Quick Launch, task list and tray, $PANEL_HEIGHT pixels high, along the bottom of the screen." "" \
         "Your current panel layout is saved first, and ./uninstall.sh puts it back." "" \
         "Setup will run in Plasma's scripting interface:" \

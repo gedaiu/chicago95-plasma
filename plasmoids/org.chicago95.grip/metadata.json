@@ -3,7 +3,7 @@
   "KPlugin": {
     "Authors": [{"Name": "Bending Unit 22"}],
     "Category": "Windows and Tasks",
-    "Description": "Windows 98 taskbar grip handle",
+    "Description": "Chicago95 taskbar grip handle",
     "Icon": "view-more-symbolic",
     "Id": "org.chicago95.grip",
     "License": "GPL-3.0",

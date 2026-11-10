@@ -9,7 +9,7 @@ from conftest import REPO
 IDLE_APP = textwrap.dedent("""
     import sys
     sys.path.insert(0, {lib!r})
-    import win95ui
+    import chicago95ui
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication
     app = QApplication([])
@@ -34,7 +34,7 @@ def run_idle_app_and_send_sigterm(setup):
 
 
 def test_idle_app_exits_with_code_0_on_sigterm_when_quit_on_signals_is_installed():
-    assert run_idle_app_and_send_sigterm("wakeup = win95ui.quit_on_signals(app)") == 0
+    assert run_idle_app_and_send_sigterm("wakeup = chicago95ui.quit_on_signals(app)") == 0
 
 
 def test_idle_app_ignores_sigterm_with_a_handler_but_no_wakeup_slot():

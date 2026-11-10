@@ -3,7 +3,7 @@
   "KPlugin": {
     "Authors": [{"Name": "Bending Unit 22"}],
     "Category": "Windows and Tasks",
-    "Description": "Draws the Windows 95 sunken notification-area frame behind the widgets to its right",
+    "Description": "Draws the Chicago95 sunken notification-area frame behind the widgets to its right",
     "Icon": "preferences-desktop-notification",
     "Id": "org.chicago95.trayframe",
     "License": "GPL-3.0",

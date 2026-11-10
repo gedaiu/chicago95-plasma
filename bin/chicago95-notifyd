@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Windows 95 notification daemon.
+"""Chicago95 notification daemon.
 
 Owns org.freedesktop.Notifications and draws every desktop notification as a
-small Win95 window in the bottom-right corner, sliding in and out by itself.
+small classic window in the bottom-right corner, sliding in and out by itself.
 Plasma keeps the tray, the history bell and file-transfer progress. If this
 process exits, Plasma notices the name is free and takes it back.
 """
@@ -17,9 +17,9 @@ from html import escape
 from pathlib import Path
 from urllib.parse import unquote
 
-# Scale now comes from the X server DPI; neither this daemon nor win95ui forces QT_SCALE_FACTOR.
+# Scale now comes from the X server DPI; neither this daemon nor chicago95ui forces QT_SCALE_FACTOR.
 sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95"))
-import win95ui  # noqa: E402  must precede the other PySide6 imports
+import chicago95ui  # noqa: E402  must precede the other PySide6 imports
 
 import dbus  # noqa: E402
 import dbus.service  # noqa: E402
@@ -48,9 +48,9 @@ CLOSED_EXPIRED, CLOSED_DISMISSED, CLOSED_BY_CALL = 1, 2, 3
 URGENCY_CRITICAL = 2
 
 WHITE, BLACK = QColor("#FFFFFF"), QColor("#000000")
-WINDOW_RINGS = ((win95ui.LIGHT, BLACK), (WHITE, win95ui.SHADOW))
-RAISED_BUTTON_RINGS = ((WHITE, BLACK), (win95ui.LIGHT, win95ui.SHADOW))
-SUNKEN_BUTTON_RINGS = ((BLACK, WHITE), (win95ui.SHADOW, win95ui.LIGHT))
+WINDOW_RINGS = ((chicago95ui.LIGHT, BLACK), (WHITE, chicago95ui.SHADOW))
+RAISED_BUTTON_RINGS = ((WHITE, BLACK), (chicago95ui.LIGHT, chicago95ui.SHADOW))
+SUNKEN_BUTTON_RINGS = ((BLACK, WHITE), (chicago95ui.SHADOW, chicago95ui.LIGHT))
 CLOSE_GLYPH = ("XX....XX", ".XX..XX.", "..XXXX..", "...XX...", "..XXXX..", ".XX..XX.", "XX....XX")
 MARKUP_TAGS = {"a", "b", "br", "i", "u"}
 
@@ -145,7 +145,7 @@ def display_name(notification):
     if notification.override:
         return notification.override.display_name
     return (notification.hints.get("x-kde-display-appname") or notification.app_name
-            or entry.get("Name") or "Windows")
+            or entry.get("Name") or "Chicago95")
 
 
 def rewritten_summary(notification):
@@ -241,7 +241,7 @@ class CloseButton(QAbstractButton):
         device_pixel_ratio = self.devicePixelRatioF()
         pressed = self.isDown()
         paint_bevel(painter, self.size(), device_pixel_ratio,
-                    SUNKEN_BUTTON_RINGS if pressed else RAISED_BUTTON_RINGS, win95ui.FACE)
+                    SUNKEN_BUTTON_RINGS if pressed else RAISED_BUTTON_RINGS, chicago95ui.FACE)
         painter.scale(1 / device_pixel_ratio, 1 / device_pixel_ratio)
         cell = max(1, round(device_pixel_ratio))
         press_shift = cell if pressed else 0
@@ -260,7 +260,7 @@ class TitleBar(QWidget):
         self.icon_label = QLabel()
         self.icon_label.setFixedSize(16, 16)
         self.title_label = QLabel()
-        self.title_label.setFont(win95ui.ui_font(9, bold=True))
+        self.title_label.setFont(chicago95ui.ui_font(9, bold=True))
         title_palette = self.title_label.palette()
         title_palette.setColor(QPalette.WindowText, WHITE)
         self.title_label.setPalette(title_palette)
@@ -278,7 +278,7 @@ class TitleBar(QWidget):
         self.title_label.setText(self.title_label.fontMetrics().elidedText(title, Qt.ElideRight, available))
 
     def paintEvent(self, _event):
-        QPainter(self).fillRect(self.rect(), win95ui.NAVY)
+        QPainter(self).fillRect(self.rect(), chicago95ui.NAVY)
 
 
 class NotificationPopup(QWidget):
@@ -298,7 +298,7 @@ class NotificationPopup(QWidget):
         self.icon_label = QLabel()
         self.icon_label.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
         self.summary_label = QLabel()
-        self.summary_label.setFont(win95ui.ui_font(9, bold=True))
+        self.summary_label.setFont(chicago95ui.ui_font(9, bold=True))
         self.summary_label.setWordWrap(True)
         self.summary_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.body_label = QLabel()
@@ -403,7 +403,7 @@ class NotificationPopup(QWidget):
             self.dismissed.emit(CLOSED_DISMISSED)
 
     def paintEvent(self, _event):
-        paint_bevel(QPainter(self), self.size(), self.devicePixelRatioF(), WINDOW_RINGS, win95ui.FACE)
+        paint_bevel(QPainter(self), self.size(), self.devicePixelRatioF(), WINDOW_RINGS, chicago95ui.FACE)
 
     def slide_in(self, target):
         self.move(target + QPoint(POPUP_WIDTH + SCREEN_MARGIN, 0))
@@ -575,7 +575,7 @@ def save_samples(path):
     popups = [NotificationPopup(notification) for notification in sample_notifications()]
     height = sum(popup.height() + POPUP_SPACING for popup in popups) + POPUP_SPACING
     canvas = QPixmap(POPUP_WIDTH + 2 * POPUP_SPACING, height)
-    canvas.fill(win95ui.TEAL)
+    canvas.fill(chicago95ui.TEAL)
     painter = QPainter(canvas)
     top = POPUP_SPACING
     for popup in popups:
@@ -589,7 +589,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--screenshot", help="render three sample notifications into a PNG and exit")
     args = parser.parse_args()
-    app = win95ui.make_app("chicago95-notifyd")
+    app = chicago95ui.make_app("chicago95-notifyd")
     app.setQuitOnLastWindowClosed(False)
     if args.screenshot:
         save_samples(args.screenshot)
@@ -603,7 +603,7 @@ def main():
         print(f"{SERVICE_NAME} is already owned; stop Plasma's notification server first", file=sys.stderr)
         return 1
     service = NotificationService(bus, PopupStack())
-    signal_wakeup = win95ui.quit_on_signals(app)  # noqa: F841  kept alive for the event loop
+    signal_wakeup = chicago95ui.quit_on_signals(app)  # noqa: F841  kept alive for the event loop
     exit_code = app.exec()
     del service, bus_name
     return exit_code

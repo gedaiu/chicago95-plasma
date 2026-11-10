@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, sys; sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95")); import win95ui  # noqa: E401,E702
+import os, sys; sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95")); import chicago95ui  # noqa: E401,E702
 
 import argparse
 import glob
@@ -17,7 +17,7 @@ SHUT_DOWN, RESTART, DOS_MODE, LOG_OFF = range(4)
 CHOICE_LABELS = (
     "Shut down the computer?",
     "Restart the computer?",
-    "Restart the computer in MS-DOS mode?",
+    "Restart the computer in DOS mode?",
     "Close all programs and log on as a different user?",
 )
 
@@ -168,7 +168,7 @@ class LogOffDialog(QDialog):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Log Off Windows")
+        self.setWindowTitle("Log Off")
         self.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
         self.setFixedSize(300, 110)
 
@@ -186,7 +186,7 @@ class LogOffDialog(QDialog):
 class ShutDownDialog(QDialog):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Shut Down Windows")
+        self.setWindowTitle("Shut Down")
         self.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
         self.setFixedSize(340, 180)
         self.choice = None
@@ -247,14 +247,14 @@ def grab_widget(widget, path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Windows 95 Shut Down dialog for KDE")
+    parser = argparse.ArgumentParser(description="Chicago95 Shut Down dialog for KDE")
     parser.add_argument("--log-off", action="store_true", help="ask to log off instead of the Shut Down choices")
     parser.add_argument("--dry-run", action="store_true", help="print commands instead of running them")
     parser.add_argument("--screenshot", metavar="PATH", help="save the dialog as PNG and exit")
     parser.add_argument("--screenshot-safe", metavar="PATH", help="save the safe screen at 1280x720 and exit")
     args = parser.parse_args()
 
-    app = win95ui.make_app("chicago95-shutdown")
+    app = chicago95ui.make_app("chicago95-shutdown")
     QIcon.setThemeSearchPaths(list(ICON_DIRS) + QIcon.themeSearchPaths())
 
     if args.screenshot:

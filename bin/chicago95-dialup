@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Windows 95 Dial-Up Networking, except the modem is Tailscale."""
+"""Chicago95 Dial-Up Networking, except the modem is Tailscale."""
 import argparse
 import json
 import os
@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95"))
-import win95ui  # noqa: E402  must precede the other PySide6 imports
+import chicago95ui  # noqa: E402  must precede the other PySide6 imports
 
 from PySide6.QtCore import QProcess, Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QIcon  # noqa: E402
@@ -51,7 +51,7 @@ def play_sound(path):
     return None
 
 
-def win95_button(text, enabled=True, default=False):
+def retro_button(text, enabled=True, default=False):
     button = QPushButton(text)
     button.setFixedSize(*BUTTON_SIZE)
     button.setEnabled(enabled)
@@ -70,7 +70,7 @@ class ConnectToDialog(QDialog):
         icon = QLabel()
         icon.setPixmap(QIcon.fromTheme("modem").pixmap(32, 32))
         title = QLabel(CONNECTION_NAME)
-        title.setFont(win95ui.ui_font(12, bold=True))
+        title.setFont(chicago95ui.ui_font(12, bold=True))
         header.addWidget(icon)
         header.addSpacing(8)
         header.addWidget(title)
@@ -106,8 +106,8 @@ class ConnectToDialog(QDialog):
 
         buttons = QHBoxLayout()
         buttons.addStretch()
-        connect = win95_button("Connect", default=True)
-        cancel = win95_button("Cancel")
+        connect = retro_button("Connect", default=True)
+        cancel = retro_button("Cancel")
         connect.clicked.connect(self.accept)
         cancel.clicked.connect(self.reject)
         buttons.addWidget(connect)
@@ -136,7 +136,7 @@ class DialingDialog(QDialog):
         self.status = QLabel("Status:  " + self.STAGES[0])
         icon = QLabel()
         icon.setPixmap(QIcon.fromTheme("modem").pixmap(32, 32))
-        cancel = win95_button("Cancel")
+        cancel = retro_button("Cancel")
         cancel.clicked.connect(self.reject)
 
         row = QHBoxLayout()
@@ -234,7 +234,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="play the whole show without running tailscale")
     parser.add_argument("--screenshot", help="save the Connect To dialog as PNG and exit")
     args = parser.parse_args()
-    app = win95ui.make_app("Dial-Up Networking")
+    app = chicago95ui.make_app("Dial-Up Networking")
     status = {} if args.screenshot else tailscale_status()
     connect_dialog = ConnectToDialog(status)
     if args.screenshot:

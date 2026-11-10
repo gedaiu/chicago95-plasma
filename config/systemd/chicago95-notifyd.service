@@ -1,5 +1,5 @@
 [Unit]
-Description=Chicago95 Windows 95 notification popups
+Description=Chicago95 notification popups
 PartOf=graphical-session.target
 After=plasma-kwin_wayland.service
 Before=plasma-plasmashell.service

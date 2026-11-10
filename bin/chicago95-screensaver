@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Windows 95 style screensaver for Plasma.
+"""Chicago95 style screensaver for Plasma.
 
 Plasma's power management starts this after the idle time chosen in Setup
 (powerdevilrc, [AC][RunScript] and [Battery][RunScript]); Wayland gives no
@@ -10,7 +10,7 @@ input: any key, click or mouse movement closes both.
     chicago95-screensaver --hack pipes    run one now (also how Setup previews it)
     chicago95-screensaver --list          installed savers, one "name<TAB>label" per line
 """
-import os, sys; sys.path[:0] = [os.path.expanduser("~/.local/lib/chicago95"), os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib")]; import win95ui  # noqa: E401,E702
+import os, sys; sys.path[:0] = [os.path.expanduser("~/.local/lib/chicago95"), os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib")]; import chicago95ui  # noqa: E401,E702
 
 import argparse
 import subprocess
@@ -19,7 +19,7 @@ from pathlib import Path
 from PySide6.QtCore import QPoint, Qt, QTimer
 from PySide6.QtWidgets import QWidget
 
-# The Windows 95 savers and their closest XScreenSaver hack, in the order Setup lists them.
+# The classic savers and their closest XScreenSaver hack, in the order Setup lists them.
 CATALOG = {
     "deepstars": "Starfield Simulation",
     "pipes": "3D Pipes",
@@ -140,7 +140,7 @@ def run_saver(app, hack_path):
     exited = QTimer()
     exited.timeout.connect(lambda: hack.poll() is not None and app.quit())
     exited.start(500)
-    wakeup = win95ui.quit_on_signals(app)  # noqa: F841  kept alive for the event loop
+    wakeup = chicago95ui.quit_on_signals(app)  # noqa: F841  kept alive for the event loop
     code = app.exec()
     hack.terminate()
     return code
@@ -164,7 +164,7 @@ def main():
         return 0
     PID_FILE.write_text(str(os.getpid()))
     try:
-        app = win95ui.make_app("chicago95-screensaver")
+        app = chicago95ui.make_app("chicago95-screensaver")
         return run_saver(app, hack_dir() / args.hack)
     finally:
         PID_FILE.unlink(missing_ok=True)

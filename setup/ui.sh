@@ -3,7 +3,7 @@
 # stdout is not a terminal or --plain is given.
 
 UI_PLAIN=0
-UI_TITLE="Windows 95 Setup"
+UI_TITLE="Chicago95 Setup"
 UI_COLS=80
 UI_ROWS=25
 UI_STEPS=()

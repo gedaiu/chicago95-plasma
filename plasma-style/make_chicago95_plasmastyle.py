@@ -83,7 +83,7 @@ def lineedit_svg():
 
 
 def triangle(direction, x0, y0, size, color):
-    # 7px wide Win95 scrollbar arrow drawn as rows of rects, centred in a size x size button.
+    # 7px wide classic scrollbar arrow drawn as rows of rects, centred in a size x size button.
     rows = [(3, 1), (2, 3), (1, 5), (0, 7)]
     if direction in ("down", "right"):
         rows = rows[::-1]
@@ -137,7 +137,7 @@ def popup_background_svg(with_insets):
 
 
 def line_svg():
-    # Win95 etched separator: 1px shadow over 1px white.
+    # classic etched separator: 1px shadow over 1px white.
     parts = [f'<g id="horizontal-line">{rect(0, 0, 32, 1, SHADOW)}{rect(0, 1, 32, 1, HILIGHT)}</g>',
              f'<g id="vertical-line">{rect(40, 0, 1, 32, SHADOW)}{rect(41, 0, 1, 32, HILIGHT)}</g>']
     return svg(48, 32, "\n".join(parts))
@@ -153,7 +153,7 @@ def heading_svg():
 
 def tooltip_svg():
     # Plasma's QML menus and tooltips draw "widgets/tooltip" (and "solid/widgets/tooltip") with a
-    # "shadow" frame outside it. Win95 menus: 2px raised bevel, margin equal to the bevel, no shadow.
+    # "shadow" frame outside it. classic menus: 2px raised bevel, margin equal to the bevel, no shadow.
     size = 24
     none = [("none", "none"), ("none", "none")]
     parts = [nine_slice("", 0, 0, size, 2, RAISED_2, flat, 2),
@@ -192,7 +192,7 @@ for stale in ("colors~", "metadata.desktop"):
   "KPlugin": {
     "Authors": [{"Name": "Bending Unit 22"}],
     "Category": "Plasma Theme",
-    "Description": "Windows 95 taskbar and widgets, built on React Plus",
+    "Description": "Chicago95 taskbar and widgets, built on React Plus",
     "Id": "Chicago95",
     "License": "GPL-2.0+",
     "Name": "Chicago95",

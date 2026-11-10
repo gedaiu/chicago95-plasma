@@ -62,7 +62,7 @@ def test_log_off_dialog_asks_whether_to_log_off(shutdown, qt_app):
     dialog = shutdown.LogOffDialog()
     texts = [label.text() for label in dialog.findChildren(QLabel) if label.text()]
 
-    assert (dialog.windowTitle(), texts) == ("Log Off Windows", ["Are you sure you want to log off?"])
+    assert (dialog.windowTitle(), texts) == ("Log Off", ["Are you sure you want to log off?"])
 
 
 def test_log_off_dialog_is_accepted_by_yes(shutdown, qt_app):

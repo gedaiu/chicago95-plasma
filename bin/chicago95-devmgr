@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, sys; sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95")); import win95ui  # noqa: E702
+import os, sys; sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95")); import chicago95ui  # noqa: E702
 
 import json
 import re
@@ -437,7 +437,7 @@ class DeviceManagerWindow(QWidget):
         self.status_label = QLabel("Searching for devices...")
         layout.addWidget(self.status_label)
 
-        panel = win95ui.sunken_panel()
+        panel = chicago95ui.sunken_panel()
         panel_layout = QVBoxLayout(panel)
         panel_layout.setContentsMargins(0, 0, 0, 0)
         self.tree = QTreeWidget()
@@ -514,7 +514,7 @@ def main():
     screenshot_path = None
     if "--screenshot" in sys.argv:
         screenshot_path = sys.argv[sys.argv.index("--screenshot") + 1]
-    app = win95ui.make_app("Device Manager")
+    app = chicago95ui.make_app("Device Manager")
     ensure_icon_search_paths()
     window = DeviceManagerWindow()
     window.refresh()
