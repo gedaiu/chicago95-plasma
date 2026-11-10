@@ -6,9 +6,13 @@ Rectangle {
     id: bevel
     property string style: "raised"
     property bool isDefault: false
+    // Face from the colour scheme ("Apply Plasma Settings" in System Settings > Login Screen copies it
+    // to the login screen); light and shadow derive from it as #DFDFDF and #808080 do from #C0C0C0.
+    SystemPalette { id: scheme; colorGroup: SystemPalette.Active }
+    readonly property color face: scheme.window
     readonly property color white: "#ffffff"
-    readonly property color light: "#dfdfdf"
-    readonly property color shadow: "#808080"
+    readonly property color light: Qt.rgba((face.r + 1) / 2, (face.g + 1) / 2, (face.b + 1) / 2, 1)
+    readonly property color shadow: Qt.rgba(face.r * 2 / 3, face.g * 2 / 3, face.b * 2 / 3, 1)
     readonly property color dark: "#000000"
     readonly property bool sunken: style === "sunken" || style === "pressed"
     readonly property int outline: isDefault ? 1 : 0
@@ -16,7 +20,7 @@ Rectangle {
     readonly property color outerTopLeft: style === "pressed" ? dark : sunken ? shadow : white
     readonly property color innerTopLeft: style === "pressed" ? shadow : sunken ? dark : light
 
-    color: style === "sunken" ? "#ffffff" : "#c0c0c0"
+    color: style === "sunken" ? scheme.base : face
     border.width: outline
     border.color: dark
 

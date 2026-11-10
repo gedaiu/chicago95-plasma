@@ -320,7 +320,6 @@ SDDM_OVERRIDE=/etc/sddm.conf.d/zz-chicago95.conf
 step_sddm() {       # login screen; system files, so it asks for the administrator password first
     local commands=("sudo mkdir -p $SDDM_THEME_DIR" "sudo cp -r $SDDM_THEME_SRC/. $SDDM_THEME_DIR/")
     [ -f "$SDDM_FONT" ] && commands+=("sudo cp $SDDM_FONT $SDDM_THEME_DIR/")
-    commands+=("sudo tee $SDDM_THEME_DIR/theme.conf   (writes your title bar colours)")
     commands+=("sudo tee $SDDM_OVERRIDE   (writes: [Theme] Current=Chicago95Plasma)")
     if ! ui_sudo "To change the login screen, Setup must write to a system folder." "${commands[@]}"; then
         ui_message "Login screen not changed" "No administrator password was accepted, so Setup skipped the login screen." \
@@ -331,11 +330,6 @@ step_sddm() {       # login screen; system files, so it asks for the administrat
     local file
     while IFS= read -r file; do show_copy "$file" "$SDDM_THEME_DIR/${file#"$SDDM_THEME_SRC"/}"; done < <(find "$SDDM_THEME_SRC" -type f | sort)
     if [ -f "$SDDM_FONT" ]; then run sudo cp "$SDDM_FONT" "$SDDM_THEME_DIR/"; show_copy "$SDDM_FONT" "$SDDM_THEME_DIR/$(basename "$SDDM_FONT")"; fi
-    # theme.conf itself, not theme.conf.user: Setup owns this theme, and the greeter's test mode ignores .user.
-    local theme_conf
-    theme_conf="$(sed "s/^titleActive=.*/titleActive=${SETUP_TITLE_ACTIVE:-#000080}/" "$SDDM_THEME_SRC/theme.conf")"
-    if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run sudo tee "$SDDM_THEME_DIR/theme.conf"; else printf '%s\n' "$theme_conf" | sudo tee "$SDDM_THEME_DIR/theme.conf" >/dev/null; fi
-    show_copy "(title bars: ${SETUP_TITLE_ACTIVE:-#000080})" "$SDDM_THEME_DIR/theme.conf"
     if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run sudo tee "$SDDM_OVERRIDE"; else printf '[Theme]\nCurrent=Chicago95Plasma\n' | sudo tee "$SDDM_OVERRIDE" >/dev/null; fi
     record "root:$SDDM_OVERRIDE"
     record "root-dir:$SDDM_THEME_DIR"

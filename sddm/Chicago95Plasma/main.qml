@@ -119,8 +119,10 @@ Rectangle {
             x: 3; y: 3
             width: parent.width - 6
             height: 18
-            // Setup writes the user's title colours to theme.conf.user: one colour, or start,end.
-            readonly property var colors: String(config.titleActive || "#000080").split(",")
+            // The colour scheme's selection colour (navy in the classic schemes); theme.conf can pin
+            // a colour, or start,end for a gradient, with titleActive.
+            SystemPalette { id: scheme; colorGroup: SystemPalette.Active }
+            readonly property var colors: config.titleActive ? String(config.titleActive).split(",") : [scheme.highlight]
             gradient: Gradient {
                 orientation: Gradient.Horizontal
                 GradientStop { position: 0; color: titleBar.colors[0] }
