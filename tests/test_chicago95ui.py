@@ -74,3 +74,28 @@ def test_ui_font_asks_for_smoothing_explicitly_off_whole_scales(qt_app, monkeypa
     monkeypatch.setattr(chicago95ui, "detect_scale", lambda: "1.5")
     chicago95ui.screen_scale.cache_clear()
     assert bool(chicago95ui.ui_font().styleStrategy() & QFont.PreferAntialias)
+
+
+def test_classic_dialog_paints_an_inactive_title_while_another_window_is_active(qt_app):
+    """Only the active window's title is in the active colours (COLOR_ACTIVECAPTION); every other window's
+    is in the inactive ones, and repaints when activation changes."""
+    import chicago95ui
+    from PySide6.QtWidgets import QWidget
+    from reference import qimage_to_pil
+    dialog = chicago95ui.ClassicDialog("Title", "1995", (200, 80))
+    other = QWidget()
+    scheme = chicago95ui.read_scheme()
+    title_colour = lambda: qimage_to_pil(dialog.grab().toImage()).getpixel((150, 10))
+
+    dialog.show()
+    dialog.activateWindow()
+    qt_app.processEvents()
+    active = title_colour()
+    other.show()
+    other.activateWindow()
+    qt_app.processEvents()
+    inactive = title_colour()
+    dialog.close()
+    other.close()
+    as_rgb = lambda colour: (colour.red(), colour.green(), colour.blue())
+    assert (active, inactive) == (as_rgb(scheme["title_active"]), as_rgb(scheme["title_inactive"]))

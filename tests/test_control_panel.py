@@ -54,10 +54,13 @@ def test_every_saved_key_maps_to_components_and_every_component_is_one_setup_run
     assert (sorted(control_panel.COMPONENTS_BY_KEY), set(control_panel.INSTALL_ORDER) - set(dispatched)) == (sorted(setup_keys), set())
 
 
-def test_setup_command_runs_install_sh_plain_yes_with_settings_and_components(control_panel, tmp_path):
+def test_setup_command_runs_install_sh_plain_yes_with_settings_and_components_in_its_own_scope(control_panel, tmp_path):
+    """Setup restarts plasmashell; the Control Panel may have been started by it. In its own systemd scope,
+    Setup is not stopped with plasmashell's service halfway through."""
     command = control_panel.setup_command(tmp_path / "repo", tmp_path / "setup.conf", ["look", "sddm"])
 
-    assert command == [f"{tmp_path}/repo/install.sh", "--plain", "--yes", f"--settings={tmp_path}/setup.conf", "--components=look,sddm"]
+    assert command == ["systemd-run", "--user", "--scope", "--quiet", "--collect",
+                       f"{tmp_path}/repo/install.sh", "--plain", "--yes", f"--settings={tmp_path}/setup.conf", "--components=look,sddm"]
 
 
 @pytest.mark.parametrize("text, expected", [("#000080", True), ("#0A246A,#A6CAF0", True), ("navy", False), ("#12345", False), ("#000080,", False), ("", False)])

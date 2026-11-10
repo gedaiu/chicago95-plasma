@@ -236,8 +236,13 @@ def components_for(changed_keys):
     return [component for component in INSTALL_ORDER if component in needed]
 
 
+# Setup restarts plasmashell, and the Control Panel may have been started by it (from the taskbar): in
+# its own systemd scope, Setup isn't stopped along with plasmashell's service halfway through.
+OWN_SCOPE = ["systemd-run", "--user", "--scope", "--quiet", "--collect"]
+
+
 def setup_command(repo, settings_path, components):
-    return [f"{repo}/install.sh", "--plain", "--yes", f"--settings={settings_path}", f"--components={','.join(components)}"]
+    return OWN_SCOPE + [f"{repo}/install.sh", "--plain", "--yes", f"--settings={settings_path}", f"--components={','.join(components)}"]
 
 
 def valid_colors(text):

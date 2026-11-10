@@ -46,8 +46,10 @@ PlasmoidItem {
             onTriggered: runner.connectSource(root.controlPanelCommand)
         }
     ]
-    readonly property string controlPanelCommand: "@HOME@/.local/bin/chicago95-control-panel --page taskbar"
+    readonly property string controlPanelCommand: "systemd-run --user --scope --quiet --collect @HOME@/.local/bin/chicago95-control-panel --page taskbar"
 
+    // Programs start in their own systemd scope: Setup restarts plasmashell, and stopping its service
+    // stops every process started inside it (tests/test_plasmoid_launches.py).
     Plasma5Support.DataSource {
         id: runner
         engine: "executable"

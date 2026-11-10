@@ -481,3 +481,41 @@ def test_clippy_window_rule_keeps_it_above_other_windows_by_default(tmp_path):
     clippy = rules.split("[chicago95-clippy]")[1].split("\n[")[0]
 
     assert ("above=true" in clippy, "aboverule=2" in clippy) == (True, True)
+
+
+def test_finishing_restarts_plasma_with_one_queued_job_after_everything_else(tmp_path):
+    """Setup may run inside plasmashell's own service (from the Control Panel, opened from the taskbar):
+    stopping plasmashell would stop Setup before it starts plasmashell again, leaving no desktop. One
+    restart job, queued last and not waited for, is finished by systemd whatever happens to Setup."""
+    calls = tmp_path / "calls"
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    (stubs / "systemctl").write_text(f'#!/bin/sh\necho "systemctl $*" >> {calls}\n')
+    (stubs / "gdbus").write_text("#!/bin/sh\n")
+    for stub in stubs.iterdir():
+        stub.chmod(0o755)
+    script = (f'REPO={REPO}; source {REPO}/setup/steps.sh; SETUP_LOG={tmp_path}/log; '
+              'SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 finish_session')
+    subprocess.run(["bash", "-c", script], timeout=30, env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(tmp_path)})
+    plasma = [line for line in calls.read_text().splitlines() if "plasmashell" in line]
+
+    assert plasma == ["systemctl --user restart --no-block plasma-plasmashell.service"]
+    assert calls.read_text().splitlines()[-1] == plasma[0]
+
+
+def test_detecting_without_a_display_starts_no_graphical_program_that_would_crash(tmp_path):
+    """plasmashell --version and kscreen-doctor abort without a display (CI, a headless test): each abort
+    is a crash report, which DrKonqi then raises in the user's session. Detection still finds Plasma."""
+    calls = tmp_path / "calls"
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    for program in ("plasmashell", "kscreen-doctor"):
+        (stubs / program).write_text(f'#!/bin/sh\necho "{program} QT_QPA_PLATFORM=$QT_QPA_PLATFORM $*" >> {calls}\necho "{program} 6.8.2"\n')
+        (stubs / program).chmod(0o755)
+    script = f'source {REPO}/setup/detect.sh; detect_plasma; detect_screen; echo "version=$SETUP_PLASMA_VERSION"'
+    output = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=30,
+                            env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(tmp_path)}).stdout
+    started = calls.read_text().splitlines() if calls.exists() else []
+
+    assert "version=6.8.2" in output
+    assert started == ["plasmashell QT_QPA_PLATFORM=offscreen --version"], started

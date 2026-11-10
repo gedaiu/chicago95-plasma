@@ -853,8 +853,9 @@ finish_session() {
     run systemctl --user daemon-reload
     kwin_reconfigure
     if [ "${SETUP_DRY_RUN:-0}" != 1 ] && [ "$SETUP_IN_PLASMA" = 1 ]; then
-        systemctl --user stop plasma-plasmashell.service 2>/dev/null || true
         systemctl --user is-enabled chicago95-notifyd.service >/dev/null 2>&1 && systemctl --user restart chicago95-notifyd.service || true
-        systemctl --user start plasma-plasmashell.service 2>/dev/null || true
+        # Last, and one queued job: Setup may run inside plasmashell's service (started from the Control
+        # Panel, opened from the taskbar), and stopping it stops Setup too; systemd finishes the job anyway.
+        systemctl --user restart --no-block plasma-plasmashell.service 2>/dev/null || true
     fi
 }

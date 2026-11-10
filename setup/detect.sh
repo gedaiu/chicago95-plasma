@@ -17,7 +17,8 @@ detect_distro() {
 }
 
 detect_plasma() {
-    SETUP_PLASMA_VERSION=$(plasmashell --version 2>/dev/null | awk '{print $2}' || true)
+    # Offscreen: without a display plasmashell aborts, and every abort is a crash report raised in the session.
+    SETUP_PLASMA_VERSION=$(QT_QPA_PLATFORM=offscreen plasmashell --version 2>/dev/null | awk '{print $2}' || true)
     SETUP_SESSION=${XDG_SESSION_TYPE:-unknown}
     SETUP_DESKTOP=${XDG_CURRENT_DESKTOP:-unknown}
     SETUP_PLASMA_MAJOR=${SETUP_PLASMA_VERSION%%.*}
@@ -29,7 +30,9 @@ detect_plasma() {
 detect_screen() {
     SETUP_WIDTH=2560; SETUP_HEIGHT=1440; SETUP_SCALE=1; SETUP_SCREEN_SOURCE=default
     local dump geometry scale
-    dump=$(kscreen-doctor -o 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' || true)
+    # kscreen-doctor asks the compositor: without one (no display) it aborts, which is a crash report.
+    dump=""
+    if [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]; then dump=$(kscreen-doctor -o 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' || true); fi
     geometry=$(printf '%s\n' "$dump" | awk '/enabled/{on=1} on && /Geometry:/{print $3; exit}')
     scale=$(printf '%s\n' "$dump" | awk '/enabled/{on=1} on && /Scale:/{print $2; exit}')
     if [[ "$geometry" =~ ^([0-9]+)x([0-9]+)$ ]]; then

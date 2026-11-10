@@ -13,7 +13,7 @@ PlasmoidItem {
     preferredRepresentation: fullRepresentation
     Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground
 
-    readonly property string menuCommand: "@HOME@/.local/bin/chicago95-startmenu"
+    readonly property string menuCommand: "systemd-run --user --scope --quiet --collect @HOME@/.local/bin/chicago95-startmenu"
 
     Plasmoid.contextualActions: [
         PlasmaCore.Action {
@@ -22,7 +22,7 @@ PlasmoidItem {
             onTriggered: runner.connectSource(root.controlPanelCommand)
         }
     ]
-    readonly property string controlPanelCommand: "@HOME@/.local/bin/chicago95-control-panel --page taskbar"
+    readonly property string controlPanelCommand: "systemd-run --user --scope --quiet --collect @HOME@/.local/bin/chicago95-control-panel --page taskbar"
     readonly property string buttonText: Plasmoid.configuration.buttonText
     readonly property string logo: Plasmoid.configuration.logo
     readonly property url logoSource: logo === "flag" ? Qt.resolvedUrl("../images/logo-flag-16.png")
@@ -43,6 +43,8 @@ PlasmoidItem {
     Layout.maximumWidth: button.implicitWidth - panelMarginOverlap
     Layout.fillHeight: true
 
+    // Programs start in their own systemd scope: Setup restarts plasmashell, and stopping its service
+    // stops every process started inside it (tests/test_plasmoid_launches.py).
     Plasma5Support.DataSource {
         id: runner
         engine: "executable"

@@ -261,6 +261,28 @@ class TabStrip(QWidget):
         painter.end()
 
 
+VALUE_MARGIN = 6   # between a value's last letter and the page frame
+ROW_PITCH = 18
+
+
+def wrapped(text, metrics, width):
+    """The lines a value takes in width: broken between words, a word longer than the line broken where it fits."""
+    lines, line = [], ""
+    for word in text.split(" "):
+        candidate = f"{line} {word}" if line else word
+        if metrics.horizontalAdvance(candidate) <= width:
+            line = candidate
+            continue
+        if line:
+            lines.append(line)
+        while metrics.horizontalAdvance(word) > width:
+            cut = max(1, max(index for index in range(1, len(word) + 1) if metrics.horizontalAdvance(word[:index]) <= width or index == 1))
+            lines.append(word[:cut])
+            word = word[cut:]
+        line = word
+    return lines + [line] if line else lines or [""]
+
+
 class GeneralPage(QWidget):
     """The computer picture and the facts, each on the original's row and column."""
 
@@ -279,10 +301,17 @@ class GeneralPage(QWidget):
         painter.drawPixmap(ICON_POSITION[0], ICON_POSITION[1], self.picture)
         painter.setFont(chicago95ui.ui_font())
         painter.setPen(QColor("#000000"))
+        metrics = painter.fontMetrics()
+        shift = 0   # rows a wrapped value pushed the groups below it down by
         for (column, row), (heading, values) in zip(HEADINGS[self.look], self.groups):
+            row += shift
             painter.drawText(column, row + CAP_HEIGHT, heading)
-            for index, value in enumerate(values):
-                painter.drawText(column + VALUE_INDENT + 2, row + CAP_HEIGHT + 18 * (index + 1), value)
+            line = 0
+            for value in values:
+                for text in wrapped(value, metrics, PAGE_RIGHT - VALUE_MARGIN - (column + VALUE_INDENT + 2)):
+                    line += 1
+                    painter.drawText(column + VALUE_INDENT + 2, row + CAP_HEIGHT + ROW_PITCH * line, text)
+            shift += ROW_PITCH * (line - len(values))
         painter.end()
 
 

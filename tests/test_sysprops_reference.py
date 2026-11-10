@@ -275,3 +275,39 @@ def test_2000_apply_button_is_disabled_and_the_others_carry_the_originals_captio
     buttons = {button.text(): button.isEnabled() for button in window.findChildren(QPushButton) if button.text() in ("OK", "Cancel", "Apply")}
     window.close()
     assert buttons == {"OK": True, "Cancel": True, "Apply": False}
+
+
+def test_a_long_value_wraps_onto_the_next_rows_inside_the_page(sysprops, qt_app):
+    """No ink right of the page frame; the long name takes more than one row, the rows below move down."""
+    facts = sysprops.SystemFacts(os_name="Fedora Linux 44 (KDE Plasma Desktop Edition) with a very long name", kernel="6.17.1-300.fc44.x86_64",
+                                 desktop="KDE Plasma 6.8.2", owner="Doctor", hostname="TARDIS", product_key="01902-OEM-0087094-44427",
+                                 cpu_model="AMD Ryzen 9 7950X3D 16-Core Processor with a long description", logical_processors="32 logical processors",
+                                 memory="64.0 GB RAM", display="", resources_free="90% free", filesystem="ext4", virtual_memory="8.0 GB")
+    window = sysprops.build_window(facts, "1998")
+    window.show()
+    qt_app.processEvents()
+    image = qimage_to_pil(window.grab().toImage())
+    window.close()
+    beyond = [(x, y) for x in range(PAGE_RIGHT - 2, image.width - FRAME) for y in range(PAGE_TOP + 2, LOOKS["1998"]["buttons_top"] - 12)
+              if is_dark(image.getpixel((x, y)))]
+    rows = text_rows(image, LOOKS["1998"]["text_from"], PAGE_TOP + 2, LOOKS["1998"]["buttons_top"] - 12)
+    assert beyond == [] and len(rows) > 13, (beyond[:5], len(rows))
+
+
+def test_close_button_sinks_while_held_and_closes_on_release(sysprops, facts, qt_app):
+    from PySide6.QtCore import QPoint
+    from PySide6.QtTest import QTest
+    from PySide6.QtCore import Qt
+    window = sysprops.build_window(facts, "1995")
+    window.show()
+    qt_app.processEvents()
+    face = window.close_rect()
+    corner = (face.left(), face.top())
+    before = qimage_to_pil(window.grab().toImage()).getpixel(corner)
+    QTest.mousePress(window, Qt.LeftButton, Qt.NoModifier, face.center())
+    qt_app.processEvents()
+    held = qimage_to_pil(window.grab().toImage()).getpixel(corner)
+    still_open = window.isVisible()
+    QTest.mouseRelease(window, Qt.LeftButton, Qt.NoModifier, face.center())
+    qt_app.processEvents()
+    assert (is_white(before), is_dark(held), still_open, window.isVisible()) == (True, True, True, False)

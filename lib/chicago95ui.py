@@ -14,6 +14,8 @@ import sys
 
 
 def detect_scale():
+    if not (os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY")):
+        return "1"   # no compositor to ask: kscreen-doctor would abort, and each abort is a crash report
     try:
         child_env = {key: value for key, value in os.environ.items() if key != "QT_QPA_PLATFORM"}
         output = subprocess.run(["kscreen-doctor", "-o"], capture_output=True, text=True, timeout=3, env=child_env).stdout
@@ -38,7 +40,7 @@ if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
     os.environ.setdefault("QT_SCALE_FACTOR", detect_scale())
 os.environ.pop("QT_QPA_PLATFORMTHEME", None)
 
-from PySide6.QtCore import QRect, QRectF, Qt, QTimer  # noqa: E402
+from PySide6.QtCore import QEvent, QRect, QRectF, Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QLinearGradient, QPainter, QPainterPath, QPalette, QPen, QRadialGradient  # noqa: E402
 from PySide6.QtWidgets import QApplication, QDialog, QFrame, QProxyStyle, QPushButton, QStyle, QStyledItemDelegate, QStyleOptionTab, QWidget  # noqa: E402
 
@@ -507,6 +509,7 @@ class ClassicDialog(QDialog):
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.style = style
         self.help_button = help_button
+        self.held = False   # the close button, pressed and the mouse still on it
         width, height = body_size
         self.setFixedSize(width + 2 * body_inset, height + DIALOG_FRAME * 2 + DIALOG_TITLE)
         self.body = QWidget(self)
@@ -538,24 +541,45 @@ class ClassicDialog(QDialog):
             painter.fillRect(w - 1 - depth, depth, 1, h - 2 * depth, bottom_right)
         title, close = self.title_rect(), self.close_rect()
         gradient = QLinearGradient(title.left(), 0, close.left() - 2, 0)
-        gradient.setColorAt(0, scheme["title_active"])
-        gradient.setColorAt(1, scheme["title_active_blend"])
+        state = "active" if self.isActiveWindow() else "inactive"   # only the active window's title is in the active colours
+        gradient.setColorAt(0, scheme[f"title_{state}"])
+        gradient.setColorAt(1, scheme[f"title_{state}_blend"])
         painter.fillRect(title, gradient)
         painter.setFont(ui_font(bold=True))
-        painter.setPen(scheme["title_active_text"])
+        painter.setPen(scheme[f"title_{state}_text"])
         painter.drawText(title.left() + 2, title.top() + 13, self.windowTitle())
         from PySide6.QtSvg import QSvgRenderer
         # Each element covers its button's cell, the face a row down: the close cell is 18 wide with the
         # face at its right, the help cell 16 wide.
-        buttons = [("close.svg", close, 2)] + ([("help.svg", self.help_rect(), 0)] if self.help_button else [])
-        for file, face, lead in buttons:
+        buttons = [("close.svg", close, 2, "pressed" if self.held else state)] + ([("help.svg", self.help_rect(), 0, state)] if self.help_button else [])
+        for file, face, lead, button_state in buttons:
             button = QSvgRenderer(os.path.join(DECORATION, file))
+            element = {"active": "active-center", "inactive": "inactive-center", "pressed": "pressed-center"}[button_state]
             if button.isValid():
-                button.render(painter, "active-center", QRectF(face.left() - lead, face.top() - 1, 16 + lead, 16))
+                button.render(painter, element if button.elementExists(element) else "active-center", QRectF(face.left() - lead, face.top() - 1, 16 + lead, 16))
         painter.end()
 
+    def changeEvent(self, event):
+        if event.type() == QEvent.ActivationChange:
+            self.update()
+        super().changeEvent(event)
+
     def mousePressEvent(self, event):
+        """The close button sinks while held and closes on release over it, as the decoration's do."""
         if self.close_rect().contains(event.position().toPoint()):
-            self.reject()
+            self.held = True
+            self.update()
         elif self.title_rect().contains(event.position().toPoint()) and self.windowHandle():
             self.windowHandle().startSystemMove()
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() & Qt.LeftButton and self.held != self.close_rect().contains(event.position().toPoint()):
+            self.held = not self.held
+            self.update()
+
+    def mouseReleaseEvent(self, event):
+        if self.held:
+            self.held = False
+            self.update()
+            if self.close_rect().contains(event.position().toPoint()):
+                self.reject()
