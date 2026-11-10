@@ -366,6 +366,13 @@ apply_start_button() {  # writes the chosen text and logo into every Start butto
     }))" >>"$SETUP_LOG" 2>&1
 }
 
+restart_start_menu() {  # the menu stays resident; a reinstall must replace the running copy
+    [ "${SETUP_DRY_RUN:-0}" = 0 ] || return 0
+    local pid_file="${XDG_RUNTIME_DIR:-/tmp}/chicago95-startmenu.pid"
+    [ -f "$pid_file" ] && kill -TERM "$(cat "$pid_file")" 2>/dev/null
+    systemctl --user start 'app-chicago95\x2dstartmenu@autostart.service' 2>/dev/null || true
+}
+
 offer_logout() {    # some parts start only with a new session; never logs out without a yes
     [ "$SETUP_IN_PLASMA" = 1 ] && [ "${SETUP_DRY_RUN:-0}" = 0 ] && [ "${SETUP_YES:-0}" = 0 ] || return 0
     ui_card "Log out to finish" \

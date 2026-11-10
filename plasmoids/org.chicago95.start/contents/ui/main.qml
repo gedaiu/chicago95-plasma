@@ -22,7 +22,8 @@ PlasmoidItem {
 
     readonly property int topInset: 2
     readonly property int padding: 4
-    readonly property int logoSize: Math.max(12, height - topInset - 2 * padding - 2)
+    // The logo fills the face inside the 2px bevel with 2px to spare on each side.
+    readonly property int logoSize: Math.max(12, height - topInset - 8)
 
     Layout.minimumWidth: content.implicitWidth + 2 * padding + 6
     Layout.preferredWidth: Layout.minimumWidth
@@ -77,6 +78,7 @@ PlasmoidItem {
                 sourceSize.height: root.logoSize * 2
                 fillMode: Image.PreserveAspectFit
                 smooth: true
+                cache: false  // the logo file can be replaced by the user; always read the current one
             }
             Text {
                 visible: root.buttonText !== ""
@@ -85,6 +87,8 @@ PlasmoidItem {
                 font.bold: true
                 font.pixelSize: 11
                 color: "#000000"
+                // Plasma draws text natively, with RGB subpixel fringes; the pixel font wants plain grey edges.
+                renderType: Text.QtRendering
             }
         }
     }

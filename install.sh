@@ -70,42 +70,42 @@ if [ -s "$MANIFEST" ] && [ "$SETUP_DRY_RUN" = 0 ]; then
     esac
 fi
 
-# ui_pick_text <prompt> <default> <choice>...   a number picks a choice, anything else is taken as typed
-ui_pick_text() {
-    local prompt="$1" default="$2" answer; shift 2
-    local choices=("$@")
-    answer=$(ui_ask "$prompt" "$default")
-    if [[ "$answer" =~ ^[0-9]+$ ]] && [ "$answer" -ge 1 ] && [ "$answer" -le ${#choices[@]} ]; then
-        printf '%s' "${choices[$((answer - 1))]}"
-    else
-        printf '%s' "$answer"
-    fi
-}
-
+# Three short screens, one question each; the last option of each lets the user type their own.
 choose_start_menu() {
-    local logo
-    ui_card "Start button and menu" \
-        "Choose what the Start button and the Start menu's side banner show." \
-        "Type a number for one of the suggestions, or type your own." "" \
-        "  Button text:  1. Start    2. Linux    or your own text" \
-        "  Button logo:  1. Classic flag    2. Penguin    3. Your own image (Setup asks for the file)" \
-        "  Banner text:  1. Chicago95    2. Linux    or your own text" "" \
-        "Press ENTER to keep the current choice. The logo you pick is copied to" \
-        "   $START_LOGO_FILE" \
-        "Replace that file and log out to change the logo later; right-click the Start" \
-        "button and choose Configure to change its text."
-    [ -n "${OPT_START_TEXT:-}" ] || SETUP_START_TEXT=$(ui_pick_text "Button text" "$SETUP_START_TEXT" Start Linux)
-    if [ -z "${OPT_START_LOGO:-}" ]; then
-        logo=$(ui_pick_text "Button logo" "$SETUP_START_LOGO" flag penguin custom)
-        case "$logo" in [Cc]lassic*|[Ff]lag) logo=flag;; [Pp]enguin) logo=penguin;; [Cc]ustom) logo="";; esac
-        while [ "$logo" != flag ] && [ "$logo" != penguin ] && [ ! -f "${logo/#\~/$HOME}" ]; do
-            [ -n "$logo" ] && ui_status "No image at $logo"
-            logo=$(ui_ask "Image file for the logo (PNG or SVG, full path; 1 = Classic flag)" "")
-            [ "$logo" = 1 ] && logo=flag
-        done
-        SETUP_START_LOGO=${logo/#\~/$HOME}
+    local choice logo
+    if [ -z "${OPT_START_TEXT:-}" ]; then
+        case "$SETUP_START_TEXT" in Start) choice=1;; Linux) choice=2;; *) choice=3;; esac
+        choice=$(ui_choose "Start button text" "What should the Start button say?" "$choice" "Start" "Linux" "Your own text")
+        case "$choice" in
+            1) SETUP_START_TEXT=Start;;
+            2) SETUP_START_TEXT=Linux;;
+            3) SETUP_START_TEXT=$(ui_ask "Button text" "$SETUP_START_TEXT");;
+        esac
     fi
-    [ -n "${OPT_BANNER_TEXT:-}" ] || SETUP_BANNER_TEXT=$(ui_pick_text "Banner text" "$SETUP_BANNER_TEXT" Chicago95 Linux)
+    if [ -z "${OPT_START_LOGO:-}" ]; then
+        case "$SETUP_START_LOGO" in flag) choice=1;; penguin) choice=2;; *) choice=3;; esac
+        choice=$(ui_choose "Start button logo" "Which logo should the Start button show?\nIt is copied to $START_LOGO_FILE;\nreplace that file and log out to change the logo later." \
+            "$choice" "Classic flag" "Penguin" "Your own image (PNG or SVG)")
+        case "$choice" in
+            1) SETUP_START_LOGO=flag;;
+            2) SETUP_START_LOGO=penguin;;
+            3) logo=""
+               until [ -f "$logo" ]; do
+                   logo=$(ui_ask "Full path of the image file" "")
+                   logo=${logo/#\~/$HOME}
+               done
+               SETUP_START_LOGO=$logo;;
+        esac
+    fi
+    if [ -z "${OPT_BANNER_TEXT:-}" ]; then
+        case "$SETUP_BANNER_TEXT" in Chicago95) choice=1;; Linux) choice=2;; *) choice=3;; esac
+        choice=$(ui_choose "Start menu banner" "What should the blue strip along the Start menu say?" "$choice" "Chicago95" "Linux" "Your own text")
+        case "$choice" in
+            1) SETUP_BANNER_TEXT=Chicago95;;
+            2) SETUP_BANNER_TEXT=Linux;;
+            3) SETUP_BANNER_TEXT=$(ui_ask "Banner text" "$SETUP_BANNER_TEXT");;
+        esac
+    fi
     return 0
 }
 
@@ -291,6 +291,7 @@ ui_step_start 3
 finish_session
 [[ " $COMPONENTS " == *" taskbar "* ]] && offer_taskbar
 apply_start_button
+[[ " $COMPONENTS " == *" startmenu "* ]] && restart_start_menu
 ui_step_done 3
 
 lines=("Setup has finished installing Chicago95 for Plasma." "")

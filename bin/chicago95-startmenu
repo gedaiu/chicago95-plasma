@@ -231,6 +231,7 @@ class RetroMenu(QMenu):
     def showEvent(self, event):
         super().showEvent(event)
         if self.banner:
+            self.banner_text = banner_text()  # read on every open, so a new choice in Setup shows without a restart
             return  # Wayland top-levels cannot be moved by the client; KWin places the root menu.
         final = self.pos()
         offset = QPoint(0, self.height()) if self.banner else QPoint(-self.width(), 0)

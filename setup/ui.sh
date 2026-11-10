@@ -31,7 +31,7 @@ ui_restore() {
 }
 
 ui_field() {        # paint the blue field and the title band
-    UI_ON_STEPS=0
+    UI_ON_STEPS=0; UI_CARD_END=""
     printf '\e[44m\e[97m'; tput clear
     tput cup 0 0; printf '\e[47m\e[34m%-*s\e[44m\e[97m' "$UI_COLS" "  $UI_TITLE"
     # One cell short, then erase-to-end in the same colour: writing the last cell of the last row
@@ -156,6 +156,23 @@ ui_intro() {        # title screen before anything is checked or changed
     ui_next
 }
 
+# ui_choose <title> <intro, \n between lines> <current index> <option>...   numbered list, current one marked;
+# prints the 1-based index of the chosen option
+ui_choose() {
+    local title="$1" intro="$2" current="$3" answer index; shift 3
+    local options=("$@") lines=()
+    mapfile -t lines < <(printf '%b\n' "$intro"); lines+=("")
+    for index in "${!options[@]}"; do
+        lines+=("$(printf '  %d. [%s] %s' $((index + 1)) "$([ $((index + 1)) = "$current" ] && echo X || echo ' ')" "${options[$index]}")")
+    done
+    # Called as $(ui_choose ...): the screen goes to the terminal, only the answer to the caller.
+    while :; do
+        ui_card "$title" "${lines[@]}" >/dev/tty
+        answer=$(ui_ask "Type a number and press ENTER" "$current")
+        [[ "$answer" =~ ^[0-9]+$ ]] && [ "$answer" -ge 1 ] && [ "$answer" -le ${#options[@]} ] && { printf '%s' "$answer"; return; }
+    done
+}
+
 # ui_sudo <why> <command>...  -> 0 once administrator rights are granted, 1 when skipped or refused.
 # Asks in plain words, on the Setup screen, and shows exactly what will run as administrator.
 ui_sudo() {
@@ -194,9 +211,13 @@ ui_confirm() {      # ui_confirm <question>  -> 0 yes / 1 no ; honours SETUP_YES
     [ "${SETUP_YES:-0}" = 1 ] && return 0
     local answer
     if [ "$UI_PLAIN" = 1 ]; then printf '%s [Y/n] ' "$1"; read -r answer </dev/tty; else
-        tput cup $((UI_ROWS - 4)) 6; printf '%-*s' $((UI_COLS - 12)) ''; tput cup $((UI_ROWS - 4)) 6; printf '%s [Y/n] ' "$1"; tput cnorm; read -r answer </dev/tty; tput civis
+        local row; row=$(ui_prompt_row); tput cup "$row" 6; printf '%-*s' $((UI_COLS - 12)) ''; tput cup "$row" 6; printf '%s [Y/n] ' "$1"; tput cnorm; read -r answer </dev/tty; tput civis
     fi
     case "${answer:-y}" in [Yy]*) return 0;; *) return 1;; esac
+}
+
+ui_prompt_row() {   # questions sit right under the card they belong to, not at the bottom of a tall terminal
+    if [ -n "${UI_CARD_END:-}" ] && [ $((UI_CARD_END + 1)) -lt $((UI_ROWS - 4)) ]; then echo $((UI_CARD_END + 1)); else echo $((UI_ROWS - 4)); fi
 }
 
 ui_ask() {          # ui_ask <prompt> <default>  prints the answer; honours SETUP_YES
@@ -204,7 +225,7 @@ ui_ask() {          # ui_ask <prompt> <default>  prints the answer; honours SETU
     [ "${SETUP_YES:-0}" = 1 ] && { printf '%s' "$2"; return; }
     exec 4>&1 1>/dev/tty
     if [ "$UI_PLAIN" = 1 ]; then printf '%s [%s]: ' "$1" "$2" >/dev/tty; else
-        tput cup $((UI_ROWS - 4)) 6; printf '%-*s' $((UI_COLS - 12)) ''; tput cup $((UI_ROWS - 4)) 6; printf '%s [%s]: ' "$1" "$2"; tput cnorm
+        local row; row=$(ui_prompt_row); tput cup "$row" 6; printf '%-*s' $((UI_COLS - 12)) ''; tput cup "$row" 6; printf '%s [%s]: ' "$1" "$2"; tput cnorm
     fi
     read -r answer </dev/tty; [ "$UI_PLAIN" = 1 ] || tput civis
     printf '%s' "${answer:-$2}" >&4
