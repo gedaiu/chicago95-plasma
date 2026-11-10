@@ -41,3 +41,17 @@ def test_idle_app_ignores_sigterm_with_a_handler_but_no_wakeup_slot():
     setup = "import signal; signal.signal(signal.SIGTERM, lambda *_: app.quit()); idle = QTimer(); idle.start(250)"
 
     assert run_idle_app_and_send_sigterm(setup) == "still running 3 s after SIGTERM"
+
+
+import pytest
+
+
+@pytest.mark.parametrize("scale, sharp", [(1.0, True), (2.0, True), (1.5, False), (1.25, False)])
+def test_ui_font_is_drawn_unsmoothed_only_at_whole_scales(qt_app, monkeypatch, scale, sharp):
+    """The pixel font's 11px grid lands on whole screen pixels at 1x and 2x only; at 1.5x it is left to
+    fontconfig's smoothing (config/fontconfig/60-chicago95-pixel-font.conf)."""
+    import chicago95ui
+    from PySide6.QtGui import QFont
+    monkeypatch.setattr(chicago95ui, "screen_scale", lambda: scale)
+    font = chicago95ui.ui_font()
+    assert (font.pixelSize(), bool(font.styleStrategy() & QFont.NoAntialias)) == (11, sharp)

@@ -251,15 +251,23 @@ def draw_heavy_text(painter, x, baseline, font, text, colour, embolden, smooth=T
     painter.restore()
 
 
+def screen_scale():
+    """The screen's device pixel ratio: 1.5 on a 1.5x screen."""
+    screen = QApplication.primaryScreen() if QApplication.instance() else None
+    return screen.devicePixelRatio() if screen else 1.0
+
+
 def ui_font(pixel_size=11, bold=False):
     """The UI font at the originals' size: MS Sans Serif 8 points, 11px. The pixel font is drawn on an
-    11px grid; at any other size its letters land on fractional pixels and space unevenly."""
+    11px grid; at any other size its letters land on fractional pixels and space unevenly. On a whole
+    scale (1x, 2x) the grid lands on screen pixels and it is drawn unsmoothed, with hard edges; on 1.5x
+    it is left to fontconfig, which smooths it (config/fontconfig/60-chicago95-pixel-font.conf)."""
     family = UI_FONT_FAMILY if UI_FONT_FAMILY in QFontDatabase.families() else "Noto Sans"
     font = QFont(family)
     font.setPixelSize(pixel_size)
     font.setBold(bold)
-    if family == UI_FONT_FAMILY:
-        font.setStyleStrategy(QFont.NoAntialias)  # a pixel font: hard edges, no coloured subpixel fringes
+    if family == UI_FONT_FAMILY and float(screen_scale()).is_integer():
+        font.setStyleStrategy(QFont.NoAntialias)
     return font
 
 
