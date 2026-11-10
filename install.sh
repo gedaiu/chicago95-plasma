@@ -11,6 +11,7 @@
 #     --idle=5  --cursor=48  --clippy=yes|no  --font="MS W98 UI"  --font-scope=everywhere|desktop|none
 #     --start-text=Start  --start-logo=flag|penguin|/path/to/image  --banner-text=Chicago95
 #     --look=1995|1998|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
+#     --login-style=classic|2000
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,6 +38,7 @@ for arg in "$@"; do
         --start-logo=*) OPT_START_LOGO="${arg#*=}";;
         --banner-text=*) OPT_BANNER_TEXT="${arg#*=}";;
         --look=*) OPT_LOOK="${arg#*=}";;
+        --login-style=*) OPT_LOGIN_STYLE="${arg#*=}";;
         --help|-h) sed -n '2,12p' "$0"; exit 0;;
         *) [ -z "$WANTED" ] && [[ "$arg" != --* ]] && WANTED="$arg";;
     esac
@@ -86,7 +88,7 @@ choose_start_menu() {
     fi
     if [ -z "${OPT_START_LOGO:-}" ]; then
         case "$SETUP_START_LOGO" in flag) choice=1;; penguin) choice=2;; *) choice=3;; esac
-        choice=$(ui_choose "Start button logo" "Which logo should the Start button show?\nIt is copied to $START_LOGO_FILE;\nreplace that file and log out to change the logo later." \
+        choice=$(ui_choose "Start button logo" "Which logo should the Start button show?\nIt is copied to ~/.local/share/chicago95/start-logo (keeping its extension);\nreplace that file and log out to change the logo later." \
             "$choice" "Classic flag" "Penguin" "Your own image (PNG or SVG)")
         case "$choice" in
             1) SETUP_START_LOGO=flag;;
@@ -144,6 +146,41 @@ choose_look() {
            SETUP_BANNER_FG=$(ask_colors "Start menu banner text" "$SETUP_BANNER_FG");;
     esac
     return 0
+}
+
+# "P1"/"P2" open the real login screen in test mode with that style; close it with Alt+F4.
+choose_login_style() {
+    local styles=(classic 2000) answer index greeter
+    greeter=$(command -v sddm-greeter-qt6 || command -v sddm-greeter || true)
+    while :; do
+        local lines=("How should the login and loading screens look?" "")
+        for index in "${!styles[@]}"; do
+            lines+=("$(printf '  %d. [%s] %s' $((index + 1)) "$([ "${styles[$index]}" = "$SETUP_LOGIN_STYLE" ] && echo X || echo ' ')" \
+                "$([ "${styles[$index]}" = classic ] && echo "Classic (1995/1998): key dialog on teal, picture while loading" || echo "2000: your logo and banner text on white, progress bar while loading")")")
+        done
+        lines+=("")
+        [ -n "$greeter" ] && lines+=("Type P and a number (P2) to preview it full screen; close the preview with Alt+F4.")
+        lines+=("Type a number to choose it, or press ENTER to keep the marked one.")
+        ui_card "Login and loading screens" "${lines[@]}"
+        answer=$(ui_ask "Choice" "")
+        case "$answer" in
+            "") break;;
+            [Pp][12]) [ -n "$greeter" ] && preview_login "$greeter" "${styles[$((${answer#?} - 1))]}";;
+            [12]) SETUP_LOGIN_STYLE=${styles[$((answer - 1))]};;
+        esac
+    done
+    return 0
+}
+
+preview_login() {   # preview_login <greeter> <style>   the theme from the repo, styled as Setup would install it
+    local preview
+    preview=$(mktemp -d)
+    cp -r "$SDDM_THEME_SRC/." "$preview/"
+    [ -f "$SDDM_FONT" ] && cp "$SDDM_FONT" "$preview/"
+    cp "$(start_logo_source)" "$preview/brand-logo.$(start_logo_source | sed 's/.*\.//')"
+    SETUP_LOGIN_STYLE=$2 sddm_theme_conf >"$preview/theme.conf"
+    ui_shell "$1" --test-mode --theme "$preview" 2>/dev/null
+    rm -rf "$preview"
 }
 
 choose_font_scope() {
@@ -295,6 +332,8 @@ SETUP_START_TEXT=${OPT_START_TEXT:-Start}
 SETUP_START_LOGO=${OPT_START_LOGO:-flag}
 SETUP_BANNER_TEXT=${OPT_BANNER_TEXT:-Chicago95}
 [[ " $COMPONENTS " == *" startmenu "* || " $COMPONENTS " == *" taskbar "* ]] && choose_start_menu
+SETUP_LOGIN_STYLE=${OPT_LOGIN_STYLE:-classic}
+[[ " $COMPONENTS " == *" sddm "* || " $COMPONENTS " == *" splash "* ]] && [ -z "${OPT_LOGIN_STYLE:-}" ] && choose_login_style
 SETUP_SAVER=${OPT_SAVER:-deepstars}
 [[ " $COMPONENTS " == *" screensaver "* ]] && [ "$py_ok" = 1 ] && choose_screensaver
 SETUP_DPI=$(awk -v s="$SETUP_SCALE" 'BEGIN{printf "%d", 96*s + 0.5}')
@@ -338,7 +377,7 @@ lines=("Setup has finished installing Chicago95 for Plasma." "")
 [ "$SETUP_DRY_RUN" = 1 ] || lines+=("Every file Setup copied is listed in the log: $SETUP_LOG" \
     "Your original files are saved in ~/.local/share/chicago95/backup-*" \
     "To remove everything and put them back: ./uninstall.sh")
-[[ " $COMPONENTS " == *" startmenu "* ]] && lines+=("Start button logo: $START_LOGO_FILE (replace it and log out to change it)")
+[[ " $COMPONENTS " == *" startmenu "* ]] && lines+=("Start button logo: $(start_logo_file) (replace it and log out to change it)")
 ui_message "Setup Complete" "${lines[@]}"
 offer_logout
 ui_restore

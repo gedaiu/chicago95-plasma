@@ -192,12 +192,9 @@ step_startmenu() {
         "placement=Zero" "placementrule=2" "above=true" "aboverule=2" "skiptaskbar=true" "skiptaskbarrule=2" \
         "skippager=true" "skippagerrule=2" "skipswitcher=true" "skipswitcherrule=2" "noborder=true" "noborderrule=2" "types=1"
     # Whatever logo was picked lands in one known file, so it can be swapped later without Setup.
-    local logo_source="${SETUP_START_LOGO:-flag}"
-    case "$logo_source" in
-        flag|penguin) logo_source="$REPO/plasmoids/org.chicago95.start/contents/images/logo-$logo_source.png";;
-    esac
-    put_file "$logo_source" "$START_LOGO_FILE"
-    SETUP_START_LOGO=$START_LOGO_FILE
+    local logo_file; logo_file=$(start_logo_file)
+    put_file "$(start_logo_source)" "$logo_file"
+    SETUP_START_LOGO=$logo_file
     run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerText "${SETUP_BANNER_TEXT:-Chicago95}"
     run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerBackground "${SETUP_BANNER_BG:-#808080}"
     run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerTextColor "${SETUP_BANNER_FG:-#C0C0C0}"
@@ -303,8 +300,14 @@ step_lockscreen() {
     put_tree "$REPO/lockscreen/lockscreen" "$dst/contents/lockscreen"; record "$dst"
 }
 
-step_splash() {
+step_splash() {     # the loading screen follows the login style, with the Start logo and banner text
+    local splash=~/.local/share/plasma/look-and-feel/chicago95.splashscreen/contents/splash/Splash.qml logo
     put_tree "$REPO/splash/chicago95.splashscreen" ~/.local/share/plasma/look-and-feel/chicago95.splashscreen
+    logo=$(start_logo_file); [ -f "$logo" ] || logo=$(start_logo_source)
+    run sed -i -e "s|splashStyle: \"classic\"|splashStyle: \"${SETUP_LOGIN_STYLE:-classic}\"|" \
+        -e "s|brandText: \"Chicago95\"|brandText: \"${SETUP_BANNER_TEXT:-Chicago95}\"|" \
+        -e "s|brandLogo: \"\"|brandLogo: \"$logo\"|" "$splash"
+    show_copy "(loading screen: ${SETUP_LOGIN_STYLE:-classic}, ${SETUP_BANNER_TEXT:-Chicago95})" "$splash"
     kconf ksplashrc KSplash Theme chicago95.splashscreen
     kconf ksplashrc KSplash Engine KSplashQML
 }
@@ -317,9 +320,31 @@ SDDM_FONT="$HOME/.local/share/fonts/MSW98UI-Regular.otf"
 # another theme's sddm.conf that would otherwise override Plasma's kde_settings.conf.
 SDDM_OVERRIDE=/etc/sddm.conf.d/zz-chicago95.conf
 
+start_logo_source() {  # the image behind the Start logo choice: a bundled logo name, or the user's file
+    case "${SETUP_START_LOGO:-flag}" in
+        flag) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-flag.png";;
+        penguin) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-penguin.svg";;
+        *) printf '%s' "$SETUP_START_LOGO";;
+    esac
+}
+
+# The copy keeps the source's extension, so the image loader never has to guess PNG from SVG.
+start_logo_file() { local source; source=$(start_logo_source); printf '%s' "$HOME/.local/share/chicago95/start-logo.${source##*.}"; }
+
+sddm_theme_conf() {  # the theme's settings for the chosen login style; 2000 shows the Start logo and banner text
+    sed -e "s/^loginStyle=.*/loginStyle=${SETUP_LOGIN_STYLE:-classic}/" \
+        -e "s/^brandLogo=.*/brandLogo=brand-logo.$(start_logo_source | sed 's/.*\.//')/" \
+        -e "s/^brandText=.*/brandText=${SETUP_BANNER_TEXT:-Chicago95}/" \
+        -e "s/^titleActive=.*/titleActive=$([ "${SETUP_LOGIN_STYLE:-classic}" = 2000 ] && echo '#0A246A,#A6CAF0')/" \
+        "$SDDM_THEME_SRC/theme.conf"
+}
+
 step_sddm() {       # login screen; system files, so it asks for the administrator password first
     local commands=("sudo mkdir -p $SDDM_THEME_DIR" "sudo cp -r $SDDM_THEME_SRC/. $SDDM_THEME_DIR/")
     [ -f "$SDDM_FONT" ] && commands+=("sudo cp $SDDM_FONT $SDDM_THEME_DIR/")
+    local brand_logo; brand_logo="$SDDM_THEME_DIR/brand-logo.$(start_logo_source | sed 's/.*\.//')"
+    commands+=("sudo cp $(start_logo_source) $brand_logo")
+    commands+=("sudo tee $SDDM_THEME_DIR/theme.conf   (writes: login style ${SETUP_LOGIN_STYLE:-classic})")
     commands+=("sudo tee $SDDM_OVERRIDE   (writes: [Theme] Current=Chicago95Plasma)")
     if ! ui_sudo "To change the login screen, Setup must write to a system folder." "${commands[@]}"; then
         ui_message "Login screen not changed" "No administrator password was accepted, so Setup skipped the login screen." \
@@ -330,6 +355,10 @@ step_sddm() {       # login screen; system files, so it asks for the administrat
     local file
     while IFS= read -r file; do show_copy "$file" "$SDDM_THEME_DIR/${file#"$SDDM_THEME_SRC"/}"; done < <(find "$SDDM_THEME_SRC" -type f | sort)
     if [ -f "$SDDM_FONT" ]; then run sudo cp "$SDDM_FONT" "$SDDM_THEME_DIR/"; show_copy "$SDDM_FONT" "$SDDM_THEME_DIR/$(basename "$SDDM_FONT")"; fi
+    run sudo cp "$(start_logo_source)" "$brand_logo"
+    show_copy "$(start_logo_source)" "$brand_logo"
+    if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run sudo tee "$SDDM_THEME_DIR/theme.conf"; else sddm_theme_conf | sudo tee "$SDDM_THEME_DIR/theme.conf" >/dev/null; fi
+    show_copy "(login style: ${SETUP_LOGIN_STYLE:-classic})" "$SDDM_THEME_DIR/theme.conf"
     if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run sudo tee "$SDDM_OVERRIDE"; else printf '[Theme]\nCurrent=Chicago95Plasma\n' | sudo tee "$SDDM_OVERRIDE" >/dev/null; fi
     record "root:$SDDM_OVERRIDE"
     record "root-dir:$SDDM_THEME_DIR"
@@ -375,8 +404,6 @@ offer_taskbar() {   # replaces the panels with the Chicago95 taskbar once the us
     plasma_script "panels().forEach(panel => panel.remove());
 $(sed "s/^panel.height = 28;/panel.height = $PANEL_HEIGHT;/" ~/.local/share/chicago95/panel-layout.js)" >>"$SETUP_LOG" 2>&1
 }
-
-START_LOGO_FILE="$HOME/.local/share/chicago95/start-logo.png"
 
 js_string() { python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$1"; }
 

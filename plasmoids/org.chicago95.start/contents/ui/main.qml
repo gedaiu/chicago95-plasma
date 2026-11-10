@@ -17,7 +17,7 @@ PlasmoidItem {
     readonly property string buttonText: Plasmoid.configuration.buttonText
     readonly property string logo: Plasmoid.configuration.logo
     readonly property url logoSource: logo === "flag" ? Qt.resolvedUrl("../images/logo-flag.png")
-                                    : logo === "penguin" ? Qt.resolvedUrl("../images/logo-penguin.png")
+                                    : logo === "penguin" ? Qt.resolvedUrl("../images/logo-penguin.svg")
                                     : logo !== "" ? "file://" + logo : ""
     readonly property bool held: clickArea.pressed && clickArea.containsMouse
 
@@ -86,7 +86,8 @@ PlasmoidItem {
                 sourceSize.width: root.logoSize * 2
                 sourceSize.height: root.logoSize * 2
                 fillMode: Image.PreserveAspectFit
-                smooth: true
+                // The flag is pixel art: whole-pixel scaling keeps it sharp. Vector logos are drawn smooth.
+                smooth: !String(root.logoSource).endsWith("logo-flag.png")
                 cache: false  // the logo file can be replaced by the user; always read the current one
             }
             Text {
