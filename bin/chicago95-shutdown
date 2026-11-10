@@ -2,7 +2,6 @@
 import os, sys; sys.path[:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"), os.path.expanduser("~/.local/lib/chicago95")]; import chicago95ui  # noqa: E401,E702
 
 import argparse
-import glob
 import shutil
 import subprocess
 
@@ -103,13 +102,7 @@ def chosen_sound_theme(kdeglobals_path=KDEGLOBALS):
 
 
 def shutdown_sound_file(theme=None):
-    themes = dict.fromkeys([theme or chosen_sound_theme(), "Chicago95"])
-    for sound_dir in (os.path.join(root, name, "stereo") for name in themes for root in SOUND_ROOTS):
-        enabled = [path for path in glob.glob(os.path.join(sound_dir, "system-shutdown.*"))
-                   if not path.endswith(".disabled")]
-        if enabled:
-            return enabled[0]
-    return None
+    return chicago95ui.sound_file(theme or chosen_sound_theme(), "system-shutdown", SOUND_ROOTS)
 
 
 def sound_player():

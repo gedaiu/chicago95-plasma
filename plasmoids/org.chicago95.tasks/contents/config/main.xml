@@ -8,6 +8,14 @@
       <label>Quick Launch: the programs' desktop files (applications:firefox.desktop or file URLs); shown from the 1998 look on</label>
       <default>applications:chicago95-showdesktop.desktop,applications:firefox.desktop,applications:thunar.desktop,applications:org.kde.konsole.desktop</default>
     </entry>
+    <entry name="maxButtonWidth" type="Int">
+      <label>The longest a window's button may be, in pixels; 0 takes the look's own (95px in 1995, 160px after)</label>
+      <default>0</default>
+    </entry>
+    <entry name="quickLaunch" type="String">
+      <label>Quick Launch: "yes", "no", or "auto" for the look's own (from the 1998 look on)</label>
+      <default>auto</default>
+    </entry>
     <entry name="look" type="String">
       <label>The look: "1995" (no Quick Launch, 95px task buttons), "1998" or "2000" (a pixel more before the Quick Launch)</label>
       <default>1998</default>

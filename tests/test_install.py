@@ -2,7 +2,9 @@ import subprocess
 import time
 from pathlib import Path
 
-from conftest import REPO
+import pytest
+
+from conftest import REPO, run_bash_with_steps
 
 
 def test_dry_run_of_sddm_component_writes_the_zz_override_without_asking_for_a_password(tmp_path):
@@ -139,3 +141,335 @@ def test_an_empty_quick_launch_gets_the_default_programs_on_a_look_that_shows_it
     written = log.read_text()
 
     assert 'readConfig("launchers"' in written and '"applications:firefox.desktop"' in written
+
+
+def test_load_settings_with_saved_login_title_puts_it_in_the_login_theme_conf(tmp_path):
+    saved = tmp_path / "setup.conf"
+    saved.write_text("LOGIN_TITLE=Hello from settings\n")
+
+    theme_conf = run_bash_with_steps(tmp_path, f"load_settings {saved}; sddm_theme_conf")
+
+    assert "loginTitle=Hello from settings" in theme_conf
+
+
+def test_dry_run_with_settings_file_applies_the_saved_sound_theme(tmp_path):
+    saved = tmp_path / "setup.conf"
+    saved.write_text("SOUND_THEME=Windows2000\n")
+    subprocess.run([str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", f"--settings={saved}", "--components=sounds"],
+                   capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60,
+                   env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)})
+    log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+
+    assert "sounds=Windows2000" in log
+
+
+def test_settings_file_with_command_substitution_and_unknown_keys_runs_nothing(tmp_path):
+    saved = tmp_path / "setup.conf"
+    saved.write_text(f"EVIL=$(touch {tmp_path}/unknown-key)\nLOGIN_TITLE=$(touch {tmp_path}/known-key)\n")
+
+    theme_conf = run_bash_with_steps(tmp_path, f"load_settings {saved}; sddm_theme_conf")
+
+    assert ((tmp_path / "unknown-key").exists(), (tmp_path / "known-key").exists(),
+            f"loginTitle=$(touch {tmp_path}/known-key)" in theme_conf) == (False, False, True)
+
+
+def test_settings_with_look_2000_and_custom_active_title_keep_the_looks_inactive_title(tmp_path):
+    saved = tmp_path / "setup.conf"
+    saved.write_text("LOOK=2000\nTITLE_ACTIVE=#FF0000\n")
+    subprocess.run([str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", f"--settings={saved}", "--components=look"],
+                   capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60,
+                   env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)})
+    log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+
+    assert "(title bars: active #FF0000, inactive #808080,#C0C0C0)" in log
+
+
+def test_settings_with_custom_look_leave_the_default_look_s_colours(tmp_path):
+    saved = tmp_path / "setup.conf"
+    saved.write_text("LOOK=custom\n")
+
+    look = run_bash_with_steps(tmp_path, f"apply_look 1998; load_settings {saved}; echo $SETUP_LOOK $SETUP_TITLE_ACTIVE")
+
+    assert look == ["custom #000080,#1084D0"]
+
+
+def read_saved_settings(home):
+    lines = (home / ".config/chicago95/setup.conf").read_text().splitlines()
+    return dict(line.split("=", 1) for line in lines)
+
+
+def test_install_saves_the_chosen_sound_theme_the_look_and_the_repo_to_setup_conf(tmp_path):
+    run_setup(tmp_path, "--components=sounds", "--sounds=Windows98")
+
+    saved = read_saved_settings(tmp_path)
+
+    assert {key: saved.get(key) for key in ("SOUND_THEME", "REPO", "LOOK")} == {"SOUND_THEME": "Windows98", "REPO": str(REPO), "LOOK": "1995"}
+
+
+def test_install_keeps_saved_keys_it_did_not_set_this_time(tmp_path):
+    saved_file = tmp_path / ".config/chicago95/setup.conf"
+    saved_file.parent.mkdir(parents=True)
+    saved_file.write_text("LAUNCHERS=applications:firefox.desktop\n")
+
+    run_setup(tmp_path, "--components=sounds", "--sounds=Windows98")
+
+    assert read_saved_settings(tmp_path)["LAUNCHERS"] == "applications:firefox.desktop"
+
+
+def test_saved_settings_load_back_to_the_same_values(tmp_path):
+    reloaded = run_bash_with_steps(tmp_path, f'SETUP_DRY_RUN=0; MANIFEST={tmp_path}/manifest; STATE_DIR={tmp_path}; '
+                                             'SETUP_LOGIN_TITLE="Log On = %h"; SETUP_SAVER=maze; save_settings; '
+                                             'unset SETUP_LOGIN_TITLE SETUP_SAVER; '
+                                             f'load_settings {tmp_path}/.config/chicago95/setup.conf; echo "$SETUP_LOGIN_TITLE|$SETUP_SAVER"')
+
+    assert reloaded == ["Log On = %h|maze"]
+
+
+def taskbar_script_written(tmp_path, assignments=""):
+    log = tmp_path / "setup.log"
+    script = (f'REPO={REPO}; source {REPO}/setup/steps.sh; plasma_script() {{ printf "%s\\n" "$1"; }}; '
+              f'SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 SETUP_LOG={log} {assignments} apply_taskbar')
+    subprocess.run(["bash", "-c", script], timeout=30, env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)})
+    return log.read_text()
+
+
+def test_task_button_width_220_is_written_to_each_task_list(tmp_path):
+    written = taskbar_script_written(tmp_path, "SETUP_TASK_BUTTON_WIDTH=220")
+
+    assert "panel.widgets('org.chicago95.tasks').forEach(widget => { widget.currentConfigGroup = ['General']; widget.writeConfig('maxButtonWidth', 220); });" in " ".join(written.split())
+
+
+def test_task_button_width_is_left_alone_when_no_width_was_chosen(tmp_path):
+    assert "maxButtonWidth" not in taskbar_script_written(tmp_path)
+
+
+def test_task_button_width_flag_is_saved_with_the_other_choices(tmp_path):
+    run_setup(tmp_path, "--components=sounds", "--task-button-width=220")
+
+    assert read_saved_settings(tmp_path)["TASK_BUTTON_WIDTH"] == "220"
+
+
+def test_panel_layout_for_a_new_taskbar_uses_the_chosen_task_button_width(tmp_path):
+    layout = run_bash_with_steps(tmp_path, f'SETUP_TASK_BUTTON_WIDTH=220 PANEL_HEIGHT=28 panel_layout_script {REPO}/plasmoids/panel-layout.js')
+
+    assert 'tasks.writeConfig("maxButtonWidth", 220);' in layout
+
+
+def test_saved_launchers_are_written_to_each_task_list_as_a_list(tmp_path):
+    written = taskbar_script_written(tmp_path, "SETUP_LAUNCHERS=applications:firefox.desktop,applications:org.kde.konsole.desktop")
+
+    assert ("widget.writeConfig('launchers', [\"applications:firefox.desktop\", \"applications:org.kde.konsole.desktop\"]);"
+            in " ".join(written.split()))
+
+
+def test_empty_saved_launchers_clear_the_quick_launch_instead_of_restoring_the_defaults(tmp_path):
+    written = taskbar_script_written(tmp_path, "SETUP_MENU_STYLE=1998 SETUP_LAUNCHERS=")
+
+    assert ("widget.writeConfig('launchers', []);" in " ".join(written.split()), "applications:thunar.desktop" in written) == (True, False)
+
+
+def test_panel_layout_for_a_new_taskbar_starts_with_the_saved_launchers(tmp_path):
+    layout = run_bash_with_steps(tmp_path, f'SETUP_LAUNCHERS=applications:firefox.desktop PANEL_HEIGHT=28 panel_layout_script {REPO}/plasmoids/panel-layout.js')
+
+    assert 'tasks.writeConfig("launchers", ["applications:firefox.desktop"]);' in layout
+
+
+@pytest.mark.parametrize("assignments", ["SETUP_MENU_STYLE=1998", "SETUP_MENU_STYLE=2000 SETUP_LAUNCHERS=applications:a.desktop SETUP_TASK_BUTTON_WIDTH=200"])
+def test_taskbar_script_parses_as_javascript(qt_app, tmp_path, assignments):
+    """plasmashell runs the script; the engine here stops at the first undefined name, panels(), once it has parsed it."""
+    from PySide6.QtQml import QJSEngine, QJSValue
+
+    engine = QJSEngine()
+    outcome = engine.evaluate(taskbar_script_written(tmp_path, assignments))
+
+    assert outcome.errorType() == QJSValue.ErrorType.ReferenceError
+
+
+def squeezed(text):
+    return " ".join(text.split())
+
+
+@pytest.mark.parametrize("assignments, hiding", [
+    ("SETUP_TASKBAR_AUTOHIDE=yes", "autohide"),
+    ("SETUP_TASKBAR_ON_TOP=no", "windowsgobelow"),
+    ("SETUP_TASKBAR_AUTOHIDE=yes SETUP_TASKBAR_ON_TOP=no", "autohide"),
+    ("SETUP_TASKBAR_AUTOHIDE=no SETUP_TASKBAR_ON_TOP=yes", "none"),
+])
+def test_taskbar_hiding_follows_the_saved_auto_hide_and_always_on_top_choices(tmp_path, assignments, hiding):
+    written = squeezed(taskbar_script_written(tmp_path, assignments))
+
+    assert f"if (panel.widgets('org.chicago95.tasks').length > 0) panel.hiding = \"{hiding}\";" in written
+
+
+def test_taskbar_hiding_is_left_alone_when_nothing_was_chosen(tmp_path):
+    assert "panel.hiding" not in taskbar_script_written(tmp_path)
+
+
+def test_clock_hour_format_24_is_written_to_each_clock(tmp_path):
+    written = squeezed(taskbar_script_written(tmp_path, "SETUP_CLOCK_HOURS=24"))
+
+    assert "panel.widgets('org.chicago95.clock').forEach(widget => { widget.currentConfigGroup = ['General']; widget.writeConfig('hourFormat', \"24\"); });" in written
+
+
+def test_unknown_clock_hour_format_is_not_written(tmp_path):
+    assert "hourFormat" not in taskbar_script_written(tmp_path, "SETUP_CLOCK_HOURS='1); evil('")
+
+
+def test_hiding_the_clock_removes_it_from_the_taskbar(tmp_path):
+    written = squeezed(taskbar_script_written(tmp_path, "SETUP_CLOCK_SHOW=no"))
+
+    assert "panel.widgets('org.chicago95.clock').forEach(widget => widget.remove());" in written
+
+
+def test_showing_the_clock_adds_one_to_a_taskbar_without_it(tmp_path):
+    written = squeezed(taskbar_script_written(tmp_path, "SETUP_CLOCK_SHOW=yes SETUP_MENU_STYLE=2000"))
+
+    assert ("if (panel.widgets('org.chicago95.tasks').length > 0 && panel.widgets('org.chicago95.clock').length === 0) { "
+            "const clock = panel.addWidget('org.chicago95.clock'); clock.currentConfigGroup = ['General']; "
+            "clock.writeConfig('look', \"2000\"); }") in written
+
+
+def test_panel_layout_for_a_new_taskbar_follows_hiding_clock_and_hour_format(tmp_path):
+    layout = run_bash_with_steps(tmp_path, f'SETUP_TASKBAR_AUTOHIDE=yes SETUP_CLOCK_HOURS=24 PANEL_HEIGHT=28 panel_layout_script {REPO}/plasmoids/panel-layout.js')
+
+    assert ('panel.hiding = "autohide";' in layout, 'clock.writeConfig("hourFormat", "24");' in layout) == (True, True)
+
+
+def test_panel_layout_for_a_new_taskbar_leaves_the_clock_out_when_hidden(tmp_path):
+    layout = run_bash_with_steps(tmp_path, f'SETUP_CLOCK_SHOW=no SETUP_CLOCK_HOURS=24 PANEL_HEIGHT=28 panel_layout_script {REPO}/plasmoids/panel-layout.js')
+
+    assert [line for line in layout if "org.chicago95.clock" in line or line.startswith("clock.")] == []
+
+
+@pytest.mark.parametrize("assignments", [
+    "SETUP_TASKBAR_AUTOHIDE=yes SETUP_CLOCK_SHOW=no",
+    "SETUP_TASKBAR_ON_TOP=no SETUP_CLOCK_SHOW=yes SETUP_CLOCK_HOURS=12 SETUP_MENU_STYLE=2000",
+])
+def test_taskbar_script_with_behaviour_choices_parses_as_javascript(qt_app, tmp_path, assignments):
+    from PySide6.QtQml import QJSEngine, QJSValue
+
+    engine = QJSEngine()
+    outcome = engine.evaluate(taskbar_script_written(tmp_path, assignments))
+
+    assert outcome.errorType() == QJSValue.ErrorType.ReferenceError
+
+
+@pytest.mark.parametrize("sudo_exit_code, expected", [(0, ("-A -v", "0")), (1, ("-A -v", "1"))])
+def test_ui_sudo_with_sudo_askpass_asks_sudo_to_authenticate_through_it(tmp_path, sudo_exit_code, expected):
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    (stubs / "sudo").write_text(f'#!/bin/sh\necho "$@" >> {tmp_path}/sudo-calls\nexit {sudo_exit_code}\n')
+    (stubs / "sudo").chmod(0o755)
+
+    status = subprocess.run(["bash", "-c", f'source {REPO}/setup/ui.sh; SETUP_DRY_RUN=0 SUDO_ASKPASS=/bin/true ui_sudo "why" "sudo cp a b"; echo $?'],
+                            capture_output=True, text=True, timeout=30, env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(tmp_path)}).stdout.split()[-1]
+
+    assert ((tmp_path / "sudo-calls").read_text().strip(), status) == expected
+
+
+def dry_run_log(tmp_path, *arguments):
+    subprocess.run([str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", *arguments],
+                   capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60,
+                   env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)})
+    return next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+
+
+def test_classic_effects_yes_makes_animations_instant_and_turns_the_window_effects_off(tmp_path):
+    saved = tmp_path / "setup.conf"
+    saved.write_text("CLASSIC_EFFECTS=yes\n")
+
+    log = dry_run_log(tmp_path, f"--settings={saved}", "--components=look")
+
+    assert [line in log for line in ("would: kwriteconfig6 --file kdeglobals --group KDE --key AnimationDurationFactor 0",
+                                     "would: kwriteconfig6 --file kwinrc --group Plugins --key squashEnabled false",
+                                     "would: kwriteconfig6 --file kwinrc --group Plugins --key fadeEnabled false",
+                                     "would: kwriteconfig6 --file kwinrc --group Plugins --key wobblywindowsEnabled false")] == [True] * 4
+
+
+def test_classic_effects_no_restores_the_animation_speed_and_the_effects_defaults(tmp_path):
+    saved = tmp_path / "setup.conf"
+    saved.write_text("CLASSIC_EFFECTS=no\n")
+
+    log = dry_run_log(tmp_path, f"--settings={saved}", "--components=look")
+
+    assert [line in log for line in ("would: kwriteconfig6 --file kdeglobals --group KDE --key AnimationDurationFactor 1",
+                                     "would: kwriteconfig6 --file kwinrc --group Plugins --key squashEnabled --delete")] == [True, True]
+
+
+def test_animations_are_left_alone_when_no_choice_was_saved(tmp_path):
+    assert "AnimationDurationFactor" not in dry_run_log(tmp_path, "--components=look")
+
+
+def test_uninstall_deletes_the_animation_speed_and_effect_settings_setup_wrote(tmp_path):
+    state = tmp_path / ".local/share/chicago95"
+    state.mkdir(parents=True)
+    (state / "installed-files.txt").write_text("kconf:kdeglobals:KDE:AnimationDurationFactor\nkconf:kwinrc:Plugins:squashEnabled\n")
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    (stubs / "kwriteconfig6").write_text(f'#!/bin/sh\necho "$@" >> {tmp_path}/kwriteconfig6-calls\n')
+    (stubs / "kwriteconfig6").chmod(0o755)
+
+    subprocess.run([str(REPO / "uninstall.sh")], capture_output=True, text=True, timeout=30, stdin=subprocess.DEVNULL,
+                   env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(tmp_path)})
+
+    assert sorted((tmp_path / "kwriteconfig6-calls").read_text().splitlines()) == [
+        "--file kdeglobals --group KDE --key AnimationDurationFactor --delete",
+        "--file kwinrc --group Plugins --key squashEnabled --delete"]
+
+
+def test_taskbar_height_36_is_written_to_the_panel_that_holds_the_task_list(tmp_path):
+    written = squeezed(taskbar_script_written(tmp_path, "SETUP_PANEL=36"))
+
+    assert "if (panel.widgets('org.chicago95.tasks').length > 0) panel.height = 36;" in written
+
+
+def test_taskbar_height_is_left_alone_when_none_was_chosen(tmp_path):
+    assert "panel.height" not in taskbar_script_written(tmp_path)
+
+
+def test_taskbar_height_keeps_only_its_digits(tmp_path):
+    written = squeezed(taskbar_script_written(tmp_path, "SETUP_PANEL='3); evil(6'"))
+
+    assert ("panel.height = 36;" in written, "evil" in written) == (True, False)
+
+
+def test_winamp_rule_drops_the_frame_of_the_skinned_player_only(tmp_path):
+    """The skinned player draws its own frame; qmmp's visualizer windows (Goom, ProjectM) do not and keep KWin's."""
+    import re
+    script = (f'REPO={REPO}; source {REPO}/setup/steps.sh; kwin_rule() {{ printf "%s\\n" "$@"; }}; put_file() {{ :; }}; run() {{ :; }}; '
+              'SETUP_HAS_QMMP=1 SETUP_CHICAGO95_SRC="" step_winamp')
+    rule = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=30,
+                          env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}).stdout.splitlines()
+    settings = dict(line.split("=", 1) for line in rule[1:])
+    pattern = re.compile(settings["wmclass"], re.I)
+
+    assert (settings["wmclasscomplete"], settings["wmclassmatch"], settings["noborder"]) == ("true", "3", "true")
+    assert [bool(pattern.search(window)) for window in ("player Qmmp", "qmmp qmmp")] == [True, False]
+
+
+def test_dry_run_of_the_control_panel_component_installs_the_tool_the_password_prompt_and_the_menu_entry(tmp_path):
+    log = dry_run_log(tmp_path, "--components=controlpanel")
+
+    assert [line in log for line in (f"would: cp {REPO}/bin/chicago95-control-panel {tmp_path}/.local/bin/chicago95-control-panel",
+                                     f"would: cp {REPO}/bin/chicago95-askpass {tmp_path}/.local/bin/chicago95-askpass",
+                                     f"would: cp {REPO}/config/applications/chicago95-control-panel.desktop {tmp_path}/.local/share/applications/chicago95-control-panel.desktop",
+                                     f"would: chmod +x {tmp_path}/.local/bin/chicago95-control-panel")] == [True] * 4
+
+
+def test_control_panel_desktop_entry_is_a_settings_program_that_starts_the_installed_tool():
+    entry = dict(line.split("=", 1) for line in (REPO / "config/applications/chicago95-control-panel.desktop").read_text().splitlines() if "=" in line)
+
+    assert (entry["Name"], entry["Exec"], entry["Categories"]) == ("Control Panel", "@HOME@/.local/bin/chicago95-control-panel", "Settings;")
+
+
+@pytest.mark.parametrize("applet", ["start", "tasks"])
+def test_taskbar_applets_offer_a_properties_action_that_opens_the_control_panels_taskbar_page(applet):
+    main_qml = (REPO / f"plasmoids/org.chicago95.{applet}/contents/ui/main.qml").read_text()
+
+    assert ("Plasmoid.contextualActions" in main_qml, "@HOME@/.local/bin/chicago95-control-panel --page taskbar" in main_qml) == (True, True)
+
+
+def test_setup_replaces_home_in_the_tasks_applet_as_it_does_in_the_start_applet():
+    step_taskbar = (REPO / "setup/steps.sh").read_text().split("step_taskbar() {")[1].split("\n}\n")[0]
+
+    assert "~/.local/share/plasma/plasmoids/org.chicago95.tasks" in next(line for line in step_taskbar.splitlines() if "substitute_home" in line)

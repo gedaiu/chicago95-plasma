@@ -40,7 +40,7 @@ os.environ.pop("QT_QPA_PLATFORMTHEME", None)
 
 from PySide6.QtCore import QRect, QRectF, Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QLinearGradient, QPainter, QPainterPath, QPalette, QPen, QRadialGradient  # noqa: E402
-from PySide6.QtWidgets import QApplication, QDialog, QFrame, QWidget  # noqa: E402
+from PySide6.QtWidgets import QApplication, QDialog, QFrame, QPushButton, QWidget  # noqa: E402
 
 KDEGLOBALS = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "kdeglobals")
 
@@ -117,6 +117,17 @@ def icon_theme(path=None):
     settings.optionxform = str
     settings.read(path or KDEGLOBALS)
     return settings.get("Icons", "Theme", fallback="Chicago95")
+
+
+def sound_file(theme, event, roots):
+    """The sound a sound theme plays for an event: its own, else Chicago95's. Disabled sounds are skipped."""
+    for theme_name in dict.fromkeys([theme, "Chicago95"]):
+        for root in roots:
+            sounds = glob.glob(os.path.join(glob.escape(os.path.join(root, theme_name, "stereo")), f"{event}.*"))
+            enabled = sorted(path for path in sounds if not path.endswith(".disabled"))
+            if enabled:
+                return enabled[0]
+    return None
 
 
 def bevel_shades(face):
@@ -283,6 +294,16 @@ def make_app(app_name):
     QIcon.setThemeSearchPaths(ICON_SEARCH_PATHS + QIcon.themeSearchPaths())
     QIcon.setThemeName(icon_theme())
     return app
+
+
+DIALOG_BUTTON_SIZE = (75, 23)
+
+
+def dialog_button(caption, enabled=True):
+    button = QPushButton(caption)
+    button.setFixedSize(*DIALOG_BUTTON_SIZE)
+    button.setEnabled(enabled)
+    return button
 
 
 def sunken_panel():

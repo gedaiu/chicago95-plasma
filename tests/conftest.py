@@ -1,6 +1,7 @@
 import importlib.machinery
 import importlib.util
 import os
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -14,6 +15,13 @@ os.environ["QT_SCALE_FACTOR"] = "1"
 # scheme, look or icon set of whoever runs them (CI and every machine get the same results).
 os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="chicago95-tests-config-")
 sys.path.insert(0, str(REPO / "lib"))
+
+
+def run_bash_with_steps(tmp_path, script):
+    """The output lines of a script that has setup/steps.sh's functions, in a home of its own."""
+    return subprocess.run(["bash", "-c", f"REPO={REPO}; source {REPO}/setup/steps.sh; {script}"],
+                          capture_output=True, text=True, timeout=30,
+                          env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}).stdout.splitlines()
 
 
 def load_script(name):

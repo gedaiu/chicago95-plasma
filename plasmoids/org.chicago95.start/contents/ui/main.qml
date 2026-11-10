@@ -14,6 +14,15 @@ PlasmoidItem {
     Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground
 
     readonly property string menuCommand: "@HOME@/.local/bin/chicago95-startmenu"
+
+    Plasmoid.contextualActions: [
+        PlasmaCore.Action {
+            text: i18n("Properties")
+            icon.name: "preferences-system"
+            onTriggered: runner.connectSource(root.controlPanelCommand)
+        }
+    ]
+    readonly property string controlPanelCommand: "@HOME@/.local/bin/chicago95-control-panel --page taskbar"
     readonly property string buttonText: Plasmoid.configuration.buttonText
     readonly property string logo: Plasmoid.configuration.logo
     readonly property url logoSource: logo === "flag" ? Qt.resolvedUrl("../images/logo-flag-16.png")

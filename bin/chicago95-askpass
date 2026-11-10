@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+import os, sys; sys.path[:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"), os.path.expanduser("~/.local/lib/chicago95")]; import chicago95ui  # noqa: E401,E702
+
+from PySide6.QtWidgets import QApplication, QDialog, QHBoxLayout, QLabel, QLineEdit, QVBoxLayout
+
+
+class PasswordPrompt(QDialog):
+    """sudo's password question as a classic dialog; the Control Panel gives sudo this program as SUDO_ASKPASS."""
+
+    def __init__(self, question):
+        super().__init__()
+        self.setWindowTitle("Administrator password needed")
+        self.question = QLabel(question)
+        self.password_edit = QLineEdit()
+        self.password_edit.setEchoMode(QLineEdit.Password)
+        self.ok_button = chicago95ui.dialog_button("OK")
+        self.cancel_button = chicago95ui.dialog_button("Cancel")
+        self.ok_button.setDefault(True)
+        self.ok_button.clicked.connect(self.accept)
+        self.cancel_button.clicked.connect(self.reject)
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+        buttons.addWidget(self.ok_button)
+        buttons.addWidget(self.cancel_button)
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("Type the password you use to log in to this computer."))
+        layout.addWidget(self.question)
+        layout.addWidget(self.password_edit)
+        layout.addLayout(buttons)
+        self.setMinimumWidth(360)
+
+    def password(self):
+        return self.password_edit.text()
+
+
+def main(arguments, execute=QDialog.exec):
+    QApplication.instance() or chicago95ui.make_app("chicago95-askpass")
+    if "--screenshot" in arguments:
+        return 0 if PasswordPrompt("Password:").grab().save(arguments[arguments.index("--screenshot") + 1]) else 1
+    prompt = PasswordPrompt(arguments[1] if len(arguments) > 1 else "Password:")
+    execute(prompt)
+    if prompt.result() != QDialog.Accepted:
+        return 1
+    print(prompt.password())
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

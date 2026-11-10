@@ -81,28 +81,35 @@ ui_repeat() {       # ui_repeat <count> <char>   prints the (multibyte-safe) cha
     for ((index = 0; index < $1; index++)); do printf '%s' "$2"; done
 }
 
-ui_fit() {          # ui_fit <width> <text>   keeps the end of a long path, which is the part that tells files apart
-    if [ "${#2}" -le "$1" ]; then printf '%s' "$2"; else printf '…%s' "${2: -$(($1 - 1))}"; fi
+ui_fit() {          # ui_fit <variable> <width> <text>   keeps the end of a long path, the part that tells files apart
+    if [ "${#3}" -le "$2" ]; then printf -v "$1" '%s' "$3"; else printf -v "$1" '…%s' "${3: -$(($2 - 1))}"; fi
 }
 
 UI_COPIED_LINES=()
+UI_PROGRESS_DRAWN=0
 
 # ui_progress <done> <total> <line>   every copied file gets its own line: plain output prints them all,
-# the Setup screen scrolls the most recent ones under the bar.
+# the Setup screen scrolls the most recent ones under the bar. The screen is redrawn at most 20 times a
+# second (and at the end), with cursor moves written directly: thousands of files pass through here.
 ui_progress() {
     local done="$1" total="$2" line="$3" width=50 filled
     if [ "$UI_PLAIN" = 1 ]; then printf '   (%d/%d) %s\n' "$done" "$total" "$line"; return 0; fi
+    UI_COPIED_LINES+=("$line")
+    local now=${EPOCHREALTIME/[.,]/}
+    [ "$done" -lt "$total" ] && [ $((now - UI_PROGRESS_DRAWN)) -lt 50000 ] && return 0
+    UI_PROGRESS_DRAWN=$now
     [ "$UI_ON_STEPS" = 1 ] || ui_steps
     filled=$(( total > 0 && done < total ? done * width / total : width ))
     local row=$((UI_ROWS / 2)) col=$(( (UI_COLS - width - 2) / 2 )) text_width=$((UI_COLS - 12))
-    local visible=$((UI_ROWS - row - 4)) index
-    ui_center $((row - 3)) "Setup is now copying files to your computer..."
-    tput cup "$row" "$col"; printf '\e[93m['; ui_repeat "$filled" '█'; ui_repeat $((width - filled)) '░'; printf ']\e[97m %3d%%' $(( total > 0 && done < total ? done * 100 / total : 100 ))
-    UI_COPIED_LINES+=("$line")
+    local visible=$((UI_ROWS - row - 4)) index entry fitted title="Setup is now copying files to your computer..."
+    printf '\e[%d;%dH%s' $((row - 2)) $(( (UI_COLS - ${#title}) / 2 + 1 )) "$title"
+    printf '\e[%d;%dH\e[93m[' $((row + 1)) $((col + 1)); ui_repeat "$filled" '█'; ui_repeat $((width - filled)) '░'
+    printf ']\e[97m %3d%%' $(( total > 0 && done < total ? done * 100 / total : 100 ))
     for ((index = 0; index < visible; index++)); do
-        local entry=$(( ${#UI_COPIED_LINES[@]} - visible + index ))
-        tput cup $((row + 2 + index)) 6
-        if [ "$entry" -ge 0 ]; then printf '%-*s' "$text_width" "$(ui_fit "$text_width" "${UI_COPIED_LINES[$entry]}")"; else printf '%-*s' "$text_width" ''; fi
+        entry=$(( ${#UI_COPIED_LINES[@]} - visible + index ))
+        fitted=""
+        [ "$entry" -ge 0 ] && ui_fit fitted "$text_width" "${UI_COPIED_LINES[$entry]}"
+        printf '\e[%d;7H%-*s' $((row + 3 + index)) "$text_width" "$fitted"
     done
 }
 
@@ -181,6 +188,7 @@ ui_discard_typeahead() { while IFS= read -r -s -t 0.05 _ </dev/tty; do :; done 2
 
 ui_sudo() {
     [ "${SETUP_DRY_RUN:-0}" = 1 ] && return 0
+    [ -n "${SUDO_ASKPASS:-}" ] && { sudo -A -v 2>/dev/null; return; }
     sudo -n true 2>/dev/null && return 0
     local why="$1"; shift
     local attempt password retry=() commands=("" "Setup will run:")

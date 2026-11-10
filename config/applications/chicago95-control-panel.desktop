@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Control Panel
+Comment=Change the Chicago95 look, taskbar, sounds and login screen
+Icon=preferences-system
+Exec=@HOME@/.local/bin/chicago95-control-panel
+Categories=Settings;
+Terminal=false

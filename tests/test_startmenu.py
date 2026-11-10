@@ -45,3 +45,16 @@ def test_banner_parts_set_words_bold_and_numbers_thin(startmenu):
         [("Chicago", True), ("95", False)],
         [("Windows ", True), ("2000", False), (" Professional", True)],
         [("Linux", True)]]
+
+
+def test_control_panel_command_is_the_chicago95_control_panel_when_it_is_installed(startmenu):
+    assert startmenu.control_panel_command(lambda name: f"/home/u/.local/bin/{name}") == ["/home/u/.local/bin/chicago95-control-panel"]
+
+
+def test_control_panel_command_falls_back_to_system_settings_without_it(startmenu):
+    assert startmenu.control_panel_command(lambda name: None) == ["systemsettings"]
+
+
+def test_taskbar_properties_command_opens_the_taskbar_page_and_is_absent_without_the_control_panel(startmenu):
+    assert (startmenu.taskbar_properties_command(lambda name: f"/bin/{name}"), startmenu.taskbar_properties_command(lambda name: None)) == (
+        ["/bin/chicago95-control-panel", "--page", "taskbar"], None)

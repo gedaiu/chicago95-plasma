@@ -43,7 +43,7 @@ originals' wording for the comparison. The pictures are made by `tests/render_re
 | `aurorae/` | `make_chicago95_aurorae.py`, `bevel.py`, Start button images, and the generated theme under `theme/` |
 | `plasma-style/` | `make_chicago95_plasmastyle.py` and the generated style under `theme/` |
 | `plasmoids/` | `org.chicago95.start`, `org.chicago95.tasks` (Quick Launch and task buttons), `org.chicago95.trayframe`, `org.chicago95.clock` |
-| `bin/` | `chicago95-startmenu`, `chicago95-notifyd`, `chicago95-clippy`, `chicago95-shutdown`, `chicago95-screensaver`, `chicago95-sysprops`, `chicago95-devmgr`, `chicago95-dialup`, `chicago95-deezer` |
+| `bin/` | `chicago95-startmenu`, `chicago95-notifyd`, `chicago95-clippy`, `chicago95-shutdown`, `chicago95-screensaver`, `chicago95-sysprops`, `chicago95-devmgr`, `chicago95-dialup`, `chicago95-deezer`, `chicago95-control-panel`, `chicago95-askpass` |
 | `lib/` | `chicago95ui.py`, the shared PySide6 look module |
 | `data/` | Menu stylesheet for plasmashell, tray arrow, Clippy sprites and sounds, KRunner QML override, fastfetch preset |
 | `data/sound-themes/` | Freedesktop sound themes for Windows 98, the 16 Plus! 98 schemes and Windows 2000, built by `setup/make_sound_themes.py` |
@@ -97,7 +97,7 @@ Python modules, with the install command for your distribution.
 
 Components, each optional: Chicago95 base theme, decoration and Plasma
 style, taskbar plasmoids, Start menu and Shut Down dialog, notifications,
-Office Assistant, extra tools, sound scheme, screensaver, Winamp, Explorer (Thunar or
+Office Assistant, extra tools, Control Panel, sound scheme, desktop background, screensaver, Winamp, Explorer (Thunar or
 Dolphin), lock screen, splash screen, boot screen (Plymouth), login screen
 (SDDM), Firefox colours.
 
@@ -113,8 +113,23 @@ screen or as flags:
 | `--idle=5` | 5 | Minutes before the screensaver starts |
 | `--cursor=48` | 48 at fractional scale, else 32 | Cursor size |
 | `--clippy=yes` or `no` | yes | Start the Office Assistant at login |
+| `--quick-launch=yes`, `no` or `auto` | auto | Show the Quick Launch (program shortcuts beside Start) on the taskbar; auto shows it from the 1998 look on, as the originals did. Right-click a task to add its program, right-click a shortcut to remove it, or drop programs on it |
+| `--task-button-width=160` | the look's own | Longest a window's button on the taskbar may be, in pixels |
+| `--settings=FILE` | none | Choices saved by the Control Panel (`KEY=value` lines, never executed), applied over the defaults; Setup saves its own choices to `~/.config/chicago95/setup.conf` |
 | `--font="MS W98 UI"` | MS W98 UI | UI font family, applied if installed |
 | `--font-scope=everywhere` | everywhere | Where the UI font goes: `everywhere` (all programs, also web pages that ask for the system font), `desktop` (window title bars only) or `none`; Setup asks when the flag is missing. The Start menu, notifications, Clippy, Shut Down and the login screen always use it |
+
+### Control Panel
+
+`chicago95-control-panel` (Start, Settings, Control Panel; or Properties in the
+right-click menu of the Start button and the taskbar) is one Windows 98
+Explorer-style window for every choice Setup asked and more: colours and
+icons, desktop background, screensaver with Preview, taskbar height and button
+width, auto hide, clock, Quick Launch (drag shortcuts onto it, drag them off to
+remove), Start button and menu banner, login and loading screen texts and
+pictures, sounds with Play, fonts, pointer size and the file manager. Back,
+Forward, Up and the clickable address bar move between pages. It saves
+`~/.config/chicago95/setup.conf` and runs Setup again for only what changed.
 
 Other modes: `--yes` takes every default without questions,
 `--components base,look,taskbar` installs only those, `--dry-run` writes

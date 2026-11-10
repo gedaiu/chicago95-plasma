@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 DEVICE_MANAGER_PATH = Path.home() / ".local/bin/chicago95-devmgr"
-BUTTON_SIZE = (75, 23)
+BUTTON_SIZE = chicago95ui.DIALOG_BUTTON_SIZE
 VALUE_INDENT = 16
 KIB_PER_GIB = 1024 * 1024
 
@@ -257,13 +257,6 @@ def build_performance_tab(facts):
     return tab
 
 
-def dialog_button(caption, enabled=True):
-    button = QPushButton(caption)
-    button.setFixedSize(*BUTTON_SIZE)
-    button.setEnabled(enabled)
-    return button
-
-
 def register_icon_directories():
     icon_directories = [str(Path.home() / ".local/share/icons"), "/usr/share/icons"]
     QIcon.setThemeSearchPaths(icon_directories + QIcon.themeSearchPaths())
@@ -290,12 +283,12 @@ def build_window(facts):
     button_row = QHBoxLayout()
     button_row.setSpacing(6)
     button_row.addStretch()
-    ok_button = dialog_button("OK")
-    cancel_button = dialog_button("Cancel")
+    ok_button = chicago95ui.dialog_button("OK")
+    cancel_button = chicago95ui.dialog_button("Cancel")
     ok_button.setDefault(True)
     ok_button.clicked.connect(window.accept)
     cancel_button.clicked.connect(window.reject)
-    for button in (ok_button, cancel_button, dialog_button("Apply", enabled=False)):
+    for button in (ok_button, cancel_button, chicago95ui.dialog_button("Apply", enabled=False)):
         button_row.addWidget(button)
     layout.addLayout(button_row)
     return window

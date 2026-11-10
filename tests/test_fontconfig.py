@@ -40,3 +40,14 @@ def test_ui_font_is_unsmoothed_on_its_pixel_grid(tmp_path, pixel_size):
 @pytest.mark.parametrize("pixel_size", [16, 16.5, 18])
 def test_ui_font_is_smoothed_in_grey_with_full_hinting_off_its_grid(tmp_path, pixel_size):
     assert rendering(tmp_path, pixel_size) == {"antialias": "True(w)", "hintstyle": "3(i)(w)", "rgba": "5(i)(w)"}
+
+
+def test_setup_installs_the_rule_that_smooths_winamps_18px_playlist(tmp_path):
+    """qmmp's playlist font is 9 points: 18px on a 1.5x screen, where the old rule left it jagged."""
+    subprocess.run([str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", "--components=look"],
+                   capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60,
+                   env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)})
+    log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+
+    assert f"would-copy: {RULE} -> {tmp_path}/.config/fontconfig/conf.d/{RULE.name}" in log
+    assert rendering(tmp_path, 18)["antialias"] == "True(w)"

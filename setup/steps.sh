@@ -27,13 +27,16 @@ backup() {          # backup <path>  keeps the pre-install version; a file Setup
     [ -e "$dest" ] || cp -a "$path" "$dest"
 }
 
-short_path() { local path="${1#"$REPO"/}"; printf '%s' "${path/#"$HOME"/\~}"; }
+short_path() { local path="${2#"$REPO"/}"; printf -v "$1" '%s' "${path/#"$HOME"/\~}"; }   # short_path <variable> <path>
 
-show_copy() {       # show_copy <source> <destination>   on screen and in the Setup log, one line per file
-    local line
-    line="$(short_path "$1") → $(short_path "$2")"
-    printf '%s: %s -> %s\n' "$([ "${SETUP_DRY_RUN:-0}" = 1 ] && echo would-copy || echo copied)" "$1" "$2" >>"$SETUP_LOG"
-    COPIED=$((COPIED + 1)); ui_progress "$COPIED" "$TO_COPY" "$line"
+# show_copy <source> <destination>   on screen and in the Setup log, one line per file. Thousands of files
+# pass through here (the icon sets), so it starts no programs: no subshells, no tput.
+show_copy() {
+    local source dest verb=copied
+    short_path source "$1"; short_path dest "$2"
+    [ "${SETUP_DRY_RUN:-0}" = 1 ] && verb=would-copy
+    printf '%s: %s -> %s\n' "$verb" "$1" "$2" >>"$SETUP_LOG"
+    COPIED=$((COPIED + 1)); ui_progress "$COPIED" "$TO_COPY" "$source → $dest"
 }
 
 put_file() {        # put_file <source> <destination>
@@ -51,6 +54,53 @@ put_tree() {        # put_tree <source dir> <destination dir>
 substitute_home() { [ "${SETUP_DRY_RUN:-0}" = 1 ] || grep -rlI '@HOME@' "$@" 2>/dev/null | xargs -r sed -i "s|@HOME@|$HOME|g"; }
 
 kconf() { run kwriteconfig6 --file "$1" --group "$2" --key "$3" "${@:4}"; record "kconf:$1:$2:$3"; }
+
+# The choices the Control Panel saves in ~/.config/chicago95/setup.conf, one KEY=value per line; KEY sets SETUP_KEY.
+SETTINGS_KEYS="LOOK TITLE_ACTIVE TITLE_INACTIVE BANNER_BG BANNER_FG ICONS FONT FONT_SCOPE CURSOR PANEL
+    TASK_BUTTON_WIDTH QUICK_LAUNCH LAUNCHERS TASKBAR_AUTOHIDE TASKBAR_ON_TOP CLOCK_SHOW CLOCK_HOURS START_TEXT START_LOGO BANNER_TEXT
+    SAVER IDLE_MIN LOGIN_STYLE LOGIN_TITLE LOGIN_MESSAGE LOGIN_ICON LOGIN_LOGO EDITION TAGLINE COMPANY COMPANY_LOGO
+    SPLASH_IMAGE LOADING_TEXT LOADING_FOOTER SOUND_THEME CLIPPY_AUTOSTART EXPLORER
+    BACKGROUND_MODE BACKGROUND_COLOR BACKGROUND_PATTERN BACKGROUND_IMAGE BACKGROUND_FILL CLASSIC_EFFECTS"
+
+# A look is four colour settings; each is one #RRGGBB, or two separated by a comma for a gradient.
+# A look: menu style, title bars, Start menu banner and, for 2000, the warm grey face. Colours are
+# #RRGGBB, two separated by a comma for a gradient; banner stops with @N sit N pixels above its bottom.
+# The 1998 and 2000 banners are measured from the originals (tests/test_startmenu_styles_reference.py).
+apply_look() {
+    SETUP_LOOK=$1; SETUP_MENU_STYLE=1995; SETUP_FACE=""; SETUP_SELECTION=""; SETUP_ICONS=${OPT_ICONS:-chicago95}
+    case "$1" in
+        1995) set -- "#000080;#808080;#808080;#C0C0C0";;
+        1998) SETUP_MENU_STYLE=1998; SETUP_ICONS=${OPT_ICONS:-se98}
+              set -- "#000080,#1084D0;#808080,#C0C0C0;#00007B,#00007B@95,#0000B0@70,#0000F8@45,#0000EE@20,#0000A9@0;#FFFFFF";;
+        2000) SETUP_MENU_STYLE=2000; SETUP_FACE="212,208,200"; SETUP_SELECTION="10,36,106"; SETUP_ICONS=${OPT_ICONS:-classicos2000}
+              set -- "#0A246A,#A6CAF0;#808080,#C0C0C0;#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0;#FFFFFF";;
+    esac
+    IFS=';' read -r SETUP_TITLE_ACTIVE SETUP_TITLE_INACTIVE SETUP_BANNER_BG SETUP_BANNER_FG <<<"$1"
+}
+
+save_settings() {   # keys this run did not set keep their saved values
+    [ "${SETUP_DRY_RUN:-0}" = 1 ] && return 0
+    local file=~/.config/chicago95/setup.conf key variable previous=""
+    [ -f "$file" ] && previous=$(cat "$file")
+    backup "$file"; mkdir -p "$(dirname "$file")"
+    {
+        for key in $SETTINGS_KEYS; do
+            variable=SETUP_$key
+            if [ -n "${!variable+x}" ]; then printf '%s=%s\n' "$key" "${!variable}"; else grep -m1 "^$key=" <<<"$previous" || true; fi
+        done
+        printf 'REPO=%s\n' "$REPO"
+    } >"$file"
+    record "$file"
+}
+
+load_settings() {   # load_settings <file>   values are data: the file is read, never executed
+    local key value look
+    look=$(sed -n 's/^LOOK=//p' "$1" | tail -1)
+    case "$look" in 1995|1998|2000) apply_look "$look";; esac
+    while IFS='=' read -r key value; do
+        case " ${SETTINGS_KEYS//$'\n'/ } " in *" $key "*) printf -v "SETUP_$key" '%s' "$value";; esac
+    done <"$1"
+}
 
 
 # --- KWin rules: merged as text, never through kwriteconfig6 (it drops every other group) ---
@@ -191,6 +241,19 @@ EOF
     record "$dest"
 }
 
+# The effects that animate windows and popups; "yes" turns them and every animation off, as in the originals.
+CLASSIC_EFFECT_IDS="squash magiclamp fade scale glide fallapart wobblywindows fadingpopups slidingpopups maximize"
+
+classic_effects() {
+    local effect
+    case "${SETUP_CLASSIC_EFFECTS:-}" in
+        yes) kconf kdeglobals KDE AnimationDurationFactor 0
+             for effect in $CLASSIC_EFFECT_IDS; do kconf kwinrc Plugins "${effect}Enabled" false; done;;
+        no) kconf kdeglobals KDE AnimationDurationFactor 1
+            for effect in $CLASSIC_EFFECT_IDS; do kconf kwinrc Plugins "${effect}Enabled" --delete; done;;
+    esac
+}
+
 step_look() {       # decoration, Plasma style, colours, widget style, DPI
     put_tree "$REPO/aurorae/theme" ~/.local/share/aurorae/themes/Chicago95
     for extra in bevel.py make_chicago95_aurorae.py start-button.png start-button-pressed.png; do put_file "$REPO/aurorae/$extra" ~/.local/share/aurorae/themes/Chicago95/$extra; done
@@ -202,6 +265,7 @@ step_look() {       # decoration, Plasma style, colours, widget style, DPI
     kconf kwinrc org.kde.kdecoration2 library org.kde.kwin.aurorae
     kconf kwinrc org.kde.kdecoration2 theme __aurorae__svg__Chicago95
     kconf kwinrc org.kde.kdecoration2 BorderSize Normal
+    classic_effects
     run plasma-apply-colorscheme Chicago95 >>"$SETUP_LOG" 2>&1 || true
     apply_icon_set
     if [ -n "${SETUP_FACE:-}" ]; then   # the 2000 look: warm grey face and its selection colour
@@ -235,7 +299,7 @@ step_taskbar() {
     put_file "$REPO/plasmoids/panel-layout.js" ~/.local/share/chicago95/panel-layout.js
     put_file "$REPO/config/applications/chicago95-showdesktop.desktop" ~/.local/share/applications/chicago95-showdesktop.desktop
     put_file "$REPO/data/icons/tray-arrow-up.png" ~/.local/share/chicago95/icons/tray-arrow-up.png
-    substitute_home ~/.local/share/plasma/plasmoids/org.chicago95.start ~/.local/share/plasma/plasmoids/org.chicago95.trayframe
+    substitute_home ~/.local/share/plasma/plasmoids/org.chicago95.start ~/.local/share/plasma/plasmoids/org.chicago95.tasks ~/.local/share/plasma/plasmoids/org.chicago95.trayframe
 }
 
 step_tools_common() {   # shared by every PySide6 component; idempotent
@@ -247,6 +311,13 @@ step_tools_common() {   # shared by every PySide6 component; idempotent
     put_file "$REPO/config/environment.d/chicago95.conf" ~/.config/environment.d/chicago95.conf
     substitute_home ~/.config/environment.d/chicago95.conf
     run systemctl --user set-environment "QML_IMPORT_PATH=$HOME/.local/share/chicago95/qml"
+}
+
+step_controlpanel() {   # one window for every choice Setup asked; it saves them and runs Setup again for what changed
+    step_tools_common
+    for tool in control-panel askpass; do put_file "$REPO/bin/chicago95-$tool" ~/.local/bin/chicago95-$tool; run chmod +x ~/.local/bin/chicago95-$tool; done
+    put_file "$REPO/config/applications/chicago95-control-panel.desktop" ~/.local/share/applications/chicago95-control-panel.desktop
+    substitute_home ~/.local/share/applications
 }
 
 step_startmenu() {
@@ -358,7 +429,9 @@ step_screensaver() {
 step_winamp() {
     [ "$SETUP_HAS_QMMP" = 1 ] || { ui_status "qmmp not installed; skipping Winamp"; return; }
     put_file "$REPO/config/applications/qmmp.desktop" ~/.local/share/applications/qmmp.desktop
-    kwin_rule qmmp "Description=Chicago95 Winamp (qmmp) without frame" "wmclass=qmmp" "wmclassmatch=1" "noborder=true" "noborderrule=2" "types=1"
+    # Only the skinned player (its window class is "player Qmmp") draws its own frame; the visualizers don't.
+    kwin_rule qmmp "Description=Chicago95 Winamp (qmmp) without frame" "wmclass=^player qmmp$" "wmclasscomplete=true" "wmclassmatch=3" \
+        "noborder=true" "noborderrule=2" "types=1"
     run mkdir -p ~/.qmmp/skins
     [ -n "$SETUP_CHICAGO95_SRC" ] && [ -d "$SETUP_CHICAGO95_SRC/Extras/qmmp" ] && put_tree "$SETUP_CHICAGO95_SRC/Extras/qmmp" ~/.qmmp/skins/chicago95 || true
 }
@@ -585,14 +658,70 @@ offer_taskbar() {   # replaces the panels with the Chicago95 taskbar once the us
     ui_confirm "Build the taskbar now?" || return 0
     backup ~/.config/plasma-org.kde.plasma.desktop-appletsrc
     plasma_script "panels().forEach(panel => panel.remove());
-$(sed -e "s/^panel.height = 28;/panel.height = $PANEL_HEIGHT;/" -e "s/^const look = \"1995\";/const look = \"${SETUP_MENU_STYLE:-1995}\";/" ~/.local/share/chicago95/panel-layout.js)" >>"$SETUP_LOG" 2>&1
+$(panel_layout_script ~/.local/share/chicago95/panel-layout.js)" >>"$SETUP_LOG" 2>&1
+}
+
+only_digits() { printf '%s' "${1//[!0-9]/}"; }
+
+panel_hiding() {   # the panel.hiding value the saved choices ask for; nothing when none was saved
+    if [ "${SETUP_TASKBAR_AUTOHIDE:-}" = yes ]; then echo autohide
+    elif [ "${SETUP_TASKBAR_ON_TOP:-}" = no ]; then echo windowsgobelow
+    elif [ -n "${SETUP_TASKBAR_AUTOHIDE:-}${SETUP_TASKBAR_ON_TOP:-}" ]; then echo none
+    fi
+}
+
+clock_hours() { case "${SETUP_CLOCK_HOURS:-}" in locale|12|24) printf '%s' "$SETUP_CLOCK_HOURS";; esac; }
+
+panel_layout_script() {  # panel_layout_script <layout file>   the layout with this run's height, look and task button width
+    local width hiding hours edits=(-e "s/^panel.height = 28;/panel.height = $PANEL_HEIGHT;/" -e "s/^const look = \"1995\";/const look = \"${SETUP_MENU_STYLE:-1995}\";/")
+    width=$(only_digits "${SETUP_TASK_BUTTON_WIDTH:-}")
+    [ -n "$width" ] && edits+=(-e "/^tasks.writeConfig(\"look\", look);/a tasks.writeConfig(\"maxButtonWidth\", $width);")
+    [ -n "${SETUP_LAUNCHERS+x}" ] && edits+=(-e "/^tasks.writeConfig(\"look\", look);/a tasks.writeConfig(\"launchers\", $(js_list "$SETUP_LAUNCHERS"));")
+    hiding=$(panel_hiding)
+    [ -n "$hiding" ] && edits+=(-e "s/^panel.hiding = \"none\";/panel.hiding = \"$hiding\";/")
+    hours=$(clock_hours)
+    if [ "${SETUP_CLOCK_SHOW:-}" = no ]; then edits+=(-e '/^const clock = panel.addWidget/,/^clock.writeConfig/d')
+    elif [ -n "$hours" ]; then edits+=(-e "/^clock.writeConfig(\"look\", look);/a clock.writeConfig(\"hourFormat\", \"$hours\");"); fi
+    sed "${edits[@]}" "$1"
 }
 
 js_string() { python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$1"; }
+js_list() { python3 -c 'import json, sys; print(json.dumps([entry for entry in sys.argv[1].split(",") if entry]))' "$1"; }
 
 apply_taskbar() {  # every run: the Start button's text and logo, and the look into each taskbar applet
     [ "$SETUP_IN_PLASMA" = 1 ] && [ "${SETUP_DRY_RUN:-0}" = 0 ] || return 0
+    local width height height_script="" width_script="" launchers_script="" hiding hiding_script="" hours clock_script=""
+    width=$(only_digits "${SETUP_TASK_BUTTON_WIDTH:-}")
+    [ -n "$width" ] && width_script="panel.widgets('org.chicago95.tasks').forEach(widget => { widget.currentConfigGroup = ['General']; widget.writeConfig('maxButtonWidth', $width); });"
+    if [ -n "${SETUP_LAUNCHERS+x}" ]; then
+        launchers_script="panel.widgets('org.chicago95.tasks').forEach(widget => { widget.currentConfigGroup = ['General']; widget.writeConfig('launchers', $(js_list "$SETUP_LAUNCHERS")); });"
+    elif quick_launch_shown; then
+        launchers_script="// A taskbar first built under 1995 saved an empty Quick Launch; where it shows, it gets the defaults.
+        panel.widgets('org.chicago95.tasks').forEach(widget => {
+            widget.currentConfigGroup = ['General'];
+            if (String(widget.readConfig(\"launchers\", '')) === '')
+                widget.writeConfig('launchers', $(quick_launch_defaults));
+        });"
+    fi
+    height=$(only_digits "${SETUP_PANEL:-}")
+    [ -n "$height" ] && height_script="if (panel.widgets('org.chicago95.tasks').length > 0) panel.height = $height;"
+    hiding=$(panel_hiding)
+    [ -n "$hiding" ] && hiding_script="if (panel.widgets('org.chicago95.tasks').length > 0) panel.hiding = \"$hiding\";"
+    case "${SETUP_CLOCK_SHOW:-}" in
+        no) clock_script="panel.widgets('org.chicago95.clock').forEach(widget => widget.remove());";;
+        yes) clock_script="if (panel.widgets('org.chicago95.tasks').length > 0 && panel.widgets('org.chicago95.clock').length === 0) { const clock = panel.addWidget('org.chicago95.clock'); clock.currentConfigGroup = ['General']; clock.writeConfig('look', $(js_string "${SETUP_MENU_STYLE:-1995}")); }";;
+    esac
+    hours=$(clock_hours)
+    [ -n "$hours" ] && clock_script+=" panel.widgets('org.chicago95.clock').forEach(widget => { widget.currentConfigGroup = ['General']; widget.writeConfig('hourFormat', $(js_string "$hours")); });"
     plasma_script "panels().forEach(panel => {
+        $height_script
+        $width_script
+        $hiding_script
+        $clock_script
+        panel.widgets('org.chicago95.tasks').forEach(widget => {
+            widget.currentConfigGroup = ['General'];
+            widget.writeConfig('quickLaunch', $(js_string "${SETUP_QUICK_LAUNCH:-auto}"));
+        });
         panel.widgets('org.chicago95.start').forEach(widget => {
             widget.currentConfigGroup = ['General'];
             widget.writeConfig('buttonText', $(js_string "${SETUP_START_TEXT:-Start}"));
@@ -603,18 +732,51 @@ apply_taskbar() {  # every run: the Start button's text and logo, and the look i
                 widget.currentConfigGroup = ['General'];
                 widget.writeConfig('look', $(js_string "${SETUP_MENU_STYLE:-1995}"));
             }));
-        // A taskbar first built under 1995 saved an empty Quick Launch; a look that shows it gets the defaults.
-        panel.widgets('org.chicago95.tasks').forEach(widget => {
-            widget.currentConfigGroup = ['General'];
-            if ($(js_string "${SETUP_MENU_STYLE:-1995}") !== '1995' && String(widget.readConfig(\"launchers\", '')) === '')
-                widget.writeConfig('launchers', $(quick_launch_defaults));
-        });
+        $launchers_script
     })" >>"$SETUP_LOG" 2>&1
+}
+
+quick_launch_shown() {  # the Quick Launch option: yes, no, or auto for the look's own (quickLaunch.js decides alike)
+    case "${SETUP_QUICK_LAUNCH:-auto}" in yes) return 0;; no) return 1;; *) [ "${SETUP_MENU_STYLE:-1995}" != 1995 ];; esac
 }
 
 quick_launch_defaults() {  # the task list's default Quick Launch programs, from its settings file, as a JS list
     sed -n '/name="launchers"/,/<\/entry>/s/.*<default>\(.*\)<\/default>.*/\1/p' "$REPO/plasmoids/org.chicago95.tasks/contents/config/main.xml" |
         python3 -c 'import json, sys; print(json.dumps(sys.stdin.read().strip().split(",")))'
+}
+
+# The desktop picture: a colour, one tile of a pattern, or an image, written into every desktop's wallpaper.
+pattern_picture() { printf '%s' ~/.local/share/chicago95/pattern.png; }
+
+background_color() { [[ "${SETUP_BACKGROUND_COLOR:-}" =~ ^#[0-9A-Fa-f]{6}$ ]] && printf '%s' "$SETUP_BACKGROUND_COLOR" || printf '#008080'; }
+
+background_pattern() { case "${SETUP_BACKGROUND_PATTERN:-}" in checks|diagonal|grid|dots) printf '%s' "$SETUP_BACKGROUND_PATTERN";; *) printf 'checks';; esac; }
+
+background_fill_mode() {   # Qt's Image fill modes: Stretch 0, Tile 3, Pad (centred) 6
+    case "${SETUP_BACKGROUND_FILL:-}" in tile) printf 3;; stretch) printf 0;; *) printf 6;; esac
+}
+
+background_script() {
+    local hex plugin=org.kde.color writes
+    hex=$(background_color)
+    writes="desktop.writeConfig(\"Color\", \"$((16#${hex:1:2})),$((16#${hex:3:2})),$((16#${hex:5:2}))\");"
+    case "${SETUP_BACKGROUND_MODE:-color}" in
+        image) plugin=org.kde.image
+               writes+=" desktop.writeConfig(\"Image\", $(js_string "file://${SETUP_BACKGROUND_IMAGE:-}")); desktop.writeConfig(\"FillMode\", $(background_fill_mode));";;
+        pattern) plugin=org.kde.image
+                 writes+=" desktop.writeConfig(\"Image\", $(js_string "file://$(pattern_picture)")); desktop.writeConfig(\"FillMode\", 3);";;
+    esac
+    printf 'desktops().forEach(desktop => {\n    desktop.wallpaperPlugin = "%s";\n    desktop.currentConfigGroup = ["Wallpaper", "%s", "General"];\n    %s\n});\n' "$plugin" "$plugin" "$writes"
+}
+
+step_background() {
+    if [ "${SETUP_BACKGROUND_MODE:-color}" = pattern ]; then
+        run mkdir -p "$(dirname "$(pattern_picture)")"
+        run python3 "$REPO/setup/background_pattern.py" "$(background_pattern)" "$(background_color)" "$(pattern_picture)"
+        record "$(pattern_picture)"
+    fi
+    [ "${SETUP_DRY_RUN:-0}" = 1 ] || [ "$SETUP_IN_PLASMA" = 1 ] || { ui_status "Plasma is not running; the desktop background is unchanged"; return; }
+    run plasma_script "$(background_script)"
 }
 
 restart_start_menu() {  # the menu stays resident; a reinstall must replace the running copy

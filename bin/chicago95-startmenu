@@ -9,6 +9,7 @@ import configparser
 import json
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -469,6 +470,16 @@ def root_icon(item, style):
     return themed_icon(*names)
 
 
+def control_panel_command(which=shutil.which):
+    installed = which("chicago95-control-panel")
+    return [installed] if installed else ["systemsettings"]
+
+
+def taskbar_properties_command(which=shutil.which):
+    installed = which("chicago95-control-panel")
+    return [installed, "--page", "taskbar"] if installed else None
+
+
 def add_entry(menu, text, icon, callback):
     """icon: a QIcon, or an icon name (or tuple of names, first available wins)."""
     if not isinstance(icon, QIcon):
@@ -547,7 +558,9 @@ def build_root_menu():
     root.addMenu(documents)
     settings = RetroMenu("&Settings", root)
     settings.setIcon(root_icon("settings", style))
-    add_entry(settings, "Control Panel", "preferences-system", lambda: launch(["systemsettings"]))
+    add_entry(settings, "Control Panel", "preferences-system", lambda: launch(control_panel_command()))
+    if taskbar_properties_command():
+        add_entry(settings, "Taskbar...", "preferences-system-windows", lambda: launch(taskbar_properties_command()))
     add_entry(settings, "Printers", "printer", lambda: launch(["kcmshell6", "kcm_printer_manager"]))
     add_entry(settings, "Display", "preferences-desktop-display", lambda: launch(["kcmshell6", "kcm_kscreen"]))
     root.addMenu(settings)

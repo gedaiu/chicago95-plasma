@@ -12,6 +12,7 @@ with. All are from Nathan's Toasty Technology page, http://toastytech.com/guis/ 
 | `w2kshutdown.png` | http://toastytech.com/guis/w2kshutdown.png |
 | `w2kstartmenu.png` | http://toastytech.com/guis/w2kstartmenu.png |
 | `win95bootsm.png` | http://toastytech.com/guis/win95bootsm.png |
+| `win95controlpanel.png` | https://www.versionmuseum.com/images/operating-systems/microsoft-windows/microsoft-windows%5E1995%5Ewindows-95-control-panel.png (Version Museum, not Toasty Technology) |
 | `win95desktop3.png` | http://toastytech.com/guis/win95desktop3.png |
 | `win95helpbutton.png` | http://toastytech.com/guis/win95helpbutton.png |
 | `win95shutdownsm.png` | http://toastytech.com/guis/win95shutdownsm.png |

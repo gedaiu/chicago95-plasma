@@ -29,7 +29,7 @@ while IFS= read -r entry; do
                  case "$key" in
                      widgetStyle) kwriteconfig6 --file "$file" --group "$group" --key "$key" Breeze;;
                      library) kwriteconfig6 --file "$file" --group "$group" --key "$key" org.kde.breeze;;
-                     theme|Theme|Engine|forceFontDPI|chicago95notificationsEnabled|AccentColor|BorderSize|font|menuFont|toolBarFont|smallestReadableFont|activeFont|activeBackground|activeBlend|inactiveBackground|inactiveBlend) kwriteconfig6 --file "$file" --group "$group" --key "$key" --delete;;
+                     theme|Theme|Engine|forceFontDPI|chicago95notificationsEnabled|AccentColor|BorderSize|font|menuFont|toolBarFont|smallestReadableFont|activeFont|activeBackground|activeBlend|inactiveBackground|inactiveBlend|AnimationDurationFactor|squashEnabled|magiclampEnabled|fadeEnabled|scaleEnabled|glideEnabled|fallapartEnabled|wobblywindowsEnabled|fadingpopupsEnabled|slidingpopupsEnabled|maximizeEnabled) kwriteconfig6 --file "$file" --group "$group" --key "$key" --delete;;
                  esac;;
         kwinrule:*) remove_kwin_rule "${entry#kwinrule:}";;
         root:*) sudo rm -f "${entry#root:}";;

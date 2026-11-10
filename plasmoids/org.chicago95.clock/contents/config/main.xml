@@ -4,6 +4,10 @@
       xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
   <kcfgfile name=""/>
   <group name="General">
+    <entry name="hourFormat" type="String">
+      <label>"24" or "12" hours; "locale" shows the time as the locale's short format does</label>
+      <default>locale</default>
+    </entry>
     <entry name="look" type="String">
       <label>The look's clock cell: "1995", "1998" or "2000" (wider)</label>
       <default>1995</default>

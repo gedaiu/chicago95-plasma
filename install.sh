@@ -8,11 +8,13 @@
 #   ./install.sh --plain         no full-screen UI (logs, CI, screen readers)
 #   Options (asked interactively, or given as flags):
 #     --screen=2560x1440@1.5  --panel=28  --explorer=thunar|dolphin  --saver=maze
-#     --idle=5  --cursor=48  --clippy=yes|no  --font="MS W98 UI"  --font-scope=everywhere|desktop|none
+#     --idle=5  --cursor=48  --clippy=yes|no  --quick-launch=yes|no|auto  --font="MS W98 UI"  --font-scope=everywhere|desktop|none
 #     --start-text=Start  --start-logo=flag|penguin|/path/to/image  --banner-text=Chicago95
 #     --look=1995|1998|2000|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
 #     --login-style=classic|2000  --icons=chicago95|se98|classicos2000
 #     --sounds=Chicago95|Windows98|Windows2000|Plus98-Jungle|...  (data/sound-themes/)
+#     --settings=FILE  choices saved by the Control Panel (KEY=value lines), applied over the defaults
+#     --task-button-width=160  longest a task button on the taskbar may be, in pixels
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,6 +35,7 @@ for arg in "$@"; do
         --idle=*) OPT_IDLE="${arg#*=}";;
         --cursor=*) OPT_CURSOR="${arg#*=}";;
         --clippy=*) OPT_CLIPPY="${arg#*=}";;
+        --quick-launch=*) OPT_QUICK_LAUNCH="${arg#*=}";;
         --font=*) OPT_FONT="${arg#*=}";;
         --font-scope=*) OPT_FONT_SCOPE="${arg#*=}";;
         --start-text=*) OPT_START_TEXT="${arg#*=}";;
@@ -42,7 +45,9 @@ for arg in "$@"; do
         --icons=*) OPT_ICONS="${arg#*=}";;
         --login-style=*) OPT_LOGIN_STYLE="${arg#*=}";;
         --sounds=*) OPT_SOUNDS="${arg#*=}";;
-        --help|-h) sed -n '2,13p' "$0"; exit 0;;
+        --settings=*) OPT_SETTINGS="${arg#*=}";;
+        --task-button-width=*) OPT_TASK_BUTTON_WIDTH="${arg#*=}";;
+        --help|-h) sed -n '2,15p' "$0"; exit 0;;
         *) [ -z "$WANTED" ] && [[ "$arg" != --* ]] && WANTED="$arg";;
     esac
 done
@@ -146,22 +151,6 @@ choose_branding() {
     return 0
 }
 
-# A look is four colour settings; each is one #RRGGBB, or two separated by a comma for a gradient.
-# A look: menu style, title bars, Start menu banner and, for 2000, the warm grey face. Colours are
-# #RRGGBB, two separated by a comma for a gradient; banner stops with @N sit N pixels above its bottom.
-# The 1998 and 2000 banners are measured from the originals (tests/test_startmenu_styles_reference.py).
-apply_look() {
-    SETUP_MENU_STYLE=1995; SETUP_FACE=""; SETUP_SELECTION=""; SETUP_ICONS=${OPT_ICONS:-chicago95}
-    case "$1" in
-        1995) set -- "#000080;#808080;#808080;#C0C0C0";;
-        1998) SETUP_MENU_STYLE=1998; SETUP_ICONS=${OPT_ICONS:-se98}
-              set -- "#000080,#1084D0;#808080,#C0C0C0;#00007B,#00007B@95,#0000B0@70,#0000F8@45,#0000EE@20,#0000A9@0;#FFFFFF";;
-        2000) SETUP_MENU_STYLE=2000; SETUP_FACE="212,208,200"; SETUP_SELECTION="10,36,106"; SETUP_ICONS=${OPT_ICONS:-classicos2000}
-              set -- "#0A246A,#A6CAF0;#808080,#C0C0C0;#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0;#FFFFFF";;
-    esac
-    IFS=';' read -r SETUP_TITLE_ACTIVE SETUP_TITLE_INACTIVE SETUP_BANNER_BG SETUP_BANNER_FG <<<"$1"
-}
-
 valid_colors() { [[ "$1" =~ ^#[0-9A-Fa-f]{6}(,#[0-9A-Fa-f]{6})?$ ]]; }
 
 ask_colors() {      # ask_colors <prompt> <current>   repeats until the answer is one or two #RRGGBB colours
@@ -191,7 +180,7 @@ choose_look() {
     case "$choice" in
         2) apply_look 1998;;
         3) apply_look 2000;;
-        4) ui_card "Your own colours" "Type a colour as #RRGGBB, or two separated by a comma for a gradient" \
+        4) SETUP_LOOK=custom; ui_card "Your own colours" "Type a colour as #RRGGBB, or two separated by a comma for a gradient" \
                "(left to right on title bars, top to bottom on the banner). ENTER keeps the shown value." >/dev/tty
            SETUP_TITLE_ACTIVE=$(ask_colors "Active title bar" "$SETUP_TITLE_ACTIVE")
            SETUP_TITLE_INACTIVE=$(ask_colors "Inactive title bar" "$SETUP_TITLE_INACTIVE")
@@ -347,7 +336,9 @@ else
         "notifications:Chicago95 notifications:$py_ok" \
         "clippy:Office Assistant:$py_ok" \
         "extras:System Properties, Device Manager, Dial-Up Networking, login chime:$py_ok" \
+        "controlpanel:Control Panel (change every choice later):$py_ok" \
         "sounds:Sound scheme (Windows 98, Plus! 98, Windows 2000):1" \
+        "background:Desktop background (colour, pattern or picture):1" \
         "screensaver:Screensaver (XScreenSaver hacks):$([ -n "$SETUP_HACK_DIR" ] && echo 1 || echo 0)" \
         "winamp:Winamp (qmmp launch entries and window rule):$SETUP_HAS_QMMP" \
         "explorer:Explorer (Thunar settings, GTK CSS, Dolphin toolbar):$SETUP_HAS_THUNAR" \
@@ -368,6 +359,7 @@ while IFS='=' read -r name value; do
         explorer) SETUP_EXPLORER=$value;;
         cursor) SETUP_CURSOR=$value;;
         clippy) SETUP_CLIPPY_AUTOSTART=$value;;
+        quicklaunch) SETUP_QUICK_LAUNCH=$value;;
         font) SETUP_FONT=$value;;
     esac
 done < <(ui_pick_options \
@@ -377,6 +369,7 @@ done < <(ui_pick_options \
     "idle|Screensaver after (minutes)|${OPT_IDLE:-5}" \
     "cursor|Cursor size (24/32/48)|${OPT_CURSOR:-$(awk -v s="$SETUP_SCALE" 'BEGIN{print (s>1)?48:32}')}" \
     "clippy|Office Assistant at login (yes/no)|${OPT_CLIPPY:-yes}" \
+    "quicklaunch|Quick Launch on the taskbar (yes/no/auto: from the 1998 look on)|${OPT_QUICK_LAUNCH:-auto}" \
     "font|UI font family|${OPT_FONT:-MS W98 UI}")
 SETUP_FONT_SCOPE=${OPT_FONT_SCOPE:-everywhere}
 [ -n "${OPT_FONT_SCOPE:-}" ] || choose_font_scope
@@ -400,10 +393,12 @@ SETUP_SAVER=${OPT_SAVER:-deepstars}
 [[ " $COMPONENTS " == *" screensaver "* ]] && [ "$py_ok" = 1 ] && choose_screensaver
 SETUP_SOUND_THEME=${OPT_SOUNDS:-Chicago95}
 [[ " $COMPONENTS " == *" sounds "* ]] && [ -z "${OPT_SOUNDS:-}" ] && choose_sounds
+[ -n "${OPT_SETTINGS:-}" ] && load_settings "$OPT_SETTINGS"
+[ -n "${OPT_TASK_BUTTON_WIDTH:-}" ] && SETUP_TASK_BUTTON_WIDTH=$OPT_TASK_BUTTON_WIDTH
 SETUP_DPI=$(awk -v s="$SETUP_SCALE" 'BEGIN{printf "%d", 96*s + 0.5}')
 PANEL_HEIGHT=${SETUP_PANEL:-28}
-printf 'Options: screen=%sx%s@%s panel=%s explorer=%s saver=%s idle=%s cursor=%s clippy=%s font=%s sounds=%s\n' \
-    "$SETUP_WIDTH" "$SETUP_HEIGHT" "$SETUP_SCALE" "$PANEL_HEIGHT" "$SETUP_EXPLORER" "$SETUP_SAVER" "$SETUP_IDLE_MIN" "$SETUP_CURSOR" "$SETUP_CLIPPY_AUTOSTART" "$SETUP_FONT" "$SETUP_SOUND_THEME" >>"$SETUP_LOG"
+printf 'Options: screen=%sx%s@%s panel=%s explorer=%s saver=%s idle=%s cursor=%s clippy=%s quicklaunch=%s font=%s sounds=%s\n' \
+    "$SETUP_WIDTH" "$SETUP_HEIGHT" "$SETUP_SCALE" "$PANEL_HEIGHT" "$SETUP_EXPLORER" "$SETUP_SAVER" "$SETUP_IDLE_MIN" "$SETUP_CURSOR" "$SETUP_CLIPPY_AUTOSTART" "${SETUP_QUICK_LAUNCH:-auto}" "$SETUP_FONT" "$SETUP_SOUND_THEME" >>"$SETUP_LOG"
 ui_step_done 1
 
 # ---- 3. copy ----------------------------------------------------------------
@@ -418,7 +413,7 @@ TO_COPY=$(SETUP_DRY_RUN=1; SETUP_LOG=/dev/null; UI_PLAIN=1; TO_COPY=0
 fix_font_spaces
 for component in $COMPONENTS; do
     case $component in
-        base|look|taskbar|startmenu|notifications|clippy|extras|sounds|screensaver|winamp|explorer|lockscreen|splash|plymouth|sddm|firefox) "step_$component";;
+        base|look|taskbar|startmenu|notifications|clippy|extras|controlpanel|sounds|background|screensaver|winamp|explorer|lockscreen|splash|plymouth|sddm|firefox) "step_$component";;
         *) printf 'unknown component: %s\n' "$component" >>"$SETUP_LOG";;
     esac
 done
@@ -434,6 +429,7 @@ finish_session
 [[ " $COMPONENTS " == *" taskbar "* ]] && offer_taskbar
 apply_taskbar
 [[ " $COMPONENTS " == *" startmenu "* ]] && restart_start_menu
+save_settings
 ui_step_done 3
 
 lines=("Setup has finished installing Chicago95 for Plasma." "")

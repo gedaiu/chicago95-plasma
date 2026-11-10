@@ -4,6 +4,7 @@ import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasma5support as Plasma5Support
 import org.kde.kirigami as Kirigami
+import "clockFormat.js" as ClockFormat
 
 // The tray's clock as the originals show it (tests/test_plasma_taskbar_reference.py): the time in the
 // locale's short format, in the UI font without smoothing, centred in a cell that ends at the tray
@@ -44,7 +45,7 @@ PlasmoidItem {
         x: Math.round((root.width - implicitWidth) / 2)
         y: root.textTop
         // Locales put a narrow no-break space before AM and PM; the originals have a full space.
-        text: Qt.formatTime(root.now, Qt.locale().timeFormat(Locale.ShortFormat)).replace(/[\u00a0\u202f]/g, " ")
+        text: Qt.formatTime(root.now, ClockFormat.timeFormat(Plasmoid.configuration.hourFormat, Qt.locale().timeFormat(Locale.ShortFormat))).replace(/[\u00a0\u202f]/g, " ")
         font.family: "MS W98 UI"
         font.pixelSize: 11
         color: Kirigami.Theme.textColor

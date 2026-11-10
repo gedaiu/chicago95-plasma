@@ -3,8 +3,12 @@ import QtQuick.Layouts
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.extras as PlasmaExtras
+import org.kde.plasma.plasma5support as Plasma5Support
 import org.kde.kirigami as Kirigami
 import org.kde.taskmanager as TaskManager
+import "sizing.js" as Sizing
+import "launchers.js" as Launchers
+import "quickLaunch.js" as QuickLaunch
 
 // The taskbar between the Start button and the tray, as the originals lay it out
 // (tests/test_plasma_taskbar_reference.py): with Quick Launch entries, a separator, their 23px cells
@@ -13,7 +17,7 @@ import org.kde.taskmanager as TaskManager
 // part, so it starts over the gap Plasma's panel leaves between applets.
 // A click on a window's button activates it, or minimizes it when it is already active; the right
 // button opens the classic window menu, with "Add to Quick Launch". A Quick Launch entry's menu removes
-// it; programs dropped on the Quick Launch are added. The 1995 look has no Quick Launch.
+// it; programs dropped on the Quick Launch are added. Whether it shows is Setup's option (quickLaunch.js).
 PlasmoidItem {
     id: root
 
@@ -23,8 +27,8 @@ PlasmoidItem {
     Layout.fillHeight: true
 
     readonly property int contentX: -Kirigami.Units.smallSpacing   // the panel's gap between applets
-    readonly property bool showQuickLaunch: Plasmoid.configuration.look !== "1995"
-    readonly property int maxButtonWidth: Plasmoid.configuration.look === "1995" ? 95 : 160
+    readonly property bool showQuickLaunch: QuickLaunch.shown(Plasmoid.configuration.quickLaunch, Plasmoid.configuration.look)
+    readonly property int maxButtonWidth: Sizing.maxButtonWidth(Plasmoid.configuration.maxButtonWidth, Plasmoid.configuration.look)
     readonly property int gap: 3
     readonly property int gapWithoutQuickLaunch: 4
     readonly property int launcherCount: tasksModel.launcherCount
@@ -34,6 +38,22 @@ PlasmoidItem {
     readonly property int tasksX: launcherCount > 0 ? trailingSeparator.x + trailingSeparator.width : contentX + gapWithoutQuickLaunch
     readonly property int buttonWidth: windowCount === 0 ? 0
         : Math.min(maxButtonWidth, Math.floor((width - tasksX + gap) / windowCount) - gap)
+
+    Plasmoid.contextualActions: [
+        PlasmaCore.Action {
+            text: i18n("Properties")
+            icon.name: "preferences-system"
+            onTriggered: runner.connectSource(root.controlPanelCommand)
+        }
+    ]
+    readonly property string controlPanelCommand: "@HOME@/.local/bin/chicago95-control-panel --page taskbar"
+
+    Plasma5Support.DataSource {
+        id: runner
+        engine: "executable"
+        connectedSources: []
+        onNewData: (sourceName, data) => disconnectSource(sourceName)
+    }
 
     TaskManager.VirtualDesktopInfo { id: virtualDesktopInfo }
     TaskManager.ActivityInfo { id: activityInfo }
@@ -72,7 +92,39 @@ PlasmoidItem {
         x: root.quickLaunchX
         width: Math.max(23, root.quickLaunchEnd - root.quickLaunchX)
         height: parent.height
-        onDropped: drop => drop.urls.forEach(url => tasksModel.requestAddLauncher(url))
+        onDropped: drop => {
+            const insertAt = Launchers.insertionIndexAt(x + drop.x, root.quickLaunchX, root.launcherCount)
+            drop.urls.forEach((url, offset) => {
+                const before = tasksModel.launcherCount
+                tasksModel.requestAddLauncher(url)
+                if (tasksModel.launcherCount > before) tasksModel.move(before, insertAt + offset)
+            })
+        }
+    }
+
+    // While a Quick Launch entry is dragged: its icon follows the pointer and a bar marks the gap it would drop into.
+    property int draggedIndex: -1
+    property var draggedIcon
+    property point dragPoint
+    readonly property bool dragInsideTaskbar: Launchers.dragResult(draggedIndex, dragPoint.x, dragPoint.y, width, height, quickLaunchX, launcherCount).action !== "remove"
+    Rectangle {
+        visible: root.draggedIndex >= 0 && root.dragInsideTaskbar
+        x: root.quickLaunchX + Launchers.insertionIndexAt(root.dragPoint.x, root.quickLaunchX, root.launcherCount) * 23 - 1
+        y: 3
+        width: 2
+        height: root.height - 6
+        color: "black"
+        z: 10
+    }
+    Kirigami.Icon {
+        visible: root.draggedIndex >= 0
+        source: root.draggedIcon
+        x: root.dragPoint.x - 8
+        y: root.dragPoint.y - 8
+        width: 16
+        height: 16
+        opacity: root.dragInsideTaskbar ? 1 : 0.5
+        z: 11
     }
 
     Separator {
@@ -114,7 +166,30 @@ PlasmoidItem {
                         anchors.fill: parent
                         hoverEnabled: true
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        property point pressPoint
+                        property bool dragging: false
+                        property bool dragEndedClick: false
+                        onPressed: mouse => pressPoint = Qt.point(mouse.x, mouse.y)
+                        onPositionChanged: mouse => {
+                            if (!(pressedButtons & Qt.LeftButton)) return
+                            const travelled = Math.abs(mouse.x - pressPoint.x) + Math.abs(mouse.y - pressPoint.y)
+                            if (!dragging && travelled < Qt.styleHints.startDragDistance) return
+                            dragging = true
+                            root.draggedIcon = entry.model.decoration
+                            root.draggedIndex = entry.index
+                            root.dragPoint = mapToItem(root, mouse.x, mouse.y)
+                        }
+                        onReleased: mouse => {
+                            if (!dragging) return
+                            dragging = false
+                            dragEndedClick = true
+                            const result = Launchers.dragResult(entry.index, root.dragPoint.x, root.dragPoint.y, root.width, root.height, root.quickLaunchX, root.launcherCount)
+                            root.draggedIndex = -1
+                            if (result.action === "remove") tasksModel.requestRemoveLauncher(entry.model.LauncherUrlWithoutIcon)
+                            else if (result.action === "move") tasksModel.move(entry.index, result.to)
+                        }
                         onClicked: mouse => {
+                            if (dragEndedClick) { dragEndedClick = false; return }
                             if (mouse.button === Qt.RightButton) {
                                 launcherMenu.launcher = entry.model.LauncherUrlWithoutIcon
                                 launcherMenu.visualParent = parent
