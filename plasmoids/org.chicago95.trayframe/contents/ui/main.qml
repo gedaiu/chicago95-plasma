@@ -7,7 +7,9 @@ import org.kde.plasma.core as PlasmaCore
 // tray, which follows this applet, and the clock after it: the tray's icons 16px, 17px apart, on row 7
 // of the taskbar, the last one just before the clock's cell (1px; 4px on 2000); the sunken box from
 // 3px before the first icon (4px on 2000) to the end of the clock's cell.
-// Plasma's tray draws its icons at 22px in cells of its own; each icon is resized and placed here.
+// Plasma's tray draws its icons at 22px in cells of its own; each item is resized and placed here: its
+// icon at 16px when the item shows one (programs' icons, most applets), else its whole 22px icon area
+// scaled to 16px (applets that draw something else).
 PlasmoidItem {
     id: root
 
@@ -58,9 +60,9 @@ PlasmoidItem {
         return next
     }
 
-    function find(item, depth, kind) {
-        if (!item || depth > 8) return null
-        if (item.toString().indexOf(kind) === 0) return item
+    function find(item, depth, kind) {   // the first visible item of the kind, depth first
+        if (!item || depth > 12) return null
+        if (item.toString().indexOf(kind) === 0 && item.visible && item.width > 0) return item
         for (let i = 0; i < item.children.length; i++) {
             const found = find(item.children[i], depth + 1, kind)
             if (found) return found
@@ -88,23 +90,38 @@ PlasmoidItem {
         const grid = find(trayItem, 0, "QQuickGridView")
         if (!grid || !grid.contentItem) return
         if (grid.cellWidth !== iconPitch) grid.cellWidth = iconPitch
-        // The grid's own helper items have no icon: only the tray's entries count.
+        // Each tray entry holds its icon area in a focus scope; the grid's own helper items have none.
         const icons = []
         for (let i = 0; i < grid.contentItem.children.length; i++) {
             const delegate = grid.contentItem.children[i]
-            const icon = delegate.visible && delegate.width > 0 ? find(delegate, 0, "Icon") : null
-            if (icon) icons.push({ delegate: delegate, icon: icon })
+            const area = delegate.visible && delegate.width > 0 ? find(delegate, 0, "QQuickFocusScope") : null
+            if (area) icons.push({ delegate: delegate, area: area, icon: find(area, 0, "Icon") })
         }
         icons.sort((a, b) => a.delegate.x - b.delegate.x)
         const clockX = clockItem ? clockItem.mapToItem(null, 0, 0).x : trayItem.mapToItem(null, trayItem.width, 0).x
         const firstX = clockX - clockGap - iconSize - (icons.length - 1) * iconPitch
-        icons.forEach(({ icon }, index) => {
-            const spot = icon.parent.mapFromItem(null, firstX + index * iconPitch, iconTop)
-            icon.anchors.fill = undefined
-            icon.width = iconSize
-            icon.height = iconSize
-            icon.x = Math.round(spot.x)
-            icon.y = Math.round(spot.y)
+        icons.forEach(({ area, icon }, index) => {
+            const x = firstX + index * iconPitch
+            if (icon) {
+                const spot = icon.parent.mapFromItem(null, x, iconTop)
+                icon.anchors.fill = undefined
+                icon.width = iconSize
+                icon.height = iconSize
+                icon.x = Math.round(spot.x)
+                icon.y = Math.round(spot.y)
+            } else {
+                const base = area.parent.mapToItem(null, area.x, area.y)   // without the area's own transform
+                const s = iconSize / Math.max(1, area.width)
+                if (!area.chicago95Placement) {
+                    area.chicago95Placement = Qt.createQmlObject("import QtQuick; Scale {}", area)
+                    area.chicago95Shift = Qt.createQmlObject("import QtQuick; Translate {}", area)
+                    area.transform = [area.chicago95Placement, area.chicago95Shift]
+                }
+                area.chicago95Placement.xScale = s
+                area.chicago95Placement.yScale = s
+                area.chicago95Shift.x = Math.round(x - base.x)
+                area.chicago95Shift.y = Math.round(iconTop - base.y)
+            }
         })
         const wanted = icons.length * iconPitch
         if (trayItem.Layout && trayItem.Layout.maximumWidth !== wanted) {

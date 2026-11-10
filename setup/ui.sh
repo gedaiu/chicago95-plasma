@@ -175,6 +175,10 @@ ui_choose() {
 
 # ui_sudo <why> <command>...  -> 0 once administrator rights are granted, 1 when skipped or refused.
 # Asks in plain words, on the Setup screen, and shows exactly what will run as administrator.
+# Keys pressed before a question appeared (ENTER while files were copying) answer nothing: an empty
+# answer means "skip" to the password prompt and "yes" to a confirmation.
+ui_discard_typeahead() { while IFS= read -r -s -t 0.05 _ </dev/tty; do :; done 2>/dev/null; return 0; }
+
 ui_sudo() {
     [ "${SETUP_DRY_RUN:-0}" = 1 ] && return 0
     sudo -n true 2>/dev/null && return 0
@@ -191,6 +195,7 @@ ui_sudo() {
             "Nothing appears on screen while you type; that is normal." \
             "To skip this part, press ENTER without typing anything."
         if [ "$UI_PLAIN" = 1 ]; then printf '  Password: '; else tput cup $((UI_CARD_END + 1)) 6; printf 'Password: '; tput cnorm; fi
+        ui_discard_typeahead
         IFS= read -rs password </dev/tty; printf '\n'
         [ "$UI_PLAIN" = 1 ] || tput civis
         [ -n "$password" ] || return 1
@@ -210,6 +215,7 @@ ui_shell() {        # ui_shell <command>...   runs a command on the bare termina
 ui_confirm() {      # ui_confirm <question>  -> 0 yes / 1 no ; honours SETUP_YES
     [ "${SETUP_YES:-0}" = 1 ] && return 0
     local answer
+    ui_discard_typeahead
     if [ "$UI_PLAIN" = 1 ]; then printf '%s [Y/n] ' "$1"; read -r answer </dev/tty; else
         local row; row=$(ui_prompt_row); tput cup "$row" 6; printf '%-*s' $((UI_COLS - 12)) ''; tput cup "$row" 6; printf '%s [Y/n] ' "$1"; tput cnorm; read -r answer </dev/tty; tput civis
     fi

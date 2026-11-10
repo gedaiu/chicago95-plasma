@@ -83,11 +83,12 @@ def desktops():
     from plasma_session import desktop_session
     screens, folders = {}, []
 
-    def desktop(look):
-        if look not in screens:
+    def desktop(look, **variant):
+        key = (look, *sorted((name, tuple(value) if isinstance(value, list) else value) for name, value in variant.items()))
+        if key not in screens:
             folders.append(tempfile.mkdtemp(prefix=f"c95-{look}-", dir="/tmp"))   # short: Wayland's socket path limit
-            screens[look] = desktop_session(look, folders[-1])
-        return screens[look]
+            screens[key] = desktop_session(look, folders[-1], **variant)
+        return screens[key]
     yield desktop
     for folder in folders:
         shutil.rmtree(folder, ignore_errors=True)

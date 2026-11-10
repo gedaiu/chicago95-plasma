@@ -167,7 +167,28 @@ apply_icon_set() {
         classicos2000) install_icon_pack se98; install_icon_pack classicos2000 && theme=ClassicOS-2000;;
     esac
     [ "$theme" = Chicago95 ] && [ "${SETUP_ICONS:-chicago95}" != chicago95 ] && ui_status "That icon set is unavailable; keeping Chicago95"
-    kconf kdeglobals Icons Theme "$theme"
+    install_toolbar_icons "$theme"
+    kconf kdeglobals Icons Theme Chicago95-Toolbar
+}
+
+# Explorer's toolbar buttons (Back, Up, Cut, Copy...) of Windows 95 or 2000 as a small theme over the icon set.
+install_toolbar_icons() {   # install_toolbar_icons <icon set it inherits>
+    local dest=~/.local/share/icons/Chicago95-Toolbar buttons=1995
+    [ "${SETUP_MENU_STYLE:-1995}" = 2000 ] && buttons=2000
+    put_tree "$REPO/data/toolbar-icons/$buttons" "$dest/actions/22"
+    run tee "$dest/index.theme" >/dev/null <<EOF
+[Icon Theme]
+Name=Chicago95 Toolbar
+Comment=Windows $([ "$buttons" = 2000 ] && echo 2000 || echo 95) Explorer toolbar buttons over $1
+Inherits=$1,hicolor
+Directories=actions/22
+
+[actions/22]
+Size=22
+Context=Actions
+Type=Fixed
+EOF
+    record "$dest"
 }
 
 step_look() {       # decoration, Plasma style, colours, widget style, DPI

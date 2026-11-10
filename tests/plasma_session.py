@@ -108,13 +108,14 @@ kbuildsycoca6 >/dev/null 2>&1
 plasmashell --no-respawn >"$WORK/plasma-setup.log" 2>&1 &
 wait_for_plasma
 TMPDIR="$WORK" ./install.sh --plain --yes --components=base,look,taskbar,fonts --look={look} --screen=640x480@1 >"$WORK/install.log" 2>&1 </dev/null
-# The test's launchers; the tray without its applets (volume, network, ...): the test's icons only.
+# The test's launchers; the tray with the given applets only (none: the test's icons only).
 evaluate 'panels().forEach(panel => {{
     panel.widgets("org.chicago95.tasks").forEach(widget => {{
         widget.currentConfigGroup = ["General"]; widget.writeConfig("launchers", {launchers});
     }});
     panel.widgets("org.kde.plasma.systemtray").forEach(widget => {{
-        widget.currentConfigGroup = ["General"]; widget.writeConfig("extraItems", []);
+        widget.currentConfigGroup = ["General"]; widget.writeConfig("extraItems", {tray_applets});
+        widget.writeConfig("shownItems", {tray_applets});
     }});
 }})' >>"$WORK/install.log" 2>&1
 kill %1; wait
@@ -203,9 +204,11 @@ def run_session(work, script, environment, xwayland=False):
         subprocess.run(command, env=environment, cwd=work, stdout=log, stderr=subprocess.STDOUT, check=False)
 
 
-def desktop_session(look, work):
+def desktop_session(look, work, tray_applets=(), tray_icons=None):
     """Runs both sessions for a look in work (a short path: Wayland's socket path is limited to 108
-    bytes); returns the 640x480 screenshot."""
+    bytes); returns the 640x480 screenshot. tray_applets are Plasma applets shown in the tray (such
+    as org.kde.plasma.notifications) and tray_icons the number of the test's icons there, beside the
+    original's."""
     work = Path(work)
     home, runtime = work / "home", work / "run"
     for folder in (home / ".config", runtime):
@@ -228,9 +231,9 @@ def desktop_session(look, work):
     launchers = [desktop_file(applications, f"c95-launcher-{index}", f"Launcher {index}", TEST_ICON).as_uri()
                  for index in range(content["launchers"])]
     places = {title: place for title, _toolkit, place in content["windows"]}
-    (work / "setup.sh").write_text(SETUP.format(look=look, launchers=json.dumps(launchers)))
+    (work / "setup.sh").write_text(SETUP.format(look=look, launchers=json.dumps(launchers), tray_applets=json.dumps(list(tray_applets))))
     (work / "desktop.sh").write_text(DESKTOP.format(
-        icon=TEST_ICON, tray=content["tray"], windows=window_commands(work, applications, content["windows"]),
+        icon=TEST_ICON, tray=content["tray"] if tray_icons is None else tray_icons, windows=window_commands(work, applications, content["windows"]),
         places=json.dumps(places), active=json.dumps(content["active"])))
     environment = {
         "HOME": str(home), "PATH": f"{work / 'stubs'}:{os.environ['PATH']}", "LANG": "en_US.UTF-8", "LC_ALL": "en_US.UTF-8",

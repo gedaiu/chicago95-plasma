@@ -103,3 +103,13 @@ def test_dry_run_of_the_windows_2000_sounds_selects_that_theme_for_plasma(tmp_pa
 
     assert [line in log for line in ("would: kwriteconfig6 --file kdeglobals --group Sounds --key Theme Windows2000",
                                      f"would: cp -r {REPO}/data/sound-themes/Windows2000 {tmp_path}/.local/share/sounds/Windows2000")] == [True, True]
+
+
+def test_dry_run_of_the_2000_look_puts_the_2000_toolbar_buttons_over_its_icon_set(tmp_path):
+    subprocess.run([str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", "--look=2000", "--icons=chicago95", "--components=look"],
+                   capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60,
+                   env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)})
+    log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+
+    assert [line in log for line in (f"would: cp -r {REPO}/data/toolbar-icons/2000 {tmp_path}/.local/share/icons/Chicago95-Toolbar/actions/22",
+                                     "would: kwriteconfig6 --file kdeglobals --group Icons --key Theme Chicago95-Toolbar")] == [True, True]

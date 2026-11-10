@@ -47,6 +47,7 @@ originals' wording for the comparison. The pictures are made by `tests/render_re
 | `lib/` | `chicago95ui.py`, the shared PySide6 look module |
 | `data/` | Menu stylesheet for plasmashell, tray arrow, Clippy sprites and sounds, KRunner QML override, fastfetch preset |
 | `data/sound-themes/` | Freedesktop sound themes for Windows 98, the 16 Plus! 98 schemes and Windows 2000, built by `setup/make_sound_themes.py` |
+| `data/toolbar-icons/` | Windows 95 and 2000 Explorer toolbar buttons (Back, Up, Cut, Copy...), installed as the `Chicago95-Toolbar` icon theme over the look's icon set; built by `setup/make_toolbar_icons.py` |
 | `config/` | Colour scheme, KWin rules, systemd drop-in and unit, environment.d, autostart entries, Thunar, xsettingsd, GTK CSS, Dolphin toolbar, Firefox `user.js` |
 | `kwin-effects/` | `chicago95notifications`, the slide-in effect |
 | `lockscreen/` | The `contents/lockscreen` override for the Plasma desktop shell |
