@@ -113,3 +113,29 @@ def test_dry_run_of_the_2000_look_puts_the_2000_toolbar_buttons_over_its_icon_se
 
     assert [line in log for line in (f"would: cp -r {REPO}/data/toolbar-icons/2000 {tmp_path}/.local/share/icons/Chicago95-Toolbar/actions/22",
                                      "would: kwriteconfig6 --file kdeglobals --group Icons --key Theme Chicago95-Toolbar")] == [True, True]
+
+
+def test_every_run_writes_the_look_into_each_taskbar_applet(tmp_path):
+    """A taskbar built under one look follows the next: Start, the task list (its Quick Launch shows from
+    1998 on), the tray and the clock each take the chosen look."""
+    log = tmp_path / "setup.log"
+    script = (f'REPO={REPO}; source {REPO}/setup/steps.sh; plasma_script() {{ printf "%s\\n" "$1"; }}; '
+              f'SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 SETUP_LOG={log} SETUP_MENU_STYLE=2000 apply_taskbar')
+    subprocess.run(["bash", "-c", script], timeout=30, env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)})
+    written = log.read_text()
+
+    assert [f"'{applet}'" in written for applet in
+            ("org.chicago95.start", "org.chicago95.tasks", "org.chicago95.trayframe", "org.chicago95.clock")] == [True] * 4
+    assert written.count("widget.writeConfig('look', \"2000\")") == 1   # one loop over the four applets
+
+
+def test_an_empty_quick_launch_gets_the_default_programs_on_a_look_that_shows_it(tmp_path):
+    """A taskbar first built under 1995 saved an empty Quick Launch; the defaults come from the task
+    list's own settings file."""
+    log = tmp_path / "setup.log"
+    script = (f'REPO={REPO}; source {REPO}/setup/steps.sh; plasma_script() {{ printf "%s\\n" "$1"; }}; '
+              f'SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 SETUP_LOG={log} SETUP_MENU_STYLE=1998 apply_taskbar')
+    subprocess.run(["bash", "-c", script], timeout=30, env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)})
+    written = log.read_text()
+
+    assert 'readConfig("launchers"' in written and '"applications:firefox.desktop"' in written

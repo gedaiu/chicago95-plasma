@@ -15,16 +15,9 @@ panel.lengthMode = "fill";
 
 panel.addWidget("org.chicago95.start");
 // Start, then the Quick Launch (from 1998 on) and the windows' buttons, all drawn by org.chicago95.tasks.
-const tasks = panel.addWidget("org.chicago95.tasks");
+const tasks = panel.addWidget("org.chicago95.tasks");   // its Quick Launch programs are its own defaults
 tasks.currentConfigGroup = ["General"];
 tasks.writeConfig("look", look);
-tasks.writeConfig("maxButtonWidth", look === "1995" ? 95 : 160);
-tasks.writeConfig("launchers", look === "1995" ? [] : [
-    "file://" + userDataPath("applications") + "/chicago95-showdesktop.desktop",
-    "applications:firefox.desktop",
-    "applications:thunar.desktop",
-    "applications:org.kde.konsole.desktop",
-]);
 
 // The tray: org.chicago95.trayframe draws the sunken box and places the icons of Plasma's tray, which
 // follows it; then the clock, at the box's right end.

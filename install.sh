@@ -432,7 +432,7 @@ ui_step_start 3
 [ "$SETUP_IN_PLASMA" = 1 ] && ui_status "Reloading Plasma..."
 finish_session
 [[ " $COMPONENTS " == *" taskbar "* ]] && offer_taskbar
-apply_start_button
+apply_taskbar
 [[ " $COMPONENTS " == *" startmenu "* ]] && restart_start_menu
 ui_step_done 3
 

@@ -194,14 +194,15 @@ def test_busy_tray_keeps_every_icon_16px_17px_apart_and_off_the_clock(desktops):
     bar = screen.crop((0, SCREEN[1] - HEIGHT, SCREEN[0], SCREEN[1]))
     face = bar.getpixel((TRAYS["1998"][0] + 2, 6))
     clock = ink(bar, TRAY_ICONS["1998"][-1] + ICON_SIZE + 1, TRAYS["1998"][1])
-    drawn = [x for x in range(380, clock[0]) if any(max(abs(a - b) for a, b in zip(bar.getpixel((x, y)), face)) > 30 for y in range(ICON_TOP, ICON_TOP + ICON_SIZE))]
-    runs = []
+    shadow_row = [x for x in range(300, SCREEN[0]) if close(bar.getpixel((x, BUTTON_TOP)), (128, 128, 128))]
+    box_left = next(x for x in shadow_row if all(x + dx in shadow_row for dx in range(40)))   # the box's top line
+    drawn = [x for x in range(box_left + 2, clock[0]) if any(max(abs(a - b) for a, b in zip(bar.getpixel((x, y)), face)) > 30 for y in range(ICON_TOP, ICON_TOP + ICON_SIZE))]
+    icons = []
     for x in drawn:
-        if runs and x <= runs[-1][1] + 1:
-            runs[-1][1] = x
+        if icons and x <= icons[-1][1] + 1:
+            icons[-1][1] = x
         else:
-            runs.append([x, x])
-    icons = [run for run in runs if run[0] > runs[0][0] or run[1] - run[0] > 1][1:]   # the box's left edge first
-    assert len(icons) == 3 + len(BUSY_TRAY_APPLETS), runs
+            icons.append([x, x])
+    assert len(icons) == 3 + len(BUSY_TRAY_APPLETS), icons
     assert all(right - left + 1 <= ICON_SIZE for left, right in icons), icons
     assert icons[-1][1] < clock[0] - 1, (icons, clock)

@@ -111,16 +111,12 @@ PlasmoidItem {
                 icon.y = Math.round(spot.y)
             } else {
                 const base = area.parent.mapToItem(null, area.x, area.y)   // without the area's own transform
-                const s = iconSize / Math.max(1, area.width)
-                if (!area.chicago95Placement) {
-                    area.chicago95Placement = Qt.createQmlObject("import QtQuick; Scale {}", area)
-                    area.chicago95Shift = Qt.createQmlObject("import QtQuick; Translate {}", area)
-                    area.transform = [area.chicago95Placement, area.chicago95Shift]
-                }
-                area.chicago95Placement.xScale = s
-                area.chicago95Placement.yScale = s
-                area.chicago95Shift.x = Math.round(x - base.x)
-                area.chicago95Shift.y = Math.round(iconTop - base.y)
+                if (area.transform.length !== 2)   // a scale from the top-left corner, then a shift into the cell
+                    area.transform = [Qt.createQmlObject("import QtQuick; Scale {}", area), Qt.createQmlObject("import QtQuick; Translate {}", area)]
+                const scale = area.transform[0], shift = area.transform[1]
+                scale.xScale = scale.yScale = iconSize / Math.max(1, area.width)
+                shift.x = Math.round(x - base.x)
+                shift.y = Math.round(iconTop - base.y)
             }
         })
         const wanted = icons.length * iconPitch

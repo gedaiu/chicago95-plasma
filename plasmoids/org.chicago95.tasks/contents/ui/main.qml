@@ -12,7 +12,8 @@ import org.kde.taskmanager as TaskManager
 // the look allows and narrower when many share the taskbar. The originals have no gap before this
 // part, so it starts over the gap Plasma's panel leaves between applets.
 // A click on a window's button activates it, or minimizes it when it is already active; the right
-// button opens the classic window menu.
+// button opens the classic window menu, with "Add to Quick Launch". A Quick Launch entry's menu removes
+// it; programs dropped on the Quick Launch are added. The 1995 look has no Quick Launch.
 PlasmoidItem {
     id: root
 
@@ -22,6 +23,8 @@ PlasmoidItem {
     Layout.fillHeight: true
 
     readonly property int contentX: -Kirigami.Units.smallSpacing   // the panel's gap between applets
+    readonly property bool showQuickLaunch: Plasmoid.configuration.look !== "1995"
+    readonly property int maxButtonWidth: Plasmoid.configuration.look === "1995" ? 95 : 160
     readonly property int gap: 3
     readonly property int gapWithoutQuickLaunch: 4
     readonly property int launcherCount: tasksModel.launcherCount
@@ -30,7 +33,7 @@ PlasmoidItem {
     readonly property int quickLaunchEnd: quickLaunchX + launcherCount * 23
     readonly property int tasksX: launcherCount > 0 ? trailingSeparator.x + trailingSeparator.width : contentX + gapWithoutQuickLaunch
     readonly property int buttonWidth: windowCount === 0 ? 0
-        : Math.min(Plasmoid.configuration.maxButtonWidth, Math.floor((width - tasksX + gap) / windowCount) - gap)
+        : Math.min(maxButtonWidth, Math.floor((width - tasksX + gap) / windowCount) - gap)
 
     TaskManager.VirtualDesktopInfo { id: virtualDesktopInfo }
     TaskManager.ActivityInfo { id: activityInfo }
@@ -46,7 +49,30 @@ PlasmoidItem {
         sortMode: TaskManager.TasksModel.SortManual
         separateLaunchers: true
         hideActivatedLaunchers: false
-        launcherList: Plasmoid.configuration.launchers
+        // Entries added or removed here are saved; the setting's changes come back in.
+        onLauncherListChanged: {
+            if (root.showQuickLaunch && launcherList.join() !== Plasmoid.configuration.launchers.join())
+                Plasmoid.configuration.launchers = launcherList
+        }
+    }
+    function loadLaunchers() {
+        tasksModel.launcherList = showQuickLaunch ? Plasmoid.configuration.launchers : []
+    }
+    Component.onCompleted: loadLaunchers()
+    onShowQuickLaunchChanged: loadLaunchers()
+    Connections {
+        target: Plasmoid.configuration
+        function onLaunchersChanged() {
+            if (Plasmoid.configuration.launchers.join() !== tasksModel.launcherList.join()) root.loadLaunchers()
+        }
+    }
+
+    DropArea {
+        visible: root.showQuickLaunch
+        x: root.quickLaunchX
+        width: Math.max(23, root.quickLaunchEnd - root.quickLaunchX)
+        height: parent.height
+        onDropped: drop => drop.urls.forEach(url => tasksModel.requestAddLauncher(url))
     }
 
     Separator {
@@ -87,7 +113,16 @@ PlasmoidItem {
                         id: launcherArea
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: tasksModel.requestNewInstance(entry.modelIndex)
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        onClicked: mouse => {
+                            if (mouse.button === Qt.RightButton) {
+                                launcherMenu.launcher = entry.model.LauncherUrlWithoutIcon
+                                launcherMenu.visualParent = parent
+                                launcherMenu.openRelative()
+                            } else {
+                                tasksModel.requestNewInstance(entry.modelIndex)
+                            }
+                        }
                     }
                 }
             }
@@ -106,6 +141,7 @@ PlasmoidItem {
                             if (mouse.button === Qt.RightButton) {
                                 windowMenu.visualParent = button
                                 windowMenu.task = entry.modelIndex
+                                windowMenu.launcher = entry.model.LauncherUrlWithoutIcon
                                 windowMenu.openRelative()
                             } else if (entry.model.IsActive) {
                                 tasksModel.requestToggleMinimized(entry.modelIndex)
@@ -120,8 +156,19 @@ PlasmoidItem {
     }
 
     PlasmaExtras.Menu {
+        id: launcherMenu
+        property var launcher
+        placement: PlasmaExtras.Menu.TopPosedLeftAlignedPopup
+        PlasmaExtras.MenuItem {
+            text: i18n("Remove from Quick Launch")
+            onClicked: tasksModel.requestRemoveLauncher(launcherMenu.launcher)
+        }
+    }
+
+    PlasmaExtras.Menu {
         id: windowMenu
         property var task
+        property var launcher
         placement: PlasmaExtras.Menu.TopPosedLeftAlignedPopup
 
         PlasmaExtras.MenuItem {
@@ -135,6 +182,13 @@ PlasmoidItem {
         PlasmaExtras.MenuItem {
             text: i18n("Maximize")
             onClicked: tasksModel.requestToggleMaximized(windowMenu.task)
+        }
+        PlasmaExtras.MenuItem { separator: true }
+        PlasmaExtras.MenuItem {
+            text: i18n("Add to Quick Launch")
+            visible: root.showQuickLaunch && String(windowMenu.launcher || "") !== ""
+                && tasksModel.launcherPosition(windowMenu.launcher) === -1
+            onClicked: tasksModel.requestAddLauncher(windowMenu.launcher)
         }
         PlasmaExtras.MenuItem { separator: true }
         PlasmaExtras.MenuItem {

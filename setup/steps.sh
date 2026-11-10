@@ -590,14 +590,31 @@ $(sed -e "s/^panel.height = 28;/panel.height = $PANEL_HEIGHT;/" -e "s/^const loo
 
 js_string() { python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$1"; }
 
-apply_start_button() {  # writes the chosen text and logo into every Start button on the panels
+apply_taskbar() {  # every run: the Start button's text and logo, and the look into each taskbar applet
     [ "$SETUP_IN_PLASMA" = 1 ] && [ "${SETUP_DRY_RUN:-0}" = 0 ] || return 0
-    plasma_script "panels().forEach(panel => panel.widgets('org.chicago95.start').forEach(widget => {
-        widget.currentConfigGroup = ['General'];
-        widget.writeConfig('buttonText', $(js_string "${SETUP_START_TEXT:-Start}"));
-        widget.writeConfig('logo', $(js_string "${SETUP_START_LOGO:-flag}"));
-        widget.writeConfig('look', $(js_string "${SETUP_MENU_STYLE:-1995}"));
-    }))" >>"$SETUP_LOG" 2>&1
+    plasma_script "panels().forEach(panel => {
+        panel.widgets('org.chicago95.start').forEach(widget => {
+            widget.currentConfigGroup = ['General'];
+            widget.writeConfig('buttonText', $(js_string "${SETUP_START_TEXT:-Start}"));
+            widget.writeConfig('logo', $(js_string "${SETUP_START_LOGO:-flag}"));
+        });
+        ['org.chicago95.start', 'org.chicago95.tasks', 'org.chicago95.trayframe', 'org.chicago95.clock'].forEach(applet =>
+            panel.widgets(applet).forEach(widget => {
+                widget.currentConfigGroup = ['General'];
+                widget.writeConfig('look', $(js_string "${SETUP_MENU_STYLE:-1995}"));
+            }));
+        // A taskbar first built under 1995 saved an empty Quick Launch; a look that shows it gets the defaults.
+        panel.widgets('org.chicago95.tasks').forEach(widget => {
+            widget.currentConfigGroup = ['General'];
+            if ($(js_string "${SETUP_MENU_STYLE:-1995}") !== '1995' && String(widget.readConfig(\"launchers\", '')) === '')
+                widget.writeConfig('launchers', $(quick_launch_defaults));
+        });
+    })" >>"$SETUP_LOG" 2>&1
+}
+
+quick_launch_defaults() {  # the task list's default Quick Launch programs, from its settings file, as a JS list
+    sed -n '/name="launchers"/,/<\/entry>/s/.*<default>\(.*\)<\/default>.*/\1/p' "$REPO/plasmoids/org.chicago95.tasks/contents/config/main.xml" |
+        python3 -c 'import json, sys; print(json.dumps(sys.stdin.read().strip().split(",")))'
 }
 
 restart_start_menu() {  # the menu stays resident; a reinstall must replace the running copy
