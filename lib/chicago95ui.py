@@ -319,10 +319,10 @@ def dialog_button(caption, enabled=True):
 
 # The check box and radio button indicators, pixel for pixel from the 1998 original
 # (tests/test_qt_controls_reference.py): s shadow, K black, l light, W white, . the window colour.
-CHECK_BOX = ["ssssssssssssW", "sKKKKKKKKKKlW"] + ["sKWWWWWWWWWlW"] * 9 + ["slllllllllllW", "WWWWWWWWWWWWW"]
+CHECK_BOX = ["ssssssssssssW", "sKKKKKKKKKKlW"] + ["sKiiiiiiiiilW"] * 9 + ["slllllllllllW", "WWWWWWWWWWWWW"]
 CHECK_MARK = ["WWWWWWWWW", "WWWWWWWKW", "WWWWWWKKW", "WKWWWKKKW", "WKKWKKKWW", "WKKKKKWWW", "WWKKKWWWW", "WWWKWWWWW", "WWWWWWWWW"]
-RADIO_BUTTON = ["....ssss....", "..ssKKKKss..", ".sKKWWWWKKW.", ".sKWWWWWWlW.", "sKWWWWWWWWlW", "sKWWWWWWWWlW",
-                "sKWWWWWWWWlW", "sKWWWWWWWWlW", ".sKWWWWWWlW.", ".sllWWWWllW.", "..WWllllWW..", "....WWWW...."]
+RADIO_BUTTON = ["....ssss....", "..ssKKKKss..", ".sKKiiiiKKW.", ".sKiiiiiilW.", "sKiiiiiiiilW", "sKiiiiiiiilW",
+                "sKiiiiiiiilW", "sKiiiiiiiilW", ".sKiiiiiilW.", ".slliiiillW.", "..WWllllWW..", "....WWWW...."]
 RADIO_DOT = [(5, 4), (6, 4), (4, 5), (5, 5), (6, 5), (7, 5), (4, 6), (5, 6), (6, 6), (7, 6), (5, 7), (6, 7)]
 
 
@@ -349,7 +349,7 @@ class ClassicStyle(QProxyStyle):
         palette = option.palette
         enabled = bool(option.state & QStyle.State_Enabled)
         return {"s": palette.dark().color(), "K": palette.shadow().color(), "l": palette.midlight().color(),
-                "W": palette.base().color() if enabled else palette.window().color(), ".": None,
+                "W": palette.light().color(), "i": palette.base().color() if enabled else palette.window().color(), ".": None,
                 "mark": palette.text().color() if enabled else palette.dark().color()}
 
     def drawPrimitive(self, element, option, painter, widget=None):

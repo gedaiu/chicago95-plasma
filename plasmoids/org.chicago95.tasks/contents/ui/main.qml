@@ -167,42 +167,42 @@ PlasmoidItem {
                         anchors.fill: parent
                         mainText: entry.model.display
                         icon: entry.model.decoration
-                    }
-                    MouseArea {
-                        id: launcherArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        property point pressPoint
-                        property bool dragging: false
-                        property bool dragEndedClick: false
-                        onPressed: mouse => pressPoint = Qt.point(mouse.x, mouse.y)
-                        onPositionChanged: mouse => {
-                            if (!(pressedButtons & Qt.LeftButton)) return
-                            const travelled = Math.abs(mouse.x - pressPoint.x) + Math.abs(mouse.y - pressPoint.y)
-                            if (!dragging && travelled < Qt.styleHints.startDragDistance) return
-                            dragging = true
-                            root.draggedIcon = entry.model.decoration
-                            root.draggedIndex = entry.index
-                            root.dragPoint = mapToItem(root, mouse.x, mouse.y)
-                        }
-                        onReleased: mouse => {
-                            if (!dragging) return
-                            dragging = false
-                            dragEndedClick = true
-                            const result = Launchers.dragResult(entry.index, root.dragPoint.x, root.dragPoint.y, root.width, root.height, root.quickLaunchX, root.launcherCount)
-                            root.draggedIndex = -1
-                            if (result.action === "remove") tasksModel.requestRemoveLauncher(entry.model.LauncherUrlWithoutIcon)
-                            else if (result.action === "move") tasksModel.move(entry.index, result.to)
-                        }
-                        onClicked: mouse => {
-                            if (dragEndedClick) { dragEndedClick = false; return }
-                            if (mouse.button === Qt.RightButton) {
-                                launcherMenu.launcher = entry.model.LauncherUrlWithoutIcon
-                                launcherMenu.visualParent = parent
-                                launcherMenu.openRelative()
-                            } else {
-                                tasksModel.requestNewInstance(entry.modelIndex)
+                        MouseArea {
+                            id: launcherArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                            property point pressPoint
+                            property bool dragging: false
+                            property bool dragEndedClick: false
+                            onPressed: mouse => pressPoint = Qt.point(mouse.x, mouse.y)
+                            onPositionChanged: mouse => {
+                                if (!(pressedButtons & Qt.LeftButton)) return
+                                const travelled = Math.abs(mouse.x - pressPoint.x) + Math.abs(mouse.y - pressPoint.y)
+                                if (!dragging && travelled < Qt.styleHints.startDragDistance) return
+                                dragging = true
+                                root.draggedIcon = entry.model.decoration
+                                root.draggedIndex = entry.index
+                                root.dragPoint = mapToItem(root, mouse.x, mouse.y)
+                            }
+                            onReleased: mouse => {
+                                if (!dragging) return
+                                dragging = false
+                                dragEndedClick = true
+                                const result = Launchers.dragResult(entry.index, root.dragPoint.x, root.dragPoint.y, root.width, root.height, root.quickLaunchX, root.launcherCount)
+                                root.draggedIndex = -1
+                                if (result.action === "remove") tasksModel.requestRemoveLauncher(entry.model.LauncherUrlWithoutIcon)
+                                else if (result.action === "move") tasksModel.move(entry.index, result.to)
+                            }
+                            onClicked: mouse => {
+                                if (dragEndedClick) { dragEndedClick = false; return }
+                                if (mouse.button === Qt.RightButton) {
+                                    launcherMenu.launcher = entry.model.LauncherUrlWithoutIcon
+                                    launcherMenu.visualParent = parent
+                                    launcherMenu.openRelative()
+                                } else {
+                                    tasksModel.requestNewInstance(entry.modelIndex)
+                                }
                             }
                         }
                     }

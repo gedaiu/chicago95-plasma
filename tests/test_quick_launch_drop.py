@@ -63,10 +63,26 @@ def test_tasks_applet_wires_dragging_and_dropping_to_the_launchers_library():
             "tasksModel.move(" in main_qml) == (True, True, True, True)
 
 
+def qml_block(text, opening):
+    start = text.index(opening)
+    depth = 0
+    for position in range(start, len(text)):
+        depth += {"{": 1, "}": -1}.get(text[position], 0)
+        if depth == 0 and text[position] == "}":
+            return text[start:position + 1]
+
+
 def test_quick_launch_cells_show_the_programs_name_and_icon_as_a_tooltip():
     main_qml = (REPO / "plasmoids/org.chicago95.tasks/contents/ui/main.qml").read_text()
-    launcher_cell = main_qml.split("id: launcherCell")[1].split("Component {")[0]
+    launcher_cell = qml_block(main_qml, "id: launcherCell")
 
-    tooltip = launcher_cell.split("PlasmaCore.ToolTipArea {")[1].split("}")[0]
+    tooltip = qml_block(launcher_cell, "PlasmaCore.ToolTipArea {")
 
     assert ("mainText: entry.model.display" in tooltip, "icon: entry.model.decoration" in tooltip) == (True, True)
+
+
+def test_quick_launch_cells_hover_reaches_the_tooltip_through_the_click_area_inside_it():
+    main_qml = (REPO / "plasmoids/org.chicago95.tasks/contents/ui/main.qml").read_text()
+    tooltip = qml_block(qml_block(main_qml, "id: launcherCell"), "PlasmaCore.ToolTipArea {")
+
+    assert "id: launcherArea" in tooltip

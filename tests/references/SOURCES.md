@@ -42,3 +42,4 @@ System Properties, from other pages:
 | `combo-open.png` | screenshot supplied by the project owner (Windows 9x open drop-down list, about 2x) |
 | `win98dialing.png` | http://www.kwom.com/images/Win98/W98setupD3.gif (the Dialing Properties dialog: check boxes, radio buttons, an open drop-down, fields, a group box; a palette GIF, saved as PNG) |
 | `win98newconnection.png` | http://www.kwom.com/images/Win98/W98setupA6.gif (the Make New Connection wizard's last page: a text field with its text selected; a palette GIF, saved as PNG) |
+| `win98disabledgroup.png` | screenshot supplied by the project owner (a disabled "User profile settings" group: engraved caption, disabled check boxes and labels; scaled and smoothed, so rules only, not exact pixels) |

@@ -171,3 +171,22 @@ def test_focused_drop_down_shows_its_value_in_white_on_the_highlight(qt_app):
     highlight = combo.palette().highlight().color().getRgb()[:3]
     field = {image.getpixel((x, y)) for x in range(4, 100) for y in range(4, combo.height() - 4)}
     assert highlight in field and (255, 255, 255) in field, field
+
+
+@pytest.mark.parametrize("make", ["check_boxes", "radio_buttons"])
+def test_disabled_indicator_keeps_its_white_outer_edge_around_a_window_coloured_inside(gallery, qt_app, make):
+    """win98disabledgroup.png: a disabled box is the enabled one's frame, white bottom-right edge
+    included, with only its inside turned to the window colour."""
+    from PySide6.QtWidgets import QAbstractButton
+    boxes = {}
+
+    def note_buttons(patch):
+        for button in patch.findChildren(QAbstractButton):
+            corner = button.mapTo(patch, button.rect().topLeft())
+            boxes[button.isEnabled()] = (corner.x(), corner.y(), corner.x() + 14, corner.y() + button.height())
+    image = gallery.render_control(qt_app, getattr(gallery, make), inspect=note_buttons)
+    face = image.getpixel((2, 2))
+    (enabled,), (disabled,) = (indicator_crops(image, boxes[state], face, 1) for state in (True, False))
+    middle, inside = disabled.width // 2, (3, 4)   # inside: clear of the tick and the dot
+    assert (enabled.getpixel((middle, enabled.height - 1)), disabled.getpixel((middle, disabled.height - 1)), disabled.getpixel(inside)) \
+        == ((255, 255, 255), (255, 255, 255), face)
