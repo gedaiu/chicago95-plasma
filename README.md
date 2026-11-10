@@ -207,7 +207,12 @@ Xwayland, xmessage and the MS W98 UI font, and are skipped without them; each lo
 `python3 tests/render_report.py docs/compare` writes, per OS:
 
 - `showcase-<look>.jpg`, to show people: component by component (desktop, taskbar, windows, Start menu,
-  Shut Down, and on 2000 the loading and log-on screens), the original beside ours;
+  Shut Down, System Properties, and on 2000 the loading and log-on screens), the original beside ours;
+- `showcase-controls-<look>.jpg`: every control, rendered by `tests/controls_gallery.py` in the look's
+  colours (push buttons in each state, check boxes, radio buttons, text fields, drop-downs, spin box,
+  sliders, scroll bars, progress bar, group box, tabs, list box, menu bar, tool bar buttons, status bar,
+  labels), each beside the same control cropped from an original screenshot where one shows it, then our
+  own controls (title bar buttons, tabs, menu rows, the taskbar's parts);
 - `report-<look>-<part>.png`: every detail the tests compare, the original, ours and their difference
   in red, enlarged, with a `.txt` listing how many pixels differ in each. The programs' content in the
   windows, icons and the clock's time are hatched alike in both; our banners carry the original's wording.

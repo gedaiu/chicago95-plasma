@@ -473,3 +473,11 @@ def test_setup_replaces_home_in_the_tasks_applet_as_it_does_in_the_start_applet(
     step_taskbar = (REPO / "setup/steps.sh").read_text().split("step_taskbar() {")[1].split("\n}\n")[0]
 
     assert "~/.local/share/plasma/plasmoids/org.chicago95.tasks" in next(line for line in step_taskbar.splitlines() if "substitute_home" in line)
+
+
+def test_clippy_window_rule_keeps_it_above_other_windows_by_default(tmp_path):
+    run_setup(tmp_path, "--components=clippy")
+    rules = (tmp_path / ".config/kwinrulesrc").read_text()
+    clippy = rules.split("[chicago95-clippy]")[1].split("\n[")[0]
+
+    assert ("above=true" in clippy, "aboverule=2" in clippy) == (True, True)

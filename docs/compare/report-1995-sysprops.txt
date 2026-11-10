@@ -1,0 +1,5 @@
+   5600   3.0%  1995 System Properties: whole
+      0   0.0%  1995 System Properties: help and close buttons
+   1692  18.1%  1995 System Properties: tabs
+   3126   2.2%  1995 System Properties: General page
+    574   9.8%  1995 System Properties: buttons (OK is the default)

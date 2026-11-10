@@ -161,6 +161,10 @@ PlasmoidItem {
                     icon: entry.model.decoration
                     hovered: launcherArea.containsMouse
                     held: launcherArea.pressed && launcherArea.containsMouse
+                    PlasmaCore.ToolTipArea {
+                        anchors.fill: parent
+                        mainText: entry.model.display
+                    }
                     MouseArea {
                         id: launcherArea
                         anchors.fill: parent

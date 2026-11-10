@@ -171,7 +171,7 @@ TAB_LEFT, TAB_PADDING, TAB_TOP, SELECTED_TAB_RISE = 11, 13, 31, 2
 PAGE_LEFT, PAGE_RIGHT, PAGE_TOP = 9, 400, 49
 PAGE_BOTTOM_FROM_END = 40                 # the page frame's black bottom row, from the dialog's bottom
 CAPTION_INSET, CAPTION_BASELINE = 6, 45
-ICON_POSITION, ICON_SIZE = (65, 104), 96
+ICON_POSITION, ICON_SIZE = (65, 100), 96    # centred on the original's picture, which is wider
 # The General page's headings: (column, cap-height row) per group; values 18px further in, 18px apart.
 HEADINGS = {"1995": [(215, 71), (215, 151), (215, 253)], "1998": [(196, 71), (196, 160), (196, 246)], "2000": [(208, 71), (208, 151), (178, 256)]}
 BUTTON_LEFTS = {"1995": {"OK": 245, "Cancel": 326}, "1998": {"OK": 245, "Cancel": 326}, "2000": {"OK": 164, "Cancel": 245, "Apply": 326}}
@@ -390,9 +390,12 @@ def build_window(facts, look=None):
 
     buttons = {}
     for caption, left in BUTTON_LEFTS[look].items():
-        button = chicago95ui.dialog_button(caption, enabled=caption != "Apply")
-        button.setParent(window.body)
-        button.move(*in_body(left, BUTTONS_TOP[look]))
+        button = QPushButton(caption, window.body)
+        button.setEnabled(caption != "Apply")
+        x, y = in_body(left, BUTTONS_TOP[look])
+        # Qt keeps a pixel for the default button's outline inside every dialog button's rectangle: the
+        # default one grows to put its outline on the original's 75x23, the others grow around it.
+        button.setGeometry(x, y, 76, 24) if caption == "OK" else button.setGeometry(x - 1, y - 1, 77, 25)
         buttons[caption] = button
     buttons["OK"].setDefault(True)
     buttons["OK"].clicked.connect(window.accept)

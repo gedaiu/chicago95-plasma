@@ -378,7 +378,8 @@ step_clippy() {
     substitute_home ~/.local/share/applications ~/.config/autostart
     kwin_rule chicago95-clippy "Description=Chicago95 Office Assistant" "wmclass=chicago95-clippy" "wmclassmatch=1" \
         "position=$(( SETUP_WIDTH - CLIPPY_W - CLIPPY_MARGIN )),$(( SETUP_HEIGHT - PANEL_HEIGHT - CLIPPY_H - CLIPPY_MARGIN ))" "positionrule=3" \
-        "placement=Zero" "placementrule=3" "skiptaskbar=true" "skiptaskbarrule=2" "skippager=true" "skippagerrule=2" "noborder=true" "noborderrule=2" "types=1"
+        "placement=Zero" "placementrule=3" "skiptaskbar=true" "skiptaskbarrule=2" "skippager=true" "skippagerrule=2" "noborder=true" "noborderrule=2" \
+        "above=true" "aboverule=2" "types=1"
 }
 
 step_extras() {     # System Properties, Device Manager, Dial-Up, Deezer helper, login chime

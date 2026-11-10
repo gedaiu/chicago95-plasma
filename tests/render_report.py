@@ -285,6 +285,41 @@ def thumbnail_shut_down_details(look, dialog):
     return details(original, halved, boxes)
 
 
+SYSPROPS_FACTS = dict(os_name="Microsoft Windows 98", kernel="Second Edition", desktop="4.10.2222 A", owner="Doctor", hostname="TARDIS",
+                      product_key="01902-OEM-0087094-44427", cpu_model="GenuineIntel", logical_processors="Pentium(r) II Processor",
+                      memory="256.0MB RAM", display="", resources_free="90% free", filesystem="32-bit", virtual_memory="32-bit")
+
+
+def sysprops_details(look, app, scratch):
+    """System Properties: the dialog, its title buttons, tab strip, General page and buttons, against
+    the original's (tests/test_sysprops_reference.py), the title buttons from the look's decoration."""
+    import chicago95ui
+    from aurorae_model import build_theme
+    from test_sysprops_reference import LOOKS, PAGE_TOP, SELECTED_TAB_TOP
+    from test_sysprops_reference import original as original_dialog
+    sysprops = load_script("chicago95-sysprops")
+    chicago95ui.DECORATION = str(build_theme(scratch / f"sysprops-aurorae-{look}", look))
+    window = sysprops.build_window(sysprops.SystemFacts(**SYSPROPS_FACTS), look)
+    window.show()
+    app.processEvents()
+    ours = qimage_to_pil(window.grab().toImage())
+    window.close()
+    theirs = original_dialog(look)
+    settings = LOOKS[look]
+    w, h = theirs.size
+    buttons_top = settings["buttons_top"]
+    boxes = {"whole": (0, 0, w, h), "help and close buttons": (w - 3 - 2 - 34 - 2, 3, w - 3, 3 + 18),
+             "tabs": (3, SELECTED_TAB_TOP - 3, settings["tab_boxes"][-1][1] + 8, PAGE_TOP + 6),
+             "General page": (PAGE_LEFT_FOR_REPORT, PAGE_TOP, w - 9, buttons_top - 8),
+             "buttons (OK is the default)": (min(settings["buttons"].values()) - 6, buttons_top - 6, w - 3, buttons_top + 23 + 6)}
+    if look == "2000":
+        boxes["disabled button (Apply)"] = (settings["buttons"]["Apply"] - 4, buttons_top - 4, settings["buttons"]["Apply"] + 79, buttons_top + 27)
+    return details(theirs, ours, boxes, masks=[(20, PAGE_TOP + 4, 190, 220)])   # the computer picture is the icon set's
+
+
+PAGE_LEFT_FOR_REPORT = 9
+
+
 def loading_details(app, scratch):
     from PySide6.QtCore import QTimer, QUrl
     from PySide6.QtQuick import QQuickView
@@ -428,7 +463,7 @@ def showcase_panels(look, desktop, sections, app, scratch, startmenu):
                              extra_top=("New Office Document", "Open Office Document", "Windows Update") if look == "2000" else ())
     panels.append(("Start menu", screenshot(menu_box[0]).crop(menu_box[1]), menu))
     panels.append(("Shut Down", *shut_down_whole(look, sections)))
-    for key, component in (("loading", "Loading screen"), ("logon", "Log on")):
+    for key, component in (("sysprops", "System Properties"), ("loading", "Loading screen"), ("logon", "Log on")):
         if key in sections:
             _label, original, ours = sections[key][1][0]   # each section's first row is the whole screen
             panels.append((component, original, ours))
@@ -445,14 +480,55 @@ def shut_down_whole(look, sections):
     return original.resize((original.width * 2, original.height * 2), Image.NEAREST), SHUT_DOWN_DIALOGS[look]
 
 
+# The controls showcase: one detail row from each section, picked by its label, shown as a control.
+CONTROLS = [
+    ("windows", lambda label: label.endswith("title bar: buttons"), "Title bar buttons (minimize, maximize, close)"),
+    ("sysprops", lambda label: label == "help and close buttons", "Dialog title buttons (help, close)"),
+    ("sysprops", lambda label: label == "tabs", "Tabs (the first selected)"),
+    ("sysprops", lambda label: label.startswith("buttons"), "Push buttons (OK is the default)"),
+    ("sysprops", lambda label: label.startswith("disabled button"), "Disabled push button"),
+    ("shutdown", lambda label: label == "question and options", "Radio buttons (the original is a half-size thumbnail)"),
+    ("shutdown", lambda label: label == "question and dropdown", "Dropdown list"),
+    ("logon", lambda label: label == "fields", "Text fields, dropdown and check box"),
+    ("loading", lambda label: label == "progress", "Progress bar"),
+    ("startmenu", lambda label: label.lower() == "row: programs", "Menu row, highlighted"),
+    ("startmenu", lambda label: label.lower() == "row: documents", "Menu row"),
+    ("taskbar", lambda label: label == "Start button", "Start button"),
+    ("taskbar", lambda label: label.startswith("task button") and "(pressed)" not in label and ":" not in label, "Task button"),
+    ("taskbar", lambda label: "(pressed)" in label and ":" not in label, "Task button, pressed"),
+    ("taskbar", lambda label: label == "separator 1", "Toolbar separator and grip"),
+    ("taskbar", lambda label: label == "tray box", "Tray box (its icons and clock are hatched)"),
+]
+
+
+def controls_panels(sections, look, app):
+    """[(control, original or None, ours)]: every Qt control our theme draws (tests/controls_gallery.py),
+    in the look's colours, then our own controls from the sections' detail rows, in CONTROLS' order."""
+    import controls_gallery
+    kdeglobals = {"1995": "", "1998": "", "2000": LOOK_2000_KDEGLOBALS}[look]
+    with installed_look(app, f"[StartMenu]\nstyle={look}\n", kdeglobals):
+        panels = controls_gallery.controls(app, look)
+    for section, matches, name in CONTROLS:
+        rows = sections.get(section, ("", []))[1]
+        for label, theirs, ours in rows:
+            if matches(label):
+                panels.append((name, theirs, ours))
+                break
+    return panels
+
+
 def compose_showcase(title, panels, path):
     heading, caption = label_font(24), label_font(15)
     inner = SHOWCASE_WIDTH - 4 * GAP
     laid_out = []
     for component, original, ours in panels:
+        if original is None:   # no original screenshot shows this control
+            original = Image.new("RGB", ours.size, SHOWCASE_BACKGROUND)
+            ImageDraw.Draw(original).text((6, ours.height // 2 - 7), "no original screenshot shows this control", fill=(110, 110, 110), font=label_font(12))
         width = max(original.width, ours.width)
         side_by_side = 2 * width + GAP <= inner
         zoom = max(1, min(3, (inner - GAP) // 2 // width)) if side_by_side else max(1, min(2, inner // width))
+        zoom = max(1, min(zoom, 400 // max(original.height, ours.height)))   # tall crops (a scroll bar) stay in view
         images = [image.resize((image.width * zoom, image.height * zoom), Image.NEAREST) for image in (original, ours)]
         laid_out.append((component, side_by_side, zoom, images))
     height = 70
@@ -510,7 +586,8 @@ def main(output):
                                 taskbar_details(look, desktop, app, scratch)),
                     "windows": ("Windows", window_details(look, desktop, scratch)),
                     "startmenu": ("Start menu", start_menu_details(startmenu, app, look, scratch)),
-                    "shutdown": ("Shut Down", shut_down_details(shutdown, app, look, scratch))}
+                    "shutdown": ("Shut Down", shut_down_details(shutdown, app, look, scratch)),
+                    "sysprops": ("System Properties", sysprops_details(look, app, scratch))}
         if look == "2000":
             sections["loading"] = ("Loading screen", loading_details(app, scratch))
             sections["logon"] = ("Log on", login_details(shutdown, app, scratch))
@@ -518,6 +595,8 @@ def main(output):
             compose(f"{look} {title}", rows, output / f"report-{look}-{key}.png")
         compose_showcase(f"Chicago95 for KDE Plasma, {LOOK_NAMES[look]}: the original beside ours",
                          showcase_panels(look, desktop, sections, app, scratch, startmenu), output / f"showcase-{look}.jpg")
+        compose_showcase(f"Chicago95 for KDE Plasma, {LOOK_NAMES[look]}: the controls, the original's beside ours",
+                         controls_panels(sections, look, app), output / f"showcase-controls-{look}.jpg")
 
 
 if __name__ == "__main__":

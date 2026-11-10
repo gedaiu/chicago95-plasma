@@ -332,6 +332,13 @@ class ClassicStyle(QProxyStyle):
             return
         super().drawPrimitive(element, option, painter, widget)
 
+    def drawComplexControl(self, control, option, painter, widget=None):
+        super().drawComplexControl(control, option, painter, widget)
+        # A closed drop-down's field is white, and the window colour when disabled; Qt leaves it the button colour.
+        if control == QStyle.CC_ComboBox and not option.editable:
+            field = self.subControlRect(QStyle.CC_ComboBox, option, QStyle.SC_ComboBoxEditField, widget)
+            painter.fillRect(field, option.palette.base())
+
 
 _CLASSIC_STYLE = []
 

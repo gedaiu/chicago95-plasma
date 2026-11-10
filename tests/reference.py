@@ -67,9 +67,18 @@ def render_start_menu(startmenu, app, settings_dir, chicago95rc, kdeglobals="", 
     import chicago95ui
     (settings_dir / "chicago95rc").write_text(chicago95rc)
     (settings_dir / "kdeglobals").write_text(kdeglobals)
+    previous = startmenu.SETTINGS_FILE, chicago95ui.KDEGLOBALS
     startmenu.SETTINGS_FILE = settings_dir / "chicago95rc"
     chicago95ui.KDEGLOBALS = str(settings_dir / "kdeglobals")
     startmenu.apply_retro_look(app)
+    try:
+        return grab_root_menu(startmenu, without, active, extra_top)
+    finally:   # the menu's colours and palette stay its own: the tests after this one see the defaults again
+        startmenu.SETTINGS_FILE, chicago95ui.KDEGLOBALS = previous
+        startmenu.apply_retro_look(app)
+
+
+def grab_root_menu(startmenu, without, active, extra_top):
     menu = startmenu.build_root_menu()
     menu.banner = startmenu.banner_settings()
     for action in menu.actions():

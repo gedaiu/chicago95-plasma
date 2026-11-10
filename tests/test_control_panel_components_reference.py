@@ -415,3 +415,26 @@ def test_our_pressed_button_moves_its_caption_a_pixel_down_and_right(qt_app):
     pressed = caption_ink_box(render(button))
 
     assert (pressed[0] - released[0], pressed[1] - released[1]) == (1, 1)
+
+
+def test_the_originals_closed_drop_down_field_is_white():
+    image = reference_image("combo-open")
+
+    assert image.getpixel((300, 30)) == (255, 255, 255)
+
+
+def test_our_enabled_drop_down_field_is_white_and_a_disabled_one_takes_the_window_colour(control_panel, qt_app):
+    import chicago95ui
+    from PySide6.QtWidgets import QComboBox
+    fields = []
+    for enabled in (True, False):
+        combo = chicago95ui.classic_combo(QComboBox())
+        combo.addItem("720x576 High Color")
+        combo.setEnabled(enabled)
+        combo.resize(200, 22)
+        combo.show()
+        qt_app.processEvents()
+        image = render(combo)
+        fields.append((classify(image.getpixel((150, 11))), classify(image.getpixel((30, 4)))))
+
+    assert fields == [("W", "W"), ("f", "f")]

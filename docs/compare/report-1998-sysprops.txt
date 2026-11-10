@@ -1,0 +1,5 @@
+  18619  10.1%  1998 System Properties: whole
+    539  78.8%  1998 System Properties: help and close buttons
+   3100  33.2%  1998 System Properties: tabs
+   6535   4.7%  1998 System Properties: General page
+   1078  18.3%  1998 System Properties: buttons (OK is the default)
