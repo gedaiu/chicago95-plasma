@@ -8,7 +8,7 @@
 #   ./install.sh --plain         no full-screen UI (logs, CI, screen readers)
 #   Options (asked interactively, or given as flags):
 #     --screen=2560x1440@1.5  --panel=28  --explorer=thunar|dolphin  --saver=maze
-#     --idle=5  --cursor=48  --clippy=yes|no  --font="MS W98 UI"
+#     --idle=5  --cursor=48  --clippy=yes|no  --font="MS W98 UI"  --font-scope=everywhere|desktop|none
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -30,6 +30,7 @@ for arg in "$@"; do
         --cursor=*) OPT_CURSOR="${arg#*=}";;
         --clippy=*) OPT_CLIPPY="${arg#*=}";;
         --font=*) OPT_FONT="${arg#*=}";;
+        --font-scope=*) OPT_FONT_SCOPE="${arg#*=}";;
         --help|-h) sed -n '2,12p' "$0"; exit 0;;
         *) [ -z "$WANTED" ] && [[ "$arg" != --* ]] && WANTED="$arg";;
     esac
@@ -64,6 +65,21 @@ if [ -s "$MANIFEST" ] && [ "$SETUP_DRY_RUN" = 0 ]; then
         3) ui_restore; exit 0;;
     esac
 fi
+
+choose_font_scope() {
+    ui_card "Where should the classic font be used?" \
+        "The Start menu, notifications, Clippy, the Shut Down dialog and the login screen" \
+        "always use ${SETUP_FONT:-MS W98 UI}. For everything else:" "" \
+        "  1. Everywhere: all programs, including Firefox's menus and web pages that" \
+        "     ask for the system font." \
+        "  2. Desktop only: window title bars. Programs and web pages keep your font." \
+        "  3. Nowhere: Setup leaves your font settings alone."
+    case "$(ui_ask "Type 1, 2 or 3 and press ENTER" 1)" in
+        2) SETUP_FONT_SCOPE=desktop;;
+        3) SETUP_FONT_SCOPE=none;;
+        *) SETUP_FONT_SCOPE=everywhere;;
+    esac
+}
 
 # Lists the installed savers; "P" and a number previews one full screen with the real screensaver.
 choose_screensaver() {
@@ -191,6 +207,8 @@ done < <(ui_pick_options \
     "cursor|Cursor size (24/32/48)|${OPT_CURSOR:-$(awk -v s="$SETUP_SCALE" 'BEGIN{print (s>1)?48:32}')}" \
     "clippy|Office Assistant at login (yes/no)|${OPT_CLIPPY:-yes}" \
     "font|UI font family|${OPT_FONT:-MS W98 UI}")
+SETUP_FONT_SCOPE=${OPT_FONT_SCOPE:-everywhere}
+[ -n "${OPT_FONT_SCOPE:-}" ] || choose_font_scope
 SETUP_SAVER=${OPT_SAVER:-deepstars}
 [[ " $COMPONENTS " == *" screensaver "* ]] && [ "$py_ok" = 1 ] && choose_screensaver
 SETUP_DPI=$(awk -v s="$SETUP_SCALE" 'BEGIN{printf "%d", 96*s + 0.5}')

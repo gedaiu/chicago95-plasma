@@ -92,6 +92,7 @@ screen or as flags:
 | `--cursor=48` | 48 at fractional scale, else 32 | Cursor size |
 | `--clippy=yes` or `no` | yes | Start the Office Assistant at login |
 | `--font="MS W98 UI"` | MS W98 UI | UI font family, applied if installed |
+| `--font-scope=everywhere` | everywhere | Where the UI font goes: `everywhere` (all programs, also web pages that ask for the system font), `desktop` (window title bars only) or `none`; Setup asks when the flag is missing. The Start menu, notifications, Clippy, Shut Down and the login screen always use it |
 
 Other modes: `--yes` takes every default without questions,
 `--components base,look,taskbar` installs only those, `--dry-run` writes

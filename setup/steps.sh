@@ -376,16 +376,29 @@ fix_font_spaces() {  # MS W98 UI Regular's no-break space is a third as wide as 
     run fc-cache -f "$HOME/.local/share/fonts"
 }
 
-step_fonts() {
-    local family="${SETUP_FONT:-MS W98 UI}"
+APP_FONT_KEYS=(font menuFont toolBarFont smallestReadableFont)
+
+step_fonts() {      # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bars only) or none
+    local family="${SETUP_FONT:-MS W98 UI}" key
     if ! fc-list : family | grep -i "$family" >/dev/null; then
         ui_status "Font '$family' not installed; UI text keeps your current font until it is in ~/.local/share/fonts"; return
     fi
-    kconf kdeglobals General font "$family,9,-1,5,50,0,0,0,0,0"
-    kconf kdeglobals General menuFont "$family,9,-1,5,50,0,0,0,0,0"
-    kconf kdeglobals General toolBarFont "$family,9,-1,5,50,0,0,0,0,0"
-    kconf kdeglobals General smallestReadableFont "$family,8,-1,5,50,0,0,0,0,0"
-    kconf kdeglobals WM activeFont "$family,9,-1,5,75,0,0,0,0,0"
+    case "${SETUP_FONT_SCOPE:-everywhere}" in
+        everywhere)
+            kconf kdeglobals General font "$family,9,-1,5,50,0,0,0,0,0"
+            kconf kdeglobals General menuFont "$family,9,-1,5,50,0,0,0,0,0"
+            kconf kdeglobals General toolBarFont "$family,9,-1,5,50,0,0,0,0,0"
+            kconf kdeglobals General smallestReadableFont "$family,8,-1,5,50,0,0,0,0,0";;
+        *)  # A reinstall with a narrower scope takes back what an earlier "everywhere" set.
+            for key in "${APP_FONT_KEYS[@]}"; do
+                installed_by_setup "kconf:kdeglobals:General:$key" && run kwriteconfig6 --file kdeglobals --group General --key "$key" --delete
+            done;;
+    esac
+    case "${SETUP_FONT_SCOPE:-everywhere}" in
+        none) installed_by_setup "kconf:kdeglobals:WM:activeFont" && run kwriteconfig6 --file kdeglobals --group WM --key activeFont --delete;;
+        *) kconf kdeglobals WM activeFont "$family,9,-1,5,75,0,0,0,0,0";;
+    esac
+    return 0
 }
 
 finish_session() {

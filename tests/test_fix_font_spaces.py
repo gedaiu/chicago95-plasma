@@ -1,4 +1,3 @@
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -9,6 +8,15 @@ from fontTools.ttLib import TTFont
 from conftest import REPO
 
 INSTALLED_FONT = Path.home() / ".local/share/fonts/MSW98UI-Regular.otf"
+
+
+def copy_with_narrow_no_break_space(target):
+    """The font as it ships: a no-break space of 91 units against a space of 273."""
+    font = TTFont(INSTALLED_FONT)
+    no_break = font.getBestCmap()[0xA0]
+    font["hmtx"][no_break] = (91, font["hmtx"][no_break][1])
+    font.save(target)
+    return target
 
 
 def space_widths(path):
@@ -23,8 +31,7 @@ def space_widths(path):
 
 @pytest.mark.skipif(not INSTALLED_FONT.exists(), reason="MS W98 UI is not installed")
 def test_no_break_space_of_ms_w98_ui_regular_becomes_273_like_its_space(tmp_path):
-    font = tmp_path / INSTALLED_FONT.name
-    shutil.copy(INSTALLED_FONT, font)
+    font = copy_with_narrow_no_break_space(tmp_path / INSTALLED_FONT.name)
 
     output = subprocess.run([sys.executable, str(REPO / "setup/fix-font-spaces.py"), str(font)],
                             capture_output=True, text=True, check=True).stdout
@@ -36,8 +43,7 @@ def test_no_break_space_of_ms_w98_ui_regular_becomes_273_like_its_space(tmp_path
 
 @pytest.mark.skipif(not INSTALLED_FONT.exists(), reason="MS W98 UI is not installed")
 def test_second_run_on_a_repaired_font_changes_nothing(tmp_path):
-    font = tmp_path / INSTALLED_FONT.name
-    shutil.copy(INSTALLED_FONT, font)
+    font = copy_with_narrow_no_break_space(tmp_path / INSTALLED_FONT.name)
     subprocess.run([sys.executable, str(REPO / "setup/fix-font-spaces.py"), str(font)], check=True, capture_output=True)
 
     second = subprocess.run([sys.executable, str(REPO / "setup/fix-font-spaces.py"), str(font)],
