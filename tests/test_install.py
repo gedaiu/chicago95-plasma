@@ -93,3 +93,13 @@ def test_dry_run_of_the_base_theme_selects_chicago95_for_gtk_3_and_4(tmp_path):
 
     assert [f"would: kwriteconfig6 --file {tmp_path}/.config/gtk-{version}/settings.ini --group Settings --key gtk-theme-name Chicago95" in log
             for version in ("3.0", "4.0")] == [True, True]
+
+
+def test_dry_run_of_the_windows_2000_sounds_selects_that_theme_for_plasma(tmp_path):
+    subprocess.run([str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", "--sounds=Windows2000", "--components=sounds"],
+                   capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60,
+                   env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)})
+    log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+
+    assert [line in log for line in ("would: kwriteconfig6 --file kdeglobals --group Sounds --key Theme Windows2000",
+                                     f"would: cp -r {REPO}/data/sound-themes/Windows2000 {tmp_path}/.local/share/sounds/Windows2000")] == [True, True]

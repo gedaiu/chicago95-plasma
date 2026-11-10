@@ -46,6 +46,7 @@ originals' wording for the comparison. The pictures are made by `tests/render_re
 | `bin/` | `chicago95-startmenu`, `chicago95-notifyd`, `chicago95-clippy`, `chicago95-shutdown`, `chicago95-screensaver`, `chicago95-sysprops`, `chicago95-devmgr`, `chicago95-dialup`, `chicago95-deezer` |
 | `lib/` | `chicago95ui.py`, the shared PySide6 look module |
 | `data/` | Menu stylesheet for plasmashell, tray arrow, Clippy sprites and sounds, KRunner QML override, fastfetch preset |
+| `data/sound-themes/` | Freedesktop sound themes for Windows 98, the 16 Plus! 98 schemes and Windows 2000, built by `setup/make_sound_themes.py` |
 | `config/` | Colour scheme, KWin rules, systemd drop-in and unit, environment.d, autostart entries, Thunar, xsettingsd, GTK CSS, Dolphin toolbar, Firefox `user.js` |
 | `kwin-effects/` | `chicago95notifications`, the slide-in effect |
 | `lockscreen/` | The `contents/lockscreen` override for the Plasma desktop shell |
@@ -95,7 +96,7 @@ Python modules, with the install command for your distribution.
 
 Components, each optional: Chicago95 base theme, decoration and Plasma
 style, taskbar plasmoids, Start menu and Shut Down dialog, notifications,
-Office Assistant, extra tools, screensaver, Winamp, Explorer (Thunar or
+Office Assistant, extra tools, sound scheme, screensaver, Winamp, Explorer (Thunar or
 Dolphin), lock screen, splash screen, boot screen (Plymouth), login screen
 (SDDM), Firefox colours.
 
@@ -204,7 +205,8 @@ Chicago95 by grassmunk and contributors (GPL-3.0) for the theme, icons,
 cursors, sounds, Plymouth and SDDM themes. React Plus as the starting copy
 for the Plasma style. ClippyJS for the Office Assistant sprite data.
 Nullsoft's Winamp 2.91 base skin, played by qmmp. XScreenSaver by Jamie
-Zawinski.
+Zawinski. The Windows 98, Plus! 98 and Windows 2000 (remastered) sound
+schemes are Microsoft's; they are converted to Ogg for the sound themes.
 
 ## Licence
 

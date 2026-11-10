@@ -1,0 +1,4 @@
+   5512  34.7%  1998 Shut Down: whole, at the thumbnail's half size
+   2077  91.6%  1998 Shut Down: title bar
+   1386  16.8%  1998 Shut Down: question and options
+   1891  35.4%  1998 Shut Down: buttons

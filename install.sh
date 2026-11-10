@@ -418,7 +418,7 @@ TO_COPY=$(SETUP_DRY_RUN=1; SETUP_LOG=/dev/null; UI_PLAIN=1; TO_COPY=0
 fix_font_spaces
 for component in $COMPONENTS; do
     case $component in
-        base|look|taskbar|startmenu|notifications|clippy|extras|screensaver|winamp|explorer|lockscreen|splash|plymouth|sddm|firefox) "step_$component";;
+        base|look|taskbar|startmenu|notifications|clippy|extras|sounds|screensaver|winamp|explorer|lockscreen|splash|plymouth|sddm|firefox) "step_$component";;
         *) printf 'unknown component: %s\n' "$component" >>"$SETUP_LOG";;
     esac
 done

@@ -103,3 +103,32 @@ def test_os_name_is_the_banner_text_before_its_first_digit(shutdown):
     names = [shutdown.os_name({"bannerText": text}) for text in
              ("Windows2000", "Windows2026", "Windows 2000 Professional", "Fedora 44", "Linux", "95 Plus")]
     assert names == ["Windows", "Windows", "Windows", "Fedora", "Linux", "95 Plus"]
+
+
+def test_chosen_sound_theme_reads_the_sounds_group_of_kdeglobals(shutdown, tmp_path):
+    kdeglobals = tmp_path / "kdeglobals"
+    kdeglobals.write_text("[General]\nTheme=Ignored\n\n[Sounds]\nEnable=true\nTheme=Windows98\n")
+
+    assert shutdown.chosen_sound_theme(str(kdeglobals)) == "Windows98"
+
+
+def test_chosen_sound_theme_is_chicago95_without_kdeglobals(shutdown, tmp_path):
+    assert shutdown.chosen_sound_theme(str(tmp_path / "missing")) == "Chicago95"
+
+
+def test_shutdown_sound_comes_from_the_chosen_theme(shutdown, tmp_path, monkeypatch):
+    for theme in ("Chicago95", "Windows2000"):
+        (tmp_path / theme / "stereo").mkdir(parents=True)
+        (tmp_path / theme / "stereo/system-shutdown.ogg").touch()
+    monkeypatch.setattr(shutdown, "SOUND_ROOTS", (str(tmp_path),))
+
+    assert shutdown.shutdown_sound_file("Windows2000") == str(tmp_path / "Windows2000/stereo/system-shutdown.ogg")
+
+
+def test_shutdown_sound_falls_back_to_chicago95_when_the_theme_has_none(shutdown, tmp_path, monkeypatch):
+    (tmp_path / "Chicago95/stereo").mkdir(parents=True)
+    (tmp_path / "Chicago95/stereo/system-shutdown.wav").touch()
+    (tmp_path / "Plus98-Leonardo/stereo").mkdir(parents=True)
+    monkeypatch.setattr(shutdown, "SOUND_ROOTS", (str(tmp_path),))
+
+    assert shutdown.shutdown_sound_file("Plus98-Leonardo") == str(tmp_path / "Chicago95/stereo/system-shutdown.wav")

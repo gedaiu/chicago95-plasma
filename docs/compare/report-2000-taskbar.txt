@@ -1,0 +1,16 @@
+    454   5.1%  2000 Taskbar (real desktop; icons are the test's squares): left half
+    394   4.4%  2000 Taskbar (real desktop; icons are the test's squares): right half
+     56   3.6%  2000 Taskbar (real desktop; icons are the test's squares): Start button
+      0   0.0%  2000 Taskbar (real desktop; icons are the test's squares): separator 1
+      0   0.0%  2000 Taskbar (real desktop; icons are the test's squares): separator 2
+      0   0.0%  2000 Taskbar (real desktop; icons are the test's squares): Quick Launch cell 1
+      0   0.0%  2000 Taskbar (real desktop; icons are the test's squares): Quick Launch cell 2
+      0   0.0%  2000 Taskbar (real desktop; icons are the test's squares): Quick Launch cell 3
+    398   9.2%  2000 Taskbar (real desktop; icons are the test's squares): task button 1 (pressed)
+     88   5.8%  2000 Taskbar (real desktop; icons are the test's squares): task button 1: icon and label
+    394   9.1%  2000 Taskbar (real desktop; icons are the test's squares): task button 2
+    128   8.5%  2000 Taskbar (real desktop; icons are the test's squares): task button 2: icon and label
+      0   0.0%  2000 Taskbar (real desktop; icons are the test's squares): gap between task buttons 1 and 2
+      0   0.0%  2000 Taskbar (real desktop; icons are the test's squares): tray box
+      0   0.0%  2000 Taskbar (real desktop; icons are the test's squares): tray icon 1
+      0   0.0%  2000 Taskbar (real desktop; icons are the test's squares): clock
