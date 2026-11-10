@@ -9,6 +9,7 @@
 #   Options (asked interactively, or given as flags):
 #     --screen=2560x1440@1.5  --panel=28  --explorer=thunar|dolphin  --saver=maze
 #     --idle=5  --cursor=48  --clippy=yes|no  --font="MS W98 UI"  --font-scope=everywhere|desktop|none
+#     --start-text=Start  --start-logo=flag|penguin|/path/to/image  --banner-text=Chicago95
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,6 +32,9 @@ for arg in "$@"; do
         --clippy=*) OPT_CLIPPY="${arg#*=}";;
         --font=*) OPT_FONT="${arg#*=}";;
         --font-scope=*) OPT_FONT_SCOPE="${arg#*=}";;
+        --start-text=*) OPT_START_TEXT="${arg#*=}";;
+        --start-logo=*) OPT_START_LOGO="${arg#*=}";;
+        --banner-text=*) OPT_BANNER_TEXT="${arg#*=}";;
         --help|-h) sed -n '2,12p' "$0"; exit 0;;
         *) [ -z "$WANTED" ] && [[ "$arg" != --* ]] && WANTED="$arg";;
     esac
@@ -65,6 +69,45 @@ if [ -s "$MANIFEST" ] && [ "$SETUP_DRY_RUN" = 0 ]; then
         3) ui_restore; exit 0;;
     esac
 fi
+
+# ui_pick_text <prompt> <default> <choice>...   a number picks a choice, anything else is taken as typed
+ui_pick_text() {
+    local prompt="$1" default="$2" answer; shift 2
+    local choices=("$@")
+    answer=$(ui_ask "$prompt" "$default")
+    if [[ "$answer" =~ ^[0-9]+$ ]] && [ "$answer" -ge 1 ] && [ "$answer" -le ${#choices[@]} ]; then
+        printf '%s' "${choices[$((answer - 1))]}"
+    else
+        printf '%s' "$answer"
+    fi
+}
+
+choose_start_menu() {
+    local logo
+    ui_card "Start button and menu" \
+        "Choose what the Start button and the Start menu's side banner show." \
+        "Type a number for one of the suggestions, or type your own." "" \
+        "  Button text:  1. Start    2. Linux    or your own text" \
+        "  Button logo:  1. Classic flag    2. Penguin    3. Your own image (Setup asks for the file)" \
+        "  Banner text:  1. Chicago95    2. Linux    or your own text" "" \
+        "Press ENTER to keep the current choice. The logo you pick is copied to" \
+        "   $START_LOGO_FILE" \
+        "Replace that file and log out to change the logo later; right-click the Start" \
+        "button and choose Configure to change its text."
+    [ -n "${OPT_START_TEXT:-}" ] || SETUP_START_TEXT=$(ui_pick_text "Button text" "$SETUP_START_TEXT" Start Linux)
+    if [ -z "${OPT_START_LOGO:-}" ]; then
+        logo=$(ui_pick_text "Button logo" "$SETUP_START_LOGO" flag penguin custom)
+        case "$logo" in [Cc]lassic*|[Ff]lag) logo=flag;; [Pp]enguin) logo=penguin;; [Cc]ustom) logo="";; esac
+        while [ "$logo" != flag ] && [ "$logo" != penguin ] && [ ! -f "${logo/#\~/$HOME}" ]; do
+            [ -n "$logo" ] && ui_status "No image at $logo"
+            logo=$(ui_ask "Image file for the logo (PNG or SVG, full path; 1 = Classic flag)" "")
+            [ "$logo" = 1 ] && logo=flag
+        done
+        SETUP_START_LOGO=${logo/#\~/$HOME}
+    fi
+    [ -n "${OPT_BANNER_TEXT:-}" ] || SETUP_BANNER_TEXT=$(ui_pick_text "Banner text" "$SETUP_BANNER_TEXT" Chicago95 Linux)
+    return 0
+}
 
 choose_font_scope() {
     ui_card "Where should the classic font be used?" \
@@ -209,6 +252,10 @@ done < <(ui_pick_options \
     "font|UI font family|${OPT_FONT:-MS W98 UI}")
 SETUP_FONT_SCOPE=${OPT_FONT_SCOPE:-everywhere}
 [ -n "${OPT_FONT_SCOPE:-}" ] || choose_font_scope
+SETUP_START_TEXT=${OPT_START_TEXT:-Start}
+SETUP_START_LOGO=${OPT_START_LOGO:-flag}
+SETUP_BANNER_TEXT=${OPT_BANNER_TEXT:-Chicago95}
+[[ " $COMPONENTS " == *" startmenu "* || " $COMPONENTS " == *" taskbar "* ]] && choose_start_menu
 SETUP_SAVER=${OPT_SAVER:-deepstars}
 [[ " $COMPONENTS " == *" screensaver "* ]] && [ "$py_ok" = 1 ] && choose_screensaver
 SETUP_DPI=$(awk -v s="$SETUP_SCALE" 'BEGIN{printf "%d", 96*s + 0.5}')
@@ -243,6 +290,7 @@ ui_step_start 3
 [ "$SETUP_IN_PLASMA" = 1 ] && ui_status "Reloading Plasma..."
 finish_session
 [[ " $COMPONENTS " == *" taskbar "* ]] && offer_taskbar
+apply_start_button
 ui_step_done 3
 
 lines=("Setup has finished installing Chicago95 for Plasma." "")
@@ -250,6 +298,7 @@ lines=("Setup has finished installing Chicago95 for Plasma." "")
 [ "$SETUP_DRY_RUN" = 1 ] || lines+=("Every file Setup copied is listed in the log: $SETUP_LOG" \
     "Your original files are saved in ~/.local/share/chicago95/backup-*" \
     "To remove everything and put them back: ./uninstall.sh")
+[[ " $COMPONENTS " == *" startmenu "* ]] && lines+=("Start button logo: $START_LOGO_FILE (replace it and log out to change it)")
 ui_message "Setup Complete" "${lines[@]}"
 offer_logout
 ui_restore

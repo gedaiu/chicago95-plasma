@@ -17,6 +17,13 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 
+def banner_text(settings_file=None):
+    """The side banner's text, chosen in Setup ([StartMenu] bannerText in ~/.config/chicago95rc)."""
+    settings = configparser.ConfigParser(interpolation=None)
+    settings.read(settings_file or SETTINGS_FILE)
+    return settings.get("StartMenu", "bannerText", fallback=DEFAULT_BANNER_TEXT)
+
+
 def detect_scale():
     try:
         output = subprocess.run(["kscreen-doctor", "-o"], capture_output=True, text=True, timeout=3).stdout
@@ -49,7 +56,8 @@ RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
 PID_FILE = RUNTIME_DIR / "chicago95-startmenu.pid"
 CACHE_FILE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "chicago95-startmenu.json"
 BANNER_WIDTH = round(21 * UI_SCALE)
-BANNER_TEXT = "Chicago95"
+SETTINGS_FILE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "chicago95rc"
+DEFAULT_BANNER_TEXT = "Chicago95"
 ITEM_LEFT_PAD = round(6 * UI_SCALE)
 FACE, NAVY, LIGHT, SHADOW = QColor("#C0C0C0"), QColor("#000080"), QColor("#DFDFDF"), QColor("#808080")
 ROOT_ICON, SUB_ICON, ARROW = round(16 * UI_SCALE), round(16 * UI_SCALE), round(7 * UI_SCALE)
@@ -208,6 +216,7 @@ class RetroMenu(QMenu):
     def __init__(self, title="", parent=None, banner=False):
         super().__init__(title, parent)
         self.banner = banner
+        self.banner_text = banner_text() if banner else ""
         self.setContentsMargins(BANNER_WIDTH + 2 if banner else 0, 2 if banner else 0, 2 if banner else 0, 2 if banner else 0)
         self._slide = None
         # Stay a real popup for KWin so it draws no decoration or shadow around the menu.
@@ -252,7 +261,7 @@ class RetroMenu(QMenu):
         painter.setFont(banner_font)
         painter.translate(strip.left(), strip.bottom())
         painter.rotate(-90)
-        painter.drawText(QRect(0, 0, strip.height(), strip.width()), Qt.AlignLeft | Qt.AlignVCenter, " " + BANNER_TEXT)
+        painter.drawText(QRect(0, 0, strip.height(), strip.width()), Qt.AlignLeft | Qt.AlignVCenter, " " + self.banner_text)
         painter.end()
 
 

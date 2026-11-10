@@ -170,6 +170,16 @@ step_startmenu() {
         "title=chicago95-startmenu-root" "titlematch=1" "position=0,$(( SETUP_HEIGHT - PANEL_HEIGHT - MENU_HEIGHT ))" "positionrule=2" \
         "placement=Zero" "placementrule=2" "above=true" "aboverule=2" "skiptaskbar=true" "skiptaskbarrule=2" \
         "skippager=true" "skippagerrule=2" "skipswitcher=true" "skipswitcherrule=2" "noborder=true" "noborderrule=2" "types=1"
+    # Whatever logo was picked lands in one known file, so it can be swapped later without Setup.
+    local logo_source="${SETUP_START_LOGO:-flag}"
+    case "$logo_source" in
+        flag|penguin) logo_source="$REPO/plasmoids/org.chicago95.start/contents/images/logo-$logo_source.png";;
+    esac
+    put_file "$logo_source" "$START_LOGO_FILE"
+    SETUP_START_LOGO=$START_LOGO_FILE
+    run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerText "${SETUP_BANNER_TEXT:-Chicago95}"
+    record ~/.config/chicago95rc
+    show_copy "(Start menu banner: ${SETUP_BANNER_TEXT:-Chicago95})" ~/.config/chicago95rc
 }
 
 step_notifications() {
@@ -341,6 +351,19 @@ offer_taskbar() {   # replaces the panels with the Chicago95 taskbar once the us
     backup ~/.config/plasma-org.kde.plasma.desktop-appletsrc
     plasma_script "panels().forEach(panel => panel.remove());
 $(sed "s/^panel.height = 28;/panel.height = $PANEL_HEIGHT;/" ~/.local/share/chicago95/panel-layout.js)" >>"$SETUP_LOG" 2>&1
+}
+
+START_LOGO_FILE="$HOME/.local/share/chicago95/start-logo.png"
+
+js_string() { python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$1"; }
+
+apply_start_button() {  # writes the chosen text and logo into every Start button on the panels
+    [ "$SETUP_IN_PLASMA" = 1 ] && [ "${SETUP_DRY_RUN:-0}" = 0 ] || return 0
+    plasma_script "panels().forEach(panel => panel.widgets('org.chicago95.start').forEach(widget => {
+        widget.currentConfigGroup = ['General'];
+        widget.writeConfig('buttonText', $(js_string "${SETUP_START_TEXT:-Start}"));
+        widget.writeConfig('logo', $(js_string "${SETUP_START_LOGO:-flag}"));
+    }))" >>"$SETUP_LOG" 2>&1
 }
 
 offer_logout() {    # some parts start only with a new session; never logs out without a yes

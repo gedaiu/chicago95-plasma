@@ -7,6 +7,7 @@ together there while ordinary text looked fine.
 
     fix-font-spaces.py FONT...   rewrites each font in place; prints what it changed
 """
+import os
 import sys
 
 from fontTools.ttLib import TTFont
@@ -31,7 +32,11 @@ def fix_no_break_space(path):
         no_break_glyph = charstrings[no_break]
         no_break_glyph.program = list(charstrings[space].program)
         no_break_glyph.bytecode = None  # otherwise fontTools writes the old compiled glyph back unchanged
-    font.save(path)
+    # Written beside the font and swapped in: programs that already have the font mapped keep
+    # reading the old file instead of picking up half-rewritten glyphs until they restart.
+    replacement = f"{path}.chicago95-new"
+    font.save(replacement)
+    os.replace(replacement, path)
     return no_break_width, space_width
 
 
