@@ -106,12 +106,20 @@ existing `~/.config/kwinrulesrc` as text, so your own rules are kept.
 
 After Setup, build the taskbar once: remove the stock panel and run
 `~/.local/share/chicago95/panel-layout.js` in the Plasma scripting
-console. Plymouth and SDDM need root and are not touched:
+console.
+
+The "Login screen" component asks for the administrator password on the
+Setup screen, copies the SDDM theme from `~/src/Chicago95/Extras/sddm` and
+writes `/etc/sddm.conf.d/zz-chicago95.conf`. SDDM reads that folder in name
+order and the last file wins, so the `zz-` name beats a leftover theme
+setting from another file there. It is off with `--yes`; ask for it with
+`--components=sddm`.
+
+Plymouth needs root and is not touched:
 
 ```
 sudo cp -r ~/src/Chicago95/Plymouth/Chicago95 /usr/share/plymouth/themes/
 sudo plymouth-set-default-theme -R Chicago95
-sudo cp -r ~/src/Chicago95/Extras/sddm/Chicago95 /usr/share/sddm/themes/
 ```
 
 ## Resolution

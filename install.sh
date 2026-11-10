@@ -50,6 +50,52 @@ setup_abort() {
     exit 1
 }
 
+ui_intro
+
+if [ -s "$MANIFEST" ] && [ "$SETUP_DRY_RUN" = 0 ]; then
+    ui_card "Chicago95 is already installed" \
+        "Setup found an earlier installation on this computer." "" \
+        "  1. Reinstall: copy the files again. Your original files, saved the first" \
+        "     time Setup ran, stay saved, so uninstalling still brings them back." \
+        "  2. Uninstall: remove Chicago95 and restore your original files." \
+        "  3. Exit Setup without changing anything."
+    case "$(ui_ask "Type 1, 2 or 3 and press ENTER" 1)" in
+        2) ui_restore; exec "$REPO/uninstall.sh";;
+        3) ui_restore; exit 0;;
+    esac
+fi
+
+# Lists the installed savers; "P" and a number previews one full screen with the real screensaver.
+choose_screensaver() {
+    local names=() labels=() name label answer index lock_minutes
+    while IFS=$'\t' read -r name label; do names+=("$name"); labels+=("$label"); done \
+        < <(python3 "$REPO/bin/chicago95-screensaver" --list 2>/dev/null)
+    [ ${#names[@]} -gt 0 ] || return 0
+    lock_minutes=$(kreadconfig6 --file kscreenlockerrc --group Daemon --key Timeout 2>/dev/null); lock_minutes=${lock_minutes:-5}
+    while :; do
+        local lines=("It starts after ${SETUP_IDLE_MIN:-5} minutes without input; your screen locks after $lock_minutes." "")
+        for index in "${!names[@]}"; do
+            lines+=("$(printf '  %d. [%s] %s' $((index + 1)) "$([ "${names[$index]}" = "$SETUP_SAVER" ] && echo X || echo ' ')" "${labels[$index]}")")
+        done
+        lines+=("" "Type a number to choose it. Type P and a number (P2) to preview it;" \
+                "a key or a mouse movement ends the preview. ENTER on an empty line goes on.")
+        ui_card "Choose a screensaver" "${lines[@]}"
+        answer=$(ui_ask "Choice" "")
+        case "$answer" in
+            "") break;;
+            [Pp][0-9]*) index=$((${answer#?} - 1))
+                [ "$index" -ge 0 ] && [ "$index" -lt ${#names[@]} ] && ui_shell python3 "$REPO/bin/chicago95-screensaver" --hack "${names[$index]}";;
+            *[!0-9]*) ;;
+            *) index=$((answer - 1)); [ "$index" -ge 0 ] && [ "$index" -lt ${#names[@]} ] && SETUP_SAVER=${names[$index]};;
+        esac
+    done
+    [ "$SETUP_IDLE_MIN" -lt "$lock_minutes" ] || ui_message "The lock screen comes first" \
+        "Your screen locks after $lock_minutes minutes, before the screensaver's ${SETUP_IDLE_MIN} minutes," \
+        "so you will not see it. Lower the screensaver time in Setup's options, or raise the" \
+        "lock time in System Settings > Screen Locking."
+    return 0
+}
+
 # ---- 1. collect -------------------------------------------------------------
 ui_step_start 0
 detect_all
@@ -87,7 +133,11 @@ elif [ ${#SETUP_INSTALL_CMD[@]} -eq 0 ] || [ "$SETUP_DRY_RUN" = 1 ] || [ "$SETUP
 else
     ui_card "Checking prerequisites" "${prerequisites[@]}" "" "Install command:" "   $(detect_install_hint)"
     if ui_confirm "Install the missing packages now? (no = skip those components)"; then
-        ui_shell "${SETUP_INSTALL_CMD[@]}" || install_failed=1
+        if ui_sudo "To install the missing programs, Setup must use the system package manager." "${SETUP_INSTALL_CMD[*]}"; then
+            ui_shell "${SETUP_INSTALL_CMD[@]}" || install_failed=1
+        else
+            install_failed=1
+        fi
         detect_paths; detect_python
         mapfile -t prerequisites < <(detect_prerequisites)
         ui_message "Checking prerequisites" "${prerequisites[@]}" "" \
@@ -116,6 +166,7 @@ else
         "explorer:Explorer (Thunar settings, GTK CSS, Dolphin toolbar):$SETUP_HAS_THUNAR" \
         "lockscreen:Lock screen:1" \
         "splash:Splash screen:1" \
+        "sddm:Login screen (asks for the administrator password):$([ "$SETUP_HAS_SDDM" = 1 ] && [ "$SETUP_YES" = 0 ] && echo 1 || echo 0)" \
         "firefox:Firefox system colours (user.js):$([ -n "$SETUP_FIREFOX_PROFILE" ] && echo 1 || echo 0)")
 fi
 printf 'Components: %s\n' "$COMPONENTS" >>"$SETUP_LOG"
@@ -125,7 +176,6 @@ while IFS='=' read -r name value; do
     case $name in
         screen) [[ "$value" =~ ^([0-9]+)x([0-9]+)@([0-9.]+)$ ]] && { SETUP_WIDTH=${BASH_REMATCH[1]}; SETUP_HEIGHT=${BASH_REMATCH[2]}; SETUP_SCALE=${BASH_REMATCH[3]}; };;
         panel) SETUP_PANEL=$value;;
-        saver) SETUP_SAVER=$value;;
         idle) SETUP_IDLE_MIN=$value;;
         explorer) SETUP_EXPLORER=$value;;
         cursor) SETUP_CURSOR=$value;;
@@ -136,11 +186,12 @@ done < <(ui_pick_options \
     "screen|Screen size and scale (WxH@scale)|${OPT_SCREEN:-${SETUP_WIDTH}x${SETUP_HEIGHT}@${SETUP_SCALE}}" \
     "panel|Taskbar height in pixels (Win95 is 28)|${OPT_PANEL:-28}" \
     "explorer|File manager for Explorer (thunar/dolphin)|${OPT_EXPLORER:-$([ "$SETUP_HAS_THUNAR" = 1 ] && echo thunar || echo dolphin)}" \
-    "saver|Screensaver hack (pipes, maze, flyingtoasters, bsod...)|${OPT_SAVER:-deepstars}" \
     "idle|Screensaver after (minutes)|${OPT_IDLE:-5}" \
     "cursor|Cursor size (24/32/48)|${OPT_CURSOR:-$(awk -v s="$SETUP_SCALE" 'BEGIN{print (s>1)?48:32}')}" \
     "clippy|Office Assistant at login (yes/no)|${OPT_CLIPPY:-yes}" \
     "font|UI font family|${OPT_FONT:-MS W98 UI}")
+SETUP_SAVER=${OPT_SAVER:-deepstars}
+[[ " $COMPONENTS " == *" screensaver "* ]] && [ "$py_ok" = 1 ] && choose_screensaver
 SETUP_DPI=$(awk -v s="$SETUP_SCALE" 'BEGIN{printf "%d", 96*s + 0.5}')
 PANEL_HEIGHT=${SETUP_PANEL:-28}
 printf 'Options: screen=%sx%s@%s panel=%s explorer=%s saver=%s idle=%s cursor=%s clippy=%s font=%s\n' \
@@ -149,32 +200,22 @@ ui_step_done 1
 
 # ---- 3. copy ----------------------------------------------------------------
 ui_step_start 2
-TO_COPY=0; COPIED=0
+# The total comes from a silent dry run of the same steps, so the counter matches the lines shown.
+COPIED=0
+TO_COPY=$(SETUP_DRY_RUN=1; SETUP_LOG=/dev/null; UI_PLAIN=1; TO_COPY=0
+          for component in $COMPONENTS; do declare -F "step_$component" >/dev/null && "step_$component"; done >/dev/null 2>&1
+          echo "$COPIED")
+# A reinstall adds to the manifest instead of replacing it, so uninstall still knows every earlier file.
+[ "$SETUP_DRY_RUN" = 1 ] || { mkdir -p "$STATE_DIR"; touch "$MANIFEST"; }
 for component in $COMPONENTS; do
     case $component in
-        base) TO_COPY=$((TO_COPY + 3));;
-        look) TO_COPY=$((TO_COPY + $(count_files "$REPO/aurorae/theme" "$REPO/plasma-style/theme") + 6));;
-        taskbar) TO_COPY=$((TO_COPY + $(count_files "$REPO"/plasmoids/org.chicago95.*) + 3));;
-        startmenu) TO_COPY=$((TO_COPY + 5 + $(count_files "$REPO/data/qml") + 4));;
-        notifications) TO_COPY=$((TO_COPY + $(count_files "$REPO/kwin-effects") + 3));;
-        clippy) TO_COPY=$((TO_COPY + $(count_files "$REPO/data/clippy") + 3));;
-        extras) TO_COPY=$((TO_COPY + $(count_files "$REPO/data/sounds") + 5));;
-        screensaver) TO_COPY=$((TO_COPY + 2));;
-        winamp) TO_COPY=$((TO_COPY + 1));;
-        explorer) TO_COPY=$((TO_COPY + 2));;
-        lockscreen) TO_COPY=$((TO_COPY + $(count_files "$REPO/lockscreen")));;
-        splash) TO_COPY=$((TO_COPY + $(count_files "$REPO/splash")));;
-        firefox) TO_COPY=$((TO_COPY + 1));;
-    esac
-done
-[ "$SETUP_DRY_RUN" = 1 ] || { mkdir -p "$STATE_DIR"; : >"$MANIFEST"; }
-for component in $COMPONENTS; do
-    case $component in
-        base|look|taskbar|startmenu|notifications|clippy|extras|screensaver|winamp|explorer|lockscreen|splash|firefox) "step_$component";;
+        base|look|taskbar|startmenu|notifications|clippy|extras|screensaver|winamp|explorer|lockscreen|splash|sddm|firefox) "step_$component";;
         *) printf 'unknown component: %s\n' "$component" >>"$SETUP_LOG";;
     esac
 done
 step_fonts
+ui_status "All files are copied. Press ENTER for Next."
+ui_next
 ui_step_done 2
 
 # ---- 4. finish --------------------------------------------------------------
@@ -189,7 +230,7 @@ lines+=("Next:" \
     "  1. Remove the stock panel, then run ~/.local/share/chicago95/panel-layout.js" \
     "     in the Plasma scripting console to build the taskbar." \
     "  2. Log out and back in once, for autostart entries and environment.d." \
-    "  3. Plymouth and SDDM need root; see the README for the two commands." "" \
+    "  3. Plymouth needs root; see the README for the commands." "" \
     "Backups of every file Setup replaced: $BACKUP_DIR" \
     "To remove everything: ./uninstall.sh")
 ui_message "Setup Complete" "${lines[@]}"

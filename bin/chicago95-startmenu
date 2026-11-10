@@ -38,6 +38,8 @@ UI_SCALE = 1.0
 os.environ.setdefault("QT_STYLE_OVERRIDE", "Windows")
 # Scale comes from the X server DPI (Xft.dpi 144); a QT_SCALE_FACTOR here would stack on it.
 os.environ.pop("QT_QPA_PLATFORMTHEME", None)
+sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95"))
+import win95ui  # noqa: E402  after the environment above, so its defaults do not override it
 
 from PySide6.QtCore import QEasingCurve, QEvent, QPoint, QPropertyAnimation, QRect, QSize, Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QAction, QColor, QFont, QFontDatabase, QIcon, QKeyEvent, QPainter, QPalette  # noqa: E402
@@ -496,10 +498,7 @@ def main():
     PID_FILE.write_text(str(os.getpid()))
     controller = StartMenu(app)
     signal.signal(signal.SIGUSR1, lambda *_: QTimer.singleShot(0, controller.toggle))
-    signal.signal(signal.SIGTERM, lambda *_: app.quit())
-    heartbeat = QTimer()
-    heartbeat.timeout.connect(lambda: None)
-    heartbeat.start(100)
+    heartbeat = win95ui.quit_on_signals(app, signal.SIGTERM)  # noqa: F841  kept alive for the event loop
     if "--daemon" not in sys.argv:
         QTimer.singleShot(0, controller.show)
     code = app.exec()

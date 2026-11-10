@@ -13,34 +13,45 @@ BACKUP_DIR="$STATE_DIR/backup-$(date +%Y%m%d-%H%M%S)"
 
 run() { if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then printf '  would: %s\n' "$*" >>"$SETUP_LOG"; else "$@"; fi; }
 
-record() { [ "${SETUP_DRY_RUN:-0}" = 1 ] || { mkdir -p "$STATE_DIR"; printf '%s\n' "$1" >>"$MANIFEST"; }; }
+record() { [ "${SETUP_DRY_RUN:-0}" = 1 ] || installed_by_setup "$1" || { mkdir -p "$STATE_DIR"; printf '%s\n' "$1" >>"$MANIFEST"; }; }
 
-backup() {          # backup <path>  keeps the pre-install version once per run
+installed_by_setup() { [ -f "$MANIFEST" ] && grep -qxF "$1" "$MANIFEST"; }
+
+backup() {          # backup <path>  keeps the pre-install version; a file Setup put there earlier is not backed up
     local path="$1"
     [ -e "$path" ] || [ -L "$path" ] || return 0
     [ "${SETUP_DRY_RUN:-0}" = 1 ] && return 0
+    installed_by_setup "$path" && return 0
     local dest="$BACKUP_DIR/${path#"$HOME"/}"
     mkdir -p "$(dirname "$dest")"
     [ -e "$dest" ] || cp -a "$path" "$dest"
 }
 
+short_path() { local path="${1#"$REPO"/}"; printf '%s' "${path/#"$HOME"/\~}"; }
+
+show_copy() {       # show_copy <source> <destination>   on screen and in the Setup log, one line per file
+    local line
+    line="$(short_path "$1") → $(short_path "$2")"
+    printf '%s: %s -> %s\n' "$([ "${SETUP_DRY_RUN:-0}" = 1 ] && echo would-copy || echo copied)" "$1" "$2" >>"$SETUP_LOG"
+    COPIED=$((COPIED + 1)); ui_progress "$COPIED" "$TO_COPY" "$line"
+}
+
 put_file() {        # put_file <source> <destination>
     local source="$1" dest="$2"
     backup "$dest"; run mkdir -p "$(dirname "$dest")"; run cp "$source" "$dest"; record "$dest"
-    COPIED=$((COPIED + 1)); ui_progress "$COPIED" "$TO_COPY" "${dest#"$HOME"/}"
+    show_copy "$source" "$dest"
 }
 
 put_tree() {        # put_tree <source dir> <destination dir>
-    local source="$1" dest="$2"
+    local source="$1" dest="$2" file
     backup "$dest"; run rm -rf "$dest"; run mkdir -p "$(dirname "$dest")"; run cp -r "$source" "$dest"; record "$dest"
-    COPIED=$((COPIED + $(find "$source" -type f | wc -l))); ui_progress "$COPIED" "$TO_COPY" "${dest#"$HOME"/}"
+    while IFS= read -r file; do show_copy "$file" "$dest/${file#"$source"/}"; done < <(find "$source" -type f | sort)
 }
 
 substitute_home() { [ "${SETUP_DRY_RUN:-0}" = 1 ] || grep -rlI '@HOME@' "$@" 2>/dev/null | xargs -r sed -i "s|@HOME@|$HOME|g"; }
 
 kconf() { run kwriteconfig6 --file "$1" --group "$2" --key "$3" "${@:4}"; record "kconf:$1:$2:$3"; }
 
-count_files() { local total=0; for path in "$@"; do [ -d "$path" ] && total=$((total + $(find "$path" -type f | wc -l))) || total=$((total + 1)); done; echo "$total"; }
 
 # --- KWin rules: merged as text, never through kwriteconfig6 (it drops every other group) ---
 
@@ -48,7 +59,7 @@ kwin_rule() {       # kwin_rule <group> <body lines...>   replaces or appends th
     local group="$1"; shift
     local file="$HOME/.config/kwinrulesrc"
     [ "${SETUP_DRY_RUN:-0}" = 1 ] && { printf '  would: write kwin rule [%s]\n' "$group" >>"$SETUP_LOG"; return; }
-    backup "$file"; touch "$file"
+    backup "$file"; mkdir -p "$(dirname "$file")"; touch "$file"
     python3 - "$file" "$group" "$@" <<'EOF'
 import sys, re
 path, group, *lines = sys.argv[1:]
@@ -88,6 +99,7 @@ step_base() {
     [ -d ~/.icons/Chicago95_Animated_Hourglass_Cursors_HiDPI ] || put_tree "$src/Cursors/Chicago95_Animated_Hourglass_Cursors_HiDPI" ~/.icons/Chicago95_Animated_Hourglass_Cursors_HiDPI
     [ -d ~/.local/share/sounds/Chicago95 ] || put_tree "$src/sounds/Chicago95" ~/.local/share/sounds/Chicago95
     run mkdir -p ~/.local/share/icons; run ln -sfn ~/.icons/Chicago95 ~/.local/share/icons/Chicago95; record ~/.local/share/icons/Chicago95
+    show_copy ~/.icons/Chicago95 ~/.local/share/icons/Chicago95
     if [ "${SETUP_DRY_RUN:-0}" != 1 ] && ! grep -q '^Inherits=' ~/.icons/Chicago95/index.theme; then
         sed -i '/^\[Icon Theme\]/a Inherits=hicolor,breeze' ~/.icons/Chicago95/index.theme
     fi
@@ -122,6 +134,7 @@ step_look() {       # decoration, Plasma style, colours, widget style, DPI
             printf 'Xft.dpi: %s\n' "$SETUP_DPI" >> ~/.Xresources.chicago95; mv ~/.Xresources.chicago95 ~/.Xresources
             xrdb -merge ~/.Xresources 2>/dev/null || true
         fi
+        show_copy "(Xft.dpi: $SETUP_DPI)" ~/.Xresources
         record ~/.Xresources
         kconf kcmfonts General forceFontDPI "$SETUP_DPI"
     fi
@@ -197,10 +210,23 @@ step_extras() {     # System Properties, Device Manager, Dial-Up, Deezer helper,
 
 step_screensaver() {
     [ -n "$SETUP_HACK_DIR" ] || ui_status "XScreenSaver hacks not installed; the screensaver will do nothing until they are"
+    step_tools_common
     put_file "$REPO/bin/chicago95-screensaver" ~/.local/bin/chicago95-screensaver; run chmod +x ~/.local/bin/chicago95-screensaver
-    put_file "$REPO/config/autostart/chicago95-screensaver.desktop" ~/.config/autostart/chicago95-screensaver.desktop
-    substitute_home ~/.config/autostart
-    [ "${SETUP_DRY_RUN:-0}" = 1 ] || sed -i -E "s|CHICAGO95_SAVER=[^ ]*|CHICAGO95_SAVER=${SETUP_SAVER:-deepstars}|; s|CHICAGO95_SAVER_IDLE=[^ ]*|CHICAGO95_SAVER_IDLE=$(( ${SETUP_IDLE_MIN:-5} * 60 ))|" ~/.config/autostart/chicago95-screensaver.desktop
+    # Earlier versions polled an idle time that Wayland never reports, from an autostart entry.
+    if [ -e ~/.config/autostart/chicago95-screensaver.desktop ]; then
+        run systemctl --user stop 'app-chicago95\x2dscreensaver@autostart.service'
+        run rm -f ~/.config/autostart/chicago95-screensaver.desktop
+    fi
+    # Plasma's power management watches idle time on Wayland and runs this command when it is reached.
+    local command="$HOME/.local/bin/chicago95-screensaver --hack ${SETUP_SAVER:-deepstars}" profile
+    backup ~/.config/powerdevilrc
+    for profile in AC Battery LowBattery; do
+        run kwriteconfig6 --file powerdevilrc --group "$profile" --group RunScript --key RunScriptIdleTimeoutSec $(( ${SETUP_IDLE_MIN:-5} * 60 ))
+        run kwriteconfig6 --file powerdevilrc --group "$profile" --group RunScript --key IdleTimeoutCommand "$command"
+    done
+    record "powerdevil:RunScript"
+    show_copy "(run $command after ${SETUP_IDLE_MIN:-5} min idle)" ~/.config/powerdevilrc
+    run systemctl --user restart plasma-powerdevil.service
 }
 
 step_winamp() {
@@ -227,8 +253,9 @@ step_explorer() {
         put_file "$REPO/config/thunar/thunar.xml" "$thunar_xml"
     fi
     backup ~/.config/gtk-3.0/gtk.css
-    if [ "${SETUP_DRY_RUN:-0}" != 1 ] && ! grep -q 'Chicago95 Thunar' ~/.config/gtk-3.0/gtk.css 2>/dev/null; then
-        mkdir -p ~/.config/gtk-3.0; cat "$REPO/config/gtk-3.0/gtk.css" >> ~/.config/gtk-3.0/gtk.css; record ~/.config/gtk-3.0/gtk.css
+    if ! grep -q 'Chicago95 Thunar' ~/.config/gtk-3.0/gtk.css 2>/dev/null; then
+        [ "${SETUP_DRY_RUN:-0}" = 1 ] || { mkdir -p ~/.config/gtk-3.0; cat "$REPO/config/gtk-3.0/gtk.css" >> ~/.config/gtk-3.0/gtk.css; record ~/.config/gtk-3.0/gtk.css; }
+        show_copy "$REPO/config/gtk-3.0/gtk.css" ~/.config/gtk-3.0/gtk.css
     fi
     put_file "$REPO/config/dolphin/dolphinui.rc" ~/.local/share/kxmlgui6/dolphin/dolphinui.rc
     run xdg-mime default thunar.desktop inode/directory
@@ -238,8 +265,8 @@ step_lockscreen() {
     [ -n "$SETUP_SHELL_SRC" ] || { ui_status "Plasma desktop shell package not found; skipping lock screen"; return; }
     local dst=~/.local/share/plasma/shells/org.kde.plasma.desktop
     backup "$dst"; run rm -rf "$dst"; run mkdir -p "$dst/contents"
-    for entry in "$SETUP_SHELL_SRC"/*; do [ "$(basename "$entry")" = contents ] || run ln -s "$entry" "$dst/"; done
-    for entry in "$SETUP_SHELL_SRC"/contents/*; do [ "$(basename "$entry")" = lockscreen ] || run ln -s "$entry" "$dst/contents/"; done
+    for entry in "$SETUP_SHELL_SRC"/*; do [ "$(basename "$entry")" = contents ] || { run ln -s "$entry" "$dst/"; show_copy "$entry" "$dst/$(basename "$entry")"; }; done
+    for entry in "$SETUP_SHELL_SRC"/contents/*; do [ "$(basename "$entry")" = lockscreen ] || { run ln -s "$entry" "$dst/contents/"; show_copy "$entry" "$dst/contents/$(basename "$entry")"; }; done
     put_tree "$REPO/lockscreen/lockscreen" "$dst/contents/lockscreen"; record "$dst"
 }
 
@@ -249,6 +276,32 @@ step_splash() {
     kconf ksplashrc KSplash Engine KSplashQML
 }
 
+SDDM_THEME_SRC="$HOME/src/Chicago95/Extras/sddm/Chicago95"
+SDDM_THEME_DIR=/usr/share/sddm/themes/Chicago95
+# sddm.conf.d is read in name order and the last file wins, so zz- beats leftovers such as
+# another theme's sddm.conf that would otherwise override Plasma's kde_settings.conf.
+SDDM_OVERRIDE=/etc/sddm.conf.d/zz-chicago95.conf
+
+step_sddm() {       # login screen; system files, so it asks for the administrator password first
+    [ -d "$SDDM_THEME_SRC" ] || [ -d "$SDDM_THEME_DIR" ] || { ui_status "Chicago95 SDDM theme not found in $SDDM_THEME_SRC; skipping login screen"; return; }
+    local commands=()
+    [ -d "$SDDM_THEME_SRC" ] && commands+=("sudo mkdir -p $SDDM_THEME_DIR" "sudo cp -r $SDDM_THEME_SRC/. $SDDM_THEME_DIR/")
+    commands+=("sudo tee $SDDM_OVERRIDE   (writes: [Theme] Current=Chicago95)")
+    if ! ui_sudo "To change the login screen, Setup must write to a system folder." "${commands[@]}"; then
+        ui_message "Login screen not changed" "No administrator password was accepted, so Setup skipped the login screen." \
+            "Everything else is installed. Run ./install.sh --components=sddm to try again."
+        return
+    fi
+    if [ -d "$SDDM_THEME_SRC" ]; then
+        run sudo mkdir -p "$SDDM_THEME_DIR"; run sudo cp -r "$SDDM_THEME_SRC/." "$SDDM_THEME_DIR/"
+        local file
+        while IFS= read -r file; do show_copy "$file" "$SDDM_THEME_DIR/${file#"$SDDM_THEME_SRC"/}"; done < <(find "$SDDM_THEME_SRC" -type f | sort)
+    fi
+    if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run sudo tee "$SDDM_OVERRIDE"; else printf '[Theme]\nCurrent=Chicago95\n' | sudo tee "$SDDM_OVERRIDE" >/dev/null; fi
+    record "root:$SDDM_OVERRIDE"
+    show_copy "(Setup)" "$SDDM_OVERRIDE"
+}
+
 step_firefox() {
     [ -n "$SETUP_FIREFOX_PROFILE" ] || { ui_status "No default Firefox profile found; skipping"; return; }
     local target="$SETUP_FIREFOX_PROFILE/user.js"
@@ -256,7 +309,7 @@ step_firefox() {
     if [ "${SETUP_DRY_RUN:-0}" != 1 ]; then
         { [ -f "$target" ] && grep -v 'Chicago95' "$target"; cat "$REPO/config/firefox-user.js"; } > "$target.chicago95" && mv "$target.chicago95" "$target"
     fi
-    record "$target"; COPIED=$((COPIED + 1)); ui_progress "$COPIED" "$TO_COPY" "firefox user.js"
+    record "$target"; show_copy "$REPO/config/firefox-user.js" "$target"
 }
 
 step_fonts() {

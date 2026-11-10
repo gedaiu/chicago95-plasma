@@ -55,6 +55,7 @@ detect_paths() {
     [ -n "$newest" ] && SETUP_FIREFOX_PROFILE=$(dirname "$newest")
     SETUP_HAS_THUNAR=0; command -v thunar >/dev/null 2>&1 && SETUP_HAS_THUNAR=1
     SETUP_HAS_QMMP=0; command -v qmmp >/dev/null 2>&1 && SETUP_HAS_QMMP=1
+    SETUP_HAS_SDDM=0; command -v sddm >/dev/null 2>&1 && SETUP_HAS_SDDM=1
     SETUP_HAS_GIT=0; command -v git >/dev/null 2>&1 && SETUP_HAS_GIT=1
     SETUP_HAS_XSETTINGSD=0; command -v xsettingsd >/dev/null 2>&1 && SETUP_HAS_XSETTINGSD=1
     SETUP_HAS_KWINRULES=0; [ -f "$HOME/.config/kwinrulesrc" ] && SETUP_HAS_KWINRULES=1

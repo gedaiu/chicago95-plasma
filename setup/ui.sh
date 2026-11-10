@@ -17,7 +17,12 @@ ui_init() {
     fi
     UI_COLS=$(tput cols); UI_ROWS=$(tput lines)
     [ "$UI_COLS" -ge 60 ] && [ "$UI_ROWS" -ge 20 ] || UI_PLAIN=1
-    [ "$UI_PLAIN" = 1 ] || { tput civis; trap ui_restore EXIT INT TERM; }
+    [ "$UI_PLAIN" = 1 ] && return
+    tput civis
+    # A trap replaces the default action, so INT and TERM must exit themselves; EXIT then restores the screen.
+    trap ui_restore EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
 }
 
 ui_restore() {
@@ -29,7 +34,9 @@ ui_field() {        # paint the blue field and the title band
     UI_ON_STEPS=0
     printf '\e[44m\e[97m'; tput clear
     tput cup 0 0; printf '\e[47m\e[34m%-*s\e[44m\e[97m' "$UI_COLS" "  $UI_TITLE"
-    tput cup $((UI_ROWS - 1)) 0; printf '\e[47m\e[34m%-*s\e[44m\e[97m' "$UI_COLS" "  ENTER=Continue   Ctrl+C=Exit Setup"
+    # One cell short, then erase-to-end in the same colour: writing the last cell of the last row
+    # wraps the cursor and scrolls the whole screen up a line.
+    tput cup $((UI_ROWS - 1)) 0; printf '\e[47m\e[34m%-*s\e[K\e[44m\e[97m' $((UI_COLS - 1)) "  ENTER=Continue   Ctrl+C=Exit Setup"
 }
 
 ui_center() {       # ui_center <row> <text>
@@ -69,17 +76,34 @@ ui_status() {       # one-line status under the step list
     tput cup $((6 + ${#UI_STEPS[@]})) 6; printf '%-*s' $((UI_COLS - 12)) "$1"
 }
 
-ui_progress() {     # ui_progress <done> <total> <label>
-    local done="$1" total="$2" label="$3" width=50 filled
-    # A terminal redraws one line in place; a log or pipe gets one line per file.
-    if [ "$UI_PLAIN" = 1 ] && [ ! -t 1 ]; then printf '   %-60s (%d/%d)\n' "$label" "$done" "$total"; return 0; fi
-    if [ "$UI_PLAIN" = 1 ]; then printf '\r   %-60s (%d/%d)' "$label" "$done" "$total"; if [ "$done" -ge "$total" ]; then printf '\n'; fi; return 0; fi
+ui_repeat() {       # ui_repeat <count> <char>   prints the (multibyte-safe) character count times
+    local index
+    for ((index = 0; index < $1; index++)); do printf '%s' "$2"; done
+}
+
+ui_fit() {          # ui_fit <width> <text>   keeps the end of a long path, which is the part that tells files apart
+    if [ "${#2}" -le "$1" ]; then printf '%s' "$2"; else printf '…%s' "${2: -$(($1 - 1))}"; fi
+}
+
+UI_COPIED_LINES=()
+
+# ui_progress <done> <total> <line>   every copied file gets its own line: plain output prints them all,
+# the Setup screen scrolls the most recent ones under the bar.
+ui_progress() {
+    local done="$1" total="$2" line="$3" width=50 filled
+    if [ "$UI_PLAIN" = 1 ]; then printf '   (%d/%d) %s\n' "$done" "$total" "$line"; return 0; fi
     [ "$UI_ON_STEPS" = 1 ] || ui_steps
-    filled=$(( total > 0 ? done * width / total : width ))
-    local row=$((UI_ROWS / 2 + 3)) col=$(( (UI_COLS - width - 2) / 2 ))
-    tput cup $((row - 2)) 6; printf '%-*s' $((UI_COLS - 12)) "Setup is now copying files to your computer..."
-    tput cup $((row - 1)) 6; printf '%-*s' $((UI_COLS - 12)) "  $label"
-    tput cup "$row" "$col"; printf '\e[47m\e[34m['; printf '%*s' "$filled" '' | tr ' ' '#'; printf '%*s' $((width - filled)) '' | tr ' ' '.'; printf ']\e[44m\e[97m %3d%%' $(( total > 0 ? done * 100 / total : 100 ))
+    filled=$(( total > 0 && done < total ? done * width / total : width ))
+    local row=$((UI_ROWS / 2)) col=$(( (UI_COLS - width - 2) / 2 )) text_width=$((UI_COLS - 12))
+    local visible=$((UI_ROWS - row - 4)) index
+    ui_center $((row - 3)) "Setup is now copying files to your computer..."
+    tput cup "$row" "$col"; printf '\e[93m['; ui_repeat "$filled" '█'; ui_repeat $((width - filled)) '░'; printf ']\e[97m %3d%%' $(( total > 0 && done < total ? done * 100 / total : 100 ))
+    UI_COPIED_LINES+=("$line")
+    for ((index = 0; index < visible; index++)); do
+        local entry=$(( ${#UI_COPIED_LINES[@]} - visible + index ))
+        tput cup $((row + 2 + index)) 6
+        if [ "$entry" -ge 0 ]; then printf '%-*s' "$text_width" "$(ui_fit "$text_width" "${UI_COPIED_LINES[$entry]}")"; else printf '%-*s' "$text_width" ''; fi
+    done
 }
 
 ui_card() {         # ui_card <title> <line>...   draws a titled page; leaves the cursor below it
@@ -89,11 +113,73 @@ ui_card() {         # ui_card <title> <line>...   draws a titled page; leaves th
     for line in "$@"; do ui_text "$UI_CARD_END" "$line"; UI_CARD_END=$((UI_CARD_END + 1)); done
 }
 
-ui_message() {      # ui_message <title> <line>...   waits for Enter
-    ui_card "$@"
-    [ "$UI_PLAIN" = 1 ] && return
-    tput cup $((UI_CARD_END + 1)) 6; printf 'Press ENTER to continue.'
+# ui_next   shows a Next button and waits for ENTER; Setup never moves on by itself.
+# Only --yes (no questions) and output that is not a terminal skip the wait.
+ui_next() {
+    [ "${SETUP_YES:-0}" = 1 ] && return 0
+    if [ "$UI_PLAIN" = 1 ]; then
+        [ -t 1 ] || return 0
+        printf '\n  Press ENTER for Next > '; read -r _ </dev/tty; return 0
+    fi
+    local label="  Next >  "
+    tput cup $((UI_ROWS - 3)) $((UI_COLS - ${#label} - 6)); printf '\e[47m\e[30m%s\e[44m\e[97m' "$label"
     read -r _ </dev/tty
+}
+
+ui_message() {      # ui_message <title> <line>...   waits for Next
+    ui_card "$@"
+    ui_next
+}
+
+UI_INTRO_ART=(
+    " ███  █  █  ███   ███   ██    ███   ██    ██   ████"
+    "█     █  █   █   █     █  █  █     █  █  █  █  █   "
+    "█     ████   █   █     ████  █ ██  █  █   ███  ███ "
+    "█     █  █   █   █     █  █  █  █  █  █     █     █"
+    " ███  █  █  ███   ███  █  █   ███   ██    ██   ███ "
+)
+
+ui_intro() {        # title screen before anything is checked or changed
+    local lines=("for KDE Plasma 6" "" \
+        "Setup will look at this computer, let you choose what to install," \
+        "and show every file as it is copied." \
+        "Nothing changes until you have seen the list of components." "" \
+        "Press ENTER for Next, or Ctrl+C to leave Setup at any time.")
+    if [ "$UI_PLAIN" = 1 ]; then printf '\n%s\n' "${UI_INTRO_ART[@]}"; printf '  %s\n' "${lines[@]}"; ui_next; return; fi
+    ui_field
+    local row=4 line
+    printf '\e[93m'
+    for line in "${UI_INTRO_ART[@]}"; do ui_center "$row" "$line"; row=$((row + 1)); done
+    printf '\e[97m'
+    row=$((row + 1))
+    for line in "${lines[@]}"; do ui_center "$row" "$line"; row=$((row + 1)); done
+    ui_next
+}
+
+# ui_sudo <why> <command>...  -> 0 once administrator rights are granted, 1 when skipped or refused.
+# Asks in plain words, on the Setup screen, and shows exactly what will run as administrator.
+ui_sudo() {
+    [ "${SETUP_DRY_RUN:-0}" = 1 ] && return 0
+    sudo -n true 2>/dev/null && return 0
+    local why="$1"; shift
+    local attempt password retry=() commands=("" "Setup will run:")
+    local command
+    for command in "$@"; do
+        mapfile -t -O "${#commands[@]}" commands < <(printf '%s\n' "$command" | fold -s -w $((UI_COLS - 20)) | sed '1s/^/   /; 2,$s/^/       /')
+    done
+    for attempt in 1 2 3; do
+        [ "$attempt" -gt 1 ] && retry=("That password was not accepted. Please try again." "")
+        ui_card "Administrator password needed" "${retry[@]}" "$why" "${commands[@]}" "" \
+            "Type the password you use to log in to this computer, then press ENTER." \
+            "Nothing appears on screen while you type; that is normal." \
+            "To skip this part, press ENTER without typing anything."
+        if [ "$UI_PLAIN" = 1 ]; then printf '  Password: '; else tput cup $((UI_CARD_END + 1)) 6; printf 'Password: '; tput cnorm; fi
+        IFS= read -rs password </dev/tty; printf '\n'
+        [ "$UI_PLAIN" = 1 ] || tput civis
+        [ -n "$password" ] || return 1
+        sudo -S -p '' -v <<<"$password" 2>/dev/null && return 0
+    done
+    return 1
 }
 
 ui_shell() {        # ui_shell <command>...   runs a command on the bare terminal (sudo prompts, package output)

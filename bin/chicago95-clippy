@@ -51,7 +51,7 @@ TIPS = [
     "Press Meta+V to open the clipboard history. Everything you ever copied is in there. Everything.",
     "Press Print Screen to open Spectacle. Shift+Print grabs the whole screen without asking.",
     "Press Meta+Left or Meta+Right to tile a window to half the screen.",
-    "Press Ctrl+Alt+Esc and then click any window to kill it. Use it responsibly.",
+    "Press Meta+Ctrl+Esc and then click any window to kill it. Use it responsibly.",
     "It looks like a window is frozen. Try Meta+Esc to open the System Monitor.",
     "Press Meta+W to see every open window at once. It's called Overview now, not Task View.",
     "Press Ctrl+Alt+Shift+F12 to turn off desktop effects if your GPU drivers are feeling 1995.",
@@ -62,6 +62,67 @@ TIPS = [
     "Your taskbar is a Plasma panel. Right-click it and choose Enter Edit Mode to rearrange it.",
     "It looks like you're trying to find a file. Press Alt+Space and start typing. Baloo already indexed it.",
     "Press Meta+Shift+S to take a screenshot of a region, straight to the clipboard.",
+    # Plasma 6 defaults, checked against kglobalshortcutsrc on Plasma 6.8.
+    "Press Meta+G to see all your virtual desktops in a grid. Like a filing cabinet, but it actually opens.",
+    "Press Meta+Plus to zoom in on the screen and Meta+0 to snap back. Great for reading the fine print.",
+    "Press Meta+PgUp to maximize a window and Meta+PgDown to minimize it. No tiny buttons required.",
+    "Press Meta+T to open the tile editor and design your own window layout.",
+    "Press Meta+Ctrl+Left or Meta+Ctrl+Right to hop between virtual desktops. Your mess can live on desktop 2.",
+    "Press Meta+Ctrl+Shift+Right to take the current window with you to the next desktop.",
+    "Press Alt+F3 for the window menu: keep above others, move to another desktop, and more.",
+    "Hold Meta and drag anywhere inside a window to move it. Title bars are optional now.",
+    "It looks like you're looking for a terminal. In Dolphin, press F4 to open one right in the current folder.",
+    "Press F3 in Dolphin to split the window in two. Dragging files between folders has never been easier.",
+    "Press Ctrl+H in Dolphin to show hidden files. Yes, all those dot-folders were there the whole time.",
+    "Press Ctrl+I in Dolphin to filter the current folder as you type.",
+    "Press Ctrl+Shift+T in Konsole to open a new tab. One terminal is never enough.",
+    # Terminal and Fedora.
+    "Press Ctrl+R in the terminal and start typing to search your command history. It remembers more than you do.",
+    "Type 'dnf search' followed by a word to find packages. Then 'sudo dnf install' the one you want.",
+    "Wondering which package owns a command? Try 'dnf provides' followed by its path.",
+    "Run 'dnf history' to see every install and upgrade. 'sudo dnf history undo' with an ID takes one back.",
+    "Run 'flatpak update' to update your Flatpak apps. They don't get updated by dnf.",
+    "Run 'flatpak list --app' to see which apps you installed from Flathub.",
+    "It looks like something crashed. Try 'journalctl -b -p err' to see this boot's errors.",
+    "Run 'journalctl -f' to watch the system log scroll by live. Very hacker. Very 1995 movie.",
+    "Run 'systemctl --user status' to see the services running just for you, like me.",
+    "Type 'man' followed by a command to read its manual. Press q to escape, / to search.",
+    "Add '--help' to almost any command for a quick summary of what it can do.",
+    "Run 'df -h' to see how full your disks are, in sizes a human can read.",
+    "Type 'cd -' to jump back to the folder you were just in.",
+    "Type '!!' to repeat the last command. 'sudo !!' runs it again with feeling.",
+    "Press Ctrl+L in the terminal to clear the screen without losing your place.",
+    # Windows 95 and Office trivia; sources: Library of Congress, Mental Floss, Wikipedia (Office Assistant, Kevan Atteberry).
+    "Did you know? Windows 95 went on sale on August 24, 1995. People queued at midnight to buy an operating system.",
+    "Did you know? Windows 95 was code-named Chicago. That's where this theme gets its name.",
+    "Did you know? Brian Eno composed the Windows 95 startup sound. The brief asked for 3.25 seconds of music.",
+    "Did you know? Eno wrote the Windows 95 startup sound on a Mac. He made 84 attempts before the final one.",
+    "Did you know? In 2025 the Windows 95 startup chime was added to the US National Recording Registry.",
+    "Did you know? The Rolling Stones' 'Start Me Up' was the theme song of the Windows 95 ad campaign.",
+    "Did you know? For the Windows 95 launch, the Empire State Building was lit up in Microsoft logo colors.",
+    "Did you know? Jay Leno hosted the Windows 95 launch event in Redmond alongside Bill Gates.",
+    "Did you know? Jennifer Aniston and Matthew Perry starred in a Windows 95 video guide billed as a 'cyber sitcom'.",
+    "Did you know? My ancestor's official name was Clippit. Everybody called him Clippy anyway.",
+    "Did you know? Clippy first appeared in Office 97. He was there to help, whether you asked or not.",
+    "Did you know? Clippy was designed by illustrator Kevan Atteberry, and he drew him on a Mac.",
+    "Did you know? Clippy's designer started out working on Microsoft Bob. Let's not talk about Bob.",
+    "Did you know? In 2001 Office XP turned Clippy off by default. Ads joked that he'd been fired.",
+    "Did you know? Office 2007 retired the Office Assistant for good. But you can't keep a good paperclip down.",
+    # This desktop.
+    "It looks like you're about to click Start to stop. Don't worry, nobody ever understood that one.",
+    "It looks like you're emptying the Recycle Bin. Would you like to say a few words first?",
+    "It looks like you're shutting down. Would you like me to wait until it is safe to turn off your computer?",
+    "It looks like you're staring at the screensaver. The stars can't see you. Probably.",
+    "It looks like you're playing Minesweeper. Remember: the numbers are trying to help. So am I.",
+    "It looks like you're looking for Solitaire. The cards won't bounce on their own, you know.",
+    "It looks like you're dragging a file to the Recycle Bin. Bold. I respect that.",
+    "It looks like you're double-clicking very quickly. The computer heard you the first time.",
+    "It looks like you're resizing a window by the corner. Very 1995. Very correct.",
+    "It looks like you're waiting for a progress bar. Would you like to watch it together?",
+    "It looks like you've had this window open since Windows 95 came out. Want me to save your work?",
+    "It looks like you're reading the Start menu like a book. Try Alt+Space instead, it's faster.",
+    "It looks like you're about to restart in MS-DOS mode. Just kidding. That's a terminal now.",
+    "It looks like you're ignoring me. That's fine. I'm used to it.",
 ]
 
 
@@ -432,10 +493,7 @@ def main():
 
     PID_FILE.write_text(str(os.getpid()))
     signal.signal(signal.SIGUSR1, lambda *_: QTimer.singleShot(0, clippy.show_random_tip))
-    signal.signal(signal.SIGTERM, lambda *_: app.quit())
-    wakeup_timer = QTimer()
-    wakeup_timer.timeout.connect(lambda: None)
-    wakeup_timer.start(250)
+    wakeup_timer = win95ui.quit_on_signals(app, signal.SIGTERM)  # noqa: F841  kept alive for the event loop
     app.aboutToQuit.connect(lambda: PID_FILE.unlink(missing_ok=True))
 
     clippy.show()

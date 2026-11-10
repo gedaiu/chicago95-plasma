@@ -7,7 +7,8 @@ STATE_DIR="$HOME/.local/share/chicago95"
 MANIFEST="$STATE_DIR/installed-files.txt"
 [ -f "$MANIFEST" ] || { echo "No install manifest at $MANIFEST; nothing to do."; exit 0; }
 
-latest_backup=$(ls -d "$STATE_DIR"/backup-* 2>/dev/null | sort | tail -1 || true)
+# Newest first, so the oldest copy of a file (the one from before Chicago95 was ever installed) is restored last and wins.
+mapfile -t backups < <(ls -d "$STATE_DIR"/backup-* 2>/dev/null | sort -r)
 
 remove_kwin_rule() {
     python3 - "$HOME/.config/kwinrulesrc" "$1" <<'EOF'
@@ -31,20 +32,29 @@ while IFS= read -r entry; do
                      theme|Theme|Engine|forceFontDPI|chicago95notificationsEnabled|AccentColor|BorderSize) kwriteconfig6 --file "$file" --group "$group" --key "$key" --delete;;
                  esac;;
         kwinrule:*) remove_kwin_rule "${entry#kwinrule:}";;
+        root:*) sudo rm -f "${entry#root:}";;
+        powerdevil:RunScript) for profile in AC Battery LowBattery; do
+                                  for key in RunScriptIdleTimeoutSec IdleTimeoutCommand; do
+                                      kwriteconfig6 --file powerdevilrc --group "$profile" --group RunScript --key "$key" --delete
+                                  done
+                              done;;
         "$HOME"/*) rm -rf "$entry";;
     esac
 done <"$MANIFEST"
 
-if [ -n "$latest_backup" ]; then
-    (cd "$latest_backup" && find . -mindepth 1 \( -type f -o -type l \) | while IFS= read -r rel; do
+for backup in "${backups[@]}"; do
+    (cd "$backup" && find . -mindepth 1 \( -type f -o -type l \) | while IFS= read -r rel; do
         mkdir -p "$HOME/$(dirname "$rel")"; cp -a "$rel" "$HOME/$rel"
     done)
-    echo "Restored backups from $latest_backup"
-fi
+    # Renamed, not deleted: kept for reference, but a later uninstall will not restore them again.
+    mv "$backup" "${backup%/*}/restored-${backup##*/}"
+    echo "Restored backups from $backup"
+done
 
 plasma-apply-colorscheme BreezeLight >/dev/null 2>&1 || true
 plasma-apply-desktoptheme default >/dev/null 2>&1 || true
 systemctl --user disable --now chicago95-notifyd.service >/dev/null 2>&1 || true
+systemctl --user restart plasma-powerdevil.service >/dev/null 2>&1 || true
 systemctl --user unset-environment QML_IMPORT_PATH >/dev/null 2>&1 || true
 systemctl --user daemon-reload
 rm -rf ~/.cache/plasmashell/qmlcache ~/.cache/ksvg-elements ~/.cache/plasma_theme_Chicago95.kcache

@@ -9,7 +9,6 @@ process exits, Plasma notices the name is free and takes it back.
 import argparse
 import os
 import re
-import signal
 import sys
 from configparser import ConfigParser
 from dataclasses import dataclass
@@ -604,10 +603,7 @@ def main():
         print(f"{SERVICE_NAME} is already owned; stop Plasma's notification server first", file=sys.stderr)
         return 1
     service = NotificationService(bus, PopupStack())
-    signal.signal(signal.SIGTERM, lambda *_: app.quit())
-    signal.signal(signal.SIGINT, lambda *_: app.quit())
-    signal_wakeup = QTimer()
-    signal_wakeup.start(500)
+    signal_wakeup = win95ui.quit_on_signals(app)  # noqa: F841  kept alive for the event loop
     exit_code = app.exec()
     del service, bus_name
     return exit_code

@@ -8,6 +8,7 @@ Before=plasma-plasmashell.service
 ExecStart=/usr/bin/python3 %h/.local/bin/chicago95-notifyd
 Restart=on-failure
 RestartSec=2
+TimeoutStopSec=5
 
 [Install]
 WantedBy=plasma-workspace.target

@@ -6,6 +6,7 @@ Every tool then calls make_app() instead of QApplication() directly.
 """
 import os
 import re
+import signal
 import subprocess
 import sys
 
@@ -35,7 +36,7 @@ if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
     os.environ.setdefault("QT_SCALE_FACTOR", detect_scale())
 os.environ.pop("QT_QPA_PLATFORMTHEME", None)
 
-from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtCore import Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPalette  # noqa: E402
 from PySide6.QtWidgets import QApplication, QFrame  # noqa: E402
 
@@ -45,6 +46,20 @@ UI_FONT_FAMILY = "MS W98 UI"
 ICON_SEARCH_PATHS = [
     os.path.expanduser("~/.local/share/icons"), os.path.expanduser("~/.icons"), "/usr/share/icons", "/usr/share/pixmaps",
 ]
+
+
+def quit_on_signals(app, *signal_numbers):
+    """Quits the app on the given signals; keep the returned timer alive for as long as the app runs.
+
+    Python only runs signal handlers between bytecodes, and an idle Qt event loop never returns to
+    Python, so without the timer's no-op slot a SIGTERM waits forever (it hung logout once).
+    """
+    for number in signal_numbers or (signal.SIGTERM, signal.SIGINT):
+        signal.signal(number, lambda *_: app.quit())
+    wakeup = QTimer()
+    wakeup.timeout.connect(lambda: None)
+    wakeup.start(250)
+    return wakeup
 
 
 def win95_palette():
