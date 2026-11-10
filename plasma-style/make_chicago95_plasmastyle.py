@@ -1,11 +1,40 @@
-from pathlib import Path
-import shutil
+"""Writes the Chicago95 Plasma style's generated SVGs (taskbar, task buttons, popups, buttons, fields,
+scroll bars) with a look's bevel colours.
 
-from bevel import DARK, FACE, HILIGHT, LIGHT, RAISED_2, RAISED_4, SHADOW, SUNKEN_2, hidden, nine_slice, rect, run_length_rows, svg
+    make_chicago95_plasmastyle.py [--out THEME] [--face C] [--light C] [--shadow C] [--dark C] [--base THEME]
+
+THEME is an installed copy of plasma-style/theme, rewritten in place; chicago95-sync-colors runs this
+with the colour scheme's face and the look's bevel (2000: light = the face, #808080 and #404040).
+--base copies another Plasma style into THEME first (how the theme was first made from React Plus).
+The task buttons are measured from the originals' taskbars (tests/test_taskbar_reference.py).
+"""
+import argparse
+import shutil
+import sys
+from pathlib import Path
+
+# bevel.py sits next to this file once installed, and in ../aurorae in the repository.
+sys.path[:0] = [str(Path(__file__).resolve().parent), str(Path(__file__).resolve().parent.parent / "aurorae")]
+from bevel import hidden, nine_slice, rect, ring_color, run_length_rows, svg  # noqa: E402
 
 HOME = Path.home()
-SRC = HOME / ".local/share/plasma/desktoptheme/reactplus"
-OUT = HOME / ".local/share/plasma/desktoptheme/Chicago95"
+parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+parser.add_argument("--out", type=Path, default=HOME / ".local/share/plasma/desktoptheme/Chicago95")
+parser.add_argument("--base", type=Path, help="a Plasma style to copy into --out first")
+parser.add_argument("--face", default="#C0C0C0")
+parser.add_argument("--light", default="#DFDFDF", help="the light line inside a button's white one (the face itself on 2000)")
+parser.add_argument("--shadow", default="#808080")
+parser.add_argument("--dark", default="#000000", help="the outer shadow line (#404040 on 2000)")
+args = parser.parse_args()
+OUT = args.out
+
+FACE, LIGHT, SHADOW, DARK, HILIGHT = args.face, args.light, args.shadow, args.dark, "#FFFFFF"
+GLYPH = "#000000"
+# Buttons: white and dark outside, light and shadow inside; pressed, the other way round.
+RAISED_2 = [(HILIGHT, DARK), (LIGHT, SHADOW)]
+SUNKEN_2 = [(DARK, HILIGHT), (SHADOW, LIGHT)]
+# Windows and popups: light and dark outside, white and shadow inside, then the face.
+RAISED_4 = [(LIGHT, DARK), (HILIGHT, SHADOW), (FACE, FACE), (FACE, FACE)]
 
 BTN = 24
 DITHER = 1
@@ -19,18 +48,38 @@ def dither(px, py):
     return HILIGHT if ((px // DITHER) + (py // DITHER)) % 2 == 0 else FACE
 
 
+def pressed_task(prefix, x0):
+    """The active window's button: sunken 2px, a white row along the top inside, then a white and face
+    checkerboard (the centre tile, 2px square, tiled)."""
+    size = BTN
+
+    def color(px, py):
+        depth = min(px, py, size - 1 - px, size - 1 - py)
+        if depth < 2:
+            return ring_color(px, py, size, SUNKEN_2, flat)
+        return HILIGHT if py == 2 else dither(px, py)
+
+    def piece(name, fx, fy, w, h):
+        return f'<g id="{prefix}{name}">{run_length_rows(x0 + fx, fy, w, h, lambda cx, cy: color(fx + cx, fy + cy))}</g>'
+
+    top, side = 3, 2
+    parts = [piece("topleft", 0, 0, side, top), piece("top", side, 0, size - 2 * side, top), piece("topright", size - side, 0, side, top),
+             piece("left", 0, top, side, size - top - side), piece("right", size - side, top, side, size - top - side),
+             piece("bottomleft", 0, size - side, side, side), piece("bottom", side, size - side, size - 2 * side, side),
+             piece("bottomright", size - side, size - side, side, side),
+             f'<g id="{prefix}center">{rect(x0 + side, top, 1, 1, HILIGHT)}{rect(x0 + side + 1, top, 1, 1, FACE)}'
+             f'{rect(x0 + side, top + 1, 1, 1, FACE)}{rect(x0 + side + 1, top + 1, 1, 1, HILIGHT)}</g>']
+    for name in ("top", "bottom", "left", "right"):
+        parts.append(hidden(f"{prefix}hint-{name}-margin", x0, size + 2, 2, 2))
+    parts.append(hidden(f"{prefix}hint-tile-center", x0, size + 8, 1, 1))
+    return "\n".join(parts)
+
+
 def tasks_svg():
-    states = {
-        "normal-": (RAISED_2, flat, False),
-        "hover-": (RAISED_2, flat, False),
-        "minimized-": (RAISED_2, flat, False),
-        "attention-": (RAISED_2, flat, False),
-        "progress-": (RAISED_2, flat, False),
-        "focus-": (SUNKEN_2, dither, True),
-    }
-    parts = [nine_slice(prefix, idx * (BTN + 16), 0, BTN, 2, rings, fill, 2, tile_center=tile)
-             for idx, (prefix, (rings, fill, tile)) in enumerate(states.items())]
-    return svg(len(states) * (BTN + 16), BTN + 24, "\n".join(parts))
+    raised = ["normal-", "hover-", "minimized-", "attention-", "progress-"]
+    parts = [nine_slice(prefix, idx * (BTN + 16), 0, BTN, 2, RAISED_2, flat, 2) for idx, prefix in enumerate(raised)]
+    parts.append(pressed_task("focus-", len(raised) * (BTN + 16)))
+    return svg((len(raised) + 1) * (BTN + 16), BTN + 24, "\n".join(parts))
 
 
 def panel_svg():
@@ -98,9 +147,9 @@ def triangle(direction, x0, y0, size, color):
 
 
 def arrow_button(element_id, direction, x0, y0, rings):
-    body = run_length_rows(x0, y0, SB, SB, lambda px, py: __import__("bevel").ring_color(px, py, SB, rings, flat))
+    body = run_length_rows(x0, y0, SB, SB, lambda px, py: ring_color(px, py, SB, rings, flat))
     shift = 1 if rings is SUNKEN_2 else 0
-    return f'<g id="{element_id}">{body}{triangle(direction, x0 + shift, y0 + shift, SB, DARK)}</g>'
+    return f'<g id="{element_id}">{body}{triangle(direction, x0 + shift, y0 + shift, SB, GLYPH)}</g>'
 
 
 def scrollbar_svg():
@@ -162,32 +211,14 @@ def tooltip_svg():
     return svg(3 * (size + 16), size + 12, "\n".join(parts))
 
 
-if OUT.exists():
-    shutil.rmtree(OUT)
-shutil.copytree(SRC, OUT, symlinks=True)
-shutil.rmtree(OUT / "icons", ignore_errors=True)
-(OUT / "widgets/tasks.svg").write_text(tasks_svg())
-(OUT / "widgets/panel-background.svg").write_text(panel_svg())
-(OUT / "widgets/viewitem.svg").write_text(viewitem_svg())
-(OUT / "widgets/background.svg").write_text(popup_background_svg(True))
-(OUT / "dialogs/background.svg").write_text(popup_background_svg(False))
-(OUT / "widgets/line.svg").write_text(line_svg())
-(OUT / "widgets/tooltip.svg").write_text(tooltip_svg())
-(OUT / "solid" / "widgets").mkdir(parents=True, exist_ok=True)
-(OUT / "solid/widgets/tooltip.svg").write_text(tooltip_svg())
-(OUT / "solid/widgets/background.svg").write_text(popup_background_svg(True))
-(OUT / "solid" / "dialogs").mkdir(parents=True, exist_ok=True)
-(OUT / "solid/dialogs/background.svg").write_text(popup_background_svg(False))
-(OUT / "widgets/plasmoidheading.svg").write_text(heading_svg())
-shutil.copy(HOME / ".local/share/color-schemes/Chicago95.colors", OUT / "colors")
-(OUT / "widgets/button.svg").write_text(button_svg())
-(OUT / "widgets/lineedit.svg").write_text(lineedit_svg())
-(OUT / "widgets/scrollbar.svg").write_text(scrollbar_svg())
-for stale in ("colors~", "metadata.desktop"):
-    target = OUT / stale
-    if target.exists():
-        target.unlink()
-(OUT / "metadata.json").write_text("""{
+if args.base:
+    if OUT.exists():
+        shutil.rmtree(OUT)
+    shutil.copytree(args.base, OUT, symlinks=True)
+    shutil.rmtree(OUT / "icons", ignore_errors=True)
+    for stale in ("colors~", "metadata.desktop"):
+        (OUT / stale).unlink(missing_ok=True)
+    (OUT / "metadata.json").write_text("""{
   "KPackageStructure": "Plasma/Theme",
   "KPlugin": {
     "Authors": [{"Name": "Bending Unit 22"}],
@@ -201,4 +232,20 @@ for stale in ("colors~", "metadata.desktop"):
   "X-Plasma-API": "5.0"
 }
 """)
+for folder in ("widgets", "dialogs", "solid/widgets", "solid/dialogs"):
+    (OUT / folder).mkdir(parents=True, exist_ok=True)
+(OUT / "widgets/tasks.svg").write_text(tasks_svg())
+(OUT / "widgets/panel-background.svg").write_text(panel_svg())
+(OUT / "widgets/viewitem.svg").write_text(viewitem_svg())
+(OUT / "widgets/background.svg").write_text(popup_background_svg(True))
+(OUT / "dialogs/background.svg").write_text(popup_background_svg(False))
+(OUT / "widgets/line.svg").write_text(line_svg())
+(OUT / "widgets/tooltip.svg").write_text(tooltip_svg())
+(OUT / "solid/widgets/tooltip.svg").write_text(tooltip_svg())
+(OUT / "solid/widgets/background.svg").write_text(popup_background_svg(True))
+(OUT / "solid/dialogs/background.svg").write_text(popup_background_svg(False))
+(OUT / "widgets/plasmoidheading.svg").write_text(heading_svg())
+(OUT / "widgets/button.svg").write_text(button_svg())
+(OUT / "widgets/lineedit.svg").write_text(lineedit_svg())
+(OUT / "widgets/scrollbar.svg").write_text(scrollbar_svg())
 print("wrote", OUT)

@@ -29,7 +29,9 @@ def ring_color(px, py, size, rings, interior):
     if depth >= len(rings):
         return interior(px, py)
     top_left, bottom_right = rings[depth]
-    on_top = py == depth
+    # The light lines run along the top and left; the top-right and bottom-left corner pixels belong to
+    # the dark lines, as on the originals.
+    on_top = py == depth and px != size - 1 - depth
     on_left = px == depth and py != size - 1 - depth
     return top_left if (on_top or on_left) else bottom_right
 

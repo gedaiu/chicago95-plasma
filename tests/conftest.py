@@ -71,3 +71,4 @@ def path_with(tmp_path, monkeypatch):
             executable.chmod(0o755)
         monkeypatch.setenv("PATH", str(tmp_path))
     return install
+needs_se98_icons = pytest.mark.skipif(not icon_set_installed("SE98"), reason="SE98 icon set is not installed")

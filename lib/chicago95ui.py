@@ -126,6 +126,16 @@ def bevel_shades(face):
     return light, shadow
 
 
+def bevel_colors(face, style):
+    """The 3D lines around a face, as {light, shadow, dark}: the light line inside the white one, the
+    shadow line inside the dark one. 1995 and 1998 derive light and shadow from the face (#DFDFDF and
+    #808080 for #C0C0C0) with a black dark line; 2000 uses the face itself as light, #808080 and #404040."""
+    if style == "2000":
+        return {"light": QColor(face), "shadow": QColor("#808080"), "dark": QColor("#404040")}
+    light, shadow = bevel_shades(face)
+    return {"light": light, "shadow": shadow, "dark": QColor("#000000")}
+
+
 SCHEME = read_scheme()
 FACE, NAVY = SCHEME["face"], SCHEME["selection"]
 LIGHT, SHADOW = bevel_shades(FACE)
@@ -154,10 +164,8 @@ def retro_palette(scheme=None):
     """A Qt palette from the colour scheme; pass read_scheme() again to pick up a change made in System Settings."""
     scheme = scheme or SCHEME
     face, selection = scheme["face"], scheme["selection"]
-    light, shadow = bevel_shades(face)
-    dark = QColor("#000000")
-    if look_settings()["style"] == "2000":   # 2000's bevel: face-coloured 3D light, #404040 outer shadow
-        light, dark = face, QColor("#404040")
+    bevel = bevel_colors(face, look_settings()["style"])
+    light, shadow, dark = bevel["light"], bevel["shadow"], bevel["dark"]
     palette = QPalette()
     for group in (QPalette.Active, QPalette.Inactive, QPalette.Disabled):
         palette.setColor(group, QPalette.Window, face)

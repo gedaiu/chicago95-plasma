@@ -34,7 +34,19 @@ def test_sync_colors_passes_solid_titles_as_one_colour_and_gradients_as_two():
     scheme = chicago95ui.read_scheme("/nonexistent")
     scheme["title_active_blend"] = QColor("#1084D0")
 
-    assert sync.title_arguments(scheme) == ["--active", "#000080,#1084d0", "--inactive", "#808080"]
+    assert sync.decoration_arguments(scheme, "1998")[:4] == ["--active", "#000080,#1084d0", "--inactive", "#808080"]
+
+
+def test_sync_colors_gives_the_2000_decoration_its_greys_and_gradient_ends():
+    from conftest import load_script
+    sync = load_script("chicago95-sync-colors")
+    scheme = chicago95ui.read_scheme("/nonexistent")
+    scheme["face"] = QColor("#D4D0C8")
+    arguments = sync.decoration_arguments(scheme, "2000")
+    options = dict(zip(arguments[::2], arguments[1::2]))
+
+    assert {key: options[key] for key in ("--face", "--light", "--shadow", "--dark", "--gradient-margins")} == {
+        "--face": "#d4d0c8", "--light": "#d4d0c8", "--shadow": "#808080", "--dark": "#404040", "--gradient-margins": "18,52"}
 
 
 def test_icon_theme_is_chicago95_without_a_setting(tmp_path):

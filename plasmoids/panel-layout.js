@@ -44,7 +44,7 @@ clock.writeConfig("showDate", false);
 clock.writeConfig("showSeconds", 0);
 clock.writeConfig("autoFontAndSize", false);
 clock.writeConfig("fontFamily", "MS W98 UI");
-clock.writeConfig("fontSize", 9);
+clock.writeConfig("fontSize", 8);   // the originals' 11px clock
 clock.writeConfig("fontWeight", 400);
 
 const spacer = panel.addWidget("org.kde.plasma.panelspacer");

@@ -12,5 +12,9 @@
       <label>Logo: "flag", "penguin", or the path of an image file</label>
       <default>flag</default>
     </entry>
+    <entry name="look" type="String">
+      <label>The look's bevel: "1995" (also 1998) or "2000"</label>
+      <default>1995</default>
+    </entry>
   </group>
 </kcfg>

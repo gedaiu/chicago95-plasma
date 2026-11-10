@@ -104,6 +104,54 @@ def login_2000(shutdown, app, scratch):
     return "Log on", screenshot("w2klogon").crop(dialog), ours.crop(dialog)
 
 
+def windows(style, scratch):
+    """Each window of the style's screenshots, its frame drawn by our decoration at the original's size."""
+    from aurorae_model import Window, build_theme
+    from test_window_reference import WINDOWS
+    theme = build_theme(scratch / f"aurorae-{style}", style)
+    rows = []
+    for window_id, (look, name, (left, top, right, bottom), active, caption, _covered) in WINDOWS.items():
+        if look != style or "file browser" in window_id:
+            continue
+        original = screenshot(name).crop((left, top, right + 1, bottom + 1))
+        rows.append((f"Window, {'active' if active else 'inactive'}", original,
+                     Window(theme, original.width, original.height, active, caption).render()))
+    return rows
+
+
+def taskbar(style, app, scratch):
+    """The original's taskbar, and ours: the panel, Start button, separators, task buttons and tray box
+    drawn by our files at the original's places (icons and labels are the programs' own, left out)."""
+    import subprocess
+    from aurorae_model import LOOKS
+    from framesvg import render_frame
+    from test_taskbar_reference import BUTTONS, BUTTON_HEIGHT, BUTTON_TOP, SEPARATORS, TRAYS, render_on_strip, start_button
+    from test_taskbar_reference import taskbar as original_taskbar
+    colours = LOOKS[style]
+    plasma_style = scratch / f"plasma-style-{style}"
+    subprocess.run([sys.executable, str(REPO / "plasma-style/make_chicago95_plasmastyle.py"), "--out", str(plasma_style),
+                    *[f"--{key}={colours[key]}" for key in ("face", "light", "shadow", "dark")]], check=True, capture_output=True)
+    original = original_taskbar(style)
+    ours = render_frame(plasma_style / "widgets/panel-background.svg", "", original.width, original.height, borders={"top"})
+    (start_left, start_right), tasks = BUTTONS[style]
+    (scratch / f"strip-{style}").mkdir(exist_ok=True)
+    button, _ = start_button(app, style, scratch / f"strip-{style}")
+    ours.paste(button.crop((0, 2, start_right + 1, original.height)), (0, 2))
+    for etched, _next in SEPARATORS.get(style, []):
+        separator, width = render_on_strip(app, scratch / f"strip-{style}", "org.chicago95.grip", "Separator", etched - 2, colours["face"], {})
+        ours.paste(separator.crop((etched - 2, 2, etched - 2 + width, original.height)), (etched - 2, 2))
+    for left, right, pressed in tasks:
+        frame = render_frame(plasma_style / "widgets/tasks.svg", "focus" if pressed else "normal", right - left + 1, BUTTON_HEIGHT)
+        ours.paste(frame, (left, BUTTON_TOP))
+    tray_left, tray_right = TRAYS[style]
+    tray, _ = render_on_strip(app, scratch / f"strip-{style}", "org.chicago95.trayframe", "TrayBox", tray_left, colours["face"], {},
+                              width=tray_right - tray_left + 1)
+    ours.paste(tray.crop((tray_left, 2, tray_right + 1, original.height)), (tray_left, 2))
+    zoom = lambda image: image.resize((image.width * 2, image.height * 2), Image.NEAREST)
+    return "Taskbar (enlarged)", zoom(original.crop((0, 0, 320, original.height))), zoom(ours.crop((0, 0, 320, original.height))), \
+        ("Taskbar, right half (enlarged)", zoom(original.crop((320, 0, 640, original.height))), zoom(ours.crop((320, 0, 640, original.height))))
+
+
 def label_font():
     for path in ("/usr/share/fonts/liberation-sans/LiberationSans-Bold.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"):
         if os.path.exists(path):
@@ -138,7 +186,9 @@ def main(output):
     scratch = Path(tempfile.mkdtemp(prefix="chicago95-report-"))
     for style in ("1995", "1998", "2000"):
         (scratch / f"menu-{style}").mkdir()
-        rows = [start_menu(startmenu, app, style, scratch), shut_down(shutdown, app, style)]
+        bar = taskbar(style, app, scratch)
+        rows = [start_menu(startmenu, app, style, scratch), shut_down(shutdown, app, style), *windows(style, scratch),
+                bar[:3], bar[3]]
         if style == "2000":
             rows += [loading_2000(app, scratch), login_2000(shutdown, app, scratch)]
         compose(f"{style}: originals (left) and Chicago95 for Plasma (right)", rows, output / f"report-{style}.png")

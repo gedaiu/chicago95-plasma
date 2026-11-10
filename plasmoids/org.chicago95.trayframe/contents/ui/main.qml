@@ -167,17 +167,11 @@ PlasmoidItem {
         for (let i = 0; i < row.children.length; i++) walkTasks(row.children[i], 0)
     }
 
-    Item {
-        id: frame
+    // The sunken box from here to 2px before the taskbar's right end, behind the tray and the clock.
+    TrayBox {
         z: -1
-        y: 2
-        height: root.height - 2
         x: 2
+        height: root.height
         width: row && container ? Math.max(0, row.width - container.x - 4) : root.width
-
-        Rectangle { anchors { top: parent.top; left: parent.left; right: parent.right } height: 1; color: "#808080" }
-        Rectangle { anchors { top: parent.top; left: parent.left; bottom: parent.bottom } width: 1; color: "#808080" }
-        Rectangle { anchors { bottom: parent.bottom; left: parent.left; right: parent.right } height: 1; color: "#FFFFFF" }
-        Rectangle { anchors { top: parent.top; right: parent.right; bottom: parent.bottom } width: 1; color: "#FFFFFF" }
     }
 }

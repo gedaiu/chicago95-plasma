@@ -180,7 +180,11 @@ step_look() {       # decoration, Plasma style, colours, widget style, DPI
         local group
         for group in Colors:Window Colors:Button Colors:Header Colors:Complementary; do kconf kdeglobals "$group" BackgroundNormal "$SETUP_FACE"; done
         kconf kdeglobals Colors:Selection BackgroundNormal "$SETUP_SELECTION"
+        kconf kdeglobals WM inactiveForeground "$SETUP_FACE"   # 2000's inactive title text is the face colour
     fi
+    # The originals' title bar: the window icon on the left; minimize, maximize and close on the right.
+    kconf kwinrc org.kde.kdecoration2 ButtonsOnLeft M
+    kconf kwinrc org.kde.kdecoration2 ButtonsOnRight IAX
     apply_title_colors
     run plasma-apply-desktoptheme Chicago95 >>"$SETUP_LOG" 2>&1 || true
     if [ "$SETUP_SCALE" != 1 ]; then
@@ -546,6 +550,7 @@ apply_start_button() {  # writes the chosen text and logo into every Start butto
         widget.currentConfigGroup = ['General'];
         widget.writeConfig('buttonText', $(js_string "${SETUP_START_TEXT:-Start}"));
         widget.writeConfig('logo', $(js_string "${SETUP_START_LOGO:-flag}"));
+        widget.writeConfig('look', $(js_string "${SETUP_MENU_STYLE:-1995}"));
     }))" >>"$SETUP_LOG" 2>&1
 }
 
@@ -609,8 +614,11 @@ step_fonts() {      # SETUP_FONT_SCOPE: everywhere (all programs), desktop (titl
     esac
     case "${SETUP_FONT_SCOPE:-everywhere}" in
         none) installed_by_setup "kconf:kdeglobals:WM:activeFont" && run kwriteconfig6 --file kdeglobals --group WM --key activeFont --delete;;
-        *) kconf kdeglobals WM activeFont "$family,9,-1,5,75,0,0,0,0,0";;
+        *) kconf kdeglobals WM activeFont "$family,8,-1,5,75,0,0,0,0,0";;   # 8 points: the originals' 11px titles
     esac
+    # A pixel font: drawn without smoothing, its edges stay as sharp as the originals' text.
+    [ "${SETUP_FONT_SCOPE:-everywhere}" = none ] || put_file "$REPO/config/fontconfig/60-chicago95-pixel-font.conf" \
+        ~/.config/fontconfig/conf.d/60-chicago95-pixel-font.conf
     return 0
 }
 
