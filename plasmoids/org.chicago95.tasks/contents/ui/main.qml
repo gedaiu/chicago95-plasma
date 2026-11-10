@@ -164,6 +164,7 @@ PlasmoidItem {
                     PlasmaCore.ToolTipArea {
                         anchors.fill: parent
                         mainText: entry.model.display
+                        icon: entry.model.decoration
                     }
                     MouseArea {
                         id: launcherArea

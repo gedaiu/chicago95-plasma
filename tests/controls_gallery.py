@@ -207,8 +207,13 @@ ORIGINALS = {
         "Status bar": ("win95desktop3", (216, 423, 637, 441)),
     },
     "1998": {
-        "Push buttons (default, plain, disabled, pressed)": ("win98sysprops", (239, 409, 407, 440)),   # above the site's watermark
-        "Radio buttons": ("win98shutsm", (96, 70, 240, 124)),
+        "Push buttons (default, plain, disabled, pressed)": ("win98dialing", (138, 430, 384, 462)),
+        "Check boxes": ("win98dialing", (30, 243, 200, 264)),
+        "Radio buttons": ("win98dialing", (92, 274, 250, 296)),
+        "Text fields": ("win98newconnection", (148, 62, 431, 93)),
+        "Drop-down lists": ("win98dialing", (32, 71, 166, 100)),
+        "Group box": ("win98dialing", (20, 148, 374, 374)),
+        "Tabs (Qt's own tab widget)": ("win98dialing", (4, 26, 200, 60)),
         "Scroll bar, horizontal": ("win98notepad", (7, 342, 392, 360)),
         "Scroll bar, vertical": ("win98notepad", (389, 47, 406, 188)),   # down to the alert that covers the rest
     },
@@ -233,7 +238,12 @@ def render_control(app, make, inspect=None):
     patch.adjustSize()
     patch.show()
     app.processEvents()
-    for widget in patch.findChildren(QWidget):   # no focus but the default button's, or a widget made to keep it, as the originals show them
+    # Focus goes to a widget made to keep it (a field showing its selection) or to a default button, as the
+    # originals show them; nothing else gets a focus rectangle.
+    keepers = [widget for widget in patch.findChildren(QWidget) if widget.property("keepsFocus")]
+    if keepers:
+        keepers[0].setFocus()
+    for widget in patch.findChildren(QWidget):
         if widget.hasFocus() and not isinstance(widget, QPushButton) and not widget.property("keepsFocus"):
             widget.clearFocus()
     app.processEvents()

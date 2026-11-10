@@ -319,9 +319,9 @@ def dialog_button(caption, enabled=True):
 # (tests/test_qt_controls_reference.py): s shadow, K black, l light, W white, . the window colour.
 CHECK_BOX = ["ssssssssssssW", "sKKKKKKKKKKlW"] + ["sKWWWWWWWWWlW"] * 9 + ["slllllllllllW", "WWWWWWWWWWWWW"]
 CHECK_MARK = ["WWWWWWWWW", "WWWWWWWKW", "WWWWWWKKW", "WKWWWKKKW", "WKKWKKKWW", "WKKKKKWWW", "WWKKKWWWW", "WWWKWWWWW", "WWWWWWWWW"]
-RADIO_BUTTON = ["...ssss.....", ".ssKKKKss...", "sKKWWWWKKW..", "sKWWWWWWlW..", "KWWWWWWWWlW.", "KWWWWWWWWlW.",
-                "KWWWWWWWWlW.", "KWWWWWWWWlW.", "sKWWWWWWlW..", "sllWWWWllW..", ".WWllllWW...", "...WWWW....."]
-RADIO_DOT = [(4, 4), (5, 4), (3, 5), (4, 5), (5, 5), (6, 5), (3, 6), (4, 6), (5, 6), (6, 6), (4, 7), (5, 7)]
+RADIO_BUTTON = ["....ssss....", "..ssKKKKss..", ".sKKWWWWKKW.", ".sKWWWWWWlW.", "sKWWWWWWWWlW", "sKWWWWWWWWlW",
+                "sKWWWWWWWWlW", "sKWWWWWWWWlW", ".sKWWWWWWlW.", ".sllWWWWllW.", "..WWllllWW..", "....WWWW...."]
+RADIO_DOT = [(5, 4), (6, 4), (4, 5), (5, 5), (6, 5), (7, 5), (4, 6), (5, 6), (6, 6), (7, 6), (5, 7), (6, 7)]
 
 
 def paint_bitmap(painter, left, top, rows, colours):
