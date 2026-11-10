@@ -35,3 +35,14 @@ def test_sync_colors_passes_solid_titles_as_one_colour_and_gradients_as_two():
     scheme["title_active_blend"] = QColor("#1084D0")
 
     assert sync.title_arguments(scheme) == ["--active", "#000080,#1084d0", "--inactive", "#808080"]
+
+
+def test_icon_theme_is_chicago95_without_a_setting(tmp_path):
+    assert chicago95ui.icon_theme(tmp_path / "kdeglobals") == "Chicago95"
+
+
+def test_icon_theme_follows_the_set_chosen_with_the_look(tmp_path):
+    settings = tmp_path / "kdeglobals"
+    settings.write_text("[Icons]\nTheme=ClassicOS-2000\n")
+
+    assert chicago95ui.icon_theme(settings) == "ClassicOS-2000"

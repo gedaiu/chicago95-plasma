@@ -67,6 +67,27 @@ def read_scheme(path=None):
             for name, (group, key, default) in SCHEME_DEFAULTS.items()}
 
 
+CHICAGO95RC = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "chicago95rc")
+
+
+def look_settings(path=None):
+    """The look chosen in Setup ([StartMenu] in ~/.config/chicago95rc): style (1995, 1998 or 2000), the
+    banner text and the edition shown beside it, with their defaults."""
+    settings = configparser.ConfigParser(interpolation=None, strict=False)
+    settings.read(path or CHICAGO95RC)
+    return {"style": settings.get("StartMenu", "style", fallback="1995"),
+            "bannerText": settings.get("StartMenu", "bannerText", fallback="Chicago95"),
+            "edition": settings.get("StartMenu", "edition", fallback="Professional")}
+
+
+def icon_theme(path=None):
+    """The icon set KDE uses ([Icons] Theme in kdeglobals): Chicago95, SE98 or ClassicOS-2000 per look."""
+    settings = configparser.ConfigParser(interpolation=None, strict=False)
+    settings.optionxform = str
+    settings.read(path or KDEGLOBALS)
+    return settings.get("Icons", "Theme", fallback="Chicago95")
+
+
 def bevel_shades(face):
     """(light, shadow) for a face colour: halfway to white and two thirds of the face, as #DFDFDF and #808080 are for #C0C0C0."""
     light = QColor((face.red() + 255) // 2, (face.green() + 255) // 2, (face.blue() + 255) // 2)
@@ -140,7 +161,7 @@ def make_app(app_name):
     app.setPalette(retro_palette())
     app.setFont(ui_font())
     QIcon.setThemeSearchPaths(ICON_SEARCH_PATHS + QIcon.themeSearchPaths())
-    QIcon.setThemeName("Chicago95")
+    QIcon.setThemeName(icon_theme())
     return app
 
 

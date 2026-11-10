@@ -3,7 +3,7 @@
 # in the manifest that uninstall.sh reads.
 
 PANEL_HEIGHT=28
-MENU_HEIGHT=189
+MENU_HEIGHT=239  # fallback only; place_start_menu measures the real height
 CLIPPY_W=124; CLIPPY_H=93; CLIPPY_MARGIN=24
 NOTIFY_W=340
 
@@ -109,7 +109,6 @@ step_base() {
     done
     run fc-cache -f ~/.local/share/fonts >/dev/null 2>&1 || true
     put_file "$REPO/config/xsettingsd/xsettingsd.conf" ~/.config/xsettingsd/xsettingsd.conf
-    kconf kdeglobals Icons Theme Chicago95
     run plasma-apply-cursortheme Chicago95_Animated_Hourglass_Cursors_HiDPI --size "${SETUP_CURSOR:-32}" >>"$SETUP_LOG" 2>&1 || true
     pkill -HUP xsettingsd 2>/dev/null || true
 }
@@ -134,6 +133,36 @@ apply_title_colors() {
     show_copy "(title bars: active $active, inactive $inactive)" ~/.local/share/aurorae/themes/Chicago95/decoration.svg
 }
 
+# Icon set per look: 1995 Chicago95 (installed by the base step), 1998 SE98, 2000 ClassicOS-2000.
+# The packs are downloaded into ~/src like the Chicago95 checkout; ClassicOS-2000 ships SVG sources and
+# builds its theme with its own script (copies and links only), and falls back to SE98 for missing icons.
+install_icon_pack() {   # install_icon_pack se98|classicos2000   -> 0 when the theme is in ~/.local/share/icons
+    local theme repo source built
+    case "$1" in
+        se98) theme=SE98; repo=https://github.com/nestoris/Win98SE; source="$HOME/src/Win98SE"; built="$source/SE98";;
+        classicos2000) theme=ClassicOS-2000; repo=https://github.com/ClassicOS-Themes/ClassicOS-2000-Icons
+                       source="$HOME/src/ClassicOS-2000-Icons"; built="$source/build/ClassicOS-2000";;
+    esac
+    if [ ! -d "$source" ]; then
+        ui_status "Downloading the $theme icon set..."
+        run git clone --depth 1 "$repo" "$source" >>"$SETUP_LOG" 2>&1 || return 1
+    fi
+    if [ "$1" = classicos2000 ] && [ ! -d "$built" ]; then
+        run bash -c "cd '$source' && ICON_THEME_NAME=ClassicOS-2000 MAKEFREEDESKTOP=TRUE MAKEPNG=FALSE ./build-icons.sh" >>"$SETUP_LOG" 2>&1
+    fi
+    if [ -d "$built" ]; then put_tree "$built" "$HOME/.local/share/icons/$theme"; else show_copy "$built" "$HOME/.local/share/icons/$theme"; fi
+}
+
+apply_icon_set() {
+    local theme=Chicago95
+    case "${SETUP_ICONS:-chicago95}" in
+        se98) install_icon_pack se98 && theme=SE98;;
+        classicos2000) install_icon_pack se98; install_icon_pack classicos2000 && theme=ClassicOS-2000;;
+    esac
+    [ "$theme" = Chicago95 ] && [ "${SETUP_ICONS:-chicago95}" != chicago95 ] && ui_status "That icon set is unavailable; keeping Chicago95"
+    kconf kdeglobals Icons Theme "$theme"
+}
+
 step_look() {       # decoration, Plasma style, colours, widget style, DPI
     put_tree "$REPO/aurorae/theme" ~/.local/share/aurorae/themes/Chicago95
     for extra in bevel.py make_chicago95_aurorae.py start-button.png start-button-pressed.png; do put_file "$REPO/aurorae/$extra" ~/.local/share/aurorae/themes/Chicago95/$extra; done
@@ -146,6 +175,12 @@ step_look() {       # decoration, Plasma style, colours, widget style, DPI
     kconf kwinrc org.kde.kdecoration2 theme __aurorae__svg__Chicago95
     kconf kwinrc org.kde.kdecoration2 BorderSize Normal
     run plasma-apply-colorscheme Chicago95 >>"$SETUP_LOG" 2>&1 || true
+    apply_icon_set
+    if [ -n "${SETUP_FACE:-}" ]; then   # the 2000 look: warm grey face and its selection colour
+        local group
+        for group in Colors:Window Colors:Button Colors:Header Colors:Complementary; do kconf kdeglobals "$group" BackgroundNormal "$SETUP_FACE"; done
+        kconf kdeglobals Colors:Selection BackgroundNormal "$SETUP_SELECTION"
+    fi
     apply_title_colors
     run plasma-apply-desktoptheme Chicago95 >>"$SETUP_LOG" 2>&1 || true
     if [ "$SETUP_SCALE" != 1 ]; then
@@ -187,10 +222,6 @@ step_startmenu() {
     for entry in chicago95-startmenu chicago95-shutdown; do put_file "$REPO/config/applications/$entry.desktop" ~/.local/share/applications/$entry.desktop; done
     put_file "$REPO/config/autostart/chicago95-startmenu.desktop" ~/.config/autostart/chicago95-startmenu.desktop
     substitute_home ~/.local/share/applications ~/.config/autostart
-    kwin_rule chicago95-startmenu "Description=Chicago95 Start menu" "wmclass=chicago95-startmenu" "wmclassmatch=1" \
-        "title=chicago95-startmenu-root" "titlematch=1" "position=0,$(( SETUP_HEIGHT - PANEL_HEIGHT - MENU_HEIGHT ))" "positionrule=2" \
-        "placement=Zero" "placementrule=2" "above=true" "aboverule=2" "skiptaskbar=true" "skiptaskbarrule=2" \
-        "skippager=true" "skippagerrule=2" "skipswitcher=true" "skipswitcherrule=2" "noborder=true" "noborderrule=2" "types=1"
     # Whatever logo was picked lands in one known file, so it can be swapped later without Setup.
     local logo_file; logo_file=$(start_logo_file)
     put_file "$(start_logo_source)" "$logo_file"
@@ -198,8 +229,22 @@ step_startmenu() {
     run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerText "${SETUP_BANNER_TEXT:-Chicago95}"
     run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerBackground "${SETUP_BANNER_BG:-#808080}"
     run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerTextColor "${SETUP_BANNER_FG:-#C0C0C0}"
+    run kwriteconfig6 --file chicago95rc --group StartMenu --key style "${SETUP_MENU_STYLE:-1995}"
     record ~/.config/chicago95rc
     show_copy "(Start menu banner: ${SETUP_BANNER_TEXT:-Chicago95}, ${SETUP_BANNER_BG:-#808080} / ${SETUP_BANNER_FG:-#C0C0C0})" ~/.config/chicago95rc
+    place_start_menu
+}
+
+# The menu's height depends on its style and font, so it is measured (offscreen, with the settings just
+# written) rather than assumed; the rule then puts the menu's bottom edge on the taskbar.
+place_start_menu() {
+    local height
+    height=$(QT_QPA_PLATFORM=offscreen QT_SCALE_FACTOR=1 python3 "$REPO/bin/chicago95-startmenu" --root-height 2>/dev/null | tail -1)
+    [[ "$height" =~ ^[0-9]+$ ]] || height=$MENU_HEIGHT
+    kwin_rule chicago95-startmenu "Description=Chicago95 Start menu" "wmclass=chicago95-startmenu" "wmclassmatch=1" \
+        "title=chicago95-startmenu-root" "titlematch=1" "position=0,$(( SETUP_HEIGHT - PANEL_HEIGHT - height ))" "positionrule=2" \
+        "placement=Zero" "placementrule=2" "above=true" "aboverule=2" "skiptaskbar=true" "skiptaskbarrule=2" \
+        "skippager=true" "skippagerrule=2" "skipswitcher=true" "skipswitcherrule=2" "noborder=true" "noborderrule=2" "types=1"
 }
 
 step_notifications() {
@@ -300,14 +345,24 @@ step_lockscreen() {
     put_tree "$REPO/lockscreen/lockscreen" "$dst/contents/lockscreen"; record "$dst"
 }
 
-step_splash() {     # the loading screen follows the login style, with the Start logo and banner text
-    local splash=~/.local/share/plasma/look-and-feel/chicago95.splashscreen/contents/splash/Splash.qml logo
+step_splash() {     # the loading screen follows the login style; its texts and pictures go into settings.js
+    local dir=~/.local/share/plasma/look-and-feel/chicago95.splashscreen/contents/splash logo image
     put_tree "$REPO/splash/chicago95.splashscreen" ~/.local/share/plasma/look-and-feel/chicago95.splashscreen
-    logo=$(start_logo_file); [ -f "$logo" ] || logo=$(start_logo_source)
-    run sed -i -e "s|splashStyle: \"classic\"|splashStyle: \"${SETUP_LOGIN_STYLE:-classic}\"|" \
-        -e "s|brandText: \"Chicago95\"|brandText: \"${SETUP_BANNER_TEXT:-Chicago95}\"|" \
-        -e "s|brandLogo: \"\"|brandLogo: \"$logo\"|" "$splash"
-    show_copy "(loading screen: ${SETUP_LOGIN_STYLE:-classic}, ${SETUP_BANNER_TEXT:-Chicago95})" "$splash"
+    logo=$(image_source "${SETUP_LOGIN_LOGO:-start}")
+    [ "${SETUP_LOGIN_LOGO:-start}" = start ] && [ -f "$(start_logo_file)" ] && logo=$(start_logo_file)
+    image=$(image_source "${SETUP_SPLASH_IMAGE:-classic}")
+    if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run tee "$dir/settings.js"; else
+        { echo ".pragma library"
+          echo "var style = $(js_string "${SETUP_LOGIN_STYLE:-classic}")"
+          echo "var brandText = $(js_string "${SETUP_BANNER_TEXT:-Chicago95}")"
+          echo "var brandLogo = $(js_string "$logo")"
+          echo "var edition = $(js_string "${SETUP_EDITION:-Professional}")"
+          echo "var loadingText = $(js_string "${SETUP_LOADING_TEXT:-Starting up...}")"
+          echo "var footer = $(js_string "$(printf '%s' "${SETUP_LOADING_FOOTER:-Chicago95 for KDE Plasma}" | sed "s/%h/$(hostname)/g")")"
+          echo "var picture = $(js_string "$image")"
+        } >"$dir/settings.js"
+    fi
+    show_copy "(loading screen: ${SETUP_LOGIN_STYLE:-classic}, ${SETUP_BANNER_TEXT:-Chicago95})" "$dir/settings.js"
     kconf ksplashrc KSplash Theme chicago95.splashscreen
     kconf ksplashrc KSplash Engine KSplashQML
 }
@@ -328,22 +383,52 @@ start_logo_source() {  # the image behind the Start logo choice: a bundled logo 
     esac
 }
 
+# image_source <choice>   the file behind a picture choice: a bundled name, or the user's own file.
+image_source() {
+    case "$1" in
+        start) start_logo_source;;
+        flag) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-flag.png";;
+        penguin) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-penguin.svg";;
+        keys) printf '%s' "$SDDM_THEME_SRC/key.svg";;
+        padlock) printf '%s' "$SDDM_THEME_SRC/padlock.svg";;
+        classic) printf '%s' "$REPO/splash/chicago95.splashscreen/contents/splash/images/background.png";;
+        *) printf '%s' "$1";;
+    esac
+}
+
+extension() { printf '%s' "${1##*.}"; }
+
 # The copy keeps the source's extension, so the image loader never has to guess PNG from SVG.
 start_logo_file() { local source; source=$(start_logo_source); printf '%s' "$HOME/.local/share/chicago95/start-logo.${source##*.}"; }
 
-sddm_theme_conf() {  # the theme's settings for the chosen login style; 2000 shows the Start logo and banner text
-    sed -e "s/^loginStyle=.*/loginStyle=${SETUP_LOGIN_STYLE:-classic}/" \
-        -e "s/^brandLogo=.*/brandLogo=brand-logo.$(start_logo_source | sed 's/.*\.//')/" \
-        -e "s/^brandText=.*/brandText=${SETUP_BANNER_TEXT:-Chicago95}/" \
-        -e "s/^titleActive=.*/titleActive=$([ "${SETUP_LOGIN_STYLE:-classic}" = 2000 ] && echo '#0A246A,#A6CAF0')/" \
-        "$SDDM_THEME_SRC/theme.conf"
+# The login theme's settings. Values travel through the environment into awk, so any text the user
+# typed (slashes, ampersands, quotes) lands in theme.conf as written.
+sddm_theme_conf() {
+    LOGIN_STYLE="${SETUP_LOGIN_STYLE:-classic}" \
+    LOGIN_TITLE="${SETUP_LOGIN_TITLE:-Log On to %h}" LOGIN_MESSAGE="${SETUP_LOGIN_MESSAGE:-Type a user name and password to log on.}" \
+    LOGIN_ICON="login-icon.$(extension "$(image_source "${SETUP_LOGIN_ICON:-keys}")")" \
+    BRAND_LOGO="brand-logo.$(extension "$(image_source "${SETUP_LOGIN_LOGO:-start}")")" \
+    BRAND_TEXT="${SETUP_BANNER_TEXT:-Chicago95}" BRAND_EDITION="${SETUP_EDITION:-Professional}" \
+    BRAND_TAGLINE="${SETUP_TAGLINE:-Built on Linux Technology}" \
+    TITLE_ACTIVE="$([ "${SETUP_LOGIN_STYLE:-classic}" = 2000 ] && echo '#0A246A,#A6CAF0')" \
+    awk -F= 'BEGIN {
+            value["loginStyle"] = ENVIRON["LOGIN_STYLE"]; value["loginTitle"] = ENVIRON["LOGIN_TITLE"]
+            value["loginMessage"] = ENVIRON["LOGIN_MESSAGE"]; value["loginIcon"] = ENVIRON["LOGIN_ICON"]
+            value["brandLogo"] = ENVIRON["BRAND_LOGO"]; value["brandText"] = ENVIRON["BRAND_TEXT"]
+            value["brandEdition"] = ENVIRON["BRAND_EDITION"]; value["brandTagline"] = ENVIRON["BRAND_TAGLINE"]
+            value["titleActive"] = ENVIRON["TITLE_ACTIVE"]
+        }
+        /^[A-Za-z]+=/ && ($1 in value) { print $1 "=" value[$1]; next }
+        { print }' "$SDDM_THEME_SRC/theme.conf"
 }
 
 step_sddm() {       # login screen; system files, so it asks for the administrator password first
     local commands=("sudo mkdir -p $SDDM_THEME_DIR" "sudo cp -r $SDDM_THEME_SRC/. $SDDM_THEME_DIR/")
     [ -f "$SDDM_FONT" ] && commands+=("sudo cp $SDDM_FONT $SDDM_THEME_DIR/")
-    local brand_logo; brand_logo="$SDDM_THEME_DIR/brand-logo.$(start_logo_source | sed 's/.*\.//')"
-    commands+=("sudo cp $(start_logo_source) $brand_logo")
+    local logo icon
+    logo=$(image_source "${SETUP_LOGIN_LOGO:-start}"); icon=$(image_source "${SETUP_LOGIN_ICON:-keys}")
+    commands+=("sudo cp $logo $SDDM_THEME_DIR/brand-logo.$(extension "$logo")")
+    commands+=("sudo cp $icon $SDDM_THEME_DIR/login-icon.$(extension "$icon")")
     commands+=("sudo tee $SDDM_THEME_DIR/theme.conf   (writes: login style ${SETUP_LOGIN_STYLE:-classic})")
     commands+=("sudo tee $SDDM_OVERRIDE   (writes: [Theme] Current=Chicago95Plasma)")
     if ! ui_sudo "To change the login screen, Setup must write to a system folder." "${commands[@]}"; then
@@ -355,8 +440,8 @@ step_sddm() {       # login screen; system files, so it asks for the administrat
     local file
     while IFS= read -r file; do show_copy "$file" "$SDDM_THEME_DIR/${file#"$SDDM_THEME_SRC"/}"; done < <(find "$SDDM_THEME_SRC" -type f | sort)
     if [ -f "$SDDM_FONT" ]; then run sudo cp "$SDDM_FONT" "$SDDM_THEME_DIR/"; show_copy "$SDDM_FONT" "$SDDM_THEME_DIR/$(basename "$SDDM_FONT")"; fi
-    run sudo cp "$(start_logo_source)" "$brand_logo"
-    show_copy "$(start_logo_source)" "$brand_logo"
+    run sudo cp "$logo" "$SDDM_THEME_DIR/brand-logo.$(extension "$logo")"; show_copy "$logo" "$SDDM_THEME_DIR/brand-logo.$(extension "$logo")"
+    run sudo cp "$icon" "$SDDM_THEME_DIR/login-icon.$(extension "$icon")"; show_copy "$icon" "$SDDM_THEME_DIR/login-icon.$(extension "$icon")"
     if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run sudo tee "$SDDM_THEME_DIR/theme.conf"; else sddm_theme_conf | sudo tee "$SDDM_THEME_DIR/theme.conf" >/dev/null; fi
     show_copy "(login style: ${SETUP_LOGIN_STYLE:-classic})" "$SDDM_THEME_DIR/theme.conf"
     if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run sudo tee "$SDDM_OVERRIDE"; else printf '[Theme]\nCurrent=Chicago95Plasma\n' | sudo tee "$SDDM_OVERRIDE" >/dev/null; fi

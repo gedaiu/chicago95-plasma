@@ -17,16 +17,35 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 
-DEFAULT_BANNER = {"bannerText": "Chicago95", "bannerBackground": "#808080", "bannerTextColor": "#C0C0C0"}
+DEFAULT_BANNER = {"bannerText": "Chicago95", "bannerBackground": "#808080", "bannerTextColor": "#C0C0C0",
+                  "bannerNumberColor": "#FFFFFF", "style": "1995"}
 
 
 def banner_settings(settings_file=None):
     """Banner text and colours chosen in Setup ([StartMenu] in ~/.config/chicago95rc).
 
-    bannerBackground is one colour, or top,bottom for a vertical gradient."""
+    bannerBackground: see banner_stops. style: 1995, 1998 or 2000, picks the menu's measurements (STYLES)."""
     settings = configparser.ConfigParser(interpolation=None)
     settings.read(settings_file or SETTINGS_FILE)
     return {key: settings.get("StartMenu", key, fallback=default) for key, default in DEFAULT_BANNER.items()}
+
+
+def banner_stops(spec, height):
+    """Gradient stops (position 0..1 from the top, colour) for a banner background.
+
+    "#808080" is solid; "#000000,#0000FF" spreads the colours evenly from top to bottom; a colour
+    with "@N" sits N pixels above the bottom, so a glow stays behind the lettering whatever the
+    menu's height ("#00007B,#00007B@95,#0000FF@45,#00008F@0" is 1998's)."""
+    stops = []
+    parts = [part.strip() for part in spec.split(",") if part.strip()]
+    for index, part in enumerate(parts):
+        colour, _, above_bottom = part.partition("@")
+        if above_bottom:
+            position = 1 - min(float(above_bottom), height) / height
+        else:
+            position = index / max(1, len(parts) - 1) if len(parts) > 1 else 0
+        stops.append((max(0.0, min(1.0, position)), colour))
+    return sorted(stops, key=lambda stop: stop[0])
 
 
 def banner_parts(text):
@@ -68,7 +87,21 @@ CACHE_FILE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "c
 BANNER_WIDTH = round(21 * UI_SCALE)
 SETTINGS_FILE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "chicago95rc"
 ITEM_LEFT_PAD = round(6 * UI_SCALE)
-ROOT_ICON, SUB_ICON, ARROW = round(16 * UI_SCALE), round(16 * UI_SCALE), round(7 * UI_SCALE)
+# The root menu uses large icons, as the original does unless "Show small icons" is ticked.
+# Root menu measurements per style, taken from screenshots of the originals by tests/test_*_reference.py.
+# row: row height; text_gap/text_drop: text offset; icon_x: icon position; banner_*: lettering size and
+# place (banner_stretch condenses it, in percent); light/dark: the bevel's outer top-left and
+# bottom-right ("face" means the face colour).
+STYLES = {
+    "1995": dict(row=32, text_gap=-3, text_drop=1, icon_x=34, banner_font=21, banner_stretch=100, banner_start=6, banner_inset=2, light=None, dark="#000000"),
+    "1998": dict(row=36, text_gap=-5, text_drop=1, icon_x=32, banner_font=18, banner_stretch=100, banner_start=5, banner_inset=2, light=None, dark="#000000"),
+    "2000": dict(row=32, text_gap=-4, text_drop=1, icon_x=34, banner_font=21, banner_stretch=81, banner_start=2, banner_inset=2, light="face", dark="#404040"),
+}
+
+
+def style_of(widget):
+    return STYLES.get(widget.banner.get("style", "1995"), STYLES["1995"])
+ROOT_ICON, SUB_ICON, ARROW = round(32 * UI_SCALE), round(16 * UI_SCALE), round(7 * UI_SCALE)
 
 CATEGORY_FOLDERS = [
     ("Accessories", {"Utility", "Accessibility", "TextEditor", "Archiving", "Calculator", "Clock"}),
@@ -193,18 +226,56 @@ class RetroMenuStyle(QProxyStyle):
     def sizeFromContents(self, kind, option, size, widget=None):
         result = super().sizeFromContents(kind, option, size, widget)
         if kind == QStyle.CT_MenuItem and isinstance(widget, RetroMenu) and size.height() > 2:
-            result.setHeight(result.height() + round((2 if widget.banner else 0) * UI_SCALE))
-            result.setWidth(result.width() + round((12 if widget.banner else 16) * UI_SCALE))
+            if widget.banner:
+                # Measured from the original root menu (tests/test_startmenu_reference.py): rows 32px apart.
+                result.setHeight(round(style_of(widget)["row"] * UI_SCALE))
+                result.setWidth(result.width() + round(12 * UI_SCALE))
+            else:
+                result.setWidth(result.width() + round(16 * UI_SCALE))
         return result
 
     def drawControl(self, element, option, painter, widget=None):
+        if (element == QStyle.CE_MenuItem and isinstance(widget, RetroMenu) and widget.banner
+                and option.menuItemType == QStyleOptionMenuItem.MenuItemType.Separator):
+            # As on the original: shadow then white, 2px into the item, from the banner's edge to 4px short of the frame.
+            left, right, y = BANNER_WIDTH + 3, widget.width() - 3, option.rect.top() + 2
+            painter.fillRect(left, y, right - left, 1, option.palette.color(QPalette.Mid))
+            painter.fillRect(left, y + 1, right - left, 1, option.palette.color(QPalette.Light))
+            return
+        root_icon = None
+        # The arrow (drawn in drawPrimitive) is not told the row is selected; remember it from here.
+        self.drawing_selected_row = bool(option.state & QStyle.State_Selected) if element == QStyle.CE_MenuItem else False
         if element == QStyle.CE_MenuItem and isinstance(widget, RetroMenu) and option.menuItemType != QStyleOptionMenuItem.MenuItemType.Separator:
             if option.state & QStyle.State_Selected and option.state & QStyle.State_Enabled:
                 painter.fillRect(option.rect, option.palette.highlight())
-            option.rect = option.rect.adjusted(ITEM_LEFT_PAD, 0, 0, 0)
+            if widget.banner:
+                # The root icon goes where the original puts it, drawn after Qt (which fills the row
+                # background); Qt lays out only the text.
+                root_icon = (option.icon.pixmap(ROOT_ICON, ROOT_ICON), option.rect.top() + (option.rect.height() - ROOT_ICON) // 2)
+                option.icon = QIcon()
+                style = style_of(widget)
+                drop = round(style["text_drop"] * UI_SCALE)
+                option.rect = option.rect.adjusted(ITEM_LEFT_PAD + round(style["text_gap"] * UI_SCALE), drop, 0, drop)
+            else:
+                option.rect = option.rect.adjusted(ITEM_LEFT_PAD, 0, 0, 0)
         super().drawControl(element, option, painter, widget)
+        if root_icon:
+            painter.drawPixmap(round(style_of(widget)["icon_x"] * UI_SCALE), root_icon[1], root_icon[0])
 
     def drawPrimitive(self, element, option, painter, widget=None):
+        if element == QStyle.PE_IndicatorArrowRight and isinstance(widget, RetroMenu) and widget.banner:
+            # The original root menu's arrow, measured: 4 columns of 7, 5, 3 and 1 pixels, tip 10px from
+            # the frame, centred on the row.
+            selected = getattr(self, "drawing_selected_row", False)
+            painter.save()
+            painter.setPen(Qt.NoPen)
+            color = option.palette.color(QPalette.HighlightedText if selected else QPalette.WindowText)
+            left, top = widget.width() - round(13 * UI_SCALE), option.rect.center().y() - round(5 * UI_SCALE)
+            unit = max(1, round(UI_SCALE))
+            for column in range(4):
+                painter.fillRect(left + column * unit, top + column * unit, unit, (7 - 2 * column) * unit, color)
+            painter.restore()
+            return
         if element == QStyle.PE_IndicatorArrowRight and isinstance(widget, RetroMenu):
             centre = option.rect.center()
             option.rect = QRect(centre.x() - ARROW // 2, centre.y() - ARROW // 2, ARROW, ARROW)
@@ -224,7 +295,7 @@ class RetroMenu(QMenu):
     def __init__(self, title="", parent=None, banner=False):
         super().__init__(title, parent)
         self.banner = banner_settings() if banner else None  # also answers "is this the root menu?"
-        self.setContentsMargins(BANNER_WIDTH + 2 if banner else 0, 2 if banner else 0, 2 if banner else 0, 2 if banner else 0)
+        self.setContentsMargins(BANNER_WIDTH + 3 if banner else 0, 3 if banner else 0, 2 if banner else 0, 3 if banner else 0)
         self._slide = None
         # Stay a real popup for KWin so it draws no decoration or shadow around the menu.
         # Root menu is a frameless top-level on Wayland (a parentless popup is refused there); KWin places it.
@@ -257,27 +328,33 @@ class RetroMenu(QMenu):
             return
         painter = QPainter(self)
         w, h = self.width(), self.height()
-        light, shadow = self.palette().color(QPalette.Midlight), self.palette().color(QPalette.Mid)
+        style = style_of(self)
+        light = self.palette().color(QPalette.Window if style["light"] == "face" else QPalette.Midlight)
+        shadow, dark = self.palette().color(QPalette.Mid), QColor(style["dark"])
         painter.fillRect(0, 0, w, 1, light); painter.fillRect(0, 0, 1, h, light)
         painter.fillRect(1, 1, w - 2, 1, Qt.white); painter.fillRect(1, 1, 1, h - 2, Qt.white)
-        painter.fillRect(0, h - 1, w, 1, Qt.black); painter.fillRect(w - 1, 0, 1, h, Qt.black)
+        painter.fillRect(0, h - 1, w, 1, dark); painter.fillRect(w - 1, 0, 1, h, dark)
         painter.fillRect(1, h - 2, w - 2, 1, shadow); painter.fillRect(w - 2, 1, 1, h - 2, shadow)
-        strip = QRect(2, 2, BANNER_WIDTH, self.height() - 4)
-        colors = [QColor(color.strip()) for color in self.banner["bannerBackground"].split(",")]
+        strip = QRect(3, 3, BANNER_WIDTH, self.height() - 6)
         fill = QLinearGradient(0, strip.top(), 0, strip.bottom())
-        for index, color in enumerate(colors):
-            fill.setColorAt(index / max(1, len(colors) - 1), color)
+        for position, colour in banner_stops(self.banner["bannerBackground"], strip.height()):
+            fill.setColorAt(position, QColor(colour))
         painter.fillRect(strip, fill)
-        painter.setPen(QColor(self.banner["bannerTextColor"]))
         painter.translate(strip.left(), strip.bottom())
         painter.rotate(-90)
-        x = round(4 * UI_SCALE)
+        x = round(style["banner_start"] * UI_SCALE)
         for text, bold in banner_parts(self.banner["bannerText"]):
-            banner_font = QFont(self.font())
-            banner_font.setPixelSize(round(18 * UI_SCALE))
+            # Measured on the original: the word bold and light grey, the number regular and white, both
+            # 21px Arial (Liberation Sans where Arial is missing), with hard unsmoothed edges.
+            banner_font = QFont("Arial")
+            banner_font.setPixelSize(round(style["banner_font"] * UI_SCALE))
+            banner_font.setStretch(style["banner_stretch"])  # 2000's lettering is condensed
+            banner_font.setStyleStrategy(QFont.NoAntialias)
             banner_font.setBold(bold)
+            painter.setPen(QColor(self.banner["bannerTextColor" if bold else "bannerNumberColor"]))
             painter.setFont(banner_font)
-            painter.drawText(QRect(x, 0, strip.height() - x, strip.width()), Qt.AlignLeft | Qt.AlignVCenter, text)
+            inset = round(style["banner_inset"] * UI_SCALE)
+            painter.drawText(QRect(x, inset, strip.height() - x, strip.width()), Qt.AlignLeft | Qt.AlignVCenter, text)
             x += painter.fontMetrics().horizontalAdvance(text)
         painter.end()
 
@@ -420,14 +497,15 @@ def apply_retro_look(app):
     family = "MS W98 UI" if "MS W98 UI" in QFontDatabase.families() else "Noto Sans"
     # classic menus use an 11px face regardless of DPI; a point size would grow with Xft.dpi 144.
     menu_font = QFont(family)
-    menu_font.setPixelSize(round(10 * UI_SCALE))
+    menu_font.setPixelSize(round(11 * UI_SCALE))
+    menu_font.setStyleStrategy(QFont.NoAntialias)  # a pixel font, drawn with hard edges like the original
     app.setFont(menu_font)
     # Autostart runs before the platform theme plugin can add user icon dirs; add them ourselves.
     home = str(Path.home())
     extra = [f"{home}/.local/share/icons", f"{home}/.icons", "/usr/share/icons", "/usr/share/pixmaps"]
     QIcon.setThemeSearchPaths(extra + [p for p in QIcon.themeSearchPaths() if p not in extra])
     QIcon.setFallbackSearchPaths([f"{home}/.local/share/icons/Chicago95/apps/48", "/usr/share/pixmaps"] + QIcon.fallbackSearchPaths())
-    QIcon.setThemeName("Chicago95")
+    QIcon.setThemeName(chicago95ui.icon_theme())  # the set chosen with the look
     QIcon.setFallbackThemeName("hicolor")
 
 
@@ -494,7 +572,20 @@ def signal_running_instance():
         return False
 
 
+def root_menu_height():
+    """The root menu's height in logical pixels with the current settings; Setup's window rule places
+    the menu from it (Wayland gives the position to KWin, so the rule needs the real height)."""
+    app = QApplication(sys.argv)
+    apply_retro_look(app)
+    menu = build_root_menu()
+    menu.adjustSize()
+    return menu.height()
+
+
 def main():
+    if "--root-height" in sys.argv:
+        print(root_menu_height())
+        return 0
     if signal_running_instance():
         return 0
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)

@@ -6,6 +6,9 @@ import org.kde.kcmutils as KCM
 KCM.SimpleKCM {
     property alias cfg_buttonText: buttonText.text
     property string cfg_logo
+    // Plasma also hands the page each setting's default; without these it logs a warning per setting.
+    property string cfg_buttonTextDefault
+    property string cfg_logoDefault
 
     readonly property bool customLogo: cfg_logo !== "flag" && cfg_logo !== "penguin"
 

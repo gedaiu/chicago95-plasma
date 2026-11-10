@@ -26,15 +26,16 @@ PlasmoidItem {
     Kirigami.Theme.colorSet: Kirigami.Theme.Button
     Kirigami.Theme.inherit: false
     readonly property color face: Kirigami.Theme.backgroundColor
-    readonly property color light: Qt.rgba((face.r + 1) / 2, (face.g + 1) / 2, (face.b + 1) / 2, 1)
-    readonly property color shadow: Qt.rgba(face.r * 2 / 3, face.g * 2 / 3, face.b * 2 / 3, 1)
+    readonly property color light: Qt.tint(face, "#80ffffff")  // halfway to white
+    readonly property color shadow: Qt.darker(face, 1.5)  // two thirds of the face
 
     readonly property int topInset: 2
-    readonly property int padding: 4
+    // 98's button: 2px bevel, 2px gap, logo, 3px gap, text, 4px; 54x22 with "Start".
+    readonly property int padding: 2
     // The logo fills the face inside the 2px bevel with 2px to spare on each side.
     readonly property int logoSize: Math.max(12, height - topInset - 8)
 
-    Layout.minimumWidth: content.implicitWidth + 2 * padding + 6
+    Layout.minimumWidth: 2 + padding + content.implicitWidth + 4 + 2
     Layout.preferredWidth: Layout.minimumWidth
     Layout.maximumWidth: Layout.minimumWidth
     Layout.fillHeight: true
@@ -56,7 +57,7 @@ PlasmoidItem {
     }
 
     Item {
-        id: face
+        id: buttonFace  // not "face": that name is the colour property above
         anchors.fill: parent
         anchors.topMargin: root.topInset
 
@@ -76,7 +77,7 @@ PlasmoidItem {
             spacing: 3
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.held ? 1 : 0
-            x: root.padding + 2 + (root.held ? 1 : 0)
+            x: 2 + root.padding + (root.held ? 1 : 0)
 
             Image {
                 visible: root.logoSource != ""
@@ -97,8 +98,8 @@ PlasmoidItem {
                 font.bold: true
                 font.pixelSize: 11
                 color: Kirigami.Theme.textColor
-                // Plasma draws text natively, with RGB subpixel fringes; the pixel font wants plain grey edges.
-                renderType: Text.QtRendering
+                // Plasma's native text gets RGB subpixel fringes; curve rendering draws plain grey edges.
+                renderType: Text.CurveRendering
             }
         }
     }

@@ -6,20 +6,34 @@ import glob
 import shutil
 import subprocess
 
+import getpass
+import re
+
 from PySide6.QtCore import QRect, Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetrics, QIcon, QPalette
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetrics, QIcon, QLinearGradient, QPainter, QPalette, QPixmap
 from PySide6.QtWidgets import (
-    QDialog, QHBoxLayout, QLabel, QPushButton, QRadioButton, QVBoxLayout, QWidget,
+    QComboBox, QDialog, QHBoxLayout, QLabel, QPushButton, QRadioButton, QVBoxLayout, QWidget,
 )
 
-SHUT_DOWN, RESTART, DOS_MODE, LOG_OFF = range(4)
+SHUT_DOWN, RESTART, DOS_MODE, LOG_OFF, STAND_BY = range(5)
 
-CHOICE_LABELS = (
-    "Shut down the computer?",
-    "Restart the computer?",
-    "Restart the computer in DOS mode?",
-    "Close all programs and log on as a different user?",
-)
+# Choices per style, in the order each original lists them; the first in DEFAULT_CHOICE is preselected.
+CHOICES = {
+    "1995": [(SHUT_DOWN, "&Shut down the computer?"), (RESTART, "&Restart the computer?"),
+             (DOS_MODE, "Restart the computer in &DOS mode?"), (LOG_OFF, "&Close all programs and log on as a different user?")],
+    "1998": [(STAND_BY, "S&tand by"), (SHUT_DOWN, "&Shut down"), (RESTART, "&Restart"), (DOS_MODE, "Restart in &DOS mode")],
+    "2000": [(LOG_OFF, "Log off {user}"), (SHUT_DOWN, "Shut down"), (RESTART, "Restart"), (STAND_BY, "Stand by")],
+}
+CHOICE_LABELS = tuple(label for _, label in CHOICES["1995"])
+QUESTIONS = {"1995": "Are you sure you want to:", "1998": "What do you want the computer to do?",
+             "2000": "What do you want the computer to do?"}
+DESCRIPTIONS = {
+    LOG_OFF: "Ends your session, leaving the computer running on full power.",
+    SHUT_DOWN: "Ends your session and shuts down the computer so that you can safely turn off power.",
+    RESTART: "Ends your session, shuts down the computer and starts it again.",
+    STAND_BY: "Keeps your session in memory and puts the computer in a low-power state.",
+}
+START_LOGO_GLOB = os.path.expanduser("~/.local/share/chicago95/start-logo.*")
 
 KDE_SHUTDOWN_METHODS = {
     SHUT_DOWN: "org.kde.Shutdown.logoutAndShutdown",
@@ -64,6 +78,8 @@ def dbus_caller():
 def shutdown_command(choice, dbus_prefix=None):
     if choice == DOS_MODE:
         return ["konsole"]
+    if choice == STAND_BY:
+        return ["systemctl", "suspend"]
     if dbus_prefix:
         return dbus_prefix + [KDE_SHUTDOWN_METHODS[choice]]
     return SYSTEMCTL_FALLBACKS[choice]
@@ -183,19 +199,85 @@ class LogOffDialog(QDialog):
         layout.addLayout(yes_no_buttons(self))
 
 
+def dialog_buttons(dialog, labels):
+    """A row of 75x23 buttons, right-aligned; the first accepts, the second rejects, Help is disabled."""
+    buttons = QHBoxLayout()
+    buttons.setSpacing(6)
+    buttons.addStretch()
+    made = []
+    for label in labels:
+        button = QPushButton(label)
+        button.setFixedSize(75, 23)
+        buttons.addWidget(button)
+        made.append(button)
+    made[0].setDefault(True)
+    made[0].clicked.connect(dialog.accept)
+    made[1].clicked.connect(dialog.reject)
+    made[-1].setEnabled(False)
+    return buttons, made
+
+
+class BrandBanner(QWidget):
+    """The 2000 dialogs' banner: white, with the Start logo and the name, over a glowing strip."""
+
+    STRIP = ((0.0, "#003152"), (0.45, "#9cc6de"), (0.7, "#63adde"), (0.95, "#003152"), (1.0, "#003152"))
+
+    def __init__(self, look, parent=None):
+        super().__init__(parent)
+        self.look = look
+        logos = sorted(glob.glob(START_LOGO_GLOB))
+        self.logo = QIcon(str(logos[0])).pixmap(48, 48) if logos else QPixmap()
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        painter.fillRect(0, 0, self.width(), 72, Qt.white)
+        strip = QLinearGradient(0, 0, self.width(), 0)
+        for position, colour in self.STRIP:
+            strip.setColorAt(position, QColor(colour))
+        painter.fillRect(0, 72, self.width(), 5, strip)
+        x = 20
+        if not self.logo.isNull():
+            painter.drawPixmap(x, 12, self.logo)
+            x += 60
+        painter.setPen(Qt.black)
+        for part in re.findall(r"\s*\d+|\s*[^\d]+", self.look["bannerText"]):
+            font = QFont("Arial")
+            font.setPixelSize(30)
+            font.setBold(not part.strip().isdigit())
+            painter.setFont(font)
+            painter.drawText(x, 40, part)
+            x += painter.fontMetrics().horizontalAdvance(part)
+        font = QFont("Arial")
+        font.setPixelSize(18)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.drawText(x + 6, 40, self.look["edition"])
+        painter.end()
+
+
 class ShutDownDialog(QDialog):
-    def __init__(self):
+    """Shut Down dialog of the chosen style: 1995 and 1998 list radio buttons, 2000 a dropdown under a banner."""
+
+    def __init__(self, look=None):
         super().__init__()
+        self.look = look or chicago95ui.look_settings()
+        self.style = self.look["style"] if self.look["style"] in CHOICES else "1995"
         self.setWindowTitle("Shut Down")
         self.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
-        self.setFixedSize(340, 180)
+        self.choices = CHOICES[self.style]
         self.choice = None
+        if self.style == "2000":
+            self.build_2000()
+        else:
+            self.build_radio_list()
 
-        self.radios = [QRadioButton(label) for label in CHOICE_LABELS]
-        self.radios[SHUT_DOWN].setChecked(True)
+    def build_radio_list(self):
+        self.setFixedSize(340, 180)
+        self.radios = [QRadioButton(label) for _, label in self.choices]
+        self.radios[[choice for choice, _ in self.choices].index(SHUT_DOWN)].setChecked(True)
         options = QVBoxLayout()
         options.setSpacing(2)
-        options.addWidget(QLabel("Are you sure you want to:"))
+        options.addWidget(QLabel(QUESTIONS[self.style]))
         options.addSpacing(6)
         for radio in self.radios:
             options.addWidget(radio)
@@ -206,13 +288,50 @@ class ShutDownDialog(QDialog):
         upper.addWidget(dialog_icon("system-shutdown"))
         upper.addLayout(options)
 
+        labels = ("&Yes", "&No", "&Help") if self.style == "1995" else ("OK", "Cancel", "&Help")
+        buttons, _ = dialog_buttons(self, labels)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
         layout.addLayout(upper)
-        layout.addLayout(yes_no_buttons(self))
+        layout.addLayout(buttons)
+
+    def build_2000(self):
+        # Positions measured on the original (tests/test_shutdown_reference.py): client 409x246.
+        self.setFixedSize(409, 246)
+        BrandBanner(self.look, self).setGeometry(0, 1, 409, 77)
+        icon = dialog_icon("system-shutdown")
+        icon.setParent(self)
+        icon.move(22, 89)
+        QLabel(QUESTIONS["2000"], self).move(65, 91)
+        self.combo = QComboBox(self)
+        self.combo.setGeometry(65, 111, 262, 20)
+        for choice, label in self.choices:
+            self.combo.addItem(label.format(user=getpass.getuser()), choice)
+        self.combo.setCurrentIndex([choice for choice, _ in self.choices].index(SHUT_DOWN))
+        self.description = QLabel(self)
+        self.description.setWordWrap(True)
+        self.description.setGeometry(65, 135, 280, 34)
+        self.combo.currentIndexChanged.connect(self.describe)
+        self.describe()
+        for x, label in zip((163, 244, 325), ("OK", "Cancel", "Help")):
+            button = QPushButton(label, self)
+            button.setGeometry(x, 211, 75, 23)
+            if label == "OK":
+                button.setDefault(True)
+                button.clicked.connect(self.accept)
+            elif label == "Cancel":
+                button.clicked.connect(self.reject)
+            else:
+                button.setEnabled(False)
+
+    def describe(self):
+        self.description.setText(DESCRIPTIONS[self.combo.currentData()])
 
     def accept(self):
-        self.choice = next(index for index, radio in enumerate(self.radios) if radio.isChecked())
+        if self.style == "2000":
+            self.choice = self.combo.currentData()
+        else:
+            self.choice = self.choices[next(index for index, radio in enumerate(self.radios) if radio.isChecked())][0]
         super().accept()
 
 
@@ -273,7 +392,7 @@ def main():
         return 0
 
     command = shutdown_command(dialog.choice, dbus_caller())
-    if dialog.choice in (DOS_MODE, LOG_OFF):
+    if dialog.choice in (DOS_MODE, LOG_OFF, STAND_BY):
         run_command(command, args.dry_run)
         return 0
 

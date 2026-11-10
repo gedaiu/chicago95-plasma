@@ -2,6 +2,7 @@ import importlib.machinery
 import importlib.util
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,9 @@ import pytest
 REPO = Path(__file__).resolve().parent.parent
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ["QT_SCALE_FACTOR"] = "1"
+# An empty settings folder, set before our modules load: tests see the defaults, never the colour
+# scheme, look or icon set of whoever runs them (CI and every machine get the same results).
+os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="chicago95-tests-config-")
 sys.path.insert(0, str(REPO / "lib"))
 
 
@@ -18,6 +22,17 @@ def load_script(name):
     module = importlib.util.module_from_spec(spec)
     loader.exec_module(module)
     return module
+
+
+def ui_font_installed():
+    import subprocess
+    families = subprocess.run(["fc-list", ":", "family"], capture_output=True, text=True).stdout
+    return "MS W98 UI" in families
+
+
+# The UI font can't be redistributed (CI machines don't have it); tests that measure our lettering
+# are only meaningful with it, so they skip without it instead of failing for the wrong reason.
+needs_ui_font = pytest.mark.skipif(not ui_font_installed(), reason="MS W98 UI font is not installed")
 
 
 @pytest.fixture(scope="session")

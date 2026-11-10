@@ -152,8 +152,14 @@ anywhere. At 1x or 2x the DPI section of the tutorial can be skipped.
 ## Tests
 
 ```
+pip install --user -r requirements-dev.txt
 python3 -m pytest tests
 ```
+
+`tests/test_startmenu_reference.py` renders the Start menu at 1x and compares it with a
+screenshot of the 1995 original (downloaded once into `tests/.cache`, which git ignores):
+size, bevel, separator, highlight, arrows and text positions must match; outside the icons and
+the letter shapes, not a pixel may differ. The tests skip when the screenshot can't be fetched.
 
 ## Credits
 

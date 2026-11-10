@@ -11,8 +11,8 @@ Rectangle {
     SystemPalette { id: scheme; colorGroup: SystemPalette.Active }
     readonly property color face: scheme.window
     readonly property color white: "#ffffff"
-    readonly property color light: Qt.rgba((face.r + 1) / 2, (face.g + 1) / 2, (face.b + 1) / 2, 1)
-    readonly property color shadow: Qt.rgba(face.r * 2 / 3, face.g * 2 / 3, face.b * 2 / 3, 1)
+    readonly property color light: Qt.tint(face, "#80ffffff")  // halfway to white
+    readonly property color shadow: Qt.darker(face, 1.5)  // two thirds of the face
     readonly property color dark: "#000000"
     readonly property bool sunken: style === "sunken" || style === "pressed"
     readonly property int outline: isDefault ? 1 : 0

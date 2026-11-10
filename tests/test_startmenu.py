@@ -27,7 +27,8 @@ def test_shut_down_entry_launches_shutdown_tool_with_all_choices(startmenu, qt_a
 
 def test_banner_is_chicago95_light_grey_on_grey_without_a_settings_file(startmenu, tmp_path):
     assert startmenu.banner_settings(tmp_path / "chicago95rc") == {
-        "bannerText": "Chicago95", "bannerBackground": "#808080", "bannerTextColor": "#C0C0C0"}
+        "bannerText": "Chicago95", "bannerBackground": "#808080", "bannerTextColor": "#C0C0C0",
+        "bannerNumberColor": "#FFFFFF", "style": "1995"}
 
 
 def test_banner_text_and_gradient_come_from_start_menu_group(startmenu, tmp_path):
@@ -35,7 +36,8 @@ def test_banner_text_and_gradient_come_from_start_menu_group(startmenu, tmp_path
     settings.write_text("[StartMenu]\nbannerText=Linux 6.17\nbannerBackground=#000000,#1084D0\nbannerTextColor=#FFFFFF\n")
 
     assert startmenu.banner_settings(settings) == {
-        "bannerText": "Linux 6.17", "bannerBackground": "#000000,#1084D0", "bannerTextColor": "#FFFFFF"}
+        "bannerText": "Linux 6.17", "bannerBackground": "#000000,#1084D0", "bannerTextColor": "#FFFFFF",
+        "bannerNumberColor": "#FFFFFF", "style": "1995"}
 
 
 def test_banner_parts_set_words_bold_and_numbers_thin(startmenu):

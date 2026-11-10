@@ -1,26 +1,28 @@
 import QtQuick 2.15
+import "settings.js" as Settings
 
-// Plasma loading screen. "classic": the Chicago95 background picture. "2000": a white page with the
-// Start logo and banner text, a blue strip and a grey bar with a progress bar that follows Plasma's
-// start-up stages. Setup writes the three settings below into the installed copy.
+// Plasma loading screen. "classic": a picture filling the screen. "2000": the 2000 start-up screen,
+// laid out in the original's 640x480 pixels (measured by tests/test_references.py) and scaled to the
+// screen height: logo and name on a near-white page, a three-tone blue strip, a grey bar with a
+// block progress bar that follows Plasma's start-up stages, and a footer line.
+// Setup writes settings.js with the user's texts and pictures.
 Rectangle {
     id: root
     property int stage
 
-    readonly property string splashStyle: "classic"
-    readonly property string brandText: "Chicago95"
-    readonly property string brandLogo: ""
-
-    readonly property bool modern: splashStyle === "2000"
-    readonly property real unit: height / 768  // the layout is drawn for 1024x768 and scaled
+    readonly property bool modern: Settings.style === "2000"
+    readonly property real unit: height / 480
+    readonly property real layoutX: (width - 640 * unit) / 2  // the 640-wide layout, centred ("left" is taken by Item)
     readonly property int stages: 6
 
-    color: "#ffffff"
+    function px(value) { return Math.round(value * unit) }
+
+    color: "#f7f7f7"
 
     Image {
         visible: !root.modern
         anchors.fill: parent
-        source: "images/background.png"
+        source: Settings.picture.startsWith("/") ? "file://" + Settings.picture : Settings.picture
         fillMode: Image.PreserveAspectCrop
     }
 
@@ -31,101 +33,115 @@ Rectangle {
         Image {
             id: logo
             visible: status === Image.Ready
-            source: root.brandLogo ? "file://" + root.brandLogo : ""
-            anchors.horizontalCenter: parent.horizontalCenter
-            y: 90 * root.unit
-            width: 260 * root.unit
-            height: 260 * root.unit
+            source: Settings.brandLogo ? "file://" + Settings.brandLogo : ""
+            x: root.layoutX + root.px(262)
+            y: root.px(38)
+            width: root.px(190)
+            height: root.px(190)
             sourceSize.width: width * 2
             sourceSize.height: height * 2
             fillMode: Image.PreserveAspectFit
-            // Pixel-art logos (the classic flag, a PNG) stay sharp; vector logos are drawn smooth.
-            smooth: !root.brandLogo.endsWith(".png")
+            smooth: !Settings.brandLogo.endsWith(".png")  // pixel-art logos stay sharp
         }
 
         Column {
-            anchors.horizontalCenter: parent.horizontalCenter
-            y: (logo.visible ? 375 : 260) * root.unit
-            spacing: 0
-
+            x: root.layoutX + root.px(118)
+            y: root.px(238)
             // Words bold, numbers thin, like the Start menu banner.
             Text {
-                anchors.horizontalCenter: parent.horizontalCenter
                 textFormat: Text.RichText
-                font.family: "MS W98 UI"
-                font.pixelSize: 72 * root.unit
+                font.family: "Arial"
+                font.pixelSize: root.px(48)
                 color: "#000000"
-                text: (root.brandText.match(/\s*\d+|\s*[^\d]+/g) || [])
+                text: (Settings.brandText.match(/\s*\d+|\s*[^\d]+/g) || [])
                       .map(part => /^\s*\d+$/.test(part) ? part : "<b>" + part + "</b>").join("")
             }
             Text {
                 anchors.right: parent.right
-                font.family: "MS W98 UI"
-                font.pixelSize: 40 * root.unit
+                font.family: "Arial"
+                font.pixelSize: root.px(34)
                 font.bold: true
                 color: "#000000"
-                text: "Professional"
+                text: Settings.edition
             }
         }
 
+        // The strip: a pale line, ten rows of bright blue shading to navy then slate, a light line.
         Rectangle {
-            id: strip
-            anchors.left: parent.left
-            anchors.right: parent.right
-            y: parent.height - 102 * root.unit
-            height: 16 * root.unit
+            x: 0; y: root.px(415); width: parent.width; height: root.px(1)
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0; color: "#1A5CC8" }
-                GradientStop { position: 0.5; color: "#0A3BA8" }
-                GradientStop { position: 1; color: "#3C8CEC" }
+                GradientStop { position: 0; color: "#deffff" }
+                GradientStop { position: 1; color: "#efffff" }
+            }
+        }
+        Rectangle {
+            x: 0; y: root.px(416); width: parent.width; height: root.px(10)
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.00; color: "#0071d8" }
+                GradientStop { position: 0.23; color: "#0071d8" }
+                GradientStop { position: 0.39; color: "#0025a0" }
+                GradientStop { position: 0.723; color: "#0025a0" }
+                GradientStop { position: 0.725; color: "#133777" }
+                GradientStop { position: 1.00; color: "#133777" }
+            }
+        }
+        // The strip's left end is capped by darker corner pixels on its first and last coloured rows.
+        Rectangle { x: 0; y: root.px(416); width: root.px(1); height: root.px(1); color: "#4d6596" }
+        Rectangle { x: 0; y: root.px(425); width: root.px(1); height: root.px(1); color: "#4d6596" }
+        Rectangle {
+            x: 0; y: root.px(426); width: parent.width; height: root.px(1)
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0; color: "#a5cbec" }
+                GradientStop { position: 1; color: "#bac4ed" }
             }
         }
 
         Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: strip.bottom
-            anchors.bottom: parent.bottom
-            color: "#c0c0c0"
+            x: 0; y: root.px(427); width: parent.width; height: parent.height - y
+            color: "#c1bfc3"
+        }
 
-            Row {
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: 16 * root.unit
-                spacing: 8 * root.unit
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Starting up..."
-                    font.family: "MS W98 UI"
-                    font.pixelSize: 15 * root.unit
-                    color: "#000000"
-                }
-                // Sunken bar filled with navy blocks as Plasma reports its start-up stages.
+        Text {
+            x: root.layoutX + root.px(200)
+            y: root.px(437)
+            font.family: "MS W98 UI"
+            font.pixelSize: root.px(11)
+            renderType: Text.NativeRendering
+            color: "#000000"
+            text: Settings.loadingText
+        }
+
+        // Sunken progress bar: shadow top-left, white bottom-right, pale inside, 8px navy blocks 1px apart.
+        Item {
+            x: root.layoutX + root.px(273); y: root.px(436)
+            width: root.px(165); height: root.px(10)
+            Rectangle { anchors.fill: parent; color: "#bac4ed" }
+            Rectangle { x: 0; y: 0; width: parent.width; height: root.px(1); color: "#7d8196" }
+            Rectangle { x: 0; y: 0; width: root.px(1); height: parent.height; color: "#7d8196" }
+            // The shadow owns the bottom-left corner pixel; the white edge starts one pixel in.
+            Rectangle { x: root.px(1); y: parent.height - root.px(1); width: parent.width - root.px(1); height: root.px(1); color: "#f7f7f7" }
+            Rectangle { x: parent.width - root.px(1); y: 0; width: root.px(1); height: parent.height; color: "#f7f7f7" }
+            Repeater {
+                model: Math.round(Math.min(root.stage, root.stages) / root.stages * 18)
                 Rectangle {
-                    id: bar
-                    width: 262 * root.unit
-                    height: 16 * root.unit
-                    color: "#ffffff"
-                    border.width: Math.max(1, Math.round(root.unit))
-                    border.color: "#808080"
-                    Row {
-                        x: 2 * root.unit; y: 2 * root.unit
-                        spacing: 2 * root.unit
-                        Repeater {
-                            model: Math.round(Math.min(root.stage, root.stages) / root.stages * 26)
-                            Rectangle { width: 8 * root.unit; height: bar.height - 4 * root.unit; color: "#0A246A" }
-                        }
-                    }
+                    x: root.px(1 + 9 * index); y: root.px(1)
+                    width: root.px(8); height: root.px(8)
+                    color: "#0025a0"
                 }
             }
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: 50 * root.unit
-                text: "Chicago95 for KDE Plasma"
-                font.family: "MS W98 UI"
-                font.pixelSize: 15 * root.unit
-                color: "#000000"
-            }
+        }
+
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: root.px(458)
+            font.family: "MS W98 UI"
+            font.pixelSize: root.px(11)
+            renderType: Text.NativeRendering
+            color: "#000000"
+            text: Settings.footer
         }
     }
 }

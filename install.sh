@@ -10,8 +10,8 @@
 #     --screen=2560x1440@1.5  --panel=28  --explorer=thunar|dolphin  --saver=maze
 #     --idle=5  --cursor=48  --clippy=yes|no  --font="MS W98 UI"  --font-scope=everywhere|desktop|none
 #     --start-text=Start  --start-logo=flag|penguin|/path/to/image  --banner-text=Chicago95
-#     --look=1995|1998|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
-#     --login-style=classic|2000
+#     --look=1995|1998|2000|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
+#     --login-style=classic|2000  --icons=chicago95|se98|classicos2000
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,6 +38,7 @@ for arg in "$@"; do
         --start-logo=*) OPT_START_LOGO="${arg#*=}";;
         --banner-text=*) OPT_BANNER_TEXT="${arg#*=}";;
         --look=*) OPT_LOOK="${arg#*=}";;
+        --icons=*) OPT_ICONS="${arg#*=}";;
         --login-style=*) OPT_LOGIN_STYLE="${arg#*=}";;
         --help|-h) sed -n '2,12p' "$0"; exit 0;;
         *) [ -z "$WANTED" ] && [[ "$arg" != --* ]] && WANTED="$arg";;
@@ -74,50 +75,82 @@ if [ -s "$MANIFEST" ] && [ "$SETUP_DRY_RUN" = 0 ]; then
     esac
 fi
 
-# Three short screens, one question each; the last option of each lets the user type their own.
+# choose_text <title> <question> <current> <suggestion>...   prints the chosen text; the last entry
+# is always "Your own text", which asks for it on the same screen.
+choose_text() {
+    local title="$1" question="$2" current="$3" index choice; shift 3
+    local suggestions=("$@") marked=$(( $# + 1 ))
+    for index in "${!suggestions[@]}"; do [ "${suggestions[$index]//%h/$(hostname)}" = "${current//%h/$(hostname)}" ] && marked=$((index + 1)); done
+    choice=$(ui_choose "$title" "$question" "$marked" "${suggestions[@]//%h/$(hostname)}" "Your own text")
+    if [ "$choice" -le $# ]; then printf '%s' "${suggestions[$((choice - 1))]}"; else ui_ask "Text" "${current//%h/$(hostname)}"; fi
+}
+
+# choose_image <title> <question> <current> <name|label>...   prints a bundled image's name or the path of the
+# user's file; the last entry is always "Your own image", which asks for the file until it exists.
+choose_image() {
+    local title="$1" question="$2" current="$3" index choice path; shift 3
+    local names=() labels=() marked=$(( $# + 1 ))
+    for index in $(seq 1 $#); do names+=("${!index%%|*}"); labels+=("${!index#*|}"); done
+    for index in "${!names[@]}"; do [ "${names[$index]}" = "$current" ] && marked=$((index + 1)); done
+    choice=$(ui_choose "$title" "$question" "$marked" "${labels[@]}" "Your own image (PNG or SVG)")
+    if [ "$choice" -le $# ]; then printf '%s' "${names[$((choice - 1))]}"; return; fi
+    until [ -f "${path:-}" ]; do path=$(ui_ask "Full path of the image file" ""); path=${path/#\~/$HOME}; done
+    printf '%s' "$path"
+}
+
 choose_start_menu() {
-    local choice logo
-    if [ -z "${OPT_START_TEXT:-}" ]; then
-        case "$SETUP_START_TEXT" in Start) choice=1;; Linux) choice=2;; *) choice=3;; esac
-        choice=$(ui_choose "Start button text" "What should the Start button say?" "$choice" "Start" "Linux" "Your own text")
-        case "$choice" in
-            1) SETUP_START_TEXT=Start;;
-            2) SETUP_START_TEXT=Linux;;
-            3) SETUP_START_TEXT=$(ui_ask "Button text" "$SETUP_START_TEXT");;
-        esac
-    fi
-    if [ -z "${OPT_START_LOGO:-}" ]; then
-        case "$SETUP_START_LOGO" in flag) choice=1;; penguin) choice=2;; *) choice=3;; esac
-        choice=$(ui_choose "Start button logo" "Which logo should the Start button show?\nIt is copied to ~/.local/share/chicago95/start-logo (keeping its extension);\nreplace that file and log out to change the logo later." \
-            "$choice" "Classic flag" "Penguin" "Your own image (PNG or SVG)")
-        case "$choice" in
-            1) SETUP_START_LOGO=flag;;
-            2) SETUP_START_LOGO=penguin;;
-            3) logo=""
-               until [ -f "$logo" ]; do
-                   logo=$(ui_ask "Full path of the image file" "")
-                   logo=${logo/#\~/$HOME}
-               done
-               SETUP_START_LOGO=$logo;;
-        esac
-    fi
-    if [ -z "${OPT_BANNER_TEXT:-}" ]; then
-        case "$SETUP_BANNER_TEXT" in Chicago95) choice=1;; Linux) choice=2;; *) choice=3;; esac
-        choice=$(ui_choose "Start menu banner" "What should the blue strip along the Start menu say?" "$choice" "Chicago95" "Linux" "Your own text")
-        case "$choice" in
-            1) SETUP_BANNER_TEXT=Chicago95;;
-            2) SETUP_BANNER_TEXT=Linux;;
-            3) SETUP_BANNER_TEXT=$(ui_ask "Banner text" "$SETUP_BANNER_TEXT");;
-        esac
+    [ -n "${OPT_START_TEXT:-}" ] || SETUP_START_TEXT=$(choose_text "Start button text" "What should the Start button say?" \
+        "$SETUP_START_TEXT" "Start" "Linux")
+    [ -n "${OPT_START_LOGO:-}" ] || SETUP_START_LOGO=$(choose_image "Start button logo" \
+        "Which logo should the Start button show?\nIt is copied to ~/.local/share/chicago95/start-logo (keeping its extension);\nreplace that file and log out to change the logo later." \
+        "$SETUP_START_LOGO" "flag|Classic flag" "penguin|Penguin")
+    [ -n "${OPT_BANNER_TEXT:-}" ] || SETUP_BANNER_TEXT=$(choose_text "Start menu banner" "What should the strip along the Start menu say?" \
+        "$SETUP_BANNER_TEXT" "Chicago95" "Linux")
+    return 0
+}
+
+# Texts and pictures of the login and loading screens; one gate first, so ENTER keeps every default.
+choose_branding() {
+    local choice
+    choice=$(ui_choose "Login and loading screen texts" "The login and loading screens show a logo, an edition, a tagline and a few lines of text." 1 \
+        "Keep the default texts and pictures" "Customize them (one short question each)")
+    [ "$choice" = 2 ] || return 0
+    SETUP_LOGIN_TITLE=$(choose_text "Login title bar" "What should the login window's title say?" "$SETUP_LOGIN_TITLE" \
+        "Log On to %h" "Welcome to %h")
+    if [ "$SETUP_LOGIN_STYLE" = classic ]; then
+        SETUP_LOGIN_MESSAGE=$(choose_text "Login message" "What should the line above the fields say?" "$SETUP_LOGIN_MESSAGE" \
+            "Type a user name and password to log on." "Welcome. Please log on.")
+        SETUP_LOGIN_ICON=$(choose_image "Login picture" "Which picture should sit beside the fields?" "$SETUP_LOGIN_ICON" \
+            "keys|Keys" "padlock|Padlock")
+        SETUP_SPLASH_IMAGE=$(choose_image "Loading screen picture" "Which picture should fill the screen while Plasma loads?" \
+            "$SETUP_SPLASH_IMAGE" "classic|Chicago95 picture")
+    else
+        SETUP_LOGIN_LOGO=$(choose_image "Login and loading logo" "Which logo should the login and loading screens show?" "$SETUP_LOGIN_LOGO" \
+            "start|Same as the Start button" "flag|Classic flag" "penguin|Penguin")
+        SETUP_EDITION=$(choose_text "Edition" "Which edition should follow the name?" "$SETUP_EDITION" \
+            "Professional" "Home Edition" "Workstation")
+        SETUP_TAGLINE=$(choose_text "Tagline" "What should the small line in the login banner say?" "$SETUP_TAGLINE" \
+            "Built on Linux Technology" "Built on KDE Plasma")
+        SETUP_LOADING_TEXT=$(choose_text "Loading text" "What should stand beside the progress bar?" "$SETUP_LOADING_TEXT" \
+            "Starting up..." "Loading Plasma...")
+        SETUP_LOADING_FOOTER=$(choose_text "Loading screen footer" "What should the bottom line of the loading screen say?" \
+            "$SETUP_LOADING_FOOTER" "Chicago95 for KDE Plasma" "Welcome to %h")
     fi
     return 0
 }
 
 # A look is four colour settings; each is one #RRGGBB, or two separated by a comma for a gradient.
+# A look: menu style, title bars, Start menu banner and, for 2000, the warm grey face. Colours are
+# #RRGGBB, two separated by a comma for a gradient; banner stops with @N sit N pixels above its bottom.
+# The 1998 and 2000 banners are measured from the originals (tests/test_startmenu_styles_reference.py).
 apply_look() {
+    SETUP_MENU_STYLE=1995; SETUP_FACE=""; SETUP_SELECTION=""; SETUP_ICONS=${OPT_ICONS:-chicago95}
     case "$1" in
         1995) set -- "#000080;#808080;#808080;#C0C0C0";;
-        1998) set -- "#000080,#1084D0;#808080,#C0C0C0;#000000,#1084D0;#FFFFFF";;
+        1998) SETUP_MENU_STYLE=1998; SETUP_ICONS=${OPT_ICONS:-se98}
+              set -- "#000080,#1084D0;#808080,#C0C0C0;#00007B,#00007B@95,#0000B0@70,#0000F8@45,#0000EE@20,#0000A9@0;#FFFFFF";;
+        2000) SETUP_MENU_STYLE=2000; SETUP_FACE="212,208,200"; SETUP_SELECTION="10,36,106"; SETUP_ICONS=${OPT_ICONS:-classicos2000}
+              set -- "#0A246A,#A6CAF0;#808080,#C0C0C0;#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0;#FFFFFF";;
     esac
     IFS=';' read -r SETUP_TITLE_ACTIVE SETUP_TITLE_INACTIVE SETUP_BANNER_BG SETUP_BANNER_FG <<<"$1"
 }
@@ -134,11 +167,13 @@ choose_look() {
     local choice
     choice=$(ui_choose "Look" "How should title bars and the Start menu banner look?" 1 \
         "1995: solid navy title bars, grey banner" \
-        "1998: navy-to-blue title bars, black-to-blue banner" \
+        "1998: navy-to-blue title bars, navy banner with a blue glow, taller menu rows" \
+        "2000: warm grey windows, navy-to-light-blue title bars, black-to-blue banner" \
         "Your own colours")
     case "$choice" in
         2) apply_look 1998;;
-        3) ui_card "Your own colours" "Type a colour as #RRGGBB, or two separated by a comma for a gradient" \
+        3) apply_look 2000;;
+        4) ui_card "Your own colours" "Type a colour as #RRGGBB, or two separated by a comma for a gradient" \
                "(left to right on title bars, top to bottom on the banner). ENTER keeps the shown value." >/dev/tty
            SETUP_TITLE_ACTIVE=$(ask_colors "Active title bar" "$SETUP_TITLE_ACTIVE")
            SETUP_TITLE_INACTIVE=$(ask_colors "Inactive title bar" "$SETUP_TITLE_INACTIVE")
@@ -334,6 +369,11 @@ SETUP_BANNER_TEXT=${OPT_BANNER_TEXT:-Chicago95}
 [[ " $COMPONENTS " == *" startmenu "* || " $COMPONENTS " == *" taskbar "* ]] && choose_start_menu
 SETUP_LOGIN_STYLE=${OPT_LOGIN_STYLE:-classic}
 [[ " $COMPONENTS " == *" sddm "* || " $COMPONENTS " == *" splash "* ]] && [ -z "${OPT_LOGIN_STYLE:-}" ] && choose_login_style
+SETUP_LOGIN_TITLE="Log On to %h"; SETUP_LOGIN_MESSAGE="Type a user name and password to log on."
+SETUP_LOGIN_ICON=keys; SETUP_LOGIN_LOGO=start; SETUP_SPLASH_IMAGE=classic
+SETUP_EDITION=Professional; SETUP_TAGLINE="Built on Linux Technology"
+SETUP_LOADING_TEXT="Starting up..."; SETUP_LOADING_FOOTER="Chicago95 for KDE Plasma"
+[[ " $COMPONENTS " == *" sddm "* || " $COMPONENTS " == *" splash "* ]] && choose_branding
 SETUP_SAVER=${OPT_SAVER:-deepstars}
 [[ " $COMPONENTS " == *" screensaver "* ]] && [ "$py_ok" = 1 ] && choose_screensaver
 SETUP_DPI=$(awk -v s="$SETUP_SCALE" 'BEGIN{printf "%d", 96*s + 0.5}')
