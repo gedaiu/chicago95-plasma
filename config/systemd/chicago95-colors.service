@@ -1,0 +1,6 @@
+[Unit]
+Description=Redraw the Chicago95 window decoration in the colour scheme's title bar colours
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/.local/bin/chicago95-sync-colors

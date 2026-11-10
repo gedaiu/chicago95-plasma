@@ -10,6 +10,7 @@
 #     --screen=2560x1440@1.5  --panel=28  --explorer=thunar|dolphin  --saver=maze
 #     --idle=5  --cursor=48  --clippy=yes|no  --font="MS W98 UI"  --font-scope=everywhere|desktop|none
 #     --start-text=Start  --start-logo=flag|penguin|/path/to/image  --banner-text=Chicago95
+#     --look=1995|1998|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -35,6 +36,7 @@ for arg in "$@"; do
         --start-text=*) OPT_START_TEXT="${arg#*=}";;
         --start-logo=*) OPT_START_LOGO="${arg#*=}";;
         --banner-text=*) OPT_BANNER_TEXT="${arg#*=}";;
+        --look=*) OPT_LOOK="${arg#*=}";;
         --help|-h) sed -n '2,12p' "$0"; exit 0;;
         *) [ -z "$WANTED" ] && [[ "$arg" != --* ]] && WANTED="$arg";;
     esac
@@ -106,6 +108,41 @@ choose_start_menu() {
             3) SETUP_BANNER_TEXT=$(ui_ask "Banner text" "$SETUP_BANNER_TEXT");;
         esac
     fi
+    return 0
+}
+
+# A look is four colour settings; each is one #RRGGBB, or two separated by a comma for a gradient.
+apply_look() {
+    case "$1" in
+        1995) set -- "#000080;#808080;#808080;#C0C0C0";;
+        1998) set -- "#000080,#1084D0;#808080,#C0C0C0;#000000,#1084D0;#FFFFFF";;
+    esac
+    IFS=';' read -r SETUP_TITLE_ACTIVE SETUP_TITLE_INACTIVE SETUP_BANNER_BG SETUP_BANNER_FG <<<"$1"
+}
+
+valid_colors() { [[ "$1" =~ ^#[0-9A-Fa-f]{6}(,#[0-9A-Fa-f]{6})?$ ]]; }
+
+ask_colors() {      # ask_colors <prompt> <current>   repeats until the answer is one or two #RRGGBB colours
+    local answer
+    until valid_colors "${answer:-}"; do answer=$(ui_ask "$1" "$2"); done
+    printf '%s' "$answer"
+}
+
+choose_look() {
+    local choice
+    choice=$(ui_choose "Look" "How should title bars and the Start menu banner look?" 1 \
+        "1995: solid navy title bars, grey banner" \
+        "1998: navy-to-blue title bars, black-to-blue banner" \
+        "Your own colours")
+    case "$choice" in
+        2) apply_look 1998;;
+        3) ui_card "Your own colours" "Type a colour as #RRGGBB, or two separated by a comma for a gradient" \
+               "(left to right on title bars, top to bottom on the banner). ENTER keeps the shown value." >/dev/tty
+           SETUP_TITLE_ACTIVE=$(ask_colors "Active title bar" "$SETUP_TITLE_ACTIVE")
+           SETUP_TITLE_INACTIVE=$(ask_colors "Inactive title bar" "$SETUP_TITLE_INACTIVE")
+           SETUP_BANNER_BG=$(ask_colors "Start menu banner background" "$SETUP_BANNER_BG")
+           SETUP_BANNER_FG=$(ask_colors "Start menu banner text" "$SETUP_BANNER_FG");;
+    esac
     return 0
 }
 
@@ -252,6 +289,8 @@ done < <(ui_pick_options \
     "font|UI font family|${OPT_FONT:-MS W98 UI}")
 SETUP_FONT_SCOPE=${OPT_FONT_SCOPE:-everywhere}
 [ -n "${OPT_FONT_SCOPE:-}" ] || choose_font_scope
+apply_look "${OPT_LOOK:-1995}"
+[ -n "${OPT_LOOK:-}" ] || choose_look
 SETUP_START_TEXT=${OPT_START_TEXT:-Start}
 SETUP_START_LOGO=${OPT_START_LOGO:-flag}
 SETUP_BANNER_TEXT=${OPT_BANNER_TEXT:-Chicago95}

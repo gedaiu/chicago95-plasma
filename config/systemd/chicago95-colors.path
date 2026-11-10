@@ -1,0 +1,8 @@
+[Unit]
+Description=Watch the colour scheme for Chicago95 title bar changes
+
+[Path]
+PathChanged=%h/.config/kdeglobals
+
+[Install]
+WantedBy=default.target

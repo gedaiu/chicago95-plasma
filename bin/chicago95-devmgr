@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, sys; sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95")); import chicago95ui  # noqa: E702
+import os, sys; sys.path[:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"), os.path.expanduser("~/.local/lib/chicago95")]; import chicago95ui  # noqa: E702
 
 import json
 import re

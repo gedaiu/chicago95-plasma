@@ -119,7 +119,13 @@ Rectangle {
             x: 3; y: 3
             width: parent.width - 6
             height: 18
-            color: "#000080"
+            // Setup writes the user's title colours to theme.conf.user: one colour, or start,end.
+            readonly property var colors: String(config.titleActive || "#000080").split(",")
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0; color: titleBar.colors[0] }
+                GradientStop { position: 1; color: titleBar.colors[titleBar.colors.length - 1] }
+            }
             RetroLabel {
                 x: 4
                 anchors.verticalCenter: parent.verticalCenter

@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasma5support as Plasma5Support
+import org.kde.kirigami as Kirigami
 
 // Start button drawn from its settings (text and logo, chosen in Setup or in Configure),
 // with the classic two-pixel raised bevel that presses in while held.
@@ -19,6 +20,14 @@ PlasmoidItem {
                                     : logo === "penguin" ? Qt.resolvedUrl("../images/logo-penguin.png")
                                     : logo !== "" ? "file://" + logo : ""
     readonly property bool held: clickArea.pressed && clickArea.containsMouse
+
+    // Colours from the colour scheme (System Settings > Colors); light and shadow derive from the face
+    // the way #DFDFDF and #808080 derive from #C0C0C0.
+    Kirigami.Theme.colorSet: Kirigami.Theme.Button
+    Kirigami.Theme.inherit: false
+    readonly property color face: Kirigami.Theme.backgroundColor
+    readonly property color light: Qt.rgba((face.r + 1) / 2, (face.g + 1) / 2, (face.b + 1) / 2, 1)
+    readonly property color shadow: Qt.rgba(face.r * 2 / 3, face.g * 2 / 3, face.b * 2 / 3, 1)
 
     readonly property int topInset: 2
     readonly property int padding: 4
@@ -51,16 +60,16 @@ PlasmoidItem {
         anchors.fill: parent
         anchors.topMargin: root.topInset
 
-        Rectangle { anchors.fill: parent; color: "#c0c0c0" }
+        Rectangle { anchors.fill: parent; color: root.face }
         // Outer ring: white/black raised, black/white held; inner ring: light/shadow raised, shadow/light held.
         Rectangle { x: 0; y: 0; width: parent.width - 1; height: 1; color: root.held ? "#000000" : "#ffffff" }
         Rectangle { x: 0; y: 0; width: 1; height: parent.height - 1; color: root.held ? "#000000" : "#ffffff" }
         Rectangle { x: 0; y: parent.height - 1; width: parent.width; height: 1; color: root.held ? "#ffffff" : "#000000" }
         Rectangle { x: parent.width - 1; y: 0; width: 1; height: parent.height; color: root.held ? "#ffffff" : "#000000" }
-        Rectangle { x: 1; y: 1; width: parent.width - 3; height: 1; color: root.held ? "#808080" : "#dfdfdf" }
-        Rectangle { x: 1; y: 1; width: 1; height: parent.height - 3; color: root.held ? "#808080" : "#dfdfdf" }
-        Rectangle { x: 1; y: parent.height - 2; width: parent.width - 2; height: 1; color: root.held ? "#dfdfdf" : "#808080" }
-        Rectangle { x: parent.width - 2; y: 1; width: 1; height: parent.height - 2; color: root.held ? "#dfdfdf" : "#808080" }
+        Rectangle { x: 1; y: 1; width: parent.width - 3; height: 1; color: root.held ? root.shadow : root.light }
+        Rectangle { x: 1; y: 1; width: 1; height: parent.height - 3; color: root.held ? root.shadow : root.light }
+        Rectangle { x: 1; y: parent.height - 2; width: parent.width - 2; height: 1; color: root.held ? root.light : root.shadow }
+        Rectangle { x: parent.width - 2; y: 1; width: 1; height: parent.height - 2; color: root.held ? root.light : root.shadow }
 
         RowLayout {
             id: content
@@ -86,7 +95,7 @@ PlasmoidItem {
                 font.family: "MS W98 UI"
                 font.bold: true
                 font.pixelSize: 11
-                color: "#000000"
+                color: Kirigami.Theme.textColor
                 // Plasma draws text natively, with RGB subpixel fringes; the pixel font wants plain grey edges.
                 renderType: Text.QtRendering
             }

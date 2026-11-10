@@ -17,11 +17,21 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 
-def banner_text(settings_file=None):
-    """The side banner's text, chosen in Setup ([StartMenu] bannerText in ~/.config/chicago95rc)."""
+DEFAULT_BANNER = {"bannerText": "Chicago95", "bannerBackground": "#808080", "bannerTextColor": "#C0C0C0"}
+
+
+def banner_settings(settings_file=None):
+    """Banner text and colours chosen in Setup ([StartMenu] in ~/.config/chicago95rc).
+
+    bannerBackground is one colour, or top,bottom for a vertical gradient."""
     settings = configparser.ConfigParser(interpolation=None)
     settings.read(settings_file or SETTINGS_FILE)
-    return settings.get("StartMenu", "bannerText", fallback=DEFAULT_BANNER_TEXT)
+    return {key: settings.get("StartMenu", key, fallback=default) for key, default in DEFAULT_BANNER.items()}
+
+
+def banner_parts(text):
+    """'Windows 2000 Professional' -> words bold, numbers thin, as the classic banners set them."""
+    return [(part, not part.strip().isdigit()) for part in re.findall(r"\s*\d+|\s*[^\d]+", text)]
 
 
 def detect_scale():
@@ -45,11 +55,11 @@ UI_SCALE = 1.0
 os.environ.setdefault("QT_STYLE_OVERRIDE", "Windows")
 # Scale comes from the X server DPI (Xft.dpi 144); a QT_SCALE_FACTOR here would stack on it.
 os.environ.pop("QT_QPA_PLATFORMTHEME", None)
-sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95"))
+sys.path[:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"), os.path.expanduser("~/.local/lib/chicago95")]
 import chicago95ui  # noqa: E402  after the environment above, so its defaults do not override it
 
 from PySide6.QtCore import QEasingCurve, QEvent, QPoint, QPropertyAnimation, QRect, QSize, Qt, QTimer  # noqa: E402
-from PySide6.QtGui import QAction, QColor, QFont, QFontDatabase, QIcon, QKeyEvent, QPainter, QPalette  # noqa: E402
+from PySide6.QtGui import QAction, QColor, QFont, QFontDatabase, QIcon, QKeyEvent, QLinearGradient, QPainter, QPalette  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMenu, QProxyStyle, QStyle, QStyleOptionMenuItem, QWidget  # noqa: E402
 
 RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
@@ -57,9 +67,7 @@ PID_FILE = RUNTIME_DIR / "chicago95-startmenu.pid"
 CACHE_FILE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "chicago95-startmenu.json"
 BANNER_WIDTH = round(21 * UI_SCALE)
 SETTINGS_FILE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "chicago95rc"
-DEFAULT_BANNER_TEXT = "Chicago95"
 ITEM_LEFT_PAD = round(6 * UI_SCALE)
-FACE, NAVY, LIGHT, SHADOW = QColor("#C0C0C0"), QColor("#000080"), QColor("#DFDFDF"), QColor("#808080")
 ROOT_ICON, SUB_ICON, ARROW = round(16 * UI_SCALE), round(16 * UI_SCALE), round(7 * UI_SCALE)
 
 CATEGORY_FOLDERS = [
@@ -215,8 +223,7 @@ class RetroMenu(QMenu):
 
     def __init__(self, title="", parent=None, banner=False):
         super().__init__(title, parent)
-        self.banner = banner
-        self.banner_text = banner_text() if banner else ""
+        self.banner = banner_settings() if banner else None  # also answers "is this the root menu?"
         self.setContentsMargins(BANNER_WIDTH + 2 if banner else 0, 2 if banner else 0, 2 if banner else 0, 2 if banner else 0)
         self._slide = None
         # Stay a real popup for KWin so it draws no decoration or shadow around the menu.
@@ -231,7 +238,8 @@ class RetroMenu(QMenu):
     def showEvent(self, event):
         super().showEvent(event)
         if self.banner:
-            self.banner_text = banner_text()  # read on every open, so a new choice in Setup shows without a restart
+            self.banner = banner_settings()  # read on every open, so a new choice in Setup shows without a restart
+            QApplication.instance().setPalette(chicago95ui.retro_palette(chicago95ui.read_scheme()))  # and System Settings colours
             return  # Wayland top-levels cannot be moved by the client; KWin places the root menu.
         final = self.pos()
         offset = QPoint(0, self.height()) if self.banner else QPoint(-self.width(), 0)
@@ -249,20 +257,28 @@ class RetroMenu(QMenu):
             return
         painter = QPainter(self)
         w, h = self.width(), self.height()
-        painter.fillRect(0, 0, w, 1, LIGHT); painter.fillRect(0, 0, 1, h, LIGHT)
+        light, shadow = self.palette().color(QPalette.Midlight), self.palette().color(QPalette.Mid)
+        painter.fillRect(0, 0, w, 1, light); painter.fillRect(0, 0, 1, h, light)
         painter.fillRect(1, 1, w - 2, 1, Qt.white); painter.fillRect(1, 1, 1, h - 2, Qt.white)
         painter.fillRect(0, h - 1, w, 1, Qt.black); painter.fillRect(w - 1, 0, 1, h, Qt.black)
-        painter.fillRect(1, h - 2, w - 2, 1, SHADOW); painter.fillRect(w - 2, 1, 1, h - 2, SHADOW)
+        painter.fillRect(1, h - 2, w - 2, 1, shadow); painter.fillRect(w - 2, 1, 1, h - 2, shadow)
         strip = QRect(2, 2, BANNER_WIDTH, self.height() - 4)
-        painter.fillRect(strip, NAVY)
-        painter.setPen(Qt.white)
-        banner_font = QFont(self.font())
-        banner_font.setPixelSize(round(16 * UI_SCALE))
-        banner_font.setBold(True)
-        painter.setFont(banner_font)
+        colors = [QColor(color.strip()) for color in self.banner["bannerBackground"].split(",")]
+        fill = QLinearGradient(0, strip.top(), 0, strip.bottom())
+        for index, color in enumerate(colors):
+            fill.setColorAt(index / max(1, len(colors) - 1), color)
+        painter.fillRect(strip, fill)
+        painter.setPen(QColor(self.banner["bannerTextColor"]))
         painter.translate(strip.left(), strip.bottom())
         painter.rotate(-90)
-        painter.drawText(QRect(0, 0, strip.height(), strip.width()), Qt.AlignLeft | Qt.AlignVCenter, " " + self.banner_text)
+        x = round(4 * UI_SCALE)
+        for text, bold in banner_parts(self.banner["bannerText"]):
+            banner_font = QFont(self.font())
+            banner_font.setPixelSize(round(18 * UI_SCALE))
+            banner_font.setBold(bold)
+            painter.setFont(banner_font)
+            painter.drawText(QRect(x, 0, strip.height() - x, strip.width()), Qt.AlignLeft | Qt.AlignVCenter, text)
+            x += painter.fontMetrics().horizontalAdvance(text)
         painter.end()
 
 
@@ -400,24 +416,7 @@ def apply_retro_look(app):
     app.setStyle(RetroMenuStyle("Windows"))
     # The KDE platform theme can switch menu icons off session-wide; classic menus always show them.
     app.setAttribute(Qt.AA_DontShowIconsInMenus, False)
-    palette = QPalette()
-    for group in (QPalette.Active, QPalette.Inactive, QPalette.Disabled):
-        palette.setColor(group, QPalette.Window, FACE)
-        palette.setColor(group, QPalette.Button, FACE)
-        palette.setColor(group, QPalette.Base, Qt.white)
-        palette.setColor(group, QPalette.Text, Qt.black)
-        palette.setColor(group, QPalette.WindowText, Qt.black)
-        palette.setColor(group, QPalette.ButtonText, Qt.black)
-        palette.setColor(group, QPalette.Highlight, NAVY)
-        palette.setColor(group, QPalette.HighlightedText, Qt.white)
-        palette.setColor(group, QPalette.Light, Qt.white)
-        palette.setColor(group, QPalette.Midlight, LIGHT)
-        palette.setColor(group, QPalette.Dark, SHADOW)
-        palette.setColor(group, QPalette.Mid, SHADOW)
-        palette.setColor(group, QPalette.Shadow, Qt.black)
-    palette.setColor(QPalette.Disabled, QPalette.Text, SHADOW)
-    palette.setColor(QPalette.Disabled, QPalette.WindowText, SHADOW)
-    app.setPalette(palette)
+    app.setPalette(chicago95ui.retro_palette(chicago95ui.read_scheme()))
     family = "MS W98 UI" if "MS W98 UI" in QFontDatabase.families() else "Noto Sans"
     # classic menus use an 11px face regardless of DPI; a point size would grow with Xft.dpi 144.
     menu_font = QFont(family)

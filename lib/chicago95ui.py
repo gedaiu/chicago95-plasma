@@ -4,6 +4,7 @@ Import this before any other PySide6 import: it pins the platform to XWayland,
 forces the Windows style and reads the Plasma scale so dialogs render sharp.
 Every tool then calls make_app() instead of QApplication() directly.
 """
+import configparser
 import os
 import re
 import signal
@@ -40,7 +41,42 @@ from PySide6.QtCore import Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPalette  # noqa: E402
 from PySide6.QtWidgets import QApplication, QFrame  # noqa: E402
 
-FACE, NAVY, LIGHT, SHADOW = QColor("#C0C0C0"), QColor("#000080"), QColor("#DFDFDF"), QColor("#808080")
+KDEGLOBALS = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "kdeglobals")
+
+# The colour scheme (System Settings > Colors) is the single source of these colours; the values
+# here are the 1995 defaults for when a key is missing.
+SCHEME_DEFAULTS = {
+    "face": ("Colors:Window", "BackgroundNormal", "192,192,192"),
+    "selection": ("Colors:Selection", "BackgroundNormal", "0,0,128"),
+    "selection_text": ("Colors:Selection", "ForegroundNormal", "255,255,255"),
+    "title_active": ("WM", "activeBackground", "0,0,128"),
+    "title_active_blend": ("WM", "activeBlend", "0,0,128"),
+    "title_active_text": ("WM", "activeForeground", "255,255,255"),
+    "title_inactive": ("WM", "inactiveBackground", "128,128,128"),
+    "title_inactive_blend": ("WM", "inactiveBlend", "128,128,128"),
+    "title_inactive_text": ("WM", "inactiveForeground", "192,192,192"),
+}
+
+
+def read_scheme(path=None):
+    """The colour scheme's colours as QColors, keyed as in SCHEME_DEFAULTS."""
+    settings = configparser.ConfigParser(interpolation=None, strict=False)
+    settings.optionxform = str
+    settings.read(path or KDEGLOBALS)
+    return {name: QColor(*(int(part) for part in settings.get(group, key, fallback=default).split(",")[:3]))
+            for name, (group, key, default) in SCHEME_DEFAULTS.items()}
+
+
+def bevel_shades(face):
+    """(light, shadow) for a face colour: halfway to white and two thirds of the face, as #DFDFDF and #808080 are for #C0C0C0."""
+    light = QColor((face.red() + 255) // 2, (face.green() + 255) // 2, (face.blue() + 255) // 2)
+    shadow = QColor(face.red() * 2 // 3, face.green() * 2 // 3, face.blue() * 2 // 3)
+    return light, shadow
+
+
+SCHEME = read_scheme()
+FACE, NAVY = SCHEME["face"], SCHEME["selection"]
+LIGHT, SHADOW = bevel_shades(FACE)
 TEAL = QColor("#008080")
 UI_FONT_FAMILY = "MS W98 UI"
 ICON_SEARCH_PATHS = [
@@ -62,24 +98,28 @@ def quit_on_signals(app, *signal_numbers):
     return wakeup
 
 
-def retro_palette():
+def retro_palette(scheme=None):
+    """A Qt palette from the colour scheme; pass read_scheme() again to pick up a change made in System Settings."""
+    scheme = scheme or SCHEME
+    face, selection = scheme["face"], scheme["selection"]
+    light, shadow = bevel_shades(face)
     palette = QPalette()
     for group in (QPalette.Active, QPalette.Inactive, QPalette.Disabled):
-        palette.setColor(group, QPalette.Window, FACE)
-        palette.setColor(group, QPalette.Button, FACE)
+        palette.setColor(group, QPalette.Window, face)
+        palette.setColor(group, QPalette.Button, face)
         palette.setColor(group, QPalette.Base, Qt.white)
         palette.setColor(group, QPalette.Text, Qt.black)
         palette.setColor(group, QPalette.WindowText, Qt.black)
         palette.setColor(group, QPalette.ButtonText, Qt.black)
-        palette.setColor(group, QPalette.Highlight, NAVY)
-        palette.setColor(group, QPalette.HighlightedText, Qt.white)
+        palette.setColor(group, QPalette.Highlight, selection)
+        palette.setColor(group, QPalette.HighlightedText, scheme["selection_text"])
         palette.setColor(group, QPalette.Light, Qt.white)
-        palette.setColor(group, QPalette.Midlight, LIGHT)
-        palette.setColor(group, QPalette.Dark, SHADOW)
-        palette.setColor(group, QPalette.Mid, SHADOW)
+        palette.setColor(group, QPalette.Midlight, light)
+        palette.setColor(group, QPalette.Dark, shadow)
+        palette.setColor(group, QPalette.Mid, shadow)
         palette.setColor(group, QPalette.Shadow, Qt.black)
-    palette.setColor(QPalette.Disabled, QPalette.Text, SHADOW)
-    palette.setColor(QPalette.Disabled, QPalette.WindowText, SHADOW)
+    palette.setColor(QPalette.Disabled, QPalette.Text, shadow)
+    palette.setColor(QPalette.Disabled, QPalette.WindowText, shadow)
     return palette
 
 

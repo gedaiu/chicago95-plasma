@@ -18,14 +18,14 @@ from pathlib import Path
 from urllib.parse import unquote
 
 # Scale now comes from the X server DPI; neither this daemon nor chicago95ui forces QT_SCALE_FACTOR.
-sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95"))
+sys.path[:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"), os.path.expanduser("~/.local/lib/chicago95")]
 import chicago95ui  # noqa: E402  must precede the other PySide6 imports
 
 import dbus  # noqa: E402
 import dbus.service  # noqa: E402
 from dbus.mainloop.glib import DBusGMainLoop  # noqa: E402
 from PySide6.QtCore import QEasingCurve, QObject, QPoint, QPropertyAnimation, QSize, Qt, QTimer, Signal  # noqa: E402
-from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QPainter, QPalette, QPixmap  # noqa: E402
+from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QLinearGradient, QPainter, QPalette, QPixmap  # noqa: E402
 from PySide6.QtWidgets import QAbstractButton, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget  # noqa: E402
 
 SERVICE_NAME = "org.freedesktop.Notifications"
@@ -261,9 +261,6 @@ class TitleBar(QWidget):
         self.icon_label.setFixedSize(16, 16)
         self.title_label = QLabel()
         self.title_label.setFont(chicago95ui.ui_font(9, bold=True))
-        title_palette = self.title_label.palette()
-        title_palette.setColor(QPalette.WindowText, WHITE)
-        self.title_label.setPalette(title_palette)
         self.close_button = CloseButton()
         layout = QHBoxLayout(self)
         layout.setContentsMargins(2, 1, 2, 1)
@@ -273,12 +270,21 @@ class TitleBar(QWidget):
         layout.addWidget(self.close_button)
 
     def set_content(self, pixmap, title):
+        # Read per popup: the daemon runs all session, and the colours can change in System Settings.
+        self.scheme = chicago95ui.read_scheme()
+        title_palette = self.title_label.palette()
+        title_palette.setColor(QPalette.WindowText, self.scheme["title_active_text"])
+        self.title_label.setPalette(title_palette)
         self.icon_label.setPixmap(pixmap or QPixmap())
         available = POPUP_WIDTH - 60
         self.title_label.setText(self.title_label.fontMetrics().elidedText(title, Qt.ElideRight, available))
 
     def paintEvent(self, _event):
-        QPainter(self).fillRect(self.rect(), chicago95ui.NAVY)
+        scheme = getattr(self, "scheme", chicago95ui.SCHEME)
+        fill = QLinearGradient(0, 0, self.width(), 0)
+        fill.setColorAt(0, scheme["title_active"])
+        fill.setColorAt(1, scheme["title_active_blend"])
+        QPainter(self).fillRect(self.rect(), fill)
 
 
 class NotificationPopup(QWidget):

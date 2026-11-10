@@ -114,6 +114,26 @@ step_base() {
     pkill -HUP xsettingsd 2>/dev/null || true
 }
 
+rgb() { printf '%d,%d,%d' "0x${1:1:2}" "0x${1:3:2}" "0x${1:5:2}"; }
+
+# The colour scheme holds the title colours; System Settings > Colors can change them later, and
+# chicago95-colors.path redraws the decoration whenever it does.
+apply_title_colors() {
+    local active="${SETUP_TITLE_ACTIVE:-#000080}" inactive="${SETUP_TITLE_INACTIVE:-#808080}"
+    kconf kdeglobals WM activeBackground "$(rgb "${active%%,*}")"
+    kconf kdeglobals WM activeBlend "$(rgb "${active##*,}")"
+    kconf kdeglobals WM inactiveBackground "$(rgb "${inactive%%,*}")"
+    kconf kdeglobals WM inactiveBlend "$(rgb "${inactive##*,}")"
+    step_tools_common
+    put_file "$REPO/bin/chicago95-sync-colors" ~/.local/bin/chicago95-sync-colors; run chmod +x ~/.local/bin/chicago95-sync-colors
+    put_file "$REPO/config/systemd/chicago95-colors.path" ~/.config/systemd/user/chicago95-colors.path
+    put_file "$REPO/config/systemd/chicago95-colors.service" ~/.config/systemd/user/chicago95-colors.service
+    run systemctl --user daemon-reload
+    run systemctl --user enable --now chicago95-colors.path >>"$SETUP_LOG" 2>&1
+    run python3 ~/.local/bin/chicago95-sync-colors --force >>"$SETUP_LOG"
+    show_copy "(title bars: active $active, inactive $inactive)" ~/.local/share/aurorae/themes/Chicago95/decoration.svg
+}
+
 step_look() {       # decoration, Plasma style, colours, widget style, DPI
     put_tree "$REPO/aurorae/theme" ~/.local/share/aurorae/themes/Chicago95
     for extra in bevel.py make_chicago95_aurorae.py start-button.png start-button-pressed.png; do put_file "$REPO/aurorae/$extra" ~/.local/share/aurorae/themes/Chicago95/$extra; done
@@ -126,6 +146,7 @@ step_look() {       # decoration, Plasma style, colours, widget style, DPI
     kconf kwinrc org.kde.kdecoration2 theme __aurorae__svg__Chicago95
     kconf kwinrc org.kde.kdecoration2 BorderSize Normal
     run plasma-apply-colorscheme Chicago95 >>"$SETUP_LOG" 2>&1 || true
+    apply_title_colors
     run plasma-apply-desktoptheme Chicago95 >>"$SETUP_LOG" 2>&1 || true
     if [ "$SETUP_SCALE" != 1 ]; then
         backup ~/.Xresources
@@ -178,8 +199,10 @@ step_startmenu() {
     put_file "$logo_source" "$START_LOGO_FILE"
     SETUP_START_LOGO=$START_LOGO_FILE
     run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerText "${SETUP_BANNER_TEXT:-Chicago95}"
+    run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerBackground "${SETUP_BANNER_BG:-#808080}"
+    run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerTextColor "${SETUP_BANNER_FG:-#C0C0C0}"
     record ~/.config/chicago95rc
-    show_copy "(Start menu banner: ${SETUP_BANNER_TEXT:-Chicago95})" ~/.config/chicago95rc
+    show_copy "(Start menu banner: ${SETUP_BANNER_TEXT:-Chicago95}, ${SETUP_BANNER_BG:-#808080} / ${SETUP_BANNER_FG:-#C0C0C0})" ~/.config/chicago95rc
 }
 
 step_notifications() {
@@ -297,6 +320,7 @@ SDDM_OVERRIDE=/etc/sddm.conf.d/zz-chicago95.conf
 step_sddm() {       # login screen; system files, so it asks for the administrator password first
     local commands=("sudo mkdir -p $SDDM_THEME_DIR" "sudo cp -r $SDDM_THEME_SRC/. $SDDM_THEME_DIR/")
     [ -f "$SDDM_FONT" ] && commands+=("sudo cp $SDDM_FONT $SDDM_THEME_DIR/")
+    commands+=("sudo tee $SDDM_THEME_DIR/theme.conf   (writes your title bar colours)")
     commands+=("sudo tee $SDDM_OVERRIDE   (writes: [Theme] Current=Chicago95Plasma)")
     if ! ui_sudo "To change the login screen, Setup must write to a system folder." "${commands[@]}"; then
         ui_message "Login screen not changed" "No administrator password was accepted, so Setup skipped the login screen." \
@@ -307,6 +331,11 @@ step_sddm() {       # login screen; system files, so it asks for the administrat
     local file
     while IFS= read -r file; do show_copy "$file" "$SDDM_THEME_DIR/${file#"$SDDM_THEME_SRC"/}"; done < <(find "$SDDM_THEME_SRC" -type f | sort)
     if [ -f "$SDDM_FONT" ]; then run sudo cp "$SDDM_FONT" "$SDDM_THEME_DIR/"; show_copy "$SDDM_FONT" "$SDDM_THEME_DIR/$(basename "$SDDM_FONT")"; fi
+    # theme.conf itself, not theme.conf.user: Setup owns this theme, and the greeter's test mode ignores .user.
+    local theme_conf
+    theme_conf="$(sed "s/^titleActive=.*/titleActive=${SETUP_TITLE_ACTIVE:-#000080}/" "$SDDM_THEME_SRC/theme.conf")"
+    if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run sudo tee "$SDDM_THEME_DIR/theme.conf"; else printf '%s\n' "$theme_conf" | sudo tee "$SDDM_THEME_DIR/theme.conf" >/dev/null; fi
+    show_copy "(title bars: ${SETUP_TITLE_ACTIVE:-#000080})" "$SDDM_THEME_DIR/theme.conf"
     if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run sudo tee "$SDDM_OVERRIDE"; else printf '[Theme]\nCurrent=Chicago95Plasma\n' | sudo tee "$SDDM_OVERRIDE" >/dev/null; fi
     record "root:$SDDM_OVERRIDE"
     record "root-dir:$SDDM_THEME_DIR"

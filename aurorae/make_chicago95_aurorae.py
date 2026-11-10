@@ -1,11 +1,26 @@
+"""Builds the Chicago95 window decoration (Aurorae SVG theme).
+
+    make_chicago95_aurorae.py [--out DIR] [--active "#000080,#1084D0"] [--inactive "#808080,#C0C0C0"]
+
+A title colour is one colour (solid, like the 1995 desktop) or two separated by a comma
+(a left-to-right gradient, like 1998). Setup runs this with the colours the user picked.
+"""
+import argparse
 from pathlib import Path
 
 from bevel import DARK, FACE, HILIGHT, LIGHT, RAISED_4, SHADOW, rect, ring_color, run_length_rows, svg
 
-OUT = Path.home() / ".local/share/aurorae/themes/Chicago95"
+parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+parser.add_argument("--out", type=Path, default=Path.home() / ".local/share/aurorae/themes/Chicago95")
+parser.add_argument("--active", default="#000080", help="active title colour, or start,end for a gradient")
+parser.add_argument("--inactive", default="#808080", help="inactive title colour, or start,end for a gradient")
+args = parser.parse_args()
+
+OUT = args.out
 OUT.mkdir(parents=True, exist_ok=True)
 
-ACTIVE_TITLE, INACTIVE_TITLE = "#000080", "#808080"
+ACTIVE_TITLE, INACTIVE_TITLE = args.active.split(","), args.inactive.split(",")
+TITLE_FILL = "TITLE-FILL"
 BORDER, TITLE_H = 4, 21
 TOP_H = BORDER + TITLE_H
 BTN_W, BTN_H = 18, 16
@@ -13,18 +28,30 @@ GLYPH_OFF_X, GLYPH_OFF_Y = (BTN_W - 18) // 2, (BTN_H - 16) // 2
 FRAME = 64
 
 
-def frame_pieces(prefix, title_color, x0):
+def title_paint(prefix, colors):
+    """(defs, fill) for the title band: a plain colour, or a gradient across the band."""
+    if len(colors) == 1:
+        return "", colors[0]
+    gradient_id = f"{prefix}title-gradient"
+    stops = "".join(f'<stop offset="{index / (len(colors) - 1):g}" stop-color="{color}"/>' for index, color in enumerate(colors))
+    return (f'<defs><linearGradient id="{gradient_id}" x1="0" y1="0" x2="1" y2="0">{stops}</linearGradient></defs>',
+            f"url(#{gradient_id})")
+
+
+def frame_pieces(prefix, title_colors, x0):
+    defs, title_fill = title_paint(prefix, title_colors)
+
     def color(px, py):
         def interior(ix, iy):
-            return title_color if BORDER <= iy < TOP_H else FACE
+            return TITLE_FILL if BORDER <= iy < TOP_H else FACE
         return ring_color(px, py, FRAME, RAISED_4, interior)
 
     def piece(name, fx, fy, w, h):
         body = run_length_rows(x0 + fx, fy, w, h, lambda cx, cy: color(fx + cx, fy + cy))
-        return f'<g id="{prefix}{name}">{body}</g>'
+        return f'<g id="{prefix}{name}">{body.replace(TITLE_FILL, title_fill)}</g>'
 
     b, s = BORDER, FRAME
-    return "\n".join([
+    return defs + "\n".join([
         piece("topleft", 0, 0, b, TOP_H),
         piece("top", b, 0, s - 2 * b, TOP_H),
         piece("topright", s - b, 0, b, TOP_H),

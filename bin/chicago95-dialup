@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import sys
 
-sys.path.insert(0, os.path.expanduser("~/.local/lib/chicago95"))
+sys.path[:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"), os.path.expanduser("~/.local/lib/chicago95")]
 import chicago95ui  # noqa: E402  must precede the other PySide6 imports
 
 from PySide6.QtCore import QProcess, Qt, QTimer  # noqa: E402
