@@ -154,9 +154,9 @@ def launch(command):
     subprocess.Popen(command, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def logout_prompt(method):
-    launch(["gdbus", "call", "--session", "--dest", "org.kde.LogoutPrompt", "--object-path", "/LogoutPrompt",
-            "--method", f"org.kde.LogoutPrompt.{method}"])
+SHUTDOWN_TOOL = os.path.expanduser("~/.local/bin/chicago95-shutdown")
+LOG_OFF_COMMAND = [SHUTDOWN_TOOL, "--log-off"]
+SHUT_DOWN_COMMAND = [SHUTDOWN_TOOL]
 
 
 class Win95Style(QProxyStyle):
@@ -379,8 +379,8 @@ def build_root_menu():
     add_entry(root, "&Help", "help-browser", lambda: launch(["khelpcenter"]))
     add_entry(root, "&Run...", "system-run", lambda: launch(["krunner"]))
     root.addSeparator()
-    add_entry(root, "&Log Off...", "system-log-out", lambda: logout_prompt("promptLogout"))
-    add_entry(root, "Sh&ut Down...", "system-shutdown", lambda: launch([os.path.expanduser("~/.local/bin/chicago95-shutdown")]))
+    add_entry(root, "&Log Off...", "system-log-out", lambda: launch(LOG_OFF_COMMAND))
+    add_entry(root, "Sh&ut Down...", "system-shutdown", lambda: launch(SHUT_DOWN_COMMAND))
     return root
 
 

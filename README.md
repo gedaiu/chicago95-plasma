@@ -129,6 +129,12 @@ the tools pin 10 px, and X11 apps need `Xft.dpi: 144` in `~/.Xresources`
 and `forceFontDPI=144` in `~/.config/kcmfonts` with no `QT_SCALE_FACTOR`
 anywhere. At 1x or 2x the DPI section of the tutorial can be skipped.
 
+## Tests
+
+```
+python3 -m pytest tests
+```
+
 ## Credits
 
 Chicago95 by grassmunk and contributors (GPL-3.0) for the theme, icons,
