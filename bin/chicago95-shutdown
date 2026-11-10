@@ -8,8 +8,8 @@ import subprocess
 
 import re
 
-from PySide6.QtCore import QPointF, QRect, Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetrics, QFontMetricsF, QIcon, QLinearGradient, QPainter, QPalette, QPixmap
+from PySide6.QtCore import QPoint, QPointF, QRect, Qt, QTimer
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetrics, QFontMetricsF, QIcon, QImage, QLinearGradient, QPainter, QPalette, QPixmap
 from PySide6.QtWidgets import (
     QComboBox, QDialog, QHBoxLayout, QLabel, QPushButton, QRadioButton, QVBoxLayout, QWidget,
 )
@@ -226,7 +226,9 @@ class BrandBanner(QWidget):
     """The 2000 dialogs' banner: white, with the layered mark and the name, over a glowing strip.
 
     Positions and sizes are the original's, measured from tests/references/w2kshutdown.png
-    (tests/test_shutdown_reference.py); the lettering is the loading screen's scaled to fit."""
+    (tests/test_shutdown_reference.py); the lettering is the loading screen's scaled to fit. The login
+    banner (login=True, tests/test_login_reference.py) is taller, its content 1px right and 3px lower,
+    with the tagline under the edition."""
 
     # Sampled across the original's strip: dark teal at the ends, glowing light blue in the middle.
     STRIP = ((0.0, "#003355"), (0.049, "#00436c"), (0.098, "#005889"), (0.147, "#005a8c"), (0.196, "#2f76a1"),
@@ -240,11 +242,15 @@ class BrandBanner(QWidget):
     NUMBER = dict(size=31, spacing=-2.3)
     EDITION = dict(size=25, embolden=1.2, spacing=-0.2, baseline=64, right_offset=-1)
     COMPANY = dict(x=101, baseline=15, size=11, spacing=1.3)
-    CORNER = dict(right=398, baseline=17, size=13, embolden=0.7)
+    CORNER = dict(right=399, baseline=17, size=12, embolden=0.7)
+    TAGLINE = dict(size=13, baseline=77)
+    WHITE_HEIGHT, LOGIN_WHITE_HEIGHT, LOGIN_OFFSET, STRIP_HEIGHT = 72, 88, (1, 3), 5
 
-    def __init__(self, look, parent=None):
+    def __init__(self, look, parent=None, login=False):
         super().__init__(parent)
         self.look = look
+        self.login = login
+        self.white_height = self.LOGIN_WHITE_HEIGHT if login else self.WHITE_HEIGHT
         self.logo = self.load(look["osLogo"], 74)
         self.company_logo = self.load(look["companyLogo"], 20)
 
@@ -264,6 +270,7 @@ class BrandBanner(QWidget):
         font.setBold(bold)
         font.setItalic(italic)
         font.setStyleStrategy(QFont.StyleStrategy(QFont.PreferAntialias | QFont.NoSubpixelAntialias))  # grey edges, no colour fringes
+        font.setHintingPreference(QFont.PreferNoHinting)  # the same widths at 1x and in the 4x login banner
         if spacing:
             font.setLetterSpacing(QFont.AbsoluteSpacing, spacing)
         return font
@@ -287,11 +294,13 @@ class BrandBanner(QWidget):
 
     def paintEvent(self, _event):
         painter = QPainter(self)
-        painter.fillRect(0, 0, self.width(), 72, Qt.white)
+        painter.fillRect(0, 0, self.width(), self.white_height, Qt.white)
         strip = QLinearGradient(0, 0, self.width(), 0)
         for position, colour in self.STRIP:
             strip.setColorAt(position, QColor(colour))
-        painter.fillRect(0, 72, self.width(), 5, strip)
+        painter.fillRect(0, self.white_height, self.width(), self.STRIP_HEIGHT, strip)
+        if self.login:
+            painter.translate(*self.LOGIN_OFFSET)
         chicago95ui.paint_banner_mark(painter, *self.MARK, self.logo)
         painter.setPen(Qt.black)
         if self.look["osCompany"]:
@@ -302,6 +311,9 @@ class BrandBanner(QWidget):
         edition_x = name_end - QFontMetricsF(edition).horizontalAdvance(self.look["edition"]) + self.EDITION["right_offset"]
         chicago95ui.draw_heavy_text(painter, edition_x, self.EDITION["baseline"], edition, self.look["edition"],
                                     QColor(Qt.black), self.EDITION["embolden"])
+        if self.login:
+            painter.setFont(self.font(self.TAGLINE["size"]))
+            painter.drawText(QPointF(edition_x, self.TAGLINE["baseline"]), self.look["tagline"])
         if not self.company_logo.isNull():
             painter.drawPixmap(self.width() - self.company_logo.width() - 8, 6, self.company_logo)
         elif self.look["osCompany"]:
@@ -422,6 +434,24 @@ def play_shutdown_sound(dry_run):
         run_command([player, sound_file], dry_run)
 
 
+LOGIN_BANNER_SIZE = (411, 93)
+
+
+def render_login_banner(look, path, scale=4):
+    """The login screen's 2000 banner as a PNG, scale times the original's pixels: the login theme can't
+    run this code, so Setup draws the banner here and copies the picture next to the theme."""
+    banner = BrandBanner(look, login=True)
+    banner.resize(*LOGIN_BANNER_SIZE)
+    image = QImage(LOGIN_BANNER_SIZE[0] * scale, LOGIN_BANNER_SIZE[1] * scale, QImage.Format_ARGB32)
+    image.fill(Qt.white)
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.Antialiasing)
+    painter.scale(scale, scale)
+    banner.render(painter, QPoint())
+    painter.end()
+    return image.save(str(path))
+
+
 def grab_widget(widget, path):
     widget.show()
     widget.grab().save(path)
@@ -434,6 +464,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="print commands instead of running them")
     parser.add_argument("--screenshot", metavar="PATH", help="save the dialog as PNG and exit")
     parser.add_argument("--screenshot-safe", metavar="PATH", help="save the safe screen at 1280x720 and exit")
+    parser.add_argument("--login-banner", metavar="PATH", help="save the login screen's 2000 banner as PNG and exit")
     args = parser.parse_args()
 
     app = chicago95ui.make_app("chicago95-shutdown")
@@ -442,6 +473,8 @@ def main():
     if args.screenshot:
         grab_widget(LogOffDialog() if args.log_off else ShutDownDialog(), args.screenshot)
         return 0
+    if args.login_banner:
+        return 0 if render_login_banner(chicago95ui.look_settings(), args.login_banner) else 1
     if args.screenshot_safe:
         grab_widget(SafeScreen(QRect(0, 0, 1280, 720), hold_until_input=False), args.screenshot_safe)
         return 0

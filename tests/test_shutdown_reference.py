@@ -19,7 +19,7 @@ BANNER_MARK = (36, 4, 160, 68)
 BANNER_LOGO = (48, 12, 96, 52)
 BANNER_LETTERING = (100, 0, 409, 46)
 MARK_BLOCK, MARK_TOLERANCE = 4, 45
-BANNER_LINES = {"company": (98, 4, 175, 15), "name": (98, 18, 345, 46), "edition": (150, 46, 345, 70), "corner": (345, 4, 409, 20)}
+BANNER_LINES = {"company": (98, 4, 175, 15), "name": (98, 18, 345, 46), "edition": (150, 46, 345, 70), "corner": (332, 2, 409, 22)}
 LETTERING_SLACK = 2
 THUMBNAILS = {"1995": ("win95shutdownsm", (74, 60, 246, 180), (36, 78)), "1998": ("win98shutsm", (80, 46, 240, 152), (36, 74))}
 

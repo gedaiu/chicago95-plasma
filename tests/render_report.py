@@ -91,6 +91,19 @@ def loading_2000(app, scratch):
     return "Loading screen", screenshot("w2kboot"), ours
 
 
+def login_2000(shutdown, app, scratch):
+    from login_theme import render_login
+    logo = WAVING_FLAG if WAVING_FLAG.exists() else DEFAULT_LOGO
+    look = {"style": "2000", "bannerText": "Chicago95", "osName": "Chicago95", "osCompany": "KDE", "edition": "Professional",
+            "osLogo": str(logo), "companyLogo": "", "tagline": "Built on Linux Technology"}
+    shutdown.render_login_banner(look, scratch / "login-banner.png")
+    with installed_look(app, "[StartMenu]\nstyle=2000\n", LOOK_2000_KDEGLOBALS):
+        ours = render_login(app, scratch / "login", banner=scratch / "login-banner.png", show_options=True, loginStyle="2000",
+                            titleActive="#0A246A,#A6CAF0", host_name="CHICAGO95")
+    dialog = (111, 74, 528, 330)
+    return "Log on", screenshot("w2klogon").crop(dialog), ours.crop(dialog)
+
+
 def label_font():
     for path in ("/usr/share/fonts/liberation-sans/LiberationSans-Bold.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"):
         if os.path.exists(path):
@@ -127,7 +140,7 @@ def main(output):
         (scratch / f"menu-{style}").mkdir()
         rows = [start_menu(startmenu, app, style, scratch), shut_down(shutdown, app, style)]
         if style == "2000":
-            rows.append(loading_2000(app, scratch))
+            rows += [loading_2000(app, scratch), login_2000(shutdown, app, scratch)]
         compose(f"{style}: originals (left) and Chicago95 for Plasma (right)", rows, output / f"report-{style}.png")
 
 

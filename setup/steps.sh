@@ -230,16 +230,7 @@ step_startmenu() {
     run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerBackground "${SETUP_BANNER_BG:-#808080}"
     run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerTextColor "${SETUP_BANNER_FG:-#C0C0C0}"
     run kwriteconfig6 --file chicago95rc --group StartMenu --key style "${SETUP_MENU_STYLE:-1995}"
-    # The 2000 Shut Down banner's logo, company, edition and corner logo. Without an osLogo it shows the
-    # Start logo, which is what "start" asks for.
-    put_company_logo
-    ensure_waving_flag
-    run kwriteconfig6 --file chicago95rc --group Branding --key osLogo \
-        "$([ "${SETUP_LOGIN_LOGO:-start}" = start ] || image_source "$SETUP_LOGIN_LOGO")"
-    run kwriteconfig6 --file chicago95rc --group Branding --key osCompany "${SETUP_COMPANY:-KDE}"
-    run kwriteconfig6 --file chicago95rc --group Branding --key osEdition "${SETUP_EDITION:-Professional}"
-    run kwriteconfig6 --file chicago95rc --group Branding --key companyLogo "$(company_logo_file)"
-    record ~/.config/chicago95rc
+    write_branding
     show_copy "(Start menu banner: ${SETUP_BANNER_TEXT:-Chicago95}, ${SETUP_BANNER_BG:-#808080} / ${SETUP_BANNER_FG:-#C0C0C0})" ~/.config/chicago95rc
     place_start_menu
 }
@@ -360,8 +351,7 @@ step_splash() {     # the loading screen follows the login style; its texts and 
     put_tree "$REPO/splash/chicago95.splashscreen" ~/.local/share/plasma/look-and-feel/chicago95.splashscreen
     ensure_waving_flag
     put_company_logo
-    logo=$(image_source "${SETUP_LOGIN_LOGO:-start}")
-    [ "${SETUP_LOGIN_LOGO:-start}" = start ] && [ -f "$(start_logo_file)" ] && logo=$(start_logo_file)
+    logo=$(login_logo)
     image=$(image_source "${SETUP_SPLASH_IMAGE:-classic}")
     if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run tee "$dir/settings.js"; else
         { echo ".pragma library"
@@ -412,6 +402,23 @@ company_logo_file() {
 
 put_company_logo() { local file; file=$(company_logo_file); [ -z "$file" ] || put_file "$SETUP_COMPANY_LOGO" "$file"; }
 
+# The login and loading screens' logo; "start" is the Start button's, from its copy once Setup made one.
+login_logo() {
+    if [ "${SETUP_LOGIN_LOGO:-start}" = start ] && [ -f "$(start_logo_file)" ]; then start_logo_file; else image_source "${SETUP_LOGIN_LOGO:-start}"; fi
+}
+
+write_branding() {  # [Branding] in chicago95rc: what the 2000 banners show (Shut Down dialog, login banner)
+    put_company_logo
+    ensure_waving_flag
+    run kwriteconfig6 --file chicago95rc --group Branding --key osName "${SETUP_BANNER_TEXT:-Chicago95}"
+    run kwriteconfig6 --file chicago95rc --group Branding --key osLogo "$(login_logo)"
+    run kwriteconfig6 --file chicago95rc --group Branding --key osCompany "${SETUP_COMPANY:-KDE}"
+    run kwriteconfig6 --file chicago95rc --group Branding --key osEdition "${SETUP_EDITION:-Professional}"
+    run kwriteconfig6 --file chicago95rc --group Branding --key tagline "${SETUP_TAGLINE:-Built on Linux Technology}"
+    run kwriteconfig6 --file chicago95rc --group Branding --key companyLogo "$(company_logo_file)"
+    record ~/.config/chicago95rc
+}
+
 start_logo_source() {  # the image behind the Start logo choice: a bundled logo name, or the user's file
     case "${SETUP_START_LOGO:-flag}" in
         flag) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-flag.png";;
@@ -445,18 +452,11 @@ sddm_theme_conf() {
     LOGIN_STYLE="${SETUP_LOGIN_STYLE:-classic}" \
     LOGIN_TITLE="${SETUP_LOGIN_TITLE:-Log On to %h}" LOGIN_MESSAGE="${SETUP_LOGIN_MESSAGE:-Type a user name and password to log on.}" \
     LOGIN_ICON="login-icon.$(extension "$(image_source "${SETUP_LOGIN_ICON:-keys}")")" \
-    BRAND_LOGO="brand-logo.$(extension "$(image_source "${SETUP_LOGIN_LOGO:-start}")")" \
-    BRAND_TEXT="${SETUP_BANNER_TEXT:-Chicago95}" BRAND_EDITION="${SETUP_EDITION:-Professional}" \
-    BRAND_TAGLINE="${SETUP_TAGLINE:-Built on Linux Technology}" BRAND_COMPANY="${SETUP_COMPANY:-KDE}" \
-    COMPANY_LOGO="$(company_logo_file | sed 's#.*/##')" \
     TITLE_ACTIVE="$([ "${SETUP_LOGIN_STYLE:-classic}" = 2000 ] && echo '#0A246A,#A6CAF0')" \
     awk -F= 'BEGIN {
             value["loginStyle"] = ENVIRON["LOGIN_STYLE"]; value["loginTitle"] = ENVIRON["LOGIN_TITLE"]
             value["loginMessage"] = ENVIRON["LOGIN_MESSAGE"]; value["loginIcon"] = ENVIRON["LOGIN_ICON"]
-            value["brandLogo"] = ENVIRON["BRAND_LOGO"]; value["brandText"] = ENVIRON["BRAND_TEXT"]
-            value["brandEdition"] = ENVIRON["BRAND_EDITION"]; value["brandTagline"] = ENVIRON["BRAND_TAGLINE"]
             value["titleActive"] = ENVIRON["TITLE_ACTIVE"]
-            value["brandCompany"] = ENVIRON["BRAND_COMPANY"]; value["companyLogo"] = ENVIRON["COMPANY_LOGO"]
         }
         /^[A-Za-z]+=/ && ($1 in value) { print $1 "=" value[$1]; next }
         { print }' "$SDDM_THEME_SRC/theme.conf"
@@ -465,13 +465,16 @@ sddm_theme_conf() {
 step_sddm() {       # login screen; system files, so it asks for the administrator password first
     local commands=("sudo mkdir -p $SDDM_THEME_DIR" "sudo cp -r $SDDM_THEME_SRC/. $SDDM_THEME_DIR/")
     [ -f "$SDDM_FONT" ] && commands+=("sudo cp $SDDM_FONT $SDDM_THEME_DIR/")
-    local logo icon
-    ensure_waving_flag
-    logo=$(image_source "${SETUP_LOGIN_LOGO:-start}"); icon=$(image_source "${SETUP_LOGIN_ICON:-keys}")
-    commands+=("sudo cp $logo $SDDM_THEME_DIR/brand-logo.$(extension "$logo")")
+    local icon banner="$STATE_DIR/login-banner.png"
+    icon=$(image_source "${SETUP_LOGIN_ICON:-keys}")
     commands+=("sudo cp $icon $SDDM_THEME_DIR/login-icon.$(extension "$icon")")
-    local company_logo; company_logo=$(company_logo_file)
-    [ -z "$company_logo" ] || commands+=("sudo cp $SETUP_COMPANY_LOGO $SDDM_THEME_DIR/$(basename "$company_logo")")
+    # The 2000 banner is drawn here, as the user, by the Shut Down dialog's code; the greeter shows the picture.
+    if [ "${SETUP_LOGIN_STYLE:-classic}" = 2000 ]; then
+        write_branding
+        run mkdir -p "$STATE_DIR"
+        run env QT_QPA_PLATFORM=offscreen python3 "$REPO/bin/chicago95-shutdown" --login-banner "$banner"; record "$banner"
+        commands+=("sudo cp $banner $SDDM_THEME_DIR/brand-banner.png")
+    fi
     commands+=("sudo tee $SDDM_THEME_DIR/theme.conf   (writes: login style ${SETUP_LOGIN_STYLE:-classic})")
     commands+=("sudo tee $SDDM_OVERRIDE   (writes: [Theme] Current=Chicago95Plasma)")
     if ! ui_sudo "To change the login screen, Setup must write to a system folder." "${commands[@]}"; then
@@ -483,10 +486,9 @@ step_sddm() {       # login screen; system files, so it asks for the administrat
     local file
     while IFS= read -r file; do show_copy "$file" "$SDDM_THEME_DIR/${file#"$SDDM_THEME_SRC"/}"; done < <(find "$SDDM_THEME_SRC" -type f | sort)
     if [ -f "$SDDM_FONT" ]; then run sudo cp "$SDDM_FONT" "$SDDM_THEME_DIR/"; show_copy "$SDDM_FONT" "$SDDM_THEME_DIR/$(basename "$SDDM_FONT")"; fi
-    run sudo cp "$logo" "$SDDM_THEME_DIR/brand-logo.$(extension "$logo")"; show_copy "$logo" "$SDDM_THEME_DIR/brand-logo.$(extension "$logo")"
     run sudo cp "$icon" "$SDDM_THEME_DIR/login-icon.$(extension "$icon")"; show_copy "$icon" "$SDDM_THEME_DIR/login-icon.$(extension "$icon")"
-    if [ -n "$company_logo" ]; then
-        run sudo cp "$SETUP_COMPANY_LOGO" "$SDDM_THEME_DIR/$(basename "$company_logo")"; show_copy "$SETUP_COMPANY_LOGO" "$SDDM_THEME_DIR/$(basename "$company_logo")"
+    if [ "${SETUP_LOGIN_STYLE:-classic}" = 2000 ]; then
+        run sudo cp "$banner" "$SDDM_THEME_DIR/brand-banner.png"; show_copy "$banner" "$SDDM_THEME_DIR/brand-banner.png"
     fi
     if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run sudo tee "$SDDM_THEME_DIR/theme.conf"; else sddm_theme_conf | sudo tee "$SDDM_THEME_DIR/theme.conf" >/dev/null; fi
     show_copy "(login style: ${SETUP_LOGIN_STYLE:-classic})" "$SDDM_THEME_DIR/theme.conf"

@@ -76,7 +76,8 @@ def look_settings(path=None):
 
     [StartMenu] style is 1995, 1998 or 2000. [Branding] describes the "operating system" the screens
     show: osCompany (the small word above the name), osName ("Windows 2000", "Fedora 44"; its number
-    is drawn thin), osEdition, osLogo and companyLogo (image paths). Each falls back to the Start menu's
+    is drawn thin), osEdition, tagline (the login banner's line under the edition), osLogo and
+    companyLogo (image paths). Each falls back to the Start menu's
     banner text and logo, so a look without branding still has a name and a logo."""
     settings = configparser.ConfigParser(interpolation=None, strict=False)
     settings.read(path or CHICAGO95RC)
@@ -92,6 +93,7 @@ def look_settings(path=None):
         "edition": branding("osEdition", start_menu("edition", "Professional")),
         "osLogo": branding("osLogo", logos[0] if logos else ""),
         "companyLogo": branding("companyLogo", ""),
+        "tagline": branding("tagline", "Built on Linux Technology"),
     }
 
 

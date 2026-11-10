@@ -49,10 +49,21 @@ def test_dry_run_of_the_2000_look_downloads_the_waving_flag_for_the_loading_scre
     assert f"would: python3 {REPO}/setup/fetch-waving-flag.py {tmp_path}/.local/share/chicago95/waving-flag.png" in log
 
 
-def test_login_theme_settings_carry_the_company_tagline_and_company_logo_file(tmp_path):
-    script = (f'REPO={REPO}; source {REPO}/setup/steps.sh; SETUP_COMPANY="Acme & Sons"; '
-              'SETUP_TAGLINE="Built on Plasma"; SETUP_COMPANY_LOGO=/somewhere/acme.svg; sddm_theme_conf')
+def test_login_theme_settings_carry_title_message_and_picture_without_banner_texts(tmp_path):
+    script = (f'REPO={REPO}; source {REPO}/setup/steps.sh; SETUP_LOGIN_TITLE="Welcome to %h"; '
+              'SETUP_LOGIN_MESSAGE="Hi & welcome"; SETUP_LOGIN_ICON=padlock; sddm_theme_conf')
     settings = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=30,
                               env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}).stdout.splitlines()
 
-    assert {"brandCompany=Acme & Sons", "brandTagline=Built on Plasma", "companyLogo=company-logo.svg"} <= set(settings)
+    assert ({"loginTitle=Welcome to %h", "loginMessage=Hi & welcome", "loginIcon=login-icon.svg"} <= set(settings),
+            [line for line in settings if line.startswith("brand")]) == (True, [])
+
+
+def test_dry_run_of_the_2000_login_draws_the_banner_with_the_shut_down_code(tmp_path):
+    subprocess.run([str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", "--login-style=2000", "--components=sddm"],
+                   capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60,
+                   env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)})
+    log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+
+    assert (f"would: env QT_QPA_PLATFORM=offscreen python3 {REPO}/bin/chicago95-shutdown "
+            f"--login-banner {tmp_path}/.local/share/chicago95/login-banner.png") in log
