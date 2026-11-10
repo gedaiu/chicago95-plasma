@@ -295,6 +295,22 @@ step_extras() {     # System Properties, Device Manager, Dial-Up, Deezer helper,
     put_tree "$REPO/data/sounds" ~/.local/share/chicago95/sounds
     put_file "$REPO/config/autostart/chicago95-startup.desktop" ~/.config/autostart/chicago95-startup.desktop
     substitute_home ~/.config/autostart
+    [ "${SETUP_DRY_RUN:-0}" = 1 ] || sed -i "s|@SOUND_THEME@|${SETUP_SOUND_THEME:-Chicago95}|g" ~/.config/autostart/chicago95-startup.desktop
+}
+
+step_sounds() {     # the Windows 98, Plus! and Windows 2000 sound themes, and the one chosen for events
+    local theme
+    for theme in "$REPO"/data/sound-themes/*/; do
+        theme=${theme%/}; put_tree "$theme" ~/.local/share/sounds/"${theme##*/}"
+    done
+    kconf kdeglobals Sounds Theme "${SETUP_SOUND_THEME:-Chicago95}"
+    if [ -f ~/.config/xsettingsd/xsettingsd.conf ]; then
+        run sed -i "s|^Net/SoundThemeName .*|Net/SoundThemeName \"${SETUP_SOUND_THEME:-Chicago95}\"|" ~/.config/xsettingsd/xsettingsd.conf
+        [ "${SETUP_DRY_RUN:-0}" = 1 ] || pkill -HUP xsettingsd 2>/dev/null || true
+    fi
+    if [ -f ~/.config/autostart/chicago95-startup.desktop ]; then
+        run sed -i "s|sounds/[^/]*/stereo|sounds/${SETUP_SOUND_THEME:-Chicago95}/stereo|" ~/.config/autostart/chicago95-startup.desktop
+    fi
 }
 
 step_screensaver() {

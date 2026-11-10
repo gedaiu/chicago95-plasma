@@ -1,0 +1,7 @@
+[Sound Theme]
+Name=Space
+Inherits=Chicago95
+Directories=stereo
+
+[stereo]
+OutputProfile=stereo

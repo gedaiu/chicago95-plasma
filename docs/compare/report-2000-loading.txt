@@ -1,9 +1,0 @@
-  26369   8.6%  2000 Loading screen: whole
-  11895  28.6%  2000 Loading screen: mark
-    922  31.4%  2000 Loading screen: company
-   5586  28.9%  2000 Loading screen: name
-   1827  15.9%  2000 Loading screen: edition
-    533  10.8%  2000 Loading screen: tagline
-   1055  15.9%  2000 Loading screen: corner
-   1279  15.8%  2000 Loading screen: progress
-    195  33.3%  2000 Loading screen: loading text

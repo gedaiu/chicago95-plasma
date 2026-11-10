@@ -65,10 +65,11 @@ ICON_DIRS = (
     "/usr/share/icons",
 )
 
-SOUND_DIRS = (
-    os.path.expanduser("~/.local/share/sounds/Chicago95/stereo"),
-    "/usr/share/sounds/Chicago95/stereo",
+SOUND_ROOTS = (
+    os.path.expanduser("~/.local/share/sounds"),
+    "/usr/share/sounds",
 )
+KDEGLOBALS = os.path.expanduser("~/.config/kdeglobals")
 
 
 def dbus_caller():
@@ -90,8 +91,20 @@ def shutdown_command(choice, dbus_prefix=None):
     return SYSTEMCTL_FALLBACKS[choice]
 
 
-def shutdown_sound_file():
-    for sound_dir in SOUND_DIRS:
+def chosen_sound_theme(kdeglobals_path=KDEGLOBALS):
+    try:
+        with open(kdeglobals_path) as kdeglobals:
+            text = kdeglobals.read()
+    except OSError:
+        return "Chicago95"
+    sounds_group = re.search(r"^\[Sounds\]\n((?:[^\[].*\n?)*)", text, re.MULTILINE)
+    theme = sounds_group and re.search(r"^Theme=(.+)$", sounds_group.group(1), re.MULTILINE)
+    return theme.group(1).strip() if theme else "Chicago95"
+
+
+def shutdown_sound_file(theme=None):
+    themes = dict.fromkeys([theme or chosen_sound_theme(), "Chicago95"])
+    for sound_dir in (os.path.join(root, name, "stereo") for name in themes for root in SOUND_ROOTS):
         enabled = [path for path in glob.glob(os.path.join(sound_dir, "system-shutdown.*"))
                    if not path.endswith(".disabled")]
         if enabled:

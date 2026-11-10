@@ -1,0 +1,7 @@
+[Sound Theme]
+Name=The Golden Era
+Inherits=Chicago95
+Directories=stereo
+
+[stereo]
+OutputProfile=stereo

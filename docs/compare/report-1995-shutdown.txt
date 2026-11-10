@@ -1,4 +1,0 @@
-   6090  30.8%  1995 Shut Down: whole, at the thumbnail's half size
-   1622  66.2%  1995 Shut Down: title bar
-   2866  26.4%  1995 Shut Down: question and options
-   1323  19.9%  1995 Shut Down: buttons

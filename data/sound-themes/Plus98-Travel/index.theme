@@ -1,0 +1,7 @@
+[Sound Theme]
+Name=Travel
+Inherits=Chicago95
+Directories=stereo
+
+[stereo]
+OutputProfile=stereo

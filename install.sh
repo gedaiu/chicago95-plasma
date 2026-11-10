@@ -12,6 +12,7 @@
 #     --start-text=Start  --start-logo=flag|penguin|/path/to/image  --banner-text=Chicago95
 #     --look=1995|1998|2000|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
 #     --login-style=classic|2000  --icons=chicago95|se98|classicos2000
+#     --sounds=Chicago95|Windows98|Windows2000|Plus98-Jungle|...  (data/sound-themes/)
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -40,7 +41,8 @@ for arg in "$@"; do
         --look=*) OPT_LOOK="${arg#*=}";;
         --icons=*) OPT_ICONS="${arg#*=}";;
         --login-style=*) OPT_LOGIN_STYLE="${arg#*=}";;
-        --help|-h) sed -n '2,12p' "$0"; exit 0;;
+        --sounds=*) OPT_SOUNDS="${arg#*=}";;
+        --help|-h) sed -n '2,13p' "$0"; exit 0;;
         *) [ -z "$WANTED" ] && [[ "$arg" != --* ]] && WANTED="$arg";;
     esac
 done
@@ -166,6 +168,17 @@ ask_colors() {      # ask_colors <prompt> <current>   repeats until the answer i
     local answer
     until valid_colors "${answer:-}"; do answer=$(ui_ask "$1" "$2"); done
     printf '%s' "$answer"
+}
+
+choose_sounds() {
+    local themes=(Chicago95) names=("Chicago95 (Windows 95)") theme choice
+    for theme in Windows98 Windows2000 "$REPO"/data/sound-themes/Plus98-*/; do
+        theme=${theme%/}; theme=${theme##*/}
+        themes+=("$theme"); names+=("$(sed -n 's/^Name=//p' "$REPO/data/sound-themes/$theme/index.theme")")
+    done
+    choice=$(ui_choose "Sounds" "Which sound scheme should play for log on, log off, errors and windows?" 1 "${names[@]}")
+    SETUP_SOUND_THEME=${themes[$((choice - 1))]}
+    return 0
 }
 
 choose_look() {
@@ -334,6 +347,7 @@ else
         "notifications:Chicago95 notifications:$py_ok" \
         "clippy:Office Assistant:$py_ok" \
         "extras:System Properties, Device Manager, Dial-Up Networking, login chime:$py_ok" \
+        "sounds:Sound scheme (Windows 98, Plus! 98, Windows 2000):1" \
         "screensaver:Screensaver (XScreenSaver hacks):$([ -n "$SETUP_HACK_DIR" ] && echo 1 || echo 0)" \
         "winamp:Winamp (qmmp launch entries and window rule):$SETUP_HAS_QMMP" \
         "explorer:Explorer (Thunar settings, GTK CSS, Dolphin toolbar):$SETUP_HAS_THUNAR" \
@@ -384,10 +398,12 @@ SETUP_LOADING_TEXT="Starting up..."; SETUP_LOADING_FOOTER="Chicago95 for KDE Pla
 [[ " $COMPONENTS " == *" sddm "* || " $COMPONENTS " == *" splash "* ]] && choose_branding
 SETUP_SAVER=${OPT_SAVER:-deepstars}
 [[ " $COMPONENTS " == *" screensaver "* ]] && [ "$py_ok" = 1 ] && choose_screensaver
+SETUP_SOUND_THEME=${OPT_SOUNDS:-Chicago95}
+[[ " $COMPONENTS " == *" sounds "* ]] && [ -z "${OPT_SOUNDS:-}" ] && choose_sounds
 SETUP_DPI=$(awk -v s="$SETUP_SCALE" 'BEGIN{printf "%d", 96*s + 0.5}')
 PANEL_HEIGHT=${SETUP_PANEL:-28}
-printf 'Options: screen=%sx%s@%s panel=%s explorer=%s saver=%s idle=%s cursor=%s clippy=%s font=%s\n' \
-    "$SETUP_WIDTH" "$SETUP_HEIGHT" "$SETUP_SCALE" "$PANEL_HEIGHT" "$SETUP_EXPLORER" "$SETUP_SAVER" "$SETUP_IDLE_MIN" "$SETUP_CURSOR" "$SETUP_CLIPPY_AUTOSTART" "$SETUP_FONT" >>"$SETUP_LOG"
+printf 'Options: screen=%sx%s@%s panel=%s explorer=%s saver=%s idle=%s cursor=%s clippy=%s font=%s sounds=%s\n' \
+    "$SETUP_WIDTH" "$SETUP_HEIGHT" "$SETUP_SCALE" "$PANEL_HEIGHT" "$SETUP_EXPLORER" "$SETUP_SAVER" "$SETUP_IDLE_MIN" "$SETUP_CURSOR" "$SETUP_CLIPPY_AUTOSTART" "$SETUP_FONT" "$SETUP_SOUND_THEME" >>"$SETUP_LOG"
 ui_step_done 1
 
 # ---- 3. copy ----------------------------------------------------------------

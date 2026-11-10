@@ -1,9 +1,0 @@
-  19922  34.9%  1998 Start menu: whole
-   6365  53.7%  1998 Start menu: banner
-   3221  37.6%  1998 Start menu: bottom edge
-   2037  26.4%  1998 Start menu: row: programs
-   2065  26.8%  1998 Start menu: row: documents
-   2068  26.8%  1998 Start menu: row: settings
-   2025  26.3%  1998 Start menu: row: find
-   2530  32.8%  1998 Start menu: row: help
-   2542  33.0%  1998 Start menu: row: run
