@@ -333,6 +333,10 @@ def paint_bitmap(painter, left, top, rows, colours):
                 painter.fillRect(left + x, top + y, 1, 1, colours[key])
 
 
+def is_drop_down_list(widget):
+    return widget is not None and widget.window().inherits("QComboBoxPrivateContainer")
+
+
 class ClassicStyle(QProxyStyle):
     """Qt's Windows style with the originals' details: a pressed button has a black frame on every side
     and a shadow frame inside it (tests/test_control_panel_components_reference.py); check boxes and radio
@@ -349,6 +353,8 @@ class ClassicStyle(QProxyStyle):
                 "mark": palette.text().color() if enabled else palette.dark().color()}
 
     def drawPrimitive(self, element, option, painter, widget=None):
+        if element == QStyle.PE_FrameFocusRect and is_drop_down_list(widget):
+            return
         if element == QStyle.PE_IndicatorCheckBox:
             colours = self.indicator_colours(option)
             left, top = option.rect.left() + (option.rect.width() - 13) // 2, option.rect.top() + (option.rect.height() - 13) // 2

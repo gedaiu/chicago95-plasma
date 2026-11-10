@@ -131,3 +131,24 @@ def test_read_only_field_shows_its_selected_text_on_the_window_colour(gallery, q
     assert any(close(colour, face, 8) for colour in inside) and not any(close(colour, (255, 255, 255), 8) and False for colour in inside)
     assert any(close(colour, (0, 0, 128), 16) for colour in inside) and (255, 255, 255) in inside, inside   # the selection and its letters
     assert not any(close(colour, (255, 255, 255), 8) for colour in {ours.getpixel((px, 3)) for px in range(2, 6)}), "the field's own background is not white"
+
+
+def test_open_drop_down_list_marks_its_selected_row_with_a_plain_highlight_and_no_focus_dots(qt_app):
+    """The originals' open list: the selected row is one solid highlight block from edge to edge."""
+    import chicago95ui
+    from PIL import Image
+    from PySide6.QtWidgets import QComboBox
+    from reference import qimage_to_pil
+    combo = chicago95ui.classic_combo(QComboBox())
+    combo.addItems(["Solid color", "Picture", "Pattern"])
+    combo.setFixedWidth(160)
+    combo.show()
+    combo.showPopup()
+    qt_app.processEvents()
+    popup = qimage_to_pil(combo.view().window().grab().toImage())
+    combo.hidePopup()
+    highlight = combo.palette().highlight().color().getRgb()[:3]
+    row_rect = combo.view().visualRect(combo.view().model().index(0, 0))
+    origin = combo.view().viewport().mapTo(combo.view().window(), row_rect.topLeft())
+    top_edge = {popup.getpixel((x, origin.y())) for x in range(origin.x(), origin.x() + row_rect.width())}
+    assert top_edge == {highlight}, top_edge

@@ -288,7 +288,8 @@ def test_a_long_value_wraps_onto_the_next_rows_inside_the_page(sysprops, qt_app)
     qt_app.processEvents()
     image = qimage_to_pil(window.grab().toImage())
     window.close()
-    beyond = [(x, y) for x in range(PAGE_RIGHT - 2, image.width - FRAME) for y in range(PAGE_TOP + 2, LOOKS["1998"]["buttons_top"] - 12)
+    # The page clips what runs past it: no ink in its last columns, just inside the frame's shadow line.
+    beyond = [(x, y) for x in range(PAGE_RIGHT - 5, PAGE_RIGHT - 1) for y in range(PAGE_TOP + 2, LOOKS["1998"]["buttons_top"] - 12)
               if is_dark(image.getpixel((x, y)))]
     rows = text_rows(image, LOOKS["1998"]["text_from"], PAGE_TOP + 2, LOOKS["1998"]["buttons_top"] - 12)
     assert beyond == [] and len(rows) > 13, (beyond[:5], len(rows))
