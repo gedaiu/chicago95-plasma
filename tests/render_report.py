@@ -25,6 +25,8 @@ from reference import LOOK_2000_KDEGLOBALS, installed_look, qimage_to_pil, rende
 
 BACKGROUND, INK, GAP = (255, 255, 255), (0, 0, 0), 16
 DEFAULT_LOGO = REPO / "plasmoids/org.chicago95.start/contents/images/logo-flag.png"  # what a default install shows
+# The 2000 look's default; Setup downloads it (setup/fetch-waving-flag.py), so the report uses it when present.
+WAVING_FLAG = Path.home() / ".local/share/chicago95/waving-flag.png"
 MENU_SETTINGS = {
     "1995": ("[StartMenu]\nbannerText=Windows95\n", ""),
     "1998": ("[StartMenu]\nstyle=1998\nbannerText=Windows98\nbannerTextColor=#FFFFFF\nbannerNumberColor=#FFFFFF\n"
@@ -46,8 +48,9 @@ def start_menu(startmenu, app, style, scratch):
 
 
 def shut_down(shutdown, app, style):
-    look = {"style": style, "bannerText": "Windows 2000", "osName": "Windows 2000", "osCompany": "",
-            "edition": "Professional", "osLogo": str(DEFAULT_LOGO), "companyLogo": ""}
+    logo = WAVING_FLAG if style == "2000" and WAVING_FLAG.exists() else DEFAULT_LOGO
+    look = {"style": style, "bannerText": "Chicago95", "osName": "Chicago95", "osCompany": "KDE",
+            "edition": "Professional", "osLogo": str(logo), "companyLogo": ""}
     kdeglobals = LOOK_2000_KDEGLOBALS if style == "2000" else ""
     with installed_look(app, f"[StartMenu]\nstyle={style}\n", kdeglobals):
         dialog = shutdown.ShutDownDialog(look)
@@ -68,10 +71,12 @@ def loading_2000(app, scratch):
     from PySide6.QtCore import QTimer, QUrl
     from PySide6.QtQuick import QQuickView
     splash = scratch / "splash"
+    logo = WAVING_FLAG if WAVING_FLAG.exists() else DEFAULT_LOGO
     shutil.copytree(REPO / "splash/chicago95.splashscreen/contents/splash", splash, dirs_exist_ok=True)
     (splash / "settings.js").write_text(
-        f'.pragma library\nvar style = "2000"\nvar brandText = "Chicago95"\nvar brandLogo = "{DEFAULT_LOGO}"\n'
-        'var edition = "Professional"\nvar loadingText = "Starting up..."\n'
+        f'.pragma library\nvar style = "2000"\nvar brandText = "Chicago95"\nvar brandLogo = "{logo}"\n'
+        'var edition = "Professional"\nvar tagline = "Built on Linux Technology"\nvar company = "KDE"\n'
+        'var companyLogo = ""\nvar loadingText = "Starting up..."\n'
         'var footer = "Chicago95 for KDE Plasma"\nvar picture = ""\n')
     view = QQuickView()
     view.setResizeMode(QQuickView.SizeRootObjectToView)

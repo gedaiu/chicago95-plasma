@@ -38,8 +38,8 @@ if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
     os.environ.setdefault("QT_SCALE_FACTOR", detect_scale())
 os.environ.pop("QT_QPA_PLATFORMTHEME", None)
 
-from PySide6.QtCore import Qt, QTimer  # noqa: E402
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPalette  # noqa: E402
+from PySide6.QtCore import QRectF, Qt, QTimer  # noqa: E402
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QLinearGradient, QPainter, QPainterPath, QPalette, QPen, QRadialGradient  # noqa: E402
 from PySide6.QtWidgets import QApplication, QFrame  # noqa: E402
 
 KDEGLOBALS = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "kdeglobals")
@@ -174,6 +174,71 @@ def retro_palette(scheme=None):
     palette.setColor(QPalette.Disabled, QPalette.Text, shadow)
     palette.setColor(QPalette.Disabled, QPalette.WindowText, shadow)
     return palette
+
+
+# The 2000 dialogs' small mark (Shut Down, Log On banners), in the original's pixels, measured from
+# tests/references/w2kshutdown.png (tests/test_shutdown_reference.py): an orange frame (55x55, 4px
+# edges) whose top-left fades into the paper, a darker frame behind it (2px lower, 2px further right), a pale blue glow to its right
+# and a green bar under it that fade into the paper. The OS logo goes in front (BANNER_MARK_LOGO).
+BANNER_MARK_SIZE = (116, 60)
+BANNER_MARK_LOGO = QRectF(10, 8, 44, 36)
+BANNER_ORANGE, BANNER_BACK_ORANGE = "#de5a00", "#d64200"
+
+
+def edge_gradient(start, end, stops, paper):
+    """A gradient from start to end through (position, colour) stops; "paper" stands for the paper colour."""
+    gradient = QLinearGradient(*start, *end)
+    for position, colour in stops:
+        gradient.setColorAt(position, QColor(paper if colour == "paper" else colour))
+    return gradient
+
+
+def paint_banner_mark(painter, x, y, logo=None, paper="#ffffff"):
+    """The generated frame and glows at (x, y), with the logo pixmap (if any) in front."""
+    painter.save()
+    painter.translate(x, y)
+    painter.setRenderHint(QPainter.SmoothPixmapTransform)
+    clear = QColor(paper)
+    clear.setAlpha(0)
+    glow = QRadialGradient(0, 0, 46)
+    for position, colour in ((0, QColor("#7ec2e2")), (0.3, QColor("#85c3e3")), (0.65, QColor("#c4e1f0")), (1, clear)):
+        glow.setColorAt(position, colour)
+    painter.save()
+    painter.translate(66, 30)
+    painter.scale(1, 24 / 46)
+    painter.fillRect(QRectF(-46, -46, 92, 92), glow)
+    painter.restore()
+    painter.fillRect(QRectF(57, 49, 53, 8), edge_gradient(
+        (57, 0), (110, 0), ((0, "#add69c"), (0.3, "#d2e4c3"), (1, "paper")), paper))
+    painter.fillRect(QRectF(18, 57, 92, 4), edge_gradient(
+        (18, 0), (110, 0), ((0, "paper"), (0.04, "#8cb96f"), (0.41, "#8cb96f"), (0.48, "#add69c"), (0.61, "#d2e4c1"),
+                            (0.74, "#e2efda"), (1, "paper")), paper))
+    painter.fillRect(QRectF(4, 2, 53, 55), QColor(BANNER_BACK_ORANGE))
+    painter.fillRect(QRectF(0, 0, 55, 55), QColor(paper))
+    painter.fillRect(QRectF(0, 0, 55, 4), edge_gradient((0, 0), (55, 0), ((0.6, "paper"), (0.72, BANNER_ORANGE)), paper))
+    painter.fillRect(QRectF(0, 0, 4, 55), edge_gradient((0, 0), (0, 55), ((0.67, "paper"), (0.82, BANNER_ORANGE)), paper))
+    painter.fillRect(QRectF(51, 0, 4, 55), edge_gradient(
+        (0, 0), (0, 55), ((0.07, BANNER_ORANGE), (0.24, "paper"), (0.36, "paper"), (0.58, BANNER_ORANGE)), paper))
+    painter.fillRect(QRectF(0, 51, 55, 4), QColor(BANNER_ORANGE))
+    if logo is not None and not logo.isNull():
+        size = logo.size().scaled(BANNER_MARK_LOGO.size().toSize(), Qt.KeepAspectRatio)
+        target = QRectF(0, 0, size.width(), size.height())
+        target.moveCenter(BANNER_MARK_LOGO.center())
+        painter.drawPixmap(target, logo, QRectF(logo.rect()))
+    painter.restore()
+
+
+def draw_heavy_text(painter, x, baseline, font, text, colour, embolden, smooth=True):
+    """Lettering heavier than any common bold (the 2000 name and wordmarks): the letters filled and
+    outlined too, so strokes grow by embolden pixels; smooth gives them soft (feathered) edges."""
+    path = QPainterPath()
+    path.addText(x, baseline, font, text)
+    painter.save()
+    painter.setRenderHint(QPainter.Antialiasing, smooth)
+    painter.fillPath(path, colour)
+    painter.setPen(QPen(colour, embolden))
+    painter.drawPath(path)
+    painter.restore()
 
 
 def ui_font(point_size=9, bold=False):

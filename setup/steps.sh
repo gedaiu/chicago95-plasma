@@ -230,19 +230,29 @@ step_startmenu() {
     run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerBackground "${SETUP_BANNER_BG:-#808080}"
     run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerTextColor "${SETUP_BANNER_FG:-#C0C0C0}"
     run kwriteconfig6 --file chicago95rc --group StartMenu --key style "${SETUP_MENU_STYLE:-1995}"
+    # The 2000 Shut Down banner's logo, company, edition and corner logo. Without an osLogo it shows the
+    # Start logo, which is what "start" asks for.
+    put_company_logo
+    ensure_waving_flag
+    run kwriteconfig6 --file chicago95rc --group Branding --key osLogo \
+        "$([ "${SETUP_LOGIN_LOGO:-start}" = start ] || image_source "$SETUP_LOGIN_LOGO")"
+    run kwriteconfig6 --file chicago95rc --group Branding --key osCompany "${SETUP_COMPANY:-KDE}"
+    run kwriteconfig6 --file chicago95rc --group Branding --key osEdition "${SETUP_EDITION:-Professional}"
+    run kwriteconfig6 --file chicago95rc --group Branding --key companyLogo "$(company_logo_file)"
     record ~/.config/chicago95rc
     show_copy "(Start menu banner: ${SETUP_BANNER_TEXT:-Chicago95}, ${SETUP_BANNER_BG:-#808080} / ${SETUP_BANNER_FG:-#C0C0C0})" ~/.config/chicago95rc
     place_start_menu
 }
 
 # The menu's height depends on its style and font, so it is measured (offscreen, with the settings just
-# written) rather than assumed; the rule then puts the menu's bottom edge on the taskbar.
+# written) rather than assumed; the rule puts the menu's bottom edge just above the taskbar (one pixel up:
+# at fractional scales the menu's height rounds up and would otherwise cover the taskbar's top line).
 place_start_menu() {
     local height
     height=$(QT_QPA_PLATFORM=offscreen QT_SCALE_FACTOR=1 python3 "$REPO/bin/chicago95-startmenu" --root-height 2>/dev/null | tail -1)
     [[ "$height" =~ ^[0-9]+$ ]] || height=$MENU_HEIGHT
     kwin_rule chicago95-startmenu "Description=Chicago95 Start menu" "wmclass=chicago95-startmenu" "wmclassmatch=1" \
-        "title=chicago95-startmenu-root" "titlematch=1" "position=0,$(( SETUP_HEIGHT - PANEL_HEIGHT - height ))" "positionrule=2" \
+        "title=chicago95-startmenu-root" "titlematch=1" "position=0,$(( SETUP_HEIGHT - PANEL_HEIGHT - height - 1 ))" "positionrule=2" \
         "placement=Zero" "placementrule=2" "above=true" "aboverule=2" "skiptaskbar=true" "skiptaskbarrule=2" \
         "skippager=true" "skippagerrule=2" "skipswitcher=true" "skipswitcherrule=2" "noborder=true" "noborderrule=2" "types=1"
 }
@@ -348,6 +358,8 @@ step_lockscreen() {
 step_splash() {     # the loading screen follows the login style; its texts and pictures go into settings.js
     local dir=~/.local/share/plasma/look-and-feel/chicago95.splashscreen/contents/splash logo image
     put_tree "$REPO/splash/chicago95.splashscreen" ~/.local/share/plasma/look-and-feel/chicago95.splashscreen
+    ensure_waving_flag
+    put_company_logo
     logo=$(image_source "${SETUP_LOGIN_LOGO:-start}")
     [ "${SETUP_LOGIN_LOGO:-start}" = start ] && [ -f "$(start_logo_file)" ] && logo=$(start_logo_file)
     image=$(image_source "${SETUP_SPLASH_IMAGE:-classic}")
@@ -357,6 +369,9 @@ step_splash() {     # the loading screen follows the login style; its texts and 
           echo "var brandText = $(js_string "${SETUP_BANNER_TEXT:-Chicago95}")"
           echo "var brandLogo = $(js_string "$logo")"
           echo "var edition = $(js_string "${SETUP_EDITION:-Professional}")"
+          echo "var tagline = $(js_string "${SETUP_TAGLINE:-Built on Linux Technology}")"
+          echo "var company = $(js_string "${SETUP_COMPANY:-KDE}")"
+          echo "var companyLogo = $(js_string "$(company_logo_file)")"
           echo "var loadingText = $(js_string "${SETUP_LOADING_TEXT:-Starting up...}")"
           echo "var footer = $(js_string "$(printf '%s' "${SETUP_LOADING_FOOTER:-Chicago95 for KDE Plasma}" | sed "s/%h/$(hostname)/g")")"
           echo "var picture = $(js_string "$image")"
@@ -375,6 +390,28 @@ SDDM_FONT="$HOME/.local/share/fonts/MSW98UI-Regular.otf"
 # another theme's sddm.conf that would otherwise override Plasma's kde_settings.conf.
 SDDM_OVERRIDE=/etc/sddm.conf.d/zz-chicago95.conf
 
+# The waving flag is a trademark, so it isn't bundled: Setup downloads the public-domain picture from
+# Wikimedia Commons on this machine when it is picked, and cuts the flag out of it.
+WAVING_FLAG="$HOME/.local/share/chicago95/waving-flag.png"
+
+ensure_waving_flag() {  # falls back to the classic flag when the download fails
+    [ "${SETUP_LOGIN_LOGO:-start}" = waving-flag ] && [ ! -f "$WAVING_FLAG" ] || return 0
+    run mkdir -p "$(dirname "$WAVING_FLAG")"
+    if run python3 "$REPO/setup/fetch-waving-flag.py" "$WAVING_FLAG"; then
+        record "$WAVING_FLAG"; show_copy "(downloaded from Wikimedia Commons)" "$WAVING_FLAG"; return
+    fi
+    ui_status "Could not download the waving flag; the login and loading screens show the classic flag"
+    SETUP_LOGIN_LOGO=flag
+}
+
+# The company logo, when the user picked one, lands in one known file like the Start logo; "text" means
+# the corner shows the company's name instead.
+company_logo_file() {
+    [ "${SETUP_COMPANY_LOGO:-text}" = text ] || printf '%s' "$HOME/.local/share/chicago95/company-logo.$(extension "$SETUP_COMPANY_LOGO")"
+}
+
+put_company_logo() { local file; file=$(company_logo_file); [ -z "$file" ] || put_file "$SETUP_COMPANY_LOGO" "$file"; }
+
 start_logo_source() {  # the image behind the Start logo choice: a bundled logo name, or the user's file
     case "${SETUP_START_LOGO:-flag}" in
         flag) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-flag.png";;
@@ -389,6 +426,7 @@ image_source() {
         start) start_logo_source;;
         flag) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-flag.png";;
         penguin) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-penguin.svg";;
+        waving-flag) printf '%s' "$WAVING_FLAG";;
         keys) printf '%s' "$SDDM_THEME_SRC/key.svg";;
         padlock) printf '%s' "$SDDM_THEME_SRC/padlock.svg";;
         classic) printf '%s' "$REPO/splash/chicago95.splashscreen/contents/splash/images/background.png";;
@@ -409,7 +447,8 @@ sddm_theme_conf() {
     LOGIN_ICON="login-icon.$(extension "$(image_source "${SETUP_LOGIN_ICON:-keys}")")" \
     BRAND_LOGO="brand-logo.$(extension "$(image_source "${SETUP_LOGIN_LOGO:-start}")")" \
     BRAND_TEXT="${SETUP_BANNER_TEXT:-Chicago95}" BRAND_EDITION="${SETUP_EDITION:-Professional}" \
-    BRAND_TAGLINE="${SETUP_TAGLINE:-Built on Linux Technology}" \
+    BRAND_TAGLINE="${SETUP_TAGLINE:-Built on Linux Technology}" BRAND_COMPANY="${SETUP_COMPANY:-KDE}" \
+    COMPANY_LOGO="$(company_logo_file | sed 's#.*/##')" \
     TITLE_ACTIVE="$([ "${SETUP_LOGIN_STYLE:-classic}" = 2000 ] && echo '#0A246A,#A6CAF0')" \
     awk -F= 'BEGIN {
             value["loginStyle"] = ENVIRON["LOGIN_STYLE"]; value["loginTitle"] = ENVIRON["LOGIN_TITLE"]
@@ -417,6 +456,7 @@ sddm_theme_conf() {
             value["brandLogo"] = ENVIRON["BRAND_LOGO"]; value["brandText"] = ENVIRON["BRAND_TEXT"]
             value["brandEdition"] = ENVIRON["BRAND_EDITION"]; value["brandTagline"] = ENVIRON["BRAND_TAGLINE"]
             value["titleActive"] = ENVIRON["TITLE_ACTIVE"]
+            value["brandCompany"] = ENVIRON["BRAND_COMPANY"]; value["companyLogo"] = ENVIRON["COMPANY_LOGO"]
         }
         /^[A-Za-z]+=/ && ($1 in value) { print $1 "=" value[$1]; next }
         { print }' "$SDDM_THEME_SRC/theme.conf"
@@ -426,9 +466,12 @@ step_sddm() {       # login screen; system files, so it asks for the administrat
     local commands=("sudo mkdir -p $SDDM_THEME_DIR" "sudo cp -r $SDDM_THEME_SRC/. $SDDM_THEME_DIR/")
     [ -f "$SDDM_FONT" ] && commands+=("sudo cp $SDDM_FONT $SDDM_THEME_DIR/")
     local logo icon
+    ensure_waving_flag
     logo=$(image_source "${SETUP_LOGIN_LOGO:-start}"); icon=$(image_source "${SETUP_LOGIN_ICON:-keys}")
     commands+=("sudo cp $logo $SDDM_THEME_DIR/brand-logo.$(extension "$logo")")
     commands+=("sudo cp $icon $SDDM_THEME_DIR/login-icon.$(extension "$icon")")
+    local company_logo; company_logo=$(company_logo_file)
+    [ -z "$company_logo" ] || commands+=("sudo cp $SETUP_COMPANY_LOGO $SDDM_THEME_DIR/$(basename "$company_logo")")
     commands+=("sudo tee $SDDM_THEME_DIR/theme.conf   (writes: login style ${SETUP_LOGIN_STYLE:-classic})")
     commands+=("sudo tee $SDDM_OVERRIDE   (writes: [Theme] Current=Chicago95Plasma)")
     if ! ui_sudo "To change the login screen, Setup must write to a system folder." "${commands[@]}"; then
@@ -442,6 +485,9 @@ step_sddm() {       # login screen; system files, so it asks for the administrat
     if [ -f "$SDDM_FONT" ]; then run sudo cp "$SDDM_FONT" "$SDDM_THEME_DIR/"; show_copy "$SDDM_FONT" "$SDDM_THEME_DIR/$(basename "$SDDM_FONT")"; fi
     run sudo cp "$logo" "$SDDM_THEME_DIR/brand-logo.$(extension "$logo")"; show_copy "$logo" "$SDDM_THEME_DIR/brand-logo.$(extension "$logo")"
     run sudo cp "$icon" "$SDDM_THEME_DIR/login-icon.$(extension "$icon")"; show_copy "$icon" "$SDDM_THEME_DIR/login-icon.$(extension "$icon")"
+    if [ -n "$company_logo" ]; then
+        run sudo cp "$SETUP_COMPANY_LOGO" "$SDDM_THEME_DIR/$(basename "$company_logo")"; show_copy "$SETUP_COMPANY_LOGO" "$SDDM_THEME_DIR/$(basename "$company_logo")"
+    fi
     if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run sudo tee "$SDDM_THEME_DIR/theme.conf"; else sddm_theme_conf | sudo tee "$SDDM_THEME_DIR/theme.conf" >/dev/null; fi
     show_copy "(login style: ${SETUP_LOGIN_STYLE:-classic})" "$SDDM_THEME_DIR/theme.conf"
     if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run sudo tee "$SDDM_OVERRIDE"; else printf '[Theme]\nCurrent=Chicago95Plasma\n' | sudo tee "$SDDM_OVERRIDE" >/dev/null; fi

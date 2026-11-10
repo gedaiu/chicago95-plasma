@@ -185,6 +185,44 @@ Rectangle {
                       + "&nbsp;&nbsp;<b><span style=\"font-size: 15px\">" + (config.brandEdition || "Professional") + "</span></b>"
             }
             Text {
+                x: brandName.x
+                anchors.bottom: brandName.top
+                anchors.bottomMargin: -4
+                text: config.brandCompany || ""
+                font.family: "Arial"
+                font.pixelSize: 11
+                color: "#000000"
+            }
+            // Top right: the company's logo, or its name in heavy italics.
+            Image {
+                id: companyLogo
+                visible: status === Image.Ready
+                source: config.companyLogo ? Qt.resolvedUrl(config.companyLogo) : ""
+                anchors.right: parent.right
+                anchors.rightMargin: 8
+                y: 6
+                width: 80
+                height: 16
+                sourceSize.width: 160
+                sourceSize.height: 32
+                fillMode: Image.PreserveAspectFit
+                horizontalAlignment: Image.AlignRight
+            }
+            Text {
+                visible: !companyLogo.visible
+                anchors.right: parent.right
+                anchors.rightMargin: 8
+                y: 6
+                text: config.brandCompany || ""
+                font.family: "Arial"
+                font.pixelSize: 12
+                font.bold: true
+                font.italic: true
+                style: Text.Outline  // a thin outline in the same colour: heavier than bold, like the original's wordmark
+                styleColor: color
+                color: "#000000"
+            }
+            Text {
                 anchors.right: parent.right
                 anchors.rightMargin: 10
                 anchors.bottom: parent.bottom

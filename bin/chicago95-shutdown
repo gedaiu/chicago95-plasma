@@ -8,8 +8,8 @@ import subprocess
 
 import re
 
-from PySide6.QtCore import QRect, Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetrics, QIcon, QLinearGradient, QPainter, QPalette, QPixmap
+from PySide6.QtCore import QPointF, QRect, Qt, QTimer
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetrics, QFontMetricsF, QIcon, QLinearGradient, QPainter, QPalette, QPixmap
 from PySide6.QtWidgets import (
     QComboBox, QDialog, QHBoxLayout, QLabel, QPushButton, QRadioButton, QVBoxLayout, QWidget,
 )
@@ -223,7 +223,10 @@ def dialog_buttons(dialog, labels):
 
 
 class BrandBanner(QWidget):
-    """The 2000 dialogs' banner: white, with the Start logo and the name, over a glowing strip."""
+    """The 2000 dialogs' banner: white, with the layered mark and the name, over a glowing strip.
+
+    Positions and sizes are the original's, measured from tests/references/w2kshutdown.png
+    (tests/test_shutdown_reference.py); the lettering is the loading screen's scaled to fit."""
 
     # Sampled across the original's strip: dark teal at the ends, glowing light blue in the middle.
     STRIP = ((0.0, "#003355"), (0.049, "#00436c"), (0.098, "#005889"), (0.147, "#005a8c"), (0.196, "#2f76a1"),
@@ -231,11 +234,18 @@ class BrandBanner(QWidget):
              (0.49, "#9cc6de"), (0.539, "#98c4de"), (0.588, "#89bede"), (0.637, "#75b5de"), (0.686, "#64abda"),
              (0.735, "#5497c2"), (0.784, "#2f76a1"), (0.833, "#005a8c"), (0.882, "#005788"), (0.931, "#00436c"),
              (1.0, "#003355"))
+    MARK = (40, 6)  # the banner sits 1px into the dialog, so this is the original's (40, 7)
+    NAME_X, NAME_BASELINE, NUMBER_BASELINE, NAME_GAP = 111, 43, 44, 8
+    WORD = dict(size=35, embolden=1.4, spacing=0)
+    NUMBER = dict(size=31, spacing=-2.3)
+    EDITION = dict(size=25, embolden=1.2, spacing=-0.2, baseline=64, right_offset=-1)
+    COMPANY = dict(x=101, baseline=15, size=11, spacing=1.3)
+    CORNER = dict(right=398, baseline=17, size=13, embolden=0.7)
 
     def __init__(self, look, parent=None):
         super().__init__(parent)
         self.look = look
-        self.logo = self.load(look["osLogo"], 60)
+        self.logo = self.load(look["osLogo"], 74)
         self.company_logo = self.load(look["companyLogo"], 20)
 
     @staticmethod
@@ -247,6 +257,34 @@ class BrandBanner(QWidget):
         source = QPixmap(path) if sharp else QIcon(path).pixmap(size * 4, size * 4)
         return source.scaled(size * 4, size, Qt.KeepAspectRatio, Qt.FastTransformation if sharp else Qt.SmoothTransformation)
 
+    @staticmethod
+    def font(size, bold=False, italic=False, spacing=0):
+        font = QFont("Arial")
+        font.setPixelSize(size)
+        font.setBold(bold)
+        font.setItalic(italic)
+        font.setStyleStrategy(QFont.StyleStrategy(QFont.PreferAntialias | QFont.NoSubpixelAntialias))  # grey edges, no colour fringes
+        if spacing:
+            font.setLetterSpacing(QFont.AbsoluteSpacing, spacing)
+        return font
+
+    def paint_name(self, painter):
+        """Words heavy, numbers thin, from NAME_X; returns where the name ends."""
+        x = self.NAME_X
+        for part in re.findall(r"\d+|[^\d]+", self.look["osName"]):
+            part = part.strip()
+            if not part:
+                continue
+            if part.isdigit():
+                font = self.font(self.NUMBER["size"], spacing=self.NUMBER["spacing"])
+                painter.setFont(font)
+                painter.drawText(QPointF(x, self.NUMBER_BASELINE), part)
+            else:
+                font = self.font(self.WORD["size"], bold=True, spacing=self.WORD["spacing"])
+                chicago95ui.draw_heavy_text(painter, x, self.NAME_BASELINE, font, part, QColor(Qt.black), self.WORD["embolden"])
+            x += QFontMetricsF(font).horizontalAdvance(part) + self.NAME_GAP
+        return x - self.NAME_GAP
+
     def paintEvent(self, _event):
         painter = QPainter(self)
         painter.fillRect(0, 0, self.width(), 72, Qt.white)
@@ -254,31 +292,24 @@ class BrandBanner(QWidget):
         for position, colour in self.STRIP:
             strip.setColorAt(position, QColor(colour))
         painter.fillRect(0, 72, self.width(), 5, strip)
-        x = 104 if not self.logo.isNull() else 40
-        if not self.logo.isNull():
-            painter.drawPixmap(26, 6, self.logo)
-        if not self.company_logo.isNull():
-            painter.drawPixmap(self.width() - self.company_logo.width() - 8, 6, self.company_logo)
-        # As on the original: the company small above the name, the name large (words bold, numbers thin),
-        # the edition under it, right-aligned.
+        chicago95ui.paint_banner_mark(painter, *self.MARK, self.logo)
         painter.setPen(Qt.black)
         if self.look["osCompany"]:
-            font = QFont("Arial")
-            font.setPixelSize(13)
-            painter.setFont(font)
-            painter.drawText(x, 13, self.look["osCompany"])
-        for part in re.findall(r"\s*\d+|\s*[^\d]+", self.look["osName"]):
-            font = QFont("Arial")
-            font.setPixelSize(34)
-            font.setBold(not part.strip().isdigit())
-            painter.setFont(font)
-            painter.drawText(x, 38, part)
-            x += painter.fontMetrics().horizontalAdvance(part)
-        font = QFont("Arial")
-        font.setPixelSize(22)
-        font.setBold(True)
-        painter.setFont(font)
-        painter.drawText(x - painter.fontMetrics().horizontalAdvance(self.look["edition"]), 60, self.look["edition"])
+            painter.setFont(self.font(self.COMPANY["size"], spacing=self.COMPANY["spacing"]))
+            painter.drawText(QPointF(self.COMPANY["x"], self.COMPANY["baseline"]), self.look["osCompany"])
+        name_end = self.paint_name(painter)
+        edition = self.font(self.EDITION["size"], bold=True, spacing=self.EDITION["spacing"])
+        edition_x = name_end - QFontMetricsF(edition).horizontalAdvance(self.look["edition"]) + self.EDITION["right_offset"]
+        chicago95ui.draw_heavy_text(painter, edition_x, self.EDITION["baseline"], edition, self.look["edition"],
+                                    QColor(Qt.black), self.EDITION["embolden"])
+        if not self.company_logo.isNull():
+            painter.drawPixmap(self.width() - self.company_logo.width() - 8, 6, self.company_logo)
+        elif self.look["osCompany"]:
+            # No company logo: the company's name in heavy italics takes its place, like the original's wordmark.
+            corner = self.font(self.CORNER["size"], bold=True, italic=True)
+            x = self.CORNER["right"] - QFontMetricsF(corner).horizontalAdvance(self.look["osCompany"])
+            chicago95ui.draw_heavy_text(painter, x, self.CORNER["baseline"], corner, self.look["osCompany"],
+                                        QColor(Qt.black), self.CORNER["embolden"])
         painter.end()
 
 

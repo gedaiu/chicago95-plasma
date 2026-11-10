@@ -78,7 +78,7 @@ sys.path[:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", 
 import chicago95ui  # noqa: E402  after the environment above, so its defaults do not override it
 
 from PySide6.QtCore import QEasingCurve, QEvent, QPoint, QPropertyAnimation, QRect, QSize, Qt, QTimer  # noqa: E402
-from PySide6.QtGui import QAction, QColor, QFont, QFontDatabase, QFontMetrics, QIcon, QKeyEvent, QLinearGradient, QPainter, QPainterPath, QPalette, QPen  # noqa: E402
+from PySide6.QtGui import QAction, QColor, QFont, QFontDatabase, QFontMetrics, QIcon, QKeyEvent, QLinearGradient, QPainter, QPalette  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMenu, QProxyStyle, QStyle, QStyleOptionMenuItem, QWidget  # noqa: E402
 
 RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
@@ -96,7 +96,7 @@ STYLES = {
     "1995": dict(row=32, text_gap=5, text_drop=1, icon_x=34, banner_font=21, banner_stretch=100, banner_start=6, banner_inset=2, light=None, dark="#000000"),
     "1998": dict(row=36, text_gap=3, text_drop=1, icon_x=33, banner_font=18, banner_stretch=100, banner_start=5, banner_inset=2, light=None, dark="#000000"),
     "2000": dict(row=32, text_gap=4, text_drop=1, icon_x=30, banner_font=18, banner_stretch=110, banner_spacing=-1, banner_start=2, banner_inset=2,
-                 banner_embolden=1.5, banner_number_font=15, banner_number_stretch=115, banner_number_spacing=-2, banner_gap=3, light="face", dark="#404040"),
+                 banner_embolden=1, banner_smooth=True, banner_number_font=15, banner_number_stretch=115, banner_number_spacing=-2, banner_gap=3, light="face", dark="#404040"),
 }
 
 
@@ -361,7 +361,9 @@ class RetroMenu(QMenu):
                 (style.get("banner_number_font", style["banner_font"]), style.get("banner_number_stretch", style["banner_stretch"]))
             banner_font.setPixelSize(round(size * UI_SCALE))
             banner_font.setStretch(stretch)
-            banner_font.setStyleStrategy(QFont.NoAntialias)
+            # 1995/1998 lettering is pixel-sharp; 2000's has soft grey edges (banner_smooth).
+            banner_font.setStyleStrategy(QFont.StyleStrategy(QFont.PreferAntialias | QFont.NoSubpixelAntialias)
+                                         if style.get("banner_smooth") else QFont.NoAntialias)  # grey edges, no colour fringes
             banner_font.setBold(bold)
             spacing = style.get("banner_spacing" if bold else "banner_number_spacing")
             if spacing:
@@ -370,12 +372,8 @@ class RetroMenu(QMenu):
             painter.setFont(banner_font)
             metrics = painter.fontMetrics()
             if bold and style.get("banner_embolden"):
-                # 2000's words are heavier than any common bold: fill the letters and outline them too.
-                path = QPainterPath()
-                path.addText(x, baseline, banner_font, text)
-                painter.fillPath(path, colour)
-                painter.setPen(QPen(colour, style["banner_embolden"] * UI_SCALE))
-                painter.drawPath(path)
+                chicago95ui.draw_heavy_text(painter, x, baseline, banner_font, text, colour,
+                                            style["banner_embolden"] * UI_SCALE, bool(style.get("banner_smooth")))
             else:
                 painter.setPen(colour)
                 if gap is not None:
@@ -428,23 +426,48 @@ def themed_icon(name, *fallbacks):
     return QIcon.fromTheme(GENERIC_ICON)
 
 
-# Root menu icons, found by comparing every icon in Chicago95 and SE98 with the originals' 24px icons
-# (tests/test_startmenu_icons_reference.py); the second name is the fallback for other icon sets.
+# Root menu icons per style: the icon set and names whose pictures match the originals' 24px icons, found
+# by comparing every icon in Chicago95, SE98 and ClassicOS-2000 with them (tests/test_startmenu_icons_reference.py).
+# SE98 matches both 98 and 2000. When that set isn't installed the names go to the desktop's icon theme,
+# with the last name of each tuple as the generic fallback.
+ROOT_ICON_SETS = {"1995": "Chicago95", "1998": "SE98", "2000": "SE98"}
 ROOT_ICONS = {
-    "programs": ("applications-all", "folder-open"),
-    "documents": ("folder-home", "folder-documents"),
-    "settings": ("configuration_section", "preferences-desktop"),
-    "find": ("kfind", "system-search"),
-    "help": ("system-help", "help-browser"),
-    "run": ("system-run", "gtk-execute"),
-    "log_off": ("system-log-out",),
-    "shut_down": ("system-shutdown",),
+    "1995": {"programs": ("applications-all", "folder-open"), "documents": ("folder-home", "folder-documents"),
+             "settings": ("configuration_section", "preferences-desktop"), "find": ("kfind", "system-search"),
+             "help": ("system-help", "help-browser"), "run": ("system-run", "gtk-execute"),
+             "log_off": ("system-log-out",), "shut_down": ("system-shutdown",)},
+    "1998": {"programs": ("applications-all", "folder-open"), "documents": ("folder-home", "folder-documents"),
+             "settings": ("open-menu", "preferences-desktop"), "find": ("edit-find", "system-search"),
+             "help": ("help-hint", "help-browser"), "run": ("system-run", "gtk-execute"),
+             "log_off": ("system-log-out",), "shut_down": ("system-shutdown",)},
+    "2000": {"programs": ("applications-all", "folder-open"), "documents": ("folder-home", "folder-documents"),
+             "settings": ("open-menu", "preferences-desktop"), "find": ("edit-find", "system-search"),
+             "help": ("help-hint", "help-browser"), "run": ("system-run", "gtk-execute"),
+             "log_off": ("system-log-out",), "shut_down": ("gnome-shutdown", "system-shutdown")},
 }
+ICON_SET_DIRS = [Path.home() / ".local/share/icons", Path.home() / ".icons", Path("/usr/share/icons")]
 
 
-def add_entry(menu, text, icon_names, callback):
-    names = (icon_names,) if isinstance(icon_names, str) else icon_names
-    action = QAction(themed_icon(*names), text, menu)
+def root_icon(item, style):
+    """The item's icon from the style's matched icon set, or from the desktop's icon theme."""
+    names = ROOT_ICONS.get(style, ROOT_ICONS["1995"])[item]
+    icon_set = ROOT_ICON_SETS.get(style)
+    for base in ICON_SET_DIRS:
+        for name in names[:-1] or names:
+            files = sorted((base / icon_set).glob(f"*/*/{name}.png")) if icon_set else []
+            if files:
+                icon = QIcon()
+                for path in files:
+                    icon.addFile(str(path))
+                return icon
+    return themed_icon(*names)
+
+
+def add_entry(menu, text, icon, callback):
+    """icon: a QIcon, or an icon name (or tuple of names, first available wins)."""
+    if not isinstance(icon, QIcon):
+        icon = themed_icon(*((icon,) if isinstance(icon, str) else icon))
+    action = QAction(icon, text, menu)
     action.triggered.connect(lambda _checked=False: callback())
     menu.addAction(action)
     return action
@@ -508,29 +531,30 @@ def fill_documents_menu(documents):
 def build_root_menu():
     root = RetroMenu(banner=True)
     programs = RetroMenu("&Programs", root)
-    programs.setIcon(themed_icon(*ROOT_ICONS["programs"]))
+    style = banner_settings()["style"]
+    programs.setIcon(root_icon("programs", style))
     programs.aboutToShow.connect(lambda: fill_programs_menu(programs))
     root.addMenu(programs)
     documents = RetroMenu("&Documents", root)
-    documents.setIcon(themed_icon(*ROOT_ICONS["documents"]))
+    documents.setIcon(root_icon("documents", style))
     documents.aboutToShow.connect(lambda: fill_documents_menu(documents))
     root.addMenu(documents)
     settings = RetroMenu("&Settings", root)
-    settings.setIcon(themed_icon(*ROOT_ICONS["settings"]))
+    settings.setIcon(root_icon("settings", style))
     add_entry(settings, "Control Panel", "preferences-system", lambda: launch(["systemsettings"]))
     add_entry(settings, "Printers", "printer", lambda: launch(["kcmshell6", "kcm_printer_manager"]))
     add_entry(settings, "Display", "preferences-desktop-display", lambda: launch(["kcmshell6", "kcm_kscreen"]))
     root.addMenu(settings)
     find = RetroMenu("&Find", root)
-    find.setIcon(themed_icon(*ROOT_ICONS["find"]))
+    find.setIcon(root_icon("find", style))
     add_entry(find, "Files or Folders...", "system-search", lambda: launch(["kfind"]))
     add_entry(find, "Computer...", "network-workgroup", lambda: launch(["dolphin", "remote:/"]))
     root.addMenu(find)
-    add_entry(root, "&Help", ROOT_ICONS["help"], lambda: launch(["khelpcenter"]))
-    add_entry(root, "&Run...", ROOT_ICONS["run"], lambda: launch(["krunner"]))
+    add_entry(root, "&Help", root_icon("help", style), lambda: launch(["khelpcenter"]))
+    add_entry(root, "&Run...", root_icon("run", style), lambda: launch(["krunner"]))
     root.addSeparator()
-    add_entry(root, "&Log Off...", ROOT_ICONS["log_off"], lambda: launch(LOG_OFF_COMMAND))
-    add_entry(root, "Sh&ut Down...", ROOT_ICONS["shut_down"], lambda: launch(SHUT_DOWN_COMMAND))
+    add_entry(root, "&Log Off...", root_icon("log_off", style), lambda: launch(LOG_OFF_COMMAND))
+    add_entry(root, "Sh&ut Down...", root_icon("shut_down", style), lambda: launch(SHUT_DOWN_COMMAND))
     return root
 
 

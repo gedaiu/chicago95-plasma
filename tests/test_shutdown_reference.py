@@ -12,6 +12,15 @@ from reference import LOOK_2000_KDEGLOBALS, bounding_box, close, differing_pixel
 
 CLIENT_2000 = (115, 91, 524, 337)
 # Thumbnail crop of the dialog, and the rows (in the crop) where the option buttons are.
+# The 2000 banner, in client coordinates: the generated mark (its logo box left out, since the logo is the
+# user's; the name's lettering too, which sits over the mark's blue glow), and where each line of
+# lettering is searched for.
+BANNER_MARK = (36, 4, 160, 68)
+BANNER_LOGO = (48, 12, 96, 52)
+BANNER_LETTERING = (100, 0, 409, 46)
+MARK_BLOCK, MARK_TOLERANCE = 4, 45
+BANNER_LINES = {"company": (98, 4, 175, 15), "name": (98, 18, 345, 46), "edition": (150, 46, 345, 70), "corner": (345, 4, 409, 20)}
+LETTERING_SLACK = 2
 THUMBNAILS = {"1995": ("win95shutdownsm", (74, 60, 246, 180), (36, 78)), "1998": ("win98shutsm", (80, 46, 240, 152), (36, 74))}
 
 
@@ -26,7 +35,7 @@ def dialog_for(shutdown, qt_app, style, banner="Chicago95", company=""):
 @pytest.fixture(scope="module")
 def ours_2000(shutdown, qt_app):
     with installed_look(qt_app, "[StartMenu]\nstyle=2000\n", LOOK_2000_KDEGLOBALS):
-        dialog = dialog_for(shutdown, qt_app, "2000", banner="Windows 2000")
+        dialog = dialog_for(shutdown, qt_app, "2000", banner="Windows 2000", company="Microsoft")
         image = qimage_to_pil(dialog.grab().toImage())
         dialog.close()
     return image
@@ -46,6 +55,31 @@ def test_2000_strip_glows_like_the_original(reference_2000, ours_2000):
     expected = [reference_2000.getpixel((x, 75)) for x in xs]
     actual = [ours_2000.getpixel((x, 75)) for x in xs]
     assert all(close(a, e, 40) for a, e in zip(actual, expected)), list(zip(xs, actual, expected))
+
+
+def block_average(image, x, y):
+    pixels = [image.getpixel((x + dx, y + dy)) for dx in range(MARK_BLOCK) for dy in range(MARK_BLOCK)]
+    return tuple(sum(pixel[channel] for pixel in pixels) / len(pixels) for channel in range(3))
+
+
+def overlaps(box, x, y):
+    return box[0] - MARK_BLOCK < x < box[2] and box[1] - MARK_BLOCK < y < box[3]
+
+
+def test_2000_banner_mark_matches_the_original_within_45_levels_per_4px_block(reference_2000, ours_2000):
+    blocks = [(x, y) for y in range(BANNER_MARK[1], BANNER_MARK[3], MARK_BLOCK) for x in range(BANNER_MARK[0], BANNER_MARK[2], MARK_BLOCK)
+              if not overlaps(BANNER_LOGO, x, y) and not overlaps(BANNER_LETTERING, x, y)]
+    differing = [(x, y) for x, y in blocks
+                 if max(abs(a - b) for a, b in zip(block_average(reference_2000, x, y), block_average(ours_2000, x, y))) > MARK_TOLERANCE]
+    assert differing == []
+
+
+@pytest.mark.parametrize("line", BANNER_LINES.values(), ids=BANNER_LINES.keys())
+def test_2000_banner_lettering_covers_the_original_lines_within_2_pixels(reference_2000, ours_2000, line):
+    def ink(image):
+        return bounding_box(image, lambda c: sum(c) < 250, (line[0], line[2]), (line[1], line[3]))
+    expected, actual = ink(reference_2000), ink(ours_2000)
+    assert all(abs(a - e) <= LETTERING_SLACK for a, e in zip(actual, expected)), (actual, expected)
 
 
 def button_frames(image):

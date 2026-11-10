@@ -38,3 +38,21 @@ def test_reinstall_keeps_the_original_file_as_the_only_backup_and_lists_it_once(
     manifest = (tmp_path / ".local/share/chicago95/installed-files.txt").read_text().splitlines()
 
     assert (first.returncode, second.returncode, backups, manifest.count(str(launcher))) == (0, 0, ["original launcher\n"], 1)
+
+
+def test_dry_run_of_the_2000_look_downloads_the_waving_flag_for_the_loading_screen(tmp_path):
+    subprocess.run([str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", "--look=2000", "--components=splash"],
+                   capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60,
+                   env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)})
+    log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+
+    assert f"would: python3 {REPO}/setup/fetch-waving-flag.py {tmp_path}/.local/share/chicago95/waving-flag.png" in log
+
+
+def test_login_theme_settings_carry_the_company_tagline_and_company_logo_file(tmp_path):
+    script = (f'REPO={REPO}; source {REPO}/setup/steps.sh; SETUP_COMPANY="Acme & Sons"; '
+              'SETUP_TAGLINE="Built on Plasma"; SETUP_COMPANY_LOGO=/somewhere/acme.svg; sddm_theme_conf')
+    settings = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=30,
+                              env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}).stdout.splitlines()
+
+    assert {"brandCompany=Acme & Sons", "brandTagline=Built on Plasma", "companyLogo=company-logo.svg"} <= set(settings)

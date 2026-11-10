@@ -126,10 +126,15 @@ choose_branding() {
             "$SETUP_SPLASH_IMAGE" "classic|Chicago95 picture")
     else
         SETUP_LOGIN_LOGO=$(choose_image "Login and loading logo" "Which logo should the login and loading screens show?" "$SETUP_LOGIN_LOGO" \
-            "start|Same as the Start button" "flag|Classic flag" "penguin|Penguin")
+            "start|Same as the Start button" "waving-flag|Waving flag (downloaded from Wikimedia Commons)" \
+            "flag|Classic flag" "penguin|Penguin")
         SETUP_EDITION=$(choose_text "Edition" "Which edition should follow the name?" "$SETUP_EDITION" \
             "Professional" "Home Edition" "Workstation")
-        SETUP_TAGLINE=$(choose_text "Tagline" "What should the small line in the login banner say?" "$SETUP_TAGLINE" \
+        SETUP_COMPANY=$(choose_text "Company" "Which company should stand above the name (and top right, without a logo)?" \
+            "$SETUP_COMPANY" "KDE" "Linux")
+        SETUP_COMPANY_LOGO=$(choose_image "Company logo" "What should the top-right corner of the login and loading screens show?" \
+            "$SETUP_COMPANY_LOGO" "text|The company's name in heavy italics")
+        SETUP_TAGLINE=$(choose_text "Tagline" "What should the small line under the edition say?" "$SETUP_TAGLINE" \
             "Built on Linux Technology" "Built on KDE Plasma")
         SETUP_LOADING_TEXT=$(choose_text "Loading text" "What should stand beside the progress bar?" "$SETUP_LOADING_TEXT" \
             "Starting up..." "Loading Plasma...")
@@ -370,8 +375,11 @@ SETUP_BANNER_TEXT=${OPT_BANNER_TEXT:-Chicago95}
 SETUP_LOGIN_STYLE=${OPT_LOGIN_STYLE:-classic}
 [[ " $COMPONENTS " == *" sddm "* || " $COMPONENTS " == *" splash "* ]] && [ -z "${OPT_LOGIN_STYLE:-}" ] && choose_login_style
 SETUP_LOGIN_TITLE="Log On to %h"; SETUP_LOGIN_MESSAGE="Type a user name and password to log on."
-SETUP_LOGIN_ICON=keys; SETUP_LOGIN_LOGO=start; SETUP_SPLASH_IMAGE=classic
+SETUP_LOGIN_ICON=keys; SETUP_SPLASH_IMAGE=classic
+# The 2000 look's logo is the waving flag of its start-up screen; the others repeat the Start button's logo.
+SETUP_LOGIN_LOGO=$([ "$SETUP_MENU_STYLE" = 2000 ] && echo waving-flag || echo start)
 SETUP_EDITION=Professional; SETUP_TAGLINE="Built on Linux Technology"
+SETUP_COMPANY=KDE; SETUP_COMPANY_LOGO=text
 SETUP_LOADING_TEXT="Starting up..."; SETUP_LOADING_FOOTER="Chicago95 for KDE Plasma"
 [[ " $COMPONENTS " == *" sddm "* || " $COMPONENTS " == *" splash "* ]] && choose_branding
 SETUP_SAVER=${OPT_SAVER:-deepstars}
