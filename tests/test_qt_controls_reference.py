@@ -152,3 +152,22 @@ def test_open_drop_down_list_marks_its_selected_row_with_a_plain_highlight_and_n
     origin = combo.view().viewport().mapTo(combo.view().window(), row_rect.topLeft())
     top_edge = {popup.getpixel((x, origin.y())) for x in range(origin.x(), origin.x() + row_rect.width())}
     assert top_edge == {highlight}, top_edge
+
+
+def test_focused_drop_down_shows_its_value_in_white_on_the_highlight(qt_app):
+    """After a pick the drop-down keeps the focus: its value sits on the highlight, as the originals show
+    it, never white letters on the white field."""
+    import chicago95ui
+    from PySide6.QtWidgets import QComboBox
+    from reference import qimage_to_pil
+    combo = chicago95ui.classic_combo(QComboBox())
+    combo.addItems(["Hours as my language does", "24 hours"])
+    combo.setFixedWidth(160)
+    combo.show()
+    combo.setCurrentIndex(1)
+    combo.setFocus()
+    qt_app.processEvents()
+    image = qimage_to_pil(combo.grab().toImage())
+    highlight = combo.palette().highlight().color().getRgb()[:3]
+    field = {image.getpixel((x, y)) for x in range(4, 100) for y in range(4, combo.height() - 4)}
+    assert highlight in field and (255, 255, 255) in field, field

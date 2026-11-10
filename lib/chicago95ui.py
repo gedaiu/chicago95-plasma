@@ -400,6 +400,8 @@ class ClassicStyle(QProxyStyle):
             inside = option.rect.adjusted(2, 2, -2, -2)
             inside.setRight(arrow.left() - 1)
             painter.fillRect(inside, option.palette.base() if option.state & QStyle.State_Enabled else option.palette.window())
+            if option.state & QStyle.State_HasFocus:
+                painter.fillRect(self.subControlRect(QStyle.CC_ComboBox, option, QStyle.SC_ComboBoxEditField, widget), option.palette.highlight())
 
     def drawControl(self, element, option, painter, widget=None):
         if element == QStyle.CE_TabBarTabLabel and not option.state & QStyle.State_Selected:
