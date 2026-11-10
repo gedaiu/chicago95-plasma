@@ -99,6 +99,13 @@ step_base() {
     [ -d ~/.icons/Chicago95_Animated_Hourglass_Cursors_HiDPI ] || put_tree "$src/Cursors/Chicago95_Animated_Hourglass_Cursors_HiDPI" ~/.icons/Chicago95_Animated_Hourglass_Cursors_HiDPI
     [ -d ~/.local/share/sounds/Chicago95 ] || put_tree "$src/sounds/Chicago95" ~/.local/share/sounds/Chicago95
     run mkdir -p ~/.local/share/icons; run ln -sfn ~/.icons/Chicago95 ~/.local/share/icons/Chicago95; record ~/.local/share/icons/Chicago95
+    # GTK programs draw their own widgets, and GTK 4 its own title bars: both take the classic theme.
+    local version
+    for version in 3.0 4.0; do
+        backup ~/.config/gtk-$version/settings.ini; run mkdir -p ~/.config/gtk-$version
+        run kwriteconfig6 --file ~/.config/gtk-$version/settings.ini --group Settings --key gtk-theme-name Chicago95
+        record ~/.config/gtk-$version/settings.ini
+    done
     show_copy ~/.icons/Chicago95 ~/.local/share/icons/Chicago95
     if [ "${SETUP_DRY_RUN:-0}" != 1 ] && ! grep -q '^Inherits=' ~/.icons/Chicago95/index.theme; then
         sed -i '/^\[Icon Theme\]/a Inherits=hicolor,breeze' ~/.icons/Chicago95/index.theme
@@ -185,6 +192,8 @@ step_look() {       # decoration, Plasma style, colours, widget style, DPI
     # The originals' title bar: the window icon on the left; minimize, maximize and close on the right.
     kconf kwinrc org.kde.kdecoration2 ButtonsOnLeft M
     kconf kwinrc org.kde.kdecoration2 ButtonsOnRight IAX
+    # chicago95-sync-colors draws the bevels with the look's colours, and reads the look from here.
+    run kwriteconfig6 --file chicago95rc --group StartMenu --key style "${SETUP_MENU_STYLE:-1995}"
     apply_title_colors
     run plasma-apply-desktoptheme Chicago95 >>"$SETUP_LOG" 2>&1 || true
     if [ "$SETUP_SCALE" != 1 ]; then
@@ -425,7 +434,7 @@ write_branding() {  # [Branding] in chicago95rc: what the 2000 banners show (Shu
 
 start_logo_source() {  # the image behind the Start logo choice: a bundled logo name, or the user's file
     case "${SETUP_START_LOGO:-flag}" in
-        flag) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-flag.png";;
+        flag) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-flag-16.png";;   # pixel art at the button's size
         penguin) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-penguin.svg";;
         *) printf '%s' "$SETUP_START_LOGO";;
     esac
@@ -527,7 +536,7 @@ offer_taskbar() {   # replaces the panels with the Chicago95 taskbar once the us
     [ "$SETUP_IN_PLASMA" = 1 ] && [ "${SETUP_DRY_RUN:-0}" = 0 ] || return 0
     local attempt
     for attempt in 1 2 3 4 5 6 7 8 9 10; do plasma_script 'print("ready")' >/dev/null 2>&1 && break; sleep 1; done
-    if [[ "$(plasma_script 'print(panels().some(panel => panel.widgets().some(widget => widget.type == "org.chicago95.start")))' 2>/dev/null)" == *true* ]]; then
+    if [[ "$(plasma_script 'print(panels().some(panel => panel.widgets().some(widget => widget.type == "org.chicago95.tasks")))' 2>/dev/null)" == *true* ]]; then
         ui_status "The Chicago95 taskbar is already in place"; return 0
     fi
     ui_card "Build the taskbar" \
@@ -539,7 +548,7 @@ offer_taskbar() {   # replaces the panels with the Chicago95 taskbar once the us
     ui_confirm "Build the taskbar now?" || return 0
     backup ~/.config/plasma-org.kde.plasma.desktop-appletsrc
     plasma_script "panels().forEach(panel => panel.remove());
-$(sed "s/^panel.height = 28;/panel.height = $PANEL_HEIGHT;/" ~/.local/share/chicago95/panel-layout.js)" >>"$SETUP_LOG" 2>&1
+$(sed -e "s/^panel.height = 28;/panel.height = $PANEL_HEIGHT;/" -e "s/^const look = \"1995\";/const look = \"${SETUP_MENU_STYLE:-1995}\";/" ~/.local/share/chicago95/panel-layout.js)" >>"$SETUP_LOG" 2>&1
 }
 
 js_string() { python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$1"; }

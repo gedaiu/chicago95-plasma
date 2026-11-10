@@ -1,5 +1,6 @@
 import subprocess
 import time
+from pathlib import Path
 
 from conftest import REPO
 
@@ -67,3 +68,28 @@ def test_dry_run_of_the_2000_login_draws_the_banner_with_the_shut_down_code(tmp_
 
     assert (f"would: env QT_QPA_PLATFORM=offscreen python3 {REPO}/bin/chicago95-shutdown "
             f"--login-banner {tmp_path}/.local/share/chicago95/login-banner.png") in log
+
+
+def test_dry_run_of_the_2000_look_alone_writes_the_look_before_redrawing_the_bevels(tmp_path):
+    """chicago95-sync-colors draws the decoration and the taskbar with the look's bevel colours, read from
+    chicago95rc: the look step writes it even without the Start menu."""
+    subprocess.run([str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", "--look=2000", "--components=look"],
+                   capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60,
+                   env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)})
+    log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+    style = log.find("would: kwriteconfig6 --file chicago95rc --group StartMenu --key style 2000")
+    redraw = log.find("chicago95-sync-colors --force")
+
+    assert -1 < style < redraw, (style, redraw)
+
+
+def test_dry_run_of_the_base_theme_selects_chicago95_for_gtk_3_and_4(tmp_path):
+    """GTK programs draw their own widgets, and GTK 4 its own title bars: both take the classic theme."""
+    subprocess.run([str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", "--components=base"],
+                   capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60,
+                   env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path),
+                        "CHICAGO95_SRC": str(Path.home() / "src/Chicago95")})
+    log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+
+    assert [f"would: kwriteconfig6 --file {tmp_path}/.config/gtk-{version}/settings.ini --group Settings --key gtk-theme-name Chicago95" in log
+            for version in ("3.0", "4.0")] == [True, True]

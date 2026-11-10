@@ -3,24 +3,23 @@ import QtQuick
 // The originals' toolbar separator on the taskbar (tests/test_taskbar_reference.py): after a 2px gap an
 // etched line (shadow, then white) as tall as the buttons, 2px of face, then a 3px grip 18px tall (white
 // left and top, shadow right and bottom), then 4px before the next item. Bottom-aligned like the
-// buttons: 2px above the taskbar's bottom edge.
+// buttons. The gap before the line is the look's: 2px, 3px on 2000 after its wider Start button.
 Item {
     id: separator
     property color shadow: "#808080"
     property color white: "#ffffff"
 
-    readonly property int lead: 2
+    property int lead: 2
     readonly property int trail: 4
     readonly property int lineHeight: 22
     readonly property int gripHeight: 18
-    readonly property int bottomGap: 2
 
     implicitWidth: lead + 2 + 2 + 3 + trail
-    implicitHeight: lineHeight + bottomGap
+    implicitHeight: lineHeight
 
     Item {
         x: separator.lead
-        y: separator.height - separator.bottomGap - separator.lineHeight
+        y: separator.height - separator.lineHeight
         width: 7
         height: separator.lineHeight
 

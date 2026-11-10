@@ -3,21 +3,36 @@ import QtQuick.Layouts
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 
+// The tray as the originals draw it (tests/test_plasma_taskbar_reference.py), around Plasma's system
+// tray, which follows this applet, and the clock after it: the tray's icons 16px, 17px apart, on row 7
+// of the taskbar, the last one just before the clock's cell (1px; 4px on 2000); the sunken box from
+// 3px before the first icon (4px on 2000) to the end of the clock's cell.
+// Plasma's tray draws its icons at 22px in cells of its own; each icon is resized and placed here.
 PlasmoidItem {
     id: root
 
     preferredRepresentation: fullRepresentation
     Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground
 
-    readonly property int gap: 6
-    Layout.minimumWidth: gap
-    Layout.preferredWidth: gap
-    Layout.maximumWidth: gap
+    Layout.minimumWidth: 1
+    Layout.preferredWidth: 1
+    Layout.maximumWidth: 1
     Layout.fillHeight: true
 
-    // The panel layout holds one container per applet; find ours and that layout.
+    readonly property bool look2000: Plasmoid.configuration.look === "2000"
+    readonly property int iconSize: 16
+    readonly property int iconPitch: 17
+    readonly property int iconTop: 7
+    readonly property int clockGap: look2000 ? 4 : 1
+    readonly property int boxPadding: look2000 ? 4 : 3
+
+    // The panel layout holds one container per applet: ours, the tray's and the clock's.
     property Item container: null
     property Item row: null
+    property Item trayItem: null
+    property Item clockItem: null
+    property real boxLeft: 0
+    property real boxRight: 0
 
     function locate() {
         let child = root
@@ -27,151 +42,87 @@ PlasmoidItem {
             child = up
             up = up.parent
         }
-        if (!up || up.width < wide) return false
+        if (!up || up.width < wide) return
         container = child
         row = up
-        return true
     }
     Component.onCompleted: locate()
     onParentChanged: locate()
 
-    // Plasma's tray never draws icons below 22px: tighten its grid cells and scale each icon to 16px.
-    readonly property real trayScale: 16 / 22
-    readonly property int trayCell: 24
-    property Item trayItem: null
-    property bool gridNudged: false
-
-    function shrinkTray() {
-        if (!row || !container) return
-        let tray = null
+    function nextAfter(item) {
+        let next = null
         for (let i = 0; i < row.children.length; i++) {
-            const item = row.children[i]
-            if (item !== container && item.x > container.x && (tray === null || item.x < tray.x)) tray = item
+            const candidate = row.children[i]
+            if (candidate.visible && candidate.width > 0 && candidate.x > item.x && (next === null || candidate.x < next.x)) next = candidate
         }
-        trayItem = tray
-        nudgeClock()
-        restyleTray()
+        return next
     }
 
-    // The clock sits a pixel high against the tray icons; shift it down to the classic baseline.
-    property bool clockNudged: false
-    function nudgeClock() {
-        if (clockNudged || !trayItem) return
-        let clock = null
-        for (let i = 0; i < row.children.length; i++) {
-            const item = row.children[i]
-            if (item.x > trayItem.x && (clock === null || item.x < clock.x)) clock = item
-        }
-        if (clock) {
-            const shift = Qt.createQmlObject("import QtQuick; Translate { y: 3 }", clock)
-            clock.transform = [shift]
-            clockNudged = true
-        }
-    }
-
-    readonly property string arrowIcon: "@HOME@/.local/share/chicago95/icons/tray-arrow-up.png"
-    function restyleArrow(item, depth) {
-        if (!item || depth > 8) return
-        if (item.toString().indexOf("ExpanderArrow") === 0) {
-            for (let i = 0; i < item.children.length; i++) {
-                const icon = item.children[i]
-                if (icon.toString().indexOf("Icon") === 0 && icon.source !== arrowIcon) { icon.source = arrowIcon; icon.smooth = false }
-            }
-            return
-        }
-        for (let i = 0; i < item.children.length; i++) restyleArrow(item.children[i], depth + 1)
-    }
-
-    function findGridView(item, depth) {
+    function find(item, depth, kind) {
         if (!item || depth > 8) return null
-        if (item.toString().indexOf("QQuickGridView") === 0) return item
+        if (item.toString().indexOf(kind) === 0) return item
         for (let i = 0; i < item.children.length; i++) {
-            const found = findGridView(item.children[i], depth + 1)
+            const found = find(item.children[i], depth + 1, kind)
             if (found) return found
         }
         return null
     }
 
-    function restyleTray() {
-        const grid = findGridView(trayItem, 0)
-        if (!grid) return
-        if (grid.cellWidth !== trayCell) grid.cellWidth = trayCell
-        if (!gridNudged) {
-            grid.transform = [Qt.createQmlObject("import QtQuick; Translate { y: 1 }", grid)]
-            gridNudged = true
+    readonly property string arrowIcon: "@HOME@/.local/share/chicago95/icons/tray-arrow-up.png"
+    function restyleArrow() {
+        const arrow = find(trayItem, 0, "ExpanderArrow")
+        if (!arrow) return
+        for (let i = 0; i < arrow.children.length; i++) {
+            const icon = arrow.children[i]
+            if (icon.toString().indexOf("Icon") === 0 && icon.source !== arrowIcon) { icon.source = arrowIcon; icon.smooth = false }
         }
-        const wanted = Math.round(grid.width + trayCell + 22 - 8)
+    }
+
+    function placeIcons() {
+        if (!row) locate()
+        if (!row || !container) return
+        trayItem = nextAfter(container)
+        clockItem = trayItem ? nextAfter(trayItem) : null
+        if (!trayItem) return
+        restyleArrow()
+        const grid = find(trayItem, 0, "QQuickGridView")
+        if (!grid || !grid.contentItem) return
+        if (grid.cellWidth !== iconPitch) grid.cellWidth = iconPitch
+        // The grid's own helper items have no icon: only the tray's entries count.
+        const icons = []
+        for (let i = 0; i < grid.contentItem.children.length; i++) {
+            const delegate = grid.contentItem.children[i]
+            const icon = delegate.visible && delegate.width > 0 ? find(delegate, 0, "Icon") : null
+            if (icon) icons.push({ delegate: delegate, icon: icon })
+        }
+        icons.sort((a, b) => a.delegate.x - b.delegate.x)
+        const clockX = clockItem ? clockItem.mapToItem(null, 0, 0).x : trayItem.mapToItem(null, trayItem.width, 0).x
+        const firstX = clockX - clockGap - iconSize - (icons.length - 1) * iconPitch
+        icons.forEach(({ icon }, index) => {
+            const spot = icon.parent.mapFromItem(null, firstX + index * iconPitch, iconTop)
+            icon.anchors.fill = undefined
+            icon.width = iconSize
+            icon.height = iconSize
+            icon.x = Math.round(spot.x)
+            icon.y = Math.round(spot.y)
+        })
+        const wanted = icons.length * iconPitch
         if (trayItem.Layout && trayItem.Layout.maximumWidth !== wanted) {
             trayItem.Layout.minimumWidth = wanted
             trayItem.Layout.preferredWidth = wanted
             trayItem.Layout.maximumWidth = wanted
         }
-        restyleArrow(trayItem, 0)
-        const content = grid.contentItem
-        if (!content) return
-        for (let i = 0; i < content.children.length; i++) {
-            const delegate = content.children[i]
-            if (delegate.scale !== trayScale) {
-                delegate.transformOrigin = Item.Center
-                delegate.scale = trayScale
-            }
-        }
+        const origin = root.mapToItem(null, 0, 0).x
+        boxLeft = firstX - boxPadding - origin
+        boxRight = (clockItem ? clockX + clockItem.width : clockX) - origin
     }
 
-    Timer { interval: 1000; running: true; repeat: true; onTriggered: { if (!root.row) root.locate(); if (root.row && !root.trayItem) root.shrinkTray(); else if (root.trayItem) root.restyleTray(); if (root.row) root.restyleTasks() } }
+    Timer { interval: 500; running: true; repeat: true; onTriggered: root.placeIcons() }
 
-    // classic task buttons: 16px icon, vertically centred, bold label on the active window.
-    readonly property int taskIconSize: 16
-    readonly property int taskInsetTop: 4
-    readonly property int taskInsetBottom: 2
-    property var boundLabels: []
-
-    function isTaskItem(item) {
-        return item && item.hasOwnProperty("smartLauncherItem") && item.hasOwnProperty("model")
-    }
-
-    function restyleTask(task) {
-        for (let i = 0; i < task.children.length; i++) {
-            const child = task.children[i]
-            const kind = child.toString()
-            if (kind.indexOf("QQuickLoader") === 0 && child.width > 0 && child.height > 0 && child.width !== taskIconSize) {
-                child.anchors.top = undefined
-                child.anchors.verticalCenter = task.verticalCenter
-                child.anchors.verticalCenterOffset = 1
-                child.anchors.leftMargin = 5
-                child.width = taskIconSize
-                child.height = taskIconSize
-            } else if (kind.indexOf("FrameSvgItem") >= 0) {
-                if (child.anchors.topMargin !== taskInsetTop) {
-                    child.anchors.topMargin = taskInsetTop
-                    child.anchors.bottomMargin = taskInsetBottom
-                }
-            } else if (kind.indexOf("Label") >= 0 || kind.indexOf("QQuickText") === 0) {
-                if (boundLabels.indexOf(child) < 0) {
-                    child.font.bold = Qt.binding(function() { return task.model && task.model.IsActive === true })
-                    child.anchors.topMargin = child.anchors.topMargin + 2
-                    child.anchors.leftMargin = Qt.binding(function() { return 5 + taskIconSize + 4 })
-                    boundLabels.push(child)
-                }
-            }
-        }
-    }
-
-    function walkTasks(item, depth) {
-        if (!item || depth > 12) return
-        if (isTaskItem(item)) { restyleTask(item); return }
-        for (let i = 0; i < item.children.length; i++) walkTasks(item.children[i], depth + 1)
-    }
-
-    function restyleTasks() {
-        for (let i = 0; i < row.children.length; i++) walkTasks(row.children[i], 0)
-    }
-
-    // The sunken box from here to 2px before the taskbar's right end, behind the tray and the clock.
     TrayBox {
         z: -1
-        x: 2
+        x: root.boxLeft
+        width: root.boxRight - root.boxLeft + 1
         height: root.height
-        width: row && container ? Math.max(0, row.width - container.x - 4) : root.width
     }
 }

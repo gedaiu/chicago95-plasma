@@ -86,6 +86,9 @@ def frame_pieces(prefix, title_colors, x0):
         piece("bottom", b, s - b, s - 2 * b, b),
         piece("bottomright", s - b, s - b, b, b),
         piece("center", b, TOP_H, s - 2 * b, s - TOP_H - b),
+        # KWin repeats the edges at their own size unless told to stretch them: the title's gradient
+        # must run once across the whole band.
+        f'<rect id="{prefix}hint-stretch-borders" x="{x0}" y="0" width="1" height="1" fill="none"/>',
     ])
 
 
@@ -154,6 +157,10 @@ def button_svg(kind):
 for name in ["close", "minimize", "maximize", "restore", "help", "alldesktops", "keepabove", "keepbelow", "shade"]:
     (OUT / f"{name}.svg").write_text(button_svg(name))
 
+# KWin centres the caption in a box TitleEdgeTop down and TitleHeight tall: a pixel lower and shorter
+# than the title band puts it on the originals' rows, with the buttons where they were (TitleEdgeTop +
+# ButtonMarginTop). It starts a pixel after the icon's gap (TitleBorderLeft), where the originals' font
+# begins most capitals; tests/test_plasma_window_reference.py.
 (OUT / "Chicago95rc").write_text(f"""[General]
 ActiveTextColor=255,255,255,255
 InactiveTextColor={",".join(str(int(args.inactive_text.lstrip("#")[i:i + 2], 16)) for i in (0, 2, 4))},255
@@ -166,8 +173,8 @@ HaloActive=false
 HaloInactive=false
 
 [Layout]
-TitleHeight={TITLE_H}
-TitleEdgeTop={BORDER}
+TitleHeight={TITLE_H - 1}
+TitleEdgeTop={BORDER + 1}
 TitleEdgeBottom=0
 TitleEdgeLeft={BORDER + 2}
 TitleEdgeRight={BORDER + 2}
@@ -175,14 +182,14 @@ TitleEdgeTopMaximized=0
 TitleEdgeBottomMaximized=0
 TitleEdgeLeftMaximized=0
 TitleEdgeRightMaximized=0
-TitleBorderLeft=2
+TitleBorderLeft=3
 TitleBorderRight=2
 ButtonHeight={BTN_H}
 ButtonWidth={BTN_W}
 ButtonWidthMenu={BTN_W}
 ButtonWidthClose={BTN_W + CLOSE_GAP}
 ButtonSpacing=0
-ButtonMarginTop=1
+ButtonMarginTop=0
 ExplicitButtonSpacer=4
 BorderLeft={BORDER}
 BorderRight={BORDER}

@@ -7,6 +7,8 @@ each with the look's colours as chicago95-sync-colors writes them. Icons and lab
 programs' and are masked; the pressed button's checkerboard is compared in either phase (the originals
 align it to the screen, Plasma to the button).
 """
+import configparser
+import shutil
 import subprocess
 import sys
 
@@ -43,6 +45,7 @@ def styles(tmp_path_factory):
     built = {}
     for look, colours in LOOKS.items():
         out = tmp_path_factory.mktemp(f"plasma-style-{look}")
+        shutil.copy(REPO / "plasma-style/theme/colors", out / "colors")   # as installed: the generator rewrites it
         arguments = [f"--{key}={colours[key]}" for key in ("face", "light", "shadow", "dark")]
         subprocess.run([sys.executable, str(REPO / "plasma-style/make_chicago95_plasmastyle.py"), "--out", str(out), *arguments],
                        check=True, capture_output=True)
@@ -55,7 +58,7 @@ STRIP = """import QtQuick
 import "%s"
 Rectangle {
     width: 640; height: %d
-    %s { objectName: "item"; x: %d; y: parent.height - implicitHeight; width: implicitWidth; height: implicitHeight }
+    %s { objectName: "item"; x: %d; y: 2; width: implicitWidth; height: parent.height - 4 }   // Plasma's applet rows: 2 to 25
 }
 """
 
@@ -89,7 +92,7 @@ def start_button(qt_app, look, folder, width=None):
     from PySide6.QtCore import QUrl
     colours = LOOKS[look]
     properties = {key: colours[key] for key in ("face", "light", "shadow", "dark")}
-    properties.update(text="Start", logoSource=QUrl.fromLocalFile(str(PLASMOIDS / "org.chicago95.start/contents/images/logo-flag.png")))
+    properties.update(look=look, text="Start", logoSource=QUrl.fromLocalFile(str(PLASMOIDS / "org.chicago95.start/contents/images/logo-flag-16.png")))
     return render_on_strip(qt_app, folder, "org.chicago95.start", "StartButton", 2, colours["face"], properties, width)
 
 
@@ -99,6 +102,18 @@ def test_taskbar_is_28_pixels_tall_with_a_light_and_a_white_line_on_top(styles, 
     ours = render_frame(styles[look] / "widgets/panel-background.svg", "", original.width, HEIGHT, borders={"top"})
     rows = (0, 1, 2, 3, HEIGHT - 2, HEIGHT - 1)
     assert all(close(ours.getpixel((x, y)), original.getpixel((x, y))) for x in range(original.width) for y in rows)
+
+
+@pytest.mark.parametrize("look", TASKBARS)
+def test_plasma_style_colours_take_the_looks_face(styles, look):
+    """Plasma's widgets (the Start button, the clock) take their face from the style's colours."""
+    colours = configparser.ConfigParser(interpolation=None)
+    colours.optionxform = str
+    colours.read(styles[look] / "colors")
+    face = ",".join(str(int(LOOKS[look]["face"][i:i + 2], 16)) for i in (1, 3, 5))
+    groups = ("Colors:Window", "Colors:Button", "Colors:Complementary", "Colors:Header")
+    assert {(group, key): colours[group][key] for group in groups for key in ("BackgroundNormal", "BackgroundAlternate")} == \
+        {(group, key): face for group in groups for key in ("BackgroundNormal", "BackgroundAlternate")}
 
 
 def test_panel_layout_makes_the_taskbar_28_pixels_tall():
@@ -118,6 +133,18 @@ def test_start_button_matches_the_original(qt_app, look, tmp_path):
     assert count == 0, f"{count} pixels differ; see {tmp_path}"
 
 
+@pytest.mark.parametrize("look", TASKBARS)
+def test_start_logo_covers_the_originals_16_by_14_box(qt_app, look, tmp_path):
+    """The flag's own art differs from the original's; its ink must fill the same box."""
+    original = taskbar(look)
+    (left, right), _ = BUTTONS[look]
+    ours, _ = start_button(qt_app, look, tmp_path, width=right - left + 1)
+
+    def ink(image):
+        return bounding_box(image, lambda c: max(c) - min(c) > 60 or sum(c) < 100, (left + 3, left + LOGO[2] + 1), (BUTTON_TOP + 2, BUTTON_TOP + BUTTON_HEIGHT - 2))
+    assert ink(ours) == ink(original)
+
+
 @needs_ui_font
 @pytest.mark.parametrize("look", ["1995", "1998"])
 def test_start_lettering_covers_the_originals(qt_app, look, tmp_path):
@@ -131,8 +158,9 @@ def test_start_lettering_covers_the_originals(qt_app, look, tmp_path):
 
 
 @needs_ui_font
-@pytest.mark.parametrize("look", ["1995", "1998"])
+@pytest.mark.parametrize("look", TASKBARS)
 def test_start_button_is_as_wide_as_the_original(qt_app, look, tmp_path):
+    """2000's lettering is wider: its button has a pixel more face after the text."""
     (left, right), _ = BUTTONS[look]
     _, width = start_button(qt_app, look, tmp_path)
     assert width == right - left + 1
@@ -182,7 +210,7 @@ def test_separators_match_the_originals_etched_line_and_grip(qt_app, look, tmp_p
     (the quick launch's first icon cell, 3px before its icon, or a task button)."""
     original = taskbar(look)
     lead = 2
-    ours, width = render_on_strip(qt_app, tmp_path, "org.chicago95.grip", "Separator", 0, LOOKS[look]["face"], {})
+    ours, width = render_on_strip(qt_app, tmp_path, "org.chicago95.tasks", "Separator", 0, LOOKS[look]["face"], {})
     for etched, next_item in SEPARATORS[look]:
         assert etched + width - lead == next_item, "the separator should end where the next item starts"
         for dx in range(width - lead):
@@ -210,14 +238,12 @@ CLOCK_INK_HEIGHT = 9
 @needs_ui_font
 @pytest.mark.parametrize("look", CLOCKS)
 def test_clock_lettering_is_the_originals_size(qt_app, look):
-    """The panel layout's clock font, measured on the original's time: 9px tall, as wide within 1px."""
+    """The clock plasmoid's font, measured on the original's time: 9px tall, as wide within 1px."""
     import re
     from PySide6.QtGui import QFont, QFontMetrics
-    layout = (REPO / "plasmoids/panel-layout.js").read_text()
-    family = re.search(r'clock.writeConfig\("fontFamily", "([^"]+)"\)', layout).group(1)
-    size = int(re.search(r'clock.writeConfig\("fontSize", (\d+)\)', layout).group(1))
-    font = QFont(family)
-    font.setPointSize(size)
+    clock = (REPO / "plasmoids/org.chicago95.clock/contents/ui/main.qml").read_text()
+    font = QFont(re.search(r'font.family: "([^"]+)"', clock).group(1))
+    font.setPixelSize(int(re.search(r"font.pixelSize: (\d+)", clock).group(1)))
     font.setStyleStrategy(QFont.NoAntialias)
     text, width = CLOCKS[look]
     ink = QFontMetrics(font).tightBoundingRect(text)

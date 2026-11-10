@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+  <kcfgfile name=""/>
+  <group name="General">
+    <entry name="launchers" type="StringList">
+      <label>Quick Launch: the programs' desktop files (applications:firefox.desktop or file URLs)</label>
+      <default></default>
+    </entry>
+    <entry name="look" type="String">
+      <label>The look's spacing: "1995", "1998" or "2000" (a pixel more before the Quick Launch)</label>
+      <default>1998</default>
+    </entry>
+    <entry name="maxButtonWidth" type="Int">
+      <label>Widest a task button gets, in pixels; with many windows they share the space</label>
+      <default>160</default>
+    </entry>
+  </group>
+</kcfg>

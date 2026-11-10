@@ -22,7 +22,7 @@ Built and tested on Fedora 44, Plasma 6.8.2 (Wayland), 3840x2160 at 1.5x.
 | --- | --- |
 | `aurorae/` | `make_chicago95_aurorae.py`, `bevel.py`, Start button images, and the generated theme under `theme/` |
 | `plasma-style/` | `make_chicago95_plasmastyle.py` and the generated style under `theme/` |
-| `plasmoids/` | `org.chicago95.start`, `org.chicago95.grip`, `org.chicago95.trayframe` |
+| `plasmoids/` | `org.chicago95.start`, `org.chicago95.tasks` (Quick Launch and task buttons), `org.chicago95.trayframe`, `org.chicago95.clock` |
 | `bin/` | `chicago95-startmenu`, `chicago95-notifyd`, `chicago95-clippy`, `chicago95-shutdown`, `chicago95-screensaver`, `chicago95-sysprops`, `chicago95-devmgr`, `chicago95-dialup`, `chicago95-deezer` |
 | `lib/` | `chicago95ui.py`, the shared PySide6 look module |
 | `data/` | Menu stylesheet for plasmashell, tray arrow, Clippy sprites and sounds, KRunner QML override, fastfetch preset |
@@ -160,6 +160,12 @@ python3 -m pytest tests
 screenshot of the 1995 original:
 size, bevel, separator, highlight, arrows and text positions must match; outside the icons and
 the letter shapes, not a pixel may differ. The screenshots are in `tests/references` (sources in `SOURCES.md` there).
+
+`tests/test_plasma_taskbar_reference.py` and `tests/test_plasma_window_reference.py` run the real
+desktop: Setup installs into a throwaway home, then KWin and plasmashell run headless at 640x480 with
+each original's windows (Qt, GTK 3, GTK 4 and X11), Quick Launch entries and tray icons, and the
+screenshot is compared with the original's taskbar and windows. They need KWin, plasmashell, spectacle,
+Xwayland, xmessage and the MS W98 UI font, and are skipped without them; each look takes about 25 seconds.
 
 `python3 tests/render_report.py docs/compare` writes one image per OS with each original beside our
 render (Start menu, Shut Down, loading screen); CI publishes the same images as an artifact.

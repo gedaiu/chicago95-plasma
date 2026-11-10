@@ -2,9 +2,10 @@
 style and window decoration with the originals.
 
 The pieces are "<prefix>-topleft", "-top", ... "-center". The border widths are the edge pieces' sizes
-(top's height, left's width, ...); corners are drawn at those sizes, edges stretched along their length,
-the centre stretched or, with a "<prefix>-hint-tile-center" element, tiled from its top-left. A
-disabled border is not drawn: the centre and the remaining edges extend over its place.
+(top's height, left's width, ...); corners are drawn at those sizes; edges are repeated along their
+length at their own size or, with a "<prefix>-hint-stretch-borders" element, stretched; the centre is
+stretched or, with a "<prefix>-hint-tile-center" element, tiled from its top-left. A disabled border is
+not drawn: the centre and the remaining edges extend over its place.
 """
 from PySide6.QtCore import QRectF, QSizeF, Qt
 from PySide6.QtGui import QImage, QPainter
@@ -37,24 +38,35 @@ def paint_frame(painter, renderer, prefix, rect, borders=ALL_BORDERS):
         "bottomleft": (x, y + h - bottom, left, bottom), "bottom": (x + left, y + h - bottom, inner_w, bottom),
         "bottomright": (x + w - right, y + h - bottom, right, bottom),
     }
+    stretch_borders = renderer.elementExists(element(prefix, "hint-stretch-borders"))
     for name, (px, py, pw, ph) in pieces.items():
-        if pw > 0 and ph > 0:
+        if pw <= 0 or ph <= 0:
+            continue
+        if name in ("top", "bottom") and not stretch_borders:
+            tile(painter, renderer, element(prefix, name), QRectF(px, py, pw, ph), QSizeF(size_of(renderer, prefix, name).width(), ph))
+        elif name in ("left", "right") and not stretch_borders:
+            tile(painter, renderer, element(prefix, name), QRectF(px, py, pw, ph), QSizeF(pw, size_of(renderer, prefix, name).height()))
+        else:
             renderer.render(painter, element(prefix, name), QRectF(px, py, pw, ph))
     centre = QRectF(x + left, y + top, inner_w, inner_h)
     if renderer.elementExists(element(prefix, "hint-tile-center")):
-        tile = size_of(renderer, prefix, "center")
-        painter.save()
-        painter.setClipRect(centre)
-        ty = centre.y()
-        while ty < centre.bottom():
-            tx = centre.x()
-            while tx < centre.right():
-                renderer.render(painter, element(prefix, "center"), QRectF(tx, ty, tile.width(), tile.height()))
-                tx += tile.width()
-            ty += tile.height()
-        painter.restore()
+        tile(painter, renderer, element(prefix, "center"), centre, size_of(renderer, prefix, "center"))
     else:
         renderer.render(painter, element(prefix, "center"), centre)
+
+
+def tile(painter, renderer, name, area, size):
+    """Repeats the element at size across area from its top-left, clipped to it."""
+    painter.save()
+    painter.setClipRect(area)
+    ty = area.y()
+    while ty < area.bottom():
+        tx = area.x()
+        while tx < area.right():
+            renderer.render(painter, name, QRectF(tx, ty, size.width(), size.height()))
+            tx += size.width()
+        ty += size.height()
+    painter.restore()
 
 
 def render_frame(svg_path, prefix, width, height, borders=ALL_BORDERS):

@@ -1,0 +1,15 @@
+{
+  "KPackageStructure": "Plasma/Applet",
+  "KPlugin": {
+    "Authors": [{"Name": "Bending Unit 22"}],
+    "Category": "Windows and Tasks",
+    "Description": "Chicago95 task list: one classic button per window",
+    "Icon": "preferences-system-windows",
+    "Id": "org.chicago95.tasks",
+    "License": "GPL-3.0",
+    "Name": "Chicago95 Tasks",
+    "Version": "1.0"
+  },
+  "X-Plasma-API-Minimum-Version": "6.0",
+  "X-Plasma-Provides": ["org.kde.plasma.multitasking"]
+}

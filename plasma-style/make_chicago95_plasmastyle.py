@@ -211,6 +211,21 @@ def tooltip_svg():
     return svg(3 * (size + 16), size + 12, "\n".join(parts))
 
 
+FACE_GROUPS = ("[Colors:Window]", "[Colors:Button]", "[Colors:Complementary]", "[Colors:Header]")
+
+
+def with_face(colours, face):
+    """The style's colour file with the look's face behind windows, buttons, headers and the panel:
+    Plasma's widgets (the Start button, the clock) take their face from it, not from kdeglobals."""
+    rgb = ",".join(str(int(face[i:i + 2], 16)) for i in (1, 3, 5))
+    group, lines = None, []
+    for line in colours.splitlines():
+        group = line if line.startswith("[") else group
+        key = line.split("=", 1)[0]
+        lines.append(f"{key}={rgb}" if group in FACE_GROUPS and key in ("BackgroundNormal", "BackgroundAlternate") else line)
+    return "\n".join(lines) + "\n"
+
+
 if args.base:
     if OUT.exists():
         shutil.rmtree(OUT)
@@ -248,4 +263,6 @@ for folder in ("widgets", "dialogs", "solid/widgets", "solid/dialogs"):
 (OUT / "widgets/button.svg").write_text(button_svg())
 (OUT / "widgets/lineedit.svg").write_text(lineedit_svg())
 (OUT / "widgets/scrollbar.svg").write_text(scrollbar_svg())
+if (OUT / "colors").exists():
+    (OUT / "colors").write_text(with_face((OUT / "colors").read_text(), FACE))
 print("wrote", OUT)

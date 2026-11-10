@@ -24,7 +24,7 @@ from conftest import REPO, load_script  # noqa: E402
 from reference import LOOK_2000_KDEGLOBALS, installed_look, qimage_to_pil, render_start_menu, screenshot  # noqa: E402
 
 BACKGROUND, INK, GAP = (255, 255, 255), (0, 0, 0), 16
-DEFAULT_LOGO = REPO / "plasmoids/org.chicago95.start/contents/images/logo-flag.png"  # what a default install shows
+DEFAULT_LOGO = REPO / "plasmoids/org.chicago95.start/contents/images/logo-flag-16.png"  # what a default install shows
 # The 2000 look's default; Setup downloads it (setup/fetch-waving-flag.py), so the report uses it when present.
 WAVING_FLAG = Path.home() / ".local/share/chicago95/waving-flag.png"
 MENU_SETTINGS = {
@@ -138,7 +138,7 @@ def taskbar(style, app, scratch):
     button, _ = start_button(app, style, scratch / f"strip-{style}")
     ours.paste(button.crop((0, 2, start_right + 1, original.height)), (0, 2))
     for etched, _next in SEPARATORS.get(style, []):
-        separator, width = render_on_strip(app, scratch / f"strip-{style}", "org.chicago95.grip", "Separator", etched - 2, colours["face"], {})
+        separator, width = render_on_strip(app, scratch / f"strip-{style}", "org.chicago95.tasks", "Separator", etched - 2, colours["face"], {})
         ours.paste(separator.crop((etched - 2, 2, etched - 2 + width, original.height)), (etched - 2, 2))
     for left, right, pressed in tasks:
         frame = render_frame(plasma_style / "widgets/tasks.svg", "focus" if pressed else "normal", right - left + 1, BUTTON_HEIGHT)

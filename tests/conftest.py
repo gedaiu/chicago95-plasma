@@ -72,3 +72,21 @@ def path_with(tmp_path, monkeypatch):
         monkeypatch.setenv("PATH", str(tmp_path))
     return install
 needs_se98_icons = pytest.mark.skipif(not icon_set_installed("SE98"), reason="SE98 icon set is not installed")
+
+
+@pytest.fixture(scope="session")
+def desktops():
+    """The desktop of a look as Plasma and KWin draw it (plasma_session.py), run once per look."""
+    import shutil
+    import tempfile
+    from plasma_session import desktop_session
+    screens, folders = {}, []
+
+    def desktop(look):
+        if look not in screens:
+            folders.append(tempfile.mkdtemp(prefix=f"c95-{look}-", dir="/tmp"))   # short: Wayland's socket path limit
+            screens[look] = desktop_session(look, folders[-1])
+        return screens[look]
+    yield desktop
+    for folder in folders:
+        shutil.rmtree(folder, ignore_errors=True)
