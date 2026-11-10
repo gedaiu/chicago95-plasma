@@ -204,10 +204,11 @@ ui_step_start 2
 # The total comes from a silent dry run of the same steps, so the counter matches the lines shown.
 COPIED=0
 TO_COPY=$(SETUP_DRY_RUN=1; SETUP_LOG=/dev/null; UI_PLAIN=1; TO_COPY=0
-          for component in $COMPONENTS; do declare -F "step_$component" >/dev/null && "step_$component"; done >/dev/null 2>&1
+          { fix_font_spaces; for component in $COMPONENTS; do declare -F "step_$component" >/dev/null && "step_$component"; done; } >/dev/null 2>&1
           echo "$COPIED")
 # A reinstall adds to the manifest instead of replacing it, so uninstall still knows every earlier file.
 [ "$SETUP_DRY_RUN" = 1 ] || { mkdir -p "$STATE_DIR"; touch "$MANIFEST"; }
+fix_font_spaces
 for component in $COMPONENTS; do
     case $component in
         base|look|taskbar|startmenu|notifications|clippy|extras|screensaver|winamp|explorer|lockscreen|splash|plymouth|sddm|firefox) "step_$component";;

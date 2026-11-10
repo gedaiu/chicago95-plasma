@@ -365,6 +365,17 @@ step_firefox() {
     record "$target"; show_copy "$REPO/config/firefox-user.js" "$target"
 }
 
+# Runs before the components, so the login screen copies the repaired font too.
+fix_font_spaces() {  # MS W98 UI Regular's no-break space is a third as wide as its space; editors draw spaces with it
+    local family="${SETUP_FONT:-MS W98 UI}" file
+    while IFS= read -r file; do
+        backup "$file"
+        run python3 "$REPO/setup/fix-font-spaces.py" "$file" >>"$SETUP_LOG"
+        show_copy "(no-break space made as wide as space)" "$file"
+    done < <(fc-list -f '%{file}\n' "$family" 2>/dev/null | grep "^$HOME/" | sort)
+    run fc-cache -f "$HOME/.local/share/fonts"
+}
+
 step_fonts() {
     local family="${SETUP_FONT:-MS W98 UI}"
     if ! fc-list : family | grep -i "$family" >/dev/null; then
