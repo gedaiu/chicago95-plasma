@@ -47,9 +47,10 @@ needs_chicago95_icons = pytest.mark.skipif(not icon_set_installed("Chicago95"), 
 
 @pytest.fixture(scope="session")
 def qt_app():
-    import chicago95ui  # noqa: F401  sets the platform and style, which only work before the application exists
+    """The application as the tools make it (chicago95ui.make_app): style, palette and UI font."""
+    import chicago95ui  # sets the platform and style, which only work before the application exists
     from PySide6.QtWidgets import QApplication
-    return QApplication.instance() or QApplication([])
+    return QApplication.instance() or chicago95ui.make_app("chicago95-tests")
 
 
 @pytest.fixture(scope="session")

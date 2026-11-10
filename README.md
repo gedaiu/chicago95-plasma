@@ -16,6 +16,26 @@ territory.
 
 Built and tested on Fedora 44, Plasma 6.8.2 (Wayland), 3840x2160 at 1.5x.
 
+## The three looks beside the originals
+
+Setup offers three looks. Each picture shows an original screenshot (left) beside ours (right),
+component by component: the desktop, the taskbar, the windows, the Start menu, the Shut Down dialog, and
+for the 2000 look the loading and log-on screens. Ours is the real desktop, run headless by the tests:
+its windows are empty test programs and its icons green test squares. The texts are set to the
+originals' wording for the comparison. The pictures are made by `tests/render_report.py` (see Tests).
+
+### 1995 look
+
+![The 1995 look beside the original](docs/compare/showcase-1995.jpg)
+
+### 1998 look
+
+![The 1998 look beside the original](docs/compare/showcase-1998.jpg)
+
+### 2000 look
+
+![The 2000 look beside the original](docs/compare/showcase-2000.jpg)
+
 ## Layout
 
 | Folder | Contents |
@@ -167,8 +187,16 @@ each original's windows (Qt, GTK 3, GTK 4 and X11), Quick Launch entries and tra
 screenshot is compared with the original's taskbar and windows. They need KWin, plasmashell, spectacle,
 Xwayland, xmessage and the MS W98 UI font, and are skipped without them; each look takes about 25 seconds.
 
-`python3 tests/render_report.py docs/compare` writes one image per OS with each original beside our
-render (Start menu, Shut Down, loading screen); CI publishes the same images as an artifact.
+`python3 tests/render_report.py docs/compare` writes, per OS:
+
+- `showcase-<look>.jpg`, to show people: component by component (desktop, taskbar, windows, Start menu,
+  Shut Down, and on 2000 the loading and log-on screens), the original beside ours;
+- `report-<look>-<part>.png`: every detail the tests compare, the original, ours and their difference
+  in red, enlarged, with a `.txt` listing how many pixels differ in each. The programs' content in the
+  windows, icons and the clock's time are hatched alike in both; our banners carry the original's wording.
+
+The taskbar and windows come from the real headless desktop when KWin and Plasma are installed; CI, which
+has neither, draws them from our files and publishes the images as an artifact.
 
 ## Credits
 

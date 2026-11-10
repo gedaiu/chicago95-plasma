@@ -87,7 +87,8 @@ def render_start_menu(startmenu, app, settings_dir, chicago95rc, kdeglobals="", 
 
 
 LOOK_2000_KDEGLOBALS = ("[Colors:Window]\nBackgroundNormal=212,208,200\n\n[Colors:Button]\nBackgroundNormal=212,208,200\n\n"
-                        "[Colors:Selection]\nBackgroundNormal=10,36,106\n")
+                        "[Colors:Selection]\nBackgroundNormal=10,36,106\n\n"
+                        "[WM]\nactiveBackground=10,36,106\nactiveBlend=166,202,240\nactiveForeground=255,255,255\n")   # as Setup writes them
 
 
 class installed_look:

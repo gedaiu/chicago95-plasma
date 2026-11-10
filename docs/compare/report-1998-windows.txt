@@ -1,0 +1,13 @@
+   6182   4.3%  1998 Windows: Untitled - Notepad (inactive; ours: qt window on the desktop): whole
+   3056  61.9%  1998 Windows: Untitled - Notepad (inactive; ours: qt window on the desktop): title bar: icon and caption
+    516  28.4%  1998 Windows: Untitled - Notepad (inactive; ours: qt window on the desktop): title bar: buttons
+     64  22.2%  1998 Windows: Untitled - Notepad (inactive; ours: qt window on the desktop): close button
+     50  17.4%  1998 Windows: Untitled - Notepad (inactive; ours: qt window on the desktop): maximize button
+     50  17.4%  1998 Windows: Untitled - Notepad (inactive; ours: qt window on the desktop): minimize button
+     23  11.7%  1998 Windows: Untitled - Notepad (inactive; ours: qt window on the desktop): top-left corner
+     36  18.4%  1998 Windows: Untitled - Notepad (inactive; ours: qt window on the desktop): top-right corner
+      0   0.0%  1998 Windows: Untitled - Notepad (inactive; ours: qt window on the desktop): bottom-left corner
+      0   0.0%  1998 Windows: Untitled - Notepad (inactive; ours: qt window on the desktop): bottom-right corner
+      0   0.0%  1998 Windows: Untitled - Notepad (inactive; ours: qt window on the desktop): left edge
+      0   0.0%  1998 Windows: Untitled - Notepad (inactive; ours: qt window on the desktop): bottom edge
+      8   2.8%  1998 Windows: alert: close button, disabled

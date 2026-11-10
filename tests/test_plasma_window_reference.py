@@ -7,7 +7,7 @@ is the active window), the title band is left out and the alert's active title i
 import pytest
 
 from conftest import needs_ui_font
-from plasma_session import CONTENT, missing_programs
+from plasma_session import CONTENT, ICON_COLOUR, missing_programs
 from reference import close, differing_pixels, screenshot
 from test_window_reference import BORDER, BUTTONS_WIDTH, CAPTION_LEFT, COLUMN_TOLERANCE, ICON, TOP, WINDOWS, title_columns
 
@@ -85,3 +85,14 @@ def test_caption_starts_and_sits_where_the_originals_does(desktops, look, title,
     caption = lambda is_active: (255, 255, 255) if is_active else (192, 192, 192)
     expected, actual = ink(original, caption(original_active)), ink(ours, caption(active))
     assert actual == (expected[0] + title.startswith("W"), expected[1], expected[2])
+
+
+TITLE_ICON = (6, 5, 21, 20)   # the originals' window icon: 16px, 2px in from the frame, a pixel below the title's top
+
+
+@pytest.mark.parametrize("look, title, toolkit, box", PLACED, ids=IDS)
+def test_window_icon_sits_where_the_originals_does(desktops, look, title, toolkit, box):
+    """The program's icon (the test's solid square) in the title bar, whatever the toolkit."""
+    _original, ours, _original_active, _active, _covered = crops(desktops, look, title, box)
+    points = [(x, y) for x in range(0, 40) for y in range(0, TOP) if ours.getpixel((x, y)) == ICON_COLOUR]
+    assert points and (min(x for x, _ in points), min(y for _, y in points), max(x for x, _ in points), max(y for _, y in points)) == TITLE_ICON

@@ -329,7 +329,7 @@ else
     COMPONENTS=$(ui_pick_components \
         "base:Chicago95 base theme (GTK, icons, cursors, sounds):1" \
         "look:Window decoration, Plasma style, colours, widget style:1" \
-        "taskbar:Taskbar plasmoids (Start button, grips, tray frame):1" \
+        "taskbar:Taskbar (Start button, Quick Launch, task buttons, tray, clock):1" \
         "startmenu:Start menu and Shut Down dialog:$py_ok" \
         "notifications:Chicago95 notifications:$py_ok" \
         "clippy:Office Assistant:$py_ok" \

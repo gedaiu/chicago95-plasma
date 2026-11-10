@@ -22,7 +22,7 @@ from PIL import Image
 
 REPO = Path(__file__).resolve().parent.parent
 SCREEN = (640, 480)
-ICON_COLOUR = (0, 0, 128)
+ICON_COLOUR = (0, 200, 0)   # in none of the originals: not the title bars, not the faces
 ICON_SIZE = 16
 TEST_ICON = "c95-test-square"
 TEST_ICON_SIZES = (16, 22, 24, 32, 48)

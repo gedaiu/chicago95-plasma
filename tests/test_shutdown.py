@@ -58,11 +58,11 @@ def test_log_off_runs_nothing_when_declined(shutdown, capsys):
     assert capsys.readouterr().out == ""
 
 
-def test_log_off_dialog_asks_whether_to_log_off(shutdown, qt_app):
-    dialog = shutdown.LogOffDialog()
+def test_log_off_dialog_asks_whether_to_log_off_and_names_the_os_in_its_title(shutdown, qt_app):
+    dialog = shutdown.LogOffDialog({"osName": "Windows 98"})
     texts = [label.text() for label in dialog.findChildren(QLabel) if label.text()]
 
-    assert (dialog.windowTitle(), texts) == ("Log Off", ["Are you sure you want to log off?"])
+    assert (dialog.windowTitle(), texts) == ("Log Off Windows", ["Are you sure you want to log off?"])
 
 
 def test_log_off_dialog_is_accepted_by_yes(shutdown, qt_app):

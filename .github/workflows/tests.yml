@@ -32,7 +32,7 @@ jobs:
         if: always()
         with:
           name: comparison-report
-          path: report/*.png
+          path: report/*
       - name: Pixel diffs of failed comparisons
         if: failure()
         uses: actions/upload-artifact@v4

@@ -70,7 +70,7 @@ class ConnectToDialog(QDialog):
         icon = QLabel()
         icon.setPixmap(QIcon.fromTheme("modem").pixmap(32, 32))
         title = QLabel(CONNECTION_NAME)
-        title.setFont(chicago95ui.ui_font(12, bold=True))
+        title.setFont(chicago95ui.ui_font(16, bold=True))
         header.addWidget(icon)
         header.addSpacing(8)
         header.addWidget(title)

@@ -184,21 +184,19 @@ def centre_on_screen(dialog):
     dialog.move(screen_geometry.center() - dialog.rect().center())
 
 
-class LogOffDialog(QDialog):
+class LogOffDialog(chicago95ui.ClassicDialog):
     QUESTION = "Are you sure you want to log off?"
 
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Log Off")
-        self.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
-        self.setFixedSize(300, 110)
+    def __init__(self, look=None):
+        look = {**chicago95ui.look_settings(), **(look or {})}
+        super().__init__(f"Log Off {chicago95ui.short_os_name(look['osName'])}", look["style"], (300, 110))
 
         upper = QHBoxLayout()
         upper.setSpacing(12)
         upper.addWidget(dialog_icon("system-log-out"))
         upper.addWidget(QLabel(self.QUESTION), 1)
 
-        layout = QVBoxLayout(self)
+        layout = QVBoxLayout(self.body)
         layout.setContentsMargins(12, 12, 12, 12)
         layout.addLayout(upper)
         layout.addLayout(yes_no_buttons(self))
@@ -325,15 +323,18 @@ class BrandBanner(QWidget):
         painter.end()
 
 
-class ShutDownDialog(QDialog):
-    """Shut Down dialog of the chosen style: 1995 and 1998 list radio buttons, 2000 a dropdown under a banner."""
+class ShutDownDialog(chicago95ui.ClassicDialog):
+    """Shut Down dialog of the chosen style: 1995 and 1998 list radio buttons, 2000 a dropdown under a banner.
+    The client sizes, with the 3px frame and 18px title around them, are the originals' dialogs'
+    (tests/test_shutdown_reference.py); 2000's client area starts a pixel further in."""
+
+    BODIES = {"1995": ((340, 200), 3), "1998": ((318, 172), 3), "2000": ((409, 245), 4)}
 
     def __init__(self, look=None):
-        super().__init__()
         self.look = {**chicago95ui.look_settings(), **(look or {})}
         self.style = self.look["style"] if self.look["style"] in CHOICES else "1995"
-        self.setWindowTitle("Shut Down")
-        self.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        body, inset = self.BODIES[self.style]
+        super().__init__(f"Shut Down {chicago95ui.short_os_name(self.look['osName'])}", self.style, body, inset)
         self.choices = CHOICES[self.style]
         self.choice = None
         if self.style == "2000":
@@ -342,15 +343,16 @@ class ShutDownDialog(QDialog):
             self.build_radio_list()
 
     def build_radio_list(self):
-        # Client sizes and option spacing measured on the originals (tests/test_shutdown_reference.py).
-        width, height, spacing = (340, 194, 2) if self.style == "1995" else (316, 164, 2)
-        self.setFixedSize(width, height)
+        # Measured on the originals (tests/test_shutdown_reference.py): the question's top margin, the gap
+        # under it, the options' spacing and the buttons' bottom margin.
+        top, gap, spacing, bottom = {"1995": (22, 12, 5, 12), "1998": (22, 12, 3, 10)}[self.style]
         self.radios = [QRadioButton(label) for _, label in self.choices]
-        self.radios[[choice for choice, _ in self.choices].index(SHUT_DOWN)].setChecked(True)
+        chosen = self.radios[[choice for choice, _ in self.choices].index(SHUT_DOWN)]
+        chosen.setChecked(True)
         options = QVBoxLayout()
         options.setSpacing(spacing)
         options.addWidget(QLabel(QUESTIONS[self.style]))
-        options.addSpacing(6)
+        options.addSpacing(gap)
         for radio in self.radios:
             options.addWidget(radio)
         options.addStretch()
@@ -362,25 +364,26 @@ class ShutDownDialog(QDialog):
 
         labels = ("&Yes", "&No", "&Help") if self.style == "1995" else ("OK", "Cancel", "&Help")
         buttons, _ = dialog_buttons(self, labels)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout = QVBoxLayout(self.body)
+        layout.setContentsMargins(12, top, 12, bottom)
         layout.addLayout(upper)
         layout.addLayout(buttons)
+        chosen.setFocus()   # the originals open with the chosen option focused
 
     def build_2000(self):
-        # Positions measured on the original (tests/test_shutdown_reference.py): client 409x246.
-        self.setFixedSize(409, 246)
-        BrandBanner(self.look, self).setGeometry(0, 1, 409, 77)
+        # Positions measured on the original's client area (tests/test_shutdown_reference.py).
+        body = self.body
+        BrandBanner(self.look, body).setGeometry(0, 1, 409, 77)
         icon = dialog_icon("system-shutdown")
-        icon.setParent(self)
+        icon.setParent(body)
         icon.move(22, 89)
-        QLabel(QUESTIONS["2000"], self).move(65, 91)
-        self.combo = QComboBox(self)
+        QLabel(QUESTIONS["2000"], body).move(65, 91)
+        self.combo = QComboBox(body)
         self.combo.setGeometry(65, 111, 260, 21)
         for choice, label in self.choices:
             self.combo.addItem(chicago95ui.fill_placeholders(label, self.look), choice)
         self.combo.setCurrentIndex([choice for choice, _ in self.choices].index(SHUT_DOWN))
-        self.description = QLabel(self)
+        self.description = QLabel(body)
         self.description.setWordWrap(True)
         self.description.setGeometry(65, 135, 280, 34)
         self.combo.currentIndexChanged.connect(self.describe)
@@ -389,7 +392,7 @@ class ShutDownDialog(QDialog):
         # The original's buttons are 75x23 at x 163, 244 and 325. Qt draws a button's bottom and right edges
         # 1px inside its rectangle, and a non-default button's left edge too, so the rectangles grow to match.
         for x, label in zip((163, 244, 325), ("OK", "Cancel", "Help")):
-            button = QPushButton(label, self)
+            button = QPushButton(label, body)
             button.setGeometry(x if label == "OK" else x - 1, 211, 76 if label == "OK" else 77, 24)
             if label == "OK":
                 button.setDefault(True)

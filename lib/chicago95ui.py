@@ -38,9 +38,9 @@ if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
     os.environ.setdefault("QT_SCALE_FACTOR", detect_scale())
 os.environ.pop("QT_QPA_PLATFORMTHEME", None)
 
-from PySide6.QtCore import QRectF, Qt, QTimer  # noqa: E402
+from PySide6.QtCore import QRect, QRectF, Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QLinearGradient, QPainter, QPainterPath, QPalette, QPen, QRadialGradient  # noqa: E402
-from PySide6.QtWidgets import QApplication, QFrame  # noqa: E402
+from PySide6.QtWidgets import QApplication, QDialog, QFrame, QWidget  # noqa: E402
 
 KDEGLOBALS = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "kdeglobals")
 
@@ -251,9 +251,12 @@ def draw_heavy_text(painter, x, baseline, font, text, colour, embolden, smooth=T
     painter.restore()
 
 
-def ui_font(point_size=9, bold=False):
+def ui_font(pixel_size=11, bold=False):
+    """The UI font at the originals' size: MS Sans Serif 8 points, 11px. The pixel font is drawn on an
+    11px grid; at any other size its letters land on fractional pixels and space unevenly."""
     family = UI_FONT_FAMILY if UI_FONT_FAMILY in QFontDatabase.families() else "Noto Sans"
-    font = QFont(family, point_size)
+    font = QFont(family)
+    font.setPixelSize(pixel_size)
     font.setBold(bold)
     if family == UI_FONT_FAMILY:
         font.setStyleStrategy(QFont.NoAntialias)  # a pixel font: hard edges, no coloured subpixel fringes
@@ -286,3 +289,67 @@ def etched_line():
     line.setFrameShape(QFrame.HLine)
     line.setFrameShadow(QFrame.Sunken)
     return line
+
+
+# The window decoration Setup installs: its close button is the dialogs' too.
+DECORATION = os.path.expanduser("~/.local/share/aurorae/themes/Chicago95")
+DIALOG_FRAME, DIALOG_TITLE = 3, 18
+CLOSE_FACE = (16, 14)
+
+
+class ClassicDialog(QDialog):
+    """A dialog that draws its own frame and title bar, as the originals' dialogs look and the window
+    decoration can't: a 3px raised frame (light and dark, white and shadow, face), an 18px title with
+    no icon, the caption 2px into it, the title's gradient ending 2px before the close button and
+    holding its end colour behind it, and the close button 2px in from the title's corner. The
+    contents go in body; dragging the title moves the dialog (tests/test_shutdown_reference.py)."""
+
+    def __init__(self, title, style, body_size, body_inset=DIALOG_FRAME):
+        super().__init__()
+        self.setWindowTitle(title)
+        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.style = style
+        width, height = body_size
+        self.setFixedSize(width + 2 * body_inset, height + DIALOG_FRAME * 2 + DIALOG_TITLE)
+        self.body = QWidget(self)
+        self.body.setGeometry(body_inset, DIALOG_FRAME + DIALOG_TITLE, width, height)
+
+    def title_rect(self):
+        return QRect(DIALOG_FRAME, DIALOG_FRAME, self.width() - 2 * DIALOG_FRAME, DIALOG_TITLE)
+
+    def close_rect(self):
+        """The close button's face: 16x14, 2px below and left of the title's top-right corner."""
+        title = self.title_rect()
+        return QRect(title.right() + 1 - 2 - CLOSE_FACE[0], title.top() + 2, *CLOSE_FACE)
+
+    def paintEvent(self, _event):
+        scheme = read_scheme()
+        face, bevel = scheme["face"], bevel_colors(scheme["face"], self.style)
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), face)
+        rings = [(bevel["light"], bevel["dark"]), (QColor("#ffffff"), bevel["shadow"]), (face, face)]
+        w, h = self.width(), self.height()
+        for depth, (top_left, bottom_right) in enumerate(rings):
+            painter.fillRect(depth, depth, w - 2 * depth - 1, 1, top_left)
+            painter.fillRect(depth, depth, 1, h - 2 * depth - 1, top_left)
+            painter.fillRect(depth, h - 1 - depth, w - 2 * depth, 1, bottom_right)
+            painter.fillRect(w - 1 - depth, depth, 1, h - 2 * depth, bottom_right)
+        title, close = self.title_rect(), self.close_rect()
+        gradient = QLinearGradient(title.left(), 0, close.left() - 2, 0)
+        gradient.setColorAt(0, scheme["title_active"])
+        gradient.setColorAt(1, scheme["title_active_blend"])
+        painter.fillRect(title, gradient)
+        painter.setFont(ui_font(bold=True))
+        painter.setPen(scheme["title_active_text"])
+        painter.drawText(title.left() + 2, title.top() + 13, self.windowTitle())
+        from PySide6.QtSvg import QSvgRenderer
+        button = QSvgRenderer(os.path.join(DECORATION, "close.svg"))
+        if button.isValid():   # the element covers the 18x16 cell; the face is its right 16px, a row down
+            button.render(painter, "active-center", QRectF(close.left() - 2, close.top() - 1, 18, 16))
+        painter.end()
+
+    def mousePressEvent(self, event):
+        if self.close_rect().contains(event.position().toPoint()):
+            self.reject()
+        elif self.title_rect().contains(event.position().toPoint()) and self.windowHandle():
+            self.windowHandle().startSystemMove()
