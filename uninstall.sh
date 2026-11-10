@@ -33,6 +33,7 @@ while IFS= read -r entry; do
                  esac;;
         kwinrule:*) remove_kwin_rule "${entry#kwinrule:}";;
         root:*) sudo rm -f "${entry#root:}";;
+        plymouth:*) [ -n "${entry#plymouth:}" ] && sudo plymouth-set-default-theme -R "${entry#plymouth:}";;
         powerdevil:RunScript) for profile in AC Battery LowBattery; do
                                   for key in RunScriptIdleTimeoutSec IdleTimeoutCommand; do
                                       kwriteconfig6 --file powerdevilrc --group "$profile" --group RunScript --key "$key" --delete

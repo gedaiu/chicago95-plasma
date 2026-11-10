@@ -302,6 +302,58 @@ step_sddm() {       # login screen; system files, so it asks for the administrat
     show_copy "(Setup)" "$SDDM_OVERRIDE"
 }
 
+step_plymouth() {    # boot screen; system files and a rebuilt boot image, so it asks for the administrator password
+    local theme_src="${SETUP_CHICAGO95_SRC:-$HOME/src/Chicago95}/Plymouth/Chicago95" current
+    command -v plymouth-set-default-theme >/dev/null 2>&1 || { ui_status "Plymouth is not installed; skipping the boot screen"; return; }
+    [ -d "$theme_src" ] || { ui_status "Chicago95 Plymouth theme not found in $theme_src; skipping the boot screen"; return; }
+    current=$(plymouth-set-default-theme 2>/dev/null || true)
+    [ "$current" = Chicago95 ] && { ui_status "The boot screen is already Chicago95"; return; }
+    if ! ui_sudo "To change the boot screen, Setup must copy the theme to a system folder and rebuild the boot image. That takes a minute or two." \
+            "sudo cp -r $theme_src /usr/share/plymouth/themes/" "sudo plymouth-set-default-theme -R Chicago95"; then
+        ui_message "Boot screen not changed" "No administrator password was accepted, so Setup skipped the boot screen." \
+            "Everything else is installed. Run ./install.sh --components=plymouth to try again."
+        return
+    fi
+    run sudo cp -r "$theme_src" /usr/share/plymouth/themes/
+    show_copy "$theme_src" /usr/share/plymouth/themes/Chicago95
+    ui_status "Rebuilding the boot image; this takes a minute or two..."
+    run sudo plymouth-set-default-theme -R Chicago95 >>"$SETUP_LOG" 2>&1
+    record "plymouth:$current"
+}
+
+plasma_script() { gdbus call --session --dest org.kde.plasmashell --object-path /PlasmaShell --method org.kde.PlasmaShell.evaluateScript "$1"; }
+
+offer_taskbar() {   # replaces the panels with the Windows 95 taskbar once the user agrees; skipped when it is already there
+    [ "$SETUP_IN_PLASMA" = 1 ] && [ "${SETUP_DRY_RUN:-0}" = 0 ] || return 0
+    local attempt
+    for attempt in 1 2 3 4 5 6 7 8 9 10; do plasma_script 'print("ready")' >/dev/null 2>&1 && break; sleep 1; done
+    if [[ "$(plasma_script 'print(panels().some(panel => panel.widgets().some(widget => widget.type == "org.chicago95.start")))' 2>/dev/null)" == *true* ]]; then
+        ui_status "The Windows 95 taskbar is already in place"; return 0
+    fi
+    ui_card "Build the taskbar" \
+        "Setup can replace your Plasma panels with the Windows 95 taskbar: Start button," \
+        "Quick Launch, task list and tray, $PANEL_HEIGHT pixels high, along the bottom of the screen." "" \
+        "Your current panel layout is saved first, and ./uninstall.sh puts it back." "" \
+        "Setup will run in Plasma's scripting interface:" \
+        "   remove every panel, then ~/.local/share/chicago95/panel-layout.js"
+    ui_confirm "Build the taskbar now?" || return 0
+    backup ~/.config/plasma-org.kde.plasma.desktop-appletsrc
+    plasma_script "panels().forEach(panel => panel.remove());
+$(sed "s/^panel.height = 28;/panel.height = $PANEL_HEIGHT;/" ~/.local/share/chicago95/panel-layout.js)" >>"$SETUP_LOG" 2>&1
+}
+
+offer_logout() {    # some parts start only with a new session; never logs out without a yes
+    [ "$SETUP_IN_PLASMA" = 1 ] && [ "${SETUP_DRY_RUN:-0}" = 0 ] && [ "${SETUP_YES:-0}" = 0 ] || return 0
+    ui_card "Log out to finish" \
+        "A few parts start only with a new session: the Start menu, Clippy and the" \
+        "notification popups (autostart entries), and the settings in ~/.config/environment.d." "" \
+        "Save your work in other programs before you log out."
+    ui_confirm "Log out now?" || return 0
+    ui_restore
+    gdbus call --session --dest org.kde.Shutdown --object-path /Shutdown --method org.kde.Shutdown.logout >/dev/null
+    exit 0
+}
+
 step_firefox() {
     [ -n "$SETUP_FIREFOX_PROFILE" ] || { ui_status "No default Firefox profile found; skipping"; return; }
     local target="$SETUP_FIREFOX_PROFILE/user.js"

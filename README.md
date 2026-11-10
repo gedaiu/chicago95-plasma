@@ -76,7 +76,8 @@ Python modules, with the install command for your distribution.
 Components, each optional: Chicago95 base theme, decoration and Plasma
 style, taskbar plasmoids, Start menu and Shut Down dialog, notifications,
 Office Assistant, extra tools, screensaver, Winamp, Explorer (Thunar or
-Dolphin), lock screen, splash screen, Firefox colours.
+Dolphin), lock screen, splash screen, boot screen (Plymouth), login screen
+(SDDM), Firefox colours.
 
 Options are pre-filled from detection and editable on the Setup Options
 screen or as flags:
@@ -86,7 +87,7 @@ screen or as flags:
 | `--screen=WxH@scale` | detected | Positions of Start menu, Clippy, notifications; X11 DPI |
 | `--panel=28` | 28 | Taskbar height used in the window rules |
 | `--explorer=thunar` or `dolphin` | Thunar if installed | Which file manager gets the Explorer setup |
-| `--saver=deepstars` | deepstars | XScreenSaver hack name |
+| `--saver=deepstars` | deepstars | Screensaver, also chosen and previewed on its own Setup screen |
 | `--idle=5` | 5 | Minutes before the screensaver starts |
 | `--cursor=48` | 48 at fractional scale, else 32 | Cursor size |
 | `--clippy=yes` or `no` | yes | Start the Office Assistant at login |
@@ -97,30 +98,40 @@ Other modes: `--yes` takes every default without questions,
 nothing and logs every action, `--plain` replaces the full-screen UI with
 plain output.
 
+Setup starts with an intro screen, waits for ENTER (Next) on every page
+and lists each file as it copies it. When Chicago95 is already installed it
+offers Reinstall, Uninstall or Exit.
+
 Every file Setup replaces is backed up to
 `~/.local/share/chicago95/backup-<date>/`, and every file it writes is
-listed in `~/.local/share/chicago95/installed-files.txt`. `./uninstall.sh`
-reads that list, removes the files and window rules, restores the backups
-and switches Plasma back to Breeze. Window rules are merged into an
-existing `~/.config/kwinrulesrc` as text, so your own rules are kept.
+listed in `~/.local/share/chicago95/installed-files.txt`. A reinstall adds
+to that list and never backs up a file Setup wrote itself, so the backups
+always hold your originals. `./uninstall.sh` reads the list, removes the
+files and window rules, restores the oldest backup of each file and
+switches Plasma back to Breeze. Window rules are merged into an existing
+`~/.config/kwinrulesrc` as text, so your own rules are kept.
 
-After Setup, build the taskbar once: remove the stock panel and run
-`~/.local/share/chicago95/panel-layout.js` in the Plasma scripting
-console.
+At the end Setup offers to replace your panels with the Windows 95 taskbar
+(the old layout is backed up) and to log out, which the autostart entries
+need. It does neither without a yes.
+
+The screensaver runs from Plasma's power management
+(`~/.config/powerdevilrc`, "Run script" after the idle time), because
+Wayland does not give the idle time to ordinary programs. Any key, click or
+mouse movement ends it.
+
+The "Boot screen" and "Login screen" components ask for the administrator
+password on the Setup screen and list the exact commands first. The boot
+screen copies `~/src/Chicago95/Plymouth/Chicago95` and rebuilds the boot
+image with `plymouth-set-default-theme -R`; uninstall switches back to the
+previous theme.
 
 The "Login screen" component asks for the administrator password on the
 Setup screen, copies the SDDM theme from `~/src/Chicago95/Extras/sddm` and
 writes `/etc/sddm.conf.d/zz-chicago95.conf`. SDDM reads that folder in name
 order and the last file wins, so the `zz-` name beats a leftover theme
-setting from another file there. It is off with `--yes`; ask for it with
-`--components=sddm`.
-
-Plymouth needs root and is not touched:
-
-```
-sudo cp -r ~/src/Chicago95/Plymouth/Chicago95 /usr/share/plymouth/themes/
-sudo plymouth-set-default-theme -R Chicago95
-```
+setting from another file there. Both are off with `--yes`; ask for them with
+`--components=plymouth,sddm`.
 
 ## Resolution
 

@@ -166,6 +166,7 @@ else
         "explorer:Explorer (Thunar settings, GTK CSS, Dolphin toolbar):$SETUP_HAS_THUNAR" \
         "lockscreen:Lock screen:1" \
         "splash:Splash screen:1" \
+        "plymouth:Boot screen (asks for the administrator password):$(command -v plymouth-set-default-theme >/dev/null && [ "$SETUP_YES" = 0 ] && echo 1 || echo 0)" \
         "sddm:Login screen (asks for the administrator password):$([ "$SETUP_HAS_SDDM" = 1 ] && [ "$SETUP_YES" = 0 ] && echo 1 || echo 0)" \
         "firefox:Firefox system colours (user.js):$([ -n "$SETUP_FIREFOX_PROFILE" ] && echo 1 || echo 0)")
 fi
@@ -209,7 +210,7 @@ TO_COPY=$(SETUP_DRY_RUN=1; SETUP_LOG=/dev/null; UI_PLAIN=1; TO_COPY=0
 [ "$SETUP_DRY_RUN" = 1 ] || { mkdir -p "$STATE_DIR"; touch "$MANIFEST"; }
 for component in $COMPONENTS; do
     case $component in
-        base|look|taskbar|startmenu|notifications|clippy|extras|screensaver|winamp|explorer|lockscreen|splash|sddm|firefox) "step_$component";;
+        base|look|taskbar|startmenu|notifications|clippy|extras|screensaver|winamp|explorer|lockscreen|splash|plymouth|sddm|firefox) "step_$component";;
         *) printf 'unknown component: %s\n' "$component" >>"$SETUP_LOG";;
     esac
 done
@@ -222,16 +223,14 @@ ui_step_done 2
 ui_step_start 3
 [ "$SETUP_IN_PLASMA" = 1 ] && ui_status "Reloading Plasma..."
 finish_session
+[[ " $COMPONENTS " == *" taskbar "* ]] && offer_taskbar
 ui_step_done 3
 
 lines=("Setup has finished installing Chicago95 for Plasma." "")
 [ "$SETUP_DRY_RUN" = 1 ] && lines=("Dry run: nothing was changed. The log lists every action:" "   $SETUP_LOG" "")
-lines+=("Next:" \
-    "  1. Remove the stock panel, then run ~/.local/share/chicago95/panel-layout.js" \
-    "     in the Plasma scripting console to build the taskbar." \
-    "  2. Log out and back in once, for autostart entries and environment.d." \
-    "  3. Plymouth needs root; see the README for the commands." "" \
-    "Backups of every file Setup replaced: $BACKUP_DIR" \
-    "To remove everything: ./uninstall.sh")
+[ "$SETUP_DRY_RUN" = 1 ] || lines+=("Every file Setup copied is listed in the log: $SETUP_LOG" \
+    "Your original files are saved in ~/.local/share/chicago95/backup-*" \
+    "To remove everything and put them back: ./uninstall.sh")
 ui_message "Setup Complete" "${lines[@]}"
+offer_logout
 ui_restore
