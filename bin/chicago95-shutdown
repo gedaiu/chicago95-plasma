@@ -6,7 +6,6 @@ import glob
 import shutil
 import subprocess
 
-import getpass
 import re
 
 from PySide6.QtCore import QRect, Qt, QTimer
@@ -23,17 +22,23 @@ CHOICES = {
              (DOS_MODE, "Restart the computer in &DOS mode?"), (LOG_OFF, "&Close all programs and log on as a different user?")],
     "1998": [(STAND_BY, "S&tand by"), (SHUT_DOWN, "&Shut down"), (RESTART, "&Restart"), (DOS_MODE, "Restart in &DOS mode")],
     "2000": [(LOG_OFF, "Log off {user}"), (SHUT_DOWN, "Shut down"), (RESTART, "Restart"), (STAND_BY, "Stand by")],
-}
+}  # labels and descriptions take chicago95ui.fill_placeholders: {os}, {user}, {company}...
 CHOICE_LABELS = tuple(label for _, label in CHOICES["1995"])
 QUESTIONS = {"1995": "Are you sure you want to:", "1998": "What do you want the computer to do?",
              "2000": "What do you want the computer to do?"}
+# {os} is the OS name from the look ("Windows" gives the original wording, "Fedora" says Fedora).
 DESCRIPTIONS = {
     LOG_OFF: "Ends your session, leaving the computer running on full power.",
-    SHUT_DOWN: "Ends your session and shuts down the computer so that you can safely turn off power.",
-    RESTART: "Ends your session, shuts down the computer and starts it again.",
-    STAND_BY: "Keeps your session in memory and puts the computer in a low-power state.",
+    SHUT_DOWN: "Ends your session and shuts down {os} so that you can safely turn off power.",
+    RESTART: "Ends your session, shuts down {os}, and starts {os} again.",
+    STAND_BY: "Maintains your session, keeping the computer running on low power with data still in memory.",
 }
-START_LOGO_GLOB = os.path.expanduser("~/.local/share/chicago95/start-logo.*")
+
+
+def os_name(look):
+    """The OS name used in messages: osName up to its first digit ("Windows2026" -> "Windows")."""
+    return chicago95ui.short_os_name(look.get("osName", look.get("bannerText", "")))
+
 
 KDE_SHUTDOWN_METHODS = {
     SHUT_DOWN: "org.kde.Shutdown.logoutAndShutdown",
@@ -220,13 +225,27 @@ def dialog_buttons(dialog, labels):
 class BrandBanner(QWidget):
     """The 2000 dialogs' banner: white, with the Start logo and the name, over a glowing strip."""
 
-    STRIP = ((0.0, "#003152"), (0.45, "#9cc6de"), (0.7, "#63adde"), (0.95, "#003152"), (1.0, "#003152"))
+    # Sampled across the original's strip: dark teal at the ends, glowing light blue in the middle.
+    STRIP = ((0.0, "#003355"), (0.049, "#00436c"), (0.098, "#005889"), (0.147, "#005a8c"), (0.196, "#2f76a1"),
+             (0.245, "#5497c2"), (0.294, "#64abda"), (0.343, "#75b5de"), (0.392, "#89bede"), (0.441, "#98c4de"),
+             (0.49, "#9cc6de"), (0.539, "#98c4de"), (0.588, "#89bede"), (0.637, "#75b5de"), (0.686, "#64abda"),
+             (0.735, "#5497c2"), (0.784, "#2f76a1"), (0.833, "#005a8c"), (0.882, "#005788"), (0.931, "#00436c"),
+             (1.0, "#003355"))
 
     def __init__(self, look, parent=None):
         super().__init__(parent)
         self.look = look
-        logos = sorted(glob.glob(START_LOGO_GLOB))
-        self.logo = QIcon(str(logos[0])).pixmap(48, 48) if logos else QPixmap()
+        self.logo = self.load(look["osLogo"], 60)
+        self.company_logo = self.load(look["companyLogo"], 20)
+
+    @staticmethod
+    def load(path, size):
+        """A logo scaled to the size: pixel-art PNGs with hard edges, SVGs rendered smooth."""
+        if not path or not os.path.exists(path):
+            return QPixmap()
+        sharp = path.endswith(".png")
+        source = QPixmap(path) if sharp else QIcon(path).pixmap(size * 4, size * 4)
+        return source.scaled(size * 4, size, Qt.KeepAspectRatio, Qt.FastTransformation if sharp else Qt.SmoothTransformation)
 
     def paintEvent(self, _event):
         painter = QPainter(self)
@@ -235,23 +254,31 @@ class BrandBanner(QWidget):
         for position, colour in self.STRIP:
             strip.setColorAt(position, QColor(colour))
         painter.fillRect(0, 72, self.width(), 5, strip)
-        x = 20
+        x = 104 if not self.logo.isNull() else 40
         if not self.logo.isNull():
-            painter.drawPixmap(x, 12, self.logo)
-            x += 60
+            painter.drawPixmap(26, 6, self.logo)
+        if not self.company_logo.isNull():
+            painter.drawPixmap(self.width() - self.company_logo.width() - 8, 6, self.company_logo)
+        # As on the original: the company small above the name, the name large (words bold, numbers thin),
+        # the edition under it, right-aligned.
         painter.setPen(Qt.black)
-        for part in re.findall(r"\s*\d+|\s*[^\d]+", self.look["bannerText"]):
+        if self.look["osCompany"]:
             font = QFont("Arial")
-            font.setPixelSize(30)
+            font.setPixelSize(13)
+            painter.setFont(font)
+            painter.drawText(x, 13, self.look["osCompany"])
+        for part in re.findall(r"\s*\d+|\s*[^\d]+", self.look["osName"]):
+            font = QFont("Arial")
+            font.setPixelSize(34)
             font.setBold(not part.strip().isdigit())
             painter.setFont(font)
-            painter.drawText(x, 40, part)
+            painter.drawText(x, 38, part)
             x += painter.fontMetrics().horizontalAdvance(part)
         font = QFont("Arial")
-        font.setPixelSize(18)
+        font.setPixelSize(22)
         font.setBold(True)
         painter.setFont(font)
-        painter.drawText(x + 6, 40, self.look["edition"])
+        painter.drawText(x - painter.fontMetrics().horizontalAdvance(self.look["edition"]), 60, self.look["edition"])
         painter.end()
 
 
@@ -260,7 +287,7 @@ class ShutDownDialog(QDialog):
 
     def __init__(self, look=None):
         super().__init__()
-        self.look = look or chicago95ui.look_settings()
+        self.look = {**chicago95ui.look_settings(), **(look or {})}
         self.style = self.look["style"] if self.look["style"] in CHOICES else "1995"
         self.setWindowTitle("Shut Down")
         self.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
@@ -272,11 +299,13 @@ class ShutDownDialog(QDialog):
             self.build_radio_list()
 
     def build_radio_list(self):
-        self.setFixedSize(340, 180)
+        # Client sizes and option spacing measured on the originals (tests/test_shutdown_reference.py).
+        width, height, spacing = (340, 194, 2) if self.style == "1995" else (316, 164, 2)
+        self.setFixedSize(width, height)
         self.radios = [QRadioButton(label) for _, label in self.choices]
         self.radios[[choice for choice, _ in self.choices].index(SHUT_DOWN)].setChecked(True)
         options = QVBoxLayout()
-        options.setSpacing(2)
+        options.setSpacing(spacing)
         options.addWidget(QLabel(QUESTIONS[self.style]))
         options.addSpacing(6)
         for radio in self.radios:
@@ -304,18 +333,21 @@ class ShutDownDialog(QDialog):
         icon.move(22, 89)
         QLabel(QUESTIONS["2000"], self).move(65, 91)
         self.combo = QComboBox(self)
-        self.combo.setGeometry(65, 111, 262, 20)
+        self.combo.setGeometry(65, 111, 260, 21)
         for choice, label in self.choices:
-            self.combo.addItem(label.format(user=getpass.getuser()), choice)
+            self.combo.addItem(chicago95ui.fill_placeholders(label, self.look), choice)
         self.combo.setCurrentIndex([choice for choice, _ in self.choices].index(SHUT_DOWN))
         self.description = QLabel(self)
         self.description.setWordWrap(True)
         self.description.setGeometry(65, 135, 280, 34)
         self.combo.currentIndexChanged.connect(self.describe)
         self.describe()
+        self.combo.setFocus()  # the original opens with the choice focused
+        # The original's buttons are 75x23 at x 163, 244 and 325. Qt draws a button's bottom and right edges
+        # 1px inside its rectangle, and a non-default button's left edge too, so the rectangles grow to match.
         for x, label in zip((163, 244, 325), ("OK", "Cancel", "Help")):
             button = QPushButton(label, self)
-            button.setGeometry(x, 211, 75, 23)
+            button.setGeometry(x if label == "OK" else x - 1, 211, 76 if label == "OK" else 77, 24)
             if label == "OK":
                 button.setDefault(True)
                 button.clicked.connect(self.accept)
@@ -325,7 +357,7 @@ class ShutDownDialog(QDialog):
                 button.setEnabled(False)
 
     def describe(self):
-        self.description.setText(DESCRIPTIONS[self.combo.currentData()])
+        self.description.setText(chicago95ui.fill_placeholders(DESCRIPTIONS[self.combo.currentData()], self.look))
 
     def accept(self):
         if self.style == "2000":

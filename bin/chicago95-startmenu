@@ -78,7 +78,7 @@ sys.path[:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", 
 import chicago95ui  # noqa: E402  after the environment above, so its defaults do not override it
 
 from PySide6.QtCore import QEasingCurve, QEvent, QPoint, QPropertyAnimation, QRect, QSize, Qt, QTimer  # noqa: E402
-from PySide6.QtGui import QAction, QColor, QFont, QFontDatabase, QIcon, QKeyEvent, QLinearGradient, QPainter, QPalette  # noqa: E402
+from PySide6.QtGui import QAction, QColor, QFont, QFontDatabase, QFontMetrics, QIcon, QKeyEvent, QLinearGradient, QPainter, QPainterPath, QPalette, QPen  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMenu, QProxyStyle, QStyle, QStyleOptionMenuItem, QWidget  # noqa: E402
 
 RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
@@ -87,21 +87,22 @@ CACHE_FILE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "c
 BANNER_WIDTH = round(21 * UI_SCALE)
 SETTINGS_FILE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "chicago95rc"
 ITEM_LEFT_PAD = round(6 * UI_SCALE)
-# The root menu uses large icons, as the original does unless "Show small icons" is ticked.
+# The originals draw the root menu's icons at 24x24, centred in their rows (measured on all three).
 # Root menu measurements per style, taken from screenshots of the originals by tests/test_*_reference.py.
 # row: row height; text_gap/text_drop: text offset; icon_x: icon position; banner_*: lettering size and
 # place (banner_stretch condenses it, in percent); light/dark: the bevel's outer top-left and
 # bottom-right ("face" means the face colour).
 STYLES = {
-    "1995": dict(row=32, text_gap=-3, text_drop=1, icon_x=34, banner_font=21, banner_stretch=100, banner_start=6, banner_inset=2, light=None, dark="#000000"),
-    "1998": dict(row=36, text_gap=-5, text_drop=1, icon_x=32, banner_font=18, banner_stretch=100, banner_start=5, banner_inset=2, light=None, dark="#000000"),
-    "2000": dict(row=32, text_gap=-4, text_drop=1, icon_x=34, banner_font=21, banner_stretch=81, banner_start=2, banner_inset=2, light="face", dark="#404040"),
+    "1995": dict(row=32, text_gap=5, text_drop=1, icon_x=34, banner_font=21, banner_stretch=100, banner_start=6, banner_inset=2, light=None, dark="#000000"),
+    "1998": dict(row=36, text_gap=3, text_drop=1, icon_x=33, banner_font=18, banner_stretch=100, banner_start=5, banner_inset=2, light=None, dark="#000000"),
+    "2000": dict(row=32, text_gap=4, text_drop=1, icon_x=30, banner_font=18, banner_stretch=110, banner_spacing=-1, banner_start=2, banner_inset=2,
+                 banner_embolden=1.5, banner_number_font=15, banner_number_stretch=115, banner_number_spacing=-2, banner_gap=3, light="face", dark="#404040"),
 }
 
 
 def style_of(widget):
     return STYLES.get(widget.banner.get("style", "1995"), STYLES["1995"])
-ROOT_ICON, SUB_ICON, ARROW = round(32 * UI_SCALE), round(16 * UI_SCALE), round(7 * UI_SCALE)
+ROOT_ICON, SUB_ICON, ARROW = round(24 * UI_SCALE), round(16 * UI_SCALE), round(7 * UI_SCALE)
 
 CATEGORY_FOLDERS = [
     ("Accessories", {"Utility", "Accessibility", "TextEditor", "Archiving", "Calculator", "Clock"}),
@@ -229,7 +230,7 @@ class RetroMenuStyle(QProxyStyle):
             if widget.banner:
                 # Measured from the original root menu (tests/test_startmenu_reference.py): rows 32px apart.
                 result.setHeight(round(style_of(widget)["row"] * UI_SCALE))
-                result.setWidth(result.width() + round(12 * UI_SCALE))
+                result.setWidth(result.width() + round(20 * UI_SCALE))
             else:
                 result.setWidth(result.width() + round(16 * UI_SCALE))
         return result
@@ -343,19 +344,45 @@ class RetroMenu(QMenu):
         painter.translate(strip.left(), strip.bottom())
         painter.rotate(-90)
         x = round(style["banner_start"] * UI_SCALE)
+        inset = round(style["banner_inset"] * UI_SCALE)
+        gap = style.get("banner_gap")
+        # With fixed gaps (2000) every part sits on the words' baseline, centred on their capitals.
+        word_font = QFont("Arial")
+        word_font.setPixelSize(round(style["banner_font"] * UI_SCALE))
+        word_font.setBold(True)
+        baseline = inset + (strip.width() + QFontMetrics(word_font).capHeight()) / 2
         for text, bold in banner_parts(self.banner["bannerText"]):
-            # Measured on the original: the word bold and light grey, the number regular and white, both
-            # 21px Arial (Liberation Sans where Arial is missing), with hard unsmoothed edges.
+            # Words bold in the text colour, numbers regular in the number colour, Arial (Liberation Sans
+            # where Arial is missing) with hard edges; sizes per style, measured on the originals.
+            if gap is not None:
+                text = text.strip()  # fixed gaps between the parts instead of spaces (2000)
             banner_font = QFont("Arial")
-            banner_font.setPixelSize(round(style["banner_font"] * UI_SCALE))
-            banner_font.setStretch(style["banner_stretch"])  # 2000's lettering is condensed
+            size, stretch = (style["banner_font"], style["banner_stretch"]) if bold else \
+                (style.get("banner_number_font", style["banner_font"]), style.get("banner_number_stretch", style["banner_stretch"]))
+            banner_font.setPixelSize(round(size * UI_SCALE))
+            banner_font.setStretch(stretch)
             banner_font.setStyleStrategy(QFont.NoAntialias)
             banner_font.setBold(bold)
-            painter.setPen(QColor(self.banner["bannerTextColor" if bold else "bannerNumberColor"]))
+            spacing = style.get("banner_spacing" if bold else "banner_number_spacing")
+            if spacing:
+                banner_font.setLetterSpacing(QFont.AbsoluteSpacing, spacing * UI_SCALE)
+            colour = QColor(self.banner["bannerTextColor" if bold else "bannerNumberColor"])
             painter.setFont(banner_font)
-            inset = round(style["banner_inset"] * UI_SCALE)
-            painter.drawText(QRect(x, inset, strip.height() - x, strip.width()), Qt.AlignLeft | Qt.AlignVCenter, text)
-            x += painter.fontMetrics().horizontalAdvance(text)
+            metrics = painter.fontMetrics()
+            if bold and style.get("banner_embolden"):
+                # 2000's words are heavier than any common bold: fill the letters and outline them too.
+                path = QPainterPath()
+                path.addText(x, baseline, banner_font, text)
+                painter.fillPath(path, colour)
+                painter.setPen(QPen(colour, style["banner_embolden"] * UI_SCALE))
+                painter.drawPath(path)
+            else:
+                painter.setPen(colour)
+                if gap is not None:
+                    painter.drawText(QPoint(x, round(baseline)), text)
+                else:
+                    painter.drawText(QRect(x, inset, strip.height() - x, strip.width()), Qt.AlignLeft | Qt.AlignVCenter, text)
+            x += metrics.horizontalAdvance(text) + (round(gap * UI_SCALE) if gap is not None else 0)
         painter.end()
 
 
@@ -391,15 +418,33 @@ def theme_icon_names():
     return _theme_icon_names
 
 
-def themed_icon(name):
+def themed_icon(name, *fallbacks):
+    """The first of the names the icon set has; a path is used as is."""
     if name.startswith("/") and os.path.exists(name):
         return QIcon(name)
-    icon = QIcon.fromTheme(name)
-    return icon if not icon.isNull() else QIcon.fromTheme(GENERIC_ICON)
+    for candidate in (name, *fallbacks):
+        if QIcon.hasThemeIcon(candidate):
+            return QIcon.fromTheme(candidate)
+    return QIcon.fromTheme(GENERIC_ICON)
 
 
-def add_entry(menu, text, icon_name, callback):
-    action = QAction(themed_icon(icon_name), text, menu)
+# Root menu icons, found by comparing every icon in Chicago95 and SE98 with the originals' 24px icons
+# (tests/test_startmenu_icons_reference.py); the second name is the fallback for other icon sets.
+ROOT_ICONS = {
+    "programs": ("applications-all", "folder-open"),
+    "documents": ("folder-home", "folder-documents"),
+    "settings": ("configuration_section", "preferences-desktop"),
+    "find": ("kfind", "system-search"),
+    "help": ("system-help", "help-browser"),
+    "run": ("system-run", "gtk-execute"),
+    "log_off": ("system-log-out",),
+    "shut_down": ("system-shutdown",),
+}
+
+
+def add_entry(menu, text, icon_names, callback):
+    names = (icon_names,) if isinstance(icon_names, str) else icon_names
+    action = QAction(themed_icon(*names), text, menu)
     action.triggered.connect(lambda _checked=False: callback())
     menu.addAction(action)
     return action
@@ -463,29 +508,29 @@ def fill_documents_menu(documents):
 def build_root_menu():
     root = RetroMenu(banner=True)
     programs = RetroMenu("&Programs", root)
-    programs.setIcon(themed_icon("folder-open"))
+    programs.setIcon(themed_icon(*ROOT_ICONS["programs"]))
     programs.aboutToShow.connect(lambda: fill_programs_menu(programs))
     root.addMenu(programs)
     documents = RetroMenu("&Documents", root)
-    documents.setIcon(themed_icon("folder-documents"))
+    documents.setIcon(themed_icon(*ROOT_ICONS["documents"]))
     documents.aboutToShow.connect(lambda: fill_documents_menu(documents))
     root.addMenu(documents)
     settings = RetroMenu("&Settings", root)
-    settings.setIcon(themed_icon("preferences-desktop"))
+    settings.setIcon(themed_icon(*ROOT_ICONS["settings"]))
     add_entry(settings, "Control Panel", "preferences-system", lambda: launch(["systemsettings"]))
     add_entry(settings, "Printers", "printer", lambda: launch(["kcmshell6", "kcm_printer_manager"]))
     add_entry(settings, "Display", "preferences-desktop-display", lambda: launch(["kcmshell6", "kcm_kscreen"]))
     root.addMenu(settings)
     find = RetroMenu("&Find", root)
-    find.setIcon(themed_icon("system-search"))
+    find.setIcon(themed_icon(*ROOT_ICONS["find"]))
     add_entry(find, "Files or Folders...", "system-search", lambda: launch(["kfind"]))
     add_entry(find, "Computer...", "network-workgroup", lambda: launch(["dolphin", "remote:/"]))
     root.addMenu(find)
-    add_entry(root, "&Help", "help-browser", lambda: launch(["khelpcenter"]))
-    add_entry(root, "&Run...", "system-run", lambda: launch(["krunner"]))
+    add_entry(root, "&Help", ROOT_ICONS["help"], lambda: launch(["khelpcenter"]))
+    add_entry(root, "&Run...", ROOT_ICONS["run"], lambda: launch(["krunner"]))
     root.addSeparator()
-    add_entry(root, "&Log Off...", "system-log-out", lambda: launch(LOG_OFF_COMMAND))
-    add_entry(root, "Sh&ut Down...", "system-shutdown", lambda: launch(SHUT_DOWN_COMMAND))
+    add_entry(root, "&Log Off...", ROOT_ICONS["log_off"], lambda: launch(LOG_OFF_COMMAND))
+    add_entry(root, "Sh&ut Down...", ROOT_ICONS["shut_down"], lambda: launch(SHUT_DOWN_COMMAND))
     return root
 
 

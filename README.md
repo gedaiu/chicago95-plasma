@@ -157,9 +157,12 @@ python3 -m pytest tests
 ```
 
 `tests/test_startmenu_reference.py` renders the Start menu at 1x and compares it with a
-screenshot of the 1995 original (downloaded once into `tests/.cache`, which git ignores):
+screenshot of the 1995 original:
 size, bevel, separator, highlight, arrows and text positions must match; outside the icons and
-the letter shapes, not a pixel may differ. The tests skip when the screenshot can't be fetched.
+the letter shapes, not a pixel may differ. The screenshots are in `tests/references` (sources in `SOURCES.md` there).
+
+`python3 tests/render_report.py docs/compare` writes one image per OS with each original beside our
+render (Start menu, Shut Down, loading screen); CI publishes the same images as an artifact.
 
 ## Credits
 

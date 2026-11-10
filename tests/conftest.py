@@ -35,6 +35,16 @@ def ui_font_installed():
 needs_ui_font = pytest.mark.skipif(not ui_font_installed(), reason="MS W98 UI font is not installed")
 
 
+def icon_set_installed(name):
+    return any((Path(base) / name / "index.theme").exists()
+               for base in (Path.home() / ".icons", Path.home() / ".local/share/icons", "/usr/share/icons"))
+
+
+# Icon sets come from other projects (Chicago95, SE98, ClassicOS-2000) and are installed by Setup, not
+# shipped here; tests that compare icons skip without them.
+needs_chicago95_icons = pytest.mark.skipif(not icon_set_installed("Chicago95"), reason="Chicago95 icon set is not installed")
+
+
 @pytest.fixture(scope="session")
 def qt_app():
     from PySide6.QtWidgets import QApplication

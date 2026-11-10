@@ -46,3 +46,30 @@ def test_icon_theme_follows_the_set_chosen_with_the_look(tmp_path):
     settings.write_text("[Icons]\nTheme=ClassicOS-2000\n")
 
     assert chicago95ui.icon_theme(settings) == "ClassicOS-2000"
+
+
+def test_branding_falls_back_to_the_start_menu_banner(tmp_path):
+    settings = tmp_path / "chicago95rc"
+    settings.write_text("[StartMenu]\nbannerText=Fedora 44\n")
+
+    look = chicago95ui.look_settings(settings)
+
+    assert (look["osName"], look["osCompany"], look["edition"], look["companyLogo"]) == ("Fedora 44", "", "Professional", "")
+
+
+def test_branding_values_come_from_the_branding_group(tmp_path):
+    settings = tmp_path / "chicago95rc"
+    settings.write_text("[StartMenu]\nbannerText=Chicago95\n\n[Branding]\nosCompany=Microsoft\nosName=Windows 2000\nosEdition=Professional\n")
+
+    look = chicago95ui.look_settings(settings)
+
+    assert (look["osName"], look["osCompany"], look["bannerText"]) == ("Windows 2000", "Microsoft", "Chicago95")
+
+
+def test_placeholders_fill_from_the_branding(tmp_path):
+    settings = tmp_path / "chicago95rc"
+    settings.write_text("[Branding]\nosCompany=Contoso\nosName=Windows2026\nosEdition=Home Edition\n")
+    look = chicago95ui.look_settings(settings)
+
+    assert chicago95ui.fill_placeholders("Log On to {os} {edition} by {company}; {osname}", look) == \
+        "Log On to Windows Home Edition by Contoso; Windows2026"

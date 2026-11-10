@@ -84,3 +84,28 @@ def render_start_menu(startmenu, app, settings_dir, chicago95rc, kdeglobals="", 
     if active is not None:
         menu.setActiveAction(menu.actions()[active])
     return qimage_to_pil(menu.grab().toImage())
+
+
+LOOK_2000_KDEGLOBALS = ("[Colors:Window]\nBackgroundNormal=212,208,200\n\n[Colors:Button]\nBackgroundNormal=212,208,200\n\n"
+                        "[Colors:Selection]\nBackgroundNormal=10,36,106\n")
+
+
+class installed_look:
+    """Context manager: writes chicago95rc and kdeglobals into the tests' settings folder and applies the
+    palette, as Setup would; removes both and restores the default palette on exit."""
+
+    def __init__(self, app, chicago95rc, kdeglobals=""):
+        self.app, self.chicago95rc, self.kdeglobals = app, chicago95rc, kdeglobals
+
+    def __enter__(self):
+        import chicago95ui
+        Path(chicago95ui.CHICAGO95RC).write_text(self.chicago95rc)
+        Path(chicago95ui.KDEGLOBALS).write_text(self.kdeglobals)
+        self.app.setPalette(chicago95ui.retro_palette(chicago95ui.read_scheme()))
+        return self
+
+    def __exit__(self, *_):
+        import chicago95ui
+        Path(chicago95ui.CHICAGO95RC).unlink(missing_ok=True)
+        Path(chicago95ui.KDEGLOBALS).unlink(missing_ok=True)
+        self.app.setPalette(chicago95ui.retro_palette(chicago95ui.read_scheme()))

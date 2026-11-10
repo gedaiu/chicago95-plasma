@@ -112,3 +112,25 @@ def test_banner_lettering_has_the_originals_length_thickness_and_place(pair):
     _, reference, ours = pair
     expected, actual = banner_lettering(reference), banner_lettering(ours)
     assert all(abs(a - e) <= 2 for a, e in zip(actual, expected)), (actual, expected)
+
+
+def banner_parts_lengths(image):
+    """Lengths along the banner of each lettering part, split where the lettering has a gap of 2px or more."""
+    bottom = image.height - 4
+    rows = [y for y in range(8, bottom + 1) if any(image.getpixel((x, y))[0] > 100 for x in range(*BANNER))]
+    parts, start = [], rows[0]
+    for a, b in zip(rows, rows[1:]):
+        if b - a > 2:
+            parts.append(a - start + 1)
+            start = b
+    parts.append(rows[-1] - start + 1)
+    return parts
+
+
+def test_2000_banner_parts_match_the_originals_word_by_word(startmenu, qt_app, tmp_path):
+    style = STYLES["2000"]
+    reference = screenshot(style["screenshot"]).crop(style["menu"])
+    ours = render_start_menu(startmenu, qt_app, tmp_path, style["settings"], style["kdeglobals"], extra_top=style["extra_top"])
+    # Read bottom to top: "Windows", "2000", "Professional" (83, 30 and 104px long on the original).
+    expected, actual = banner_parts_lengths(reference), banner_parts_lengths(ours)
+    assert len(actual) == len(expected) == 3 and all(abs(a - e) <= 5 for a, e in zip(actual, expected)), (actual, expected)

@@ -5,6 +5,7 @@ forces the Windows style and reads the Plasma scale so dialogs render sharp.
 Every tool then calls make_app() instead of QApplication() directly.
 """
 import configparser
+import glob
 import os
 import re
 import signal
@@ -71,13 +72,41 @@ CHICAGO95RC = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser(
 
 
 def look_settings(path=None):
-    """The look chosen in Setup ([StartMenu] in ~/.config/chicago95rc): style (1995, 1998 or 2000), the
-    banner text and the edition shown beside it, with their defaults."""
+    """The look chosen in Setup, from ~/.config/chicago95rc.
+
+    [StartMenu] style is 1995, 1998 or 2000. [Branding] describes the "operating system" the screens
+    show: osCompany (the small word above the name), osName ("Windows 2000", "Fedora 44"; its number
+    is drawn thin), osEdition, osLogo and companyLogo (image paths). Each falls back to the Start menu's
+    banner text and logo, so a look without branding still has a name and a logo."""
     settings = configparser.ConfigParser(interpolation=None, strict=False)
     settings.read(path or CHICAGO95RC)
-    return {"style": settings.get("StartMenu", "style", fallback="1995"),
-            "bannerText": settings.get("StartMenu", "bannerText", fallback="Chicago95"),
-            "edition": settings.get("StartMenu", "edition", fallback="Professional")}
+    start_menu = lambda key, default: settings.get("StartMenu", key, fallback=default)
+    branding = lambda key, default: settings.get("Branding", key, fallback=default)
+    logos = sorted(glob.glob(os.path.expanduser("~/.local/share/chicago95/start-logo.*")))
+    banner_text = start_menu("bannerText", "Chicago95")
+    return {
+        "style": start_menu("style", "1995"),
+        "bannerText": banner_text,
+        "osCompany": branding("osCompany", ""),
+        "osName": branding("osName", banner_text),
+        "edition": branding("osEdition", start_menu("edition", "Professional")),
+        "osLogo": branding("osLogo", logos[0] if logos else ""),
+        "companyLogo": branding("companyLogo", ""),
+    }
+
+
+def short_os_name(name):
+    """The name before its first digit ("Windows2026" -> "Windows"); the whole name when there is none."""
+    return re.split(r"\d", name, maxsplit=1)[0].strip() or name
+
+
+def fill_placeholders(text, look):
+    """Replaces {os}, {osname}, {company}, {edition}, {user} and {computer} in a text from Setup."""
+    import getpass
+    import socket
+    values = {"os": short_os_name(look["osName"]), "osname": look["osName"], "company": look["osCompany"],
+              "edition": look["edition"], "user": getpass.getuser(), "computer": socket.gethostname()}
+    return re.sub(r"\{(os|osname|company|edition|user|computer)\}", lambda match: values[match.group(1)], text)
 
 
 def icon_theme(path=None):
@@ -124,6 +153,9 @@ def retro_palette(scheme=None):
     scheme = scheme or SCHEME
     face, selection = scheme["face"], scheme["selection"]
     light, shadow = bevel_shades(face)
+    dark = QColor("#000000")
+    if look_settings()["style"] == "2000":   # 2000's bevel: face-coloured 3D light, #404040 outer shadow
+        light, dark = face, QColor("#404040")
     palette = QPalette()
     for group in (QPalette.Active, QPalette.Inactive, QPalette.Disabled):
         palette.setColor(group, QPalette.Window, face)
@@ -138,7 +170,7 @@ def retro_palette(scheme=None):
         palette.setColor(group, QPalette.Midlight, light)
         palette.setColor(group, QPalette.Dark, shadow)
         palette.setColor(group, QPalette.Mid, shadow)
-        palette.setColor(group, QPalette.Shadow, Qt.black)
+        palette.setColor(group, QPalette.Shadow, dark)
     palette.setColor(QPalette.Disabled, QPalette.Text, shadow)
     palette.setColor(QPalette.Disabled, QPalette.WindowText, shadow)
     return palette
@@ -148,6 +180,8 @@ def ui_font(point_size=9, bold=False):
     family = UI_FONT_FAMILY if UI_FONT_FAMILY in QFontDatabase.families() else "Noto Sans"
     font = QFont(family, point_size)
     font.setBold(bold)
+    if family == UI_FONT_FAMILY:
+        font.setStyleStrategy(QFont.NoAntialias)  # a pixel font: hard edges, no coloured subpixel fringes
     return font
 
 
