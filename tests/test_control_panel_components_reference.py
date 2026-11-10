@@ -229,14 +229,14 @@ def test_apply_question_answers_yes_no_or_cancel(control_panel, qt_app, name, an
     assert question.answer == answer
 
 
-def test_the_original_scroll_bar_thumb_is_raised_white_edge_face_shadow_black():
-    image = reference_image("win98mycomputer")
-    row = [image.getpixel((x, 200)) for x in range(380, 400)]
+def test_the_original_scroll_bar_is_16_wide_with_a_dithered_track():
+    """Date/Time Properties' open list (tests/references/win98datetime03.png) shows the track at 1:1."""
+    image = reference_image("win98datetime03")
+    row = [image.getpixel((x, 150)) for x in range(360, 390)]
     black = next(position for position, colour in enumerate(row) if colour == (0, 0, 0))
-    white = max(position for position, colour in enumerate(row[:black]) if colour == (255, 255, 255))
-    shadow = row[black - 1]
+    track = row[black - 16:black]
 
-    assert (black - white > 8, {row[x] for x in range(white + 1, black - 1)}, 90 < sum(shadow) // 3 < 140) == (True, {(191, 191, 191)}, True)
+    assert (len(set(track)), track[0] == track[2], track[1] == track[3], set(track)) == (2, True, True, {(192, 192, 192), (255, 255, 255)})
 
 
 def test_our_icon_views_scroll_bar_is_16_wide_with_a_dithered_track(control_panel, qt_app, tmp_path):
@@ -438,3 +438,97 @@ def test_our_enabled_drop_down_field_is_white_and_a_disabled_one_takes_the_windo
         fields.append((classify(image.getpixel((150, 11))), classify(image.getpixel((30, 4)))))
 
     assert fields == [("W", "W"), ("f", "f")]
+
+
+# ---- a property sheet: tests/references/win98propertysheet.png (Regional Settings Properties). Its window border is
+# 2px, so client positions are the picture's minus 2.
+
+def test_the_original_property_sheet_puts_75_by_23_buttons_81_apart_6_rows_under_the_page_and_8_from_the_bottom():
+    image = reference_image("win98propertysheet")
+    column = [y for y in range(400, image.height) if sum(image.getpixel((195, y))) // 3 < 60]
+    page_bottom, button_top, button_bottom = column[0], column[1], column[-2]
+    edges = [x for x in range(150, 400) if image.getpixel((x, 425)) == (0, 0, 0)]
+
+    assert (button_top - page_bottom - 1, button_bottom - button_top + 1, image.height - 2 - button_bottom - 1, edges[0], edges[-1]) == (6, 23, 8, 158, 394)
+
+
+def test_our_property_page_puts_its_buttons_as_the_original_does(control_panel, qt_app, tmp_path):
+    window = control_panel.ControlPanel(settings_path=tmp_path / "setup.conf")
+    window.open_applet("Taskbar")
+    window.resize(404, 560)
+    window.show()
+    qt_app.processEvents()
+    page = window.pages.currentWidget()
+    ok, cancel, apply = (getattr(page, name).geometry() for name in ("ok_button", "cancel_button", "apply_button"))
+    page_bottom = page.tabs.geometry().bottom()
+
+    assert (ok.size().toTuple(), cancel.left() - ok.left(), apply.left() - cancel.left(), ok.top() - page_bottom - 1, page.height() - 1 - ok.bottom(), page.width() - 1 - apply.right()) == (
+        (75, 23), 81, 81, 6, 8, 8)
+
+
+def test_the_originals_focused_drop_down_fills_its_field_navy_inside_a_white_line():
+    image = reference_image("win98propertysheet")
+
+    assert ([image.getpixel((200, y)) for y in (108, 109, 110)], navy(image.getpixel((200, 118))), navy(image.getpixel((330, 118)))) == (
+        [(128, 128, 128), (0, 0, 0), (255, 255, 255)], True, True)
+
+
+def test_our_focused_drop_down_fills_its_field_navy_inside_a_white_line(control_panel, qt_app):
+    import chicago95ui
+    from PySide6.QtWidgets import QComboBox
+    combo = chicago95ui.classic_combo(QComboBox())
+    combo.addItem("English (Australian)")
+    combo.resize(312, 22)
+    combo.show()
+    combo.setFocus()
+    qt_app.processEvents()
+    image = render(combo)
+
+    assert ([image.getpixel((150, y)) for y in (0, 1, 2)], navy(image.getpixel((150, 11))), navy(image.getpixel((8, 11))), navy(image.getpixel((280, 11)))) == (
+        [(128, 128, 128), (0, 0, 0), (255, 255, 255)], True, True, True)
+
+
+# ---- the same open list at 1:1 (tests/references/win98datetime03.png) and a disabled check box (win98datetime04.png,
+# enabled in win98datetime02.png): a disabled box is filled with the window colour and its check is shadow grey.
+
+def test_the_original_open_list_at_1_to_1_has_13_pixel_rows_a_black_border_and_a_highlight_touching_it():
+    image = reference_image("win98datetime03")
+    first, last = runs([navy(image.getpixel((300, y))) for y in range(100, 250)])[0]
+    highlight_left = runs([navy(image.getpixel((x, 100 + first))) for x in range(image.width)])[0][0]
+    border_left = next(x for x in range(10, 30) if image.getpixel((x, 150)) == (0, 0, 0))
+
+    assert (last - first + 1, highlight_left - border_left, image.getpixel((200, 79))) == (13, 1, (0, 0, 0))
+
+
+def test_the_originals_disabled_check_box_is_face_filled_with_a_shadow_check_and_the_enabled_one_white_with_black():
+    disabled = reference_image("win98datetime04")
+    enabled = reference_image("win98datetime02")
+    disabled_inside = {disabled.getpixel((x, 287)) for x in range(23, 33)}
+    enabled_inside = {enabled.getpixel((x, 287)) for x in range(24, 33)}
+
+    assert (disabled_inside, enabled_inside) == ({(192, 192, 192), (128, 128, 128)}, {(255, 255, 255), (0, 0, 0)})
+
+
+def check_box_inside(qt_app, enabled):
+    box = QCheckBox("Automatically adjust clock")
+    box.setChecked(True)
+    box.setEnabled(enabled)
+    box.resize(box.sizeHint())
+    box.show()
+    qt_app.processEvents()
+    image = render(box)
+    face = box.palette().window().color().getRgb()[:3]
+    shadow = box.palette().dark().color().getRgb()[:3]
+    return {image.getpixel((x, 8)) for x in range(2, 11)}, face, shadow
+
+
+def test_our_disabled_check_box_is_face_filled_with_a_shadow_check(qt_app):
+    inside, face, shadow = check_box_inside(qt_app, enabled=False)
+
+    assert inside == {face, shadow}
+
+
+def test_our_enabled_check_box_is_white_with_a_black_check(qt_app):
+    inside, _face, _shadow = check_box_inside(qt_app, enabled=True)
+
+    assert inside == {(255, 255, 255), (0, 0, 0)}

@@ -190,3 +190,35 @@ def test_disabled_indicator_keeps_its_white_outer_edge_around_a_window_coloured_
     middle, inside = disabled.width // 2, (3, 4)   # inside: clear of the tick and the dot
     assert (enabled.getpixel((middle, enabled.height - 1)), disabled.getpixel((middle, disabled.height - 1)), disabled.getpixel(inside)) \
         == ((255, 255, 255), (255, 255, 255), face)
+
+
+DISABLED_DROP_DOWN_BUTTON = (195, 104, 217, 125)   # win98finddate.png: the "Modified" list's right end, frame to frame
+
+
+def drop_down_image(qt_app, enabled):
+    import chicago95ui
+    from PySide6.QtWidgets import QComboBox
+    from reference import qimage_to_pil
+    combo = chicago95ui.classic_combo(QComboBox())
+    combo.addItem("Modified")
+    combo.setFixedWidth(105)
+    combo.setEnabled(enabled)
+    combo.show()
+    qt_app.processEvents()
+    image = qimage_to_pil(combo.grab().toImage())
+    combo.close()
+    return image
+
+
+def test_disabled_drop_down_ends_in_the_originals_arrow_button_with_an_engraved_arrow(qt_app):
+    """The Find window's disabled list: 21px tall, its button's 7-5-3-1 arrow grey with a white copy a pixel down and right."""
+    ours = drop_down_image(qt_app, enabled=False)
+    theirs = screenshot("win98finddate").crop(DISABLED_DROP_DOWN_BUTTON)
+    assert same_pixels(ours.crop((ours.width - theirs.width, 0, ours.width, ours.height)), theirs), ours.size
+
+
+def test_enabled_drop_down_arrow_is_a_black_7_5_3_1_triangle(qt_app):
+    ours = drop_down_image(qt_app, enabled=True)
+    face = ours.crop((ours.width - 16, 4, ours.width - 6, ours.height - 5))   # inside the button's bevel
+    widths = [sum(1 for x in range(face.width) if face.getpixel((x, y)) == (0, 0, 0)) for y in range(face.height)]
+    assert [width for width in widths if width] == [7, 5, 3, 1], widths

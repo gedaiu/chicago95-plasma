@@ -72,6 +72,19 @@ def drop_down():
     return row(combo, disabled)
 
 
+def disabled_fields():
+    import chicago95ui
+    combo = chicago95ui.classic_combo(QComboBox())
+    combo.addItem("Modified")
+    combo.setFixedWidth(105)
+    spin = chicago95ui.plain_disabled_text(QSpinBox())
+    spin.setValue(1)
+    spin.setFixedWidth(40)
+    for widget in (combo, spin):
+        widget.setEnabled(False)
+    return row(combo, spin)
+
+
 def spin_box():
     box = QSpinBox()
     box.setRange(0, 100)
@@ -185,6 +198,7 @@ CONTROLS = [
     ("Text fields", text_fields),
     ("Drop-down lists", drop_down),
     ("Spin box", spin_box),
+    ("Disabled drop-down and spin box", disabled_fields),
     ("Sliders", sliders),
     ("Scroll bar, horizontal", lambda: scroll_bar(Qt.Horizontal, 300)),
     ("Scroll bar, vertical", lambda: scroll_bar(Qt.Vertical, 120)),
@@ -213,6 +227,7 @@ ORIGINALS = {
         "Text fields": ("win98newconnection", (148, 62, 431, 93)),
         "Drop-down lists": ("win98dialing", (32, 71, 166, 100)),
         "Group box": ("win98dialing", (20, 148, 374, 374)),
+        "Disabled drop-down and spin box": ("win98finddate", (110, 100, 225, 182)),
         "Tabs (Qt's own tab widget)": ("win98dialing", (4, 26, 200, 60)),
         "Scroll bar, horizontal": ("win98notepad", (7, 342, 392, 360)),
         "Scroll bar, vertical": ("win98notepad", (389, 47, 406, 188)),   # down to the alert that covers the rest

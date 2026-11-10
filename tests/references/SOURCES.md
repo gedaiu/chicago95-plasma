@@ -43,3 +43,9 @@ System Properties, from other pages:
 | `win98dialing.png` | http://www.kwom.com/images/Win98/W98setupD3.gif (the Dialing Properties dialog: check boxes, radio buttons, an open drop-down, fields, a group box; a palette GIF, saved as PNG) |
 | `win98newconnection.png` | http://www.kwom.com/images/Win98/W98setupA6.gif (the Make New Connection wizard's last page: a text field with its text selected; a palette GIF, saved as PNG) |
 | `win98disabledgroup.png` | screenshot supplied by the project owner (a disabled "User profile settings" group: engraved caption, disabled check boxes and labels; scaled and smoothed, so rules only, not exact pixels) |
+| `win98finddate.png` | https://www.tech2u.com.au/training/tech2u/win98_2/images/finddate01.gif (Find: All Files, Date tab: disabled drop-downs, spin boxes and a disabled push button; a palette GIF, saved as PNG) |
+| `win98propertysheet.png` | https://www.tech2u.com.au/training/tech2u/win98_2/images/language01.gif (Windows 98 Regional Settings Properties: a property sheet with its button row and a focused drop-down) |
+| `win98datetime01.png` | https://www.tech2u.com.au/training/tech2u/win98_2/images/date01.gif (Windows 98 Date/Time Properties: the Date & Time tab: spin boxes, a focused drop-down, group frames) |
+| `win98datetime02.png` | https://www.tech2u.com.au/training/tech2u/win98_2/images/date02.gif (Windows 98 Date/Time Properties: the Time Zone tab with its check box) |
+| `win98datetime03.png` | https://www.tech2u.com.au/training/tech2u/win98_2/images/date03.gif (Windows 98 Date/Time Properties: an open drop-down list at 1:1) |
+| `win98datetime04.png` | https://www.tech2u.com.au/training/tech2u/win98_2/images/date04.gif (Windows 98 Date/Time Properties: a disabled check box and an enabled Apply) |

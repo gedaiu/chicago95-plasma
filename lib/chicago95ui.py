@@ -323,6 +323,7 @@ CHECK_BOX = ["ssssssssssssW", "sKKKKKKKKKKlW"] + ["sKiiiiiiiiilW"] * 9 + ["sllll
 CHECK_MARK = ["WWWWWWWWW", "WWWWWWWKW", "WWWWWWKKW", "WKWWWKKKW", "WKKWKKKWW", "WKKKKKWWW", "WWKKKWWWW", "WWWKWWWWW", "WWWWWWWWW"]
 RADIO_BUTTON = ["....ssss....", "..ssKKKKss..", ".sKKiiiiKKW.", ".sKiiiiiilW.", "sKiiiiiiiilW", "sKiiiiiiiilW",
                 "sKiiiiiiiilW", "sKiiiiiiiilW", ".sKiiiiiilW.", ".slliiiillW.", "..WWllllWW..", "....WWWW...."]
+DROP_DOWN_ARROW = ["KKKKKKK", ".KKKKK.", "..KKK..", "...K..."]
 RADIO_DOT = [(5, 4), (6, 4), (4, 5), (5, 5), (6, 5), (7, 5), (4, 6), (5, 6), (6, 6), (7, 6), (5, 7), (6, 7)]
 
 
@@ -402,6 +403,25 @@ class ClassicStyle(QProxyStyle):
             painter.fillRect(inside, option.palette.base() if option.state & QStyle.State_Enabled else option.palette.window())
             if option.state & QStyle.State_HasFocus:
                 painter.fillRect(self.subControlRect(QStyle.CC_ComboBox, option, QStyle.SC_ComboBoxEditField, widget), option.palette.highlight())
+            self.paint_drop_down_arrow(option, painter, arrow)
+
+    def paint_drop_down_arrow(self, option, painter, button):
+        """The originals' 7-5-3-1 arrow in the middle of the button; disabled, engraved."""
+        painter.fillRect(button.adjusted(2, 2, -2, -2), option.palette.button())
+        pushed = 1 if option.state & QStyle.State_Sunken else 0
+        left = button.left() + (button.width() - 7) // 2 + pushed
+        top = button.top() + (button.height() - 5) // 2 + pushed
+        if option.state & QStyle.State_Enabled:
+            paint_bitmap(painter, left, top, DROP_DOWN_ARROW, {"K": option.palette.buttonText().color()})
+            return
+        paint_bitmap(painter, left + 1, top + 1, DROP_DOWN_ARROW, {"K": option.palette.light().color()})
+        paint_bitmap(painter, left, top, DROP_DOWN_ARROW, {"K": option.palette.dark().color()})
+
+    def sizeFromContents(self, contents, option, size, widget=None):
+        grown = super().sizeFromContents(contents, option, size, widget)
+        if contents == QStyle.CT_ComboBox:
+            grown.setHeight(grown.height() + 1)   # the originals' lists are a row taller than Qt's
+        return grown
 
     def drawControl(self, element, option, painter, widget=None):
         if element == QStyle.CE_TabBarTabLabel and not option.state & QStyle.State_Selected:
