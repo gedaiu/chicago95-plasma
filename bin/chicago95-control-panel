@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QProcess, QProcessEnvironment, QRect, QSize, Qt, Signal
-from PySide6.QtGui import QActionGroup, QColor, QFontDatabase, QIcon, QLinearGradient, QPainter, QPalette
+from PySide6.QtCore import QPoint, QProcess, QProcessEnvironment, QRect, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QAction, QActionGroup, QColor, QFontDatabase, QFontMetrics, QIcon, QLinearGradient, QPainter, QPalette, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QColorDialog,
@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QFrame,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -29,6 +30,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMainWindow,
     QMenu,
+    QMenuBar,
     QMessageBox,
     QPlainTextEdit,
     QProgressBar,
@@ -39,7 +41,9 @@ from PySide6.QtWidgets import (
     QStackedWidget,
     QStyle,
     QStyleOptionButton,
-    QTabWidget,
+    QStyleOptionFrame,
+    QStyleOptionTab,
+    QTabBar,
     QToolBar,
     QToolButton,
     QVBoxLayout,
@@ -87,7 +91,10 @@ LOOK_PRESETS = {
 
 HOME_PAGE = ("Control Panel",)
 DETAILS_SEPARATOR = "  -  "
-MENU_BAR_HEIGHT, STATUS_BAR_HEIGHT = 20, 19   # the originals' (tests/test_control_panel_reference.py)
+MENU_BAR_HEIGHT, STATUS_BAR_HEIGHT = 22, 19   # Windows 98's menu bar and Windows 95's status bar (tests/test_control_panel_*reference.py)
+ETCHED_ROWS, GRIP_LEFT, BAND_INSET = 2, 2, 16   # a header band: its etched line, where its raised grip starts, where its contents start
+LOGO_BOX_WIDTH = 38                            # the black logo box at the right of Windows 98's menu band
+ADDRESS_BOX_HEIGHT, DROPDOWN_SIZE, TOOLBAR_HEIGHT = 22, (16, 18), 40   # Internet Explorer 4's bands
 
 
 @dataclass(frozen=True)
@@ -241,6 +248,30 @@ def valid_banner_colors(text):
     return BANNER_COLORS_PATTERN.match(text) is not None
 
 
+def tab_rows(widths, available):
+    """Tabs wrapped into rows that fit `available`; each row is stretched to fill it. Rows of (index, width)."""
+    rows, current, used = [], [], 0
+    for index, width in enumerate(widths):
+        if current and used + width > available:
+            rows.append(current)
+            current, used = [], 0
+        current.append((index, width))
+        used += width
+    rows.append(current)
+    return rows if len(rows) == 1 else [stretch_row(row, available) for row in rows]
+
+
+def stretch_row(row, available):
+    extra = available - sum(width for _index, width in row)
+    return [(index, width + extra // len(row) + (position < extra % len(row))) for position, (index, width) in enumerate(row)]
+
+
+def rows_for_selected(rows, selected):
+    """The row with the selected tab goes to the bottom, against the page; the rows after it come to the top."""
+    at = next(position for position, row in enumerate(rows) if any(index == selected for index, _width in row))
+    return rows[at + 1:] + rows[:at + 1]
+
+
 def parse_screensavers(output):
     return [tuple(line.split("\t", 1)) for line in output.splitlines() if "\t" in line]
 
@@ -319,9 +350,12 @@ def lock_timeout_minutes():
 
 
 def clear_layout(layout):
+    """Removes and hides every widget at once; deleteLater alone leaves the old ones painted until the event loop runs."""
     while layout.count():
         widget = layout.takeAt(0).widget()
         if widget is not None:
+            widget.hide()
+            widget.setParent(None)
             widget.deleteLater()
 
 
@@ -352,6 +386,62 @@ def start_detached(program, arguments):
     QProcess.startDetached(program, arguments)
 
 
+LIST_ROW_HEIGHT = 13                                      # tests/references/listbox-selected.png
+PROGRESS_CHUNK, PROGRESS_GAP, PROGRESS_FRAME, PROGRESS_INSET = 14, 2, 2, 3   # tests/references/progressbar.png
+
+
+class ClassicProgressBar(QProgressBar):
+    """A progress bar of separate navy blocks in a sunken frame, as the originals drew it."""
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        frame = QStyleOptionFrame()
+        frame.initFrom(self)
+        frame.rect = self.rect()
+        frame.lineWidth = PROGRESS_FRAME
+        frame.state |= QStyle.State_Sunken
+        self.style().drawPrimitive(QStyle.PE_Frame, frame, painter, self)
+        inner = self.rect().adjusted(PROGRESS_INSET, PROGRESS_INSET, -PROGRESS_INSET, -PROGRESS_INSET)
+        span = self.maximum() - self.minimum()
+        filled = inner.width() * (self.value() - self.minimum()) // span if span else 0
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(self.palette().highlight())
+        left = inner.left()
+        while left + PROGRESS_CHUNK <= inner.left() + filled:
+            painter.drawRect(QRect(left, inner.top(), PROGRESS_CHUNK, inner.height()))
+            left += PROGRESS_CHUNK + PROGRESS_GAP
+
+
+class ApplyQuestion(QDialog):
+    """Do you want to apply your changes? Yes, No or Cancel, centred under the question as the classic message box has them."""
+    BUTTON_GAP, TEXT_TO_BUTTONS, MARGIN = 6, 18, 11   # tests/references/messagebox-yesnocancel.png
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.setWindowTitle("Control Panel")
+        self.answer = "cancel"
+        self.text = QLabel("Do you want to apply your changes?")
+        self.buttons = {name: chicago95ui.dialog_button(name) for name in ("Yes", "No", "Cancel")}
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(self.BUTTON_GAP)
+        row.addStretch(1)
+        for name, button in self.buttons.items():
+            button.clicked.connect(lambda _checked=False, name=name: self.choose(name))
+            row.addWidget(button)
+        row.addStretch(1)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(self.MARGIN, self.MARGIN, self.MARGIN, self.MARGIN)
+        layout.setSpacing(self.TEXT_TO_BUTTONS)
+        layout.addWidget(self.text)
+        layout.addLayout(row)
+        self.buttons["Yes"].setDefault(True)
+
+    def choose(self, name):
+        self.answer = name.lower()
+        self.accept() if name != "Cancel" else self.reject()
+
+
 class ApplyProgress(QDialog):
     """Shown while Setup applies the changes: a busy bar, and Setup's output behind a Details button."""
 
@@ -367,10 +457,14 @@ class ApplyProgress(QDialog):
         self.process.setProcessEnvironment(environment)
         self.process.readyReadStandardOutput.connect(self.read_output)
         self.process.finished.connect(self.finish)
-        self.process.errorOccurred.connect(lambda _error: self.fail(self.process.errorString()))
+        self.process.errorOccurred.connect(lambda error: self.fail(f"Setup could not be started ({self.command[0]}): {error.name}"))
         self.label = QLabel("Please wait while the changes are applied...")
-        self.bar = QProgressBar()
-        self.bar.setRange(0, 0)
+        self.bar = ClassicProgressBar()
+        self.bar.setRange(0, 100)
+        self.bar.setTextVisible(False)
+        self.pulse = QTimer(self)
+        self.pulse.setInterval(80)
+        self.pulse.timeout.connect(lambda: self.bar.setValue((self.bar.value() + 3) % 101))
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
         self.log.hide()
@@ -383,12 +477,14 @@ class ApplyProgress(QDialog):
         self.setMinimumWidth(380)
 
     def start(self):
+        self.pulse.start()
         self.process.start(self.command[0], self.command[1:])
 
     def read_output(self):
         self.log.appendPlainText(bytes(self.process.readAllStandardOutput()).decode(errors="replace").rstrip("\n"))
 
     def finish(self, exit_code, _exit_status):
+        self.pulse.stop()
         if exit_code == 0:
             self.accept()
         else:
@@ -396,7 +492,8 @@ class ApplyProgress(QDialog):
 
     def fail(self, reason):
         self.failed = True
-        self.bar.setRange(0, 1)
+        self.pulse.stop()
+        self.bar.setValue(0)
         self.label.setText("The changes could not be applied.")
         self.log.appendPlainText(reason)
         self.log.show()
@@ -435,9 +532,9 @@ def show_message(parent, title, text):
 
 
 def ask_to_apply_changes(parent):
-    answer = QMessageBox.question(parent, "Control Panel", "Do you want to apply your changes?",
-                                  QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-    return {QMessageBox.Yes: "yes", QMessageBox.No: "no"}.get(answer, "cancel")
+    question = ApplyQuestion(parent)
+    question.exec()
+    return question.answer
 
 
 @dataclass
@@ -456,6 +553,129 @@ class Actions:
     sound_roots: tuple = SOUND_ROOTS
 
 
+class HeaderBand(QWidget):
+    """One band of Explorer's header: an etched line above it (shadow over white), a raised grip at its left, then its content."""
+
+    def __init__(self, content=None, content_height=MENU_BAR_HEIGHT, grip=True, trailing=None):
+        super().__init__()
+        self.has_grip = grip
+        self.setFixedHeight(ETCHED_ROWS + content_height)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(BAND_INSET if grip else 0, ETCHED_ROWS, 0 if trailing else 2, 0)
+        layout.setSpacing(0)
+        if content is not None:
+            layout.addWidget(content, 1)
+        if trailing is not None:
+            layout.addWidget(trailing)
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        face = self.palette().window().color()
+        shadow = chicago95ui.bevel_shades(face)[1]
+        white = QColor("#FFFFFF")
+        painter.fillRect(self.rect(), face)
+        painter.setPen(shadow)
+        painter.drawLine(0, 0, self.width() - 1, 0)
+        painter.setPen(white)
+        painter.drawLine(0, 1, self.width() - 1, 1)
+        if not self.has_grip:
+            return
+        top, bottom = ETCHED_ROWS + 2, self.height() - 3
+        painter.setPen(white)
+        painter.drawLine(GRIP_LEFT, top, GRIP_LEFT, bottom)
+        painter.setPen(shadow)
+        painter.drawLine(GRIP_LEFT + 4, top, GRIP_LEFT + 4, bottom)
+
+
+class ToolbarButton(QToolButton):
+    """A Standard Buttons toolbar button as Internet Explorer 4 drew it: the icon near the top, the label along the
+    bottom, a flat face that rises while the pointer is over it, and an 11px arrow section for a button with a menu."""
+    ARROW_WIDTH, ICON_SIZE, ICON_TOP, LABEL_TOP = 11, 22, 1, 26
+
+    def __init__(self, action, has_menu=False):
+        super().__init__()
+        self.setDefaultAction(action)
+        self.has_menu = has_menu
+        self.setFixedHeight(TOOLBAR_HEIGHT)
+        self.setAttribute(Qt.WA_Hover)
+
+    def main_width(self):
+        return max(48, QFontMetrics(self.font()).horizontalAdvance(self.text()) + 12)
+
+    def sizeHint(self):
+        return QSize(self.main_width() + (self.ARROW_WIDTH if self.has_menu else 0), TOOLBAR_HEIGHT)
+
+    def minimumSizeHint(self):
+        return self.sizeHint()
+
+    def arrow_rect(self):
+        return QRect(self.main_width(), 0, self.ARROW_WIDTH, self.height())
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        palette = self.palette()
+        face, shadow = palette.window().color(), palette.dark().color()
+        painter.fillRect(self.rect(), face)
+        main = QRect(0, 0, self.main_width(), self.height())
+        if self.isEnabled() and self.underMouse():
+            for rect in [main] + ([self.arrow_rect()] if self.has_menu else []):
+                painter.setPen(QColor("#FFFFFF"))
+                painter.drawLine(rect.topLeft(), rect.topRight())
+                painter.drawLine(rect.topLeft(), rect.bottomLeft())
+                painter.setPen(shadow)
+                painter.drawLine(rect.bottomLeft(), rect.bottomRight())
+                painter.drawLine(rect.topRight(), rect.bottomRight())
+        mode = QIcon.Normal if self.isEnabled() else QIcon.Disabled
+        icon_rect = QRect((main.width() - self.ICON_SIZE) // 2, self.ICON_TOP, self.ICON_SIZE, self.ICON_SIZE)
+        self.icon().paint(painter, icon_rect, Qt.AlignCenter, mode)
+        label = QRect(0, self.LABEL_TOP, main.width(), self.height() - self.LABEL_TOP)
+        if self.isEnabled():
+            painter.setPen(palette.windowText().color())
+            painter.drawText(label, Qt.AlignHCenter | Qt.AlignTop, self.text())
+        else:
+            painter.setPen(QColor("#FFFFFF"))
+            painter.drawText(label.translated(1, 1), Qt.AlignHCenter | Qt.AlignTop, self.text())
+            painter.setPen(shadow)
+            painter.drawText(label, Qt.AlignHCenter | Qt.AlignTop, self.text())
+        if self.has_menu:
+            arrow = self.arrow_rect()
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(palette.windowText().color() if self.isEnabled() else shadow)
+            centre = arrow.center()
+            painter.drawPolygon([QPoint(centre.x() - 2, centre.y() - 1), QPoint(centre.x() + 3, centre.y() - 1), QPoint(centre.x(), centre.y() + 2)])
+
+    def mousePressEvent(self, event):
+        menu = self.defaultAction().menu()
+        if self.has_menu and menu is not None and (self.arrow_rect().contains(event.position().toPoint()) or not self.defaultAction().isEnabled()):
+            menu.exec(self.mapToGlobal(QPoint(0, self.height())))
+            return
+        super().mousePressEvent(event)
+
+
+def start_logo_pixmap():
+    """The Start button's logo: Setup's copy, else the flag shipped with the Start applet."""
+    copies = sorted((Path.home() / ".local/share/chicago95").glob("start-logo.*"))
+    source = copies[0] if copies else Path(__file__).resolve().parent.parent / "plasmoids/org.chicago95.start/contents/images/logo-flag.png"
+    return QPixmap(str(source))
+
+
+class LogoBox(QWidget):
+    """The black box at the right of the menu band, where Windows 98 showed its waving flag."""
+
+    def __init__(self):
+        super().__init__()
+        self.logo = start_logo_pixmap()
+        self.setFixedWidth(LOGO_BOX_WIDTH)
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor("#000000"))
+        if self.logo.isNull():
+            return
+        logo = self.logo.scaledToHeight(self.height() - 6, Qt.SmoothTransformation)
+        painter.drawPixmap((self.width() - logo.width()) // 2, (self.height() - logo.height()) // 2, logo)
+
+
 class AddressBar(QWidget):
     """Explorer's Address box as breadcrumbs: each part of the path is a button that goes there."""
     navigate = Signal(tuple)
@@ -464,23 +684,37 @@ class AddressBar(QWidget):
         super().__init__()
         self.known_page_tuples = known_pages
         self.crumb_buttons = []
+        self.setFixedHeight(ADDRESS_BOX_HEIGHT)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(QLabel("Address"))
         self.box = QFrame()
-        self.box.setFrameStyle(QFrame.Panel | QFrame.Sunken)
+        self.box.setFrameStyle(QFrame.StyledPanel | QFrame.Sunken)
         self.box.setLineWidth(2)
         self.box.setAutoFillBackground(True)
-        self.box.setBackgroundRole(self.backgroundRole().Base)
-        self.crumb_layout = QHBoxLayout(self.box)
+        self.box.setBackgroundRole(QPalette.Base)
+        self.box.setFixedHeight(ADDRESS_BOX_HEIGHT)
+        box_layout = QHBoxLayout(self.box)
+        box_layout.setContentsMargins(0, 0, 0, 0)
+        box_layout.setSpacing(0)
+        self.icon = QLabel()
+        self.icon.setFixedSize(16, 16)
+        icon = themed_icon(("preferences-system",))
+        self.icon.setPixmap(icon.pixmap(16, 16) if not icon.isNull() else start_logo_pixmap().scaled(16, 16, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        box_layout.addSpacing(2)
+        box_layout.addWidget(self.icon)
+        crumbs = QWidget()
+        self.crumb_layout = QHBoxLayout(crumbs)
         self.crumb_layout.setContentsMargins(2, 0, 2, 0)
         self.crumb_layout.setSpacing(2)
-        layout.addWidget(self.box, 1)
+        box_layout.addWidget(crumbs, 1)
         self.dropdown = QToolButton()
         self.dropdown.setArrowType(Qt.DownArrow)
         self.dropdown.setPopupMode(QToolButton.InstantPopup)
+        self.dropdown.setFixedSize(*DROPDOWN_SIZE)
         self.dropdown.setMenu(self.build_known_pages_menu())
-        layout.addWidget(self.dropdown)
+        box_layout.addWidget(self.dropdown)
+        layout.addWidget(self.box, 1)
 
     def build_known_pages_menu(self):
         menu = QMenu(self)
@@ -499,6 +733,7 @@ class AddressBar(QWidget):
             crumb.setAutoRaise(True)
             crumb.clicked.connect(lambda _checked=False, target=page[:depth]: self.navigate.emit(target))
             self.crumb_layout.addWidget(crumb)
+            crumb.show()
             self.crumb_buttons.append(crumb)
         self.crumb_layout.addStretch(1)
 
@@ -518,17 +753,17 @@ class PictureField(QWidget):
         self.choose_file = choose_file
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.combo = QComboBox()
+        self.combo = chicago95ui.classic_combo(QComboBox())
         for label, value in presets:
             self.combo.addItem(label, value)
         self.combo.addItem("Custom image...")
         self.combo.setVisible(bool(presets))
-        self.path_edit = QLineEdit()
+        self.path_edit = chicago95ui.plain_disabled_text(QLineEdit())
         self.browse_button = QPushButton("Browse...")
         for widget in (self.combo, self.path_edit, self.browse_button):
             layout.addWidget(widget)
         self.combo.currentIndexChanged.connect(self.choice_changed)
-        self.path_edit.textChanged.connect(self.changed.emit)
+        self.path_edit.textChanged.connect(lambda *_: self.changed.emit())
         self.browse_button.clicked.connect(self.choose_custom_file)
         self.loading = False
 
@@ -571,8 +806,18 @@ class SettingsTab(QWidget):
         self.saved = dict(settings)
         self.loading = False
         self.fields = {}
-        self.form = QFormLayout(self)
-        self.form.setLabelAlignment(Qt.AlignRight)
+        self.outer = QVBoxLayout(self)
+        self.form = QFormLayout()
+        self.form.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.outer.addLayout(self.form)
+        self.outer.addStretch(1)
+
+    def group(self, title):
+        """Fields registered from now on go inside a framed, titled group, as property sheets group their settings."""
+        box = QGroupBox(title)
+        self.form = QFormLayout(box)
+        self.form.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.outer.insertWidget(self.outer.count() - 1, box)
 
     def notify(self):
         if not self.loading:
@@ -595,11 +840,11 @@ class SettingsTab(QWidget):
         self.loading = False
 
     def text(self, key, label, default=""):
-        edit = QLineEdit()
+        edit = chicago95ui.plain_disabled_text(QLineEdit())
         return self.register(key, label, edit, edit.text, edit.setText, default, edit.textChanged)
 
     def choice(self, key, label, options, default):
-        combo = QComboBox()
+        combo = chicago95ui.classic_combo(QComboBox())
         for option_label, value in options:
             combo.addItem(option_label, value)
 
@@ -614,14 +859,23 @@ class SettingsTab(QWidget):
         return self.register(key, "", box, lambda: "yes" if box.isChecked() else "no", lambda value: box.setChecked(value == "yes"), default, box.toggled)
 
     def number(self, key, label, minimum, maximum, default, suffix=""):
-        spin = QSpinBox()
+        """A narrow spin box with its unit beside it, as the originals set numbers."""
+        spin = chicago95ui.plain_disabled_text(QSpinBox())
         spin.setRange(minimum, maximum)
-        spin.setSuffix(suffix)
-        return self.register(key, label, spin, lambda: str(spin.value()), lambda value: spin.setValue(int(value) if str(value).isdigit() else default),
-                             default, spin.valueChanged)
+        spin.setFixedWidth(QFontMetrics(spin.font()).horizontalAdvance("9999") + 28)
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(4)
+        row_layout.addWidget(spin)
+        row_layout.addWidget(QLabel(suffix.strip()))
+        row_layout.addStretch(1)
+        self.register(key, label, row, lambda: str(spin.value()), lambda value: spin.setValue(int(value) if str(value).isdigit() else default),
+                      default, spin.valueChanged)
+        return spin
 
     def font_family(self, key, label, default):
-        combo = QComboBox()
+        combo = chicago95ui.classic_combo(QComboBox())
         combo.addItems(QFontDatabase.families())
 
         def select(value):
@@ -690,7 +944,9 @@ class ButtonWidthField(QWidget):
         super().__init__()
         self.checkbox = QCheckBox("Use the look's own width")
         self.slider = QSlider(Qt.Horizontal)
-        self.spin = QSpinBox()
+        self.slider.setTickPosition(QSlider.TicksBelow)
+        self.slider.setTickInterval(20)
+        self.spin = chicago95ui.plain_disabled_text(QSpinBox())
         for control in (self.slider, self.spin):
             control.setRange(MIN_BUTTON_WIDTH, MAX_BUTTON_WIDTH)
         self.preview = TaskButtonPreview()
@@ -723,8 +979,7 @@ class ButtonWidthField(QWidget):
     def set_value(self, value):
         chosen = str(value).isdigit() and int(value) > 0
         self.checkbox.setChecked(not chosen)
-        if chosen:
-            self.spin.setValue(int(value))
+        self.spin.setValue(int(value) if chosen else LOOK_BUTTON_WIDTH)
         self.show_state()
 
 
@@ -752,7 +1007,11 @@ class LauncherList(QWidget):
 
     def set_value(self, value):
         self.list_widget.clear()
-        self.list_widget.addItems([launcher for launcher in value.split(",") if launcher])
+        for launcher in value.split(","):
+            if launcher:
+                item = QListWidgetItem(launcher)
+                item.setSizeHint(QSize(0, LIST_ROW_HEIGHT))
+                self.list_widget.addItem(item)
 
     def add(self):
         path = self.choose_file(self, "Add to Quick Launch", "Programs (*.desktop)")
@@ -802,6 +1061,124 @@ class TitleBarPreview(QWidget):
             painter.drawText(bar.adjusted(4, 0, 0, 0), Qt.AlignVCenter, caption)
 
 
+TAB_ROW_HEIGHT, TAB_RISE, TAB_PADDING, TAB_SEAM = 18, 2, 16, 2
+
+
+class TabRows(QWidget):
+    """The tabs of a TabControl, wrapped into rows as the classic control does when they do not fit on a line."""
+    chosen = Signal(int)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.names, self.selected, self.rows = [], 0, []
+
+    def add_tab(self, name):
+        self.names.append(name)
+        self.relayout()
+
+    def select(self, index):
+        self.selected = index
+        self.relayout()
+
+    def relayout(self):
+        metrics = QFontMetrics(self.font())
+        widths = [metrics.horizontalAdvance(name) + TAB_PADDING * 2 for name in self.names]
+        self.rows = rows_for_selected(tab_rows(widths, max(self.width(), 1)), self.selected)
+        self.setFixedHeight(len(self.rows) * TAB_ROW_HEIGHT + TAB_RISE + TAB_SEAM)
+        self.update()
+
+    def resizeEvent(self, _event):
+        self.relayout()
+
+    def tab_rects(self):
+        rects = {}
+        for row_number, row in enumerate(self.rows):
+            left = 0
+            for index, width in row:
+                top = TAB_RISE + row_number * TAB_ROW_HEIGHT
+                if index == self.selected:
+                    rects[index] = QRect(left, top - TAB_RISE, width, TAB_ROW_HEIGHT + TAB_RISE + TAB_SEAM)
+                else:
+                    rects[index] = QRect(left, top, width, TAB_ROW_HEIGHT)
+                left += width
+        return rects
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        rects = self.tab_rects()
+        for index in sorted(rects, key=lambda tab: tab == self.selected):
+            option = QStyleOptionTab()
+            option.rect = rects[index]
+            option.shape = QTabBar.RoundedNorth
+            option.state = QStyle.State_Enabled | (QStyle.State_Selected if index == self.selected else QStyle.State_None)
+            self.style().drawControl(QStyle.CE_TabBarTabShape, option, painter, self)
+            label = rects[index].adjusted(0, 0, 0, -TAB_SEAM) if index == self.selected else rects[index]
+            painter.setPen(self.palette().windowText().color())
+            painter.drawText(label, Qt.AlignCenter, self.names[index])
+
+    def mousePressEvent(self, event):
+        for index, rect in self.tab_rects().items():
+            if rect.contains(event.position().toPoint()) and index != self.selected:
+                self.chosen.emit(index)
+                return
+
+
+class TabControl(QWidget):
+    """The classic tab control: multi-row tabs over a raised page. It answers like a QTabWidget."""
+    currentChanged = Signal(int)
+
+    def __init__(self):
+        super().__init__()
+        self.stack = QStackedWidget()
+        self.pane = QFrame(self)
+        self.pane.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+        QVBoxLayout(self.pane).addWidget(self.stack)
+        self.bar = TabRows(self)
+        self.bar.chosen.connect(self.setCurrentIndex)
+
+    def place(self):
+        """The bar overlaps the page's top border by TAB_SEAM rows, so the selected tab can cover it."""
+        self.bar.setGeometry(0, 0, self.width(), self.bar.height())
+        self.pane.setGeometry(0, self.bar.height() - TAB_SEAM, self.width(), max(self.height() - self.bar.height() + TAB_SEAM, 0))
+        self.bar.raise_()
+
+    def resizeEvent(self, _event):
+        self.place()
+
+    def sizeHint(self):
+        page = self.stack.sizeHint()
+        return QSize(page.width() + 16, self.bar.height() + page.height() + 16)
+
+    def minimumSizeHint(self):
+        page = self.stack.minimumSizeHint()
+        return QSize(page.width() + 16, self.bar.height() + page.height() + 16)
+
+    def addTab(self, widget, name):
+        self.stack.addWidget(widget)
+        self.bar.add_tab(name)
+        self.place()
+
+    def count(self):
+        return self.stack.count()
+
+    def tabText(self, index):
+        return self.bar.names[index]
+
+    def widget(self, index):
+        return self.stack.widget(index)
+
+    def currentIndex(self):
+        return self.stack.currentIndex()
+
+    def setCurrentIndex(self, index):
+        if index == self.currentIndex():
+            return
+        self.stack.setCurrentIndex(index)
+        self.bar.select(index)
+        self.place()
+        self.currentChanged.emit(index)
+
+
 class PropertiesPage(QWidget):
     """An applet's page in the Control Panel's window: property sheet tabs with OK, Cancel and Apply."""
     finished = Signal()
@@ -810,7 +1187,7 @@ class PropertiesPage(QWidget):
         super().__init__()
         self.title = title
         self.apply_changes = apply_changes
-        self.tabs = QTabWidget()
+        self.tabs = TabControl()
         self.settings_tabs = [tab for _name, tab in tabs]
         for name, tab in tabs:
             self.tabs.addTab(tab, name)
@@ -874,12 +1251,14 @@ def mouse_pointer_tab(settings, actions):
 @tab_builder("Taskbar", "Taskbar Options")
 def taskbar_options_tab(settings, actions):
     tab = SettingsTab(settings, actions)
+    tab.group("Taskbar")
     tab.number("PANEL", "Taskbar height:", 22, 64, default=28, suffix=" pixels")
     width = ButtonWidthField()
     tab.register("TASK_BUTTON_WIDTH", "Taskbar button width:", width, width.value, width.set_value, "0", width.changed)
     tab.choice("QUICK_LAUNCH", "Quick Launch:", [("From the look (1998 on)", "auto"), ("Always", "yes"), ("Never", "no")], default="auto")
     tab.flag("TASKBAR_AUTOHIDE", "Auto hide", default="no")
     tab.flag("TASKBAR_ON_TOP", "Always on top", default="yes")
+    tab.group("Clock")
     tab.flag("CLOCK_SHOW", "Show clock", default="yes")
     tab.choice("CLOCK_HOURS", "Clock shows:", [("Hours as my language does", "locale"), ("12 hours", "12"), ("24 hours", "24")], default="locale")
     return tab
@@ -931,9 +1310,11 @@ def start_menu_tab(settings, actions):
 @tab_builder("Passwords", "Log On")
 def log_on_tab(settings, actions):
     tab = SettingsTab(settings, actions)
+    tab.group("Log on window")
     tab.choice("LOGIN_STYLE", "Style:", [("Classic (1995 and 1998)", "classic"), ("Windows 2000", "2000")], default="classic")
     tab.text("LOGIN_TITLE", "Title bar:", default="Log On to %h")
     tab.text("LOGIN_MESSAGE", "Message:", default="Type a user name and password to log on.")
+    tab.group("Pictures")
     tab.picture("LOGIN_ICON", "Picture:", [("Keys", "keys"), ("Padlock", "padlock")], default="keys")
     tab.picture("LOGIN_LOGO", "Logo:", [("Same as the Start button", "start"), ("Waving flag", "waving-flag"), ("Classic flag", "flag"), ("Penguin", "penguin")], default="start")
     return tab
@@ -967,11 +1348,13 @@ COLOR_FIELDS = (("TITLE_ACTIVE", "Active title bar:"), ("TITLE_INACTIVE", "Inact
 def appearance_tab(settings, actions):
     tab = SettingsTab(settings, actions)
     start = LOOK_PRESETS["1995"]
+    tab.group("Scheme")
     tab.scheme = tab.choice("LOOK", "Scheme:", [("Windows 95", "1995"), ("Windows 98", "1998"), ("Windows 2000", "2000"), ("Custom", "custom")], default="1995")
     tab.color_edits = {key: tab.color(key, label, default=start[key], validator=valid_banner_colors if key == "BANNER_BG" else None) for key, label in COLOR_FIELDS}
-    tab.icons = tab.choice("ICONS", "Icon set:", ICON_SETS, default=start["ICONS"])
     tab.preview = TitleBarPreview(start["TITLE_ACTIVE"], start["TITLE_INACTIVE"])
     tab.form.addRow("", tab.preview)
+    tab.group("Icons")
+    tab.icons = tab.choice("ICONS", "Icon set:", ICON_SETS, default=start["ICONS"])
     state = {"applying": False}
 
     def settling():
@@ -1091,10 +1474,8 @@ class ControlPanel(QMainWindow):
         self.pages = QStackedWidget()
         self.pages.addWidget(self.icon_view)
         self.setCentralWidget(self.pages)
-        self.build_menus()
-        self.build_toolbars()
-        self.menuBar().setFixedHeight(MENU_BAR_HEIGHT)
-        self.statusBar().setFixedHeight(STATUS_BAR_HEIGHT)
+        self.build_header()
+        self.build_status_bar()
         self.set_view("Large Icons")
         self.show_selection()
         self.refresh_navigation()
@@ -1105,7 +1486,7 @@ class ControlPanel(QMainWindow):
         view.setSpacing(0)
         view.setWordWrap(True)
         view.setResizeMode(QListView.Adjust)
-        view.setFrameStyle(QFrame.Panel | QFrame.Sunken)
+        view.setFrameStyle(QFrame.StyledPanel | QFrame.Sunken)
         view.setLineWidth(2)
         for applet in APPLETS:
             item = QListWidgetItem(themed_icon(applet.icon_names), applet.name)
@@ -1115,8 +1496,44 @@ class ControlPanel(QMainWindow):
         view.itemActivated.connect(lambda item: self.open_applet(item.data(Qt.UserRole).name))
         return view
 
+    def build_status_bar(self):
+        """Windows 98's status bar: three sunken panes (the message, a spare one, the place) and a size grip."""
+        bar = self.statusBar()
+        bar.setFixedHeight(STATUS_BAR_HEIGHT)
+        bar.setSizeGripEnabled(True)
+        self.status_message = QLabel()
+        place = QWidget()
+        place_layout = QHBoxLayout(place)
+        place_layout.setContentsMargins(2, 0, 0, 0)
+        place_layout.setSpacing(4)
+        self.status_place_icon = QLabel()
+        icon = themed_icon(("computer",))
+        self.status_place_icon.setPixmap(icon.pixmap(16, 16) if not icon.isNull() else start_logo_pixmap().scaled(16, 16, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        place_layout.addWidget(self.status_place_icon)
+        place_layout.addWidget(QLabel("My Computer"), 1)
+        self.status_panes = (self.status_message, QLabel(), place)
+        for pane, stretch in zip(self.status_panes, (5, 2, 3)):
+            bar.addPermanentWidget(pane, stretch)
+
+    def build_header(self):
+        self.menu_bar = QMenuBar()
+        self.menu_bar.setFixedHeight(MENU_BAR_HEIGHT)
+        self.build_menus()
+        self.toolbar = self.build_standard_toolbar()
+        self.logo_box = LogoBox()
+        known_pages = [HOME_PAGE] + [HOME_PAGE + (applet.name,) for applet in APPLETS if not applet.external_tool]
+        self.address_bar = AddressBar(known_pages)
+        self.address_bar.navigate.connect(self.navigate)
+        self.header = QWidget()
+        layout = QVBoxLayout(self.header)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        for band in (HeaderBand(self.menu_bar, trailing=self.logo_box), HeaderBand(self.toolbar, TOOLBAR_HEIGHT), HeaderBand(self.address_bar), HeaderBand(None, 0, grip=False)):
+            layout.addWidget(band)
+        self.setMenuWidget(self.header)
+
     def build_menus(self):
-        menu_bar = self.menuBar()
+        menu_bar = self.menu_bar
         for title in ("&File", "&Edit"):
             menu_bar.addMenu(title)
         self.view_menu = menu_bar.addMenu("&View")
@@ -1130,30 +1547,32 @@ class ControlPanel(QMainWindow):
         for title in ("&Go", "F&avorites", "&Help"):
             menu_bar.addMenu(title)
 
-    def build_toolbars(self):
-        standard = QToolBar("Standard Buttons")
-        standard.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        standard.setMovable(False)
-        self.back_action = standard.addAction(QIcon.fromTheme("go-previous"), "Back")
-        self.forward_action = standard.addAction(QIcon.fromTheme("go-next"), "Forward")
-        self.up_action = standard.addAction(QIcon.fromTheme("go-up"), "Up")
-        standard.addSeparator()
-        views = standard.addAction(QIcon.fromTheme("view-list-icons"), "Views")
-        views.setMenu(self.view_menu)
+    def build_standard_toolbar(self):
+        toolbar = QWidget()
+        toolbar.setFixedHeight(TOOLBAR_HEIGHT)
+        layout = QHBoxLayout(toolbar)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        self.back_action = QAction(QIcon.fromTheme("go-previous"), "Back", self)
+        self.forward_action = QAction(QIcon.fromTheme("go-next"), "Forward", self)
+        self.up_action = QAction(QIcon.fromTheme("go-up"), "Up", self)
+        views_action = QAction(QIcon.fromTheme("view-list-icons"), "Views", self)
+        views_action.setMenu(self.view_menu)
         self.back_action.triggered.connect(lambda: self.jump(-1))
         self.forward_action.triggered.connect(lambda: self.jump(1))
         self.up_action.triggered.connect(lambda: self.navigate(parent_location(self.history.current)))
-        self.addToolBar(standard)
-        self.addToolBarBreak()
-
-        address = QToolBar("Address Bar")
-        address.setMovable(False)
-        known_pages = [HOME_PAGE] + [HOME_PAGE + (applet.name,) for applet in APPLETS if not applet.external_tool]
-        self.address_bar = AddressBar(known_pages)
-        self.address_bar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.address_bar.navigate.connect(self.navigate)
-        address.addWidget(self.address_bar)
-        self.addToolBar(address)
+        self.toolbar_buttons = {}
+        for action, has_menu in ((self.back_action, True), (self.forward_action, True), (self.up_action, False)):
+            self.toolbar_buttons[action.text()] = ToolbarButton(action, has_menu)
+            layout.addWidget(self.toolbar_buttons[action.text()])
+        separator = QFrame()
+        separator.setFrameStyle(QFrame.VLine | QFrame.Sunken)
+        separator.setFixedWidth(6)
+        layout.addWidget(separator)
+        self.toolbar_buttons["Views"] = ToolbarButton(views_action, has_menu=True)
+        layout.addWidget(self.toolbar_buttons["Views"])
+        layout.addStretch(1)
+        return toolbar
 
     def set_view(self, name):
         view = VIEW_MODES[name]
@@ -1169,7 +1588,7 @@ class ControlPanel(QMainWindow):
 
     def show_selection(self):
         selected = self.icon_view.selectedItems()
-        self.statusBar().showMessage(selected[0].data(Qt.UserRole).description if selected else f"{self.icon_view.count()} object(s)")
+        self.status_message.setText(selected[0].data(Qt.UserRole).description if selected else f"{self.icon_view.count()} object(s)")
 
     def open_applet(self, name):
         applet = APPLET_BY_NAME[name]
@@ -1241,7 +1660,7 @@ class ControlPanel(QMainWindow):
             applet_page = self.page_for(page[1])
             applet_page.tabs.setCurrentIndex(applet_page.tab_names().index(page[2]) if len(page) > 2 else 0)
             self.pages.setCurrentWidget(applet_page)
-            self.statusBar().clearMessage()
+            self.status_message.clear()
         self.showing_page = False
         self.refresh_navigation()
 

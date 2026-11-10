@@ -40,7 +40,7 @@ os.environ.pop("QT_QPA_PLATFORMTHEME", None)
 
 from PySide6.QtCore import QRect, QRectF, Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QLinearGradient, QPainter, QPainterPath, QPalette, QPen, QRadialGradient  # noqa: E402
-from PySide6.QtWidgets import QApplication, QDialog, QFrame, QPushButton, QWidget  # noqa: E402
+from PySide6.QtWidgets import QApplication, QDialog, QFrame, QProxyStyle, QPushButton, QStyle, QStyledItemDelegate, QWidget  # noqa: E402
 
 KDEGLOBALS = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "kdeglobals")
 
@@ -192,8 +192,12 @@ def retro_palette(scheme=None):
         palette.setColor(group, QPalette.Dark, shadow)
         palette.setColor(group, QPalette.Mid, shadow)
         palette.setColor(group, QPalette.Shadow, dark)
+    # Disabled controls as the originals drew them: fields take the window colour instead of white, and
+    # their text is engraved (shadow grey; the style lays a white copy a pixel down and right).
     palette.setColor(QPalette.Disabled, QPalette.Text, shadow)
     palette.setColor(QPalette.Disabled, QPalette.WindowText, shadow)
+    palette.setColor(QPalette.Disabled, QPalette.ButtonText, shadow)
+    palette.setColor(QPalette.Disabled, QPalette.Base, face)
     return palette
 
 
@@ -263,9 +267,14 @@ def draw_heavy_text(painter, x, baseline, font, text, colour, embolden, smooth=T
 
 
 def screen_scale():
-    """The screen's device pixel ratio: 1.5 on a 1.5x screen."""
-    screen = QApplication.primaryScreen() if QApplication.instance() else None
-    return screen.devicePixelRatio() if screen else 1.0
+    """The screen's scale as the compositor sets it: 1.5 on a 1.5x screen. Qt's own device pixel ratio
+    rounds that up to 2 on Wayland, which would pass for a whole scale."""
+    return float(detect_scale())
+
+
+import functools  # noqa: E402
+
+screen_scale = functools.lru_cache(maxsize=None)(screen_scale)   # kscreen-doctor is asked once per process
 
 
 def ui_font(pixel_size=11, bold=False):
@@ -277,8 +286,8 @@ def ui_font(pixel_size=11, bold=False):
     font = QFont(family)
     font.setPixelSize(pixel_size)
     font.setBold(bold)
-    if family == UI_FONT_FAMILY and float(screen_scale()).is_integer():
-        font.setStyleStrategy(QFont.NoAntialias)
+    if family == UI_FONT_FAMILY:   # said either way: a font that leaves it open inherits the application font's choice
+        font.setStyleStrategy(QFont.NoAntialias if float(screen_scale()).is_integer() else QFont.PreferAntialias)
     return font
 
 
@@ -288,7 +297,7 @@ def make_app(app_name):
     app = QApplication(sys.argv)
     app.setDesktopFileName(app_name)
     app.setApplicationName(app_name)
-    app.setStyle("Windows")
+    app.setStyle(classic_style())
     app.setPalette(retro_palette())
     app.setFont(ui_font())
     QIcon.setThemeSearchPaths(ICON_SEARCH_PATHS + QIcon.themeSearchPaths())
@@ -304,6 +313,79 @@ def dialog_button(caption, enabled=True):
     button.setFixedSize(*DIALOG_BUTTON_SIZE)
     button.setEnabled(enabled)
     return button
+
+
+class ClassicStyle(QProxyStyle):
+    """Qt's Windows style with the originals' pressed button: a black frame on every side and a shadow frame
+    inside it, instead of Qt's dark top-left and light bottom-right (tests/test_control_panel_components_reference.py)."""
+
+    PRESSED_PANELS = (QStyle.PE_PanelButtonCommand, QStyle.PE_PanelButtonBevel)
+
+    def drawPrimitive(self, element, option, painter, widget=None):
+        if element in self.PRESSED_PANELS and option.state & QStyle.State_Sunken:
+            rect = option.rect
+            painter.fillRect(rect, option.palette.button())
+            painter.setPen(option.palette.shadow().color())
+            painter.drawRect(rect.adjusted(0, 0, -1, -1))
+            painter.setPen(option.palette.dark().color())
+            painter.drawRect(rect.adjusted(1, 1, -2, -2))
+            return
+        super().drawPrimitive(element, option, painter, widget)
+
+
+_CLASSIC_STYLE = []
+
+
+def classic_style():
+    if not _CLASSIC_STYLE:
+        _CLASSIC_STYLE.append(ClassicStyle("Windows"))
+    return _CLASSIC_STYLE[0]
+
+
+class PlainDisabledTextStyle(ClassicStyle):
+    """Fields (combo boxes, edits, spin boxes) show disabled text plain grey; the originals engrave only captions and labels."""
+
+    def styleHint(self, hint, option=None, widget=None, return_data=None):
+        if hint == QStyle.SH_EtchDisabledText:
+            return 0
+        if hint == QStyle.SH_ComboBox_PopupFrameStyle:
+            return int(QFrame.Box | QFrame.Plain)
+        return super().styleHint(hint, option, widget, return_data)
+
+
+_FIELD_STYLE = []
+
+
+def field_style():
+    if not _FIELD_STYLE:
+        _FIELD_STYLE.append(PlainDisabledTextStyle("Windows"))
+    return _FIELD_STYLE[0]
+
+
+def plain_disabled_text(widget):
+    """Gives a field the originals' disabled look: grey text, no engraving, on the window colour."""
+    widget.setStyle(field_style())
+    return widget
+
+
+LIST_ROW_HEIGHT = 13          # a list's rows (tests/references/listbox-selected.png)
+DROP_DOWN_ROWS = 8            # rows an open drop-down shows before it scrolls (tests/references/combo-open.png)
+
+
+class ListRowDelegate(QStyledItemDelegate):
+    def sizeHint(self, option, index):
+        hint = super().sizeHint(option, index)
+        hint.setHeight(LIST_ROW_HEIGHT)
+        return hint
+
+
+def classic_combo(combo):
+    """A drop-down as the originals had it: plain grey when disabled, and a list with a 1px black border,
+    13px rows and eight rows before it scrolls."""
+    plain_disabled_text(combo)
+    combo.setMaxVisibleItems(DROP_DOWN_ROWS)
+    combo.view().setItemDelegate(ListRowDelegate(combo.view()))
+    return combo
 
 
 def sunken_panel():
@@ -333,11 +415,12 @@ class ClassicDialog(QDialog):
     holding its end colour behind it, and the close button 2px in from the title's corner. The
     contents go in body; dragging the title moves the dialog (tests/test_shutdown_reference.py)."""
 
-    def __init__(self, title, style, body_size, body_inset=DIALOG_FRAME):
+    def __init__(self, title, style, body_size, body_inset=DIALOG_FRAME, help_button=False):
         super().__init__()
         self.setWindowTitle(title)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.style = style
+        self.help_button = help_button
         width, height = body_size
         self.setFixedSize(width + 2 * body_inset, height + DIALOG_FRAME * 2 + DIALOG_TITLE)
         self.body = QWidget(self)
@@ -350,6 +433,10 @@ class ClassicDialog(QDialog):
         """The close button's face: 16x14, 2px below and left of the title's top-right corner."""
         title = self.title_rect()
         return QRect(title.right() + 1 - 2 - CLOSE_FACE[0], title.top() + 2, *CLOSE_FACE)
+
+    def help_rect(self):
+        """The help button's face, 2px left of the close button's."""
+        return self.close_rect().translated(-18, 0)
 
     def paintEvent(self, _event):
         scheme = read_scheme()
@@ -372,9 +459,13 @@ class ClassicDialog(QDialog):
         painter.setPen(scheme["title_active_text"])
         painter.drawText(title.left() + 2, title.top() + 13, self.windowTitle())
         from PySide6.QtSvg import QSvgRenderer
-        button = QSvgRenderer(os.path.join(DECORATION, "close.svg"))
-        if button.isValid():   # the element covers the 18x16 cell; the face is its right 16px, a row down
-            button.render(painter, "active-center", QRectF(close.left() - 2, close.top() - 1, 18, 16))
+        # Each element covers its button's cell, the face a row down: the close cell is 18 wide with the
+        # face at its right, the help cell 16 wide.
+        buttons = [("close.svg", close, 2)] + ([("help.svg", self.help_rect(), 0)] if self.help_button else [])
+        for file, face, lead in buttons:
+            button = QSvgRenderer(os.path.join(DECORATION, file))
+            if button.isValid():
+                button.render(painter, "active-center", QRectF(face.left() - lead, face.top() - 1, 16 + lead, 16))
         painter.end()
 
     def mousePressEvent(self, event):

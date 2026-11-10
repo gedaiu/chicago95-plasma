@@ -15,6 +15,19 @@ os.environ["QT_SCALE_FACTOR"] = "1"
 # scheme, look or icon set of whoever runs them (CI and every machine get the same results).
 os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="chicago95-tests-config-")
 sys.path.insert(0, str(REPO / "lib"))
+# The originals are 1x screenshots: the tools' font choice follows a 1x screen, whatever this machine's is,
+# from the first application any test creates.
+import chicago95ui  # noqa: E402
+
+chicago95ui.detect_scale = lambda: "1"
+chicago95ui.screen_scale.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def forget_screen_scale():
+    """A test that pretends another scale leaves it cached otherwise."""
+    yield
+    chicago95ui.screen_scale.cache_clear()
 
 
 def run_bash_with_steps(tmp_path, script):

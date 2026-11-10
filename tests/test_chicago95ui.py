@@ -52,6 +52,25 @@ def test_ui_font_is_drawn_unsmoothed_only_at_whole_scales(qt_app, monkeypatch, s
     fontconfig's smoothing (config/fontconfig/60-chicago95-pixel-font.conf)."""
     import chicago95ui
     from PySide6.QtGui import QFont
-    monkeypatch.setattr(chicago95ui, "screen_scale", lambda: scale)
+    monkeypatch.setattr(chicago95ui, "detect_scale", lambda: str(scale))
+    chicago95ui.screen_scale.cache_clear()
     font = chicago95ui.ui_font()
     assert (font.pixelSize(), bool(font.styleStrategy() & QFont.NoAntialias)) == (11, sharp)
+
+
+def test_screen_scale_is_the_compositors_not_qts_rounded_one(qt_app, monkeypatch):
+    """Qt rounds a 1.5x Wayland screen up to 2: the font would be drawn unsmoothed off its grid."""
+    import chicago95ui
+    monkeypatch.setattr(chicago95ui, "detect_scale", lambda: "1.5")
+    chicago95ui.screen_scale.cache_clear()
+    assert chicago95ui.screen_scale() == 1.5
+
+
+
+def test_ui_font_asks_for_smoothing_explicitly_off_whole_scales(qt_app, monkeypatch):
+    """A font that leaves the choice open inherits the application font's, made at another scale."""
+    import chicago95ui
+    from PySide6.QtGui import QFont
+    monkeypatch.setattr(chicago95ui, "detect_scale", lambda: "1.5")
+    chicago95ui.screen_scale.cache_clear()
+    assert bool(chicago95ui.ui_font().styleStrategy() & QFont.PreferAntialias)

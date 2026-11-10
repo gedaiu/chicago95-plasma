@@ -12,7 +12,7 @@ from conftest import load_script
 from reference import qimage_to_pil, screenshot
 
 ICON_AREA = (8, 44, 438, 411)     # left, top, right, bottom of the icon view inside the original's window
-MENU_BAR_HEIGHT = 20              # rows 22 to 41 of the screenshot
+MENU_BAR_HEIGHT = 22              # Windows 98's: tests/test_control_panel_header_reference.py
 STATUS_BAR_HEIGHT = 19            # rows 413 to 431
 CELL = 75
 FRAME = 2                         # our icon view's sunken frame
@@ -84,4 +84,4 @@ def test_our_icons_are_75px_apart_across_and_down(ours):
 def test_our_menu_bar_and_status_bar_have_the_originals_heights(ours):
     window, _image = ours
 
-    assert (window.menuBar().height(), window.statusBar().height()) == (MENU_BAR_HEIGHT, STATUS_BAR_HEIGHT)
+    assert (window.menu_bar.height(), window.statusBar().height()) == (MENU_BAR_HEIGHT, STATUS_BAR_HEIGHT)

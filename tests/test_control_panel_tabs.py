@@ -1,5 +1,5 @@
 import pytest
-from PySide6.QtWidgets import QCheckBox, QComboBox, QLineEdit, QPushButton, QSpinBox
+from PySide6.QtWidgets import QCheckBox, QComboBox, QLabel, QLineEdit, QPushButton, QSpinBox
 
 from conftest import load_script
 
@@ -70,7 +70,7 @@ def test_number_field_reports_its_value_as_text_within_its_range(make_tab):
     saved = tab.values()
     field.setValue(200)
 
-    assert (saved, tab.values(), field.suffix(), len(tab.changes)) == ({"PANEL": "36"}, {"PANEL": "64"}, " pixels", 1)
+    assert (saved, tab.values(), field.parent().findChildren(QLabel)[0].text(), len(tab.changes)) == ({"PANEL": "36"}, {"PANEL": "64"}, "pixels", 1)
 
 
 def test_picture_field_reports_a_preset_or_the_chosen_files_path(make_tab):
@@ -611,3 +611,67 @@ def test_every_key_the_tabs_report_is_one_setup_applies(control_panel, qt_app):
                 for key in built(control_panel, applet, tab, None, list_screensavers=lambda: SAVERS, lock_timeout_minutes=lambda: 5).values()}
 
     assert reported <= set(control_panel.COMPONENTS_BY_KEY)
+
+
+def test_unticking_the_looks_own_width_starts_from_160_pixels(control_panel, qt_app):
+    field = width_field(built(control_panel, "Taskbar", "Taskbar Options"))
+    field.checkbox.setChecked(False)
+
+    assert (field.spin.value(), field.value()) == (160, "160")
+
+
+def group_titles(tab):
+    from PySide6.QtWidgets import QGroupBox
+    return [box.title() for box in tab.findChildren(QGroupBox)]
+
+
+def test_fields_registered_after_a_group_call_go_inside_it(control_panel, qt_app):
+    from PySide6.QtWidgets import QGroupBox
+    tab = control_panel.SettingsTab({}, control_panel.Actions())
+    tab.text("OUTSIDE", "Outside:")
+    tab.group("Menu speed")
+    inside = tab.text("INSIDE", "Inside:")
+
+    assert (group_titles(tab), inside.parent() is tab.findChildren(QGroupBox)[0]) == (["Menu speed"], True)
+
+
+def test_taskbar_options_groups_the_taskbar_and_the_clock(control_panel, qt_app):
+    assert group_titles(built(control_panel, "Taskbar", "Taskbar Options")) == ["Taskbar", "Clock"]
+
+
+def test_log_on_groups_the_window_and_its_pictures(control_panel, qt_app):
+    assert group_titles(built(control_panel, "Passwords", "Log On")) == ["Log on window", "Pictures"]
+
+
+def test_appearance_groups_the_scheme_and_the_icons(control_panel, qt_app):
+    assert group_titles(appearance(control_panel)) == ["Scheme", "Icons"]
+
+
+def test_typing_a_picture_path_tells_the_tab(make_tab):
+    tab = make_tab({"START_LOGO": "penguin"})
+    picture = tab.picture("START_LOGO", "Logo:", [("Penguin", "penguin")], default="penguin")
+    picture.combo.setCurrentIndex(picture.combo.count() - 1)
+    tab.changes.clear()
+    picture.path_edit.setText("/home/u/logo.png")
+
+    assert (tab.changes, tab.values()) == ([1], {"START_LOGO": "/home/u/logo.png"})
+
+
+def test_form_labels_are_left_aligned_as_in_the_original_dialogs(control_panel, qt_app):
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QFormLayout
+    tab = built(control_panel, "Taskbar", "Taskbar Options")
+    field = tab.findChildren(QSpinBox)[0].parent()
+    form = next(form for form in tab.findChildren(QFormLayout) if form.labelForField(field) is not None)
+
+    assert (form.labelAlignment() & Qt.AlignLeft, form.labelForField(field).alignment() & Qt.AlignLeft) == (Qt.AlignLeft, Qt.AlignLeft)
+
+
+def test_spin_boxes_are_narrow_like_the_originals_instead_of_stretching(control_panel, qt_app):
+    tab = built(control_panel, "Taskbar", "Taskbar Options")
+    tab.resize(500, 400)
+    tab.show()
+    qt_app.processEvents()
+    spin = tab.findChildren(QSpinBox)[0]
+
+    assert spin.width() <= 80

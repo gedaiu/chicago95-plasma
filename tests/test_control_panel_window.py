@@ -4,7 +4,7 @@ import sys
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage
-from PySide6.QtWidgets import QComboBox, QToolBar
+from PySide6.QtWidgets import QComboBox
 
 from conftest import REPO, load_script
 
@@ -42,29 +42,27 @@ def test_control_panel_lists_its_applets_alphabetically(window):
 
 
 def test_status_bar_counts_the_objects_when_nothing_is_selected(window):
-    assert window.statusBar().currentMessage() == "11 object(s)"
+    assert window.status_message.text() == "11 object(s)"
 
 
 def test_status_bar_shows_the_selected_applets_description(window):
     select(window, "Sounds")
 
-    assert window.statusBar().currentMessage() == "Assigns sounds to system events."
+    assert window.status_message.text() == "Assigns sounds to system events."
 
 
 def test_menu_bar_is_the_windows_98_explorers(window):
-    assert [action.text() for action in window.menuBar().actions()] == ["&File", "&Edit", "&View", "&Go", "F&avorites", "&Help"]
+    assert [action.text() for action in window.menu_bar.actions()] == ["&File", "&Edit", "&View", "&Go", "F&avorites", "&Help"]
 
 
 def test_view_menu_offers_large_icons_small_icons_list_and_details(window):
-    view_menu = next(action.menu() for action in window.menuBar().actions() if action.text() == "&View")
+    view_menu = next(action.menu() for action in window.menu_bar.actions() if action.text() == "&View")
 
     assert [action.text() for action in view_menu.actions() if action.text()] == ["Lar&ge Icons", "S&mall Icons", "&List", "&Details"]
 
 
-def test_standard_buttons_toolbar_has_back_forward_and_up_with_back_and_forward_off(window):
-    toolbar = next(toolbar for toolbar in window.findChildren(QToolBar) if toolbar.windowTitle() == "Standard Buttons")
-
-    assert ([action.text() for action in toolbar.actions() if action.text()], window.back_action.isEnabled(), window.forward_action.isEnabled(), window.up_action.isEnabled()) == (
+def test_standard_buttons_toolbar_has_back_forward_up_and_views_with_navigation_off_at_home(window):
+    assert (list(window.toolbar_buttons), window.back_action.isEnabled(), window.forward_action.isEnabled(), window.up_action.isEnabled()) == (
         ["Back", "Forward", "Up", "Views"], False, False, False)
 
 
@@ -245,10 +243,10 @@ def test_page_slugs_name_every_applet_that_has_a_page(control_panel):
 
 def test_status_bar_is_empty_on_an_applet_page_and_counts_again_on_the_control_panel(window):
     window.open_applet("Taskbar")
-    on_page = window.statusBar().currentMessage()
+    on_page = window.status_message.text()
     window.back_action.trigger()
 
-    assert (on_page, window.statusBar().currentMessage()) == ("", "11 object(s)")
+    assert (on_page, window.status_message.text()) == ("", "11 object(s)")
 
 
 def saved_settings_with_a_setup_checkout(window, tmp_path, **settings):
@@ -353,3 +351,47 @@ def test_closing_the_window_with_unapplied_changes_asks_and_cancel_keeps_it_open
     window.answers["apply"] = "cancel"
 
     assert window.close() is False
+
+
+def test_no_control_on_any_page_is_squeezed_below_its_minimum_height(window, control_panel):
+    from PySide6.QtWidgets import QAbstractSpinBox, QCheckBox, QLineEdit, QSlider
+    window.show()
+    squeezed = []
+    for applet, tab_names in control_panel.PAGE_TABS.items():
+        window.open_applet(applet)
+        page = window.pages.currentWidget()
+        for index, tab_name in enumerate(tab_names):
+            page.tabs.setCurrentIndex(index)
+            window.repaint()
+            controls = [control for kind in (QComboBox, QLineEdit, QAbstractSpinBox, QCheckBox, QSlider) for control in page.tabs.widget(index).findChildren(kind)]
+            squeezed += [f"{applet}/{tab_name}: {type(control).__name__}" for control in controls if control.isVisible() and control.height() < control.minimumSizeHint().height()]
+
+    assert squeezed == []
+
+
+def test_status_bar_has_three_panes_each_in_a_single_pixel_sunken_frame_and_a_size_grip(window, qt_app):
+    from reference import qimage_to_pil
+    window.show()
+    qt_app.processEvents()
+    bar = window.statusBar()
+    image = qimage_to_pil(bar.grab().toImage())
+    shadow = window.palette().dark().color().getRgb()[:3]
+    face = window.palette().window().color().getRgb()[:3]
+    edges = []
+    for pane in window.status_panes:
+        y = pane.geometry().center().y()
+        left = pane.geometry().left()
+        edges.append(tuple(image.getpixel((left - offset, y)) for offset in (3, 2, 1)))
+
+    assert (edges, window.status_message.text(), bar.isSizeGripEnabled(), window.status_place_icon.pixmap().isNull()) == (
+        [(face, shadow, face)] * 3, "11 object(s)", True, False)
+
+
+def test_address_bar_shows_only_the_current_pages_crumbs_after_moving_between_applets(window, qt_app):
+    from PySide6.QtWidgets import QToolButton
+    window.show()
+    window.open_applet("Taskbar")
+    window.open_applet("Display")
+    visible = [button.text() for button in window.address_bar.box.findChildren(QToolButton) if button.isVisible() and button.text()]
+
+    assert visible == ["Control Panel", "Display"]

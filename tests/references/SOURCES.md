@@ -22,3 +22,21 @@ with. All are from Nathan's Toasty Technology page, http://toastytech.com/guis/ 
 | `win98notepad.png` | http://toastytech.com/guis/win98notepad.png |
 | `win98shutsm.png` | http://toastytech.com/guis/win98shutsm.png |
 | `win98start.png` | http://toastytech.com/guis/win98start.png |
+| `win98controlpanel.png` | https://hackaday.com/wp-content/uploads/2024/08/microsoft-windows_1998_windows-98-control-panel-denoise.png (Hackaday, not Toasty Technology) |
+| `tweakui2000.jpg` | https://www.zisman.ca/tweakui/tui_W2k.jpg (Tweak UI on Windows 2000: multi-row tabs, slider, spin boxes, check boxes, group frames) |
+| `ie4.png` | https://statetechmagazine.com/sites/default/files/uploads/internet_explorer_4.png (Internet Explorer 4: the header the Windows 98 Explorer and Control Panel derive from) |
+| `messagebox-yesnocancel.png` | https://www.viksoe.dk/code/images/stupidbox.jpg (a Yes/No/Cancel message box) |
+| `listbox-selected.png` | https://www.functionx.com/visualc/controls/dlgdesign/listbox6.gif (a list box with a selected row) |
+| `listbox-formats.png` | https://www.functionx.com/dlgboxes/datetime2.gif (a tall list box) |
+| `progressbar.png` | https://www.functionx.com/visualc/controls/dlgdesign/pledge2b.gif (segmented progress bars) |
+| `win98mycomputer.png` | https://www.tech2u.com.au/training/tech2u/win98_1/images/windows01.gif (Windows 98 My Computer: status bar and scroll bar) |
+| `win98disabled.png` | https://lh5.googleusercontent.com/-EwK5RTt01Jk/UjpSq5mLldI/AAAAAAAAAL8/w-Ru2tMOKGM/s759/Win98VM2.jpg (Windows 98 Multimedia Properties: disabled controls) |
+
+System Properties, from other pages:
+
+| File | Source |
+| --- | --- |
+| `win95sysprops.png` | https://computerforumz.wordpress.com/wp-content/uploads/2014/07/windows_95.png (the dialog inside a virtual machine's window) |
+| `win98sysprops.png` | https://screenshots.modemhelp.net/screenshots/Windows_98/System/General.jpg (a JPEG, saved as PNG: its compression noise stays) |
+| `w2ksysprops.png` | https://i.imgur.com/xBf5N4e.png (the dialog at the lower right, over an About box) |
+| `combo-open.png` | screenshot supplied by the project owner (Windows 9x open drop-down list, about 2x) |

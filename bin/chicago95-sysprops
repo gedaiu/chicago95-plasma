@@ -10,15 +10,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QColor, QFontMetrics, QIcon, QPainter
 from PySide6.QtWidgets import (
-    QDialog,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QTabWidget,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -157,38 +156,134 @@ def plain_label(text, indent=0):
     return label
 
 
-def fact_group(heading, values):
-    rows = [plain_label(heading)] + [plain_label(value, VALUE_INDENT) for value in values]
-    return rows
+# The dialog as the originals draw it, measured in tests/test_sysprops_reference.py, in dialog
+# coordinates (the body starts 3px in and 21px down): a 410px dialog, 448px tall (2000: 461), the tab
+# strip at the top of a page frame from x 9 to 400, the computer picture at the left of the General
+# page, the facts in two columns at the right, and 75x23 buttons at the bottom right.
+DIALOG_WIDTH = 410
+DIALOG_HEIGHT = {"1995": 448, "1998": 448, "2000": 461}
+BODY_ORIGIN = (3, 21)
+DIALOG_FRAME = 3
+TABS = {"1995": ["General", "Device Manager", "Hardware Profiles", "Performance"],
+        "1998": ["General", "Device Manager", "Hardware Profiles", "Performance"],
+        "2000": ["General", "Hardware", "User Profiles", "Advanced"]}
+TAB_LEFT, TAB_PADDING, TAB_TOP, SELECTED_TAB_RISE = 11, 13, 31, 2
+PAGE_LEFT, PAGE_RIGHT, PAGE_TOP = 9, 400, 49
+PAGE_BOTTOM_FROM_END = 40                 # the page frame's black bottom row, from the dialog's bottom
+CAPTION_INSET, CAPTION_BASELINE = 6, 45
+ICON_POSITION, ICON_SIZE = (65, 104), 96
+# The General page's headings: (column, cap-height row) per group; values 18px further in, 18px apart.
+HEADINGS = {"1995": [(215, 71), (215, 151), (215, 253)], "1998": [(196, 71), (196, 160), (196, 246)], "2000": [(208, 71), (208, 151), (178, 256)]}
+BUTTON_LEFTS = {"1995": {"OK": 245, "Cancel": 326}, "1998": {"OK": 245, "Cancel": 326}, "2000": {"OK": 164, "Cancel": 245, "Apply": 326}}
+BUTTONS_TOP = {"1995": 415, "1998": 415, "2000": 428}
+CAP_HEIGHT = 9
 
 
-def build_general_tab(facts):
-    tab = QWidget()
-    layout = QHBoxLayout(tab)
-    layout.setContentsMargins(12, 12, 12, 12)
-    layout.setSpacing(12)
+def in_body(x, y):
+    return x - BODY_ORIGIN[0], y - BODY_ORIGIN[1]
 
-    icon_label = QLabel()
-    icon_label.setPixmap(QIcon.fromTheme("computer").pixmap(48, 48))
-    icon_label.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-    icon_label.setFixedWidth(64)
-    layout.addWidget(icon_label, 0, Qt.AlignTop)
 
-    column = QVBoxLayout()
-    column.setSpacing(2)
-    groups = [
-        ("System:", [facts.os_name, facts.kernel, facts.desktop]),
-        ("Registered to:", [facts.owner, facts.hostname, facts.product_key]),
-        ("Computer:", [facts.cpu_model, facts.logical_processors, facts.memory, facts.display]),
-    ]
-    for index, (heading, values) in enumerate(groups):
-        if index:
-            column.addSpacing(10)
-        for row in fact_group(heading, values):
-            column.addWidget(row)
-    column.addStretch()
-    layout.addLayout(column, 1)
-    return tab
+class TabStrip(QWidget):
+    """The tabs and the page frame, painted the classic way: each tab a white left and top edge with
+    rounded corners and a shadow and black right edge; the selected one 2px taller and wider, covering
+    its neighbour's edge and the page frame's top line under it; pages shown by a QStackedWidget inside
+    the frame. Tab widths follow their captions."""
+
+    def __init__(self, captions, style, parent):
+        super().__init__(parent)
+        self.captions, self.style = captions, style
+        self.pages = QStackedWidget(self)
+        self.current = 0
+        self.font_ = chicago95ui.ui_font()
+        metrics = QFontMetrics(self.font_)
+        left, self.boxes = TAB_LEFT, []
+        for caption in captions:
+            width = metrics.horizontalAdvance(caption) + TAB_PADDING
+            self.boxes.append((left, left + width - 1))
+            left += width
+
+    def frame_bottom(self):
+        """The page frame's black bottom row, in dialog coordinates: the strip fills the body."""
+        return self.height() + BODY_ORIGIN[1] + DIALOG_FRAME - PAGE_BOTTOM_FROM_END
+
+    def resizeEvent(self, _event):
+        x, y = in_body(PAGE_LEFT + 1, PAGE_TOP + 1)
+        self.pages.setGeometry(x, y, PAGE_RIGHT - PAGE_LEFT - 2, self.frame_bottom() - PAGE_TOP - 2)
+
+    def add_page(self, page):
+        self.pages.addWidget(page)
+
+    def select(self, index):
+        self.current = index
+        self.pages.setCurrentIndex(index)
+        self.update()
+
+    def mousePressEvent(self, event):
+        x, y = event.position().x() + BODY_ORIGIN[0], event.position().y() + BODY_ORIGIN[1]
+        for index, (left, right) in enumerate(self.boxes):
+            if left - 2 <= x <= right + 2 and TAB_TOP - SELECTED_TAB_RISE <= y < PAGE_TOP:
+                self.select(index)
+
+    def paintEvent(self, _event):
+        scheme = chicago95ui.read_scheme()
+        face, bevel = scheme["face"], chicago95ui.bevel_colors(scheme["face"], self.style)
+        white, shadow, dark = QColor("#ffffff"), bevel["shadow"], bevel["dark"]
+        painter = QPainter(self)
+        painter.translate(-BODY_ORIGIN[0], -BODY_ORIGIN[1])   # paint in dialog coordinates
+        bottom = self.frame_bottom()
+        selected_left, selected_right = self.boxes[self.current][0] - 2, self.boxes[self.current][1] + 2
+        # The page frame: white top and left, shadow and black right and bottom; no top line under the selected tab.
+        painter.fillRect(PAGE_LEFT, PAGE_TOP, 1, bottom - PAGE_TOP, white)
+        for x0, x1 in ((PAGE_LEFT + 1, selected_left - 1), (selected_right + 1, PAGE_RIGHT - 1)):
+            if x1 >= x0:
+                painter.fillRect(x0, PAGE_TOP, x1 - x0 + 1, 1, white)
+        painter.fillRect(PAGE_RIGHT - 1, PAGE_TOP + 1, 1, bottom - PAGE_TOP - 1, shadow)
+        painter.fillRect(PAGE_RIGHT, PAGE_TOP, 1, bottom - PAGE_TOP + 1, dark)
+        painter.fillRect(PAGE_LEFT + 1, bottom - 1, PAGE_RIGHT - PAGE_LEFT - 1, 1, shadow)
+        painter.fillRect(PAGE_LEFT, bottom, PAGE_RIGHT - PAGE_LEFT + 1, 1, dark)
+        painter.setFont(self.font_)
+        order = [index for index in range(len(self.boxes)) if index != self.current] + [self.current]
+        for index in order:
+            left, right = self.boxes[index]
+            top, rise = TAB_TOP, 0
+            if index == self.current:
+                left, right, top, rise = selected_left, selected_right, TAB_TOP - SELECTED_TAB_RISE, SELECTED_TAB_RISE
+                painter.fillRect(left, top, right - left + 1, PAGE_TOP - top + 1, face)   # over the neighbours' edges and the frame's top line
+            height = PAGE_TOP - top
+            painter.fillRect(left, top + 2, 1, height - 2, white)
+            painter.fillRect(left + 2, top, right - left - 3, 1, white)
+            painter.fillRect(left + 1, top + 1, 1, 1, white)
+            painter.fillRect(right - 1, top + 2, 1, height - 2, shadow)
+            painter.fillRect(right, top + 2, 1, height - 2, dark)
+            painter.fillRect(right - 1, top + 1, 1, 1, dark)
+            painter.setPen(scheme.get("text", QColor("#000000")))
+            painter.drawText(self.boxes[index][0] + CAPTION_INSET, CAPTION_BASELINE - rise, self.captions[index])
+        painter.end()
+
+
+class GeneralPage(QWidget):
+    """The computer picture and the facts, each on the original's row and column."""
+
+    def __init__(self, facts, look, parent=None):
+        super().__init__(parent)
+        self.look = look
+        self.groups = [("System:", [facts.os_name, facts.kernel, facts.desktop]),
+                       ("Registered to:", [facts.owner, facts.hostname, facts.product_key]),
+                       ("Computer:", [value for value in (facts.cpu_model, facts.logical_processors, facts.memory, facts.display) if value])]
+        self.picture = QIcon.fromTheme("computer").pixmap(ICON_SIZE, ICON_SIZE)
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        page_x, page_y = in_body(PAGE_LEFT + 1, PAGE_TOP + 1)
+        painter.translate(-page_x - BODY_ORIGIN[0], -page_y - BODY_ORIGIN[1])   # paint in dialog coordinates
+        painter.drawPixmap(ICON_POSITION[0], ICON_POSITION[1], self.picture)
+        painter.setFont(chicago95ui.ui_font())
+        painter.setPen(QColor("#000000"))
+        for (column, row), (heading, values) in zip(HEADINGS[self.look], self.groups):
+            painter.drawText(column, row + CAP_HEIGHT, heading)
+            for index, value in enumerate(values):
+                painter.drawText(column + VALUE_INDENT + 2, row + CAP_HEIGHT + 18 * (index + 1), value)
+        painter.end()
 
 
 def launch_device_manager():
@@ -257,40 +352,51 @@ def build_performance_tab(facts):
     return tab
 
 
+def build_pages(facts, look):
+    """The pages behind the look's tabs: the originals' names, our contents."""
+    pages = {"General": GeneralPage(facts, look), "Device Manager": build_device_manager_tab(), "Hardware": build_device_manager_tab(),
+             "Performance": build_performance_tab(facts), "Advanced": build_performance_tab(facts)}
+    return [pages.get(caption) or placeholder_page(caption) for caption in TABS[look]]
+
+
+def placeholder_page(caption):
+    page = QWidget()
+    layout = QVBoxLayout(page)
+    layout.setContentsMargins(12, 12, 12, 12)
+    layout.addWidget(plain_label(f"{caption} are not available."))
+    layout.addStretch()
+    return page
+
+
 def register_icon_directories():
     icon_directories = [str(Path.home() / ".local/share/icons"), "/usr/share/icons"]
     QIcon.setThemeSearchPaths(icon_directories + QIcon.themeSearchPaths())
 
 
-def build_window(facts):
+def build_window(facts, look=None):
     register_icon_directories()
-    window = QDialog()
-    window.setWindowTitle("System Properties")
+    look = look if look in TABS else chicago95ui.look_settings()["style"]
+    look = look if look in TABS else "1995"
+    body = (DIALOG_WIDTH - 6, DIALOG_HEIGHT[look] - 24)
+    window = chicago95ui.ClassicDialog("System Properties", look, body, help_button=True)
     window.setWindowIcon(QIcon.fromTheme("computer"))
-    window.setFixedSize(400, 440)
 
-    layout = QVBoxLayout(window)
-    layout.setContentsMargins(8, 8, 8, 8)
-    layout.setSpacing(8)
+    strip = TabStrip(TABS[look], look, window.body)
+    strip.setGeometry(0, 0, *body)
+    for page in build_pages(facts, look):
+        strip.add_page(page)
+    strip.select(0)
+    window.tabs = strip
 
-    tabs = QTabWidget()
-    tabs.setFont(chicago95ui.ui_font())
-    tabs.addTab(build_general_tab(facts), "General")
-    tabs.addTab(build_device_manager_tab(), "Device Manager")
-    tabs.addTab(build_performance_tab(facts), "Performance")
-    layout.addWidget(tabs, 1)
-
-    button_row = QHBoxLayout()
-    button_row.setSpacing(6)
-    button_row.addStretch()
-    ok_button = chicago95ui.dialog_button("OK")
-    cancel_button = chicago95ui.dialog_button("Cancel")
-    ok_button.setDefault(True)
-    ok_button.clicked.connect(window.accept)
-    cancel_button.clicked.connect(window.reject)
-    for button in (ok_button, cancel_button, chicago95ui.dialog_button("Apply", enabled=False)):
-        button_row.addWidget(button)
-    layout.addLayout(button_row)
+    buttons = {}
+    for caption, left in BUTTON_LEFTS[look].items():
+        button = chicago95ui.dialog_button(caption, enabled=caption != "Apply")
+        button.setParent(window.body)
+        button.move(*in_body(left, BUTTONS_TOP[look]))
+        buttons[caption] = button
+    buttons["OK"].setDefault(True)
+    buttons["OK"].clicked.connect(window.accept)
+    buttons["Cancel"].clicked.connect(window.reject)
     return window
 
 
