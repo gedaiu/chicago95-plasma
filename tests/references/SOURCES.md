@@ -41,3 +41,4 @@ System Properties, from other pages:
 | `w2ksysprops.png` | https://i.imgur.com/xBf5N4e.png (the dialog at the lower right, over an About box) |
 | `combo-open.png` | screenshot supplied by the project owner (Windows 9x open drop-down list, about 2x) |
 | `win98dialing.png` | http://www.kwom.com/images/Win98/W98setupD3.gif (the Dialing Properties dialog: check boxes, radio buttons, an open drop-down, fields, a group box; a palette GIF, saved as PNG) |
+| `win98newconnection.png` | http://www.kwom.com/images/Win98/W98setupA6.gif (the Make New Connection wizard's last page: a text field with its text selected; a palette GIF, saved as PNG) |

@@ -40,7 +40,7 @@ os.environ.pop("QT_QPA_PLATFORMTHEME", None)
 
 from PySide6.QtCore import QRect, QRectF, Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QLinearGradient, QPainter, QPainterPath, QPalette, QPen, QRadialGradient  # noqa: E402
-from PySide6.QtWidgets import QApplication, QDialog, QFrame, QProxyStyle, QPushButton, QStyle, QStyledItemDelegate, QWidget  # noqa: E402
+from PySide6.QtWidgets import QApplication, QDialog, QFrame, QProxyStyle, QPushButton, QStyle, QStyledItemDelegate, QStyleOptionTab, QWidget  # noqa: E402
 
 KDEGLOBALS = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "kdeglobals")
 
@@ -315,13 +315,64 @@ def dialog_button(caption, enabled=True):
     return button
 
 
+# The check box and radio button indicators, pixel for pixel from the 1998 original
+# (tests/test_qt_controls_reference.py): s shadow, K black, l light, W white, . the window colour.
+CHECK_BOX = ["ssssssssssssW", "sKKKKKKKKKKlW"] + ["sKWWWWWWWWWlW"] * 9 + ["slllllllllllW", "WWWWWWWWWWWWW"]
+CHECK_MARK = ["WWWWWWWWW", "WWWWWWWKW", "WWWWWWKKW", "WKWWWKKKW", "WKKWKKKWW", "WKKKKKWWW", "WWKKKWWWW", "WWWKWWWWW", "WWWWWWWWW"]
+RADIO_BUTTON = ["...ssss.....", ".ssKKKKss...", "sKKWWWWKKW..", "sKWWWWWWlW..", "KWWWWWWWWlW.", "KWWWWWWWWlW.",
+                "KWWWWWWWWlW.", "KWWWWWWWWlW.", "sKWWWWWWlW..", "sllWWWWllW..", ".WWllllWW...", "...WWWW....."]
+RADIO_DOT = [(4, 4), (5, 4), (3, 5), (4, 5), (5, 5), (6, 5), (3, 6), (4, 6), (5, 6), (6, 6), (4, 7), (5, 7)]
+
+
+def paint_bitmap(painter, left, top, rows, colours):
+    for y, row in enumerate(rows):
+        for x, key in enumerate(row):
+            if colours.get(key) is not None:
+                painter.fillRect(left + x, top + y, 1, 1, colours[key])
+
+
 class ClassicStyle(QProxyStyle):
-    """Qt's Windows style with the originals' pressed button: a black frame on every side and a shadow frame
-    inside it, instead of Qt's dark top-left and light bottom-right (tests/test_control_panel_components_reference.py)."""
+    """Qt's Windows style with the originals' details: a pressed button has a black frame on every side
+    and a shadow frame inside it (tests/test_control_panel_components_reference.py); check boxes and radio
+    buttons are the 1998 original's bitmaps; a tab's caption keeps its top row; a closed drop-down's field
+    is white to its frame (tests/test_qt_controls_reference.py)."""
 
     PRESSED_PANELS = (QStyle.PE_PanelButtonCommand, QStyle.PE_PanelButtonBevel)
 
+    def indicator_colours(self, option):
+        palette = option.palette
+        enabled = bool(option.state & QStyle.State_Enabled)
+        return {"s": palette.dark().color(), "K": palette.shadow().color(), "l": palette.midlight().color(),
+                "W": palette.base().color() if enabled else palette.window().color(), ".": None,
+                "mark": palette.text().color() if enabled else palette.dark().color()}
+
     def drawPrimitive(self, element, option, painter, widget=None):
+        if element == QStyle.PE_IndicatorCheckBox:
+            colours = self.indicator_colours(option)
+            left, top = option.rect.left() + (option.rect.width() - 13) // 2, option.rect.top() + (option.rect.height() - 13) // 2
+            paint_bitmap(painter, left, top, CHECK_BOX, colours)
+            if option.state & QStyle.State_On:
+                paint_bitmap(painter, left + 2, top + 2, CHECK_MARK, {"K": colours["mark"]})
+            return
+        if element == QStyle.PE_IndicatorRadioButton:
+            colours = self.indicator_colours(option)
+            left, top = option.rect.left() + (option.rect.width() - 12) // 2, option.rect.top() + (option.rect.height() - 12) // 2
+            paint_bitmap(painter, left, top, RADIO_BUTTON, colours)
+            if option.state & QStyle.State_On:
+                for x, y in RADIO_DOT:
+                    painter.fillRect(left + x, top + y, 1, 1, colours["mark"])
+            return
+        if element == QStyle.PE_FrameLineEdit:
+            # A field's sunken frame: shadow and black outside and inside at the top left, light grey and
+            # white at the bottom right (Qt puts the button colour where the light grey goes).
+            palette, rect = option.palette, option.rect
+            for depth, (top_left, bottom_right) in enumerate(((palette.dark().color(), palette.light().color()), (palette.shadow().color(), palette.midlight().color()))):
+                inner = rect.adjusted(depth, depth, -depth, -depth)
+                painter.fillRect(inner.left(), inner.top(), inner.width() - 1, 1, top_left)
+                painter.fillRect(inner.left(), inner.top(), 1, inner.height() - 1, top_left)
+                painter.fillRect(inner.left(), inner.bottom(), inner.width(), 1, bottom_right)
+                painter.fillRect(inner.right(), inner.top(), 1, inner.height(), bottom_right)
+            return
         if element in self.PRESSED_PANELS and option.state & QStyle.State_Sunken:
             rect = option.rect
             painter.fillRect(rect, option.palette.button())
@@ -334,10 +385,28 @@ class ClassicStyle(QProxyStyle):
 
     def drawComplexControl(self, control, option, painter, widget=None):
         super().drawComplexControl(control, option, painter, widget)
-        # A closed drop-down's field is white, and the window colour when disabled; Qt leaves it the button colour.
+        # A closed drop-down's field is white up to its 2px frame, and the window colour when disabled;
+        # Qt leaves the button colour there, and a ring of it around the field.
         if control == QStyle.CC_ComboBox and not option.editable:
-            field = self.subControlRect(QStyle.CC_ComboBox, option, QStyle.SC_ComboBoxEditField, widget)
-            painter.fillRect(field, option.palette.base())
+            arrow = self.subControlRect(QStyle.CC_ComboBox, option, QStyle.SC_ComboBoxArrow, widget)
+            inside = option.rect.adjusted(2, 2, -2, -2)
+            inside.setRight(arrow.left() - 1)
+            painter.fillRect(inside, option.palette.base() if option.state & QStyle.State_Enabled else option.palette.window())
+
+    def drawControl(self, element, option, painter, widget=None):
+        if element == QStyle.CE_TabBarTabLabel and not option.state & QStyle.State_Selected:
+            # An unselected tab's label rectangle clips the font's top row: it grows two rows upwards, which
+            # moves the centred caption up one and its clip up two.
+            option = QStyleOptionTab(option)
+            option.rect.adjust(0, -2, 0, 0)
+        super().drawControl(element, option, painter, widget)
+
+    def pixelMetric(self, metric, option=None, widget=None):
+        if metric in (QStyle.PM_IndicatorWidth, QStyle.PM_IndicatorHeight):
+            return 13
+        if metric in (QStyle.PM_ExclusiveIndicatorWidth, QStyle.PM_ExclusiveIndicatorHeight):
+            return 12
+        return super().pixelMetric(metric, option, widget)
 
 
 _CLASSIC_STYLE = []
@@ -367,6 +436,16 @@ def field_style():
     if not _FIELD_STYLE:
         _FIELD_STYLE.append(PlainDisabledTextStyle("Windows"))
     return _FIELD_STYLE[0]
+
+
+def read_only_field(edit):
+    """A field that only shows text (a wizard's result): read only, on the window colour instead of white,
+    its selection still navy with white letters (tests/test_qt_controls_reference.py)."""
+    edit.setReadOnly(True)
+    palette = edit.palette()
+    palette.setColor(QPalette.Base, palette.color(QPalette.Window))
+    edit.setPalette(palette)
+    return edit
 
 
 def plain_disabled_text(widget):

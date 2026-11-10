@@ -51,9 +51,13 @@ def text_fields():
     import chicago95ui
     field, disabled = QLineEdit("Some text"), chicago95ui.plain_disabled_text(QLineEdit("Disabled"))
     disabled.setEnabled(False)
-    for widget in (field, disabled):
+    read_only = chicago95ui.read_only_field(QLineEdit("KWOM"))
+    read_only.selectAll()
+    read_only.setProperty("keepsFocus", True)   # the wizard's field is focused: that is when a field shows its selection
+    read_only.setFocus()
+    for widget in (field, disabled, read_only):
         widget.setFixedWidth(120)
-    return row(field, disabled)
+    return row(field, disabled, read_only)
 
 
 def drop_down():
@@ -219,8 +223,8 @@ ORIGINALS = {
 HALF_SIZE = {"win95shutdownsm", "win98shutsm"}   # thumbnails: shown doubled
 
 
-def render_control(app, make):
-    """The control on a patch of the window colour, at 1x."""
+def render_control(app, make, inspect=None):
+    """The control on a patch of the window colour, at 1x; inspect(patch) sees it laid out, before the grab."""
     patch = QWidget()
     patch.setAutoFillBackground(True)
     layout = QHBoxLayout(patch)
@@ -229,10 +233,12 @@ def render_control(app, make):
     patch.adjustSize()
     patch.show()
     app.processEvents()
-    for widget in patch.findChildren(QWidget):   # no focus rectangle but the default button's, as the originals show them
-        if widget.hasFocus() and not isinstance(widget, QPushButton):
+    for widget in patch.findChildren(QWidget):   # no focus but the default button's, or a widget made to keep it, as the originals show them
+        if widget.hasFocus() and not isinstance(widget, QPushButton) and not widget.property("keepsFocus"):
             widget.clearFocus()
     app.processEvents()
+    if inspect:
+        inspect(patch)
     image = qimage_to_pil(patch.grab().toImage())
     patch.close()
     return image
