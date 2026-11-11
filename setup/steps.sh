@@ -575,9 +575,9 @@ step_clippy() {
     "above=true" "aboverule=2" "types=1"
 }
 
-step_extras() { # System Properties, Device Manager, Dial-Up, Deezer helper, login chime
+step_extras() { # System Properties, Device Manager, Kubernetes Viewer, Dial-Up, Deezer helper, login chime
   step_tools_common
-  for tool in sysprops devmgr dialup deezer; do
+  for tool in sysprops devmgr k8sview dialup deezer; do
     put_file "$REPO/bin/chicago95-$tool" ~/.local/bin/chicago95-$tool
     run chmod +x ~/.local/bin/chicago95-$tool
   done

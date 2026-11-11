@@ -1,0 +1,568 @@
+#!/usr/bin/env python3
+"""Kubernetes Viewer: a cluster's nodes, pods, services and claims as a Device Manager-style tree (kubectl)."""
+import os
+import sys
+
+sys.path[:0] = [
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.expanduser("~/.local/lib/chicago95"),
+]
+import json
+import re
+import subprocess
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+
+import chicago95ui  # noqa: E702
+from PySide6.QtCore import QPoint, QSize, Qt
+from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPolygon
+from PySide6.QtWidgets import (
+    QApplication,
+    QButtonGroup,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QRadioButton,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
+
+KUBECTL_TIMEOUT_SECONDS = 20
+SERVICE_CAP = 200
+ICON_SIZE = 16
+RESTART_WARNING_THRESHOLD = 20
+HEALTHY_PHASES = {"Running", "Succeeded"}
+ITEM_ROLE = Qt.UserRole
+
+NETWORK_PATTERN = re.compile(r"ingress|nginx|traefik|coredns|dns")
+STORAGE_PATTERN = re.compile(r"longhorn|ceph|csi|storage|minio|postgres|mysql|redis|etcd")
+CONTROLLER_PATTERN = re.compile(r"operator|controller|manager|agent|cattle|rancher|fleet|cert-manager")
+
+
+@dataclass
+class Node:
+    name: str
+    roles: list
+    ready: bool
+    kubelet_version: str
+    age: str
+
+
+@dataclass
+class Pod:
+    name: str
+    namespace: str
+    node: str
+    phase: str
+    reason: str
+    restarts: int
+    images: list
+    containers_ready: int
+    containers_total: int
+    age: str
+
+
+@dataclass
+class Service:
+    name: str
+    namespace: str
+    service_type: str
+    cluster_ip: str
+
+
+@dataclass
+class Claim:
+    name: str
+    namespace: str
+    capacity: str
+    phase: str
+
+
+@dataclass
+class ClusterSnapshot:
+    cluster_name: str
+    nodes: list = field(default_factory=list)
+    pods: list = field(default_factory=list)
+    services: list = field(default_factory=list)
+    claims: list = field(default_factory=list)
+    connected: bool = True
+
+
+def age_since(timestamp):
+    if not timestamp:
+        return "?"
+    created = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    elapsed = datetime.now(UTC) - created
+    if elapsed.days >= 1:
+        return f"{elapsed.days}d"
+    hours, remainder = divmod(elapsed.seconds, 3600)
+    return f"{hours}h" if hours else f"{remainder // 60}m"
+
+
+def parse_nodes(document):
+    nodes = []
+    for item in document["items"]:
+        labels = item["metadata"].get("labels", {})
+        roles = sorted(key.split("/")[1] for key in labels if key.startswith("node-role.kubernetes.io/"))
+        conditions = item["status"].get("conditions", [])
+        ready = any(c["type"] == "Ready" and c["status"] == "True" for c in conditions)
+        nodes.append(
+            Node(
+                name=item["metadata"]["name"],
+                roles=roles or ["worker"],
+                ready=ready,
+                kubelet_version=item["status"].get("nodeInfo", {}).get("kubeletVersion", "?"),
+                age=age_since(item["metadata"].get("creationTimestamp")),
+            )
+        )
+    return nodes
+
+
+def waiting_reason(container_statuses):
+    for status in container_statuses:
+        waiting = status.get("state", {}).get("waiting")
+        if waiting and waiting.get("reason"):
+            return waiting["reason"]
+        terminated = status.get("state", {}).get("terminated")
+        if terminated and terminated.get("reason") not in (None, "Completed"):
+            return terminated["reason"]
+    return ""
+
+
+def parse_pods(document):
+    pods = []
+    for item in document["items"]:
+        status = item["status"]
+        container_statuses = status.get("containerStatuses", [])
+        containers = item["spec"].get("containers", [])
+        pods.append(
+            Pod(
+                name=item["metadata"]["name"],
+                namespace=item["metadata"]["namespace"],
+                node=item["spec"].get("nodeName", ""),
+                phase=status.get("phase", "Unknown"),
+                reason=status.get("reason") or waiting_reason(container_statuses),
+                restarts=sum(s.get("restartCount", 0) for s in container_statuses),
+                images=[c["image"] for c in containers],
+                containers_ready=sum(1 for s in container_statuses if s.get("ready")),
+                containers_total=len(containers),
+                age=age_since(item["metadata"].get("creationTimestamp")),
+            )
+        )
+    return pods
+
+
+def parse_services(document):
+    return [
+        Service(
+            name=item["metadata"]["name"],
+            namespace=item["metadata"]["namespace"],
+            service_type=item["spec"].get("type", "ClusterIP"),
+            cluster_ip=item["spec"].get("clusterIP", "None"),
+        )
+        for item in document["items"]
+    ]
+
+
+def parse_claims(document):
+    return [
+        Claim(
+            name=item["metadata"]["name"],
+            namespace=item["metadata"]["namespace"],
+            capacity=item["status"].get("capacity", {}).get("storage", "?"),
+            phase=item["status"].get("phase", "Unknown"),
+        )
+        for item in document["items"]
+    ]
+
+
+def pod_is_healthy(pod):
+    if pod.phase == "Succeeded":
+        return True
+    if pod.phase != "Running":
+        return False
+    if pod.restarts > RESTART_WARNING_THRESHOLD:
+        return False
+    return pod.containers_ready == pod.containers_total
+
+
+def icon_name_for_pod(pod):
+    if NETWORK_PATTERN.search(pod.name):
+        return "network-server"
+    if STORAGE_PATTERN.search(pod.name):
+        return "drive-harddisk"
+    if CONTROLLER_PATTERN.search(pod.name):
+        return "preferences-system"
+    return "applications-system"
+
+
+def pod_status_text(pod):
+    if pod.phase == "Running":
+        return f"Running ({pod.containers_ready}/{pod.containers_total} ready)"
+    return f"{pod.phase} ({pod.reason})" if pod.reason else pod.phase
+
+
+def run_kubectl(*arguments):
+    completed = subprocess.run(
+        ["kubectl", "get", *arguments, "-o", "json"],
+        capture_output=True,
+        text=True,
+        timeout=KUBECTL_TIMEOUT_SECONDS,
+        check=True,
+    )
+    return json.loads(completed.stdout)
+
+
+def current_cluster_name():
+    completed = subprocess.run(
+        ["kubectl", "config", "current-context"], capture_output=True, text=True, timeout=5, check=False
+    )
+    words = completed.stdout.split()
+    return words[0] if words else "localhost"
+
+
+def load_snapshot():
+    snapshot = ClusterSnapshot(cluster_name=current_cluster_name())
+    queries = {
+        "nodes": (("nodes",), parse_nodes),
+        "pods": (("pods", "-A"), parse_pods),
+        "services": (("svc", "-A"), parse_services),
+        "claims": (("pvc", "-A"), parse_claims),
+    }
+    with ThreadPoolExecutor(max_workers=len(queries)) as pool:
+        futures = {attribute: pool.submit(run_kubectl, *arguments) for attribute, (arguments, _) in queries.items()}
+    try:
+        for attribute, (_, parser) in queries.items():
+            setattr(snapshot, attribute, parser(futures[attribute].result()))
+    except (subprocess.SubprocessError, OSError, json.JSONDecodeError, KeyError):
+        snapshot.connected = False
+    return snapshot
+
+
+_icon_cache = {}
+ICON_DIRECTORIES = [os.path.expanduser("~/.local/share/icons"), "/usr/share/icons"]
+
+
+def ensure_icon_search_paths():
+    missing = [directory for directory in ICON_DIRECTORIES if directory not in QIcon.themeSearchPaths()]
+    QIcon.setThemeSearchPaths(QIcon.themeSearchPaths() + missing)
+
+
+def paint_bang(pixmap):
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.Antialiasing)
+    painter.setPen(QPen(Qt.black, 1))
+    painter.setBrush(QColor("#FFFF00"))
+    painter.drawPolygon(QPolygon([QPoint(5, 15), QPoint(14, 15), QPoint(9, 6)]))
+    painter.setPen(QPen(Qt.black, 2))
+    painter.drawLine(9, 9, 9, 12)
+    painter.drawPoint(9, 14)
+    painter.end()
+
+
+def themed_icon(name, badged=False):
+    key = (name, badged)
+    if key not in _icon_cache:
+        pixmap = QIcon.fromTheme(name).pixmap(QSize(ICON_SIZE, ICON_SIZE))
+        if badged:
+            pixmap = pixmap.copy()
+            paint_bang(pixmap)
+        _icon_cache[key] = QIcon(pixmap)
+    return _icon_cache[key]
+
+
+def make_item(text, icon_name, badged=False, payload=None):
+    item = QTreeWidgetItem([text])
+    item.setIcon(0, themed_icon(icon_name, badged))
+    item.setData(0, ITEM_ROLE, payload)
+    return item
+
+
+def pod_item(pod):
+    return make_item(pod.name, icon_name_for_pod(pod), badged=not pod_is_healthy(pod), payload=pod)
+
+
+def node_item(node):
+    label = f"{node.name}  {', '.join(node.roles)}"
+    return make_item(label, "computer", badged=not node.ready, payload=node)
+
+
+def build_by_type(root, snapshot):
+    nodes_category = make_item("Nodes", "computer")
+    for node in snapshot.nodes:
+        nodes_category.addChild(node_item(node))
+    root.addChild(nodes_category)
+    nodes_category.setExpanded(True)
+
+    namespaces_category = make_item("Namespaces", "folder")
+    namespaces = sorted({pod.namespace for pod in snapshot.pods})
+    for namespace in namespaces:
+        namespace_item = make_item(namespace, "folder")
+        pods_in_namespace = sorted(
+            (pod for pod in snapshot.pods if pod.namespace == namespace), key=lambda pod: pod.name
+        )
+        for pod in pods_in_namespace:
+            namespace_item.addChild(pod_item(pod))
+        namespaces_category.addChild(namespace_item)
+    root.addChild(namespaces_category)
+    namespaces_category.setExpanded(any(not pod_is_healthy(pod) for pod in snapshot.pods))
+    for index in range(namespaces_category.childCount()):
+        namespace_item = namespaces_category.child(index)
+        namespace_item.setExpanded(
+            any(
+                not pod_is_healthy(namespace_item.child(pod_index).data(0, ITEM_ROLE))
+                for pod_index in range(namespace_item.childCount())
+            )
+        )
+
+    services_category = make_item("Services", "network-wired")
+    for service in sorted(snapshot.services, key=lambda s: (s.namespace, s.name))[:SERVICE_CAP]:
+        label = f"{service.namespace}/{service.name} ({service.service_type} {service.cluster_ip})"
+        services_category.addChild(make_item(label, "network-wired", payload=service))
+    root.addChild(services_category)
+
+    storage_category = make_item("Storage", "drive-harddisk")
+    for claim in sorted(snapshot.claims, key=lambda c: (c.namespace, c.name)):
+        label = f"{claim.namespace}/{claim.name} ({claim.capacity}, {claim.phase})"
+        storage_category.addChild(make_item(label, "drive-harddisk", badged=claim.phase != "Bound", payload=claim))
+    root.addChild(storage_category)
+
+
+def build_by_connection(root, snapshot):
+    for node in snapshot.nodes:
+        item = node_item(node)
+        pods_on_node = sorted(
+            (pod for pod in snapshot.pods if pod.node == node.name), key=lambda pod: (pod.namespace, pod.name)
+        )
+        for pod in pods_on_node:
+            item.addChild(pod_item(pod))
+        root.addChild(item)
+        item.setExpanded(any(not pod_is_healthy(pod) for pod in pods_on_node))
+
+
+def build_tree(tree, snapshot, by_connection):
+    tree.clear()
+    root = make_item(snapshot.cluster_name, "computer")
+    tree.addTopLevelItem(root)
+    if not snapshot.connected:
+        root.addChild(make_item("Kubernetes cluster (not connected)", "network-wired", badged=True))
+    elif by_connection:
+        build_by_connection(root, snapshot)
+    else:
+        build_by_type(root, snapshot)
+    root.setExpanded(True)
+
+
+def pod_fields(pod):
+    return [
+        ("Name:", pod.name),
+        ("Namespace:", pod.namespace),
+        ("Node:", pod.node or "(unscheduled)"),
+        ("Phase:", pod.phase),
+        ("Restarts:", str(pod.restarts)),
+        ("Image(s):", "\n".join(pod.images)),
+        ("Age:", pod.age),
+    ]
+
+
+def node_fields(node):
+    return [
+        ("Name:", node.name),
+        ("Roles:", ", ".join(node.roles)),
+        ("Kubelet:", node.kubelet_version),
+        ("Ready:", "Yes" if node.ready else "No"),
+        ("Age:", node.age),
+    ]
+
+
+def service_fields(service):
+    return [
+        ("Name:", service.name),
+        ("Namespace:", service.namespace),
+        ("Type:", service.service_type),
+        ("Cluster IP:", service.cluster_ip),
+    ]
+
+
+def claim_fields(claim):
+    return [
+        ("Name:", claim.name),
+        ("Namespace:", claim.namespace),
+        ("Capacity:", claim.capacity),
+        ("Phase:", claim.phase),
+    ]
+
+
+def describe(payload):
+    if isinstance(payload, Pod):
+        return pod_fields(payload), pod_is_healthy(payload), pod_status_text(payload)
+    if isinstance(payload, Node):
+        return node_fields(payload), payload.ready, "Ready" if payload.ready else "NotReady"
+    if isinstance(payload, Service):
+        return service_fields(payload), True, ""
+    return claim_fields(payload), payload.phase == "Bound", payload.phase
+
+
+class PropertiesDialog(QDialog):
+    def __init__(self, payload, icon, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"{payload.name} Properties")
+        fields, healthy, status_text = describe(payload)
+
+        layout = QVBoxLayout(self)
+        header = QHBoxLayout()
+        icon_label = QLabel()
+        icon_label.setPixmap(icon.pixmap(QSize(32, 32)))
+        header.addWidget(icon_label)
+        header.addWidget(QLabel(payload.name), 1)
+        layout.addLayout(header)
+
+        form = QFormLayout()
+        for label, value in fields:
+            value_label = QLabel(value)
+            value_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            form.addRow(QLabel(label), value_label)
+        layout.addLayout(form)
+
+        status_group = QGroupBox("Device status")
+        status_layout = QVBoxLayout(status_group)
+        message = (
+            "This device is working properly."
+            if healthy
+            else f"This device is not working properly. (Code 10)\n{status_text}"
+        )
+        status_label = QLabel(message)
+        status_label.setWordWrap(True)
+        status_layout.addWidget(status_label)
+        layout.addWidget(status_group)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+        buttons.accepted.connect(self.accept)
+        layout.addWidget(buttons)
+
+
+class KubernetesViewerWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Kubernetes Viewer")
+        self.setWindowIcon(QIcon.fromTheme("computer"))
+        self.resize(420, 480)
+        self.snapshot = None
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
+
+        self.by_type_radio = QRadioButton("View devices by &type")
+        self.by_connection_radio = QRadioButton("View devices by &connection")
+        self.by_type_radio.setChecked(True)
+        radio_group = QButtonGroup(self)
+        radio_group.addButton(self.by_type_radio)
+        radio_group.addButton(self.by_connection_radio)
+        radio_row = QHBoxLayout()
+        radio_row.addWidget(self.by_type_radio)
+        radio_row.addWidget(self.by_connection_radio)
+        radio_row.addStretch()
+        layout.addLayout(radio_row)
+        self.by_type_radio.toggled.connect(self.rebuild_tree)
+
+        self.status_label = QLabel("Searching for devices...")
+        layout.addWidget(self.status_label)
+
+        panel = chicago95ui.sunken_panel()
+        panel_layout = QVBoxLayout(panel)
+        panel_layout.setContentsMargins(0, 0, 0, 0)
+        self.tree = QTreeWidget()
+        self.tree.setHeaderHidden(True)
+        self.tree.setAlternatingRowColors(False)
+        self.tree.setIconSize(QSize(ICON_SIZE, ICON_SIZE))
+        self.tree.setIndentation(20)
+        self.tree.setRootIsDecorated(True)
+        self.tree.setFrameShape(QTreeWidget.NoFrame)
+        self.tree.itemDoubleClicked.connect(lambda item, _column: self.show_properties())
+        self.tree.itemSelectionChanged.connect(self.update_buttons)
+        panel_layout.addWidget(self.tree)
+        layout.addWidget(panel, 1)
+
+        self.properties_button = QPushButton("P&roperties...")
+        self.properties_button.clicked.connect(self.show_properties)
+        refresh_button = QPushButton("Re&fresh")
+        refresh_button.clicked.connect(self.refresh)
+        remove_button = QPushButton("R&emove")
+        remove_button.setEnabled(False)
+        print_button = QPushButton("Pri&nt...")
+        print_button.setEnabled(False)
+        action_row = QHBoxLayout()
+        for button in (self.properties_button, refresh_button, remove_button, print_button):
+            button.setFixedHeight(23)
+            action_row.addWidget(button)
+        layout.addLayout(action_row)
+
+        ok_button = QPushButton("OK")
+        ok_button.setDefault(True)
+        ok_button.clicked.connect(self.close)
+        cancel_button = QPushButton("Cancel")
+        cancel_button.clicked.connect(self.close)
+        dialog_row = QHBoxLayout()
+        dialog_row.addStretch()
+        for button in (ok_button, cancel_button):
+            button.setFixedSize(75, 23)
+            dialog_row.addWidget(button)
+        layout.addLayout(dialog_row)
+        self.update_buttons()
+
+    def refresh(self):
+        self.status_label.setText("Searching for devices...")
+        QApplication.processEvents()
+        self.snapshot = load_snapshot()
+        self.rebuild_tree()
+
+    def rebuild_tree(self):
+        if self.snapshot is None:
+            return
+        build_tree(self.tree, self.snapshot, self.by_connection_radio.isChecked())
+        self.status_label.setText(summary_text(self.snapshot))
+        self.update_buttons()
+
+    def update_buttons(self):
+        selected = self.tree.currentItem()
+        self.properties_button.setEnabled(selected is not None and selected.data(0, ITEM_ROLE) is not None)
+
+    def show_properties(self):
+        selected = self.tree.currentItem()
+        if selected is None or selected.data(0, ITEM_ROLE) is None:
+            return
+        PropertiesDialog(selected.data(0, ITEM_ROLE), selected.icon(0), self).exec()
+
+
+def summary_text(snapshot):
+    if not snapshot.connected:
+        return "kubectl could not reach the cluster."
+    unhealthy = sum(1 for pod in snapshot.pods if not pod_is_healthy(pod))
+    return f"{len(snapshot.nodes)} nodes, {len(snapshot.pods)} pods, {unhealthy} with problems"
+
+
+def main():
+    screenshot_path = None
+    if "--screenshot" in sys.argv:
+        screenshot_path = sys.argv[sys.argv.index("--screenshot") + 1]
+    app = chicago95ui.make_app("Kubernetes Viewer")
+    ensure_icon_search_paths()
+    window = KubernetesViewerWindow()
+    window.refresh()
+    if screenshot_path:
+        window.grab().save(screenshot_path)
+        return 0
+    window.show()
+    return app.exec()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

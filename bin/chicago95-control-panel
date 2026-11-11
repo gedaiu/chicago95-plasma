@@ -218,7 +218,7 @@ APPLETS = (
     Applet(
         "Add New Hardware",
         ("preferences-devices", "drive-harddisk"),
-        "Opens the Device Manager to add or remove hardware.",
+        "Opens the Device Manager, which lists the hardware.",
         "chicago95-devmgr",
     ),
     Applet(

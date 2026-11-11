@@ -96,13 +96,16 @@ def test_etched_line_is_a_sunken_horizontal_line(qt_app):
 def test_classic_style_is_made_again_after_the_shared_one_was_deleted(qt_app):
     import shiboken6
 
+    styles_in_use = list(chicago95ui._CLASSIC_STYLE)
     stale_style = chicago95ui.ClassicStyle("Windows")
     chicago95ui._CLASSIC_STYLE[:] = [stale_style]
     shiboken6.delete(stale_style)
 
     renewed_style = chicago95ui.classic_style()
+    outcome = (shiboken6.isValid(renewed_style), renewed_style is chicago95ui._CLASSIC_STYLE[0])
+    chicago95ui._CLASSIC_STYLE[:] = styles_in_use
 
-    assert (shiboken6.isValid(renewed_style), renewed_style is chicago95ui._CLASSIC_STYLE[0]) == (True, True)
+    assert outcome == (True, True)
 
 
 def test_classic_style_is_shared_while_it_is_alive(qt_app):

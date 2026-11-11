@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+"""Device Manager: the computer's hardware as the classic Device Manager listed it, by type or by connection,
+to look at only. The inventory is lshw's (no root needed; details it hides without root stay "Not available");
+a device's Properties show its General, Driver and Resources pages, the resources read from sysfs.
+
+    chicago95-devmgr                  the window
+    chicago95-devmgr --screenshot PNG  a picture of the window, for the docs and the tests
+"""
+
 import os
 import sys
 
@@ -7,11 +15,9 @@ sys.path[:0] = [
     os.path.expanduser("~/.local/lib/chicago95"),
 ]
 import json
-import re
 import subprocess
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from pathlib import Path
 
 import chicago95ui  # noqa: E702
 from PySide6.QtCore import QPoint, QSize, Qt
@@ -19,244 +25,241 @@ from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPolygon
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
+    QCheckBox,
     QDialog,
-    QDialogButtonBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QRadioButton,
+    QTabWidget,
     QTreeWidget,
     QTreeWidgetItem,
+    QTreeWidgetItemIterator,
     QVBoxLayout,
     QWidget,
 )
 
-KUBECTL_TIMEOUT_SECONDS = 20
-SERVICE_CAP = 200
+LSHW_TIMEOUT_SECONDS = 90
 ICON_SIZE = 16
-RESTART_WARNING_THRESHOLD = 20
-HEALTHY_PHASES = {"Running", "Succeeded"}
 ITEM_ROLE = Qt.UserRole
+SYSFS_PCI = Path("/sys/bus/pci/devices")
+IO_RESOURCE, MEMORY_RESOURCE = 0x100, 0x200  # IORESOURCE_IO and IORESOURCE_MEM in a sysfs "resource" line's flags
+WORKING = "This device is working properly."
+NO_DRIVER = "The drivers for this device are not installed. (Code 28)"
 
-NETWORK_PATTERN = re.compile(r"ingress|nginx|traefik|coredns|dns")
-STORAGE_PATTERN = re.compile(r"longhorn|ceph|csi|storage|minio|postgres|mysql|redis|etcd")
-CONTROLLER_PATTERN = re.compile(r"operator|controller|manager|agent|cattle|rancher|fleet|cert-manager")
+# The classic Device Manager's classes, in its order, with the icon each one shows.
+CATEGORIES = {
+    "CDROM": "media-optical",
+    "Disk drives": "drive-harddisk",
+    "Display adapters": "video-display",
+    "Floppy disk controllers": "media-floppy",
+    "Hard disk controllers": "drive-harddisk",
+    "Human Interface Devices": "input-gaming",
+    "Keyboard": "input-keyboard",
+    "Modem": "modem",
+    "Monitors": "video-display",
+    "Mouse": "input-mouse",
+    "Network adapters": "network-wired",
+    "Other devices": "dialog-question",
+    "Ports (COM & LPT)": "modem",
+    "Sound, video and game controllers": "audio-card",
+    "System devices": "computer",
+    "Universal Serial Bus controllers": "drive-removable-media-usb",
+}
+POINTING_WORDS = ("mouse", "pointer", "pointing", "touchpad", "trackpad", "pen", "pad", "trackball")
+AUDIO_JACK_WORDS = ("pcm", "hda", "hd-audio", "mic", "line", "headphone", "speaker")
 
 
 @dataclass
-class Node:
+class Device:
     name: str
-    roles: list
-    ready: bool
-    kubelet_version: str
-    age: str
+    category: str
+    kind: str
+    manufacturer: str = ""
+    version: str = ""
+    driver: str = ""
+    bus_info: str = ""
+    logical_name: str = ""
+    claimed: bool = True
+    children: list = field(default_factory=list)
+
+    @property
+    def status(self):
+        return WORKING if self.claimed else NO_DRIVER
+
+    @property
+    def working(self):
+        return self.claimed
 
 
 @dataclass
-class Pod:
-    name: str
-    namespace: str
-    node: str
-    phase: str
-    reason: str
-    restarts: int
-    images: list
-    containers_ready: int
-    containers_total: int
-    age: str
+class Snapshot:
+    computer: Device
+    devices: list
+    error: str = ""
 
 
-@dataclass
-class Service:
-    name: str
-    namespace: str
-    service_type: str
-    cluster_ip: str
+def logical_names(node):
+    names = node.get("logicalname", "")
+    return " ".join(names) if isinstance(names, list) else str(names)
 
 
-@dataclass
-class Claim:
-    name: str
-    namespace: str
-    capacity: str
-    phase: str
+def node_text(node):
+    texts = [str(node.get(key, "")) for key in ("product", "description", "id")]
+    return " ".join([*texts, logical_names(node)]).lower()
 
 
-@dataclass
-class ClusterSnapshot:
-    cluster_name: str
-    nodes: list = field(default_factory=list)
-    pods: list = field(default_factory=list)
-    services: list = field(default_factory=list)
-    claims: list = field(default_factory=list)
-    connected: bool = True
+def categorise(node):
+    """The classic class an lshw node belongs to, or None for the parts the Device Manager never listed."""
+    kind, identifier, text = node.get("class", ""), str(node.get("id", "")), node_text(node)
+    if kind in ("system", "memory", "volume", "printer", "power") or identifier.startswith("cache"):
+        return None
+    if kind == "input":
+        if any(word in text for word in AUDIO_JACK_WORDS):
+            return None
+        if "keyboard" in text:
+            return "Keyboard"
+        if any(word in text.split() for word in POINTING_WORDS) or "mouse" in text:
+            return "Mouse"
+        return "System devices" if "button" in text else "Human Interface Devices"
+    if kind == "disk":
+        return "CDROM" if any(word in text for word in ("cdrom", "cd-rom", "dvd", "optical")) else "Disk drives"
+    if kind == "bus":
+        return "Universal Serial Bus controllers" if identifier.startswith("usb") or "usb" in text else "System devices"
+    if kind == "communication":
+        return "Modem" if "modem" in text else "Ports (COM & LPT)"
+    if kind == "generic":
+        return "System devices" if node.get("claimed") or "iommu" in text else "Other devices"
+    return {
+        "display": "Display adapters",
+        "multimedia": "Sound, video and game controllers",
+        "network": "Network adapters",
+        "storage": "Hard disk controllers",
+        "processor": "System devices",
+        "bridge": "System devices",
+    }.get(kind, "Other devices")
 
 
-def age_since(timestamp):
-    if not timestamp:
-        return "?"
-    created = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
-    elapsed = datetime.now(UTC) - created
-    if elapsed.days >= 1:
-        return f"{elapsed.days}d"
-    hours, remainder = divmod(elapsed.seconds, 3600)
-    return f"{hours}h" if hours else f"{remainder // 60}m"
+def device_name(node):
+    return str(node.get("product") or node.get("description") or node.get("id", "Unknown device")).strip()
 
 
-def parse_nodes(document):
-    nodes = []
-    for item in document["items"]:
-        labels = item["metadata"].get("labels", {})
-        roles = sorted(key.split("/")[1] for key in labels if key.startswith("node-role.kubernetes.io/"))
-        conditions = item["status"].get("conditions", [])
-        ready = any(c["type"] == "Ready" and c["status"] == "True" for c in conditions)
-        nodes.append(
-            Node(
-                name=item["metadata"]["name"],
-                roles=roles or ["worker"],
-                ready=ready,
-                kubelet_version=item["status"].get("nodeInfo", {}).get("kubeletVersion", "?"),
-                age=age_since(item["metadata"].get("creationTimestamp")),
-            )
-        )
-    return nodes
-
-
-def waiting_reason(container_statuses):
-    for status in container_statuses:
-        waiting = status.get("state", {}).get("waiting")
-        if waiting and waiting.get("reason"):
-            return waiting["reason"]
-        terminated = status.get("state", {}).get("terminated")
-        if terminated and terminated.get("reason") not in (None, "Completed"):
-            return terminated["reason"]
-    return ""
-
-
-def parse_pods(document):
-    pods = []
-    for item in document["items"]:
-        status = item["status"]
-        container_statuses = status.get("containerStatuses", [])
-        containers = item["spec"].get("containers", [])
-        pods.append(
-            Pod(
-                name=item["metadata"]["name"],
-                namespace=item["metadata"]["namespace"],
-                node=item["spec"].get("nodeName", ""),
-                phase=status.get("phase", "Unknown"),
-                reason=status.get("reason") or waiting_reason(container_statuses),
-                restarts=sum(s.get("restartCount", 0) for s in container_statuses),
-                images=[c["image"] for c in containers],
-                containers_ready=sum(1 for s in container_statuses if s.get("ready")),
-                containers_total=len(containers),
-                age=age_since(item["metadata"].get("creationTimestamp")),
-            )
-        )
-    return pods
-
-
-def parse_services(document):
-    return [
-        Service(
-            name=item["metadata"]["name"],
-            namespace=item["metadata"]["namespace"],
-            service_type=item["spec"].get("type", "ClusterIP"),
-            cluster_ip=item["spec"].get("clusterIP", "None"),
-        )
-        for item in document["items"]
-    ]
-
-
-def parse_claims(document):
-    return [
-        Claim(
-            name=item["metadata"]["name"],
-            namespace=item["metadata"]["namespace"],
-            capacity=item["status"].get("capacity", {}).get("storage", "?"),
-            phase=item["status"].get("phase", "Unknown"),
-        )
-        for item in document["items"]
-    ]
-
-
-def pod_is_healthy(pod):
-    if pod.phase == "Succeeded":
-        return True
-    if pod.phase != "Running":
-        return False
-    if pod.restarts > RESTART_WARNING_THRESHOLD:
-        return False
-    return pod.containers_ready == pod.containers_total
-
-
-def icon_name_for_pod(pod):
-    if NETWORK_PATTERN.search(pod.name):
-        return "network-server"
-    if STORAGE_PATTERN.search(pod.name):
-        return "drive-harddisk"
-    if CONTROLLER_PATTERN.search(pod.name):
-        return "preferences-system"
-    return "applications-system"
-
-
-def pod_status_text(pod):
-    if pod.phase == "Running":
-        return f"Running ({pod.containers_ready}/{pod.containers_total} ready)"
-    return f"{pod.phase} ({pod.reason})" if pod.reason else pod.phase
-
-
-def run_kubectl(*arguments):
-    completed = subprocess.run(
-        ["kubectl", "get", *arguments, "-o", "json"],
-        capture_output=True,
-        text=True,
-        timeout=KUBECTL_TIMEOUT_SECONDS,
-        check=True,
+def device_of(node, category):
+    configuration = node.get("configuration", {})
+    return Device(
+        name=device_name(node),
+        category=category,
+        kind=node.get("class", ""),
+        manufacturer=str(node.get("vendor", "")),
+        version=str(node.get("version", "")),
+        driver=str(configuration.get("driver", "")),
+        bus_info=str(node.get("businfo", "")),
+        logical_name=logical_names(node),
+        claimed=bool(node.get("claimed", False))
+        or node.get("class") in ("processor", "bridge", "bus")
+        or "iommu" in node_text(node),
     )
-    return json.loads(completed.stdout)
 
 
-def current_cluster_name():
-    completed = subprocess.run(
-        ["kubectl", "config", "current-context"], capture_output=True, text=True, timeout=5, check=False
+def devices_from(node, parent):
+    """Adds the listed devices under node to parent's children (keeping lshw's nesting); returns every device."""
+    found = []
+    for child in node.get("children", []):
+        category = categorise(child)
+        if category is None:
+            found += devices_from(child, parent)
+            continue
+        device = device_of(child, category)
+        parent.children.append(device)
+        found.append(device)
+        found += devices_from(child, device)
+    return found
+
+
+def snapshot_from(document):
+    root = document[0] if isinstance(document, list) else document
+    computer = Device(
+        name=device_name(root) if root.get("class") == "system" else "Computer", category="", kind="system"
     )
-    words = completed.stdout.split()
-    return words[0] if words else "localhost"
+    computer.name = "Computer" if not root.get("product") else str(root["product"])
+    return Snapshot(computer, devices_from(root, computer))
 
 
-def load_snapshot():
-    snapshot = ClusterSnapshot(cluster_name=current_cluster_name())
-    queries = {
-        "nodes": (("nodes",), parse_nodes),
-        "pods": (("pods", "-A"), parse_pods),
-        "services": (("svc", "-A"), parse_services),
-        "claims": (("pvc", "-A"), parse_claims),
-    }
-    with ThreadPoolExecutor(max_workers=len(queries)) as pool:
-        futures = {attribute: pool.submit(run_kubectl, *arguments) for attribute, (arguments, _) in queries.items()}
+def by_type(devices):
+    """{category: devices sorted by name}, categories in the classic order, only the ones with something in them."""
+    grouped = {}
+    for category in CATEGORIES:
+        members = sorted(
+            (device for device in devices if device.category == category), key=lambda device: device.name.lower()
+        )
+        if members:
+            grouped[category] = members
+    return grouped
+
+
+def load_snapshot(run=subprocess.run):
     try:
-        for attribute, (_, parser) in queries.items():
-            setattr(snapshot, attribute, parser(futures[attribute].result()))
-    except (subprocess.SubprocessError, OSError, json.JSONDecodeError, KeyError):
-        snapshot.connected = False
-    return snapshot
+        output = run(
+            ["lshw", "-json", "-quiet"], capture_output=True, text=True, timeout=LSHW_TIMEOUT_SECONDS, check=False
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return Snapshot(Device("Computer", "", "system"), [], f"lshw could not run: {error}")
+    if output.returncode != 0 or not output.stdout.strip():
+        return Snapshot(Device("Computer", "", "system"), [], "lshw found nothing (is it installed?)")
+    return snapshot_from(json.loads(output.stdout))
+
+
+def pci_address(bus_info):
+    """ "pci@0000:07:00.0" -> "0000:07:00.0"; "" for anything that is not a PCI device."""
+    return bus_info[len("pci@") :] if bus_info.startswith("pci@") else ""
+
+
+def pci_resources(sysfs_directory):
+    """(resource type, setting) rows from a PCI device's sysfs folder: its interrupt and its address ranges."""
+    directory = Path(sysfs_directory)
+    rows = []
+    irq = (directory / "irq").read_text().strip() if (directory / "irq").exists() else ""
+    if irq and irq != "0":
+        rows.append(("Interrupt Request", irq))
+    if (directory / "resource").exists():
+        for line in (directory / "resource").read_text().splitlines():
+            start, end, flags = (int(part, 16) for part in line.split()[:3])
+            if end <= start:
+                continue
+            if flags & IO_RESOURCE:
+                rows.append(("Input/Output Range", f"{start:04X} - {end:04X}"))
+            elif flags & MEMORY_RESOURCE:
+                rows.append(("Memory Range", f"{start:08X} - {end:08X}"))
+    return rows
+
+
+def resources_of(device, sysfs_root=SYSFS_PCI):
+    address = pci_address(device.bus_info)
+    return pci_resources(Path(sysfs_root) / address) if address and (Path(sysfs_root) / address).exists() else []
+
+
+def general_fields(device):
+    return [
+        ("Device type:", device.category),
+        ("Manufacturer:", device.manufacturer or "(Standard system devices)"),
+        ("Hardware version:", device.version or "Not available"),
+    ]
+
+
+def driver_fields(device):
+    return [
+        ("Provider:", "Linux kernel" if device.driver else "Not available"),
+        ("Driver:", device.driver or "No driver files are required or have been loaded for this device."),
+        ("Device:", device.logical_name or device.bus_info or "Not available"),
+    ]
 
 
 _icon_cache = {}
-ICON_DIRECTORIES = [os.path.expanduser("~/.local/share/icons"), "/usr/share/icons"]
-
-
-def ensure_icon_search_paths():
-    missing = [directory for directory in ICON_DIRECTORIES if directory not in QIcon.themeSearchPaths()]
-    QIcon.setThemeSearchPaths(QIcon.themeSearchPaths() + missing)
 
 
 def paint_bang(pixmap):
     painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.Antialiasing)
     painter.setPen(QPen(Qt.black, 1))
     painter.setBrush(QColor("#FFFF00"))
     painter.drawPolygon(QPolygon([QPoint(5, 15), QPoint(14, 15), QPoint(9, 6)]))
@@ -277,250 +280,205 @@ def themed_icon(name, badged=False):
     return _icon_cache[key]
 
 
-def make_item(text, icon_name, badged=False, payload=None):
+def tree_item(text, icon_name, device=None, badged=False):
     item = QTreeWidgetItem([text])
     item.setIcon(0, themed_icon(icon_name, badged))
-    item.setData(0, ITEM_ROLE, payload)
+    item.setData(0, ITEM_ROLE, device)
     return item
 
 
-def pod_item(pod):
-    return make_item(pod.name, icon_name_for_pod(pod), badged=not pod_is_healthy(pod), payload=pod)
+def device_item(device):
+    return tree_item(device.name, CATEGORIES.get(device.category, "dialog-question"), device, badged=not device.working)
 
 
-def node_item(node):
-    label = f"{node.name}  {', '.join(node.roles)}"
-    return make_item(label, "computer", badged=not node.ready, payload=node)
-
-
-def build_by_type(root, snapshot):
-    nodes_category = make_item("Nodes", "computer")
-    for node in snapshot.nodes:
-        nodes_category.addChild(node_item(node))
-    root.addChild(nodes_category)
-    nodes_category.setExpanded(True)
-
-    namespaces_category = make_item("Namespaces", "folder")
-    namespaces = sorted({pod.namespace for pod in snapshot.pods})
-    for namespace in namespaces:
-        namespace_item = make_item(namespace, "folder")
-        pods_in_namespace = sorted(
-            (pod for pod in snapshot.pods if pod.namespace == namespace), key=lambda pod: pod.name
-        )
-        for pod in pods_in_namespace:
-            namespace_item.addChild(pod_item(pod))
-        namespaces_category.addChild(namespace_item)
-    root.addChild(namespaces_category)
-    namespaces_category.setExpanded(any(not pod_is_healthy(pod) for pod in snapshot.pods))
-    for index in range(namespaces_category.childCount()):
-        namespace_item = namespaces_category.child(index)
-        namespace_item.setExpanded(
-            any(
-                not pod_is_healthy(namespace_item.child(pod_index).data(0, ITEM_ROLE))
-                for pod_index in range(namespace_item.childCount())
-            )
-        )
-
-    services_category = make_item("Services", "network-wired")
-    for service in sorted(snapshot.services, key=lambda s: (s.namespace, s.name))[:SERVICE_CAP]:
-        label = f"{service.namespace}/{service.name} ({service.service_type} {service.cluster_ip})"
-        services_category.addChild(make_item(label, "network-wired", payload=service))
-    root.addChild(services_category)
-
-    storage_category = make_item("Storage", "drive-harddisk")
-    for claim in sorted(snapshot.claims, key=lambda c: (c.namespace, c.name)):
-        label = f"{claim.namespace}/{claim.name} ({claim.capacity}, {claim.phase})"
-        storage_category.addChild(make_item(label, "drive-harddisk", badged=claim.phase != "Bound", payload=claim))
-    root.addChild(storage_category)
-
-
-def build_by_connection(root, snapshot):
-    for node in snapshot.nodes:
-        item = node_item(node)
-        pods_on_node = sorted(
-            (pod for pod in snapshot.pods if pod.node == node.name), key=lambda pod: (pod.namespace, pod.name)
-        )
-        for pod in pods_on_node:
-            item.addChild(pod_item(pod))
-        root.addChild(item)
-        item.setExpanded(any(not pod_is_healthy(pod) for pod in pods_on_node))
+def connection_items(device):
+    item = device_item(device)
+    for child in device.children:
+        item.addChild(connection_items(child))
+    return item
 
 
 def build_tree(tree, snapshot, by_connection):
     tree.clear()
-    root = make_item(snapshot.cluster_name, "computer")
-    tree.addTopLevelItem(root)
-    if not snapshot.connected:
-        root.addChild(make_item("Kubernetes cluster (not connected)", "network-wired", badged=True))
-    elif by_connection:
-        build_by_connection(root, snapshot)
+    root = tree_item(snapshot.computer.name, "computer")
+    if by_connection:
+        for child in snapshot.computer.children:
+            root.addChild(connection_items(child))
     else:
-        build_by_type(root, snapshot)
+        for category, members in by_type(snapshot.devices).items():
+            branch = tree_item(category, CATEGORIES[category])
+            for device in members:
+                branch.addChild(device_item(device))
+            root.addChild(branch)
+    tree.addTopLevelItem(root)
     root.setExpanded(True)
+    for index in range(root.childCount()):  # a class with a device in trouble starts open, as the original's did
+        branch = root.child(index)
+        branch.setExpanded(any(not branch.child(row).data(0, ITEM_ROLE).working for row in range(branch.childCount())))
+    return root
 
 
-def pod_fields(pod):
-    return [
-        ("Name:", pod.name),
-        ("Namespace:", pod.namespace),
-        ("Node:", pod.node or "(unscheduled)"),
-        ("Phase:", pod.phase),
-        ("Restarts:", str(pod.restarts)),
-        ("Image(s):", "\n".join(pod.images)),
-        ("Age:", pod.age),
-    ]
+def summary_text(snapshot):
+    if snapshot.error:
+        return snapshot.error
+    broken = sum(1 for device in snapshot.devices if not device.working)
+    return f"{len(snapshot.devices)} devices" + (f", {broken} without a driver" if broken else "")
 
 
-def node_fields(node):
-    return [
-        ("Name:", node.name),
-        ("Roles:", ", ".join(node.roles)),
-        ("Kubelet:", node.kubelet_version),
-        ("Ready:", "Yes" if node.ready else "No"),
-        ("Age:", node.age),
-    ]
-
-
-def service_fields(service):
-    return [
-        ("Name:", service.name),
-        ("Namespace:", service.namespace),
-        ("Type:", service.service_type),
-        ("Cluster IP:", service.cluster_ip),
-    ]
-
-
-def claim_fields(claim):
-    return [
-        ("Name:", claim.name),
-        ("Namespace:", claim.namespace),
-        ("Capacity:", claim.capacity),
-        ("Phase:", claim.phase),
-    ]
-
-
-def describe(payload):
-    if isinstance(payload, Pod):
-        return pod_fields(payload), pod_is_healthy(payload), pod_status_text(payload)
-    if isinstance(payload, Node):
-        return node_fields(payload), payload.ready, "Ready" if payload.ready else "NotReady"
-    if isinstance(payload, Service):
-        return service_fields(payload), True, ""
-    return claim_fields(payload), payload.phase == "Bound", payload.phase
+def field_rows(layout, rows):
+    for label, value in rows:
+        value_label = QLabel(value)
+        value_label.setWordWrap(True)
+        layout.addRow(label, value_label)
 
 
 class PropertiesDialog(QDialog):
-    def __init__(self, payload, icon, parent=None):
+    """The device's property sheet: General, Driver and Resources, as the original's, to look at only."""
+
+    def __init__(self, device, icon, parent=None, sysfs_root=SYSFS_PCI):
         super().__init__(parent)
-        self.setWindowTitle(f"{payload.name} Properties")
-        fields, healthy, status_text = describe(payload)
-
+        self.setWindowTitle(f"{device.name} Properties")
+        self.tabs = QTabWidget()
+        self.tabs.addTab(self.general_page(device, icon), "General")
+        self.tabs.addTab(self.driver_page(device), "Driver")
+        self.tabs.addTab(self.resources_page(resources_of(device, sysfs_root)), "Resources")
+        ok_button = chicago95ui.dialog_button("OK")
+        cancel_button = chicago95ui.dialog_button("Cancel")
+        ok_button.clicked.connect(self.accept)
+        cancel_button.clicked.connect(self.reject)
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+        buttons.addWidget(ok_button)
+        buttons.addWidget(cancel_button)
         layout = QVBoxLayout(self)
-        header = QHBoxLayout()
-        icon_label = QLabel()
-        icon_label.setPixmap(icon.pixmap(QSize(32, 32)))
-        header.addWidget(icon_label)
-        header.addWidget(QLabel(payload.name), 1)
-        layout.addLayout(header)
+        layout.addWidget(self.tabs)
+        layout.addLayout(buttons)
+        self.resize(400, 440)
 
-        form = QFormLayout()
-        for label, value in fields:
-            value_label = QLabel(value)
-            value_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-            form.addRow(QLabel(label), value_label)
-        layout.addLayout(form)
+    def general_page(self, device, icon):
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        heading = QHBoxLayout()
+        picture = QLabel()
+        picture.setPixmap(icon.pixmap(32, 32))
+        heading.addWidget(picture)
+        heading.addWidget(QLabel(device.name), 1)
+        layout.addLayout(heading)
+        fields = QFormLayout()
+        field_rows(fields, general_fields(device))
+        layout.addLayout(fields)
+        status = QGroupBox("Device status")
+        status_text = QLabel(device.status)
+        status_text.setWordWrap(True)
+        QVBoxLayout(status).addWidget(status_text)
+        layout.addWidget(status)
+        usage = QGroupBox("Device usage")
+        disable = QCheckBox("Disable in this hardware profile")
+        disable.setEnabled(False)
+        exists = QCheckBox("Exists in all hardware profiles")
+        exists.setChecked(True)
+        exists.setEnabled(False)
+        usage_layout = QVBoxLayout(usage)
+        usage_layout.addWidget(disable)
+        usage_layout.addWidget(exists)
+        layout.addWidget(usage)
+        layout.addStretch(1)
+        return page
 
-        status_group = QGroupBox("Device status")
-        status_layout = QVBoxLayout(status_group)
-        message = (
-            "This device is working properly."
-            if healthy
-            else f"This device is not working properly. (Code 10)\n{status_text}"
-        )
-        status_label = QLabel(message)
-        status_label.setWordWrap(True)
-        status_layout.addWidget(status_label)
-        layout.addWidget(status_group)
+    def driver_page(self, device):
+        page = QWidget()
+        fields = QFormLayout(page)
+        field_rows(fields, driver_fields(device))
+        return page
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
-        buttons.accepted.connect(self.accept)
-        layout.addWidget(buttons)
+    def resources_page(self, rows):
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.addWidget(QLabel("Resource settings:"))
+        self.resources = QTreeWidget()
+        self.resources.setHeaderLabels(["Resource type", "Setting"])
+        self.resources.setRootIsDecorated(False)
+        for resource_type, setting in rows:
+            self.resources.addTopLevelItem(QTreeWidgetItem([resource_type, setting]))
+        if not rows:
+            self.resources.addTopLevelItem(
+                QTreeWidgetItem(
+                    [
+                        "No resources: not a PCI device, or its resources are not readable.",
+                        "",
+                    ]
+                )
+            )
+        layout.addWidget(self.resources, 1)
+        return page
 
 
 class DeviceManagerWindow(QWidget):
-    def __init__(self):
+    def __init__(self, load=load_snapshot):
         super().__init__()
+        self.load = load
         self.setWindowTitle("Device Manager")
         self.setWindowIcon(QIcon.fromTheme("computer"))
         self.resize(420, 480)
         self.snapshot = None
-
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(6)
-
         self.by_type_radio = QRadioButton("View devices by &type")
         self.by_connection_radio = QRadioButton("View devices by &connection")
         self.by_type_radio.setChecked(True)
-        radio_group = QButtonGroup(self)
-        radio_group.addButton(self.by_type_radio)
-        radio_group.addButton(self.by_connection_radio)
+        radios = QButtonGroup(self)
+        radios.addButton(self.by_type_radio)
+        radios.addButton(self.by_connection_radio)
         radio_row = QHBoxLayout()
         radio_row.addWidget(self.by_type_radio)
         radio_row.addWidget(self.by_connection_radio)
         radio_row.addStretch()
         layout.addLayout(radio_row)
         self.by_type_radio.toggled.connect(self.rebuild_tree)
-
         self.status_label = QLabel("Searching for devices...")
         layout.addWidget(self.status_label)
-
         panel = chicago95ui.sunken_panel()
         panel_layout = QVBoxLayout(panel)
         panel_layout.setContentsMargins(0, 0, 0, 0)
         self.tree = QTreeWidget()
         self.tree.setHeaderHidden(True)
-        self.tree.setAlternatingRowColors(False)
         self.tree.setIconSize(QSize(ICON_SIZE, ICON_SIZE))
         self.tree.setIndentation(20)
-        self.tree.setRootIsDecorated(True)
         self.tree.setFrameShape(QTreeWidget.NoFrame)
-        self.tree.itemDoubleClicked.connect(lambda item, _column: self.show_properties())
+        self.tree.itemDoubleClicked.connect(lambda _item, _column: self.show_properties())
         self.tree.itemSelectionChanged.connect(self.update_buttons)
         panel_layout.addWidget(self.tree)
         layout.addWidget(panel, 1)
-
-        self.properties_button = QPushButton("P&roperties...")
+        self.properties_button = chicago95ui.dialog_button("P&roperties...")
         self.properties_button.clicked.connect(self.show_properties)
-        refresh_button = QPushButton("Re&fresh")
+        refresh_button = chicago95ui.dialog_button("Re&fresh")
         refresh_button.clicked.connect(self.refresh)
-        remove_button = QPushButton("R&emove")
-        remove_button.setEnabled(False)
-        print_button = QPushButton("Pri&nt...")
-        print_button.setEnabled(False)
         action_row = QHBoxLayout()
-        for button in (self.properties_button, refresh_button, remove_button, print_button):
-            button.setFixedHeight(23)
+        for button in (
+            self.properties_button,
+            refresh_button,
+            chicago95ui.dialog_button("R&emove", enabled=False),
+            chicago95ui.dialog_button("Pri&nt...", enabled=False),
+        ):
             action_row.addWidget(button)
         layout.addLayout(action_row)
-
-        ok_button = QPushButton("OK")
+        ok_button = chicago95ui.dialog_button("OK")
         ok_button.setDefault(True)
         ok_button.clicked.connect(self.close)
-        cancel_button = QPushButton("Cancel")
+        cancel_button = chicago95ui.dialog_button("Cancel")
         cancel_button.clicked.connect(self.close)
         dialog_row = QHBoxLayout()
         dialog_row.addStretch()
-        for button in (ok_button, cancel_button):
-            button.setFixedSize(75, 23)
-            dialog_row.addWidget(button)
+        dialog_row.addWidget(ok_button)
+        dialog_row.addWidget(cancel_button)
         layout.addLayout(dialog_row)
         self.update_buttons()
 
     def refresh(self):
         self.status_label.setText("Searching for devices...")
         QApplication.processEvents()
-        self.snapshot = load_snapshot()
+        self.snapshot = self.load()
         self.rebuild_tree()
 
     def rebuild_tree(self):
@@ -530,35 +488,39 @@ class DeviceManagerWindow(QWidget):
         self.status_label.setText(summary_text(self.snapshot))
         self.update_buttons()
 
-    def update_buttons(self):
+    def selected_device(self):
         selected = self.tree.currentItem()
-        self.properties_button.setEnabled(selected is not None and selected.data(0, ITEM_ROLE) is not None)
+        return selected.data(0, ITEM_ROLE) if selected is not None else None
+
+    def update_buttons(self):
+        self.properties_button.setEnabled(self.selected_device() is not None)
 
     def show_properties(self):
-        selected = self.tree.currentItem()
-        if selected is None or selected.data(0, ITEM_ROLE) is None:
-            return
-        PropertiesDialog(selected.data(0, ITEM_ROLE), selected.icon(0), self).exec()
+        device = self.selected_device()
+        if device is not None:
+            PropertiesDialog(device, self.tree.currentItem().icon(0), self).exec()
 
-
-def summary_text(snapshot):
-    if not snapshot.connected:
-        return "kubectl could not reach the cluster."
-    unhealthy = sum(1 for pod in snapshot.pods if not pod_is_healthy(pod))
-    return f"{len(snapshot.nodes)} nodes, {len(snapshot.pods)} pods, {unhealthy} with problems"
+    def item_texts(self):
+        """Every row's text, indented by depth: what the tree shows."""
+        rows = []
+        iterator = QTreeWidgetItemIterator(self.tree)
+        while iterator.value():
+            item = iterator.value()
+            depth = -1
+            while item is not None:
+                item, depth = item.parent(), depth + 1
+            rows.append("  " * depth + iterator.value().text(0))
+            iterator += 1
+        return rows
 
 
 def main():
-    screenshot_path = None
-    if "--screenshot" in sys.argv:
-        screenshot_path = sys.argv[sys.argv.index("--screenshot") + 1]
+    screenshot_path = sys.argv[sys.argv.index("--screenshot") + 1] if "--screenshot" in sys.argv else None
     app = chicago95ui.make_app("Device Manager")
-    ensure_icon_search_paths()
     window = DeviceManagerWindow()
     window.refresh()
     if screenshot_path:
-        window.grab().save(screenshot_path)
-        return 0
+        return 0 if window.grab().save(screenshot_path) else 1
     window.show()
     return app.exec()
 

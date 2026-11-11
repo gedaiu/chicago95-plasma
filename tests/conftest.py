@@ -30,6 +30,18 @@ def forget_screen_scale():
     chicago95ui.screen_scale.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def close_windows_left_open():
+    """Windows a test leaves shown pile up across the run, and a later real event loop crashes on one of them."""
+    yield
+    from PySide6.QtWidgets import QApplication
+
+    application = QApplication.instance()
+    for widget in application.topLevelWidgets() if application is not None else []:
+        if widget.isVisible():
+            widget.close()
+
+
 def run_bash_with_steps(tmp_path, script):
     """The output lines of a script that has setup/steps.sh's functions, in a home of its own."""
     return subprocess.run(

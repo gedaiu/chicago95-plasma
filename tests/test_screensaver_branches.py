@@ -15,6 +15,11 @@ from PySide6.QtWidgets import QApplication
 
 SCRIPT = REPO / "bin/chicago95-screensaver"
 EVENT_LOOP_DEADLINE_MS = 6000
+CHILD_FLAG = "CHICAGO95_EVENT_LOOP_TESTS_IN_CHILD"
+EVENT_LOOP_TESTS = "run_saver or run_blank or main_runs"
+in_a_process_of_its_own = pytest.mark.skipif(
+    not os.environ.get(CHILD_FLAG), reason="runs in a process of its own, started by the test that selects it"
+)
 
 
 @pytest.fixture(scope="session")
@@ -28,13 +33,6 @@ def keep_signal_handlers():
     yield
     for number, handler in saved.items():
         signal.signal(number, handler)
-
-
-@pytest.fixture(autouse=True)
-def start_without_windows_left_by_other_tests(qt_app):
-    QApplication.closeAllWindows()
-    QApplication.sendPostedEvents(None, QEvent.DeferredDelete)
-    qt_app.processEvents()
 
 
 @pytest.fixture
@@ -193,6 +191,7 @@ def test_catcher_finishes_on_a_mouse_move_beyond_the_slack(screensaver, qt_app):
     assert inputs == ["input"]
 
 
+@in_a_process_of_its_own
 def test_run_saver_returns_when_the_hack_exits_and_places_the_windows(screensaver, qt_app, tmp_path, fake_gdbus):
     hack_log = tmp_path / "hack.log"
     hack = fake_program(tmp_path / "hacks", "pipes", f'echo "$@ $QT_QPA_PLATFORM $GDK_BACKEND" > {hack_log}')
@@ -203,6 +202,7 @@ def test_run_saver_returns_when_the_hack_exits_and_places_the_windows(screensave
     assert (code, hack_log.read_text(), "loadScript" in fake_gdbus.read_text()) == (0, "--speed 3 xcb x11\n", True)
 
 
+@in_a_process_of_its_own
 def test_run_saver_terminates_the_hack_when_input_arrives(screensaver, qt_app, tmp_path, fake_gdbus):
     pid_file = tmp_path / "hack.pid"
     hack = fake_program(tmp_path / "hacks", "pipes", f"echo $$ > {pid_file}\nexec sleep 30")
@@ -226,6 +226,7 @@ def test_run_saver_terminates_the_hack_when_input_arrives(screensaver, qt_app, t
     )
 
 
+@in_a_process_of_its_own
 def test_run_blank_quits_on_input(screensaver, qt_app):
     def press_a_key():
         catcher = find_catcher()
@@ -265,6 +266,7 @@ def test_main_does_nothing_when_a_saver_already_runs(screensaver, runtime, tmp_p
     assert (screensaver.main(), screensaver.PID_FILE.read_text()) == (0, str(os.getpid()))
 
 
+@in_a_process_of_its_own
 def test_main_runs_the_blank_screen_and_removes_its_pid_file(screensaver, runtime, qt_app, tmp_path, monkeypatch):
     monkeypatch.setattr(screensaver, "HACK_DIRS", (str(tmp_path / "missing"),))
     monkeypatch.setattr(sys, "argv", ["chicago95-screensaver", "--hack", "blank"])
@@ -286,6 +288,7 @@ def test_main_runs_the_blank_screen_and_removes_its_pid_file(screensaver, runtim
     )
 
 
+@in_a_process_of_its_own
 def test_main_runs_the_hack_of_the_chosen_saver(screensaver, runtime, qt_app, tmp_path, fake_gdbus, monkeypatch):
     hacks = tmp_path / "hacks"
     hack_log = tmp_path / "hack.log"
@@ -328,3 +331,17 @@ def test_script_run_directly_exits_with_one_for_an_unknown_hack(tmp_path):
     )
 
     assert (result.returncode, result.stderr.startswith("no-such-saver is not installed; installed: ")) == (1, True)
+
+
+def test_the_event_loop_tests_pass_in_a_process_of_their_own(tmp_path):
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", __file__, "-k", EVENT_LOOP_TESTS, "-q", "-p", "no:cacheprovider"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+        env=dict(os.environ, **{CHILD_FLAG: "1"}, QT_QPA_PLATFORM="offscreen"),
+        cwd=tmp_path,
+    )
+
+    assert (result.returncode, result.stdout.splitlines()[-1].split(", ")[0]) == (0, "5 passed")

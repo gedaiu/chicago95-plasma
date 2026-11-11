@@ -113,7 +113,7 @@ def test_choosing_details_adds_each_applets_description_to_its_row_and_large_ico
     window.set_view("Large Icons")
 
     assert (details, item_texts(window)[:1]) == (
-        ["Add New Hardware  -  Opens the Device Manager to add or remove hardware."],
+        ["Add New Hardware  -  Opens the Device Manager, which lists the hardware."],
         ["Add New Hardware"],
     )
 
