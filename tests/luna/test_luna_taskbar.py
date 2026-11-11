@@ -117,6 +117,54 @@ def test_task_button_draws_the_pill_from_the_luna_plasma_theme(qt_app, qml_root,
     assert image.getpixel((80, 15)) != panel_colour(15) and image.getpixel((80, 1)) == panel_colour(1)
 
 
+def render_natural_start(qt_app, qml_root, installed, tmp_path, text):
+    """The Start button at its own width in a 300px strip: the image and the width it asked for."""
+    packages, themes = installed
+    (tmp_path / "natural.qml").write_text(
+        (STRIP.replace("width: %(item_width)d; ", ""))
+        % {
+            "folder": (packages / "org.chicago95.start/contents/ui/luna").as_uri(),
+            "themes": themes,
+            "width": 300,
+            "height": PANEL_HEIGHT,
+            "rows": hex_rows(PALETTE["taskbar"]),
+            "component": "StartButton",
+            "x": 0,
+            "item_width": 0,
+        }
+    )
+    view = QQuickView()
+    view.engine().addImportPath(str(qml_root))
+    view.setSource(QUrl.fromLocalFile(str(tmp_path / "natural.qml")))
+    item = view.rootObject().findChild(QQuickItem, "item")
+    item.setProperty("text", text)
+    view.show()
+    QTimer.singleShot(300, qt_app.quit)
+    qt_app.exec()
+    image = qimage_to_pil(view.grabWindow())
+    view.close()
+    return image, int(item.implicitWidth())
+
+
+def test_start_button_widens_for_a_longer_name_and_keeps_the_letters_inside_the_pill(
+    qt_app, qml_root, installed, tmp_path
+):
+    image, width = render_natural_start(qt_app, qml_root, installed, tmp_path, "start here")
+    ink_columns = [x for x in range(300) if any(image.getpixel((x, y)) == (255, 255, 255) for y in range(8, 26))]
+
+    assert (width > 98, ink_columns[-1] < width - 20, image.getpixel((width - 3, 15)) != panel_colour(15)) == (
+        True,
+        True,
+        True,
+    )
+
+
+def test_start_button_keeps_the_originals_98_pixels_for_start(qt_app, qml_root, installed, tmp_path):
+    _image, width = render_natural_start(qt_app, qml_root, installed, tmp_path, "start")
+
+    assert width == 98
+
+
 def column(image, x, rows):
     return [image.getpixel((x, row)) for row in rows]
 

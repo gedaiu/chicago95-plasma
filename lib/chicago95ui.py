@@ -757,7 +757,9 @@ class ClassicStyle(QProxyStyle):
                 option.rect.top() + (option.rect.height() - 13) // 2,
             )
             paint_bitmap(painter, left, top, CHECK_BOX, colours)
-            if option.state & QStyle.State_On:
+            if option.state & QStyle.State_NoChange:
+                painter.fillRect(left + 3, top + 3, 7, 7, colours["mark"])
+            elif option.state & QStyle.State_On:
                 paint_bitmap(painter, left + 2, top + 2, CHECK_MARK, {"K": colours["mark"]})
             return
         if element == QStyle.PE_IndicatorRadioButton:
@@ -798,6 +800,16 @@ class ClassicStyle(QProxyStyle):
         super().drawPrimitive(element, option, painter, widget)
 
     def drawControl(self, element, option, painter, widget=None):
+        if element == QStyle.CE_ComboBoxLabel and not option.state & QStyle.State_Enabled:
+            # QWindowsStyle engraves disabled combo labels unless a helper-specific proxy
+            # overrides it. Every combo must match, including unwrapped Qt controls.
+            from PySide6.QtWidgets import QStyleOptionComboBox
+
+            label = QStyleOptionComboBox(option)
+            label.state |= QStyle.State_Enabled
+            label.palette.setColor(QPalette.Text, option.palette.color(QPalette.Disabled, QPalette.Text))
+            super().drawControl(element, label, painter, widget)
+            return
         if element == QStyle.CE_RadioButton:
             self.draw_classic_radio_button(option, painter, widget)
             return

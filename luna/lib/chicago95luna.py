@@ -417,7 +417,9 @@ def paint_check_box(painter, option):
     painter.setRenderHint(QPainter.Antialiasing, False)
     paint_indicator_fill(painter, box, option)
     stroke_rect(painter, box, border)
-    if option.state & QStyle.State_On:
+    if option.state & QStyle.State_NoChange:
+        painter.fillRect(box.adjusted(3, 3, -3, -3), QColor(mark))
+    elif option.state & QStyle.State_On:
         paint_pixels(painter, box.left() + 3, box.top() + 3, CHECK_TICK, mark)
     painter.restore()
 

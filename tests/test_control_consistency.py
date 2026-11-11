@@ -60,6 +60,7 @@ def instances(kind, panel):
         owners.append(holder)
         radios = panel.radios("radio", "Options", [("", "a"), ("Other", "b")], "a")
         from PySide6.QtWidgets import QButtonGroup
+
         for group in radios.findChildren(QButtonGroup):
             group.setExclusive(False)
         widgets = [QRadioButton(), holder.findChildren(QRadioButton)[0], radios.findChildren(QRadioButton)[0]]
@@ -90,20 +91,33 @@ def instances(kind, panel):
 
 
 def normalize(widget, kind, state):
-    enabled = state != "disabled"
+    size = (120, 23)
+    if kind == "scroll-vertical":
+        size = (16, 160)
+    elif kind == "scroll-horizontal":
+        size = (160, 16)
+    widget.setFixedSize(*size)
+    widget.ensurePolished()
+    widget.grab()  # Settle the enclosing scroll area before setting a controlled range.
+    enabled = not state.startswith("disabled")
     widget.setEnabled(enabled)
-    widget.setAttribute(Qt.WA_UnderMouse, state == "hovered")
+    widget.setAttribute(Qt.WA_UnderMouse, "hovered" in state)
     widget.setFocusPolicy(Qt.NoFocus)
     widget.clearFocus()
     if kind in ("button", "checkbox", "radio"):
         widget.setText("Sample")
         widget.setAutoExclusive(False)
         widget.setCheckable(kind != "button")
-        widget.setChecked(state == "selected")
-        widget.setDown(state == "pressed")
+        widget.setChecked("selected" in state)
+        if kind == "checkbox":
+            widget.setTristate(True)
+            widget.setCheckState(
+                Qt.PartiallyChecked if "mixed" in state else Qt.Checked if "selected" in state else Qt.Unchecked
+            )
+        widget.setDown("pressed" in state)
         if kind == "button":
             widget.setAutoDefault(False)
-            widget.setDefault(False)
+            widget.setDefault("default" in state)
     elif kind == "input":
         widget.setText("Sample")
         widget.setCursorPosition(0)
@@ -119,14 +133,63 @@ def normalize(widget, kind, state):
             widget.setSingleStep(1)
         if kind == "slider":
             widget.setTickPosition(QSlider.NoTicks)
-    size = (120, 23)
-    if kind == "scroll-vertical":
-        size = (16, 160)
-    elif kind == "scroll-horizontal":
-        size = (160, 16)
-    widget.setFixedSize(*size)
-    widget.ensurePolished()
+    if "hovered" in state or "pressed" in state or state == "focused":
+        return paint_interaction(widget, kind, state)
     return qimage_to_pil(widget.grab().toImage())
+
+
+def paint_interaction(widget, kind, state):
+    """Drive precise QStyle subcontrols: setting underMouse alone doesn't hover a scroll thumb."""
+    from PySide6.QtGui import QImage, QPainter
+    from PySide6.QtWidgets import (
+        QStyle,
+        QStyleOptionButton,
+        QStyleOptionComboBox,
+        QStyleOptionSlider,
+        QStyleOptionSpinBox,
+    )
+
+    simple = {
+        "button": QStyle.CE_PushButton,
+        "checkbox": QStyle.CE_CheckBox,
+        "radio": QStyle.CE_RadioButton,
+    }
+    complex_controls = {
+        "combo": (QStyleOptionComboBox, QStyle.CC_ComboBox, QStyle.SC_ComboBoxArrow),
+        "spin": (QStyleOptionSpinBox, QStyle.CC_SpinBox, QStyle.SC_SpinBoxUp),
+        "slider": (QStyleOptionSlider, QStyle.CC_Slider, QStyle.SC_SliderHandle),
+        "scroll-horizontal": (QStyleOptionSlider, QStyle.CC_ScrollBar, QStyle.SC_ScrollBarSlider),
+        "scroll-vertical": (QStyleOptionSlider, QStyle.CC_ScrollBar, QStyle.SC_ScrollBarSlider),
+    }
+    if kind == "input":
+        return qimage_to_pil(widget.grab().toImage())
+    option = QStyleOptionButton() if kind in simple else complex_controls[kind][0]()
+    widget.initStyleOption(option)
+    option.state &= ~(QStyle.State_MouseOver | QStyle.State_Sunken | QStyle.State_HasFocus)
+    if "hovered" in state:
+        option.state |= QStyle.State_MouseOver
+    if "pressed" in state:
+        option.state |= QStyle.State_Sunken
+    if state == "focused":
+        option.state |= QStyle.State_HasFocus | QStyle.State_KeyboardFocusChange
+    if kind not in simple:
+        option.activeSubControls = complex_controls[kind][2]
+        if state.endswith("arrow") and kind.startswith("scroll"):
+            option.activeSubControls = QStyle.SC_ScrollBarSubLine
+        if state.endswith("down") and kind == "spin":
+            option.activeSubControls = QStyle.SC_SpinBoxDown
+    image = QImage(widget.size(), QImage.Format_RGB32)
+    image.fill(widget.palette().window().color())
+    painter = QPainter(image)
+    painter.setFont(widget.font())
+    if kind in simple:
+        widget.style().drawControl(simple[kind], option, painter, widget)
+    else:
+        widget.style().drawComplexControl(complex_controls[kind][1], option, painter, widget)
+        if kind == "combo":
+            widget.style().drawControl(QStyle.CE_ComboBoxLabel, option, painter, widget)
+    painter.end()
+    return qimage_to_pil(image)
 
 
 def assert_same(expected, actual, path):
@@ -144,8 +207,24 @@ def assert_same(expected, actual, path):
     pytest.fail(f"{pixels}/{width * height} pixels differ; see {path}.[expected|actual|diff].png")
 
 
-@pytest.mark.parametrize("kind", KINDS)
-@pytest.mark.parametrize("state", ("normal", "disabled", "hovered", "pressed", "selected"))
+CASES = [(kind, state) for kind in KINDS for state in ("normal", "disabled")]
+CASES += [(kind, state) for kind in KINDS if kind != "input" for state in ("hovered", "pressed", "focused")]
+CASES += [(kind, "selected") for kind in ("checkbox", "radio")]
+CASES += [("checkbox", "mixed")]
+CASES += [
+    (kind, state) for kind in ("scroll-horizontal", "scroll-vertical") for state in ("hovered-arrow", "pressed-arrow")
+]
+CASES += [("spin", state) for state in ("hovered-down", "pressed-down")]
+CASES += [
+    (kind, state)
+    for kind in ("checkbox", "radio")
+    for state in ("selected-hovered", "selected-pressed", "disabled-selected")
+]
+CASES += [("checkbox", "disabled-mixed")]
+CASES += [("button", state) for state in ("default", "default-hovered", "default-pressed", "disabled-default")]
+
+
+@pytest.mark.parametrize("kind,state", CASES)
 def test_same_control_across_construction_paths(look, kind, state, qt_app, control_panel, tmp_path):
     panel = control_panel.SettingsTab({}, {})
     widgets, owners = instances(kind, panel)
@@ -160,3 +239,12 @@ def test_same_control_across_construction_paths(look, kind, state, qt_app, contr
         for root in roots.values():
             if shiboken6.isValid(root):
                 shiboken6.delete(root)
+
+
+def test_checkbox_mixed_state_is_visibly_distinct(look, qt_app):
+    box = QCheckBox()
+    try:
+        images = [normalize(box, "checkbox", state) for state in ("normal", "selected", "mixed")]
+        assert len({image.tobytes() for image in images}) == 3
+    finally:
+        box.close()

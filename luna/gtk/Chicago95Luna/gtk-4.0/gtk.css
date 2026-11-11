@@ -101,6 +101,9 @@
 @define-color error_fg_color #FFFFFF;
 @define-color error_color #CC0000;
 @define-color border_color #D0D0BF;
+check, radio {
+  -gtk-icon-size: 11px;
+}
 * {
   font-family: Tahoma, "Wine Tahoma", "DejaVu Sans Condensed", sans-serif;
   font-size: 8pt;
@@ -208,9 +211,10 @@ spinbutton button:active, combobox button:active {
   box-shadow: none;
 }
 
-check, radio {
-  min-width: 13px;
-  min-height: 13px;
+check, radio, checkbutton > check, checkbutton > radio, radiobutton > radio {
+  min-width: 11px;
+  min-height: 11px;
+  padding: 0;
   margin: 0 3px 0 0;
   border: 1px solid #1C5180;
   background-image: linear-gradient(to bottom, #DCDCD7 0%, #FFFFFF 100%);
@@ -219,7 +223,7 @@ check, radio {
 }
 
 check {
-  border-radius: 1px;
+  border-radius: 0;
 }
 
 radio {
@@ -235,17 +239,17 @@ check:active, radio:active {
 }
 
 check:checked, check:indeterminate {
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMyIgaGVpZ2h0PSIxMyI+PHBhdGggZD0iTTggM2gydjFoLTJ6TTcgNGgzdjFoLTN6TTMgNWgxdjFoLTF6TTYgNWgzdjFoLTN6TTMgNmgydjFoLTJ6TTYgNmgydjFoLTJ6TTQgN2gzdjFoLTN6TTUgOGgydjFoLTJ6TTYgOWgxdjFoLTF6IiBmaWxsPSIjMjFBMTIxIi8+PC9zdmc+"), linear-gradient(to bottom, #DCDCD7 0%, #FFFFFF 100%);
+  background-image: url("assets/tick-21A121.png"), linear-gradient(to bottom, #DCDCD7 0%, #FFFFFF 100%);
   background-repeat: no-repeat;
   background-position: center;
 }
 
 check:indeterminate {
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMyIgaGVpZ2h0PSIxMyI+PHBhdGggZD0iTTggM2gydjFoLTJ6TTcgNGgzdjFoLTN6TTMgNWgxdjFoLTF6TTYgNWgzdjFoLTN6TTMgNmgydjFoLTJ6TTYgNmgydjFoLTJ6TTQgN2gzdjFoLTN6TTUgOGgydjFoLTJ6TTYgOWgxdjFoLTF6IiBmaWxsPSIjQ0FDOEJCIi8+PC9zdmc+"), linear-gradient(to bottom, #DCDCD7 0%, #FFFFFF 100%);
+  background-image: url("assets/mixed-21A121.png"), linear-gradient(to bottom, #DCDCD7 0%, #FFFFFF 100%);
 }
 
 radio:checked {
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMyIgaGVpZ2h0PSIxMyI+PGNpcmNsZSBjeD0iNi41IiBjeT0iNi41IiByPSIyLjUiIGZpbGw9IiMyMUExMjEiLz48L3N2Zz4="), linear-gradient(to bottom, #DCDCD7 0%, #FFFFFF 100%);
+  background-image: url("assets/dot-21A121.png"), linear-gradient(to bottom, #DCDCD7 0%, #FFFFFF 100%);
   background-repeat: no-repeat;
   background-position: center;
 }
@@ -256,11 +260,15 @@ check:disabled, radio:disabled {
 }
 
 check:checked:disabled, check:indeterminate:disabled {
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMyIgaGVpZ2h0PSIxMyI+PHBhdGggZD0iTTggM2gydjFoLTJ6TTcgNGgzdjFoLTN6TTMgNWgxdjFoLTF6TTYgNWgzdjFoLTN6TTMgNmgydjFoLTJ6TTYgNmgydjFoLTJ6TTQgN2gzdjFoLTN6TTUgOGgydjFoLTJ6TTYgOWgxdjFoLTF6IiBmaWxsPSIjQ0FDOEJCIi8+PC9zdmc+"), linear-gradient(to bottom, #FFFFFF 0%, #FFFFFF 100%);
+  background-image: url("assets/tick-CAC8BB.png"), linear-gradient(to bottom, #FFFFFF 0%, #FFFFFF 100%);
+}
+
+check:indeterminate:disabled {
+  background-image: url("assets/mixed-CAC8BB.png"), linear-gradient(to bottom, #FFFFFF, #FFFFFF);
 }
 
 radio:checked:disabled {
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMyIgaGVpZ2h0PSIxMyI+PGNpcmNsZSBjeD0iNi41IiBjeT0iNi41IiByPSIyLjUiIGZpbGw9IiNDQUM4QkIiLz48L3N2Zz4="), linear-gradient(to bottom, #FFFFFF 0%, #FFFFFF 100%);
+  background-image: url("assets/dot-CAC8BB.png"), linear-gradient(to bottom, #FFFFFF 0%, #FFFFFF 100%);
 }
 
 notebook > stack, notebook > .frame {

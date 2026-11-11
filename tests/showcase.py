@@ -24,7 +24,7 @@ def themed(app, look):
     chicago95ui.apply_style(app)
 
 
-def qml_image(app, path, size, context=None, properties=None):
+def qml_image(app, path, size, context=None, properties=None, metadata=()):
     from PySide6.QtCore import QEventLoop, QTimer, QUrl
     from PySide6.QtQuick import QQuickView
 
@@ -43,6 +43,10 @@ def qml_image(app, path, size, context=None, properties=None):
     QTimer.singleShot(350, loop.quit)
     loop.exec()
     image = qimage_to_pil(view.grabWindow())
+    image.info["geometry"] = {}
+    for name in metadata:
+        value = view.rootObject().property(name)
+        image.info["geometry"][name] = value.toVariant() if hasattr(value, "toVariant") else value
     view.close()
     return image
 
@@ -62,7 +66,14 @@ def boot(app, look, scratch):
         return render_luna_splash(app, size=SIZE)
     folder = scratch / "boot"
     shutil.copytree(REPO / "splash/chicago95.splashscreen/contents/splash", folder)
+    from render_report import DEFAULT_LOGO, WAVING_FLAG
+
     settings = (folder / "settings.js").read_text().replace('var style = "classic"', 'var style = "2000"')
+    logo = WAVING_FLAG if WAVING_FLAG.exists() else DEFAULT_LOGO
+    settings = settings.replace('var brandLogo = ""', f"var brandLogo = {json.dumps(str(logo))}")
+    settings = settings.replace(
+        'var brandText = "Chicago95"', f'var brandText = "Windows {"XP" if look == "2001" else "2000"}"'
+    )
     (folder / "settings.js").write_text(settings)
     return qml_image(app, folder / "Splash.qml", SIZE, properties={"stage": 3})
 
@@ -74,6 +85,25 @@ def login(app, look, scratch):
         from luna_qml import render_luna_login
 
         return render_luna_login(app, size=SIZE, user="Alex", users=("Alex",))
+    banner = None
+    if look in ("2000", "2001"):
+        from conftest import load_script
+        from render_report import DEFAULT_LOGO, WAVING_FLAG
+
+        banner = scratch / "login-banner.png"
+        load_script("chicago95-shutdown").render_login_banner(
+            {
+                "style": look,
+                "osName": "Windows XP" if look == "2001" else "Windows 2000",
+                "bannerText": "Windows XP" if look == "2001" else "Windows 2000",
+                "osCompany": "Microsoft",
+                "edition": "Professional",
+                "osLogo": str(WAVING_FLAG if WAVING_FLAG.exists() else DEFAULT_LOGO),
+                "companyLogo": "",
+                "tagline": "Built on NT Technology",
+            },
+            banner,
+        )
     return render_login(
         app,
         scratch / "login",
@@ -81,6 +111,7 @@ def login(app, look, scratch):
         user="Alex",
         users=("Alex",),
         host_name="CHICAGO95",
+        banner=banner,
         loginStyle="2000" if look in ("2000", "2001") else "classic",
         titleActive={"1995": "#000080", "1998": "#000080,#1084d0"}.get(look, "#0a246a,#a6caf0"),
     )
@@ -94,6 +125,8 @@ def taskbars(app, look, scratch):
     scratch.mkdir(parents=True, exist_ok=True)
     luna = look == "luna"
     themes = scratch / "themes"
+    bar_height = 30 if luna else 28
+    applet_y, applet_height = (0, 30) if luna else (2, 24)
     name = "Chicago95Luna" if luna else "Chicago95"
     target = themes / name
     shutil.copytree(REPO / ("luna/plasma-style/theme" if luna else "plasma-style/theme"), target)
@@ -173,11 +206,15 @@ def taskbars(app, look, scratch):
                 + json.dumps(PALETTE["taskbar"])
                 + "; Rectangle { required property string modelData; width: 800; height: 1; color: modelData } } }"
             )
-            start = f'Start.StartButton {{ width: {start_width}; height: 30; text: "start" }}'
+            start = f'Start.StartButton {{ id: startButton; width: {start_width}; height: 30; text: "start" }}'
         else:
-            background = f'color: "{LOOKS[look]["face"]}"'
+            background = (
+                f'color: "{LOOKS[look]["face"]}"\n'
+                'KSvg.FrameSvgItem { anchors.fill: parent; imagePath: "widgets/panel-background"; '
+                "enabledBorders: KSvg.FrameSvg.TopBorder }"
+            )
             start = (
-                f'Start.StartButton {{ x: 2; y: 2; width: {start_width}; height: 26; text: "Start"; '
+                'Start.StartButton { id: startButton; x: 2; y: 2; width: implicitWidth; height: 24; text: "Start"; '
                 f'logoSource: "{DEFAULT_LOGO.as_uri()}"; look: "{look}"; '
                 f'bevel: "{"2000" if look in ("2000", "2001") else "1995"}"; face: "{LOOKS[look]["face"]}" }}'
             )
@@ -185,9 +222,9 @@ def taskbars(app, look, scratch):
         tray_icons = ["audio-volume-high", "network-wired", "battery", "printer", "input-keyboard"]
         tray_chevron = (
             (
-                "Tray.TrayChevron { x: 674; y: 8; hovered: root.hovered; held: root.held }"
+                "Tray.TrayChevron { x: root.trayLeft - 8; y: 7; hovered: root.hovered; held: root.held }"
                 if luna
-                else f"Image {{ x: 679; y: 9; width: 16; height: 16; "
+                else f"Image {{ x: root.trayLeft + root.trayPadding; y: root.iconTop; width: 16; height: 16; "
                 f'source: "{(REPO / "data/icons/tray-chevron.png").as_uri()}"; smooth: false }}'
             )
             if overflow
@@ -199,7 +236,7 @@ def taskbars(app, look, scratch):
                 "import org.kde.ksvg as KSvg",
                 "import org.kde.kirigami as Kirigami",
                 *imports,
-                "Rectangle { id: root; width: 800; height: 30",
+                f"Rectangle {{ id: root; width: 800; height: {bar_height}",
                 f'Component.onCompleted: {{ KSvg.ImageSet.basePath = "{themes}"; '
                 f'KSvg.ImageSet.imageSetName = "{name}" }}',
                 f"property bool hovered: {str(state == 'hovered').lower()}",
@@ -207,42 +244,65 @@ def taskbars(app, look, scratch):
                 f"property var launchers: {json.dumps(launchers if overflow else launchers[:3])}",
                 f"property var titles: {json.dumps(titles)}",
                 f"property var trayIcons: {json.dumps(tray_icons if overflow else tray_icons[:2])}",
+                "property int shownTrayIcons: Math.min(2, trayIcons.length)",
+                "property bool trayOverflow: trayIcons.length > shownTrayIcons",
+                f"property int trayPadding: {11 if luna else 4 if look in ('2000', '2001') else 3}",
+                f"property int clockGap: {4 if look in ('2000', '2001') else 1}",
+                f"property int iconTop: {7}",
+                "property int arrowWidth: trayOverflow ? 16 : 0",
+                "property int firstTrayIcon: clock.x - clockGap - 16 - (shownTrayIcons - 1) * 17",
+                f"property int trayLeft: firstTrayIcon - trayPadding - {'0' if luna else 'arrowWidth'}",
                 f'property var metrics: Band.metrics("{look}")',
-                f"property var band: Band.layout(664, {start_width + 3}, metrics.separatorLead, launchers.length, "
+                "property var band: Band.layout(trayLeft - 4, startButton.x + startButton.width + 3, "
+                "metrics.separatorLead, launchers.length, "
                 f'{band_size}, "{dock}", metrics)',
                 "property int taskWidth: Math.min(165, "
                 "Math.floor((band.tasksEnd - band.tasksX - 6) / Math.max(1, titles.length)) - 3)",
                 background,
                 start,
-                "Tasks.Separator { x: root.band.leftSeparatorX; y: 2; height: 26 }",
+                f"Tasks.Separator {{ x: root.band.leftSeparatorX; y: {applet_y}; height: {applet_height} }}",
                 "Repeater { model: root.band.shown; Tasks.QuickLaunchButton { required property int index; "
-                "x: root.band.cellsX + index * root.metrics.cellWidth; y: 2; "
-                "width: root.metrics.cellWidth; height: 26; "
+                f"x: root.band.cellsX + index * root.metrics.cellWidth; y: {applet_y}; "
+                f"width: root.metrics.cellWidth; height: {applet_height}; "
                 "icon: root.launchers[root.band.firstShown + index] } }",
-                f"Tasks.Chevron {{ visible: root.band.chevronX >= 0; x: root.band.chevronX; y: 2; "
-                f"width: root.metrics.chevronWidth; height: 26; pointsRight: {str(dock == 'left').lower()}; "
+                f"Tasks.Chevron {{ visible: root.band.chevronX >= 0; x: root.band.chevronX; y: {applet_y}; "
+                f"width: root.metrics.chevronWidth; height: {applet_height}; "
+                f"pointsRight: {str(dock == 'left').lower()}; "
                 "hovered: root.hovered; held: root.held }",
-                "Tasks.Separator { x: root.band.rightSeparatorX; y: 2; height: 26 }",
+                f"Tasks.Separator {{ x: root.band.rightSeparatorX; y: {applet_y}; height: {applet_height} }}",
                 "Repeater { model: root.titles; Tasks.TaskButton { required property string modelData; "
                 "required property int index; "
-                "x: root.band.tasksX + index * (root.taskWidth + 3); y: 1; width: root.taskWidth; height: 28; "
+                f"x: root.band.tasksX + index * (root.taskWidth + 3); y: {applet_y}; "
+                f"width: root.taskWidth; height: {applet_height}; "
                 'text: modelData; icon: ["folder", "preferences-desktop-display", "text-x-generic"][index % 3]; '
                 + task_settings
                 + " pressed: index === 1 } }",
-                "Tray.TrayBox { x: 680; width: 120; height: 30 }",
+                f"Tray.TrayBox {{ x: root.trayLeft; y: {applet_y}; "
+                f"width: root.width - x - {0 if luna else 2}; height: {applet_height} }}",
                 tray_chevron,
                 "Repeater { model: Math.min(2, root.trayIcons.length); Kirigami.Icon { required property int index; "
-                "x: 700 + index * 22; y: 9; width: 16; height: 16; source: root.trayIcons[index]; "
+                "x: root.firstTrayIcon + index * 17; y: root.iconTop; "
+                "width: 16; height: 16; source: root.trayIcons[index]; "
                 "roundToIconSize: false } }",
-                'Text { x: 750; y: 8; text: "10:30"; color: "'
-                + ("white" if luna else "black")
-                + '"; font.pixelSize: 11 }',
+                "Text { id: clock; x: root.width - implicitWidth - 8; y: Math.round((root.height - height) / 2); "
+                'text: "10:30"; color: "' + ("white" if luna else "black") + '"; font.pixelSize: 11 }',
                 "}",
             ]
         )
         path = scratch / f"taskbar-{index}.qml"
         path.write_text(text)
-        rows.append((f"Taskbar · {label}", None, qml_image(app, path, (800, 30))))
+        rows.append(
+            (
+                f"Taskbar · {label}",
+                None,
+                qml_image(
+                    app,
+                    path,
+                    (800, bar_height),
+                    metadata=("trayLeft", "firstTrayIcon", "arrowWidth", "iconTop", "band"),
+                ),
+            )
+        )
     return rows
 
 
@@ -378,7 +438,7 @@ def group(name):
     return "Containers and text"
 
 
-def gtk_controls(look, scratch):
+def gtk_controls(look, scratch, audit=False):
     """Run both GTK versions in one isolated compositor; absent runtimes are recorded, never faked."""
     import os
     import subprocess
@@ -392,7 +452,8 @@ def gtk_controls(look, scratch):
     if not shutil.which("kwin_wayland"):
         print("GTK controls omitted: kwin_wayland unavailable")
         return rows
-    with tempfile.TemporaryDirectory(prefix="c95-gtk-", dir="/tmp") as folder:
+    # Session services can finish flushing after KWin exits; cleanup must not discard valid renders.
+    with tempfile.TemporaryDirectory(prefix="c95-gtk-", dir="/tmp", ignore_cleanup_errors=True) as folder:
         work = Path(folder)
         home, runtime = work / "home", work / "run"
         home.mkdir()
@@ -415,9 +476,11 @@ def gtk_controls(look, scratch):
                 print(f"GTK {version} omitted: runtime unavailable")
                 continue
             output = scratch / f"gtk-{version}"
+            (output / "manifest.json").unlink(missing_ok=True)
             commands.append(
                 f"timeout 30 {quote(sys.executable)} {quote(str(REPO / 'tests/gtk_showcase.py'))} "
-                f"{version} {theme} {quote(str(output))} > {quote(str(work / (version + '.log')))} 2>&1"
+                f"{version} {theme} {quote(str(output))}{' --consistency' if audit else ''} "
+                f"> {quote(str(work / (version + '.log')))} 2>&1"
             )
         script = work / "gtk.sh"
         script.write_text("#!/bin/sh\n" + "\n".join(commands) + "\n")
@@ -428,6 +491,8 @@ def gtk_controls(look, scratch):
             "XDG_RUNTIME_DIR": str(runtime),
             "GDK_BACKEND": "wayland",
             "GSK_RENDERER": "cairo",
+            "GTK_A11Y": "none",
+            "NO_AT_BRIDGE": "1",
         }
         environment.pop("QT_QPA_PLATFORM", None)
         environment.pop("QT_QPA_PLATFORMTHEME", None)
@@ -439,6 +504,8 @@ def gtk_controls(look, scratch):
         for version in ("3.0", "4.0"):
             output = scratch / f"gtk-{version}"
             manifest = output / "manifest.json"
+            if output.exists() and (work / f"{version}.log").exists():
+                shutil.copy(work / f"{version}.log", output / "render.log")
             if not manifest.exists():
                 log = work / f"{version}.log"
                 if log.exists():

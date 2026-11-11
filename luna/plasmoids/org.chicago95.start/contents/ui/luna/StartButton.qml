@@ -10,7 +10,9 @@ Item {
     property color face: "#ece9d8"
     property color textColor: "#ffffff"
 
-    readonly property int pillWidth: 98
+    // The original's 98 pixel pill holds "start"; a longer name widens it, keeping the 26 pixels after the letters.
+    readonly property int inkRightMargin: 26
+    readonly property int pillWidth: Math.max(98, Math.round(inkLeft + letteringWidth + inkRightMargin))
     readonly property int pillHeight: 30
     readonly property int flagLeft: 10
     readonly property int flagTop: 6
@@ -63,7 +65,14 @@ Item {
         font: sample.font
     }
 
+    TextMetrics {
+        id: letters
+        text: button.lettering
+        font: sample.font
+    }
+
     readonly property real lettersX: inkLeft - probe.tightBoundingRect.x * lettersPixelSize / probeSize * lettersStretch
+    readonly property real letteringWidth: letters.tightBoundingRect.width * lettersPixelSize / probeSize * lettersStretch
 
     component Lettering: Text {
         property int shadowOffset: 0

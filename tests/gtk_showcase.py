@@ -9,7 +9,8 @@ from pathlib import Path
 
 import gi
 
-VERSION, THEME, OUTPUT = sys.argv[1:]
+VERSION, THEME, OUTPUT = sys.argv[1:4]
+AUDIT = "--consistency" in sys.argv[4:]
 gi.require_version("Gtk", VERSION)
 from gi.repository import GLib, Gtk  # noqa: E402
 
@@ -17,8 +18,6 @@ V4 = VERSION == "4.0"
 if V4:
     gi.require_version("Gsk", "4.0")
     from gi.repository import Gsk
-else:
-    pass
 
 
 def add(box, widget):
@@ -121,6 +120,50 @@ def widgets():
     yield "Containers and text", "Group box and switch", [frame, switch]
 
 
+def consistency_widgets():
+    # Empty labels isolate the indicator pixels from font rasterisation and label padding.
+    for kind in ("checkbox", "radio"):
+        for state in (
+            "normal",
+            "checked",
+            "mixed",
+            "disabled",
+            "hovered",
+            "pressed",
+            "checked-hovered",
+            "checked-pressed",
+            "focused",
+        ):
+            if kind == "radio" and state == "mixed":
+                continue
+            widget = Gtk.CheckButton() if kind == "checkbox" or V4 else Gtk.RadioButton()
+            if kind == "radio":
+                peer = Gtk.CheckButton() if V4 else Gtk.RadioButton()
+                widget.set_group(peer) if V4 else widget.join_group(peer)
+                peer.set_active(True)
+                widget._peer = peer  # the group must survive until the screenshot
+            widget.set_active(state.startswith("checked") or state == "disabled")
+            widget.set_inconsistent(state == "mixed")
+            widget.set_sensitive(state != "disabled")
+            widget.set_can_focus(False)
+            if state.endswith("hovered"):
+                widget.set_state_flags(Gtk.StateFlags.PRELIGHT, False)
+            if state.endswith("pressed"):
+                widget.set_state_flags(Gtk.StateFlags.ACTIVE, False)
+            if state == "focused":
+                widget.set_state_flags(Gtk.StateFlags.FOCUSED, False)
+            yield "Indicators", f"{kind} {state}", [widget]
+
+    for state in ("first", "second", "disabled"):
+        tabs = Gtk.Notebook()
+        for title in ("General", "Details", "Advanced"):
+            tabs.append_page(Gtk.Label(label="Settings"), Gtk.Label(label=title))
+        tabs.set_size_request(350, 90)
+        tabs.set_current_page(1 if state == "second" else 0)
+        tabs.set_sensitive(state != "disabled")
+        yield "Navigation", f"tabs {state}", [tabs]
+
+
 def main():
     Gtk.init() if V4 else Gtk.init([])
     settings = Gtk.Settings.get_default()
@@ -128,7 +171,7 @@ def main():
     settings.set_property("gtk-enable-animations", False)
     output = Path(OUTPUT)
     output.mkdir(parents=True, exist_ok=True)
-    catalogue = list(widgets())
+    catalogue = list(consistency_widgets() if AUDIT else widgets())
     manifest = []
     loop = GLib.MainLoop()
     position = 0

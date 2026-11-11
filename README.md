@@ -333,6 +333,22 @@ reported on stdout, while rendering failures stop generation. Classic boot previ
 upstream Chicago95 Plymouth assets (`CHICAGO95_SRC`, default `~/src/Chicago95`).
 Qt Quick rendering requires the KDE KSvg and Kirigami QML modules.
 
+Visual consistency checks:
+
+- `python3 -m pytest tests/test_control_consistency.py -q` compares equivalent native,
+  gallery and Control Panel controls for every OS look: buttons, checkboxes, radios,
+  inputs, combos, spin boxes, sliders, and both scrollbar orientations. It checks
+  normal, disabled, selected/mixed, hover, pressed and keyboard-focus states where
+  applicable, including separate arrow and thumb states. Failures save expected,
+  actual and difference PNGs in the test output directory.
+- `python3 -m pytest tests/luna/test_luna_gtk_visual_consistency.py -q` renders GTK3/GTK4
+  in isolated KWin sessions. It compares Luna checkbox pixels, radio interiors and
+  dimensions, state changes, and Qt/GTK check marks. Checkbox comparisons are exact;
+  radio interiors allow 2/255 channel rounding for antialiased hover glows. This is
+  targeted cross-toolkit coverage, not a claim that every Qt/GTK widget is pixel-identical.
+- `tests/test_showcase.py` checks asset loading and taskbar geometry, including the
+  narrower tray without a chevron and the 2001 login banner and boot logo.
+
 Add `--details` to also generate `report-<look>-<part>.png` and `.txt` historical pixel
 comparisons. Those diagnostic reports still require their reference screenshots and use the
 original test scenes, masks and pixel differences.

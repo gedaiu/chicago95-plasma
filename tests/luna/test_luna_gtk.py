@@ -69,8 +69,8 @@ def test_committed_theme_equals_generator_output(tmp_path):
     generator.write_theme(tmp_path)
 
     assert {
-        path.relative_to(tmp_path).as_posix(): path.read_text() for path in tmp_path.rglob("*") if path.is_file()
-    } == {path.relative_to(COMMITTED).as_posix(): path.read_text() for path in COMMITTED.rglob("*") if path.is_file()}
+        path.relative_to(tmp_path).as_posix(): path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()
+    } == {path.relative_to(COMMITTED).as_posix(): path.read_bytes() for path in COMMITTED.rglob("*") if path.is_file()}
 
 
 @pytest.mark.parametrize("version", ["3.0", "4.0"])
@@ -161,7 +161,9 @@ def test_popover_contents_and_arrow_are_white_inside_the_menu_border_and_the_pop
 
 
 def test_gtk_three_and_four_share_the_widget_rules():
-    assert css("3.0").replace("GTK 3.0", "GTK") == css("4.0").replace("GTK 4.0", "GTK").replace(
+    assert css("3.0").replace("GTK 3.0", "GTK").replace(generator.indicator_backend_rules("3.0"), "") == css(
+        "4.0"
+    ).replace("GTK 4.0", "GTK").replace(generator.indicator_backend_rules("4.0"), "").replace(
         generator.libadwaita_block(), ""
     )
 

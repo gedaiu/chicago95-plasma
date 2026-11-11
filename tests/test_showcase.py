@@ -77,17 +77,30 @@ from pathlib import Path
 sys.path.insert(0, str(Path.cwd() / "tests"))
 import render_report
 import chicago95ui
-from showcase import taskbars, frame, themed
+from showcase import taskbars, frame, themed, login, boot
 
 app = chicago95ui.make_app("showcase-overflow-test")
 app.setQuitOnLastWindowClosed(False)
-for look in ("1995", "luna"):
+for look in ("1995", "2001", "luna"):
     with themed(app, look):
         folder = Path(sys.argv[1]) / look
         panels = taskbars(app, look, folder)
         assert len(panels) == 7
         images = [panel[2] for panel in panels]
-        assert all(image.size == (800, 30) for image in images)
+        assert all(image.size == (800, 30 if look == "luna" else 28) for image in images)
+        normal, overflow = images[0].info["geometry"], images[3].info["geometry"]
+        assert normal["arrowWidth"] == 0 and overflow["arrowWidth"] == 16
+        if look != "luna":
+            assert normal["trayLeft"] - overflow["trayLeft"] == 16
+        for image in images:
+            geometry = image.info["geometry"]
+            assert geometry["band"]["tasksEnd"] <= geometry["trayLeft"]
+            assert geometry["firstTrayIcon"] > geometry["trayLeft"]
+        if look == "2001":
+            assert login(app, look, folder).size == (800, 600)
+            assert (folder / "login/theme/brand-banner.png").is_file()
+            assert boot(app, look, folder).size == (800, 600)
+            assert 'var brandLogo = ""' not in (folder / "boot/settings.js").read_text()
         # Hovered and held chevrons must actually change the rendered pixels.
         assert images[3].tobytes() != images[4].tobytes()
         assert images[4].tobytes() != images[5].tobytes()

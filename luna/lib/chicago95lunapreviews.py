@@ -38,7 +38,7 @@ Rectangle {
         id: parts
         active: false
         sourceComponent: Start.StartButton {
-            objectName: "startButton"; width: 98; height: %(height)d; text: startText; held: true
+            objectName: "startButton"; height: %(height)d; text: startText; held: true
         }
     }
 }
