@@ -271,13 +271,22 @@ def icon_colours(picture, button, face):
     return {picture.getpixel((x, y))[:3] for x in range(2, button.main_width() - 2) for y in range(0, 24)} - {face}
 
 
-def test_toolbar_icons_are_grey_until_the_pointer_is_over_them_as_internet_explorer_4_drew_them(ours, qt_app):
+def is_grey(colours):
+    return bool(colours) and all(r == g == b for r, g, b in colours)
+
+
+def test_every_toolbar_icon_is_grey_until_the_pointer_is_over_it_as_internet_explorer_4_drew_them(ours, qt_app):
+    """Plain: every icon in shades of grey. Under the pointer: in colour. Disabled (Back, Forward and Up at
+    home): grey, pointer or not."""
     window, _image, (face, _shadow) = ours
-    button = window.toolbar_buttons["Views"]  # enabled at home, where Back, Forward and Up are not
-    plain = icon_colours(toolbar_picture(button, qt_app), button, face)
-    hovered = icon_colours(toolbar_picture(button, qt_app, hover=True), button, face)
-    assert plain and all(r == g == b for r, g, b in plain), sorted(plain)[:5]
-    assert any(not (r == g == b) for r, g, b in hovered), "the hovered icon is in colour"
+    seen = {}
+    for name, button in window.toolbar_buttons.items():
+        plain = icon_colours(toolbar_picture(button, qt_app), button, face)
+        hovered = icon_colours(toolbar_picture(button, qt_app, hover=True), button, face)
+        seen[name] = (is_grey(plain), is_grey(hovered) if not button.isEnabled() else not is_grey(hovered))
+    disabled = [name for name, button in window.toolbar_buttons.items() if not button.isEnabled()]
+
+    assert (disabled, seen) == (["Back", "Forward", "Up"], {name: (True, True) for name in window.toolbar_buttons})
 
 
 def test_pressed_toolbar_button_sinks_like_a_push_button_and_its_picture_moves_a_pixel(ours, qt_app):

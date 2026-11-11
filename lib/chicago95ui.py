@@ -545,6 +545,22 @@ SPIN_BUTTON_PUSHED = (
     "SSSSSSSSSSSSSSSS",
 )
 SPIN_ARROW_UP, SPIN_ARROW_DOWN, SPIN_ARROW_AT = (".K.", "KKK"), ("KKK", ".K."), (6, 4)
+# The originals' size grip (tests/test_status_bar_reference.py): a face square in the last pane's corner.
+SIZE_GRIP = (
+    "...........W.",
+    "..........WS.",
+    ".........WSS.",
+    "........WSS..",
+    ".......WSS.W.",
+    "......WSS.WS.",
+    ".....WSS.WSS.",
+    "....WSS.WSS..",
+    "...WSS.WSS.W.",
+    "..WSS.WSS.WS.",
+    ".WSS.WSS.WSS.",
+    "WSS.WSS.WSS..",
+    ".............",
+)
 
 
 @functools.lru_cache(maxsize=512)
@@ -697,6 +713,16 @@ class ClassicStyle(QProxyStyle):
         super().drawPrimitive(element, option, painter, widget)
 
     def drawControl(self, element, option, painter, widget=None):
+        if element == QStyle.CE_SizeGrip:
+            palette = option.palette
+            paint_bitmap(
+                painter,
+                option.rect.right() + 1 - len(SIZE_GRIP[0]),
+                option.rect.bottom() + 1 - len(SIZE_GRIP),
+                SIZE_GRIP,
+                {"W": palette.light().color(), ".": palette.button().color(), "S": palette.dark().color()},
+            )
+            return
         if element == QStyle.CE_PushButtonLabel and option.text and option.icon.isNull():
             # Centred on the caption's ink, as the originals' captions are
             # (tests/test_control_panel_components_reference.py).

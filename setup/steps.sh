@@ -124,6 +124,7 @@ save_settings() { # keys this run did not set keep their saved values
       if [ -n "${!variable+x}" ]; then printf '%s=%s\n' "$key" "${!variable}"; else grep -m1 "^$key=" <<<"$previous" || true; fi
     done
     printf 'REPO=%s\n' "$REPO"
+    printf 'COMMIT=%s\n' "$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown)" # the update check compares it with the origin
   } >"$file"
   record "$file"
 }
@@ -371,6 +372,7 @@ step_tools_common() { # shared by every PySide6 component; idempotent
   TOOLS_COMMON_DONE=1
   put_file "$REPO/lib/chicago95ui.py" ~/.local/lib/chicago95/chicago95ui.py
   put_file "$REPO/lib/login_preview.py" ~/.local/lib/chicago95/login_preview.py
+  put_file "$REPO/lib/chicago95update.py" ~/.local/lib/chicago95/chicago95update.py
   put_file "$REPO/data/plasmashell-menus.qss" ~/.local/share/chicago95/plasmashell-menus.qss
   put_file "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" ~/.config/systemd/user/plasma-plasmashell.service.d/chicago95-menus.conf
   put_tree "$REPO/data/qml" ~/.local/share/chicago95/qml

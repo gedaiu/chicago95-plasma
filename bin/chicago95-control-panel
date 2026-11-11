@@ -23,8 +23,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import chicago95ui  # noqa: E401,E702
+import chicago95update  # noqa: E402
 import login_preview
-from PySide6.QtCore import QPoint, QProcess, QProcessEnvironment, QRect, QSize, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QEvent, QPoint, QProcess, QProcessEnvironment, QRect, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
@@ -62,9 +63,11 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QRadioButton,
+    QSizeGrip,
     QSlider,
     QSpinBox,
     QStackedWidget,
+    QStatusBar,
     QStyle,
     QStyleOptionButton,
     QStyleOptionFrame,
@@ -176,6 +179,9 @@ MENU_BAR_HEIGHT, STATUS_BAR_HEIGHT = (
     22,
     19,
 )  # Windows 98's menu bar and Windows 95's status bar (tests/test_control_panel_*reference.py)
+# Windows 95's and 2000's status bar panes (tests/test_status_bar_reference.py): 2 rows down, 2 pixels apart.
+STATUS_PANE_TOP, STATUS_PANE_GAP, STATUS_PANE_STRETCHES = 2, 2, (5, 2, 3)
+STATUS_TEXT_MARGINS = (4, 3, 1, 1)
 ETCHED_ROWS, GRIP_LEFT, BAND_INSET = (
     2,
     2,
@@ -220,6 +226,11 @@ APPLETS = (
         ("preferences-system-windows", "start-here"),
         "Changes the Start button, Start menu, taskbar and Quick Launch.",
     ),
+    Applet(
+        "Updates",
+        ("system-software-update", "update-none"),
+        "Checks for a newer Chicago95 for Plasma and installs it.",
+    ),
 )
 
 
@@ -234,6 +245,7 @@ PAGE_TABS = {
     "Passwords": ("Log On", "Branding", "Loading Screen"),
     "Sounds": ("Sounds",),
     "Taskbar": ("Taskbar Options", "Start Menu", "Quick Launch"),
+    "Updates": ("Updates",),
 }
 
 
@@ -246,6 +258,7 @@ PAGE_SLUGS = {
     "passwords": "Passwords",
     "sounds": "Sounds",
     "taskbar": "Taskbar",
+    "updates": "Updates",
 }
 
 
@@ -359,6 +372,19 @@ def setup_command(repo, settings_path, components):
         "--plain",
         "--yes",
         f"--settings={settings_path}",
+        f"--components={','.join(components)}",
+    ]
+
+
+def update_command(repo, settings_path, components):
+    """Pulls the repository forward, then reruns Setup for the components the saved settings touch."""
+    return OWN_SCOPE + [
+        "sh",
+        "-c",
+        'git -C "$1" pull --ff-only && "$1/install.sh" --plain --yes "--settings=$2" "$3"',
+        "chicago95-update",
+        repo,
+        str(settings_path),
         f"--components={','.join(components)}",
     ]
 
@@ -842,6 +868,68 @@ def start_logo_pixmap():
         else Path(__file__).resolve().parent.parent / "plasmoids/org.chicago95.start/contents/images/logo-flag.png"
     )
     return QPixmap(str(source))
+
+
+def status_pane_frames(width, stretches):
+    """(left, width) of each pane: shared by stretch, the last one taking what rounding leaves, up to the edge."""
+    available = width - STATUS_PANE_GAP * (len(stretches) - 1)
+    widths = [available * stretch // sum(stretches) for stretch in stretches[:-1]]
+    widths.append(available - sum(widths))
+    lefts = [sum(widths[:index]) + STATUS_PANE_GAP * index for index in range(len(widths))]
+    return list(zip(lefts, widths, strict=True))
+
+
+class StatusPane(QWidget):
+    """A status bar pane in its one pixel sunken frame."""
+
+    def __init__(self, *contents):
+        super().__init__()
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(*STATUS_TEXT_MARGINS)
+        layout.setSpacing(4)
+        for widget in contents:
+            layout.addWidget(widget, 1 if widget is contents[-1] else 0)
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        right, bottom = self.width() - 1, self.height() - 1
+        painter.fillRect(0, 0, right, 1, self.palette().dark())
+        painter.fillRect(0, 0, 1, bottom, self.palette().dark())
+        painter.fillRect(0, bottom, right + 1, 1, self.palette().light())
+        painter.fillRect(right, 0, 1, bottom, self.palette().light())
+
+
+class ClassicStatusBar(QStatusBar):
+    """Windows' status bar: the panes reach the bottom edge and the last one runs under the size grip to the right
+    edge. Qt's own keeps a row under its panes and the grip beside them, so this one places them itself."""
+
+    def __init__(self, panes):
+        super().__init__()
+        self.setSizeGripEnabled(False)
+        self.setFixedHeight(STATUS_BAR_HEIGHT)
+        self.panes = panes
+        for pane in panes:
+            pane.setParent(self)
+        self.grip = QSizeGrip(self)
+        self.grip.resize(len(chicago95ui.SIZE_GRIP[0]), len(chicago95ui.SIZE_GRIP))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        frames = status_pane_frames(self.width(), STATUS_PANE_STRETCHES)
+        for pane, (left, width) in zip(self.panes, frames, strict=True):
+            pane.setGeometry(left, STATUS_PANE_TOP, width, self.height() - STATUS_PANE_TOP)
+        self.grip.move(self.width() - self.grip.width(), self.height() - self.grip.height())
+        self.grip.raise_()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.window().installEventFilter(self)
+
+    def eventFilter(self, watched, event):
+        """Windows takes the grip away from a maximized window; Qt's grip watches only the window it was made in."""
+        if watched is self.window() and event.type() == QEvent.WindowStateChange:
+            self.grip.setVisible(not watched.windowState() & (Qt.WindowMaximized | Qt.WindowFullScreen))
+        return super().eventFilter(watched, event)
 
 
 class LogoBox(QWidget):
@@ -1876,6 +1964,73 @@ def office_assistant_tab(settings, actions):
     return tab
 
 
+UPDATE_STATUS = {
+    "available": "A newer version is available.",
+    "current": "You have the latest version.",
+    "unchecked": "Not checked yet.",
+}
+
+
+class UpdatesTab(SettingsTab):
+    """The installed and the published version (lib/chicago95update.py), Check now, Install update."""
+
+    def __init__(self, settings, actions):
+        super().__init__(settings, actions)
+        self.check = None
+        self.group("Chicago95 for Plasma")
+        self.installed_label, self.latest_label, self.checked_label, self.status_label = QLabel(), QLabel(), QLabel(), QLabel()
+        self.form.addRow("Installed version:", self.installed_label)
+        self.form.addRow("Latest version:", self.latest_label)
+        self.form.addRow("Last checked:", self.checked_label)
+        self.form.addRow(self.status_label)
+        self.check_button = chicago95ui.dialog_button("Check now")
+        self.install_button = chicago95ui.dialog_button("Install update", enabled=False)
+        self.check_button.clicked.connect(self.check_now)
+        self.install_button.clicked.connect(self.install_update)
+        buttons = QHBoxLayout()
+        buttons.addWidget(self.check_button)
+        buttons.addWidget(self.install_button)
+        buttons.addStretch(1)
+        self.form.addRow(buttons)
+        self.show_result(chicago95update.read_cache(chicago95update.CACHE_FILE))
+
+    def check_now(self):
+        self.check = chicago95update.UpdateCheck(self.saved, chicago95update.CACHE_FILE, parent=self)
+        self.check.finished.connect(self.checked)
+        self.check_button.setEnabled(False)
+        self.status_label.setText("Checking...")
+        self.check.start()
+
+    def checked(self, result):
+        self.check.deleteLater()
+        self.check = None
+        self.check_button.setEnabled(True)
+        self.show_result(result)
+
+    def show_result(self, result):
+        self.installed_label.setText(chicago95update.short_version(self.saved.get("COMMIT", "")))
+        self.latest_label.setText(chicago95update.short_version(result.get("latest", "")))
+        self.checked_label.setText(result.get("checked", "")[:16].replace("T", " ") or "never")
+        if result.get("error"):
+            status = f"Could not check: {result['error']}"
+        else:
+            status = UPDATE_STATUS["available" if result.get("available") else "current" if result.get("latest") else "unchecked"]
+        self.status_label.setText(status)
+        self.install_button.setEnabled(bool(result.get("available")))
+
+    def install_update(self):
+        repo = self.saved.get("REPO", "")
+        components = components_for(self.saved) or ["look"]
+        self.actions.run_setup(self, update_command(repo, SETTINGS_FILE, components))
+        self.saved = read_settings(SETTINGS_FILE)
+        self.show_result(chicago95update.read_cache(chicago95update.CACHE_FILE))
+
+
+@tab_builder("Updates", "Updates")
+def updates_tab(settings, actions):
+    return UpdatesTab(settings, actions)
+
+
 @tab_builder("Explorer", "General")
 def explorer_tab(settings, actions):
     tab = SettingsTab(settings, actions)
@@ -2289,14 +2444,7 @@ class ControlPanel(QMainWindow):
 
     def build_status_bar(self):
         """Windows 98's status bar: three sunken panes (the message, a spare one, the place) and a size grip."""
-        bar = self.statusBar()
-        bar.setFixedHeight(STATUS_BAR_HEIGHT)
-        bar.setSizeGripEnabled(True)
         self.status_message = QLabel()
-        place = QWidget()
-        place_layout = QHBoxLayout(place)
-        place_layout.setContentsMargins(2, 0, 0, 0)
-        place_layout.setSpacing(4)
         self.status_place_icon = QLabel()
         icon = themed_icon(("computer",))
         self.status_place_icon.setPixmap(
@@ -2304,11 +2452,12 @@ class ControlPanel(QMainWindow):
             if not icon.isNull()
             else start_logo_pixmap().scaled(16, 16, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         )
-        place_layout.addWidget(self.status_place_icon)
-        place_layout.addWidget(QLabel("My Computer"), 1)
-        self.status_panes = (self.status_message, QLabel(), place)
-        for pane, stretch in zip(self.status_panes, (5, 2, 3), strict=False):
-            bar.addPermanentWidget(pane, stretch)
+        self.status_panes = (
+            StatusPane(self.status_message),
+            StatusPane(QLabel()),
+            StatusPane(self.status_place_icon, QLabel("My Computer")),
+        )
+        self.setStatusBar(ClassicStatusBar(self.status_panes))
 
     def build_header(self):
         self.menu_bar = QMenuBar()

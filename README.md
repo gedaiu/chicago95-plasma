@@ -132,7 +132,12 @@ login and loading screen texts and pictures with live previews of the log-on
 dialog, the 2000 banner and the loading screen, sounds with Play, fonts,
 pointer size and the file manager. Back, Forward, Up and the clickable address
 bar move between pages. It saves `~/.config/chicago95/setup.conf` and runs
-Setup again for only what changed.
+Setup again for only what changed. Its Updates page shows the installed
+version (the commit Setup recorded) and the published one (one `git ls-remote`
+of the repository's origin), with Check now and Install update, which pulls
+the repository forward and reruns Setup for the saved settings. Clippy runs the
+same check once a day after login and says so in a balloon when a newer version
+is out; the answer is cached in `~/.cache/chicago95/update-check.json`.
 
 Other modes: `--yes` takes every default without questions,
 `--components base,look,taskbar` installs only those, `--dry-run` writes

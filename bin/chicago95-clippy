@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import chicago95ui  # noqa: E401,E702
+import chicago95update  # noqa: E402
 from PySide6.QtCore import QPoint, QRect, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
 from PySide6.QtWidgets import QMenu, QPushButton, QWidget
@@ -27,6 +28,7 @@ from PySide6.QtWidgets import QMenu, QPushButton, QWidget
 ASSET_DIR = Path.home() / ".local/share/chicago95/clippy"
 SOUND_CACHE_DIR = Path.home() / ".cache/chicago95-clippy"
 PID_FILE = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "chicago95-clippy.pid"
+SETTINGS_FILE = Path.home() / ".config/chicago95/setup.conf"
 
 SCALE = 1
 SCREEN_MARGIN = 24
@@ -440,6 +442,12 @@ class ClippyWindow(QWidget):
         self.balloon.show_tip(random.choice(TIPS), self.mapToGlobal(QPoint(0, 0)))
         self.tip_timer.start(random_seconds(TIP_INTERVAL_SECONDS))
 
+    def announce_update(self, result):
+        """A newer Chicago95 for Plasma is published: say so, with Office's attention-getting animation."""
+        self.interrupt()
+        self.play("GetAttention")
+        self.balloon.show_tip(chicago95update.update_message(result), self.mapToGlobal(QPoint(0, 0)))
+
     def hide_for_a_while(self):
         self.balloon.hide()
         self.play("Hide", on_finished=self.hide)
@@ -532,6 +540,19 @@ def parse_args():
     return parser.parse_args()
 
 
+UPDATE_CHECK_FIRST_MS, UPDATE_CHECK_EVERY_MS = 60_000, 3_600_000  # a minute after login, then hourly: the lib checks once a day
+
+
+def update_schedule(on_update):
+    """The daily update check, from Clippy's resident process (lib/chicago95update.py)."""
+    schedule = chicago95update.DailySchedule(SETTINGS_FILE, on_update)
+    schedule.timer = QTimer(schedule)
+    schedule.timer.timeout.connect(schedule.tick)
+    schedule.timer.start(UPDATE_CHECK_EVERY_MS)
+    QTimer.singleShot(UPDATE_CHECK_FIRST_MS, schedule.tick)
+    return schedule
+
+
 def main():
     args = parse_args()
     if args.screenshot or args.once:
@@ -566,6 +587,7 @@ def main():
     clippy.show()
     clippy.move_to_corner()
     clippy.start_schedule()
+    updates = update_schedule(clippy.announce_update)  # noqa: F841  kept alive for the timers
     return app.exec()
 
 

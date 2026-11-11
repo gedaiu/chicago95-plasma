@@ -19,6 +19,7 @@ APPLET_NAMES = [
     "Sounds",
     "System",
     "Taskbar",
+    "Updates",
 ]
 
 
@@ -54,7 +55,7 @@ def test_control_panel_lists_its_applets_alphabetically(window):
 
 
 def test_status_bar_counts_the_objects_when_nothing_is_selected(window):
-    assert window.status_message.text() == "11 object(s)"
+    assert window.status_message.text() == "12 object(s)"
 
 
 def test_status_bar_shows_the_selected_applets_description(window):
@@ -314,7 +315,7 @@ def test_status_bar_is_empty_on_an_applet_page_and_counts_again_on_the_control_p
     on_page = window.status_message.text()
     window.back_action.trigger()
 
-    assert (on_page, window.status_message.text()) == ("", "11 object(s)")
+    assert (on_page, window.status_message.text()) == ("", "12 object(s)")
 
 
 def saved_settings_with_a_setup_checkout(window, tmp_path, **settings):
@@ -461,27 +462,26 @@ def test_no_control_on_any_page_is_squeezed_below_its_minimum_height(window, con
     assert squeezed == []
 
 
-def test_status_bar_has_three_panes_each_in_a_single_pixel_sunken_frame_and_a_size_grip(window, qt_app):
-    from reference import qimage_to_pil
-
+def test_status_bar_shows_the_object_count_the_place_icon_and_a_size_grip(window, qt_app):
     window.show()
     qt_app.processEvents()
-    bar = window.statusBar()
-    image = qimage_to_pil(bar.grab().toImage())
-    shadow = window.palette().dark().color().getRgb()[:3]
-    face = window.palette().window().color().getRgb()[:3]
-    edges = []
-    for pane in window.status_panes:
-        y = pane.geometry().center().y()
-        left = pane.geometry().left()
-        edges.append(tuple(image.getpixel((left - offset, y)) for offset in (3, 2, 1)))
 
     assert (
-        edges,
         window.status_message.text(),
-        bar.isSizeGripEnabled(),
         window.status_place_icon.pixmap().isNull(),
-    ) == ([(face, shadow, face)] * 3, "11 object(s)", True, False)
+        window.statusBar().grip.isVisible(),
+    ) == ("12 object(s)", False, True)
+
+
+def test_size_grip_hides_while_the_window_is_maximized_and_returns_when_restored(window, qt_app):
+    window.show()
+    window.showMaximized()
+    qt_app.processEvents()
+    maximized = window.statusBar().grip.isVisible()
+    window.showNormal()
+    qt_app.processEvents()
+
+    assert (maximized, window.statusBar().grip.isVisible()) == (False, True)
 
 
 def test_address_bar_shows_only_the_current_pages_crumbs_after_moving_between_applets(window, qt_app):
