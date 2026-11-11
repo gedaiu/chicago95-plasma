@@ -5,7 +5,7 @@
 
 PANEL_HEIGHT=28
 MENU_HEIGHT=239 # fallback only; place_start_menu measures the real height
-RUN_HEIGHT=163 # the Run dialog with its frame and title (bin/chicago95-run)
+RUN_HEIGHT=163  # the Run dialog with its frame and title (bin/chicago95-run)
 CLIPPY_W=124
 CLIPPY_H=93
 CLIPPY_MARGIN=24

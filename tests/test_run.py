@@ -125,6 +125,7 @@ def test_enter_runs_the_picked_match_and_remembers_the_typed_text(run, qt_app, t
     monkeypatch.setattr(run, "HISTORY_FILE", tmp_path / "run-history")
     dialog = run.RunDialog({"style": "1995"}, APPLICATIONS, [], history=["old"])
     dialog.show()
+    dialog.field.lineEdit().setText("kcalc")
     dialog.field.lineEdit().textEdited.emit("kcalc")
     dialog.results.setCurrentRow(0)
     dialog.accept()
