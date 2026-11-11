@@ -83,6 +83,23 @@ def test_quick_launch_icons_sit_in_the_originals_cells(ours, look):
     assert squares(ours(look), first, last) == [icon_box(left) for left in QUICK_LAUNCH[look]]
 
 
+@pytest.mark.parametrize("look", QUICK_LAUNCH)
+def test_quick_launch_icons_are_in_their_cells_right_after_setup_restarts_plasma(desktops, look):
+    bar = desktops(look).info["setup_screen"].crop((0, SCREEN[1] - HEIGHT, SCREEN[0], SCREEN[1]))
+    first, last = QUICK_LAUNCH[look][0] - 8, QUICK_LAUNCH[look][-1] + ICON_SIZE + 8
+
+    assert squares(bar, first, last) == [icon_box(left) for left in QUICK_LAUNCH[look]]
+
+
+def test_quick_launch_icons_are_in_their_cells_when_the_windows_were_open_before_plasma_started(desktops):
+    """As after a login that restores the last session: the task model has its windows before its launchers."""
+    look = "2000"
+    bar = desktops(look, windows_first=True).crop((0, SCREEN[1] - HEIGHT, SCREEN[0], SCREEN[1]))
+    first, last = QUICK_LAUNCH[look][0] - 8, QUICK_LAUNCH[look][-1] + ICON_SIZE + 8
+
+    assert squares(bar, first, last) == [icon_box(left) for left in QUICK_LAUNCH[look]]
+
+
 def test_1995_has_no_quick_launch(ours):
     (_, start_right), tasks = BUTTONS["1995"]
     assert squares(ours("1995"), start_right + 1, tasks[0][0]) == []

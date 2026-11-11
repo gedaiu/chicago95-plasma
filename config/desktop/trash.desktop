@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Link
+Name=Recycle Bin
+Comment=Contains removed files
+Icon=user-trash-full
+EmptyIcon=user-trash
+URL=trash:/
+OnlyShowIn=KDE;

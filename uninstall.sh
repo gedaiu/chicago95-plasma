@@ -36,7 +36,7 @@ while IFS= read -r entry; do
     theme | Theme | Engine | forceFontDPI | AccentColor | BorderSize | font | menuFont | toolBarFont | smallestReadableFont | activeFont | activeBackground | activeBlend | inactiveBackground | inactiveBlend | AnimationDurationFactor) kwriteconfig6 --file "$file" --group "$group" --key "$key" --delete ;;
     *)
       case "$group:$key" in # the effects the animations step switched, and our own animation choices
-      Plugins:*Enabled | Effect-chicago95zoom:* | Animations:*) kwriteconfig6 --file "$file" --group "$group" --key "$key" --delete ;;
+      Plugins:*Enabled | Effect-chicago95zoom:* | Animations:* | TabBox:*) kwriteconfig6 --file "$file" --group "$group" --key "$key" --delete ;;
       esac
       ;;
     esac

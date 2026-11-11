@@ -58,3 +58,16 @@ System Properties, from other pages:
 | `win98copying.png` | https://www.tech2u.com.au/training/tech2u/win98_1/copying03.gif (Windows 98: the Copying dialog: a progress bar with Cancel) |
 | `win98changeicon.png` | https://www.tech2u.com.au/training/tech2u/win98_2/desktop08.gif (Windows 98 Change Icon: a focused text field with selected text, an icon list with a horizontal scroll bar) |
 | `clippy-letter.png` | https://en.wikipedia.org/wiki/File:Clippy-letter.PNG (Office Assistant "It looks like you're writing a letter": the unsmoothed balloon with stepped corners, its tail and Clippy's Idle1_1 frame under it; exact pixels with transparency) |
+
+Desktop icons, Run, and the taskbar's menu:
+
+| File | Source |
+| --- | --- |
+| `win95emptydesktop.png` | https://guidebookgallery.org/pics/gui/desktop/empty/win95.png (GUIdebook: the Windows 95 desktop with its icons down the left) |
+| `win98emptydesktop.png` | https://guidebookgallery.org/pics/gui/desktop/empty/win98.png (GUIdebook: the Windows 98 desktop with its icons down the left) |
+| `win95run.png` | https://guidebookgallery.org/pics/gui/system/features/run/win95.png (GUIdebook: the Windows 95 Run dialog) |
+| `win98run.png` | https://guidebookgallery.org/pics/gui/system/features/run/win98.png (GUIdebook: the Windows 98 Run dialog) |
+| `win98taskbarmenu.png` | https://www.tech2u.com.au/training/tech2u/win98_1/images/view03.gif (Windows 98: the taskbar's right-click menu; a palette GIF, saved as PNG) |
+| `win98cascade.png` | https://www.tech2u.com.au/training/tech2u/win98_1/images/view04.gif (Windows 98: three windows after Cascade Windows; a palette GIF, saved as PNG) |
+| `win98tilev.png` | https://www.tech2u.com.au/training/tech2u/win98_1/images/view05.gif (Windows 98: three windows after Tile Windows Vertically; a palette GIF, saved as PNG) |
+| `win98tileh.png` | https://www.tech2u.com.au/training/tech2u/win98_1/images/view06.gif (Windows 98: three windows after Tile Windows Horizontally; a palette GIF, saved as PNG) |

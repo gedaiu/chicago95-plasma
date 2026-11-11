@@ -1,0 +1,11 @@
+{
+  "KPackageStructure": "KWin/WindowSwitcher",
+  "KPlugin": {
+    "Description": "The classic grey Alt+Tab box: a row of icons, or window previews, with the window's title under them",
+    "Icon": "preferences-system-windows-switcher-compact",
+    "Id": "chicago95",
+    "License": "GPL-3.0",
+    "Name": "Chicago95"
+  },
+  "X-Plasma-API": "declarativeappletscript"
+}

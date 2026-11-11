@@ -98,6 +98,8 @@ INSTALL_ORDER = (
     "extras",
     "sounds",
     "background",
+    "desktop",
+    "switcher",
     "screensaver",
     "winamp",
     "explorer",
@@ -163,6 +165,8 @@ COMPONENTS_BY_KEY = {
     "BACKGROUND_PATTERN": ("background",),
     "BACKGROUND_IMAGE": ("background",),
     "BACKGROUND_FILL": ("background",),
+    "DESKTOP_ICONS": ("desktop",),
+    "PREVIEW_SIZE": ("taskbar", "switcher"),
 }
 
 # What setup/steps.sh's apply_look sets for each look (tests/test_control_panel.py compares the two).
@@ -2725,6 +2729,12 @@ def taskbar_options_tab(settings, actions):
     )
     tab.flag("TASKBAR_AUTOHIDE", "Auto hide", default="no")
     tab.flag("TASKBAR_ON_TOP", "Always on top", default="yes")
+    tab.choice(
+        "PREVIEW_SIZE",
+        "Window previews:",
+        [("Off", "off"), ("Small (160 pixels)", "160"), ("Medium (240 pixels)", "240"), ("Large (320 pixels)", "320")],
+        default="off",
+    )
     tab.group("Clock")
     tab.flag("CLOCK_SHOW", "Show clock", default="yes")
     tab.choice(
@@ -3327,6 +3337,47 @@ def sounds_tab(settings, actions):
     return tab
 
 
+# The desktop icons the Effects tab offers (setup/steps.sh's desktop_icon_defaults picks the look's own).
+DESKTOP_ICONS = (
+    ("computer", "My Computer"),
+    ("documents", "My Documents"),
+    ("network", "Network Neighborhood"),
+    ("recycle", "Recycle Bin"),
+)
+DESKTOP_ICON_DEFAULTS = {
+    "1995": "computer,network,recycle",
+    "1998": "computer,documents,network,recycle",
+    "2000": "computer,documents,network,recycle",
+}
+
+
+class CheckListField(QWidget):
+    """Check boxes reported together as a comma-separated list of the checked ones' values, in the given order."""
+
+    changed = Signal()
+
+    def __init__(self, options):
+        super().__init__()
+        self.boxes = []
+        column = QVBoxLayout(self)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(2)
+        for value, label in options:
+            box = QCheckBox(label)
+            box.setProperty("value", value)
+            box.toggled.connect(self.changed)
+            column.addWidget(box)
+            self.boxes.append(box)
+
+    def value(self):
+        return ",".join(box.property("value") for box in self.boxes if box.isChecked())
+
+    def set_value(self, text):
+        chosen = set(str(text).split(","))
+        for box in self.boxes:
+            box.setChecked(box.property("value") in chosen)
+
+
 EFFECTS_COLUMNS = 2  # the lists in two columns, each under its caption, so the tab fits Display Properties
 EFFECTS_LIST_LETTERS = 9
 
@@ -3340,9 +3391,29 @@ def effects_tab(settings, actions):
     installed = actions.installed_effects()
     live = actions.live_animations()
     tab.combos, tab.settings_buttons = {}, {}
+    tab.group("Desktop icons")
+    icons = CheckListField(DESKTOP_ICONS)
+    tab.register(
+        "DESKTOP_ICONS",
+        "",
+        icons,
+        icons.value,
+        icons.set_value,
+        DESKTOP_ICON_DEFAULTS[settings.get("LOOK", "1998")],
+        icons.changed,
+    )
     tab.classic_button = chicago95ui.dialog_button("&Classic")
     tab.classic_button.clicked.connect(
-        lambda: tab.load({**tab.values(), **table.classic.get(settings.get("LOOK", "1998"), {})}) or tab.notify()
+        lambda: (
+            tab.load(
+                {
+                    **tab.values(),
+                    "DESKTOP_ICONS": DESKTOP_ICON_DEFAULTS[settings.get("LOOK", "1998")],
+                    **table.classic.get(settings.get("LOOK", "1998"), {}),
+                }
+            )
+            or tab.notify()
+        )
     )
     for group in dict.fromkeys(event.group for event in table.events):
         box = QGroupBox(group)

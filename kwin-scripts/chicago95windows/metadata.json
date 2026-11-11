@@ -1,0 +1,12 @@
+{
+  "KPackageStructure": "KWin/Script",
+  "KPlugin": {
+    "Description": "Cascade Windows, Tile Windows and Minimize All Windows for the Chicago95 taskbar's menu, with Undo",
+    "EnabledByDefault": true,
+    "Id": "chicago95windows",
+    "License": "GPL-3.0",
+    "Name": "Chicago95 window arrangement"
+  },
+  "X-Plasma-API": "javascript",
+  "X-Plasma-MainScript": "code/main.js"
+}

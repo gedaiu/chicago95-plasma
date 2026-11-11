@@ -31,6 +31,29 @@ def test_quick_launch_shows_as_set_or_from_1998_on(quick_launch, setting, look, 
     assert call(quick_launch, "shown", setting, look) is shown
 
 
+LAUNCHERS = ["applications:firefox.desktop", "applications:thunar.desktop"]
+
+
+def test_the_model_gets_the_configured_launchers_when_quick_launch_is_shown(quick_launch):
+    assert call(quick_launch, "launchers", True, LAUNCHERS) == LAUNCHERS
+
+
+def test_the_model_gets_no_launchers_when_quick_launch_is_hidden(quick_launch):
+    assert call(quick_launch, "launchers", False, LAUNCHERS) == []
+
+
+def test_the_model_gets_no_launchers_while_the_setting_has_not_loaded(quick_launch):
+    assert call(quick_launch, "launchers", True, None) == []
+
+
+def test_the_launchers_are_saved_only_when_the_setting_has_loaded_and_differs(quick_launch):
+    assert [
+        call(quick_launch, "launchersDiffer", LAUNCHERS, LAUNCHERS[:1]),
+        call(quick_launch, "launchersDiffer", LAUNCHERS, LAUNCHERS),
+        call(quick_launch, "launchersDiffer", None, LAUNCHERS),
+    ] == [True, False, False]
+
+
 def test_tasks_applet_stores_the_quick_launch_setting_as_auto_by_default():
     kcfg = "{http://www.kde.org/standards/kcfg/1.0}"
     entry = next(

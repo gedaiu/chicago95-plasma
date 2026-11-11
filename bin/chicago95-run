@@ -1,0 +1,301 @@
+#!/usr/bin/env python3
+import os
+import sys
+
+sys.path[:0] = [
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.expanduser("~/.local/lib/chicago95"),
+]
+import argparse
+import importlib.machinery
+import importlib.util
+import shlex
+import shutil
+import subprocess
+from pathlib import Path
+
+import chicago95ui  # noqa: E401,E702
+from PySide6.QtCore import QEvent, Qt
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QComboBox, QFileDialog, QLabel, QListWidget, QListWidgetItem, QPushButton
+
+INSTANCE_NAME = "chicago95-run"
+HISTORY_FILE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "chicago95/run-history"
+HISTORY_LENGTH = 26
+MATCH_LIMIT = 8
+MATCH_ROW_HEIGHT = 18
+# The dialog as the 1995 original (tests/references/win95run.png, tests/test_run_reference.py): a 341x139 client
+# area, the icon at 13,15, the text from 56,17, "Open:" at 17,64, the field at 55,61 (273x21) and three 75x23
+# buttons at 96, 175 and 254, 102 rows down.
+BODY = (341, 139)
+ICON_AT, TEXT_AT, LABEL_AT, FIELD_AT, FIELD_WIDTH, BUTTON_TOP, BUTTON_LEFTS = (
+    (13, 15),
+    (56, 17),
+    (17, 64),
+    (55, 61),
+    273,
+    102,
+    (96, 175, 254),
+)
+PROMPTS = {
+    "1995": "Type the name of a program, folder, or document, and {os} will open it for you.",
+    "1998": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
+    "2000": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
+}
+
+
+def read_history(path=HISTORY_FILE):
+    try:
+        return [line for line in path.read_text().splitlines() if line]
+    except OSError:
+        return []
+
+
+def remember(command, history):
+    """The history with the command first and at most HISTORY_LENGTH entries, as the original's drop-down kept it."""
+    return [command, *[entry for entry in history if entry != command]][:HISTORY_LENGTH]
+
+
+def write_history(history, path=HISTORY_FILE):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("".join(f"{entry}\n" for entry in history))
+
+
+def load_startmenu():
+    """The Start menu's application index, from the installed tool or the checkout beside this one."""
+    for folder in (Path(__file__).resolve().parent, Path.home() / ".local/bin"):
+        path = folder / "chicago95-startmenu"
+        if path.exists():
+            loader = importlib.machinery.SourceFileLoader("chicago95_startmenu", str(path))
+            module = importlib.util.module_from_spec(importlib.util.spec_from_loader(loader.name, loader))
+            loader.exec_module(module)
+            return module
+    return None
+
+
+def strip_field_codes(exec_line):
+    return [word for word in shlex.split(exec_line) if not (word.startswith("%") and len(word) == 2)]
+
+
+def application_matches(text, applications):
+    """Applications whose name starts with the text first, then those with a word starting with it, then the rest
+    containing it; each as (name, icon, command)."""
+    needle = text.casefold()
+    ranked = []
+    for application in applications:
+        name = application["name"].casefold()
+        words = name.replace("-", " ").split()
+        rank = (
+            0
+            if name.startswith(needle)
+            else 1
+            if any(word.startswith(needle) for word in words)
+            else 2
+            if needle in name
+            else None
+        )
+        if rank is not None:
+            ranked.append((rank, application["name"], application))
+    return [
+        (application["name"], application["icon"], ["gio", "launch", application["path"]])
+        for _rank, _name, application in sorted(ranked, key=lambda entry: (entry[0], entry[1].casefold()))
+    ]
+
+
+def command_matches(text, path_dirs):
+    """Programs on the PATH that start with the text, as (name, icon, command)."""
+    found = set()
+    for folder in path_dirs:
+        try:
+            names = os.listdir(folder)
+        except OSError:
+            continue
+        found.update(name for name in names if name.startswith(text) and os.access(os.path.join(folder, name), os.X_OK))
+    return [(name, "application-x-executable", [name]) for name in sorted(found)]
+
+
+def path_matches(text):
+    """Folders and files whose path starts with the text, as (name, icon, command), for ~ and / paths."""
+    if not text.startswith(("/", "~")):
+        return []
+    expanded = os.path.expanduser(text)
+    folder, prefix = (expanded, "") if expanded.endswith("/") else os.path.split(expanded)
+    try:
+        names = sorted(
+            name for name in os.listdir(folder or "/") if name.startswith(prefix) and not name.startswith(".")
+        )
+    except OSError:
+        return []
+    return [
+        (
+            os.path.join(folder, name),
+            "folder" if os.path.isdir(os.path.join(folder, name)) else "text-x-generic",
+            ["xdg-open", os.path.join(folder, name)],
+        )
+        for name in names
+    ]
+
+
+def matches(text, applications, path_dirs):
+    text = text.strip()
+    if not text:
+        return []
+    if "://" in text or text.startswith("www."):
+        return [(text, "text-html", ["xdg-open", text])]
+    found = path_matches(text) or application_matches(text, applications) + command_matches(text.split()[0], path_dirs)
+    return found[:MATCH_LIMIT]
+
+
+def literal_command(text):
+    """What the typed line runs when no match is picked: a path or URL opens, anything else runs as a command."""
+    text = text.strip()
+    expanded = os.path.expanduser(text)
+    if "://" in text or text.startswith("www.") or os.path.exists(expanded):
+        return ["xdg-open", expanded]
+    return shlex.split(text)
+
+
+def launch(command):
+    subprocess.Popen(
+        ["systemd-run", "--user", "--quiet", "--collect", *command],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def themed_icon(name):
+    if name.startswith("/") and os.path.exists(name):
+        return QIcon(name)
+    return QIcon.fromTheme(name, QIcon.fromTheme("application-x-executable"))
+
+
+class RunDialog(chicago95ui.ClassicDialog):
+    """The Run dialog of the look, with a list of matching programs, files and commands under the field as the
+    text is typed: the dialog grows to hold the list and shrinks back when it empties."""
+
+    def __init__(self, look=None, applications=None, path_dirs=None, history=None):
+        self.look = {**chicago95ui.look_settings(), **(look or {})}
+        self.style = self.look["style"] if self.look["style"] in PROMPTS else "1995"
+        super().__init__("Run", self.style, BODY, help_button=True)
+        self.applications = applications
+        self.path_dirs = path_dirs if path_dirs is not None else os.environ.get("PATH", "").split(os.pathsep)
+        self.history = read_history() if history is None else history
+        self.command = None
+        self.build()
+
+    def build(self):
+        body = self.body
+        icon = QLabel(body)
+        icon.setPixmap(QIcon.fromTheme("system-run").pixmap(32, 32))
+        icon.setFixedSize(32, 32)
+        icon.move(*ICON_AT)
+        prompt = QLabel(chicago95ui.fill_placeholders(PROMPTS[self.style], self.look), body)
+        prompt.setWordWrap(True)
+        prompt.setGeometry(TEXT_AT[0], TEXT_AT[1], BODY[0] - TEXT_AT[0] - 12, 30)
+        open_label = QLabel("&Open:", body)
+        open_label.move(*LABEL_AT)
+        self.field = chicago95ui.classic_combo(QComboBox(body))
+        open_label.setBuddy(self.field)
+        self.field.setEditable(True)
+        self.field.setInsertPolicy(QComboBox.NoInsert)
+        self.field.addItems(self.history)
+        self.field.setGeometry(FIELD_AT[0], FIELD_AT[1], FIELD_WIDTH, 21)
+        self.field.setEditText("")
+        self.field.lineEdit().textEdited.connect(self.search)
+        self.field.lineEdit().installEventFilter(self)
+        self.results = QListWidget(body)
+        self.results.setGeometry(FIELD_AT[0], FIELD_AT[1] + 21 + 4, FIELD_WIDTH, 0)
+        self.results.hide()
+        self.results.itemActivated.connect(lambda _item: self.accept())
+        self.results.itemClicked.connect(lambda _item: self.accept())
+        self.buttons = {}
+        for left, label in zip(BUTTON_LEFTS, ("OK", "Cancel", "&Browse..."), strict=False):
+            button = QPushButton(label, body)
+            # Qt draws a button's bottom and right edges a pixel inside its rectangle, and a non-default
+            # button's left edge too, so the rectangles grow to put the painted edges where the original's are.
+            button.setGeometry(left if label == "OK" else left - 1, BUTTON_TOP, 76 if label == "OK" else 77, 24)
+            self.buttons[label] = button
+        self.buttons["OK"].setDefault(True)
+        self.buttons["OK"].setEnabled(False)
+        self.buttons["OK"].clicked.connect(self.accept)
+        self.buttons["Cancel"].clicked.connect(self.reject)
+        self.buttons["&Browse..."].clicked.connect(self.browse)
+        self.field.setFocus()
+
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.KeyPress and event.key() in (Qt.Key_Down, Qt.Key_Up) and self.results.isVisible():
+            step = 1 if event.key() == Qt.Key_Down else -1
+            self.results.setCurrentRow(max(0, min(self.results.count() - 1, self.results.currentRow() + step)))
+            return True
+        return super().eventFilter(watched, event)
+
+    def search(self, text):
+        if self.applications is None:
+            startmenu = load_startmenu()
+            self.applications = startmenu.collect_applications() if startmenu else []
+        found = matches(text, self.applications, self.path_dirs)
+        self.buttons["OK"].setEnabled(bool(text.strip()))
+        self.results.clear()
+        for name, icon, command in found:
+            item = QListWidgetItem(themed_icon(icon), name)
+            item.setData(Qt.UserRole, command)
+            self.results.addItem(item)
+        if found:
+            self.results.setCurrentRow(0)
+        self.show_results(len(found))
+
+    def show_results(self, count):
+        """The list under the field, as tall as its rows; the buttons move down with the dialog's bottom."""
+        list_height = count * MATCH_ROW_HEIGHT + 2 if count else 0
+        extra = list_height + 4 if count else 0
+        self.results.setGeometry(FIELD_AT[0], FIELD_AT[1] + 21 + 4, FIELD_WIDTH, list_height)
+        self.results.setVisible(count > 0)
+        self.setFixedSize(self.width(), BODY[1] + chicago95ui.DIALOG_FRAME * 2 + chicago95ui.DIALOG_TITLE + extra)
+        self.body.resize(BODY[0], BODY[1] + extra)
+        for button in self.buttons.values():
+            button.move(button.x(), BUTTON_TOP + extra)
+
+    def browse(self):
+        path, _filter = QFileDialog.getOpenFileName(self, "Browse", str(Path.home()))
+        if path:
+            self.field.setEditText(path)
+            self.search(path)
+
+    def accept(self):
+        text = self.field.currentText().strip()
+        if not text:
+            return
+        current = self.results.currentItem() if self.results.isVisible() else None
+        self.command = current.data(Qt.UserRole) if current else literal_command(text)
+        self.history = remember(text, self.history)
+        write_history(self.history)
+        super().accept()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Chicago95 Run dialog for KDE")
+    parser.add_argument("--dry-run", action="store_true", help="print the command instead of running it")
+    parser.add_argument("--screenshot", metavar="PATH", help="save the dialog as PNG and exit")
+    arguments = parser.parse_args()
+    if not arguments.screenshot and not arguments.dry_run and chicago95ui.send_to_running(INSTANCE_NAME, "raise"):
+        return 0
+    app = chicago95ui.make_app(INSTANCE_NAME)
+    dialog = RunDialog()
+    if arguments.screenshot:
+        dialog.show()
+        dialog.grab().save(arguments.screenshot)
+        return 0
+    instance = chicago95ui.SingleInstance(INSTANCE_NAME, lambda _message: (dialog.raise_(), dialog.activateWindow()))  # noqa: F841
+    dialog.show()
+    if dialog.exec() != RunDialog.Accepted:
+        return 0
+    if arguments.dry_run:
+        print("dry-run, would run:", " ".join(dialog.command))
+        return 0
+    launch(dialog.command)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

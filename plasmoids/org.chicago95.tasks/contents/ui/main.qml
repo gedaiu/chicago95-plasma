@@ -75,16 +75,61 @@ PlasmoidItem {
         Plasmoid.configuration.quickLaunchWidth = newSize;
     }
 
+    // The taskbar's own menu, as the originals' (tests/references/win98taskbarmenu.png): the toolbar, the
+    // arrangements (kwin-scripts/chicago95windows, invoked through kglobalaccel's kwin component), Minimize All
+    // with the Undo of whatever was last done, and Properties.
+    property string lastArrangement: ""   // "Minimize All", "Cascade" or "Tile": the Undo entry names it
+    readonly property string arrangeCommand: "systemd-run --user --quiet --collect gdbus call --session --dest org.kde.kglobalaccel --object-path /component/kwin --method org.kde.kglobalaccel.Component.invokeShortcut "
+    function arrange(shortcut, name) {
+        lastArrangement = name;
+        runner.connectSource(arrangeCommand + shortcut);
+    }
+    // qmllint disable unqualified
+    // i18n() is injected into the applet context by Plasma.
     Plasmoid.contextualActions: [
         PlasmaCore.Action {
-            // qmllint disable unqualified
-            // i18n() is injected into the applet context by Plasma.
+            text: i18n("Quick Launch")
+            checkable: true
+            checked: root.showQuickLaunch
+            onTriggered: checked => Plasmoid.configuration.quickLaunch = checked ? "yes" : "no"
+        },
+        PlasmaCore.Action {
+            isSeparator: true
+        },
+        PlasmaCore.Action {
+            text: i18n("Cascade Windows")
+            onTriggered: root.arrange("Chicago95CascadeWindows", "Cascade")
+        },
+        PlasmaCore.Action {
+            text: i18n("Tile Windows Horizontally")
+            onTriggered: root.arrange("Chicago95TileWindowsHorizontally", "Tile")
+        },
+        PlasmaCore.Action {
+            text: i18n("Tile Windows Vertically")
+            onTriggered: root.arrange("Chicago95TileWindowsVertically", "Tile")
+        },
+        PlasmaCore.Action {
+            isSeparator: true
+        },
+        PlasmaCore.Action {
+            text: i18n("Minimize All Windows")
+            onTriggered: root.arrange("Chicago95MinimizeAllWindows", "Minimize All")
+        },
+        PlasmaCore.Action {
+            text: i18n("Undo %1", root.lastArrangement)
+            visible: root.lastArrangement !== ""
+            onTriggered: root.arrange("Chicago95UndoArrangement", "")
+        },
+        PlasmaCore.Action {
+            isSeparator: true
+        },
+        PlasmaCore.Action {
             text: i18n("Properties")
-            // qmllint enable unqualified
             icon.name: "preferences-system"
             onTriggered: runner.connectSource(root.controlPanelCommand)
         }
     ]
+    // qmllint enable unqualified
     readonly property string controlPanelCommand: "systemd-run --user --quiet --collect @HOME@/.local/bin/chicago95-control-panel --page taskbar"
 
     // Programs start as their own transient systemd service: Setup restarts plasmashell, and as it stops
@@ -114,24 +159,18 @@ PlasmoidItem {
         sortMode: TaskManager.TasksModel.SortManual
         separateLaunchers: true
         hideActivatedLaunchers: false
-        // Entries added or removed here are saved; the setting's changes come back in.
+        // The launchers go in once the applet is complete. Given while it loads, Plasma never counts them: it counts
+        // launchers when rows change, and with the windows already there (a login restoring the last session) no row
+        // changes until a window opens, so the cells draw as window buttons until then.
+        launcherList: root.completed ? QuickLaunch.launchers(root.showQuickLaunch, Plasmoid.configuration.launchers) : []
+        // Entries added or removed here are saved; the setting's changes come back in through the binding.
         onLauncherListChanged: {
-            if (root.showQuickLaunch && launcherList.join() !== Plasmoid.configuration.launchers.join())
+            if (root.showQuickLaunch && QuickLaunch.launchersDiffer(Plasmoid.configuration.launchers, launcherList))
                 Plasmoid.configuration.launchers = launcherList;
         }
     }
-    function loadLaunchers() {
-        tasksModel.launcherList = showQuickLaunch ? Plasmoid.configuration.launchers : [];
-    }
-    Component.onCompleted: loadLaunchers()
-    onShowQuickLaunchChanged: loadLaunchers()
-    Connections {
-        target: Plasmoid.configuration
-        function onLaunchersChanged() {
-            if (Plasmoid.configuration.launchers.join() !== tasksModel.launcherList.join())
-                root.loadLaunchers();
-        }
-    }
+    property bool completed: false
+    Component.onCompleted: completed = true
 
     DropArea {
         visible: root.showQuickLaunch

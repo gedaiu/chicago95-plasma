@@ -20,7 +20,8 @@ QMLLINT_FLAGS := $(if $(wildcard $(PLASMA_QML_DIR)/org/kde/plasma/core),-I $(PLA
 # QML JavaScript libraries start with ".pragma library", which prettier cannot parse on its own.
 PRAGMA_JS_FILES := $(shell git ls-files '*.js' | xargs grep -l '^\.pragma' 2>/dev/null)
 XML_FILES := $(shell git ls-files '*.xml')
-DESKTOP_FILES := $(wildcard config/applications/*.desktop config/autostart/*.desktop splash/*/metadata.desktop)
+# config/desktop/trash.desktop carries KDE's EmptyIcon key, which the validator does not know.
+DESKTOP_FILES := $(filter-out config/desktop/trash.desktop,$(wildcard config/applications/*.desktop config/autostart/*.desktop config/desktop/*.desktop splash/*/metadata.desktop))
 PRETTIER_GLOB := "**/*.{js,json,jsonc,yml,yaml,css,md}"
 
 # usable PROBE COMMAND: run COMMAND unless PROBE fails (tool missing); then skip, or fail under STRICT=1

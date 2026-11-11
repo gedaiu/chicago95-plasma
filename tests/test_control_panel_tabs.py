@@ -323,6 +323,7 @@ def effects_tab(control_panel, settings=None, plugins=None, started=None):
 
 def test_effects_tab_shows_what_kde_does_now_for_every_event_while_nothing_is_saved(control_panel, qt_app):
     assert effects_tab(control_panel, plugins={"wobblywindowsEnabled": "true"}).values() == {
+        "DESKTOP_ICONS": "computer,documents,network,recycle",
         "ANIM_WINDOWS": "scale",
         "ANIM_MINIMIZE": "squash",
         "ANIM_MAXIMIZE": "stretch",
@@ -361,6 +362,7 @@ def test_classic_button_on_the_1998_look_zooms_title_bars_slides_menus_and_turns
     tab.classic_button.click()
 
     assert {key: value for key, value in tab.values().items() if value not in ("none", "no")} == {
+        "DESKTOP_ICONS": "computer,documents,network,recycle",
         "ANIM_MINIMIZE": "zoom",
         "ANIM_MAXIMIZE": "zoom",
         "ANIM_MENUS": "slide",
@@ -473,6 +475,7 @@ TASKBAR_OPTION_DEFAULTS = {
     "QUICK_LAUNCH": "auto",
     "TASKBAR_AUTOHIDE": "no",
     "TASKBAR_ON_TOP": "yes",
+    "PREVIEW_SIZE": "off",
     "CLOCK_SHOW": "yes",
     "CLOCK_HOURS": "locale",
 }
@@ -493,6 +496,7 @@ def test_taskbar_options_tab_reports_every_saved_choice(control_panel, qt_app):
         "QUICK_LAUNCH": "no",
         "TASKBAR_AUTOHIDE": "yes",
         "TASKBAR_ON_TOP": "no",
+        "PREVIEW_SIZE": "240",
         "CLOCK_SHOW": "no",
         "CLOCK_HOURS": "24",
     }

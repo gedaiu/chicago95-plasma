@@ -401,6 +401,8 @@ else
     "controlpanel:Control Panel (change every choice later):$(remembered controlpanel $py_ok)" \
     "sounds:Sound scheme (Windows 98, Plus! 98, Windows 2000):$(remembered sounds 1)" \
     "background:Desktop background (colour, pattern or picture):$(remembered background 1)" \
+    "desktop:Desktop icons (My Computer, Network Neighborhood, Recycle Bin):$(remembered desktop 1)" \
+    "switcher:Alt+Tab (the classic icon box, or window previews):$(remembered switcher 1)" \
     "screensaver:Screensaver (XScreenSaver hacks):$(remembered screensaver "$([ -n "$SETUP_HACK_DIR" ] && echo 1 || echo 0)")" \
     "winamp:Winamp (qmmp launch entries and window rule):$(remembered winamp $SETUP_HAS_QMMP)" \
     "explorer:Explorer (Thunar settings, GTK CSS, Dolphin toolbar):$(remembered explorer $SETUP_HAS_THUNAR)" \
@@ -497,7 +499,7 @@ TO_COPY=$(
 fix_font_spaces
 for component in $COMPONENTS; do
   case $component in
-  base | look | animations | taskbar | startmenu | notifications | clippy | extras | controlpanel | sounds | background | screensaver | winamp | explorer | mouse | lockscreen | splash | plymouth | sddm | firefox) "step_$component" ;;
+  base | look | animations | taskbar | startmenu | notifications | clippy | extras | controlpanel | sounds | background | desktop | switcher | screensaver | winamp | explorer | mouse | lockscreen | splash | plymouth | sddm | firefox) "step_$component" ;;
   *) printf 'unknown component: %s\n' "$component" >>"$SETUP_LOG" ;;
   esac
 done

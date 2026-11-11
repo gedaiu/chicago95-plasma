@@ -133,6 +133,16 @@ kwin_script() {{
     gdbus call --session --dest org.kde.KWin --object-path /Scripting/Script$id """
     """--method org.kde.kwin.Script.run >/dev/null
 }}
+# Screenshots until two in a row match: Plasma settles its widgets on timers, later when the machine is busy.
+screenshot_settled() {{
+    local shots="${{1%.png}}-shot"
+    for shot in 1 2 3 4 5 6 7 8 9 10; do
+        spectacle --background --nonotify --fullscreen --output "$shots-$shot.png" >"$WORK/spectacle.log" 2>&1
+        if [ "$shot" -gt 1 ] && cmp -s "$shots-$shot.png" "$shots-$((shot - 1)).png"; then break; fi
+        sleep 1
+    done
+    cp "$shots-$shot.png" "$1"
+}}
 """
 )
 
@@ -156,6 +166,9 @@ evaluate 'panels().forEach(panel => {{
         widget.writeConfig("shownItems", {tray_applets}); widget.writeConfig("hiddenItems", {hidden_applets});
     }});
 }})' >>"$WORK/install.log" 2>&1
+# The taskbar Setup just restarted, before anyone touches it: its settings arrive after it is up.
+sleep 4
+screenshot_settled "$WORK/setup-screen.png"
 kill %1; wait
 """
 )
@@ -163,10 +176,11 @@ kill %1; wait
 DESKTOP = (
     COMMON + """
 # The second session, as after logging in again: everything Setup wrote is read from the start.
+{windows_before_plasma}
 plasmashell --no-respawn >"$WORK/plasma.log" 2>&1 &
 wait_for_plasma
 python3 "$WORK/tray.py" {icon} {tray} >"$WORK/tray.log" 2>&1 &
-{windows}
+{windows_after_plasma}
 sleep 2
 cat >"$WORK/arrange.js" <<'SCRIPT'
 const places = {places};
@@ -180,13 +194,7 @@ for (const window of workspace.windowList()) {{ if (window.caption === {active})
 SCRIPT
 kwin_script "$WORK/arrange.js" arrange
 sleep 4
-# Screenshots until two in a row match: Plasma settles its widgets on timers, later when the machine is busy.
-for shot in 1 2 3 4 5 6 7 8 9 10; do
-    spectacle --background --nonotify --fullscreen --output "$WORK/shot-$shot.png" >"$WORK/spectacle.log" 2>&1
-    if [ "$shot" -gt 1 ] && cmp -s "$WORK/shot-$shot.png" "$WORK/shot-$((shot - 1)).png"; then break; fi
-    sleep 1
-done
-cp "$WORK/shot-$shot.png" "$WORK/screen.png"
+screenshot_settled "$WORK/screen.png"
 gdbus call --session --dest org.kde.KWin --object-path /Effects --method org.freedesktop.DBus.Properties.Get \
     org.kde.kwin.Effects loadedEffects >"$WORK/effects.txt" 2>&1
 """
@@ -266,13 +274,28 @@ def run_session(work, script, environment, xwayland=False, screen=SCREEN):
         subprocess.run(command, env=environment, cwd=work, stdout=log, stderr=subprocess.STDOUT, check=False)
 
 
-def desktop_session(look, work, tray_applets=(), tray_icons=None, hidden_applets=(), tasks_config=(), settings=()):
+def desktop_session(
+    look,
+    work,
+    tray_applets=(),
+    tray_icons=None,
+    hidden_applets=(),
+    tasks_config=(),
+    settings=(),
+    components=(),
+    windows=None,
+    windows_first=False,
+):
     """Runs both sessions for a look in work (a short path: Wayland's socket path is limited to 108
     bytes); returns the 640x480 screenshot. tray_applets are Plasma applets shown in the tray (such
     as org.kde.plasma.notifications), hidden_applets ones behind its "show hidden icons" arrow, and
     tray_icons the number of the test's icons there, beside the original's; tasks_config (key, value) pairs
-    for the taskbar widget's settings; settings (key, value) pairs Setup applies with its animations step too.
-    The screenshot's info holds KWin's loaded effects and its log."""
+    for the taskbar widget's settings; settings (key, value) pairs Setup applies with its animations step too;
+    components further Setup components to install (such as desktop); windows replaces the look's own windows
+    (an empty list: none, for the desktop behind them); windows_first opens them before Plasma starts, as a login
+    that restores the last session does.
+    The screenshot's info holds KWin's loaded effects, its log, and Setup's own session's screenshot
+    ("setup_screen": the taskbar right after Setup restarted Plasma, before anyone touched it)."""
     work = Path(work)
     home, runtime = work / "home", work / "run"
     for folder in (home / ".config", runtime):
@@ -290,6 +313,8 @@ def desktop_session(look, work, tray_applets=(), tray_icons=None, hidden_applets
     (work / "tray.py").write_text(TRAY_PROGRAM)
 
     content = CONTENT[look]
+    if windows is not None:
+        content = {**content, "windows": list(windows), "active": windows[0][0] if windows else ""}
     applications = home / ".local/share/applications"
     applications.mkdir(parents=True, exist_ok=True)
     launchers = [
@@ -297,6 +322,7 @@ def desktop_session(look, work, tray_applets=(), tray_icons=None, hidden_applets
         for index in range(content["launchers"])
     ]
     places = {title: place for title, _toolkit, place in content["windows"]}
+    window_script = window_commands(work, applications, content["windows"])
     (work / "setup.sh").write_text(
         SETUP.format(
             look=look,
@@ -304,7 +330,7 @@ def desktop_session(look, work, tray_applets=(), tray_icons=None, hidden_applets
             tray_applets=json.dumps(list(tray_applets)),
             hidden_applets=json.dumps(list(hidden_applets)),
             tasks_config=json.dumps(dict(tasks_config)),
-            components=",animations" if settings else "",
+            components="".join(f",{component}" for component in (*(["animations"] if settings else []), *components)),
             settings=f" --settings={work / 'chosen.conf'}" if settings else "",
         )
     )
@@ -312,7 +338,8 @@ def desktop_session(look, work, tray_applets=(), tray_icons=None, hidden_applets
         DESKTOP.format(
             icon=TEST_ICON,
             tray=content["tray"] if tray_icons is None else tray_icons,
-            windows=window_commands(work, applications, content["windows"]),
+            windows_before_plasma=window_script if windows_first else "",
+            windows_after_plasma="" if windows_first else window_script,
             places=json.dumps(places),
             active=json.dumps(content["active"]),
         )
@@ -342,6 +369,7 @@ def desktop_session(look, work, tray_applets=(), tray_icons=None, hidden_applets
     effects, kwin_log = work / "effects.txt", work / "kwin-desktop.log"
     image.info["loaded_effects"] = effects.read_text() if effects.exists() else ""
     image.info["kwin_log"] = kwin_log.read_text(errors="replace") if kwin_log.exists() else ""
+    image.info["setup_screen"] = Image.open(work / "setup-screen.png").convert("RGB")
     return image
 
 

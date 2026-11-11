@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Run
+Comment=Open a program, folder, document or Internet resource
+Icon=system-run
+Exec=@HOME@/.local/bin/chicago95-run
+NoDisplay=true
+Terminal=false
+X-KDE-Shortcuts=Meta+R

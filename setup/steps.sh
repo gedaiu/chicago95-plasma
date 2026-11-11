@@ -86,7 +86,7 @@ installed_differs() {
 # Set by the steps that change what plasmashell loads; finish_session restarts it only then.
 SHELL_CHANGED=0
 
-substitute_home() { [ "${SETUP_DRY_RUN:-0}" = 1 ] || grep -rlI '@HOME@' "$@" 2>/dev/null | xargs -r sed -i "s|@HOME@|$HOME|g"; }
+substitute_home() { [ "${SETUP_DRY_RUN:-0}" = 1 ] || { grep -rlIZ '@HOME@' "$@" 2>/dev/null || true; } | xargs -0 -r sed -i "s|@HOME@|$HOME|g"; }
 
 kconf() {
   run kwriteconfig6 --file "$1" --group "$2" --key "$3" "${@:4}"
@@ -98,7 +98,7 @@ SETTINGS_KEYS="LOOK TITLE_ACTIVE TITLE_INACTIVE BANNER_BG BANNER_FG ICONS FONT F
     TASK_BUTTON_WIDTH QUICK_LAUNCH LAUNCHERS TASKBAR_AUTOHIDE TASKBAR_ON_TOP CLOCK_SHOW CLOCK_HOURS START_TEXT START_LOGO BANNER_TEXT
     SAVER IDLE_MIN LOGIN_STYLE LOGIN_TITLE LOGIN_MESSAGE LOGIN_ICON LOGIN_LOGO EDITION TAGLINE COMPANY COMPANY_LOGO
     SPLASH_IMAGE LOADING_TEXT LOADING_FOOTER SOUND_THEME CLIPPY_AUTOSTART EXPLORER
-    BACKGROUND_MODE BACKGROUND_COLOR BACKGROUND_PATTERN BACKGROUND_IMAGE BACKGROUND_FILL
+    BACKGROUND_MODE BACKGROUND_COLOR BACKGROUND_PATTERN BACKGROUND_IMAGE BACKGROUND_FILL DESKTOP_ICONS PREVIEW_SIZE
     $(sed -n 's/^EVENT|\([^|]*\)|.*/\1/p' "$REPO/setup/animations.conf" | tr '\n' ' ')"
 
 # A look is four colour settings; each is one #RRGGBB, or two separated by a comma for a gradient.
@@ -472,6 +472,10 @@ step_taskbar() {
   put_file "$REPO/config/applications/chicago95-showdesktop.desktop" ~/.local/share/applications/chicago95-showdesktop.desktop
   put_file "$REPO/data/icons/tray-chevron.png" ~/.local/share/chicago95/icons/tray-chevron.png
   substitute_home ~/.local/share/plasma/plasmoids/org.chicago95.start ~/.local/share/plasma/plasmoids/org.chicago95.tasks ~/.local/share/plasma/plasmoids/org.chicago95.trayframe
+  # The taskbar menu's Cascade, Tile and Minimize All: a KWin script, invoked through kglobalaccel
+  put_tree "$REPO/kwin-scripts/chicago95windows" ~/.local/share/kwin/scripts/chicago95windows
+  kconf kwinrc Plugins chicago95windowsEnabled true
+  kwin_reconfigure
 }
 
 # complete_qml_module <system module dir> <our module dir>   our files shadow the module (QML_IMPORT_PATH): the rest
@@ -1152,6 +1156,83 @@ step_background() {
     return
   }
   run plasma_script "$(background_script)"
+}
+
+# The desktop icons: links in ~/Desktop, shown by Plasma's Folder View at the originals' 32px (its size 1) with two label lines.
+# SETUP_DESKTOP_ICONS lists them (computer, documents, network, recycle); unset takes the look's own, empty none.
+desktop_icon_defaults() { case "${SETUP_MENU_STYLE:-1995}" in 1995) printf 'computer,network,recycle' ;; *) printf 'computer,documents,network,recycle' ;; esac }
+
+desktop_icons_chosen() { printf '%s' "${SETUP_DESKTOP_ICONS-$(desktop_icon_defaults)}" | tr ',' '\n' | grep -xE 'computer|documents|network|recycle' || true; }
+
+desktop_icon_source() { # desktop_icon_source <icon>   the link file in the repository; 2000 calls the network My Network Places
+  case "$1" in
+  computer) printf '%s' "$REPO/config/desktop/my-computer.desktop" ;;
+  documents) printf '%s' "$REPO/config/desktop/my-documents.desktop" ;;
+  network) [ "${SETUP_MENU_STYLE:-1995}" = 2000 ] && printf '%s' "$REPO/config/desktop/my-network-places.desktop" || printf '%s' "$REPO/config/desktop/network-neighborhood.desktop" ;;
+  recycle) printf '%s' "$REPO/config/desktop/trash.desktop" ;;
+  esac
+}
+
+desktop_icon_target() { printf '%s' ~/Desktop/"$(sed -n 's/^Name=//p' "$(desktop_icon_source "$1")").desktop"; }
+
+desktop_script() { # Folder View as the originals arranged the desktop: 32px icons down the left in columns, labels on two lines
+  printf '%s\n' 'desktops().forEach(desktop => {' \
+    '    if (desktop.type !== "org.kde.plasma.folder") { print("desktop " + desktop.id + " is " + desktop.type + ", not a Folder View: no desktop icons"); return; }' \
+    '    desktop.currentConfigGroup = ["General"];' \
+    '    desktop.writeConfig("iconSize", 1);' \
+    '    desktop.writeConfig("labelWidth", 0);' \
+    '    desktop.writeConfig("textLines", 2);' \
+    '    desktop.writeConfig("arrangement", 1);' \
+    '    desktop.writeConfig("alignment", 0);' \
+    '    desktop.reloadConfig();' \
+    '});'
+}
+
+step_desktop() {
+  local icon target
+  while IFS= read -r icon; do
+    target=$(desktop_icon_target "$icon")
+    put_file "$(desktop_icon_source "$icon")" "$target"
+    substitute_home "$target"
+  done < <(desktop_icons_chosen)
+  [ "${SETUP_DRY_RUN:-0}" = 1 ] || [ "$SETUP_IN_PLASMA" = 1 ] || {
+    ui_status "Plasma is not running; the desktop's icon layout is unchanged"
+    return
+  }
+  run plasma_script "$(desktop_script)"
+}
+
+# Window previews: the width in pixels of a task button's hover preview and of Alt+Tab's previews; 0 is off
+# (a plain tooltip, the classic icon box). The Control Panel offers off, 160, 240 and 320.
+preview_size() { case "${SETUP_PREVIEW_SIZE:-off}" in 160 | 240 | 320) printf '%s' "$SETUP_PREVIEW_SIZE" ;; *) printf 0 ;; esac }
+
+face_hex() { # the look's face as #RRGGBB (SETUP_FACE is "r,g,b" for 2000, empty otherwise)
+  local red green blue
+  IFS=, read -r red green blue <<<"${SETUP_FACE:-192,192,192}"
+  printf '#%02X%02X%02X' "$red" "$green" "$blue"
+}
+
+write_switcher_settings() { # <dir>  settings.js: the Alt+Tab box's preview size and look
+  local dir="$1"
+  if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run tee "$dir/settings.js"; else
+    {
+      echo ".pragma library"
+      echo "var previewSize = $(preview_size);"
+      echo "var look = $(js_string "${SETUP_MENU_STYLE:-1995}");"
+      echo "var face = $(js_string "$(face_hex)");"
+    } >"$dir/settings.js"
+  fi
+  show_copy "(Alt+Tab: previews $(preview_size), look ${SETUP_MENU_STYLE:-1995})" "$dir/settings.js"
+}
+
+step_switcher() { # Alt+Tab: our KWin switcher layout, chosen in kwinrc
+  local dir=~/.local/share/kwin/tabbox/chicago95
+  put_tree "$REPO/kwin-tabbox/chicago95" "$dir"
+  write_switcher_settings "$dir/contents/ui"
+  kconf kwinrc TabBox LayoutName chicago95
+  kconf kwinrc TabBox ShowTabBox true
+  kconf kwinrc TabBox HighlightWindows false
+  kwin_reconfigure
 }
 
 restart_start_menu() { # the menu stays resident; a reinstall must replace the running copy

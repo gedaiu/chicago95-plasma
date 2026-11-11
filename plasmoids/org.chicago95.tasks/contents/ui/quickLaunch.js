@@ -7,3 +7,19 @@ function shown(setting, look) {
 
   return look !== "1995";
 }
+
+// The launchers the task model shows: none while Setup's list has not loaded yet (Plasma hands over undefined
+// right after a restart) or when Quick Launch is off.
+function launchers(shown, configured) {
+  return shown && loaded(configured) ? configured : [];
+}
+
+// Whether the model's launchers are worth saving: a list that has not loaded is never overwritten.
+function launchersDiffer(saved, current) {
+  return loaded(saved) && Array.from(saved).join() !== Array.from(current).join();
+}
+
+// Qt hands lists over as arrays or as sequence wrappers, never as undefined once they have loaded.
+function loaded(list) {
+  return list != null && typeof list.length === "number";
+}
