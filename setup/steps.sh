@@ -554,7 +554,7 @@ step_notifications() {
     "title=chicago95-notifyd-host" "titlematch=1" "position=$((SETUP_WIDTH - NOTIFY_W)),$((SETUP_HEIGHT - PANEL_HEIGHT - host_h))" "positionrule=2" \
     "placement=Zero" "placementrule=2" "acceptfocus=false" "acceptfocusrule=2" "skiptaskbar=true" "skiptaskbarrule=2" \
     "skippager=true" "skippagerrule=2" "skipswitcher=true" "skipswitcherrule=2" "noborder=true" "noborderrule=2" "above=true" "aboverule=2" "types=1"
-  kconf kwinrc Plugins chicago95notificationsEnabled true
+  [ "${SETUP_ANIM_NOTIFICATIONS:-}" = none ] || kconf kwinrc Plugins chicago95notificationsEnabled true # the Effects tab can turn their motion off
   run systemctl --user daemon-reload
   run systemctl --user enable chicago95-notifyd.service >>"$SETUP_LOG" 2>&1
 }

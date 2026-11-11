@@ -1,6 +1,6 @@
 "use strict";
 
-// Durations are fixed: the desktop runs with AnimationDurationFactor=0, which would scale animationTime() to nothing.
+// Durations follow KDE's animation speed (the Effects tab's Speed); the tab turns the effect off for no motion.
 const SLIDE_IN_MS = 340;
 const SLIDE_OUT_MS = 220;
 const RESTACK_MS = 240;
@@ -48,7 +48,7 @@ const notificationMotion = {
     window.windowFrameGeometryChanged.connect(notificationMotion.onGeometryChanged);
     window.slideInAnimation = animate({
       window: window,
-      duration: SLIDE_IN_MS,
+      duration: animationTime(SLIDE_IN_MS),
       animations: [
         {
           type: Effect.Translation,
@@ -78,7 +78,7 @@ const notificationMotion = {
     cancelAll(window);
     animate({
       window: window,
-      duration: SLIDE_OUT_MS,
+      duration: animationTime(SLIDE_OUT_MS),
       animations: [
         {
           type: Effect.Translation,
@@ -115,7 +115,7 @@ const notificationMotion = {
 
     window.restackAnimation = animate({
       window: window,
-      duration: RESTACK_MS,
+      duration: animationTime(RESTACK_MS),
       animations: [
         {
           type: Effect.Translation,

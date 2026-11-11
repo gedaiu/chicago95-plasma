@@ -1062,3 +1062,12 @@ def test_the_tools_get_the_animations_library_and_its_table_beside_it(tmp_path):
         ".local/lib/chicago95/chicago95animations.py" in log,
         ".local/lib/chicago95/animations.conf" in log,
     ) == (True, True)
+
+
+def test_reinstalling_notifications_keeps_their_motion_off_when_the_effects_tab_turned_it_off(tmp_path):
+    saved = tmp_path / "setup.conf"
+    saved.write_text("ANIM_NOTIFICATIONS=none\n")
+
+    log = dry_run_log(tmp_path, f"--settings={saved}", "--components=notifications")
+
+    assert plugin("chicago95notifications", "true") not in log

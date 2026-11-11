@@ -85,6 +85,7 @@ sys.path[:0] = [
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
     os.path.expanduser("~/.local/lib/chicago95"),
 ]
+import chicago95animations
 import chicago95ui  # after the environment above, so its defaults do not override it
 from PySide6.QtCore import QEasingCurve, QEvent, QPoint, QPropertyAnimation, QRect, Qt, QTimer
 from PySide6.QtGui import (
@@ -374,8 +375,8 @@ SLIDE_MS = 90
 class RetroMenu(QMenu):
     """QMenu with classic item inset and, for the root menu, the vertical navy banner.
 
-    Menus slide in the classic way by animating the window mask: the root
-    rises from the taskbar, submenus slide out to the right.
+    Menus open as the Effects tab's "Menus" choice says (chicago95rc [Animations]): submenus slide out to the
+    right, fade in, both, or appear at once; the root, which KWin places on Wayland, can only fade.
     """
 
     def __init__(self, title="", parent=None, banner=False):
@@ -384,7 +385,7 @@ class RetroMenu(QMenu):
         self.setContentsMargins(
             BANNER_WIDTH + 3 if banner else 0, 3 if banner else 0, 2 if banner else 0, 3 if banner else 0
         )
-        self._slide = None
+        self.motions = []
         # Stay a real popup for KWin so it draws no decoration or shadow around the menu.
         # Root menu is a frameless top-level on Wayland (a parentless popup is refused there); KWin places it.
         if banner:
@@ -397,21 +398,32 @@ class RetroMenu(QMenu):
 
     def showEvent(self, event):
         super().showEvent(event)
+        motion, duration = chicago95animations.own_animation(
+            chicago95animations.live_state(), "ANIM_MENUS", "slide", SLIDE_MS
+        )
         if self.banner:
             self.banner = banner_settings()  # read on every open, so a new choice in Setup shows without a restart
             QApplication.instance().setPalette(
                 chicago95ui.retro_palette(chicago95ui.read_scheme())
             )  # and System Settings colours
-            return  # Wayland top-levels cannot be moved by the client; KWin places the root menu.
         final = self.pos()
-        offset = QPoint(-self.width(), 0)
-        self.move(final + offset)
-        self._slide = QPropertyAnimation(self, b"pos", self)
-        self._slide.setStartValue(final + offset)
-        self._slide.setEndValue(final)
-        self._slide.setDuration(SLIDE_MS)
-        self._slide.setEasingCurve(QEasingCurve.OutCubic)
-        self._slide.start()
+        # Wayland top-levels cannot be moved by the client; KWin places the root menu, so it only fades.
+        slides = motion in ("slide", "both") and not self.banner
+        fades = motion in ("fade", "both")
+        self.motions = [
+            self.animate(b"pos", final + QPoint(-self.width(), 0), final, duration) if slides else None,
+            self.animate(b"windowOpacity", 0.0, 1.0, duration) if fades else None,
+        ]
+        self.motions = [motion for motion in self.motions if motion is not None]
+
+    def animate(self, property_name, start, end, duration):
+        motion = QPropertyAnimation(self, property_name, self)
+        motion.setStartValue(start)
+        motion.setEndValue(end)
+        motion.setDuration(duration)
+        motion.setEasingCurve(QEasingCurve.OutCubic)
+        motion.start()
+        return motion
 
     def paintEvent(self, event):
         super().paintEvent(event)

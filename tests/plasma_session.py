@@ -142,8 +142,8 @@ SETUP = (
 kbuildsycoca6 >/dev/null 2>&1
 plasmashell --no-respawn >"$WORK/plasma-setup.log" 2>&1 &
 wait_for_plasma
-TMPDIR="$WORK" ./install.sh --plain --yes --components=base,look,taskbar,fonts """
-    """--look={look} --screen=640x480@1 >"$WORK/install.log" 2>&1 </dev/null
+TMPDIR="$WORK" ./install.sh --plain --yes --components=base,look,taskbar,fonts{components} """
+    """--look={look} --screen=640x480@1{settings} >"$WORK/install.log" 2>&1 </dev/null
 # The test's launchers; the tray with the given applets only (none: the test's icons only).
 evaluate 'panels().forEach(panel => {{
     panel.widgets("org.chicago95.tasks").forEach(widget => {{
@@ -181,6 +181,8 @@ SCRIPT
 kwin_script "$WORK/arrange.js" arrange
 sleep 4
 spectacle --background --nonotify --fullscreen --output "$WORK/screen.png" >"$WORK/spectacle.log" 2>&1
+gdbus call --session --dest org.kde.KWin --object-path /Effects --method org.freedesktop.DBus.Properties.Get \
+    org.kde.kwin.Effects loadedEffects >"$WORK/effects.txt" 2>&1
 """
 )
 
@@ -258,12 +260,13 @@ def run_session(work, script, environment, xwayland=False):
         subprocess.run(command, env=environment, cwd=work, stdout=log, stderr=subprocess.STDOUT, check=False)
 
 
-def desktop_session(look, work, tray_applets=(), tray_icons=None, hidden_applets=(), tasks_config=()):
+def desktop_session(look, work, tray_applets=(), tray_icons=None, hidden_applets=(), tasks_config=(), settings=()):
     """Runs both sessions for a look in work (a short path: Wayland's socket path is limited to 108
     bytes); returns the 640x480 screenshot. tray_applets are Plasma applets shown in the tray (such
     as org.kde.plasma.notifications), hidden_applets ones behind its "show hidden icons" arrow, and
     tray_icons the number of the test's icons there, beside the original's; tasks_config (key, value) pairs
-    for the taskbar widget's settings."""
+    for the taskbar widget's settings; settings (key, value) pairs Setup applies with its animations step too.
+    The screenshot's info holds KWin's loaded effects and its log."""
     work = Path(work)
     home, runtime = work / "home", work / "run"
     for folder in (home / ".config", runtime):
@@ -295,6 +298,8 @@ def desktop_session(look, work, tray_applets=(), tray_icons=None, hidden_applets
             tray_applets=json.dumps(list(tray_applets)),
             hidden_applets=json.dumps(list(hidden_applets)),
             tasks_config=json.dumps(dict(tasks_config)),
+            components=",animations" if settings else "",
+            settings=f" --settings={work / 'chosen.conf'}" if settings else "",
         )
     )
     (work / "desktop.sh").write_text(
@@ -321,12 +326,17 @@ def desktop_session(look, work, tray_applets=(), tray_icons=None, hidden_applets
         "QT_QPA_PLATFORMTHEME": "kde",
         "QT_FORCE_STDERR_LOGGING": "1",
     }
+    (work / "chosen.conf").write_text("".join(f"{key}={value}\n" for key, value in settings))
     run_session(work, work / "setup.sh", environment)
     run_session(work, work / "desktop.sh", environment, xwayland=True)
     screen = work / "screen.png"
     if not screen.exists():
         raise RuntimeError(f"the Plasma session took no screenshot; see the logs in {work}")
-    return Image.open(screen).convert("RGB")
+    image = Image.open(screen).convert("RGB")
+    effects, kwin_log = work / "effects.txt", work / "kwin-desktop.log"
+    image.info["loaded_effects"] = effects.read_text() if effects.exists() else ""
+    image.info["kwin_log"] = kwin_log.read_text(errors="replace") if kwin_log.exists() else ""
+    return image
 
 
 def quote(text):

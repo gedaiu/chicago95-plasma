@@ -1,0 +1,14 @@
+{
+  "KPackageStructure": "KWin/Effect",
+  "KPlugin": {
+    "Authors": [{ "Name": "Chicago95 setup" }],
+    "Category": "Appearance",
+    "Description": "Windows 95/98's motion: a minimized, restored or maximized window folds into its title bar, which zooms to its taskbar button or new place",
+    "EnabledByDefault": false,
+    "Id": "chicago95zoom",
+    "License": "GPL",
+    "Name": "Title Bar Zoom (Chicago95)"
+  },
+  "X-KDE-Ordering": 60,
+  "X-Plasma-API": "javascript"
+}

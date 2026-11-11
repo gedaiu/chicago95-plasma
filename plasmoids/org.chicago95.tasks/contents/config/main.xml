@@ -16,6 +16,10 @@
       <label>The Quick Launch's width in pixels; -1 fits all its buttons. Buttons that do not fit go behind a chevron</label>
       <default>-1</default>
     </entry>
+    <entry name="animateButtons" type="Bool">
+      <label>Window and Quick Launch buttons slide into their new places (the Control Panel's Effects tab)</label>
+      <default>true</default>
+    </entry>
     <entry name="maxButtonWidth" type="Int">
       <label>The longest a window's button may be, in pixels; 0 takes the look's own (95px in 1995, 160px after)</label>
       <default>0</default>

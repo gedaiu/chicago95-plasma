@@ -23,6 +23,7 @@ sys.path[:0] = [
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
     os.path.expanduser("~/.local/lib/chicago95"),
 ]
+import chicago95animations
 import chicago95ui  # must precede the other PySide6 imports
 import dbus
 import dbus.service
@@ -445,28 +446,42 @@ class NotificationPopup(QWidget):
         paint_bevel(QPainter(self), self.size(), self.devicePixelRatioF(), WINDOW_RINGS, chicago95ui.FACE)
 
     def slide_in(self, target):
+        motion, slide_ms = motion_for(SLIDE_IN_MS)
+        if motion == "none":
+            self.move(target)
+            self.show()
+            return
         self.move(target + QPoint(POPUP_WIDTH + SCREEN_MARGIN, 0))
         self.setWindowOpacity(0.0)
         self.show()
-        self.move_animation = self.animate(b"pos", target, SLIDE_IN_MS, QEasingCurve.OutBack)
-        self.fade_animation = self.animate(b"windowOpacity", 1.0, FADE_IN_MS, QEasingCurve.OutCubic)
+        self.move_animation = self.animate(b"pos", target, slide_ms, QEasingCurve.OutBack)
+        self.fade_animation = self.animate(b"windowOpacity", 1.0, motion_for(FADE_IN_MS)[1], QEasingCurve.OutCubic)
 
     def glide_to(self, target):
         if self.move_animation and self.move_animation.state() == QPropertyAnimation.Running:
             self.move_animation.setEndValue(target)
             return
-        if self.pos() != target:
-            self.move_animation = self.animate(b"pos", target, GLIDE_MS, QEasingCurve.OutCubic)
+        motion, glide_ms = motion_for(GLIDE_MS)
+        if motion == "none":
+            self.move(target)
+        elif self.pos() != target:
+            self.move_animation = self.animate(b"pos", target, glide_ms, QEasingCurve.OutCubic)
 
     def slide_out(self):
         self.expiry_timer.stop()
         for animation in (self.move_animation, self.fade_animation):
             if animation:
                 animation.stop()
+        motion, slide_ms = motion_for(SLIDE_OUT_MS)
+        if motion == "none":
+            self.move_animation = self.fade_animation = None
+            self.hide()
+            self.deleteLater()
+            return
         self.move_animation = self.animate(
-            b"pos", self.pos() + QPoint(POPUP_WIDTH + SCREEN_MARGIN, 0), SLIDE_OUT_MS, QEasingCurve.InCubic
+            b"pos", self.pos() + QPoint(POPUP_WIDTH + SCREEN_MARGIN, 0), slide_ms, QEasingCurve.InCubic
         )
-        self.fade_animation = self.animate(b"windowOpacity", 0.0, SLIDE_OUT_MS, QEasingCurve.InQuad)
+        self.fade_animation = self.animate(b"windowOpacity", 0.0, slide_ms, QEasingCurve.InQuad)
         self.move_animation.finished.connect(self.deleteLater)
 
     def animate(self, property_name, end_value, duration, curve):
@@ -476,6 +491,13 @@ class NotificationPopup(QWidget):
         animation.setEasingCurve(curve)
         animation.start()
         return animation
+
+
+def motion_for(duration_ms):
+    """The Effects tab's choice for notifications and the duration at KDE's animation speed."""
+    return chicago95animations.own_animation(
+        chicago95animations.live_state(), "ANIM_NOTIFICATIONS", "slide", duration_ms
+    )
 
 
 class PopupHost(QWidget):

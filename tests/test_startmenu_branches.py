@@ -5,7 +5,7 @@ import time
 
 import chicago95ui
 import pytest
-from PySide6.QtCore import QSize
+from PySide6.QtCore import QPoint, QSize
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QApplication, QStyle, QStyleOptionMenuItem
 
@@ -533,7 +533,7 @@ def test_root_menu_show_rereads_banner_settings_without_sliding(startmenu, retro
     root.show()
     root.hide()
 
-    assert (root.banner["bannerText"], root._slide) == ("Second", None)
+    assert (root.banner["bannerText"], root.motions) == ("Second", [])
 
 
 def test_submenu_show_slides_in_from_the_left_over_slide_duration(startmenu, retro_look):
@@ -542,7 +542,7 @@ def test_submenu_show_slides_in_from_the_left_over_slide_duration(startmenu, ret
     startmenu.add_entry(submenu, "Entry", "x", lambda: None)
 
     submenu.show()
-    slide = submenu._slide
+    slide = submenu.motions[0]
     submenu.hide()
 
     assert (slide.duration(), slide.startValue().x() - slide.endValue().x()) == (startmenu.SLIDE_MS, -submenu.width())
@@ -635,3 +635,21 @@ def test_signal_running_instance_is_false_for_missing_garbage_or_dead_pid_file(
         pid_file.write_text(content)
 
     assert startmenu.signal_running_instance() is False
+
+
+@pytest.mark.parametrize(
+    "choice, animated",
+    [("none", []), ("slide", ["pos"]), ("fade", ["windowOpacity"]), ("both", ["pos", "windowOpacity"])],
+)
+def test_a_submenu_opens_with_the_menu_animation_chosen_on_the_effects_tab(
+    startmenu, retro_look, tmp_path, monkeypatch, choice, animated
+):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    retro_look("1995", f"[Animations]\nANIM_MENUS={choice}\n")
+    menu = startmenu.RetroMenu("Programs")
+    menu.addAction("Item")
+    menu.popup(QPoint(200, 200))
+    properties = sorted(bytes(motion.propertyName()).decode() for motion in menu.motions)
+    menu.hide()
+
+    assert properties == animated

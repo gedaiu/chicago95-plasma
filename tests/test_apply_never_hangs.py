@@ -1,3 +1,5 @@
+import os
+import signal
 import subprocess
 
 from conftest import REPO
@@ -24,20 +26,22 @@ def apply_with_saved_settings(home, saved_settings):
 
 
 def run_without_terminal(command, home):
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        start_new_session=True,
+        env={"PATH": "/usr/bin:/bin", "HOME": str(home), "TMPDIR": str(home)},
+    )
     try:
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            stdin=subprocess.DEVNULL,
-            start_new_session=True,
-            timeout=SETUP_TIMEOUT_SECONDS,
-            env={"PATH": "/usr/bin:/bin", "HOME": str(home), "TMPDIR": str(home)},
-            check=False,
-        )
+        output, _errors = process.communicate(timeout=SETUP_TIMEOUT_SECONDS)
     except subprocess.TimeoutExpired:
+        os.killpg(process.pid, signal.SIGKILL)
+        process.communicate()
         return f"still running after {SETUP_TIMEOUT_SECONDS} s", ""
-    return result.returncode, result.stdout
+    return process.returncode, output
 
 
 def chosen_start_logo_when_answering_yes_to_everything(home, remembered_logo):

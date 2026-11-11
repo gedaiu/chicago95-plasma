@@ -7,7 +7,7 @@ idle time to ordinary clients, so it cannot poll for itself. It shows an
 XScreenSaver hack full screen with a transparent window on top that catches
 input: any key, click or mouse movement closes both.
 
-    chicago95-screensaver --hack pipes    run one now (also how Setup previews it)
+    chicago95-screensaver --hack pipes    run one now (also how Setup previews it; "blank" shows a black screen)
     chicago95-screensaver --list          installed savers, one "name<TAB>label" per line
 """
 
@@ -20,23 +20,33 @@ sys.path[:0] = [
 ]
 import argparse
 import subprocess
+from collections import namedtuple
 from pathlib import Path
 
 import chicago95ui  # noqa: E401,E702
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QWidget
 
-# The classic savers and their closest XScreenSaver hack, in the order Setup lists them.
+# The classic savers of 95, 98 and 2000 first, in their order, then a few favourites; each runs its closest
+# XScreenSaver hack with the options that make it look the part. A saver without a hack is the blank screen.
+Saver = namedtuple("Saver", "label hack options")
 CATALOG = {
-    "deepstars": "Starfield Simulation",
-    "pipes": "3D Pipes",
-    "maze3d": "3D Maze",
-    "fliptext": "3D Text",
-    "qix": "Mystify Your Mind",
-    "flyingtoasters": "Flying Toasters",
-    "flurry": "Flurry",
-    "glmatrix": "Matrix",
-    "bsod": "Blue Screen",
+    "deepstars": Saver("Flying Through Space", "deepstars", ["--speed", "3"]),
+    "beziers": Saver("Curves and Colors", "vermiculate", ["--speed", "2"]),
+    "marquee": Saver(
+        "Marquee", "fontglide", ["--mode", "scroll", "--program", "echo Chicago95 for Plasma", "--font", "MS W98 UI-48"]
+    ),
+    "qix": Saver("Mystify Your Mind", "qix", []),
+    "blank": Saver("Blank Screen", None, []),
+    "flowerbox": Saver("3D Flower Box", "superquadrics", ["--count", "1", "--spinspeed", "3"]),
+    "flyingobjects": Saver("3D Flying Objects", "morph3d", []),
+    "maze3d": Saver("3D Maze", "maze3d", []),
+    "pipes": Saver("3D Pipes", "pipes", []),
+    "fliptext": Saver("3D Text", "fliptext", []),
+    "flyingtoasters": Saver("Flying Toasters", "flyingtoasters", []),
+    "flurry": Saver("Flurry", "flurry", []),
+    "glmatrix": Saver("Matrix", "glmatrix", []),
+    "bsod": Saver("Blue Screen", "bsod", []),
 }
 DEFAULT_HACK = "deepstars"
 HACK_DIRS = (
@@ -55,9 +65,17 @@ def hack_dir():
 
 
 def installed_savers(directory):
-    if directory is None:
-        return {}
-    return {name: label for name, label in CATALOG.items() if (directory / name).exists()}
+    return {
+        name: saver.label
+        for name, saver in CATALOG.items()
+        if saver.hack is None or (directory is not None and (directory / saver.hack).exists())
+    }
+
+
+def saver_command(name, directory):
+    """The hack to start for the saver, with its options; None for the blank screen."""
+    saver = CATALOG[name]
+    return None if saver.hack is None else [str(directory / saver.hack), *saver.options]
 
 
 def already_running():
@@ -139,9 +157,9 @@ class InputCatcher(QWidget):
             self.finish()
 
 
-def run_saver(app, hack_path):
+def run_saver(app, command):
     hack = subprocess.Popen(
-        [str(hack_path)],
+        command,
         env=dict(os.environ, QT_QPA_PLATFORM="xcb", GDK_BACKEND="x11"),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -167,6 +185,16 @@ def run_saver(app, hack_path):
     return code
 
 
+def run_blank(app):
+    """The blank screen: the input catcher alone, painted black."""
+    catcher = InputCatcher(app.quit)
+    catcher.setAttribute(Qt.WA_TranslucentBackground, False)
+    catcher.setStyleSheet("background: black")
+    catcher.showFullScreen()
+    wakeup = chicago95ui.quit_on_signals(app)  # noqa: F841  kept alive for the event loop
+    return app.exec()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--hack", default=DEFAULT_HACK, help="XScreenSaver hack to show (default %(default)s)")
@@ -186,7 +214,8 @@ def main():
     PID_FILE.write_text(str(os.getpid()))
     try:
         app = chicago95ui.make_app("chicago95-screensaver")
-        return run_saver(app, hack_dir() / args.hack)
+        command = saver_command(args.hack, hack_dir())
+        return run_saver(app, command) if command else run_blank(app)
     finally:
         PID_FILE.unlink(missing_ok=True)
 

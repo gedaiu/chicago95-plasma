@@ -167,8 +167,24 @@ def test_the_live_state_is_kwinrc_our_own_animation_choices_and_kdes_speed(tmp_p
 
 @pytest.mark.parametrize(
     "own, speed, expected",
-    [({}, None, ("slide", 90)), ({"ANIM_MENUS": "fade"}, "2", ("fade", 180)), ({"ANIM_MENUS": "slide"}, "0", ("none", 0))],
+    [
+        ({}, None, ("slide", 90)),
+        ({"ANIM_MENUS": "fade"}, "2", ("fade", 180)),
+        ({"ANIM_MENUS": "slide"}, "0", ("none", 0)),
+    ],
 )
 def test_our_own_animation_is_the_saved_choice_at_kdes_speed_and_none_when_the_speed_is_off(own, speed, expected):
     state = animations.LiveState(kwinrc={}, own=own, speed=speed)
     assert animations.own_animation(state, "ANIM_MENUS", "slide", 90) == expected
+
+
+def tasks_qml():
+    return (REPO / "plasmoids/org.chicago95.tasks/contents/ui/main.qml").read_text()
+
+
+def test_taskbar_buttons_slide_only_while_the_effects_tab_lets_them():
+    assert "enabled: entry.slides && !root.bandCarried && Plasmoid.configuration.animateButtons" in tasks_qml()
+
+
+def test_window_buttons_tell_kwin_where_they_are_so_minimizing_aims_at_them():
+    assert "tasksModel.requestPublishDelegateGeometry(entry.modelIndex," in tasks_qml()

@@ -49,7 +49,7 @@ originals' wording for the comparison. The pictures are made by `tests/render_re
 | `data/sound-themes/`   | Freedesktop sound themes for Windows 98, the 16 Plus! 98 schemes and Windows 2000, built by `setup/make_sound_themes.py`                                                                                                                        |
 | `data/toolbar-icons/`  | Windows 95 and 2000 Explorer toolbar buttons (Back, Up, Cut, Copy...), installed as the `Chicago95-Toolbar` icon theme over the look's icon set; built by `setup/make_toolbar_icons.py`                                                         |
 | `config/`              | Colour scheme, KWin rules, systemd drop-in and unit, environment.d, autostart entries, Thunar, xsettingsd, GTK CSS, Dolphin toolbar, Firefox `user.js`                                                                                          |
-| `kwin-effects/`        | `chicago95notifications`, the slide-in effect                                                                                                                                                                                                   |
+| `kwin-effects/`        | `chicago95notifications`, the slide-in effect; `chicago95zoom`, the title bar zoom                                                                                                                                                              |
 | `lockscreen/`          | The `contents/lockscreen` override for the Plasma desktop shell                                                                                                                                                                                 |
 | `splash/`              | `chicago95.splashscreen` KSplash package                                                                                                                                                                                                        |
 | `install.sh`, `setup/` | Chicago95 Setup: detection, component and option screens, install steps                                                                                                                                                                         |
@@ -96,7 +96,7 @@ profile in daily use, whether Thunar and qmmp are installed, and missing
 Python modules, with the install command for your distribution.
 
 Components, each optional: Chicago95 base theme, decoration and Plasma
-style, taskbar plasmoids, Start menu and Shut Down dialog, notifications,
+style, animations, taskbar plasmoids, Start menu and Shut Down dialog, notifications,
 Office Assistant, extra tools, Control Panel, sound scheme, desktop background, screensaver, Winamp, Explorer (Thunar or
 Dolphin), lock screen, splash screen, boot screen (Plymouth), login screen
 (SDDM), Firefox colours.
@@ -125,7 +125,7 @@ screen or as flags:
 | `--screen=WxH@scale`                 | detected                        | Positions of Start menu, Clippy, notifications; X11 DPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `--panel=28`                         | 28                              | Taskbar height used in the window rules                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `--explorer=thunar` or `dolphin`     | Thunar if installed             | Which file manager gets the Explorer setup                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `--saver=deepstars`                  | deepstars                       | Screensaver, also chosen and previewed on its own Setup screen                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `--saver=deepstars`                  | deepstars                       | Screensaver, also chosen and previewed on its own Setup screen: the classics (`deepstars` Flying Through Space, `beziers` Curves and Colors, `marquee`, `qix` Mystify Your Mind, `blank`, `flowerbox`, `flyingobjects`, `maze3d`, `pipes`, `fliptext`) and `flyingtoasters`, `flurry`, `glmatrix`, `bsod`; each is an XScreenSaver hack with the options that make it look the part                                                                                                                                                    |
 | `--idle=5`                           | 5                               | Minutes before the screensaver starts                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `--cursor=48`                        | 48 at fractional scale, else 32 | Cursor size                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `--clippy=yes` or `no`               | yes                             | Start the Office Assistant at login                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -146,7 +146,17 @@ button width with a preview of the buttons, auto hide, clock, Quick Launch
 (drag shortcuts onto it, drag them off to remove), Start button and menu banner,
 login and loading screen texts and pictures with live previews of the log-on
 dialog, the 2000 banner and the loading screen, sounds with Play, fonts,
-pointer size and the file manager. Back, Forward, Up and the clickable address
+pointer size and the file manager. Display, Effects picks the animation of each
+event: opening and closing windows, minimize, maximize, dialogs, wobbly windows,
+showing the desktop, switching desktops, logging on and off, menus,
+notifications and taskbar buttons, with a speed slider (Off to Slow). The lists
+offer KDE's effects, any installed effect of the same kind (Burn-My-Windows and
+the like) and the Title Bar Zoom, Windows 95/98's own minimize and maximize
+motion (`kwin-effects/chicago95zoom`); a list shows what runs now until you
+choose, Settings… opens the chosen effect's KDE page, and Classic sets every
+list to what the look's Windows did. The choices live in
+`setup/animations.conf`, which Setup and the Control Panel both read; applying
+them reloads KWin without restarting Plasma. Back, Forward, Up and the clickable address
 bar move between pages. One window: Properties on the taskbar brings the open
 one back on its page. It saves `~/.config/chicago95/setup.conf` and runs
 Setup again for only what changed. Its Updates page shows the installed

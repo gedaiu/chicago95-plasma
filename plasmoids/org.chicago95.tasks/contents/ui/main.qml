@@ -239,7 +239,7 @@ PlasmoidItem {
                 value: 5
             }
             Behavior on x {
-                enabled: entry.slides && !root.bandCarried
+                enabled: entry.slides && !root.bandCarried && Plasmoid.configuration.animateButtons
                 NumberAnimation {
                     duration: 120
                 }
@@ -295,6 +295,19 @@ PlasmoidItem {
                 id: windowButton
                 TaskButton {
                     id: button
+                    // Where the button is on screen: minimize effects (Title bar zoom, Squash, Magic Lamp) aim at it.
+                    function publishGeometry() {
+                        const corner = button.mapToGlobal(0, 0);
+                        tasksModel.requestPublishDelegateGeometry(entry.modelIndex, Qt.rect(corner.x, corner.y, button.width, button.height), button);
+                    }
+                    Component.onCompleted: publishGeometry()
+                    onWidthChanged: publishGeometry()
+                    Connections {
+                        target: entry
+                        function onXChanged() {
+                            button.publishGeometry();
+                        }
+                    }
                     text: entry.model.display
                     icon: entry.model.decoration
                     pressed: entry.model.IsActive === true
