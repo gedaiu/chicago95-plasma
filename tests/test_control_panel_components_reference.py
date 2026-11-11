@@ -5,6 +5,8 @@ A control keeps the original's structure: a field's edge reads shadow, black, wh
 row over a white one; the slider's groove is shadow, black, face, white; a check box is a 10 pixel dark square.
 """
 
+import os
+
 import pytest
 from conftest import REPO, load_script
 from PIL import Image
@@ -1144,3 +1146,58 @@ def test_our_drop_down_draws_its_inner_light_edge_and_its_buttons_outer_light_ed
     )
 
     assert colours == {light}
+
+
+GROUP_TITLE_AT_SCALE = """
+import io, json, sys
+sys.path.insert(0, sys.argv[1])
+import chicago95ui
+from PySide6.QtCore import QBuffer, QIODevice
+from PySide6.QtWidgets import QGroupBox, QLabel, QStyle, QStyleOptionGroupBox, QVBoxLayout
+from PIL import Image
+
+app = chicago95ui.make_app("group-title")
+group = QGroupBox("Chicago95 for Plasma")
+QVBoxLayout(group).addWidget(QLabel("x"))
+group.resize(200, 80)
+group.show()
+app.processEvents()
+option = QStyleOptionGroupBox()
+group.initStyleOption(option)
+frame = group.style().subControlRect(QStyle.CC_GroupBox, option, QStyle.SC_GroupBoxFrame, group)
+label = group.style().subControlRect(QStyle.CC_GroupBox, option, QStyle.SC_GroupBoxLabel, group)
+image = group.grab().toImage()
+scale = image.devicePixelRatio()
+buffer = QBuffer()
+buffer.open(QIODevice.WriteOnly)
+image.save(buffer, "PNG")
+picture = Image.open(io.BytesIO(bytes(buffer.data()))).convert("RGB")
+left, right = round((label.left() + 1) * scale), round((label.left() + label.width() - 1) * scale)
+rows = range(round((frame.top() - 1) * scale), round((frame.top() + 3) * scale))
+under_title = sorted({picture.getpixel((x, y)) for y in rows for x in range(left, right)})
+print(json.dumps({"scale": scale, "colours": under_title, "shadow": group.palette().dark().color().getRgb()[:3]}))
+"""
+
+
+@pytest.mark.parametrize("scale", ["1", "1.5", "2"])
+def test_the_frame_line_never_runs_under_a_group_title_at_any_screen_scale(scale, tmp_path):
+    """Neither the frame's shadow row nor its white row shows under the title (its glyphs may be antialiased
+    at a fractional scale, so only the frame's two colours are ruled out)."""
+    import json
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "-c", GROUP_TITLE_AT_SCALE, str(REPO / "lib")],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env={**os.environ, "QT_QPA_PLATFORM": "offscreen", "QT_SCALE_FACTOR": scale, "HOME": str(tmp_path)},
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr[-800:]
+    seen = json.loads(result.stdout.strip().splitlines()[-1])
+
+    colours = set(map(tuple, seen["colours"]))
+
+    assert (seen["scale"], tuple(seen["shadow"]) in colours, (255, 255, 255) in colours) == (float(scale), False, False)

@@ -828,11 +828,13 @@ class ClassicStyle(QProxyStyle):
             option.text.replace("&", "")
         )
         ink_left = frame_rect.left() + GROUP_TITLE_INK
+        # A row above and below the frame's two rows as well: at a fractional screen scale the rows round
+        # onto other device pixels than a two-row gap would, and a line would show under the title.
         gap = QRect(
             ink_left - GROUP_LINE_BEFORE,
-            frame_rect.top(),
+            frame_rect.top() - 1,
             label.left() + text_width + GROUP_LINE_AFTER - (ink_left - GROUP_LINE_BEFORE),
-            2,
+            4,
         )
         frame = QStyleOptionFrame()
         frame.rect = frame_rect
