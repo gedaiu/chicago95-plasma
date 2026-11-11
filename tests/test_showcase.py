@@ -9,7 +9,7 @@ REPO = Path(__file__).resolve().parent.parent
 
 def test_reference_free_catalogue_and_composition(tmp_path):
     # The report owns a QApplication and temporary config; keep that out of pytest's shared Qt process.
-    program = r'''
+    program = r"""
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path.cwd() / "tests"))
@@ -53,7 +53,7 @@ assert single.getpixel((400, 130)) == report.CARD
 pair = Image.open(out / "pair.png")
 assert pair.getpixel((24, 130)) == (0, 0, 255)
 assert pair.getpixel((350, 130)) == (255, 0, 0)
-'''
+"""
     result = subprocess.run(
         [sys.executable, "-c", program, str(tmp_path)],
         cwd=REPO,
@@ -63,3 +63,49 @@ assert pair.getpixel((350, 130)) == (255, 0, 0)
         timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_taskbar_assets_overflow_states_and_window_icons(tmp_path):
+    import pytest
+
+    qml_roots = ("/usr/lib64/qt6/qml", "/usr/lib/qt6/qml", "/usr/lib/x86_64-linux-gnu/qt6/qml")
+    if not any((Path(root) / "org/kde/ksvg").exists() for root in qml_roots):
+        pytest.skip("taskbar rendering needs KDE KSvg")
+    program = r"""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path.cwd() / "tests"))
+import render_report
+import chicago95ui
+from showcase import taskbars, frame, themed
+
+app = chicago95ui.make_app("showcase-overflow-test")
+app.setQuitOnLastWindowClosed(False)
+for look in ("1995", "luna"):
+    with themed(app, look):
+        folder = Path(sys.argv[1]) / look
+        panels = taskbars(app, look, folder)
+        assert len(panels) == 7
+        images = [panel[2] for panel in panels]
+        assert all(image.size == (800, 30) for image in images)
+        # Hovered and held chevrons must actually change the rendered pixels.
+        assert images[3].tobytes() != images[4].tobytes()
+        assert images[4].tobytes() != images[5].tobytes()
+        assert images[3].tobytes() != images[6].tobytes()
+        # The flag contributes red pixels absent from the green/grey Start background.
+        box = (10, 6, 30, 24) if look == "luna" else (4, 8, 20, 24)
+        assert any(r > 140 and g < 130 and b < 130 for r, g, b in images[0].crop(box).getdata())
+        window = frame(look, folder, 340, 80, caption="Documents").convert("RGB")
+        # The folder icon contributes yellow ink absent from either blue title bar.
+        assert any(r > 150 and g > 140 and b < 130 for r, g, b in window.crop((4, 4, 24, 24)).getdata())
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", program, str(tmp_path)],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=40,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Cannot open" not in result.stderr and "No such file" not in result.stderr, result.stderr

@@ -87,7 +87,7 @@ def login(app, look, scratch):
 
 
 def taskbars(app, look, scratch):
-    """The production Qt Quick components, with identical tasks and real icons for every look."""
+    """Production components and Quick Launch layout, including constrained bands and hidden tray items."""
     from aurorae_model import LOOKS
     from render_report import DEFAULT_LOGO
 
@@ -114,17 +114,26 @@ def taskbars(app, look, scratch):
         )
     imports = []
     for component, alias in (("start", "Start"), ("tasks", "Tasks"), ("trayframe", "Tray")):
-        source = REPO / f"plasmoids/org.chicago95.{component}/contents/ui"
+        # Install the whole contents tree: QML has relative image and shared-JavaScript imports.
+        contents = scratch / component
+        shutil.copytree(REPO / f"plasmoids/org.chicago95.{component}/contents", contents)
         if luna:
-            merged = scratch / component / "ui"
-            shutil.copytree(source, merged)
-            shutil.copytree(REPO / f"luna/plasmoids/org.chicago95.{component}/contents/ui", merged, dirs_exist_ok=True)
-            shutil.copy(REPO / "luna/plasmoids/family.js", merged / "luna/family.js")
-            source = merged / "luna"
+            shutil.copytree(REPO / f"luna/plasmoids/org.chicago95.{component}/contents", contents, dirs_exist_ok=True)
+            shutil.copy(REPO / "luna/plasmoids/family.js", contents / "ui/luna/family.js")
+        for qml in contents.rglob("*.qml"):
+            qml.write_text(
+                qml.read_text().replace(
+                    "@HOME@/.local/share/chicago95/icons/tray-chevron.png",
+                    (REPO / "data/icons/tray-chevron.png").as_uri(),
+                )
+            )
+        source = contents / "ui" / "luna" if luna else contents / "ui"
         imports.append(f'import "{source.as_uri()}" as {alias}')
+    imports.append(f'import "{(scratch / "tasks/ui/quickLaunchBand.js").as_uri()}" as Band')
+    tasks = ["Documents", "Display Properties", "Notes"]
     variants = [
-        ("Idle", []),
-        ("Open windows", ["Documents", "Display Properties", "Notes"]),
+        ("Idle", [], False, "left", "normal"),
+        ("Open windows", tasks, False, "left", "normal"),
         (
             "Crowded / long titles",
             [
@@ -135,21 +144,27 @@ def taskbars(app, look, scratch):
                 "Pictures",
                 "Terminal",
             ],
+            False,
+            "left",
+            "normal",
         ),
+        ("Overflow · Quick Launch 2 of 6, tray 2 of 5", tasks, True, "left", "normal"),
+        ("Overflow · chevrons hovered", tasks, True, "left", "hovered"),
+        ("Overflow · chevrons pressed", tasks, True, "left", "held"),
+        ("Overflow · Quick Launch docked right", tasks, True, "right", "normal"),
+    ]
+    launchers = [
+        "folder",
+        "internet-web-browser",
+        "utilities-terminal",
+        "text-editor",
+        "system-file-manager",
+        "help-browser",
     ]
     rows = []
-    for index, (label, titles) in enumerate(variants):
+    for index, (label, titles, overflow, dock, state) in enumerate(variants):
         start_width = 98 if luna else 64
-        tasks_left, tray_left = start_width + 100, 688
-        width = min(165, (tray_left - tasks_left - 4) // max(1, len(titles)) - 2)
-        items = []
         task_settings = "" if luna else f'look: "{look}"; bevel: "{"2000" if look in ("2000", "2001") else "1995"}";'
-        for number, title in enumerate(titles):
-            items.append(
-                f"Tasks.TaskButton {{ x: {tasks_left + number * (width + 2)}; y: 1; "
-                f'width: {width}; height: 28; text: {json.dumps(title)}; icon: "folder"; '
-                f"{task_settings} pressed: {str(number == 1).lower()} }}"
-            )
         if luna:
             from palette import PALETTE
 
@@ -166,31 +181,59 @@ def taskbars(app, look, scratch):
                 f'logoSource: "{DEFAULT_LOGO.as_uri()}"; look: "{look}"; '
                 f'bevel: "{"2000" if look in ("2000", "2001") else "1995"}"; face: "{LOOKS[look]["face"]}" }}'
             )
+        band_size = "2 * metrics.cellWidth + metrics.chevronWidth" if overflow else "Band.fitAll()"
+        tray_icons = ["audio-volume-high", "network-wired", "battery", "printer", "input-keyboard"]
+        tray_chevron = (
+            (
+                "Tray.TrayChevron { x: 674; y: 8; hovered: root.hovered; held: root.held }"
+                if luna
+                else f"Image {{ x: 679; y: 9; width: 16; height: 16; "
+                f'source: "{(REPO / "data/icons/tray-chevron.png").as_uri()}"; smooth: false }}'
+            )
+            if overflow
+            else ""
+        )
         text = "\n".join(
             [
                 "import QtQuick",
                 "import org.kde.ksvg as KSvg",
                 "import org.kde.kirigami as Kirigami",
                 *imports,
-                "Rectangle { width: 800; height: 30",
+                "Rectangle { id: root; width: 800; height: 30",
                 f'Component.onCompleted: {{ KSvg.ImageSet.basePath = "{themes}"; '
                 f'KSvg.ImageSet.imageSetName = "{name}" }}',
+                f"property bool hovered: {str(state == 'hovered').lower()}",
+                f"property bool held: {str(state == 'held').lower()}",
+                f"property var launchers: {json.dumps(launchers if overflow else launchers[:3])}",
+                f"property var titles: {json.dumps(titles)}",
+                f"property var trayIcons: {json.dumps(tray_icons if overflow else tray_icons[:2])}",
+                f'property var metrics: Band.metrics("{look}")',
+                f"property var band: Band.layout(664, {start_width + 3}, metrics.separatorLead, launchers.length, "
+                f'{band_size}, "{dock}", metrics)',
+                "property int taskWidth: Math.min(165, "
+                "Math.floor((band.tasksEnd - band.tasksX - 6) / Math.max(1, titles.length)) - 3)",
                 background,
                 start,
-                f"Tasks.Separator {{ x: {start_width + 3}; y: 2; height: 26 }}",
-                *[
-                    f"Tasks.QuickLaunchButton {{ x: {start_width + 16 + number * 23}; y: 2; "
-                    f'width: 23; height: 26; icon: "{icon}" }}'
-                    for number, icon in enumerate(("folder", "internet-web-browser", "utilities-terminal"))
-                ],
-                f"Tasks.Separator {{ x: {start_width + 86}; y: 2; height: 26 }}",
-                *items,
-                "Tray.TrayBox { x: 688; width: 112; height: 30 }",
-                *[
-                    f"Kirigami.Icon {{ x: {700 + number * 22}; y: 9; width: 16; height: 16; "
-                    f'source: "{icon}"; roundToIconSize: false }}'
-                    for number, icon in enumerate(("audio-volume-high", "network-wired"))
-                ],
+                "Tasks.Separator { x: root.band.leftSeparatorX; y: 2; height: 26 }",
+                "Repeater { model: root.band.shown; Tasks.QuickLaunchButton { required property int index; "
+                "x: root.band.cellsX + index * root.metrics.cellWidth; y: 2; "
+                "width: root.metrics.cellWidth; height: 26; "
+                "icon: root.launchers[root.band.firstShown + index] } }",
+                f"Tasks.Chevron {{ visible: root.band.chevronX >= 0; x: root.band.chevronX; y: 2; "
+                f"width: root.metrics.chevronWidth; height: 26; pointsRight: {str(dock == 'left').lower()}; "
+                "hovered: root.hovered; held: root.held }",
+                "Tasks.Separator { x: root.band.rightSeparatorX; y: 2; height: 26 }",
+                "Repeater { model: root.titles; Tasks.TaskButton { required property string modelData; "
+                "required property int index; "
+                "x: root.band.tasksX + index * (root.taskWidth + 3); y: 1; width: root.taskWidth; height: 28; "
+                'text: modelData; icon: ["folder", "preferences-desktop-display", "text-x-generic"][index % 3]; '
+                + task_settings
+                + " pressed: index === 1 } }",
+                "Tray.TrayBox { x: 680; width: 120; height: 30 }",
+                tray_chevron,
+                "Repeater { model: Math.min(2, root.trayIcons.length); Kirigami.Icon { required property int index; "
+                "x: 700 + index * 22; y: 9; width: 16; height: 16; source: root.trayIcons[index]; "
+                "roundToIconSize: false } }",
                 'Text { x: 750; y: 8; text: "10:30"; color: "'
                 + ("white" if luna else "black")
                 + '"; font.pixelSize: 11 }',
@@ -205,15 +248,31 @@ def taskbars(app, look, scratch):
 
 def frame(look, scratch, width, height, active=True, caption="Display Properties", **kwargs):
     from aurorae_model import Window, build_theme
+    from PySide6.QtGui import QIcon, QImage
+    from PySide6.QtWidgets import QApplication, QStyle
 
     if look == "luna":
         from luna_model import LunaWindow
 
-        return LunaWindow(width, height, active=active, caption=caption, **kwargs).render()
-    folder = scratch / "decoration"
-    if not folder.exists():
-        build_theme(folder, look)
-    return Window(folder, width, height, active=active, caption=caption, **kwargs).render()
+        window = LunaWindow(width, height, active=active, caption=caption, **kwargs)
+    else:
+        folder = scratch / "decoration"
+        if not folder.exists():
+            build_theme(folder, look)
+        window = Window(folder, width, height, active=active, caption=caption, **kwargs)
+    image = window.render()
+    rect = window.button_rects().get("M")
+    if rect is not None:
+        name = "folder" if caption == "Documents" else "preferences-desktop-display"
+        fallback = QApplication.style().standardIcon(
+            QStyle.SP_DirIcon if caption == "Documents" else QStyle.SP_ComputerIcon
+        )
+        icon = QIcon.fromTheme(name, fallback).pixmap(16, 16).toImage().convertToFormat(QImage.Format_RGBA8888)
+        pixels = Image.frombytes(
+            "RGBA", (icon.width(), icon.height()), bytes(icon.constBits()), "raw", "RGBA", icon.bytesPerLine()
+        )
+        image.paste(pixels, (round(rect.center().x() - 8), round(rect.center().y() - 8)), pixels)
+    return image
 
 
 def desktop(app, look, scratch, bar):

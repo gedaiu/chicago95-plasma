@@ -20,7 +20,9 @@ Built and tested on Fedora 44, Plasma 6.8.2 (Wayland), 3840x2160 at 1.5x.
 
 Setup offers five looks: 1995, 1998, 2000, 2001 (Windows XP Classic) and Luna.
 Each scenes image uses the same 800×600 boot/login/desktop scenario, followed by idle,
-open-window and crowded taskbars, each with Quick Launch, tray icons and a fixed clock. The desktop is a composed preview of native widgets
+open-window and crowded taskbars, each with Quick Launch, tray icons and a fixed clock.
+Overflow cases constrain Quick Launch to two of six entries and show two of five tray icons,
+with normal, hovered and pressed chevrons plus a right-docked Quick Launch band. The desktop is a composed preview of native widgets
 inside the theme's window decorations, with real icons and populated windows.
 Shared boot/login designs are shown as implemented, even when multiple looks use the same design.
 
@@ -317,7 +319,7 @@ Plymouth screens, and `test_flat_looks_unchanged.py`, which pins the flat looks'
 `python3 tests/render_report.py docs/compare [LOOK ...]` writes two images per look
 (1995, 1998, 2000, 2001, luna):
 
-- `showcase-<look>.jpg`: boot, login, a populated desktop preview, and three taskbar variants.
+- `showcase-<look>.jpg`: boot, login, a populated desktop preview, and seven taskbar variants, including overflow and chevron states.
 - `showcase-controls-<look>.jpg`: controls grouped by type and labelled by toolkit and state.
   Coverage includes buttons, checkboxes, radios, text and numeric fields, date/time editors,
   sliders, scrollbars, progress bars, tabs, lists, trees, tables, menus, toolbars, splitters,
