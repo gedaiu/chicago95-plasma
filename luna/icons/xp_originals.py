@@ -135,7 +135,8 @@ def index_text(sizes):
     sections = "".join(
         f"\n[{size}x{size}/{SUBDIRECTORY}]\nSize={size}\nType=Fixed\n" for size in sorted(sizes, key=str)
     )
-    return f"[Icon Theme]\nName={THEME_NAME}\nComment=The user's own Windows XP icons\nDirectories={','.join(directories)}\n{sections}"
+    header = f"[Icon Theme]\nName={THEME_NAME}\nComment=The user's own Windows XP icons\n"
+    return f"{header}Directories={','.join(directories)}\n{sections}"
 
 
 def build_theme(out, numbered_archive, named_archive, numbered_map=None, named_map=None):

@@ -175,6 +175,134 @@ def indicator_png(kind, colour):
     return buffer.getvalue()
 
 
+def tab_png(selected, hovered, position, fill=False):
+    import io
+
+    from PIL import Image
+
+    image = Image.new("RGBA", (5, 21))
+    gradient = ["#FFFFFF", "#FEFEFE", "#FCFCFB", "#FAFAF9", "#F8F8F6", "#F6F6F3", "#F6F6F2", "#F5F5F1",
+                "#F4F4F0", "#F3F3EF", "#F3F3EE", "#F2F2ED", "#F1F1ED", "#F1F1EC", "#F0F0EB", "#F0F0EA"]
+    for y in range(21):
+        for x in range(5):
+            colour = None
+            if selected:
+                colour = ("#E68B2C", "#FFC83C", "#FFC73C")[y] if y < 3 else "#FCFCFE"
+                if x in (0, 4) and y > 0:
+                    colour = "#919B9C"
+            elif 2 <= y <= 19:
+                colour = "#91A7B4" if y == 2 else "#ECEBE6" if y == 19 else gradient[y - 3]
+                if hovered and y in (2, 3):
+                    colour = "#FFC73C"
+                if x in (0, 4):
+                    colour = "#919B9C"
+            if colour:
+                image.putpixel((x, y), (*bytes.fromhex(colour[1:]), 255))
+    if fill:
+        image = image.crop((2, 0, 3, 21))
+    transforms = {"bottom": Image.Transpose.FLIP_TOP_BOTTOM, "left": Image.Transpose.ROTATE_90,
+                  "right": Image.Transpose.ROTATE_270}
+    if position in transforms:
+        image = image.transpose(transforms[position])
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def notebook_rules():
+    yield block("notebook, notebook > header, notebook > header > tabs", padding="0", margin="0",
+                border="0", box_shadow="none", background_image="none")
+    yield block("notebook > stack, notebook > .frame", background_image=vertical("tab-page"),
+                border="1px solid " + stops.PAGE_BORDER)
+    yield block("notebook > header > tabs > tab", padding="0 5px", margin="0", min_height="16px",
+                min_width="0", border_style="solid", border_color="transparent", border_radius="0",
+                background_image="none", background_color="transparent", box_shadow="none", color="#000000")
+    yield block("notebook > header > tabs > tab label", padding="0", margin="0")
+    for position, edge, slices in (("top", "bottom", "3 1 2 1"), ("bottom", "top", "2 1 3 1"),
+                                   ("left", "right", "1 3 1 2"), ("right", "left", "1 2 1 3")):
+        header = f"notebook > header.{position}"
+        horizontal = position in ("top", "bottom")
+        yield block(header, background_image="linear-gradient(#919B9C, #919B9C)",
+                    background_repeat="no-repeat", background_position=edge,
+                    background_size="100% 1px" if horizontal else "1px 100%")
+        yield block(header + " + stack", **{f"border-{position}-width": "0"})
+        for state, selected, hovered in (("", False, False), (":hover", False, True), (":checked", True, False)):
+            yield block(header + " > tabs > tab" + state,
+                        border_width=" ".join(value + "px" for value in slices.split()),
+                        border_image_source=f'url("assets/tab-{position}-{int(selected)}-{int(hovered)}.png")',
+                        border_image_slice=slices, border_image_repeat="stretch",
+                        background_image=f'url("assets/tab-fill-{position}-{int(selected)}-{int(hovered)}.png")',
+                        background_size="100% 100%", background_origin="border-box", background_clip="border-box",
+                        min_height="16px" if horizontal else "0", min_width="0" if horizontal else "16px",
+                        padding="0 5px" if horizontal else "5px 0")
+    yield block("notebook > header > tabs > tab:disabled", color=stops.DISABLED_TEXT)
+
+
+def switch_png(part, active=False, state="normal"):
+    """Shared pixel artwork avoids different GTK built-in icons and corner rasterisation."""
+    import io
+
+    from PIL import Image, ImageColor, ImageDraw
+
+    thumb = part == "thumb"
+    width, height = (17, 17) if thumb else (36, 19)
+    image = Image.new("RGBA", (width, height))
+    draw = ImageDraw.Draw(image)
+    border = stops.DISABLED_BORDER if state == "disabled" else stops.CHECK_BORDER
+    if thumb and state == "hovered":
+        border = "#E59700"
+    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=2, fill=border)
+    if thumb:
+        name = {"pressed": "check-pressed", "disabled": "white-disabled"}.get(state, "button-body")
+        gradient = GRADIENTS[name]
+        for y in range(1, height - 1):
+            t = (y - 1) / (height - 3)
+            for (left, first), (right, last) in zip(gradient, gradient[1:], strict=False):
+                if left <= t <= right:
+                    weight = (t - left) / max(right - left, 1e-9)
+                    colour = tuple(round(a + (b - a) * weight)
+                                   for a, b in zip(ImageColor.getrgb(first), ImageColor.getrgb(last), strict=True))
+                    draw.line((1, y, width - 2, y), fill=colour)
+                    break
+    else:
+        draw.rectangle((1, 1, width - 2, height - 2), fill=SELECTION if active and state != "disabled" else FACE)
+        colour = stops.DISABLED_TEXT if state == "disabled" else "#FFFFFF" if active else "#000000"
+        # Put the mark in both halves; the thumb covers one. GTK4 mirrors its
+        # thumb in RTL, while GTK3 retains its physical left/right placement.
+        for offset in (0, 17):
+            if active:
+                draw.rectangle((8 + offset, 5, 9 + offset, 13), fill=colour)
+            else:
+                draw.ellipse((5 + offset, 5, 13 + offset, 13), outline=colour, width=2)
+        if state == "focused":
+            for x in range(2, width - 2, 2):
+                draw.point((x, 2), fill="#000000")
+                draw.point((x, height - 3), fill="#000000")
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def switch_rules():
+    yield block("switch", min_width="34px", min_height="17px", padding="1px", margin="0",
+                border="0", border_radius="0", box_shadow="none", outline="none",
+                color="transparent", background_color="transparent", background_size="100% 100%",
+                background_repeat="no-repeat", **{"-gtk-icon-source": "none", "-gtk-icon-shadow": "none"})
+    yield block("switch image, switch image:disabled", color="transparent", opacity="0", min_width="0", min_height="0")
+    yield block("switch slider", min_width="17px", min_height="17px", padding="0", margin="0",
+                border="0", border_radius="0", box_shadow="none", background_color="transparent",
+                background_size="100% 100%", background_repeat="no-repeat")
+    for active in (False, True):
+        selector = "switch:checked" if active else "switch:not(:checked)"
+        for state, pseudo in (("normal", ""), ("hovered", ":hover"), ("pressed", ":active"),
+                              ("focused", ":focus"), ("disabled", ":disabled")):
+            yield block(selector + pseudo, color="transparent",
+                        background_image=f'url("assets/switch-{int(active)}-{state}.png")')
+    for state, pseudo in (("normal", ""), ("hovered", ":hover"), ("pressed", ":active"),
+                          ("focused", ":focus"), ("disabled", ":disabled")):
+        yield block(f"switch{pseudo} slider", background_image=f'url("assets/switch-thumb-{state}.png")')
+
+
 def slider_png(horizontal, state):
     import io
 
@@ -463,33 +591,7 @@ def widget_rules():
             "radio:checked:disabled",
             background_image=f"{dot_icon(stops.CHECK_MARK_DISABLED)}, {vertical('white-disabled')}",
         ),
-        block(
-            "notebook > stack, notebook > .frame",
-            background_image=vertical("tab-page"),
-            border="1px solid " + stops.PAGE_BORDER,
-        ),
-        block(
-            "notebook > header > tabs > tab",
-            min_height="19px",
-            padding="0 8px",
-            margin="2px 0 0 0",
-            border="1px solid " + stops.PAGE_BORDER,
-            border_radius="3px 3px 0 0",
-            background_image=vertical("tab"),
-            color="#000000",
-        ),
-        block(
-            "notebook > header > tabs > tab:hover",
-            box_shadow=f"inset 0 1px {stops.TAB_ORANGE[0]}, inset 0 3px {stops.TAB_ORANGE[2]}",
-        ),
-        block(
-            "notebook > header > tabs > tab:checked",
-            margin="0",
-            background_image="none",
-            background_color=GRADIENTS["tab-selected"][0][1],
-            box_shadow=f"inset 0 1px {stops.TAB_ORANGE[0]}, inset 0 3px {stops.TAB_ORANGE[2]}",
-        ),
-        block("notebook > header > tabs > tab:disabled", color=stops.DISABLED_TEXT),
+        *notebook_rules(),
         block(
             "menu, .menu, .popup, popover.background > contents, popover.menu > contents",
             background_color="#FFFFFF",
@@ -637,12 +739,7 @@ def widget_rules():
             border_radius="0",
             padding="0",
         ),
-        block("switch", min_width="34px", min_height="17px", padding="0",
-              border="1px solid " + stops.CHECK_BORDER, border_radius="2px", background_color=FACE),
-        block("switch:checked", background_color=SELECTION),
-        block("switch slider", min_width="15px", min_height="15px", padding="0", margin="0",
-              border="1px solid " + stops.BORDER, border_radius="2px", background_image=vertical("button-body")),
-        block("switch:disabled", background_color=FACE, border_color=stops.DISABLED_BORDER),
+        *switch_rules(),
         block("frame", border="1px solid " + stops.GROUP_BORDER, border_radius="4px"),
         block("frame > border", border="none", padding="0", margin="0"),
         block("separator", background_color=stops.MENU_BORDER, min_width="1px", min_height="1px"),
@@ -796,6 +893,16 @@ def write_theme(out):
             for state in ("normal", "hover", "pressed", "disabled"):
                 (assets / f"slider-{orientation}-{state}.png").write_bytes(
                     slider_png(orientation == "horizontal", state))
+        for state in ("normal", "hovered", "pressed", "focused", "disabled"):
+            (assets / f"switch-thumb-{state}.png").write_bytes(switch_png("thumb", state=state))
+            for active in (False, True):
+                (assets / f"switch-{int(active)}-{state}.png").write_bytes(switch_png("track", active, state))
+        for position in ("top", "bottom", "left", "right"):
+            for selected, hovered in ((False, False), (False, True), (True, False)):
+                (assets / f"tab-{position}-{int(selected)}-{int(hovered)}.png").write_bytes(
+                    tab_png(selected, hovered, position))
+                (assets / f"tab-fill-{position}-{int(selected)}-{int(hovered)}.png").write_bytes(
+                    tab_png(selected, hovered, position, fill=True))
         for direction in STEPPER_ARROWS:
             for disabled in (False, True):
                 suffix = "-disabled" if disabled else ""

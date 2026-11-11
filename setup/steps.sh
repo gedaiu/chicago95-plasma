@@ -149,7 +149,7 @@ apply_look() {
     SETUP_BEVEL=2000
     SETUP_FACE="236,233,216"
     SETUP_SELECTION="49,106,197"
-    SETUP_ICONS=${OPT_ICONS:-classicos2000}
+    SETUP_ICONS=${OPT_ICONS:-windowsxp}
     set -- "#0054E3,#3F97FF;#7A96DF,#9DB9EB;#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0;#FFFFFF"
     ;;
   esac
@@ -425,9 +425,15 @@ apply_title_colors() {
 # Icon set per look: 1995 Chicago95 (installed by the base step), 1998 SE98, 2000 ClassicOS-2000.
 # The packs are downloaded into ~/src like the Chicago95 checkout; ClassicOS-2000 ships SVG sources and
 # builds its theme with its own script (copies and links only), and falls back to SE98 for missing icons.
-install_icon_pack() { # install_icon_pack se98|classicos2000   -> 0 when the theme is in ~/.local/share/icons
+install_icon_pack() { # install_icon_pack se98|classicos2000|windowsxp   -> 0 when the theme is in ~/.local/share/icons
   local theme repo source built
   case "$1" in
+  windowsxp)
+    theme=Windows-XP
+    repo=https://github.com/B00merang-Artwork/Windows-XP
+    source="$HOME/src/Windows-XP"
+    built="$source"
+    ;;
   se98)
     theme=SE98
     repo=https://github.com/nestoris/Win98SE
@@ -451,6 +457,24 @@ install_icon_pack() { # install_icon_pack se98|classicos2000   -> 0 when the the
   if [ -d "$built" ]; then put_tree "$built" "$HOME/.local/share/icons/$theme"; else show_copy "$built" "$HOME/.local/share/icons/$theme"; fi
 }
 
+# The user's own XP icon archives (ICON.zip, High-Res_XP_Icons.zip in SETUP_XP_ICON_ARCHIVES, ~/Downloads by
+# default) become Windows-XP-Originals, built by luna/icons/xp_originals.py; the B00merang set looks there first
+# for an icon it lacks, then in Chicago95. No archive: Chicago95 alone.
+xp_icon_fallback() {
+  local archives="${SETUP_XP_ICON_ARCHIVES:-$HOME/Downloads}" icons=~/.local/share/icons inherits=Chicago95,hicolor
+  if [ -f "$archives/ICON.zip" ] || [ -f "$archives/High-Res_XP_Icons.zip" ]; then
+    ui_status "Building the Windows XP fallback icons from your archives..."
+    run python3 -I "$REPO/luna/icons/xp_originals.py" --out "$icons/Windows-XP-Originals" \
+      --numbered "$archives/ICON.zip" --named "$archives/High-Res_XP_Icons.zip" >>"$SETUP_LOG" 2>&1 &&
+      record "$icons/Windows-XP-Originals" && inherits=Windows-XP-Originals,$inherits
+  fi
+  [ "${SETUP_DRY_RUN:-0}" = 1 ] || [ ! -f "$icons/Windows-XP/index.theme" ] || {
+    sed -i '/^Inherits=/d' "$icons/Windows-XP/index.theme"
+    sed -i "/^\[Icon Theme\]/a Inherits=$inherits" "$icons/Windows-XP/index.theme"
+  }
+  show_copy "(Inherits=$inherits)" "$icons/Windows-XP/index.theme"
+}
+
 apply_icon_set() {
   local theme=Chicago95
   case "${SETUP_ICONS:-chicago95}" in
@@ -458,6 +482,9 @@ apply_icon_set() {
   classicos2000)
     install_icon_pack se98
     install_icon_pack classicos2000 && theme=ClassicOS-2000
+    ;;
+  windowsxp)
+    install_icon_pack windowsxp && theme=Windows-XP && xp_icon_fallback
     ;;
   esac
   [ "$theme" = Chicago95 ] && [ "${SETUP_ICONS:-chicago95}" != chicago95 ] && ui_status "That icon set is unavailable; keeping Chicago95"

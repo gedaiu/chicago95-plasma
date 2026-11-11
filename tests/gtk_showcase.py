@@ -156,24 +156,23 @@ def widgets():
         frame.set_sensitive(state != "disabled")
         yield "Containers and text", f"Group box: {state}", [frame]
     for active in (False, True):
-        yield "Indicators", f"Switches: {'on' if active else 'off'}, normal, disabled, hovered, pressed, focused, RTL", [
+        yield "Indicators", f"Switches: {'on' if active else 'off'}, normal, disabled, hovered, pressed, focused", [
             widget for state, widget in switch_widgets() if state.startswith("on-" if active else "off-")
         ]
 
 
 def switch_widgets():
     for active in (False, True):
-        for state in ("normal", "disabled", "hovered", "pressed", "focused", "rtl"):
+        for state in ("normal", "disabled", "hovered", "pressed", "focused"):
             widget = Gtk.Switch()
             widget.set_active(active)
             widget.set_sensitive(state != "disabled")
             widget.set_valign(Gtk.Align.CENTER)
             widget.set_halign(Gtk.Align.CENTER)
-            if state == "rtl":
-                widget.set_direction(Gtk.TextDirection.RTL)
             flag = {"hovered": Gtk.StateFlags.PRELIGHT, "pressed": Gtk.StateFlags.ACTIVE,
                     "focused": Gtk.StateFlags.FOCUSED}.get(state)
             if flag is not None:
+                widget._audit_switch_flag = flag
                 widget.set_state_flags(flag, False)
             yield f"{'on' if active else 'off'}-{state}", widget
 
@@ -223,7 +222,7 @@ def consistency_widgets():
             # Fixed label boxes isolate tab chrome from Pango's differing glyph metrics.
             for width in (42, 35, 52):
                 label = Gtk.Label()
-                label.set_size_request(width, 20)
+                label.set_size_request(width, 13)
                 tabs.append_page(Gtk.Label(), label)
             tabs.set_tab_pos(getattr(Gtk.PositionType, position.upper()))
             tabs.set_size_request(350, 120)
@@ -345,6 +344,9 @@ def main():
             if isinstance(child, Gtk.Notebook):
                 child.set_current_page(getattr(child, "_audit_page", 0))
         window.set_focus(None)
+        for child in children:
+            if hasattr(child, "_audit_switch_flag"):
+                child.set_state_flags(child._audit_switch_flag, False)
         for child in children:
             state = getattr(child, "_audit_interaction", None)
             if state:

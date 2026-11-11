@@ -14,7 +14,7 @@
 #     --look=1995|1998|2000|2001|luna|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
 #     --decoration=classic|luna  --widget-style=classic|luna  --taskbar-style=classic|luna  (each overrides the look's choice)
 #     --start-menu-style=1995|1998|2000|2001|luna
-#     --login-style=classic|2000|luna  --boot-style=classic|2000|luna  --icons=chicago95|se98|classicos2000
+#     --login-style=classic|2000|luna  --boot-style=classic|2000|luna  --icons=chicago95|se98|classicos2000|windowsxp
 #     --sounds=Chicago95|Windows98|Windows2000|Plus98-Jungle|...  (data/sound-themes/)
 #     --settings=FILE  choices saved by the Control Panel (KEY=value lines), applied over the defaults
 #     --task-button-width=160  longest a task button on the taskbar may be, in pixels

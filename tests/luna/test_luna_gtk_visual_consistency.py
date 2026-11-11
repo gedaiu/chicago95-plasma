@@ -456,3 +456,28 @@ def test_luna_progress_qt_gtk_thickness_inset_and_fill(qt_app, gtk_images, orien
         region = (2, 2, qt.width - 2, qt.height - 2)
         assert qt.crop(region).tobytes() == gtk.crop(region).tobytes(), f"{version}: fill differs from Qt"
     bar.close()
+
+
+@pytest.mark.parametrize("active", (False, True))
+@pytest.mark.parametrize("state", ("normal", "disabled", "hovered", "pressed", "focused"))
+def test_luna_switches_match_in_both_positions_and_states(gtk_images, active, state, tmp_path):
+    label = f"{'on' if active else 'off'}-{state}"
+    a, b = (gtk_images[v, "switch", label] for v in ("3.0", "4.0"))
+    a.save(tmp_path / "gtk3.png")
+    b.save(tmp_path / "gtk4.png")
+    assert a.size == b.size == (36, 19)
+    assert a.tobytes() == b.tobytes(), f"switch {label} differs; see {tmp_path}"
+    for version, image in (("3.0", a), ("4.0", b)):
+        normal = gtk_images[version, "switch", f"{'on' if active else 'off'}-normal"]
+        if state != "normal":
+            assert image.tobytes() != normal.tobytes(), f"{label}: missing state feedback"
+        if state != "disabled":
+            assert image.getpixel((8, 8) if active else (22, 9)) == ((255, 255, 255) if active else (0, 0, 0))
+        if state == "hovered":
+            assert image.getpixel((18 if active else 1, 9)) == (229, 151, 0)
+        if state == "focused":
+            assert image.getpixel((2 if active else 20, 2)) == (0, 0, 0)
+        # The light thumb must occupy the correct half, independently of icon/background matches.
+        if state == "normal":
+            assert min(image.getpixel((26 if active else 9, 9))) > 200
+            assert image.tobytes() != gtk_images[version, "switch", f"{'off' if active else 'on'}-normal"].tobytes()

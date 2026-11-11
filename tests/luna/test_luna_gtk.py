@@ -30,7 +30,7 @@ KEY_SELECTORS = [
     "radio:checked",
     "radio:disabled",
     "notebook > header > tabs > tab",
-    "notebook > header > tabs > tab:checked",
+    "notebook > header.top > tabs > tab:checked",
     "menu",
     "menuitem:hover",
     "scrollbar slider",

@@ -238,6 +238,7 @@ LOOK_PRESETS["luna"] = {
     "WIDGET_STYLE": "luna",
     "TASKBAR_STYLE": "luna",
     "START_MENU_STYLE": "luna",
+    "ICONS": "windowsxp",
     "TITLE_ACTIVE": "#0054E3,#3F97FF",
     "TITLE_INACTIVE": "#7A96DF,#9DB9EB",
     "BACKGROUND_COLOR": "#004E98",
@@ -3220,7 +3221,12 @@ def boot_screen_tab(settings, actions):
     return tab
 
 
-ICON_SETS = [("Chicago95 (1995)", "chicago95"), ("SE98 (1998)", "se98"), ("ClassicOS 2000", "classicos2000")]
+ICON_SETS = [
+    ("Chicago95 (1995)", "chicago95"),
+    ("SE98 (1998)", "se98"),
+    ("ClassicOS 2000", "classicos2000"),
+    ("Windows XP", "windowsxp"),
+]
 # The Appearance tab's items (Windows 98 lists every part of the screen; these are the ones this desktop
 # colours): its setting, and how many colours it takes (stops: the banner's base colour and its glows).
 APPEARANCE_ITEMS = (

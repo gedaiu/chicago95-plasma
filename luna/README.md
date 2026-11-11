@@ -62,6 +62,15 @@ the dialog module.
 
 The generated files are committed; `tests/luna/test_luna_kvantum.py` and `test_luna_gtk.py` pin them to the generators.
 
+## Icons
+
+The XP look's icon set (`--icons=windowsxp`, the Control Panel's "Windows XP") is the B00merang Windows-XP pack
+(GPL-2, https://github.com/B00merang-Artwork/Windows-XP), cloned by Setup into `~/src/Windows-XP` and installed to
+`~/.local/share/icons/Windows-XP`, never bundled. When the user keeps XP icon archives (`ICON.zip`, the numbered shell
+icons, and `High-Res_XP_Icons.zip`) in `~/Downloads` (or `SETUP_XP_ICON_ARCHIVES`), Setup builds
+`Windows-XP-Originals` from them with `icons/xp_originals.py` and the B00merang set falls back to it before
+Chicago95. The repository holds only the map from freedesktop icon names to archive numbers and file names.
+
 ## References consulted
 
 The per-state colours of the widgets (hover, pressed, disabled, default, focus) were checked against the B00merang
@@ -72,5 +81,5 @@ list of widgets that need rules were used; its bitmaps and CSS are not copied.
 
 The flag and the wordmark are the Wikipedia SVG
 (https://de.wikipedia.org/wiki/Datei:Microsoft_Windows_XP_Logo_2.svg), a Microsoft trademark used here to
-identify the look. No other Microsoft assets are bundled: fonts come from the user's Wine Tahoma, and the Bliss
-wallpaper is supplied by the user.
+identify the look. No other Microsoft assets are bundled: fonts come from the user's Wine Tahoma, the Bliss
+wallpaper and the fallback icons from the user's own files.
