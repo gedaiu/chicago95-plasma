@@ -4,14 +4,10 @@
 const CELL_WIDTH = Band.metrics().cellWidth;
 const REMOVE_DISTANCE = 12;
 
-// eslint-disable-next-line max-params -- QML and its tests pass the drag geometry positionally
-function dragResult(fromIndex, pointX, pointY, width, height, quickLaunchX, count) {
-  if (isBeyondEdge(pointX, width) || isBeyondEdge(pointY, height)) return { action: "remove", to: -1 };
-
-  const gap = insertionIndexAt(pointX, quickLaunchX, count);
-  const to = gap > fromIndex ? gap - 1 : gap;
-
-  return to === fromIndex ? { action: "none", to: -1 } : { action: "move", to: to };
+// A launcher let go this far outside the taskbar is removed; dragging along it only sorts (DragSortArea.qml).
+// eslint-disable-next-line max-params -- QML passes the point and the taskbar's size positionally
+function releasedOffTaskbar(pointX, pointY, width, height) {
+  return isBeyondEdge(pointX, width) || isBeyondEdge(pointY, height);
 }
 
 function insertionIndexAt(pointX, quickLaunchX, count) {

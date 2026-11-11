@@ -1,8 +1,8 @@
 """The Quick Launch docked at the taskbar's right end, two of its four launchers shown, in a real Plasma session
 (tests/plasma_session.py), measured against the layout quickLaunchBand.js gives and the docked-left originals.
 
-Docked right, the window buttons' separator takes the place the Quick Launch's had beside the Start button, the
-window buttons follow it, and the band sits at the end: its separator, the shown launchers' cells and the chevron.
+Docked right, the window buttons follow the Start button with no separator between them, and the band ends the
+taskbar between its two separators: the left one, the chevron, the shown launchers' cells, then the right one.
 """
 
 import pytest
@@ -55,26 +55,22 @@ def chevron_columns():
     return sorted({x for x in range(art.width) for y in range(art.height) if art.getpixel((x, y))[3] > 128})
 
 
-def band_chevron_x(taskbar, metrics, band):
-    """Where the band's chevron starts: right after the band's separator, whose etched line is the last one."""
-    grip_line = etched_lines(taskbar)[-1]
-    return grip_line - metrics["separatorLead"] + call(band, "separatorWidth", metrics["separatorLead"])
+def separator_left(line, metrics):
+    """A separator's left edge from its etched line."""
+    return line - metrics["separatorLead"]
 
 
-def test_the_window_buttons_separator_takes_the_quick_launchs_place_beside_start(taskbar):
-    assert etched_lines(taskbar)[0] == ETCHED_LINES[LOOK][0]
-
-
-def test_the_window_buttons_start_right_after_their_separator(taskbar, band, metrics):
-    lead = metrics["separatorLead"]
-    tasks_x = ETCHED_LINES[LOOK][0] - lead + call(band, "separatorWidth", lead)
+def test_no_separator_sits_beside_start_and_the_window_buttons_follow_it(taskbar, band, metrics):
+    content_x = ETCHED_LINES[LOOK][0] - metrics["separatorLead"]  # where the docked-left band's separator starts
+    tasks_x = content_x + metrics["gapWithoutQuickLaunch"]
     first_task_icon = squares(taskbar, tasks_x, tasks_x + 2 * TASK_ICON_LEFT + ICON_SIZE)[0]
 
-    assert first_task_icon[0] == tasks_x + TASK_ICON_LEFT
+    assert (len(etched_lines(taskbar)), first_task_icon[0]) == (2, tasks_x + TASK_ICON_LEFT)
 
 
-def test_the_chevron_leads_the_band_right_after_its_separator_pointing_left(taskbar, band, metrics):
-    chevron_x = band_chevron_x(taskbar, metrics, band)
+def test_the_chevron_leads_the_band_right_after_its_left_separator_pointing_left(taskbar, band, metrics):
+    left_line = etched_lines(taskbar)[0]
+    chevron_x = separator_left(left_line, metrics) + call(band, "separatorWidth", metrics["separatorLead"])
     dark = {
         x
         for x in range(chevron_x, chevron_x + metrics["chevronWidth"])
@@ -85,14 +81,21 @@ def test_the_chevron_leads_the_band_right_after_its_separator_pointing_left(task
     assert sorted(dark) == [chevron_x + column for column in chevron_columns()]
 
 
-def test_only_the_shown_launchers_sit_in_cells_after_the_chevron_up_to_the_tray(taskbar, band, metrics):
-    cells_x = band_chevron_x(taskbar, metrics, band) + metrics["chevronWidth"]
+def test_only_the_shown_launchers_sit_between_the_chevron_and_the_right_separator(taskbar, band, metrics):
+    left_line, right_line = etched_lines(taskbar)
+    separator = call(band, "separatorWidth", metrics["separatorLead"])
+    cells_x = separator_left(left_line, metrics) + separator + metrics["chevronWidth"]
     cells_end = cells_x + call(band, "cellsWidth", SHOWN)
 
-    assert (squares(taskbar, cells_x, cells_end), cells_end <= TRAYS[LOOK][0]) == (
+    assert (
+        squares(taskbar, cells_x, cells_end),
+        separator_left(right_line, metrics) - cells_end,
+        separator_left(right_line, metrics) + separator <= TRAYS[LOOK][0],
+    ) == (
         [
             icon_box(cells_x + metrics["iconInset"] + call(band, "cellsWidth", index), ICON_TOP)
             for index in range(SHOWN)
         ],
+        metrics["gapBeforeRightSeparator"],
         True,
     )

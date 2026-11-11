@@ -28,47 +28,28 @@ def test_insertion_index_is_the_nearest_gap_between_23px_cells(launchers, x, cou
     assert call(launchers, "insertionIndexAt", x, QUICK_LAUNCH_X, count) == expected
 
 
-def drag_result(launchers, from_index, x, y):
-    return call(
-        launchers, "dragResult", from_index, x, y, TASKBAR_WIDTH, TASKBAR_HEIGHT, QUICK_LAUNCH_X, FOUR_LAUNCHERS
-    )
+@pytest.mark.parametrize(
+    "x, y", [(QUICK_LAUNCH_X + 30, -30), (QUICK_LAUNCH_X + 30, TASKBAR_HEIGHT + 30), (TASKBAR_WIDTH + 40, 10)]
+)
+def test_releasing_a_launcher_well_outside_the_taskbar_removes_it(launchers, x, y):
+    assert call(launchers, "releasedOffTaskbar", x, y, TASKBAR_WIDTH, TASKBAR_HEIGHT) is True
 
 
-@pytest.mark.parametrize("y", [-30, TASKBAR_HEIGHT + 30])
-def test_releasing_a_launcher_well_above_or_below_the_taskbar_removes_it(launchers, y):
-    assert drag_result(launchers, 1, QUICK_LAUNCH_X + 30, y) == {"action": "remove", "to": -1}
+@pytest.mark.parametrize("x, y", [(QUICK_LAUNCH_X + 23 * 2, -5), (TASKBAR_WIDTH + 12, 10), (QUICK_LAUNCH_X, 10)])
+def test_releasing_a_launcher_on_or_a_little_outside_the_taskbar_keeps_it(launchers, x, y):
+    assert call(launchers, "releasedOffTaskbar", x, y, TASKBAR_WIDTH, TASKBAR_HEIGHT) is False
 
 
-def test_releasing_a_launcher_well_right_of_the_taskbar_removes_it(launchers):
-    assert drag_result(launchers, 1, TASKBAR_WIDTH + 40, 10) == {"action": "remove", "to": -1}
-
-
-def test_dropping_launcher_0_before_cell_3_moves_it_to_position_2(launchers):
-    assert drag_result(launchers, 0, QUICK_LAUNCH_X + 23 * 3, 10) == {"action": "move", "to": 2}
-
-
-def test_dropping_launcher_3_before_cell_0_moves_it_to_the_front(launchers):
-    assert drag_result(launchers, 3, QUICK_LAUNCH_X, 10) == {"action": "move", "to": 0}
-
-
-@pytest.mark.parametrize("x", [QUICK_LAUNCH_X + 23 * 2, QUICK_LAUNCH_X + 23 * 3])
-def test_dropping_launcher_2_back_in_its_own_gap_changes_nothing(launchers, x):
-    assert drag_result(launchers, 2, x, 10) == {"action": "none", "to": -1}
-
-
-def test_dragging_a_little_outside_the_taskbar_edge_does_not_remove_the_launcher(launchers):
-    assert drag_result(launchers, 0, QUICK_LAUNCH_X + 23 * 2, -5)["action"] == "move"
-
-
-def test_tasks_applet_wires_dragging_and_dropping_to_the_launchers_library():
+def test_tasks_applet_wires_dropping_and_sorting_to_the_libraries():
     main_qml = (REPO / "plasmoids/org.chicago95.tasks/contents/ui/main.qml").read_text()
 
     assert (
         'import "launchers.js" as Launchers' in main_qml,
-        "Launchers.dragResult(" in main_qml,
+        "Launchers.releasedOffTaskbar(" in main_qml,
         "Launchers.insertionIndexAt(" in main_qml,
         "tasksModel.move(" in main_qml,
-    ) == (True, True, True, True)
+        "Launchers.dragResult(" in main_qml,
+    ) == (True, True, True, True, False)
 
 
 def qml_block(text, opening):
@@ -94,3 +75,53 @@ def test_quick_launch_cells_hover_reaches_the_tooltip_through_the_click_area_ins
     tooltip = qml_block(qml_block(main_qml, "id: launcherCell"), "PlasmaCore.ToolTipArea {")
 
     assert "id: launcherArea" in tooltip
+
+
+def main_qml():
+    return (REPO / "plasmoids/org.chicago95.tasks/contents/ui/main.qml").read_text()
+
+
+def test_quick_launch_cells_sort_by_dragging_inside_their_tooltip_area():
+    tooltip = qml_block(qml_block(main_qml(), "id: launcherCell"), "PlasmaCore.ToolTipArea {")
+
+    assert (
+        "DragSortArea {" in tooltip,
+        "id: launcherArea" in tooltip,
+        "slot: entry.index - root.firstShown" in tooltip,
+        "count: root.shownLaunchers" in tooltip,
+        "tasksModel.move(root.firstShown + from, root.firstShown + to)" in tooltip,
+        "Launchers.releasedOffTaskbar(" in tooltip,
+        "requestRemoveLauncher(" in tooltip,
+        "tasksModel.syncLaunchers()" in tooltip,
+    ) == (True,) * 8
+
+
+def test_window_buttons_sort_by_dragging_inside_their_own_section():
+    button = qml_block(main_qml(), "id: windowButton")
+
+    assert (
+        "DragSortArea {" in button,
+        "origin: root.tasksX" in button,
+        "pitch: root.buttonWidth + root.gap" in button,
+        "count: root.windowCount" in button,
+        "slot: entry.index - root.launcherCount" in button,
+        "tasksModel.move(root.launcherCount + from, root.launcherCount + to)" in button,
+    ) == (True,) * 6
+
+
+def test_a_dragged_button_follows_the_pointer_and_the_others_slide_aside_in_120_ms():
+    entry = qml_block(main_qml(), "Loader {")
+
+    assert (
+        "x: entry.dragging ? entry.dragX : entry.laidOutX" in entry,
+        "z: entry.dragging ? 1 : 0" in entry,
+        "Behavior on x {" in entry,
+        "enabled: entry.slides" in entry,
+        "duration: 120" in entry,
+    ) == (True,) * 5
+
+
+def test_the_old_drag_overlay_is_gone():
+    text = main_qml()
+
+    assert ("draggedIndex" in text, "dragInsideTaskbar" in text, "draggedIcon" in text) == (False, False, False)

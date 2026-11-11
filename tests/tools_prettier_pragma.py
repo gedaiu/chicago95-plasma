@@ -1,6 +1,7 @@
 """Runs eslint's fixes and prettier over QML JavaScript libraries.
 
-Their first line, `.pragma library`, is not valid JavaScript, so it is set aside while the rest is formatted.
+Their leading directives, `.pragma library` and any `.import "other.js" as Name`, are not valid JavaScript, so
+they are set aside while the rest is formatted.
 
 python3 tests/tools_prettier_pragma.py check|write PRETTIER_COMMAND FILE...
 """
@@ -19,9 +20,9 @@ def enforce(condition, message):
         sys.exit(message)
 
 
-def eslint_fixed(path, body):
+def eslint_fixed(path, body, lines_before):
     report = json.loads(subprocess.run(ESLINT_STDIN, input=body, capture_output=True, text=True, check=False).stdout)
-    problems = [f"{path}:{message['line'] + 1}: {message['message']}" for message in report[0]["messages"]]
+    problems = [f"{path}:{message['line'] + lines_before}: {message['message']}" for message in report[0]["messages"]]
     enforce(not problems, "\n".join(problems))
     return report[0].get("output", body)
 
@@ -37,9 +38,12 @@ def prettier_formatted(prettier_command, body):
 
 
 def formatted(prettier_command, path):
-    first_line, body = open(path, encoding="utf-8").read().split("\n", 1)
-    enforce(first_line == PRAGMA, f"{path} does not start with {PRAGMA}")
-    return f"{PRAGMA}\n\n{prettier_formatted(prettier_command, eslint_fixed(path, body))}"
+    lines = open(path, encoding="utf-8").read().split("\n")
+    enforce(lines[0] == PRAGMA, f"{path} does not start with {PRAGMA}")
+    directives = next(index for index, line in enumerate(lines) if not line.startswith("."))
+    body = "\n".join(lines[directives:])
+    header = "\n".join(lines[:directives])
+    return f"{header}\n\n{prettier_formatted(prettier_command, eslint_fixed(path, body, directives))}"
 
 
 def main(mode, prettier_command, paths):

@@ -1,9 +1,12 @@
 import importlib.util
+import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 from conftest import REPO
+
+pytestmark = pytest.mark.skipif(not (shutil.which("magick") and shutil.which("7z")), reason="needs magick and 7z")
 
 
 @pytest.fixture(scope="module")

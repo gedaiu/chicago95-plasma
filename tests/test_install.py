@@ -864,7 +864,9 @@ def test_the_2000_plymouth_script_places_the_originals_18_blocks_in_the_640_by_4
 
 
 def test_saved_settings_record_the_installed_commit_for_the_update_check(tmp_path):
-    head = subprocess.run(["git", "-C", str(REPO), "rev-parse", "HEAD"], capture_output=True, text=True, check=False).stdout.strip()
+    head = subprocess.run(
+        ["git", "-C", str(REPO), "rev-parse", "HEAD"], capture_output=True, text=True, check=False
+    ).stdout.strip()
     saved = run_bash_with_steps(
         tmp_path,
         f"SETUP_DRY_RUN=0; MANIFEST={tmp_path}/manifest; STATE_DIR={tmp_path}; save_settings; "

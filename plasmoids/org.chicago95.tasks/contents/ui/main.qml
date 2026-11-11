@@ -18,9 +18,10 @@ import "quickLaunchBand.js" as Band
 // part, so it starts over the gap Plasma's panel leaves between applets.
 // A click on a window's button activates it, or minimizes it when it is already active; the right
 // button opens the classic window menu, with "Add to Quick Launch". A Quick Launch entry's menu removes
-// it; programs dropped on the Quick Launch are added. Whether it shows is Setup's option (quickLaunch.js).
-// Its separator docks it beside the Start button or at the taskbar's end, by where it is let go; the
-// separator beside the window buttons sets how many launchers show, and a chevron opens the rest
+// it; programs dropped on the Quick Launch are added. Dragging a task button or a Quick Launch entry along
+// the taskbar sorts it (DragSortArea.qml); the Quick Launch order is saved. Whether it shows is Setup's option (quickLaunch.js).
+// It sits between its two separators: the left one docks it beside the Start button or at the taskbar's
+// end, by where it is let go; the right one sets how many launchers show, and a chevron opens the rest
 // (quickLaunchBand.js).
 PlasmoidItem {
     id: root
@@ -39,10 +40,13 @@ PlasmoidItem {
     readonly property int windowCount: tasksModel.count - launcherCount
     readonly property int lead: Plasmoid.configuration.look === "2000" ? metrics.separatorLeadAfterStart2000 : metrics.separatorLead
     readonly property string dock: Plasmoid.configuration.quickLaunchDock === "right" ? "right" : "left"
-    // While a separator is dragged: the cells the band would show, and where a separator that would dock it is.
-    property int liveCells: -2
-    property int floatingGripX: -1
-    readonly property int cells: liveCells !== -2 ? liveCells : Plasmoid.configuration.quickLaunchCells
+    // While a separator is dragged: the cells the band would show, and where the dragged separator is when it
+    // does not simply follow the band (the left one, which docks it; the right one when docked right).
+    readonly property int notDragged: -2
+    property int liveCells: notDragged
+    property int floatingLeftX: notDragged
+    property int floatingRightX: notDragged
+    readonly property int cells: liveCells !== notDragged ? liveCells : Plasmoid.configuration.quickLaunchCells
     readonly property var band: Band.layout(width, contentX, lead, launcherCount, cells, dock)
     readonly property int shownLaunchers: band.shown
     readonly property int firstShown: band.firstShown   // the launchers before it are behind the chevron
@@ -52,16 +56,14 @@ PlasmoidItem {
     readonly property int buttonWidth: windowCount === 0 ? 0 : Math.min(maxButtonWidth, Math.floor((band.tasksEnd - tasksX + gap) / windowCount) - gap)
 
     function bandSettled(result) {
-        liveCells = -2;
-        floatingGripX = -1;
+        liveCells = notDragged;
+        floatingLeftX = notDragged;
+        floatingRightX = notDragged;
         Plasmoid.configuration.quickLaunchDock = result.dock;
         Plasmoid.configuration.quickLaunchCells = result.cells;
     }
-    function quickLaunchGripResult(gripX) {
-        return Band.quickLaunchGripReleased(gripX, width, contentX, lead, launcherCount, Plasmoid.configuration.quickLaunchCells, dock);
-    }
-    function taskGripResult(gripX) {
-        return Band.taskGripReleased(gripX, width, contentX, lead, launcherCount, Plasmoid.configuration.quickLaunchCells, dock);
+    function separatorResult(released, gripX) {
+        return released(gripX, width, contentX, lead, launcherCount, Plasmoid.configuration.quickLaunchCells, dock);
     }
     // The separator stays on the taskbar: it follows the pointer only along it.
     function onTaskbar(gripX, gripWidth) {
@@ -142,56 +144,31 @@ PlasmoidItem {
         }
     }
 
-    // While a Quick Launch entry is dragged: its icon follows the pointer and a bar marks the gap it would drop into.
-    property int draggedIndex: -1
-    property var draggedIcon
-    property point dragPoint
-    readonly property bool dragInsideTaskbar: Launchers.dragResult(draggedIndex, dragPoint.x, dragPoint.y, width, height, quickLaunchX, shownLaunchers).action !== "remove"
-    Rectangle {
-        visible: root.draggedIndex >= 0 && root.dragInsideTaskbar
-        x: root.quickLaunchX + Launchers.insertionIndexAt(root.dragPoint.x, root.quickLaunchX, root.shownLaunchers) * root.metrics.cellWidth - 1
-        y: 3
-        width: 2
-        height: root.height - 6
-        color: "black"
-        z: 10
-    }
-    Kirigami.Icon {
-        visible: root.draggedIndex >= 0
-        source: root.draggedIcon
-        x: root.dragPoint.x - 8
-        y: root.dragPoint.y - 8
-        width: 16
-        height: 16
-        opacity: root.dragInsideTaskbar ? 1 : 0.5
-        z: 11
-    }
 
     Separator {
-        id: quickLaunchGrip
+        id: leftSeparator
         visible: root.launcherCount > 0
-        x: root.floatingGripX >= 0 ? root.floatingGripX : root.band.quickLaunchGripX
+        x: root.floatingLeftX !== root.notDragged ? root.floatingLeftX : root.band.leftSeparatorX
         z: 5
         height: parent.height
         lead: root.dock === "left" ? root.lead : root.metrics.separatorLead
         draggable: true
-        onDragged: gripX => {
-            const result = root.quickLaunchGripResult(gripX);
-            const resizing = result.dock === "right" && root.dock === "right";
-            root.liveCells = resizing ? result.cells : -2;
-            root.floatingGripX = resizing ? -1 : root.onTaskbar(gripX, width);
-        }
-        onReleased: gripX => root.bandSettled(root.quickLaunchGripResult(gripX))
+        onDragged: gripX => root.floatingLeftX = root.onTaskbar(gripX, width)
+        onReleased: gripX => root.bandSettled(root.separatorResult(Band.leftSeparatorReleased, gripX))
     }
     Separator {
-        id: taskGrip
+        id: rightSeparator
         visible: root.launcherCount > 0
-        x: root.band.taskGripX
+        x: root.floatingRightX !== root.notDragged ? root.floatingRightX : root.band.rightSeparatorX
+        z: 5
         height: parent.height
-        lead: root.dock === "left" ? root.metrics.separatorLead : root.lead
-        draggable: root.dock === "left"
-        onDragged: gripX => root.liveCells = root.taskGripResult(gripX).cells
-        onReleased: gripX => root.bandSettled(root.taskGripResult(gripX))
+        draggable: true
+        onDragged: gripX => {
+            root.liveCells = root.separatorResult(Band.rightSeparatorReleased, gripX).cells;
+            if (root.dock === "right")
+                root.floatingRightX = root.onTaskbar(gripX, width);
+        }
+        onReleased: gripX => root.bandSettled(root.separatorResult(Band.rightSeparatorReleased, gripX))
     }
     Chevron {
         id: chevron
@@ -222,7 +199,7 @@ PlasmoidItem {
     }
     function openChevronMenu() {
         chevronMenu.clearMenuItems();
-        Band.hiddenLaunchers(launcherCount, cells, dock).forEach(index => {
+        Band.chevronLaunchers(launcherCount, cells, dock).forEach(index => {
             const modelIndex = tasksModel.makeModelIndex(index);
             chevronMenu.addMenuItem(chevronEntry.createObject(chevronMenu, {
                 launcher: index,
@@ -242,7 +219,19 @@ PlasmoidItem {
             required property int index
             readonly property bool launcher: index < root.launcherCount
             readonly property var modelIndex: tasksModel.makeModelIndex(index)
-            x: launcher ? root.quickLaunchX + Band.cellsWidth(index - root.firstShown) : root.tasksX + (index - root.launcherCount) * (root.buttonWidth + root.gap)
+            readonly property int laidOutX: launcher ? root.quickLaunchX + Band.cellsWidth(index - root.firstShown) : root.tasksX + (index - root.launcherCount) * (root.buttonWidth + root.gap)
+            // Dragged: the button follows the pointer; the others slide into their new places.
+            property bool dragging: false
+            property bool slides: true
+            property int dragX: 0
+            x: entry.dragging ? entry.dragX : entry.laidOutX
+            z: entry.dragging ? 1 : 0
+            Behavior on x {
+                enabled: entry.slides
+                NumberAnimation {
+                    duration: 120
+                }
+            }
             width: launcher ? root.metrics.cellWidth : root.buttonWidth
             height: root.height
             visible: !launcher || (index >= root.firstShown && index < root.firstShown + root.shownLaunchers)
@@ -252,50 +241,33 @@ PlasmoidItem {
                 id: launcherCell
                 QuickLaunchButton {
                     icon: entry.model.decoration
+                    opacity: launcherArea.dragging && Launchers.releasedOffTaskbar(launcherArea.pointer.x, launcherArea.pointer.y, root.width, root.height) ? 0.5 : 1
                     hovered: launcherArea.containsMouse
                     held: launcherArea.pressed && launcherArea.containsMouse
                     PlasmaCore.ToolTipArea {
                         anchors.fill: parent
                         mainText: entry.model.display
                         icon: entry.model.decoration
-                        MouseArea {
+                        DragSortArea {
                             id: launcherArea
                             anchors.fill: parent
-                            hoverEnabled: true
-                            acceptedButtons: Qt.LeftButton | Qt.RightButton
-                            property point pressPoint
-                            property bool dragging: false
-                            property bool dragEndedClick: false
-                            onPressed: mouse => pressPoint = Qt.point(mouse.x, mouse.y)
-                            onPositionChanged: mouse => {
-                                if (!(pressedButtons & Qt.LeftButton))
-                                    return;
-                                const travelled = Math.abs(mouse.x - pressPoint.x) + Math.abs(mouse.y - pressPoint.y);
-                                if (!dragging && travelled < Qt.styleHints.startDragDistance)
-                                    return;
-                                dragging = true;
-                                root.draggedIcon = entry.model.decoration;
-                                root.draggedIndex = entry.index - root.firstShown;
-                                root.dragPoint = mapToItem(root, mouse.x, mouse.y);
-                            }
-                            onReleased: mouse => {
-                                if (!dragging)
-                                    return;
-                                dragging = false;
-                                dragEndedClick = true;
-                                const result = Launchers.dragResult(entry.index - root.firstShown, root.dragPoint.x, root.dragPoint.y, root.width, root.height, root.quickLaunchX, root.shownLaunchers);
-                                root.draggedIndex = -1;
-                                if (result.action === "remove")
+                            layoutParent: root
+                            origin: root.quickLaunchX
+                            pitch: root.metrics.cellWidth
+                            count: root.shownLaunchers
+                            slot: entry.index - root.firstShown
+                            itemWidth: root.metrics.cellWidth
+                            onDraggingChanged: entry.dragging = dragging
+                            onSlidesChanged: entry.slides = slides
+                            onDragXChanged: entry.dragX = dragX
+                            onMoved: (from, to) => tasksModel.move(root.firstShown + from, root.firstShown + to)
+                            onDropped: (pointerX, pointerY) => {
+                                tasksModel.syncLaunchers();
+                                if (Launchers.releasedOffTaskbar(pointerX, pointerY, root.width, root.height))
                                     tasksModel.requestRemoveLauncher(entry.model.LauncherUrlWithoutIcon);
-                                else if (result.action === "move")
-                                    tasksModel.move(entry.index, root.firstShown + result.to);
                             }
-                            onClicked: mouse => {
-                                if (dragEndedClick) {
-                                    dragEndedClick = false;
-                                    return;
-                                }
-                                if (mouse.button === Qt.RightButton) {
+                            onTapped: button => {
+                                if (button === Qt.RightButton) {
                                     launcherMenu.launcher = entry.model.LauncherUrlWithoutIcon;
                                     launcherMenu.visualParent = parent;
                                     launcherMenu.openRelative();
@@ -315,11 +287,20 @@ PlasmoidItem {
                     icon: entry.model.decoration
                     pressed: entry.model.IsActive === true
                     look: Plasmoid.configuration.look
-                    MouseArea {
+                    DragSortArea {
                         anchors.fill: parent
-                        acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        onClicked: mouse => {
-                            if (mouse.button === Qt.RightButton) {
+                        layoutParent: root
+                        origin: root.tasksX
+                        pitch: root.buttonWidth + root.gap
+                        count: root.windowCount
+                        slot: entry.index - root.launcherCount
+                        itemWidth: root.buttonWidth
+                        onDraggingChanged: entry.dragging = dragging
+                        onSlidesChanged: entry.slides = slides
+                        onDragXChanged: entry.dragX = dragX
+                        onMoved: (from, to) => tasksModel.move(root.launcherCount + from, root.launcherCount + to)
+                        onTapped: button => {
+                            if (button === Qt.RightButton) {
                                 windowMenu.visualParent = button;
                                 windowMenu.task = entry.modelIndex;
                                 windowMenu.launcher = entry.model.LauncherUrlWithoutIcon;
