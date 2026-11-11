@@ -18,6 +18,11 @@ function metrics() {
   return METRICS;
 }
 
+// The band's size when it fits every launcher, for QML: a library's constants are not visible there.
+function fitAll() {
+  return FIT;
+}
+
 // `size` is the band's width in pixels between its separators, or FIT for as wide as all its launchers.
 // eslint-disable-next-line max-params -- QML and its tests pass the taskbar's geometry positionally
 function layout(width, contentX, lead, count, size, dock) {
@@ -118,12 +123,12 @@ function restingBandEnd(width) {
 }
 
 function bandWidth(count, size) {
-  return size === FIT ? cellsWidth(count) : size;
+  return knownSize(size) === FIT ? cellsWidth(count) : size;
 }
 
 // All the launchers when the band holds them, else as many as fit beside the chevron.
 function shownCount(count, size) {
-  if (size === FIT || size >= cellsWidth(count)) return count;
+  if (knownSize(size) === FIT || size >= cellsWidth(count)) return count;
 
   return Math.max(0, Math.floor((size - METRICS.chevronWidth) / METRICS.cellWidth));
 }
@@ -134,4 +139,9 @@ function separatorWidth(lead) {
 
 function cellsWidth(count) {
   return count * METRICS.cellWidth;
+}
+
+// Right after Setup, Plasma can hand over a setting it has not loaded yet: anything but a number fits every launcher.
+function knownSize(size) {
+  return typeof size === "number" && Number.isFinite(size) ? size : FIT;
 }

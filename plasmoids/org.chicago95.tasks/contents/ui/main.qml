@@ -46,7 +46,10 @@ PlasmoidItem {
     property int liveSize: notDragged
     property int carriedGripX: notDragged
     readonly property bool bandCarried: carriedGripX !== notDragged
-    readonly property int size: liveSize !== notDragged ? liveSize : Plasmoid.configuration.quickLaunchWidth
+    // Right after Setup, Plasma can hand over settings it has not loaded yet: undefined, which an int binding
+    // turns into 0 (no launchers at all). Until they arrive, the band fits every launcher.
+    readonly property int savedSize: Plasmoid.configuration.quickLaunchWidth ?? Band.fitAll()
+    readonly property int size: liveSize !== notDragged ? liveSize : savedSize
     readonly property var band: Band.layout(width, contentX, lead, launcherCount, size, dock)
     readonly property int bandShift: bandCarried ? Band.carriedShift(carriedGripX, band, dock, width, contentX) : 0
     readonly property int shownLaunchers: band.shown
@@ -65,7 +68,7 @@ PlasmoidItem {
     function separatorReleased(separator, gripX) {
         const outer = Band.outerSeparator(dock) === separator;
         const newDock = outer ? Band.dockAfterDrag(gripX, width) : dock;
-        const newSize = outer ? Plasmoid.configuration.quickLaunchWidth : Band.sizeAfterDrag(gripX, width, contentX, lead, dock);
+        const newSize = outer ? savedSize : Band.sizeAfterDrag(gripX, width, contentX, lead, dock);
         liveSize = notDragged;
         carriedGripX = notDragged;
         Plasmoid.configuration.quickLaunchDock = newDock;
@@ -240,7 +243,7 @@ PlasmoidItem {
                 value: 5
             }
             Behavior on x {
-                enabled: entry.slides && !root.bandCarried && Plasmoid.configuration.animateButtons
+                enabled: entry.slides && !root.bandCarried && Plasmoid.configuration.animateButtons !== false
                 NumberAnimation {
                     duration: 120
                 }

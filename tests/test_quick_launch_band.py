@@ -212,3 +212,13 @@ def test_the_chevron_holds_the_launchers_on_its_side_of_the_shown_cells(
 ):
     size = FIT if size_cells is None else metrics["chevronWidth"] + cells_width(size_cells)
     assert call(band, "chevronLaunchers", LAUNCHERS, size, dock) == behind_chevron
+
+
+@pytest.mark.parametrize("unknown_size", [None, "", "wide"])
+def test_a_band_size_the_widget_has_not_read_yet_fits_every_launcher(band, lead, unknown_size):
+    """Right after Setup, Plasma can hand the widget a setting it has not loaded yet: the band still shows all."""
+    assert layout(band, lead, size=unknown_size) == layout(band, lead)
+
+
+def test_qml_gets_the_fit_every_launcher_size_from_the_library(band):
+    assert call(band, "fitAll") == FIT

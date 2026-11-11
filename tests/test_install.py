@@ -828,11 +828,9 @@ def test_clippy_window_rule_keeps_it_above_other_windows_by_default(tmp_path):
     assert ("above=true" in clippy, "aboverule=2" in clippy) == (True, True)
 
 
-def test_finishing_restarts_plasma_with_one_queued_job_after_everything_else(tmp_path):
-    """Setup may run inside plasmashell's own service (from the Control Panel, opened from the taskbar):
-    stopping plasmashell would stop Setup before it starts plasmashell again, leaving no desktop. One
-    restart job, queued last and not waited for, is finished by systemd whatever happens to Setup."""
+def finish_session_calls(tmp_path, shell_changed):
     calls = tmp_path / "calls"
+    calls.touch()
     stubs = tmp_path / "stubs"
     stubs.mkdir()
     (stubs / "systemctl").write_text(f'#!/bin/sh\necho "systemctl $*" >> {calls}\n')
@@ -841,15 +839,28 @@ def test_finishing_restarts_plasma_with_one_queued_job_after_everything_else(tmp
         stub.chmod(0o755)
     script = (
         f"REPO={REPO}; source {REPO}/setup/steps.sh; SETUP_LOG={tmp_path}/log; "
-        "SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 finish_session"
+        f"SHELL_CHANGED={shell_changed} SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 finish_session"
     )
     subprocess.run(
         ["bash", "-c", script], timeout=30, env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(tmp_path)}, check=False
     )
-    plasma = [line for line in calls.read_text().splitlines() if "plasmashell" in line]
+    return calls.read_text().splitlines()
 
-    assert plasma == ["systemctl --user restart --no-block plasma-plasmashell.service"]
-    assert calls.read_text().splitlines()[-1] == plasma[0]
+
+def test_finishing_after_a_shell_change_restarts_plasma_with_one_queued_job_after_everything_else(tmp_path):
+    """Setup may run inside plasmashell's own service (from the Control Panel, opened from the taskbar):
+    stopping plasmashell would stop Setup before it starts plasmashell again, leaving no desktop. One
+    restart job, queued last and not waited for, is finished by systemd whatever happens to Setup."""
+    calls = finish_session_calls(tmp_path, shell_changed=1)
+    plasma = [line for line in calls if "plasmashell" in line]
+
+    assert (plasma, calls[-1]) == (["systemctl --user restart --no-block plasma-plasmashell.service"], plasma[0])
+
+
+def test_finishing_without_a_shell_change_leaves_plasma_running(tmp_path):
+    calls = finish_session_calls(tmp_path, shell_changed=0)
+
+    assert [line for line in calls if "plasmashell" in line] == []
 
 
 def test_detecting_without_a_display_starts_no_graphical_program_that_would_crash(tmp_path):
@@ -1147,7 +1158,9 @@ def install_shell_files(home):
     shutil.copytree(REPO / "data/qml", shared / "qml")
     drop_in = home / ".config/systemd/user/plasma-plasmashell.service.d"
     drop_in.mkdir(parents=True)
-    shutil.copy(REPO / "config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf", drop_in / "chicago95-menus.conf")
+    shutil.copy(
+        REPO / "config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf", drop_in / "chicago95-menus.conf"
+    )
 
 
 def test_screensaver_with_the_shell_files_already_installed_leaves_plasma_caches(tmp_path):
