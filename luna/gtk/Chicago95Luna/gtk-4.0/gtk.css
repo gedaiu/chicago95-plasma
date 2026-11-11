@@ -404,19 +404,66 @@ scrollbar slider:disabled {
   background-color: #ECE9D8;
 }
 
-progressbar trough {
-  min-height: 15px;
+progressbar {
+  padding: 0;
+  border: none;
+  background-image: none;
+}
+
+progressbar > trough {
+  min-width: 0;
+  min-height: 0;
+  padding: 1px;
+  margin: 0;
   border: 1px solid #68A3C6;
   background-color: #FFFFFF;
   background-image: none;
   border-radius: 2px;
 }
 
-progressbar progress {
+progressbar > trough > progress {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
   border: none;
   border-radius: 0;
-  margin: 1px;
-  background-image: repeating-linear-gradient(to right, #39E63A 0px, #39E63A 8px, transparent 8px, transparent 10px);
+  background-color: transparent;
+  background-repeat: repeat;
+  background-position: left top;
+}
+
+progressbar.horizontal > trough > progress {
+  min-height: 13px;
+}
+
+progressbar.vertical > trough > progress {
+  min-width: 13px;
+}
+
+progressbar.horizontal > trough {
+  min-height: 13px;
+}
+
+progressbar.vertical > trough {
+  min-width: 13px;
+}
+
+progressbar.horizontal > trough > progress {
+  background-image: linear-gradient(to right, #39E63A 0px, #39E63A 8px, transparent 8px, transparent 10px);
+  background-size: 10px 100%;
+  background-position: left top;
+}
+
+progressbar.vertical > trough > progress {
+  background-image: linear-gradient(to top, #39E63A 0px, #39E63A 8px, transparent 8px, transparent 10px);
+  background-size: 100% 10px;
+  background-position: left bottom;
+}
+
+progressbar > trough > progress.pulse {
+  background-image: none;
+  background-color: #39E63A;
 }
 
 scale trough {

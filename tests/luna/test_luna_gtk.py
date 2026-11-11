@@ -34,7 +34,7 @@ KEY_SELECTORS = [
     "menuitem:hover",
     "scrollbar slider",
     "scrollbar slider:hover",
-    "progressbar progress",
+    "progressbar > trough > progress",
     "scale slider",
     "headerbar.titlebar",
     "headerbar.titlebar:backdrop",

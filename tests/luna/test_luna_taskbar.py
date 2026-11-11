@@ -159,6 +159,21 @@ def test_start_button_widens_for_a_longer_name_and_keeps_the_letters_inside_the_
     )
 
 
+FLAG_SHADOW_BAND = [(x, 23) for x in range(16, 26)] + [(28, y) for y in range(12, 22)]
+
+
+def mean_green(image, points):
+    return sum(image.getpixel(point)[1] for point in points) / len(points)
+
+
+def test_start_flag_casts_the_originals_dark_green_shadow_below_and_right_within_15(
+    qt_app, qml_root, installed, tmp_path, running
+):
+    image, _width = render_natural_start(qt_app, qml_root, installed, tmp_path, "start")
+
+    assert abs(mean_green(image, FLAG_SHADOW_BAND) - mean_green(running.convert("RGB"), FLAG_SHADOW_BAND)) <= 15
+
+
 def test_start_button_keeps_the_originals_98_pixels_for_start(qt_app, qml_root, installed, tmp_path):
     _image, width = render_natural_start(qt_app, qml_root, installed, tmp_path, "start")
 

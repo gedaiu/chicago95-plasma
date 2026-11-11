@@ -36,13 +36,24 @@ def test_luna_font_alias_resolves_to_an_installed_family(tmp_path, requested):
     assert matched_family(tmp_path, requested) in installed_families()
 
 
-def test_franklin_gothic_medium_prefers_fira_sans_medium_then_noto_sans_then_dejavu_sans():
-    families = [line.strip() for line in RULE.read_text().split("Franklin Gothic Medium")[1].split("</prefer>")[0].split("<family>")[1:]]
+def test_franklin_gothic_medium_prefers_libre_franklin_then_fira_sans_medium_noto_sans_and_dejavu_sans():
+    """Libre Franklin is the open Franklin Gothic; Setup fetches it for the Luna look (steps.sh, fetch_libre_franklin)."""
+    families = [
+        line.strip()
+        for line in RULE.read_text().split("Franklin Gothic Medium")[1].split("</prefer>")[0].split("<family>")[1:]
+    ]
 
-    assert [family.removesuffix("</family>") for family in families] == ["Fira Sans Medium", "Noto Sans", "DejaVu Sans"]
+    assert [family.removesuffix("</family>") for family in families] == [
+        "Libre Franklin",
+        "Fira Sans Medium",
+        "Noto Sans",
+        "DejaVu Sans",
+    ]
 
 
 def test_trebuchet_ms_prefers_fira_sans_then_noto_sans_then_dejavu_sans():
-    families = [line.strip() for line in RULE.read_text().split("Trebuchet MS")[1].split("</prefer>")[0].split("<family>")[1:]]
+    families = [
+        line.strip() for line in RULE.read_text().split("Trebuchet MS")[1].split("</prefer>")[0].split("<family>")[1:]
+    ]
 
     assert [family.removesuffix("</family>") for family in families] == ["Fira Sans", "Noto Sans", "DejaVu Sans"]

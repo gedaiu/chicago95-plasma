@@ -17,6 +17,7 @@ Item {
     readonly property int flagLeft: 10
     readonly property int flagTop: 6
     readonly property size flagInk: Qt.size(20, 18)
+    readonly property int flagShadowPadding: 4
     readonly property int inkLeft: 35
     readonly property int inkWidth: 37
     readonly property int inkHeight: 12
@@ -39,6 +40,16 @@ Item {
         prefix: button.held ? "pressed" : pointer.hovered ? "hover" : "normal"
     }
 
+    // The original's flag casts a soft dark green shadow below and to the right (xprunning.png, rows 20..24),
+    // baked from the flag's own outline by luna/images/render_logo.py.
+    Image {
+        x: button.flagLeft - button.flagShadowPadding
+        y: button.flagTop - button.flagShadowPadding
+        width: button.flagInk.width + 2 * button.flagShadowPadding
+        height: button.flagInk.height + 2 * button.flagShadowPadding
+        source: "../../images/logo-flag-xp-shadow.png"
+        smooth: true
+    }
     Image {
         x: button.flagLeft
         y: button.flagTop
@@ -48,7 +59,7 @@ Item {
         source: "../../images/windows-xp-flag.svg"
     }
 
-    readonly property string lettersFamilies: "Franklin Gothic Medium, Trebuchet MS, Noto Sans, DejaVu Sans"
+    readonly property string lettersFamilies: "Franklin Gothic Medium, Libre Franklin, Trebuchet MS, Noto Sans, DejaVu Sans"
 
     Text {
         id: sample

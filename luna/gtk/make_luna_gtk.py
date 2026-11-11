@@ -417,21 +417,41 @@ def widget_rules():
             background_image="none",
             background_color=FACE,
         ),
+        block("progressbar", padding="0", border="none", background_image="none"),
         block(
-            "progressbar trough",
-            min_height="15px",
+            "progressbar > trough",
+            min_width="0", min_height="0", padding="1px", margin="0",
             border="1px solid #68A3C6",
-            background_color="#FFFFFF",
-            background_image="none",
-            border_radius="2px",
+            background_color="#FFFFFF", background_image="none", border_radius="2px",
         ),
         block(
-            "progressbar progress",
-            border="none",
-            border_radius="0",
-            margin="1px",
-            background_image=f"repeating-linear-gradient(to right, {stops.GRADIENTS['progress-chunk'][1][1]} 0px, {stops.GRADIENTS['progress-chunk'][1][1]} {stops.PROGRESS_CHUNK_WIDTH}px, transparent {stops.PROGRESS_CHUNK_WIDTH}px, transparent {stops.PROGRESS_CHUNK_WIDTH + stops.PROGRESS_CHUNK_GAP}px)",
+            "progressbar > trough > progress",
+            min_width="0", min_height="0", padding="0", margin="0",
+            border="none", border_radius="0", background_color="transparent",
+            background_repeat="repeat", background_position="left top",
         ),
+        block("progressbar.horizontal > trough > progress", min_height="13px"),
+        block("progressbar.vertical > trough > progress", min_width="13px"),
+        block("progressbar.horizontal > trough", min_height="13px"),
+        block("progressbar.vertical > trough", min_width="13px"),
+        *[
+            block(
+                f"progressbar.{orientation} > trough > progress",
+                background_image=(
+                    f"linear-gradient(to {direction}, {stops.GRADIENTS['progress-chunk'][1][1]} 0px, "
+                    f"{stops.GRADIENTS['progress-chunk'][1][1]} {stops.PROGRESS_CHUNK_WIDTH}px, "
+                    f"transparent {stops.PROGRESS_CHUNK_WIDTH}px, "
+                    f"transparent {stops.PROGRESS_CHUNK_WIDTH + stops.PROGRESS_CHUNK_GAP}px)"
+                ),
+                background_size=(f"{stops.PROGRESS_CHUNK_WIDTH + stops.PROGRESS_CHUNK_GAP}px 100%"
+                                 if orientation == "horizontal" else
+                                 f"100% {stops.PROGRESS_CHUNK_WIDTH + stops.PROGRESS_CHUNK_GAP}px"),
+                background_position="left top" if orientation == "horizontal" else "left bottom",
+            )
+            for orientation, direction in (("horizontal", "right"), ("vertical", "top"))
+        ],
+        block("progressbar > trough > progress.pulse", background_image="none",
+              background_color=stops.GRADIENTS['progress-chunk'][1][1]),
         block(
             "scale trough",
             min_height=f"{stops.SIZES['slider_groove']}px",

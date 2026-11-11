@@ -10,7 +10,7 @@ import os
 import xml.etree.ElementTree as ElementTree
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageFilter
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -160,10 +160,37 @@ def render_wordmark(width):
     return render_fitted(LIGHT_SVG, (width, round(width * source_height / source_width)))
 
 
+# The Start button's flag shadow: the flag's outline, moved a quarter pixel right and 2 down, blurred and darkened, on a canvas
+# FLAG_SHADOW_PADDING larger on every side than the 20x18 flag, drawn at FLAG_SHADOW_SCALE for the 2x screens.
+FLAG_SHADOW_PNG = START_IMAGES / "logo-flag-xp-shadow.png"
+FLAG_SHADOW_SIZE = (20, 18)
+FLAG_SHADOW_PADDING = 4
+FLAG_SHADOW_OFFSET = (0.25, 2)
+FLAG_SHADOW_BLUR = 0.5
+FLAG_SHADOW_COLOUR = (11, 58, 11)
+FLAG_SHADOW_OPACITY = 1.0
+FLAG_SHADOW_SCALE = 4
+
+
+def render_flag_shadow():
+    scale, padding = FLAG_SHADOW_SCALE, FLAG_SHADOW_PADDING
+    width, height = (side * scale for side in FLAG_SHADOW_SIZE)
+    canvas = (width + 2 * padding * scale, height + 2 * padding * scale)
+    left, top = (round((padding + offset) * scale) for offset in FLAG_SHADOW_OFFSET)
+    alpha = render_fitted(FLAG_SVG, (width, height)).getchannel("A")
+    placed = Image.new("L", canvas, 0)
+    placed.paste(alpha, (left, top))
+    blurred = placed.filter(ImageFilter.GaussianBlur(FLAG_SHADOW_BLUR * scale))
+    shadow = Image.new("RGBA", canvas, FLAG_SHADOW_COLOUR + (0,))
+    shadow.putalpha(blurred.point(lambda value: round(value * FLAG_SHADOW_OPACITY)))
+    return shadow
+
+
 def write_flag_pngs():
     for path, (canvas_size, content_size) in FLAG_PNGS.items():
         path.parent.mkdir(parents=True, exist_ok=True)
         render_flag(canvas_size, content_size).save(path)
+    render_flag_shadow().save(FLAG_SHADOW_PNG)
 
 
 def main():

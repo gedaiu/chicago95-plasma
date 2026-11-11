@@ -465,6 +465,18 @@ def gtk_controls(look, scratch, audit=False):
         elif not (CHICAGO95_SRC / "Theme/Chicago95").exists():
             print(f"{look}: GTK controls omitted: Chicago95 GTK theme unavailable")
             return rows
+        if look != "luna":
+            from gtk_notebooks import notebook_css
+
+            config = home / ".config/gtk-4.0"
+            config.mkdir(parents=True, exist_ok=True)
+            (config / "gtk.css").write_text(notebook_css(CHICAGO95_SRC / "Theme/Chicago95"))
+            progress_css = (REPO / "config/gtk-progress-classic.css").read_text()
+            for version in ("3.0", "4.0"):
+                config = home / f".config/gtk-{version}"
+                config.mkdir(parents=True, exist_ok=True)
+                with (config / "gtk.css").open("a") as stylesheet:
+                    stylesheet.write(progress_css)
         commands = []
         for version in ("3.0", "4.0"):
             probe = subprocess.run(

@@ -271,6 +271,32 @@ set_gtk_theme() { # set_gtk_theme <theme name>   GTK 3 and GTK 4 settings
     record ~/.config/gtk-$version/settings.ini
   done
   import_gtk4_theme "$1"
+  import_gtk_progress "$1"
+}
+
+# Keep the classic progress override in both GTK versions; remove it when selecting Luna.
+import_gtk_progress() {
+  local version target
+  [ "${SETUP_DRY_RUN:-0}" = 1 ] && return 0
+  for version in 3.0 4.0; do
+    target=~/.config/gtk-$version/gtk.css
+    backup "$target"
+    mkdir -p "$(dirname "$target")"
+    python3 - "$target" "$REPO/config/gtk-progress-classic.css" "$1" <<'PYPROGRESS'
+import re
+import sys
+from pathlib import Path
+
+target, source = map(Path, sys.argv[1:3])
+begin, end = "/* Chicago95 progress BEGIN */", "/* Chicago95 progress END */"
+text = target.read_text() if target.exists() else ""
+text = re.sub(re.escape(begin) + r".*?" + re.escape(end) + r"\n?", "", text, flags=re.S)
+if sys.argv[3] == "Chicago95":
+    text = text.rstrip() + "\n" + begin + "\n" + source.read_text() + end + "\n"
+target.write_text(text)
+PYPROGRESS
+    record "$target"
+  done
 }
 
 # import_gtk4_theme <theme name>   libadwaita programs (GNOME Files among them) ignore gtk-theme-name: the user's
@@ -300,6 +326,19 @@ else:
     text = block + text
 target.write_text(text)
 PY
+  # Match the original GTK3 notebook assets, rather than GTK4's approximate bevels.
+  if [ "$1" = Chicago95 ] && [ -f ~/.themes/Chicago95/gtk-3.0/gtk-notebooks.css ]; then
+    python3 - "$REPO/lib" ~/.themes/Chicago95 ~/.config/gtk-4.0/chicago95-notebooks.css <<'PYTABS'
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from gtk_notebooks import notebook_css
+Path(sys.argv[3]).write_text(notebook_css(Path(sys.argv[2])))
+PYTABS
+    # Keep this import inside the managed block so switching to Luna removes it.
+    sed -i '\|/\* <<< Chicago95 GTK4 END \*/|i @import url("chicago95-notebooks.css");' "$target"
+    record ~/.config/gtk-4.0/chicago95-notebooks.css
+  fi
   record "$target"
 }
 
@@ -1574,10 +1613,30 @@ warn_without_tahoma() {
   ui_status "Tahoma is not installed: Luna text falls back to DejaVu Sans Condensed. Install Wine's Tahoma (wine-tahoma-fonts) or put tahoma.ttf in ~/.local/share/fonts, then log out and in."
 }
 
+# The Start button's "start" is Franklin Gothic Medium; Libre Franklin (Impallari Type, SIL Open Font License) is
+# its open counterpart, fetched from Google Fonts' repository the way the icon sets are cloned.
+LIBRE_FRANKLIN_URL=https://raw.githubusercontent.com/google/fonts/main/ofl/librefranklin
+fetch_libre_franklin() {
+  local folder=~/.local/share/fonts/LibreFranklin name source
+  fc-list : family 2>/dev/null | grep -qi "Libre Franklin" && return 0
+  ui_status "Downloading Libre Franklin (the Start button's lettering)..."
+  run mkdir -p "$folder"
+  for name in "LibreFranklin-Variable.ttf=LibreFranklin%5Bwght%5D.ttf" "LibreFranklin-Italic-Variable.ttf=LibreFranklin-Italic%5Bwght%5D.ttf" "OFL.txt=OFL.txt"; do
+    source="${name#*=}"
+    run curl -fsSL -o "$folder/${name%%=*}" "$LIBRE_FRANKLIN_URL/$source" >>"$SETUP_LOG" 2>&1 || {
+      ui_status "Libre Franklin could not be downloaded; the Start button keeps the system's sans serif"
+      return 0
+    }
+    record "$folder/${name%%=*}"
+  done
+  run fc-cache -f ~/.local/share/fonts >/dev/null 2>&1 || true
+}
+
 step_luna_fonts() {
   local key
   put_file "$REPO/luna/fontconfig/61-chicago95-luna-fonts.conf" ~/.config/fontconfig/conf.d/61-chicago95-luna-fonts.conf
   warn_without_tahoma
+  fetch_libre_franklin
   [ "${SETUP_FONT_SCOPE:-everywhere}" = none ] && return 0
   [ "${SETUP_FONT_SCOPE:-everywhere}" = everywhere ] && for key in "${APP_FONT_KEYS[@]}"; do kconf kdeglobals General "$key" "Tahoma,8,-1,5,50,0,0,0,0,0"; done
   widget_style_is_luna && [ "${SETUP_FONT_SCOPE:-everywhere}" = everywhere ] && apply_luna_gtk_font

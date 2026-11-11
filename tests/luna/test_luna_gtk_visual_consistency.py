@@ -10,7 +10,7 @@ import subprocess
 import sys
 
 import pytest
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageFilter
 from PySide6.QtCore import QRect
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtWidgets import QStyle, QStyleOptionButton
@@ -47,15 +47,19 @@ def gtk_images(tmp_path_factory):
 
     folder = tmp_path_factory.mktemp("gtk-visual-consistency")
     gtk_controls("luna", folder, audit=True)
+    return load_images(folder, FACE)
+
+
+def load_images(folder, face):
     images = {}
     for version in ("3.0", "4.0"):
         output = folder / f"gtk-{version}"
         for _, label, filename in json.loads((output / "manifest.json").read_text()):
             image = Image.open(output / filename).convert("RGBA")
-            paper = Image.new("RGBA", image.size, FACE)
+            paper = Image.new("RGBA", image.size, face)
             paper.alpha_composite(image)
             image = paper.convert("RGB")
-            box = ImageChops.difference(image, Image.new("RGB", image.size, FACE)).getbbox()
+            box = ImageChops.difference(image, Image.new("RGB", image.size, face)).getbbox()
             assert box is not None, f"{version}: {label} rendered blank"
             images[version, *label.split()] = image.crop(box)
     return images
@@ -121,3 +125,85 @@ def test_indicator_states_change_pixels(gtk_images, version):
         normal = gtk_images[version, kind, "normal"].tobytes()
         for state in ("checked", "hovered", "pressed", "disabled"):
             assert gtk_images[version, kind, state].tobytes() != normal, f"{kind}: {state} looks normal"
+
+
+@pytest.fixture(scope="module")
+def classic_gtk_images(tmp_path_factory, gtk_images):
+    # Reuse the runtime availability checks in the Luna fixture.
+    from showcase import gtk_controls
+
+    folder = tmp_path_factory.mktemp("classic-gtk-tabs")
+    gtk_controls("1995", folder, audit=True)
+    return load_images(folder, "#c0c0c0")
+
+
+@pytest.mark.parametrize("look", ("classic", "luna"))
+@pytest.mark.parametrize("position", ("top", "bottom", "left", "right"))
+@pytest.mark.parametrize("state", ("first", "second", "disabled"))
+def test_gtk_tab_chrome_matches(gtk_images, classic_gtk_images, look, position, state, tmp_path):
+    images = gtk_images if look == "luna" else classic_gtk_images
+    a, b = (images[version, "tabs", f"{state}-{position}"] for version in ("3.0", "4.0"))
+    a.save(tmp_path / "gtk3.png")
+    b.save(tmp_path / "gtk4.png")
+    assert a.size == b.size, f"tab geometry differs; see {tmp_path}"
+    diff = ImageChops.difference(a, b)
+    diff.save(tmp_path / "difference.png")
+    if look == "luna":
+        assert max(high for _, high in diff.getextrema()) <= 2, f"tab chrome differs; see {tmp_path}"
+    else:
+        # GTK4 composites the selected tab/page seam and bitmap slice corners differently.
+        # Allow at most 0.2% edge pixels; a shifted border or changed tab size must fail.
+        changed = sum(max(pixel) > 2 for pixel in diff.get_flattened_data())
+        assert changed <= a.width * a.height * 0.002, f"tab chrome differs; see {tmp_path}"
+        low = a.filter(ImageFilter.MinFilter(3))
+        high = a.filter(ImageFilter.MaxFilter(3))
+        assert ImageChops.subtract(low, b).getbbox() is None
+        seam = ImageChops.subtract(b, high).getbbox()
+        if seam is not None:
+            # GTK4 paints the page highlight over the selected tab's overlap.
+            assert position in ("top", "left")
+            assert (seam[3] - seam[1] if position == "top" else seam[2] - seam[0]) == 1
+            for y in range(seam[1], seam[3]):
+                for x in range(seam[0], seam[2]):
+                    assert b.getpixel((x, y)) == (255, 255, 255)
+
+
+@pytest.mark.parametrize("look", ("classic", "luna"))
+def test_selecting_another_tab_changes_chrome(gtk_images, classic_gtk_images, look):
+    images = gtk_images if look == "luna" else classic_gtk_images
+    for version in ("3.0", "4.0"):
+        for position in ("top", "bottom", "left", "right"):
+            first = images[version, "tabs", f"first-{position}"]
+            second = images[version, "tabs", f"second-{position}"]
+            assert first.tobytes() != second.tobytes()
+
+
+@pytest.mark.parametrize("look", ("classic", "luna"))
+@pytest.mark.parametrize("orientation", ("horizontal", "vertical"))
+@pytest.mark.parametrize("state", ("empty", "low", "half", "full", "disabled", "inverted", "rtl"))
+def test_gtk_progress_matches(gtk_images, classic_gtk_images, look, orientation, state, tmp_path):
+    images = gtk_images if look == "luna" else classic_gtk_images
+    a, b = (images[version, "progress", f"{state}-{orientation}"] for version in ("3.0", "4.0"))
+    a.save(tmp_path / "gtk3.png")
+    b.save(tmp_path / "gtk4.png")
+    assert a.size == b.size
+    diff = ImageChops.difference(a, b)
+    diff.save(tmp_path / "difference.png")
+    assert max(high for _, high in diff.getextrema()) <= 2, f"progress rendering differs; see {tmp_path}"
+
+
+@pytest.mark.parametrize("look", ("classic", "luna"))
+def test_progress_fill_is_visible_and_increases(gtk_images, classic_gtk_images, look):
+    images = gtk_images if look == "luna" else classic_gtk_images
+    colour = (57, 230, 58) if look == "luna" else (0, 0, 128)
+    for version in ("3.0", "4.0"):
+        for orientation in ("horizontal", "vertical"):
+            counts = [
+                sum(
+                    pixel == colour
+                    for pixel in images[version, "progress", f"{state}-{orientation}"].get_flattened_data()
+                )
+                for state in ("empty", "low", "half", "full")
+            ]
+            assert counts[0] == 0
+            assert counts[0] < counts[1] < counts[2] < counts[3]

@@ -346,6 +346,15 @@ Visual consistency checks:
   dimensions, state changes, and Qt/GTK check marks. Checkbox comparisons are exact;
   radio interiors allow 2/255 channel rounding for antialiased hover glows. This is
   targeted cross-toolkit coverage, not a claim that every Qt/GTK widget is pixel-identical.
+  It also compares classic and Luna tab borders with the first/second page selected
+  and with disabled tabs, on all four sides. Fixed label boxes isolate borders from
+  font rasterisation. Classic allows a narrowly bounded bitmap-corner and page-seam
+  difference; Luna allows 2/255 corner antialiasing. The classic GTK4 override reuses
+  the installed GTK3 notebook assets and is removed from the imports when switching to Luna.
+  Progress bars are compared at 0%, 1%, 55% and 100%, disabled, reversed and RTL,
+  horizontally and vertically. Checks require visible, increasing fill as well as
+  matching pixels. Both classic GTK versions share the installed progress CSS;
+  Luna explicitly sizes and segments the fill in both orientations.
 - `tests/test_showcase.py` checks asset loading and taskbar geometry, including the
   narrower tray without a chevron and the 2001 login banner and boot logo.
 

@@ -704,6 +704,32 @@ def test_animations_are_left_alone_when_no_choice_was_saved(tmp_path):
     assert "AnimationDurationFactor" not in dry_run_log(tmp_path, "--components=look")
 
 
+def test_uninstall_resets_the_gsettings_keys_setup_wrote(tmp_path):
+    state = tmp_path / ".local/share/chicago95"
+    state.mkdir(parents=True)
+    (state / "installed-files.txt").write_text("gsettings:gtk-theme\ngsettings:font-name\n")
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    for program in ("gsettings", "kwriteconfig6"):
+        (stubs / program).write_text(f'#!/bin/sh\necho "$@" >> {tmp_path}/{program}-calls\n')
+        (stubs / program).chmod(0o755)
+
+    subprocess.run(
+        [str(REPO / "uninstall.sh")],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        stdin=subprocess.DEVNULL,
+        env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(tmp_path)},
+        check=False,
+    )
+
+    assert (tmp_path / "gsettings-calls").read_text().splitlines() == [
+        "reset org.gnome.desktop.interface gtk-theme",
+        "reset org.gnome.desktop.interface font-name",
+    ]
+
+
 def test_uninstall_deletes_the_animation_settings_setup_wrote(tmp_path):
     state = tmp_path / ".local/share/chicago95"
     state.mkdir(parents=True)
@@ -1396,6 +1422,12 @@ def test_look_luna_installs_the_gtk_theme_and_selects_it_for_gtk_three_four_and_
     ) == (True,) * 4
 
 
+
+def test_look_luna_selects_chicago95luna_in_gsettings_for_wayland_gtk_programs(tmp_path):
+    log = widget_look_log(tmp_path, "--look=luna", qt_style_dirs=tmp_path / "no-styles")
+
+    assert "would: gsettings set org.gnome.desktop.interface gtk-theme Chicago95Luna\n" in log
+
 @pytest.mark.parametrize("version", ["3.0", "4.0"])
 def test_the_look_turns_gtk_overlay_scrolling_off_so_scroll_bars_stay_on_screen(tmp_path, version):
     log = widget_look_log(tmp_path, "--look=luna", qt_style_dirs=tmp_path / "no-styles")
@@ -1403,6 +1435,39 @@ def test_the_look_turns_gtk_overlay_scrolling_off_so_scroll_bars_stay_on_screen(
     settings = f"{tmp_path}/.config/gtk-{version}/settings.ini"
 
     assert kwriteconfig(settings, "Settings", "gtk-overlay-scrolling", "false") in log
+
+
+LIBRE_FRANKLIN_FILES = ("LibreFranklin-Variable.ttf", "LibreFranklin-Italic-Variable.ttf", "OFL.txt")
+
+
+def without_fonts(tmp_path):
+    stubs = tmp_path / "stubs"
+    stubs.mkdir(exist_ok=True)
+    (stubs / "fc-list").write_text("#!/bin/sh\nexit 0\n")
+    (stubs / "fc-list").chmod(0o755)
+
+
+def test_look_luna_fetches_libre_franklin_for_the_start_button_when_no_copy_is_installed(tmp_path):
+    log = widget_look_log(tmp_path, "--look=luna", qt_style_dirs=tmp_path / "no-styles", prepare=without_fonts)
+    folder = f"{tmp_path}/.local/share/fonts/LibreFranklin"
+
+    assert [
+        f"would: curl -fsSL -o {folder}/{name} https://raw.githubusercontent.com/google/fonts/main/ofl/librefranklin/"
+        in log
+        for name in LIBRE_FRANKLIN_FILES
+    ] == [True] * 3
+
+
+def test_look_luna_leaves_an_installed_libre_franklin_alone(tmp_path):
+    def with_the_font(home):
+        stubs = home / "stubs"
+        stubs.mkdir(exist_ok=True)
+        (stubs / "fc-list").write_text("#!/bin/sh\necho 'Libre Franklin'\n")
+        (stubs / "fc-list").chmod(0o755)
+
+    log = widget_look_log(tmp_path, "--look=luna", qt_style_dirs=tmp_path / "no-styles", prepare=with_the_font)
+
+    assert "librefranklin" not in log
 
 
 def test_the_luna_fonts_warn_when_no_tahoma_is_installed(tmp_path):
@@ -1500,6 +1565,15 @@ def test_look_luna_switches_gtk_font_to_tahoma_and_drops_the_pixel_font_rule(tmp
     ) == (True,) * 3
 
 
+def test_look_luna_switches_the_wayland_and_settings_ini_gtk_font_to_tahoma_8(tmp_path):
+    log = widget_look_log(tmp_path, "--look=luna", qt_style_dirs=tmp_path / "no-styles")
+
+    assert (
+        "would: gsettings set org.gnome.desktop.interface font-name Tahoma 8\n" in log,
+        f"--file {tmp_path}/.config/gtk-3.0/settings.ini --group Settings --key gtk-font-name Tahoma 8\n" in log,
+    ) == (True, True)
+
+
 def test_look_luna_with_font_scope_desktop_leaves_the_gtk_font_and_pixel_rule_alone(tmp_path):
     log = widget_look_log(tmp_path, "--look=luna", "--font-scope=desktop", qt_style_dirs=tmp_path / "no-styles")
 
@@ -1535,7 +1609,9 @@ def test_look_1995_after_luna_restores_the_classic_gtk_theme_font_and_pixel_rule
         'Gtk/FontName "MS W98 UI,  9"| ' in log,
         f"would: cp {REPO}/config/fontconfig/60-chicago95-pixel-font.conf {tmp_path}/.config/fontconfig/conf.d/60-chicago95-pixel-font.conf"
         in log,
-    ) == (True,) * 4
+        "would: gsettings set org.gnome.desktop.interface gtk-theme Chicago95\n" in log,
+        "would: gsettings set org.gnome.desktop.interface font-name MS W98 UI,  9\n" in log,
+    ) == (True,) * 6
 
 
 def test_luna_decoration_writes_the_vertical_title_gradient_into_the_gtk_css(tmp_path):
@@ -1571,3 +1647,28 @@ def test_xsettingsd_luna_variant_differs_from_the_classic_file_only_in_theme_and
         ('Net/ThemeName "Chicago95"', 'Net/ThemeName "Chicago95Luna"'),
         ('Gtk/FontName "MS W98 UI,  9"', 'Gtk/FontName "Tahoma 8"'),
     ]
+
+
+def test_classic_tab_override_is_removed_when_switching_to_luna(tmp_path):
+    source = tmp_path / ".themes/Chicago95/gtk-3.0/gtk-notebooks.css"
+    source.parent.mkdir(parents=True)
+    source.write_text('notebook tab { border-image: url("assets/notebook_top.png"); }')
+    run_bash_with_steps(tmp_path, "import_gtk4_theme Chicago95; import_gtk4_theme Chicago95")
+    css = tmp_path / ".config/gtk-4.0/gtk.css"
+    assert css.read_text().count('@import url("chicago95-notebooks.css");') == 1
+    override = css.with_name("chicago95-notebooks.css").read_text()
+    assert (source.parent / "assets/notebook_top.png").as_uri() in override
+    run_bash_with_steps(tmp_path, "import_gtk4_theme Chicago95Luna")
+    assert "chicago95-notebooks.css" not in css.read_text()
+
+
+def test_progress_override_is_shared_idempotent_and_removed_for_luna(tmp_path):
+    run_bash_with_steps(tmp_path, "import_gtk_progress Chicago95; import_gtk_progress Chicago95")
+    source = (REPO / "config/gtk-progress-classic.css").read_text()
+    for version in ("3.0", "4.0"):
+        css = tmp_path / f".config/gtk-{version}/gtk.css"
+        assert css.read_text().count("/* Chicago95 progress BEGIN */") == 1
+        assert source in css.read_text()
+    run_bash_with_steps(tmp_path, "import_gtk_progress Chicago95Luna")
+    for version in ("3.0", "4.0"):
+        assert "progressbar" not in (tmp_path / f".config/gtk-{version}/gtk.css").read_text()

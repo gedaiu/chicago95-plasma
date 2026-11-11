@@ -91,6 +91,24 @@ def widgets():
     progress.set_fraction(0.55)
     progress.set_size_request(260, -1)
     yield "Ranges", "Progress bar", [progress]
+    states = []
+    for fraction, enabled in ((0, True), (1, True), (.55, False)):
+        bar = Gtk.ProgressBar()
+        bar.set_fraction(fraction)
+        bar.set_sensitive(enabled)
+        bar.set_size_request(160, -1)
+        states.append(bar)
+    yield "Ranges", "Progress bars: empty, full, disabled", states
+    directions = []
+    for vertical, inverted in ((False, True), (True, False), (True, True)):
+        bar = Gtk.ProgressBar()
+        bar.set_fraction(.55)
+        bar.set_inverted(inverted)
+        bar.set_orientation(Gtk.Orientation.VERTICAL if vertical else Gtk.Orientation.HORIZONTAL)
+        bar.set_size_request(-1, 90) if vertical else bar.set_size_request(160, -1)
+        bar.set_valign(Gtk.Align.CENTER)
+        directions.append(bar)
+    yield "Ranges", "Progress bars: reversed, vertical, vertical reversed", directions
     for orientation, name in ((Gtk.Orientation.HORIZONTAL, "horizontal"), (Gtk.Orientation.VERTICAL, "vertical")):
         bars = []
         for enabled in (True, False):
@@ -154,14 +172,32 @@ def consistency_widgets():
                 widget.set_state_flags(Gtk.StateFlags.FOCUSED, False)
             yield "Indicators", f"{kind} {state}", [widget]
 
-    for state in ("first", "second", "disabled"):
-        tabs = Gtk.Notebook()
-        for title in ("General", "Details", "Advanced"):
-            tabs.append_page(Gtk.Label(label="Settings"), Gtk.Label(label=title))
-        tabs.set_size_request(350, 90)
-        tabs.set_current_page(1 if state == "second" else 0)
-        tabs.set_sensitive(state != "disabled")
-        yield "Navigation", f"tabs {state}", [tabs]
+    for position in ("top", "bottom", "left", "right"):
+        for state in ("first", "second", "disabled"):
+            tabs = Gtk.Notebook()
+            # Fixed label boxes isolate tab chrome from Pango's differing glyph metrics.
+            for width in (42, 35, 52):
+                label = Gtk.Label()
+                label.set_size_request(width, 20)
+                tabs.append_page(Gtk.Label(), label)
+            tabs.set_tab_pos(getattr(Gtk.PositionType, position.upper()))
+            tabs.set_size_request(350, 120)
+            tabs._audit_page = 1 if state == "second" else 0
+            tabs.set_sensitive(state != "disabled")
+            yield "Navigation", f"tabs {state}-{position}", [tabs]
+
+    for orientation in ("horizontal", "vertical"):
+        for state, fraction in (("empty", 0), ("low", .01), ("half", .55), ("full", 1),
+                                ("disabled", .55), ("inverted", .55), ("rtl", .55)):
+            progress = Gtk.ProgressBar()
+            progress.set_orientation(getattr(Gtk.Orientation, orientation.upper()))
+            progress.set_size_request(260, -1) if orientation == "horizontal" else progress.set_size_request(-1, 160)
+            progress.set_fraction(fraction)
+            progress.set_sensitive(state != "disabled")
+            progress.set_inverted(state == "inverted")
+            if state == "rtl":
+                progress.set_direction(Gtk.TextDirection.RTL)
+            yield "Ranges", f"progress {state}-{orientation}", [progress]
 
 
 def main():
@@ -192,6 +228,10 @@ def main():
         window = Gtk.Window() if V4 else Gtk.OffscreenWindow()
         window.set_child(box) if V4 else window.add(box)
         window.present() if V4 else window.show_all()
+        for child in children:
+            if isinstance(child, Gtk.Notebook):
+                child.set_current_page(getattr(child, "_audit_page", 0))
+        window.set_focus(None)
         GLib.timeout_add(200, capture)
         return False
 
