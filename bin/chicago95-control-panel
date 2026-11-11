@@ -681,6 +681,39 @@ class LogoBox(QWidget):
         painter.drawPixmap((self.width() - logo.width()) // 2, (self.height() - logo.height()) // 2, logo)
 
 
+ARROW_ROWS = (7, 5, 3, 1)   # the classic drop-down arrow, as combo boxes and scroll bars draw it
+
+
+class ArrowButton(QToolButton):
+    """A raised 16x18 button with the classic down arrow; it opens its menu on press. Qt's own tool button
+    paints a wedge plus a menu indicator in the corner, which is not the original's arrow."""
+
+    def __init__(self):
+        super().__init__()
+        self.setFixedSize(*DROPDOWN_SIZE)
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        option = QStyleOptionButton()
+        option.initFrom(self)
+        option.rect = self.rect()
+        option.state |= QStyle.State_Sunken if self.isDown() else QStyle.State_Raised
+        self.style().drawPrimitive(QStyle.PE_PanelButtonBevel, option, painter, self)
+        shift = 1 if self.isDown() else 0
+        top = (self.height() - len(ARROW_ROWS)) // 2 + shift
+        painter.setPen(self.palette().windowText().color())
+        for row, width in enumerate(ARROW_ROWS):
+            left = (self.width() - width) // 2 + shift
+            painter.drawLine(left, top + row, left + width - 1, top + row)
+
+    def mousePressEvent(self, event):
+        self.setDown(True)
+        self.repaint()
+        if self.menu() is not None:
+            self.menu().exec(self.mapToGlobal(QPoint(-self.parentWidget().width() + self.width(), self.height())))
+        self.setDown(False)
+
+
 class AddressBar(QWidget):
     """Explorer's Address box as breadcrumbs: each part of the path is a button that goes there."""
     navigate = Signal(tuple)
@@ -713,10 +746,7 @@ class AddressBar(QWidget):
         self.crumb_layout.setContentsMargins(2, 0, 2, 0)
         self.crumb_layout.setSpacing(2)
         box_layout.addWidget(crumbs, 1)
-        self.dropdown = QToolButton()
-        self.dropdown.setArrowType(Qt.DownArrow)
-        self.dropdown.setPopupMode(QToolButton.InstantPopup)
-        self.dropdown.setFixedSize(*DROPDOWN_SIZE)
+        self.dropdown = ArrowButton()
         self.dropdown.setMenu(self.build_known_pages_menu())
         box_layout.addWidget(self.dropdown)
         layout.addWidget(self.box, 1)

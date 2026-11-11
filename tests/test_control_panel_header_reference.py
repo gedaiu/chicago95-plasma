@@ -185,3 +185,24 @@ def test_toolbar_icons_sit_near_the_top_of_the_band_like_internet_explorers(ours
     icon_rows = ink_rows(picture, 2, window.toolbar_buttons["Up"].main_width() - 2, 0, 24, face)
 
     assert (icon_rows != [], 2 <= icon_rows[0] <= 6) == (True, True)
+
+
+def dark_runs_per_row(image, box):
+    left, top, right, bottom = box
+    rows = []
+    for y in range(top, bottom):
+        dark = [x for x in range(left, right) if sum(image.getpixel((x, y))[:3]) // 3 < 100]
+        rows.append((dark[0], dark[-1]) if dark else None)
+    return rows
+
+
+def test_address_drop_down_arrow_is_a_centred_7_5_3_1_triangle_and_nothing_else(ours):
+    window, _image, _colours = ours
+    button = window.address_bar.dropdown
+    image = qimage_to_pil(button.grab().toImage())
+    inside = dark_runs_per_row(image, (1, 1, button.width() - 1, button.height() - 1))
+    arrow = [run for run in inside if run]
+    widths = [right - left + 1 for left, right in arrow]
+    centres = {left + right for left, right in arrow}
+
+    assert (widths, len(centres), sum(1 for run in inside if run)) == ([7, 5, 3, 1], 1, 4)

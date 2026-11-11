@@ -94,15 +94,13 @@ def panel_svg():
 
 
 def viewitem_svg():
+    """Plasma's list rows keep black text when highlighted (tests/test_plasma_style_lists.py): a highlighted
+    row is outlined, as the originals mark a focused row, never filled navy."""
     size = 24
-    navy = [("#000080", "#000080"), ("#000080", "#000080")]
     clear = [("none", "none"), ("none", "none")]
     outline = [("#000000", "#000000"), ("none", "none")]
-    parts = []
-    for idx, (prefix, rings, fill) in enumerate([
-        ("normal-", clear, "none"), ("hover-", navy, "#000080"), ("focus-", navy, "#000080"),
-        ("selected-", navy, "#000080"), ("selected+hover-", navy, "#000080")]):
-        parts.append(nine_slice(prefix, idx * (size + 16), 0, size, 2, rings, lambda px, py, f=fill: f, 0))
+    parts = [nine_slice(prefix, idx * (size + 16), 0, size, 2, rings, lambda px, py: "none", 0)
+             for idx, (prefix, rings) in enumerate([("normal-", clear)] + [(prefix, outline) for prefix in ("hover-", "focus-", "selected-", "selected+hover-")])]
     return svg(5 * (size + 16), size + 12, "\n".join(parts))
 
 

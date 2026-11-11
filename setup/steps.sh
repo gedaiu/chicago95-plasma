@@ -298,7 +298,7 @@ step_taskbar() {
     for plasmoid in "$REPO"/plasmoids/org.chicago95.*; do put_tree "$plasmoid" ~/.local/share/plasma/plasmoids/"$(basename "$plasmoid")"; done
     put_file "$REPO/plasmoids/panel-layout.js" ~/.local/share/chicago95/panel-layout.js
     put_file "$REPO/config/applications/chicago95-showdesktop.desktop" ~/.local/share/applications/chicago95-showdesktop.desktop
-    put_file "$REPO/data/icons/tray-arrow-up.png" ~/.local/share/chicago95/icons/tray-arrow-up.png
+    put_file "$REPO/data/icons/tray-chevron.png" ~/.local/share/chicago95/icons/tray-chevron.png
     substitute_home ~/.local/share/plasma/plasmoids/org.chicago95.start ~/.local/share/plasma/plasmoids/org.chicago95.tasks ~/.local/share/plasma/plasmoids/org.chicago95.trayframe
 }
 

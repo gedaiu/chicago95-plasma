@@ -206,3 +206,21 @@ def test_busy_tray_keeps_every_icon_16px_17px_apart_and_off_the_clock(desktops):
     assert len(icons) == 3 + len(BUSY_TRAY_APPLETS), icons
     assert all(right - left + 1 <= ICON_SIZE for left, right in icons), icons
     assert icons[-1][1] < clock[0] - 1, (icons, clock)
+
+
+def test_hidden_icons_chevron_leads_the_tray_box_and_the_icons_keep_their_places(ours, desktops):
+    """With an applet hidden, the originals draw a black chevron first in the tray box, the icons after
+    it in their usual places by the clock; nothing of it reaches the clock's cell, which would take its clicks."""
+    plain = ours("1998")
+    clock_left = ink(plain, TRAY_ICONS["1998"][-1] + ICON_SIZE, TRAYS["1998"][1])[0]
+    bar = desktops("1998", hidden_applets=["org.kde.plasma.notifications"]).crop((0, SCREEN[1] - HEIGHT, SCREEN[0], SCREEN[1]))
+    shadow_row = [x for x in range(300, SCREEN[0]) if close(bar.getpixel((x, BUTTON_TOP)), (128, 128, 128))]
+    box_left = next(x for x in shadow_row if all(x + dx in shadow_row for dx in range(40)))
+    rows = range(ICON_TOP, ICON_TOP + ICON_SIZE)
+    green = [x for x in range(box_left, clock_left) if any(bar.getpixel((x, y)) == ICON_COLOUR for y in rows)]
+    black = [x for x in range(box_left + 2, clock_left) if any(sum(bar.getpixel((x, y))) < 150 for y in rows)]
+    assert (green[0], green[-1]) == (TRAY_ICONS["1998"][0], TRAY_ICONS["1998"][-1] + ICON_SIZE - 1), green
+    assert black and black[-1] < green[0], (black, green[0])
+    chevron_rows = [y for y in range(HEIGHT) if any(sum(bar.getpixel((x, y))) < 150 for x in black)]
+    above, below = chevron_rows[0] - ICON_TOP, ICON_TOP + ICON_SIZE - 1 - chevron_rows[-1]
+    assert (len(chevron_rows), abs(above - below) <= 1) == (7, True), chevron_rows   # its own 7 rows, centred on the icons'
