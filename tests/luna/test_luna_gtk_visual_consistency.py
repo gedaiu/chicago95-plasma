@@ -283,3 +283,176 @@ def test_gtk_tab_fonts_match_qt(qt_app, gtk_images, classic_gtk_images, look):
             assert actual["resolved_family"] == resolved.family()
             pixels = actual["size"] if actual["absolute"] else actual["size"] * 96 / 72
             assert pixels == font.pixelSize() == 11
+
+
+@pytest.mark.parametrize("look", ("classic", "luna"))
+@pytest.mark.parametrize("kind", ("dropdown", "spinbox"))
+@pytest.mark.parametrize("state", ("normal", "disabled", "hovered", "pressed"))
+def test_gtk_dropdown_and_spinbox_match(gtk_images, classic_gtk_images, look, kind, state, tmp_path):
+    from PIL import ImageDraw
+
+    images = gtk_images if look == "luna" else classic_gtk_images
+    a, b = (images[version, kind, state] for version in ("3.0", "4.0"))
+    a.save(tmp_path / "gtk3.png")
+    b.save(tmp_path / "gtk4.png")
+    assert a.size == b.size == (160, 21 if look == "luna" else 20)
+    diff = ImageChops.difference(a, b)
+    if look == "luna":
+        # Pango antialiases glyphs differently. Verify their bounds, then compare all surrounding pixels exactly.
+        field_colour = (236, 233, 216) if state == "disabled" else (255, 255, 255)
+        bounds = []
+        for im in (a, b):
+            field = im.crop((2, 2, 120, im.height - 2))
+            box = ImageChops.difference(field, Image.new("RGB", field.size, field_colour)).getbbox()
+            assert box is not None and box[2] < 70 and box[3] - box[1] <= 12
+            bounds.append(box)
+            assert im.getpixel((100, im.height // 2)) == field_colour
+        assert all(abs(x - y) <= 1 for x, y in zip(*bounds, strict=True))
+        left = min(box[0] for box in bounds) + 2
+        top = min(box[1] for box in bounds) + 2
+        right = max(box[2] for box in bounds) + 2
+        bottom = max(box[3] for box in bounds) + 2
+        ImageDraw.Draw(diff).rectangle((left, top, right - 1, bottom - 1), fill=(0, 0, 0))
+    diff.save(tmp_path / "difference.png")
+    assert max(high for _, high in diff.getextrema()) <= 2, str(tmp_path)
+
+
+@pytest.mark.parametrize("look", ("classic", "luna"))
+def test_input_arrow_artwork_is_visible(gtk_images, classic_gtk_images, look):
+    images = gtk_images if look == "luna" else classic_gtk_images
+    size = 17 if look == "luna" else 16
+    ink = (36, 92, 171) if look == "luna" else (0, 0, 0)
+    for version in ("3.0", "4.0"):
+        for kind, count in (("dropdown", 1), ("spinbox", 2)):
+            im = images[version, kind, "normal"]
+            for index in range(count):
+                left = im.width - 2 - (index + 1) * size
+                glyph = im.crop((left + 4, 6, left + size - 4, 2 + size - 4))
+                assert sum(pixel == ink for pixel in glyph.get_flattened_data()) >= 4
+
+
+@pytest.mark.parametrize("version", ("3.0", "4.0"))
+@pytest.mark.parametrize("orientation", ("horizontal", "vertical"))
+@pytest.mark.parametrize("state", ("normal", "start", "end", "hovered", "pressed", "disabled"))
+def test_luna_scrollbar_thumb_has_four_visible_grip_ridges(gtk_images, version, orientation, state):
+    image = gtk_images[version, "scrollbar", f"{state}-{orientation}"]
+    dark, light = (152, 186, 233), (236, 242, 251)
+    pixels = {
+        (x, y): image.getpixel((x, y))
+        for y in range(image.height)
+        for x in range(image.width)
+        if image.getpixel((x, y)) in (dark, light)
+    }
+    if state == "disabled":
+        assert not pixels, "a disabled thumb must not show an active grip"
+        return
+    assert len(pixels) == 88, "four 11px dark ridges and four 11px highlights must be visible"
+    left = min(x for x, _ in pixels)
+    top = min(y for _, y in pixels)
+    width, height = (8, 11) if orientation == "horizontal" else (11, 8)
+    for y in range(height):
+        for x in range(width):
+            band = x if orientation == "horizontal" else y
+            assert pixels[left + x, top + y] == (dark if band % 2 == 0 else light)
+
+    # Centre the artwork within the thumb, not the entire track or one of the end buttons.
+    border = (111, 141, 219) if state == "pressed" else (138, 163, 230)
+    thumb = [(x, y) for y in range(image.height) for x in range(image.width) if image.getpixel((x, y)) == border]
+    assert thumb
+    assert abs(2 * left + width - 1 - min(x for x, _ in thumb) - max(x for x, _ in thumb)) <= 1
+    assert abs(2 * top + height - 1 - min(y for _, y in thumb) - max(y for _, y in thumb)) <= 1
+
+
+@pytest.mark.parametrize("orientation", ("horizontal", "vertical"))
+@pytest.mark.parametrize("state", ("normal", "start", "end", "disabled", "hovered", "pressed"))
+def test_luna_slider_thumb_matches_qt_and_has_a_smooth_gradient(qt_app, gtk_images, orientation, state, tmp_path):
+    import chicago95luna
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QStyleOptionSlider
+
+    horizontal = orientation == "horizontal"
+    style = chicago95luna.LunaStyle()
+    option = QStyleOptionSlider()
+    option.rect = QRect(0, 0, 180, 21) if horizontal else QRect(0, 0, 21, 180)
+    option.orientation = Qt.Horizontal if horizontal else Qt.Vertical
+    option.minimum, option.maximum = 0, 100
+    option.sliderPosition = {"start": 0, "end": 100}.get(state, 40)
+    option.palette = chicago95luna.luna_palette()
+    option.state = QStyle.State_None if state == "disabled" else QStyle.State_Enabled
+    if horizontal:
+        option.state |= QStyle.State_Horizontal
+    if state in ("hovered", "pressed"):
+        option.state |= QStyle.State_MouseOver if state == "hovered" else QStyle.State_Sunken
+        option.activeSubControls = QStyle.SC_SliderHandle
+    option.subControls = QStyle.SC_SliderGroove | QStyle.SC_SliderHandle
+    image = QImage(option.rect.size(), QImage.Format_RGB32)
+    image.fill(option.palette.window().color())
+    painter = QPainter(image)
+    style.drawComplexControl(QStyle.CC_Slider, option, painter)
+    painter.end()
+    handle = style.subControlRect(QStyle.CC_Slider, option, QStyle.SC_SliderHandle)
+    qt = qimage_to_pil(image).crop((handle.x(), handle.y(), handle.right() + 1, handle.bottom() + 1))
+    assert qt.size == ((11, 21) if horizontal else (21, 11))
+    # Four flat colour bands are not a gradient, even if both GTK versions match them.
+    shades = [qt.getpixel((5, i) if horizontal else (i, 5)) for i in range(3, 20)]
+    assert len(set(shades)) >= 12
+    luminance = [sum(pixel) for pixel in shades]
+    assert luminance == sorted(luminance, reverse=state != "pressed")
+    for version in ("3.0", "4.0"):
+        actual = gtk_images[version, "slider", f"{state}-{orientation}"]
+        border = [(x, y) for y in range(actual.height) for x in range(actual.width)
+                  if actual.getpixel((x, y)) in ((181, 196, 205), (119, 136, 146))]
+        assert border, "slider thumb is missing"
+        xs, ys = zip(*border, strict=True)
+        thumb = actual.crop((min(xs), min(ys), max(xs) + 1, max(ys) + 1))
+        thumb.save(tmp_path / f"gtk-{version}.png")
+        qt.save(tmp_path / "qt.png")
+        assert thumb.size == qt.size
+        assert thumb.tobytes() == qt.tobytes(), f"{version}: thumb differs from Qt; see {tmp_path}"
+
+
+@pytest.mark.parametrize("orientation", ("horizontal", "vertical"))
+@pytest.mark.parametrize("state", ("normal", "start", "end", "disabled", "hovered", "pressed"))
+def test_luna_slider_gtk_geometry_and_track_match(gtk_images, orientation, state, tmp_path):
+    a, b = (gtk_images[v, "slider", f"{state}-{orientation}"] for v in ("3.0", "4.0"))
+    a.save(tmp_path / "gtk3.png")
+    b.save(tmp_path / "gtk4.png")
+    assert a.size == b.size
+    assert a.tobytes() == b.tobytes(), f"slider track or position differs; see {tmp_path}"
+
+
+@pytest.mark.parametrize("orientation", ("horizontal", "vertical"))
+@pytest.mark.parametrize("state", ("empty", "low", "half", "full", "disabled", "inverted", "rtl"))
+def test_luna_progress_qt_gtk_thickness_inset_and_fill(qt_app, gtk_images, orientation, state):
+    import chicago95luna
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QProgressBar
+
+    horizontal = orientation == "horizontal"
+    style = chicago95luna.LunaStyle()
+    bar = QProgressBar()
+    bar.setStyle(style)
+    bar.setPalette(chicago95luna.luna_palette())
+    bar.setFont(chicago95luna.luna_font())
+    bar.setOrientation(Qt.Horizontal if horizontal else Qt.Vertical)
+    bar.setTextVisible(False)
+    bar.setValue({"empty": 0, "low": 1, "full": 100}.get(state, 55))
+    bar.setEnabled(state != "disabled")
+    bar.setInvertedAppearance(state == "inverted")
+    if state == "rtl":
+        bar.setLayoutDirection(Qt.RightToLeft)
+    bar.resize(260, bar.sizeHint().height()) if horizontal else bar.resize(bar.sizeHint().width(), 160)
+    qt = qimage_to_pil(bar.grab().toImage())
+    assert (qt.height if horizontal else qt.width) == 17
+    for version in ("3.0", "4.0"):
+        gtk = gtk_images[version, "progress", f"{state}-{orientation}"]
+        assert gtk.size == qt.size
+        for image in (qt, gtk):
+            for x in range(2, image.width - 2):
+                assert image.getpixel((x, 1)) == image.getpixel((x, image.height - 2)) == (255, 255, 255)
+            for y in range(2, image.height - 2):
+                assert image.getpixel((1, y)) == image.getpixel((image.width - 2, y)) == (255, 255, 255)
+        # Ignore only the rounded frame corners, whose antialiasing differs by renderer.
+        region = (2, 2, qt.width - 2, qt.height - 2)
+        assert qt.crop(region).tobytes() == gtk.crop(region).tobytes(), f"{version}: fill differs from Qt"
+    bar.close()

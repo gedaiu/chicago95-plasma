@@ -411,3 +411,29 @@ def test_left_separator_colour_and_right_separator_colours_equal_the_separator_b
         hex_colour(lunamenu.LEFT_SEPARATOR_COLOUR.name()),
         [hex_colour(colour.name()) for colour in lunamenu.RIGHT_SEPARATOR_COLOURS],
     )
+
+
+def test_root_menu_is_a_frameless_top_level_window_kwin_places_by_its_title(qt_app):
+    """Wayland refuses a grabbing popup without a parent window ("Failed to create grabbing popup"), so the menu
+    never showed; the classic root menu is a top-level window that KWin's chicago95-startmenu-root rule places."""
+    menu = make_menu([])
+    flags = menu.windowFlags()
+
+    assert (
+        flags & Qt.WindowType_Mask == Qt.Window,
+        bool(flags & Qt.FramelessWindowHint),
+        bool(flags & Qt.WindowStaysOnTopHint),
+        menu.windowTitle(),
+    ) == (True, True, True, "chicago95-startmenu-root")
+
+
+def test_submenus_hang_off_the_root_menu_so_wayland_has_a_parent_for_their_popup(qt_app):
+    menu = make_menu([])
+    menu.show()
+    row = next(row for row in menu.rows if row.submenu is not None)
+    menu.open_submenu(row)
+    parent = menu.submenu.parentWidget()
+    menu.submenu.close()
+    menu.close()
+
+    assert parent is menu

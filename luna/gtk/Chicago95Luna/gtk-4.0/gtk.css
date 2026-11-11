@@ -141,12 +141,16 @@ messagedialog .dialog-action-box, .messagedialog .dialog-action-box {
 }
 
 messagedialog .dialog-vbox {
-  padding: 0 4px 4px 4px;
-  box-shadow: inset 0 -4px #0048F1, inset 4px 0 #0855DD, inset -4px 0 #0048F1, inset 0 -3px #003DDD, inset 3px 0 #166AEE, inset -3px 0 #003DDD, inset 0 -2px #001EA0, inset 2px 0 #0831D9, inset -2px 0 #001EA0, inset 0 -1px #00138C, inset 1px 0 #0019CF, inset -1px 0 #00138C;
+  padding: 0 3px 3px 3px;
+  box-shadow: inset 0 -3px #0048F1, inset 3px 0 #0855DD, inset -3px 0 #003DDD, inset 0 -2px #001EA0, inset 2px 0 #166AEE, inset -2px 0 #001EA0, inset 0 -1px #00138C, inset 1px 0 #0831D9, inset -1px 0 #00138C;
 }
 
 messagedialog .dialog-vbox:backdrop {
-  box-shadow: inset 0 -4px #7586DC, inset 4px 0 #758CDC, inset -4px 0 #7586DC, inset 0 -3px #7587DD, inset 3px 0 #758CDD, inset -3px 0 #7587DD, inset 0 -2px #6D74CD, inset 2px 0 #7480DC, inset -2px 0 #6D74CD, inset 0 -1px #4F53BC, inset 1px 0 #5B68CD, inset -1px 0 #4F53BC;
+  box-shadow: inset 0 -3px #7586DC, inset 3px 0 #758CDC, inset -3px 0 #7587DD, inset 0 -2px #6D74CD, inset 2px 0 #758CDD, inset -2px 0 #6D74CD, inset 0 -1px #4F53BC, inset 1px 0 #7480DC, inset -1px 0 #4F53BC;
+}
+
+messagedialog .titlebar {
+  min-height: 29px;
 }
 
 button:active, button:checked {
@@ -421,6 +425,56 @@ scrollbar slider:disabled {
   background-color: #ECE9D8;
 }
 
+scrollbar.horizontal slider {
+  background-image: url("assets/scroll-grip-horizontal.png"), linear-gradient(to bottom, #DCE6FD 0%, #C0D0F8 45%, #A9BEF2 100%);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: 9px 11px, 100% 100%;
+}
+
+scrollbar.horizontal slider:hover {
+  background-image: url("assets/scroll-grip-horizontal.png"), linear-gradient(to bottom, #EAF0FE 0%, #D1DDFA 45%, #B7CAF5 100%);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: 9px 11px, 100% 100%;
+}
+
+scrollbar.horizontal slider:active {
+  background-image: url("assets/scroll-grip-horizontal.png"), linear-gradient(to bottom, #B7C9F3 0%, #A5B9EE 50%, #93A9E8 100%);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: 9px 11px, 100% 100%;
+}
+
+scrollbar.horizontal slider:disabled {
+  background-image: none;
+}
+
+scrollbar.vertical slider {
+  background-image: url("assets/scroll-grip-vertical.png"), linear-gradient(to right, #DCE6FD 0%, #C0D0F8 45%, #A9BEF2 100%);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: 11px 9px, 100% 100%;
+}
+
+scrollbar.vertical slider:hover {
+  background-image: url("assets/scroll-grip-vertical.png"), linear-gradient(to right, #EAF0FE 0%, #D1DDFA 45%, #B7CAF5 100%);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: 11px 9px, 100% 100%;
+}
+
+scrollbar.vertical slider:active {
+  background-image: url("assets/scroll-grip-vertical.png"), linear-gradient(to right, #B7C9F3 0%, #A5B9EE 50%, #93A9E8 100%);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: 11px 9px, 100% 100%;
+}
+
+scrollbar.vertical slider:disabled {
+  background-image: none;
+}
+
 progressbar {
   padding: 0;
   border: none;
@@ -483,37 +537,91 @@ progressbar > trough > progress.pulse {
   background-color: #39E63A;
 }
 
-scale trough {
-  min-height: 4px;
-  min-width: 4px;
-  border: 1px solid #ACA899;
-  background-color: #E3E1D5;
-  border-radius: 0;
+scale {
+  padding: 0;
+  margin: 0;
 }
 
-scale trough highlight, scale highlight {
-  background-color: #B7C9F3;
+scale trough {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  min-width: 0;
+  min-height: 0;
+}
+
+scale highlight, scale fill {
+  background: none;
+  border: 0;
+  box-shadow: none;
 }
 
 scale slider {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+scale.horizontal trough {
+  min-height: 4px;
+  min-width: 0;
+  background-image: linear-gradient(to bottom, #838383 0px, #838383 1px, #ECECE7 1px, #ECECE7 2px, #F5F4EF 2px, #F5F4EF 3px, #FFFFFF 3px, #FFFFFF 4px);
+}
+
+scale.horizontal slider {
   min-width: 11px;
   min-height: 21px;
-  border: 1px solid #1C5180;
-  border-radius: 2px;
-  background-image: linear-gradient(to bottom, #FFFFFF 0%, #F0F0EA 100%);
+  margin: -8px 0;
 }
 
-scale slider:hover {
-  box-shadow: inset 0 2px #FDDFA2, inset 0 -2px #FAC45D, inset 2px 0 #FDDFA2, inset -2px 0 #FAC45D, inset 0 1px #FDDFA2, inset 0 -1px #FAC45D, inset 1px 0 #FDDFA2, inset -1px 0 #FAC45D;
+scale.horizontal slider {
+  background-image: url("assets/slider-horizontal-normal.png");
 }
 
-scale slider:active {
-  background-image: linear-gradient(to bottom, #C3C1B7 0%, #DEDECF 100%);
+scale.horizontal slider:hover {
+  background-image: url("assets/slider-horizontal-hover.png");
 }
 
-scale slider:disabled {
-  border-color: #CAC8BB;
-  background-image: linear-gradient(to bottom, #FFFFFF 0%, #FFFFFF 100%);
+scale.horizontal slider:active {
+  background-image: url("assets/slider-horizontal-pressed.png");
+}
+
+scale.horizontal slider:disabled {
+  background-image: url("assets/slider-horizontal-disabled.png");
+}
+
+scale.vertical trough {
+  min-height: 0;
+  min-width: 4px;
+  background-image: linear-gradient(to right, #838383 0px, #838383 1px, #ECECE7 1px, #ECECE7 2px, #F5F4EF 2px, #F5F4EF 3px, #FFFFFF 3px, #FFFFFF 4px);
+}
+
+scale.vertical slider {
+  min-width: 21px;
+  min-height: 11px;
+  margin: 0 -8px;
+}
+
+scale.vertical slider {
+  background-image: url("assets/slider-vertical-normal.png");
+}
+
+scale.vertical slider:hover {
+  background-image: url("assets/slider-vertical-hover.png");
+}
+
+scale.vertical slider:active {
+  background-image: url("assets/slider-vertical-pressed.png");
+}
+
+scale.vertical slider:disabled {
+  background-image: url("assets/slider-vertical-disabled.png");
 }
 
 treeview header button, columnview header button, column-header button {
@@ -598,6 +706,17 @@ label:disabled, *:disabled {
 label.title, headerbar .title {
   font-weight: bold;
 }
+scale.horizontal trough {
+  background-size: calc(100% - 10px) 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+scale.vertical trough {
+  background-size: 100% calc(100% - 10px);
+  background-position: center;
+  background-repeat: no-repeat;
+}
 scrollbar.horizontal {
   background-image: linear-gradient(to bottom, #EEEDE5 0%, #F4F3EE 50%, #FEFEFB 100%);
 }
@@ -673,32 +792,36 @@ spinbutton > button > image { -gtk-icon-size: 0; min-width: 0; min-height: 0; op
 combobox arrow, dropdown arrow { -gtk-icon-size: 0; }
 
 headerbar.titlebar, .titlebar.default-decoration, messagedialog .titlebar {
-  background-image: linear-gradient(to bottom, #0058EE 0%, #3F97FF 3%, #2B90FF 7%, #0372FF 10%, #0365F1 14%, #005CE9 17%, #0058E6 21%, #0054E3 24%, #0054E3 31%, #0055E5 34%, #0055E5 48%, #0055EA 52%, #0055EA 55%, #0058EE 59%, #005BF2 62%, #005AF5 66%, #0060F9 69%, #0164F9 72%, #026AFE 76%, #026AFE 86%, #0065FD 90%, #0060FC 93%, #004DE3 97%, #0043CF 100%);
+  background-image: linear-gradient(to right, rgba(0, 5, 177, 0.78) 0px, rgba(0, 74, 218, 0.7) 3px, rgba(0, 83, 225, 0.48) 7px, rgba(22, 135, 250, 0.12) 16px, rgba(22, 135, 250, 0.12) 28px, transparent 28px), linear-gradient(to left, rgba(0, 0, 93, 0.83) 0px, rgba(0, 14, 206, 0.49) 3px, rgba(0, 0, 177, 0.21) 8px, rgba(0, 0, 163, 0.05) 28px, rgba(0, 0, 163, 0.05) 28px, transparent 28px), linear-gradient(to bottom, #0058EE 0%, #3F97FF 3%, #2B90FF 7%, #0372FF 10%, #0365F1 14%, #005CE9 17%, #0058E6 21%, #0054E3 24%, #0054E3 31%, #0055E5 34%, #0055E5 48%, #0055EA 52%, #0055EA 55%, #0058EE 59%, #005BF2 62%, #005AF5 66%, #0060F9 69%, #0164F9 72%, #026AFE 76%, #026AFE 86%, #0065FD 90%, #0060FC 93%, #004DE3 97%, #0043CF 100%);
   background-color: #0058EE;
   border-radius: 6px 6px 0 0;
   color: #FFFFFF;
   text-shadow: 1px 1px 0 #0A246A;
   font-family: "Trebuchet MS", "Fira Sans", sans-serif;
+  font-size: 10pt;
   font-weight: bold;
 }
 headerbar.titlebar .title, .titlebar.default-decoration .title, messagedialog .titlebar .title {
   color: #FFFFFF;
   text-shadow: 1px 1px 0 #0A246A;
   font-family: "Trebuchet MS", "Fira Sans", sans-serif;
+  font-size: 10pt;
   font-weight: bold;
 }
 headerbar.titlebar:backdrop, .titlebar.default-decoration:backdrop, messagedialog .titlebar:backdrop {
-  background-image: linear-gradient(to bottom, #688DE0 0%, #98B2E8 3%, #9DB9EB 7%, #8AACE7 10%, #7EA2E4 14%, #7B9DE1 17%, #7A99E0 21%, #7996DE 24%, #7996DE 31%, #7A96DF 34%, #7A96DF 41%, #7A96E0 45%, #7B97E0 48%, #7B99E1 52%, #7B99E1 55%, #7D9BE3 59%, #7D9BE3 62%, #7F9FE6 66%, #7FA2E6 69%, #80A5E7 72%, #81A7E8 76%, #82A9E9 79%, #82A9E9 83%, #81A7E8 86%, #80A5E7 90%, #7E9DE5 93%, #7A93DF 97%, #7A93DF 100%);
+  background-image: linear-gradient(to right, rgba(96, 100, 201, 1.0) 0px, rgba(117, 143, 218, 0.76) 4px, rgba(124, 179, 230, 0.06) 16px, rgba(124, 179, 230, 0.06) 28px, transparent 28px), linear-gradient(to left, rgba(93, 85, 191, 1.0) 0px, rgba(111, 129, 212, 0.87) 3px, rgba(99, 102, 205, 0.22) 8px, rgba(108, 29, 198, 0.0) 28px, rgba(108, 29, 198, 0.0) 28px, transparent 28px), linear-gradient(to bottom, #688DE0 0%, #98B2E8 3%, #9DB9EB 7%, #8AACE7 10%, #7EA2E4 14%, #7B9DE1 17%, #7A99E0 21%, #7996DE 24%, #7996DE 31%, #7A96DF 34%, #7A96DF 41%, #7A96E0 45%, #7B97E0 48%, #7B99E1 52%, #7B99E1 55%, #7D9BE3 59%, #7D9BE3 62%, #7F9FE6 66%, #7FA2E6 69%, #80A5E7 72%, #81A7E8 76%, #82A9E9 79%, #82A9E9 83%, #81A7E8 86%, #80A5E7 90%, #7E9DE5 93%, #7A93DF 97%, #7A93DF 100%);
   background-color: #688DE0;
   border-radius: 6px 6px 0 0;
   color: #D8E4F8;
   text-shadow: 1px 1px 0 #0A246A;
   font-family: "Trebuchet MS", "Fira Sans", sans-serif;
+  font-size: 10pt;
   font-weight: bold;
 }
 headerbar.titlebar:backdrop .title, .titlebar.default-decoration:backdrop .title, messagedialog .titlebar:backdrop .title {
   color: #D8E4F8;
   text-shadow: 1px 1px 0 #0A246A;
   font-family: "Trebuchet MS", "Fira Sans", sans-serif;
+  font-size: 10pt;
   font-weight: bold;
 }

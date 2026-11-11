@@ -113,7 +113,15 @@ LEFT_TEXT = QColor("#1E1E1E")
 SUBTITLE_TEXT = QColor("#808080")
 RIGHT_TEXT = QColor("#0A246A")
 WHITE = QColor("#FFFFFF")
-HEADER_STOPS = [(0, "#65A1E5"), (1, "#71A8E6"), (2, "#3A7FD7"), (3, "#1969D0"), (8, "#0E60CA"), (28, "#1A6BD1"), (62, "#4792EB")]
+HEADER_STOPS = [
+    (0, "#65A1E5"),
+    (1, "#71A8E6"),
+    (2, "#3A7FD7"),
+    (3, "#1969D0"),
+    (8, "#0E60CA"),
+    (28, "#1A6BD1"),
+    (62, "#4792EB"),
+]
 HEADER_BOTTOM_LINE = QColor("#1B6BD1")
 RULE_STOPS = [
     (4, "#FFFFFF"),
@@ -515,7 +523,12 @@ class LunaMenu(QWidget):
         parent=None,
         recent_path=None,
     ):
-        super().__init__(parent, Qt.Popup | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint)
+        # A frameless top-level, as the classic root menu: Wayland refuses a grabbing popup that has no parent window,
+        # and KWin's chicago95-startmenu-root rule places the window above the Start button.
+        super().__init__(
+            parent, Qt.Window | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint | Qt.WindowStaysOnTopHint
+        )
+        self.setWindowTitle("chicago95-startmenu-root")
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.StrongFocus)
@@ -568,7 +581,7 @@ class LunaMenu(QWidget):
             action.triggered.connect(lambda _checked=False, loc=location: self.launch(["xdg-open", loc]))
 
     def open_submenu(self, row):
-        menu = self.submenu = self.retro_menu_factory()
+        menu = self.submenu = self.retro_menu_factory("", self)  # a parent window for the submenu's popup
         row.submenu(menu)
         menu.popup(self.mapToGlobal(QPoint(row.rect.right() + 1, row.rect.top())))
 

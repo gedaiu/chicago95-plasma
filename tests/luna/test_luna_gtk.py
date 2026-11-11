@@ -5,6 +5,7 @@ import subprocess
 import sys
 
 import pytest
+from PIL import Image
 from conftest import REPO
 
 GENERATOR = REPO / "luna/gtk/make_luna_gtk.py"
@@ -166,9 +167,11 @@ def test_popover_contents_and_arrow_are_white_inside_the_menu_border_and_the_pop
 def test_gtk_three_and_four_share_the_widget_rules():
     def shared(version):
         return (
-            css(version).replace(f"GTK {version}", "GTK")
+            css(version)
+            .replace(f"GTK {version}", "GTK")
             .replace(generator.indicator_backend_rules(version), "")
             .replace(generator.scrollbar_backend_rules(version), "")
+            .replace(generator.scale_backend_rules(version), "")
             .replace(generator.input_backend_rules(version), "")
             .replace(generator.libadwaita_block(), "")
         )
@@ -240,11 +243,14 @@ def test_inactive_titlebar_uses_the_inactive_palette_column():
     assert "linear-gradient(to bottom, #688DE0 0%" in block.split("\nheaderbar.titlebar:backdrop")[1]
 
 
-
-def titlebar_rules():
-    block = subprocess.run(
+def titlebar_text():
+    return subprocess.run(
         [sys.executable, str(GENERATOR), "--titlebar"], capture_output=True, text=True, check=True
     ).stdout
+
+
+def titlebar_rules():
+    block = titlebar_text()
     return re.findall(r"(?:^|\n)([^\n{]+) \{\n(.*?)\n\}", block, re.S)
 
 
@@ -267,6 +273,12 @@ def test_title_labels_get_the_caption_text_but_no_second_gradient_of_their_own()
     ] == [(False, True, True)] * 2
 
 
+def test_title_labels_use_the_ten_point_caption_kwin_draws_luna_windows_with():
+    assert [
+        "font-size: 10pt;" in body for selectors, body in titlebar_rules() if selectors.strip().endswith(" .title")
+    ] == [True] * 2
+
+
 @pytest.mark.parametrize("version", ["3.0", "4.0"])
 def test_message_dialog_buttons_stand_six_pixels_apart_inside_an_eleven_pixel_margin(version):
     text = css(version)
@@ -277,24 +289,78 @@ def test_message_dialog_buttons_stand_six_pixels_apart_inside_an_eleven_pixel_ma
     ) == (["  margin-left: 6px;"], ["  padding: 0 11px 11px 11px;"])
 
 
-@pytest.mark.parametrize(
-    ("selector", "outer_left", "outer_bottom"),
-    [
-        ("messagedialog .dialog-vbox", "#0019CF", "#00138C"),
-        ("messagedialog .dialog-vbox:backdrop", "#5B68CD", "#4F53BC"),
-    ],
-)
-def test_message_dialog_body_carries_the_four_pixel_luna_window_frame(selector, outer_left, outer_bottom):
-    body = rule_bodies(css("3.0"), selector)[0]
+def frame_bands(body):
+    bands = dict(re.findall(r"inset (-?\d+px 0|0 -\d+px) (#[0-9A-F]{6})", body))
+    return {
+        "left": [bands[f"{depth}px 0"] for depth in (1, 2, 3)],
+        "right": [bands[f"-{depth}px 0"] for depth in (1, 2, 3)],
+        "bottom": [bands[f"0 -{depth}px"] for depth in (1, 2, 3)],
+        "depth": max(int(re.search(r"\d+", offset).group()) for offset in bands),
+    }
+
+
+def reference_frame(name):
+    image = Image.open(REPO / "tests/references" / name).convert("RGB")
+    width, height = image.size
+    colour = "#{:02X}{:02X}{:02X}".format
+    return {
+        "left": [colour(*image.getpixel((x, height // 2))) for x in (0, 1, 2)],
+        "right": [colour(*image.getpixel((width - 1 - x, height // 2))) for x in (0, 1, 2)],
+        "bottom": [colour(*image.getpixel((width // 2, height - 1 - y))) for y in (0, 1, 2)],
+        "depth": 3,
+    }
+
+
+def within(colour, reference, tolerance=2):
+    return all(abs(int(colour[i : i + 2], 16) - int(reference[i : i + 2], 16)) <= tolerance for i in (1, 3, 5))
+
+
+@pytest.mark.parametrize("reference", ["xprun.png", "xpfont.png", "xpcolour.png"])
+def test_message_dialog_frame_is_the_three_pixel_frame_of_xp_fixed_dialogs(reference):
+    frame = frame_bands(rule_bodies(css("3.0"), "messagedialog .dialog-vbox")[0])
+    expected = reference_frame(reference)
 
     assert (
-        f"inset 1px 0 {outer_left}" in body,
-        f"inset 0 -1px {outer_bottom}" in body,
-        f"inset -1px 0 {outer_bottom}" in body,
-        "inset 0 1px" in body,
-        "inset 5px" in body,
-        body.rstrip(";").endswith(f"inset -1px 0 {outer_bottom}"),
-    ) == (True, True, True, False, False, True)
+        frame["depth"],
+        [
+            within(colour, want)
+            for side in ("left", "right", "bottom")
+            for colour, want in zip(frame[side], expected[side])
+        ],
+    ) == (3, [True] * 9)
+
+
+def test_inactive_message_dialog_frame_keeps_the_same_bands_of_the_inactive_window_frame():
+    assert frame_bands(rule_bodies(css("3.0"), "messagedialog .dialog-vbox:backdrop")[0]) == {
+        "left": ["#7480DC", "#758CDD", "#758CDC"],
+        "right": ["#4F53BC", "#6D74CD", "#7587DD"],
+        "bottom": ["#4F53BC", "#6D74CD", "#7586DC"],
+        "depth": 3,
+    }
+
+
+def test_message_dialog_title_is_the_29_pixel_caption_of_xp_dialogs():
+    assert "min-height: 29px;" in rule_bodies(css("3.0"), "messagedialog .titlebar")[0]
+
+
+@pytest.mark.parametrize(
+    ("state", "outer_left"), [("", "rgba(0, 5, 177, 0.78) 0px"), (":backdrop", "rgba(96, 100, 201, 1.0) 0px")]
+)
+def test_title_bar_darkens_towards_both_frame_edges_over_aurorae_corner_width(state, outer_left):
+    body = rule_bodies(titlebar_text(), f"headerbar.titlebar{state}")[0]
+
+    assert (
+        f"linear-gradient(to right, {outer_left}" in body,
+        "linear-gradient(to left, " in body,
+        body.count("transparent 28px") == 2,
+        body.index("to right") < body.index("to left") < body.index("to bottom"),
+    ) == (True,) * 4
+
+
+def test_title_side_shading_spans_the_aurorae_corner_width():
+    aurorae = (REPO / "luna/aurorae/make_luna_aurorae.py").read_text()
+
+    assert re.search(r"^CORNER_W, \w+, \w+ = (\d+),", aurorae, re.M).group(1) == str(generator.SIDE_SHADING_WIDTH)
 
 
 def test_band_shadow_lists_the_deepest_band_first_because_gtk_paints_the_last_shadow_on_top():
@@ -302,7 +368,8 @@ def test_band_shadow_lists_the_deepest_band_first_because_gtk_paints_the_last_sh
 
 
 def test_message_dialog_body_keeps_its_content_off_the_frame():
-    assert "padding: 0 4px 4px 4px;" in rule_bodies(css("3.0"), "messagedialog .dialog-vbox")[0]
+    assert "padding: 0 3px 3px 3px;" in rule_bodies(css("3.0"), "messagedialog .dialog-vbox")[0]
+
 
 PARSE_SCRIPT = """
 import sys

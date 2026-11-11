@@ -151,6 +151,30 @@ def progress_bar():
     return bar
 
 
+def progress_states():
+    bars = []
+    for value, enabled, labelled in ((0, True, True), (100, True, True), (55, False, True), (55, True, False)):
+        bar = QProgressBar()
+        bar.setValue(value)
+        bar.setEnabled(enabled)
+        bar.setTextVisible(labelled)
+        bar.setFixedWidth(130)
+        bars.append(bar)
+    return row(*bars)
+
+
+def progress_directions():
+    bars = []
+    for orientation, inverted in ((Qt.Horizontal, True), (Qt.Vertical, False), (Qt.Vertical, True)):
+        bar = QProgressBar()
+        bar.setOrientation(orientation)
+        bar.setInvertedAppearance(inverted)
+        bar.setValue(55)
+        bar.setFixedWidth(160) if orientation == Qt.Horizontal else bar.setFixedHeight(90)
+        bars.append(bar)
+    return row(*bars)
+
+
 def group_box():
     box = QGroupBox("Group")
     layout = QVBoxLayout(box)
@@ -369,6 +393,8 @@ CONTROLS = [
     ("Scroll bar, disabled", lambda: scroll_bar(Qt.Vertical, 120, enabled=False)),
     ("Scroll bar, nothing to scroll", lambda: scroll_bar(Qt.Vertical, 120, maximum=0, enabled=False)),
     ("Progress bar", progress_bar),
+    ("Progress bars: empty, full, disabled, unlabelled", progress_states),
+    ("Progress bars: reversed, vertical, vertical reversed", progress_directions),
     ("Group box", group_box),
     ("Tabs (Qt's own tab widget)", tab_widget),
     ("List box", list_box),

@@ -13,7 +13,8 @@ Measured from the B00merang Windows XP Luna theme's bitmaps (averaged, not copie
                border #B5C4CD top and left, #778892 bottom and right; hover accent rows #FBCB74 #FAC158
 """
 
-from chicago95luna import blend_rows, fill_rows, gradient_rows, rounded_path, stroke_rounded
+from chicago95luna import blend_rows, fill_rows, rounded_path, stroke_rounded
+from chicago95lunaslider import GROOVE_ROWS, thumb_pixels
 from PySide6.QtCore import QPointF, QRect, Qt
 from PySide6.QtGui import QColor, QPainter, QPolygonF
 from PySide6.QtWidgets import QStyle
@@ -32,12 +33,6 @@ STEPPER_BORDERS = {"normal": "#89B0E6", "hover": "#89B0E6", "pressed": "#6D9DE0"
 SLIDER_FACES = {"normal": ("#CADBF3", "#B6CEEF"), "hover": ("#DDE8F8", "#D2E1F5"), "pressed": ("#B3CCEE", "#97B9E8")}
 GRIP_DARK, GRIP_LIGHT = "#98BAE9", "#ECF2FB"
 GRIP_LINES = 4
-GROOVE_ROWS = ["#838383", "#ECECE7", "#F5F4EF", "#FFFFFF"]
-THUMB_STOPS = ["#F7F7F4", "#F3F3EF", "#DCDCD9", "#C3C3C0"]
-THUMB_BORDER_LIGHT, THUMB_BORDER_DARK = "#B5C4CD", "#778892"
-THUMB_HOVER_ACCENT = ["#FBCB74", "#FAC158"]
-THUMB_DISABLED = ("#F5F4EA", "#BFBCAD")
-THUMB_SIZE = (11, 21)
 ARROW_POINTS = {
     "up": ((-3.5, 2), (0, -2), (3.5, 2)),
     "down": ((-3.5, -2), (3.5, -2), (0, 2)),
@@ -163,22 +158,12 @@ def paint_slider_groove(painter, rect, horizontal):
     fill_stripes(painter, groove, horizontal, GROOVE_ROWS)
 
 
-def thumb_shades(state, length):
-    if state == "disabled":
-        return blend_rows(*THUMB_DISABLED, length)
-    return gradient_rows(THUMB_STOPS[::-1] if state == "pressed" else THUMB_STOPS, length)
-
-
 def paint_thumb(painter, rect, horizontal, state):
     painter.save()
     painter.setRenderHint(QPainter.Antialiasing, False)
-    fill_stripes(painter, rect, horizontal, thumb_shades(state, rect.height() if horizontal else rect.width()))
-    painter.fillRect(rect.left(), rect.top(), rect.width(), 1, QColor(THUMB_BORDER_LIGHT))
-    painter.fillRect(rect.left(), rect.top(), 1, rect.height(), QColor(THUMB_BORDER_LIGHT))
-    painter.fillRect(rect.left(), rect.bottom(), rect.width(), 1, QColor(THUMB_BORDER_DARK))
-    painter.fillRect(rect.right(), rect.top(), 1, rect.height(), QColor(THUMB_BORDER_DARK))
-    if state == "hover":
-        fill_rows(painter, QRect(rect.left() + 1, rect.top() + 1, rect.width() - 2, 2), THUMB_HOVER_ACCENT)
+    for y, row in enumerate(thumb_pixels(rect.width(), rect.height(), horizontal, state)):
+        for x, colour in enumerate(row):
+            painter.fillRect(rect.left() + x, rect.top() + y, 1, 1, QColor(colour))
     painter.restore()
 
 
@@ -186,6 +171,8 @@ def paint_slider(painter, option, style, widget):
     horizontal = option.orientation == Qt.Horizontal
     groove = style.subControlRect(QStyle.CC_Slider, option, QStyle.SC_SliderGroove, widget)
     handle = style.subControlRect(QStyle.CC_Slider, option, QStyle.SC_SliderHandle, widget)
+    groove.adjust(5 if horizontal else 0, 0 if horizontal else 5,
+                  -5 if horizontal else 0, 0 if horizontal else -5)
     paint_slider_groove(painter, groove, horizontal)
     state = part_state(option, QStyle.SC_SliderHandle)
     paint_thumb(painter, handle, horizontal, state)

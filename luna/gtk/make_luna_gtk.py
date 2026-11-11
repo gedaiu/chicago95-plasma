@@ -21,10 +21,17 @@ THEME_NAME = "Chicago95Luna"
 FONT_FAMILY = 'Tahoma, "Wine Tahoma", "DejaVu Sans Condensed", sans-serif'
 CAPTION_FONT = '"Trebuchet MS", "Fira Sans", sans-serif'
 CAPTION_SHADOW = "#0A246A"
+CAPTION_SIZE = "10pt"  # kdeglobals WM activeFont, the Luna font step's Trebuchet MS 10
 TITLE_RADIUS = 6
 INACTIVE_CAPTION = "#D8E4F8"
 VERSIONS = ("3.0", "4.0")
-BAND_DEPTH = 4
+# A fixed size XP dialog has a 3 pixel frame where a resizable window has 4: per side it keeps these bands of the
+# window frame, counted from the outer edge on the left and from the face on the right and bottom (xprun.png, xpfont.png,
+# xpcolour.png against xpnotepad.png).
+DIALOG_FRAME_BANDS = {"left": (1, 2, 3), "right": (1, 2, 3), "bottom": (0, 2, 3)}
+DIALOG_FRAME = 3
+DIALOG_TITLE_HEIGHT = 29
+SIDE_SHADING_WIDTH = 28  # the Aurorae decoration's CORNER_W, over which its title darkens towards each frame edge
 
 
 def load_module(name, path):
@@ -35,6 +42,7 @@ def load_module(name, path):
     return module
 
 
+slider = load_module("luna_slider_art", LUNA_ROOT / "lib/chicago95lunaslider.py")
 inputs = load_module("gtk_input_rules", LUNA_ROOT.parent / "lib/gtk_inputs.py")
 kvantum = load_module("luna_kvantum_generator", LUNA_ROOT / "kvantum/make_luna_kvantum.py")
 aurorae_stops = load_module("luna_aurorae_stops", LUNA_ROOT / "aurorae/stops.py")
@@ -66,11 +74,32 @@ def band_shadow(top, bottom, left, right):
     )
 
 
-def window_frame(frame_left, frame_bottom):
-    """The Luna window frame on the left, right and bottom; the right edge shares the bottom's colours, as Aurorae's
-    does. frame_left runs from the outer edge inwards and frame_bottom from the face outwards, as they were sampled."""
-    outward_bottom = list(reversed(frame_bottom))
-    return band_shadow(None, outward_bottom, frame_left, outward_bottom)
+def dialog_frame(frame_left, frame_bottom):
+    """The left, right and bottom of a dialog's frame; the right edge shares the bottom's colours, as Aurorae's does."""
+
+    def kept(colours, side):
+        return [colours[band] for band in DIALOG_FRAME_BANDS[side]]
+
+    return band_shadow(
+        None,
+        kept(frame_bottom, "bottom")[::-1],
+        kept(frame_left, "left"),
+        kept(frame_bottom, "right")[::-1],
+    )
+
+
+def rgba(colour, opacity):
+    return f"rgba({int(colour[1:3], 16)}, {int(colour[3:5], 16)}, {int(colour[5:7], 16)}, {opacity})"
+
+
+def side_shading(overlay, direction):
+    """Aurorae's title side overlay: (distance from the frame edge, colour, opacity), held to SIDE_SHADING_WIDTH."""
+    stops_text = ", ".join(f"{rgba(colour, opacity)} {distance}px" for distance, colour, opacity in overlay)
+    _, last_colour, last_opacity = overlay[-1]
+    return (
+        f"linear-gradient(to {direction}, {stops_text}, {rgba(last_colour, last_opacity)} {SIDE_SHADING_WIDTH}px, "
+        f"transparent {SIDE_SHADING_WIDTH}px)"
+    )
 
 
 def corner_glow(light, dark):
@@ -146,6 +175,89 @@ def indicator_png(kind, colour):
     return buffer.getvalue()
 
 
+def slider_png(horizontal, state):
+    import io
+
+    from PIL import Image
+
+    width, height = slider.THUMB_SIZE if horizontal else slider.THUMB_SIZE[::-1]
+    image = Image.new("RGB", (width, height))
+    image.putdata([tuple(bytes.fromhex(pixel[1:]))
+                   for row in slider.thumb_pixels(width, height, horizontal, state) for pixel in row])
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def scale_rules():
+    yield block("scale", padding="0", margin="0")
+    yield block("scale trough", padding="0", margin="0", border="0", border_radius="0",
+                box_shadow="none", min_width="0", min_height="0")
+    yield block("scale highlight, scale fill", background="none", border="0", box_shadow="none")
+    yield block("scale slider", padding="0", border="0", border_radius="0", box_shadow="none",
+                background_color="transparent", background_repeat="no-repeat", background_size="100% 100%")
+    for orientation, direction in (("horizontal", "bottom"), ("vertical", "right")):
+        horizontal = orientation == "horizontal"
+        bands = ", ".join(f"{colour} {i}px, {colour} {i + 1}px"
+                          for i, colour in enumerate(slider.GROOVE_ROWS))
+        yield block(f"scale.{orientation} trough",
+                    min_height="4px" if horizontal else "0", min_width="0" if horizontal else "4px",
+                    background_image=f"linear-gradient(to {direction}, {bands})")
+        yield block(f"scale.{orientation} slider", min_width="11px" if horizontal else "21px",
+                    min_height="21px" if horizontal else "11px",
+                    margin="-8px 0" if horizontal else "0 -8px")
+        for state, pseudo in (("normal", ""), ("hover", ":hover"), ("pressed", ":active"),
+                              ("disabled", ":disabled")):
+            yield block(f"scale.{orientation} slider{pseudo}",
+                        background_image=f'url("assets/slider-{orientation}-{state}.png")')
+
+
+def scale_backend_rules(version):
+    # GTK3 positions the thumb centre at the track ends; GTK4 keeps the whole
+    # thumb inside its allocation. Reserve half a thumb at each end in GTK3,
+    # and inset only the painted track in GTK4.
+    rules = []
+    for orientation in ("horizontal", "vertical"):
+        horizontal = orientation == "horizontal"
+        if version == "3.0":
+            rules.append(block(f"scale.{orientation}", padding="0 5px" if horizontal else "5px 0"))
+        else:
+            rules.append(block(f"scale.{orientation} trough",
+                               background_size="calc(100% - 10px) 100%" if horizontal else "100% calc(100% - 10px)",
+                               background_position="center", background_repeat="no-repeat"))
+    return "\n".join(rules)
+
+
+def scrollbar_grip_png(horizontal):
+    """Four alternating dark/light ridges, with a transparent trailing pixel for centring."""
+    import io
+
+    from PIL import Image
+
+    image = Image.new("RGBA", (9, 11) if horizontal else (11, 9))
+    for band in range(8):
+        colour = (152, 186, 233, 255) if band % 2 == 0 else (236, 242, 251, 255)
+        for across in range(11):
+            image.putpixel((band, across) if horizontal else (across, band), colour)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def scrollbar_thumb_rules():
+    for orientation, direction in (("horizontal", "bottom"), ("vertical", "right")):
+        for state, gradient in (("", "thumb"), (":hover", "thumb-hover"), (":active", "thumb-pressed")):
+            fill = vertical(gradient).replace("to bottom", f"to {direction}")
+            yield block(
+                f"scrollbar.{orientation} slider{state}",
+                background_image=f'url("assets/scroll-grip-{orientation}.png"), {fill}',
+                background_repeat="no-repeat, no-repeat",
+                background_position="center, center",
+                background_size="9px 11px, 100% 100%" if orientation == "horizontal" else "11px 9px, 100% 100%",
+            )
+        yield block(f"scrollbar.{orientation} slider:disabled", background_image="none")
+
+
 def indicator_icon(kind, colour):
     return f'url("assets/{kind}-{colour.lstrip("#")}.png")'
 
@@ -170,14 +282,21 @@ def block(selectors, **properties):
 TITLE_BARS = ("headerbar.titlebar", ".titlebar.default-decoration", "messagedialog .titlebar")
 
 
-def titlebar_state(state, gradient, caption):
+def titlebar_state(state, gradient, overlay, caption):
     """The bar paints the gradient; its title label only the caption text, or it would lay a shorter gradient of its
     own over the bar's."""
     bars = [bar + state for bar in TITLE_BARS]
-    text = dict(color=caption, text_shadow=f"1px 1px 0 {CAPTION_SHADOW}", font_family=CAPTION_FONT, font_weight="bold")
+    text = dict(
+        color=caption,
+        text_shadow=f"1px 1px 0 {CAPTION_SHADOW}",
+        font_family=CAPTION_FONT,
+        font_size=CAPTION_SIZE,
+        font_weight="bold",
+    )
     return block(
         ", ".join(bars),
-        background_image=vertical(gradient),
+        background_image=f"{side_shading(overlay['left'], 'right')}, {side_shading(overlay['right'], 'left')}, "
+        + vertical(gradient),
         background_color=GRADIENTS[gradient][0][1],
         border_radius=f"{TITLE_RADIUS}px {TITLE_RADIUS}px 0 0",
         **text,
@@ -185,7 +304,9 @@ def titlebar_state(state, gradient, caption):
 
 
 def titlebar_block(active, inactive, caption):
-    return titlebar_state("", active, "#FFFFFF") + titlebar_state(":backdrop", inactive, caption)
+    return titlebar_state("", active, aurorae_stops.SIDE_OVERLAY, "#FFFFFF") + titlebar_state(
+        ":backdrop", inactive, aurorae_stops.INACTIVE_SIDE_OVERLAY, caption
+    )
 
 
 def widget_rules():
@@ -219,13 +340,14 @@ def widget_rules():
         # GTK draws a message box's title itself, so no window manager frame surrounds it: its body draws one.
         block(
             "messagedialog .dialog-vbox",
-            padding=f"0 {BAND_DEPTH}px {BAND_DEPTH}px {BAND_DEPTH}px",
-            box_shadow=window_frame(palette.PALETTE["border_left"], palette.PALETTE["border_bottom"]),
+            padding=f"0 {DIALOG_FRAME}px {DIALOG_FRAME}px {DIALOG_FRAME}px",
+            box_shadow=dialog_frame(palette.PALETTE["border_left"], palette.PALETTE["border_bottom"]),
         ),
         block(
             "messagedialog .dialog-vbox:backdrop",
-            box_shadow=window_frame(aurorae_stops.INACTIVE_BORDER_LEFT, aurorae_stops.INACTIVE_BORDER_BOTTOM),
+            box_shadow=dialog_frame(aurorae_stops.INACTIVE_BORDER_LEFT, aurorae_stops.INACTIVE_BORDER_BOTTOM),
         ),
+        block("messagedialog .titlebar", min_height=f"{DIALOG_TITLE_HEIGHT}px"),
         block("button:active, button:checked", background_image=vertical("button-pressed"), box_shadow="none"),
         block("button:focus, button.default", box_shadow=DEFAULT_SHADOW),
         block("button.default:hover, button:focus:hover", box_shadow=HOVER_SHADOW),
@@ -448,6 +570,7 @@ def widget_rules():
             background_image="none",
             background_color=FACE,
         ),
+        *scrollbar_thumb_rules(),
         block("progressbar", padding="0", border="none", background_image="none"),
         block(
             "progressbar > trough",
@@ -483,30 +606,7 @@ def widget_rules():
         ],
         block("progressbar > trough > progress.pulse", background_image="none",
               background_color=stops.GRADIENTS['progress-chunk'][1][1]),
-        block(
-            "scale trough",
-            min_height=f"{stops.SIZES['slider_groove']}px",
-            min_width=f"{stops.SIZES['slider_groove']}px",
-            border="1px solid " + stops.MENU_BORDER,
-            background_color=GRADIENTS["slider-groove"][0][1],
-            border_radius="0",
-        ),
-        block("scale trough highlight, scale highlight", background_color=GRADIENTS["slider-filled"][0][1]),
-        block(
-            "scale slider",
-            min_width=f"{stops.SIZES['slider_handle_width']}px",
-            min_height=f"{stops.SIZES['slider_handle_length']}px",
-            border="1px solid " + stops.CHECK_BORDER,
-            border_radius="2px",
-            background_image=vertical("slider-thumb"),
-        ),
-        block("scale slider:hover", box_shadow=CHECK_SHADOW),
-        block("scale slider:active", background_image=vertical("check-pressed")),
-        block(
-            "scale slider:disabled",
-            border_color=stops.CHECK_BORDER_DISABLED,
-            background_image=vertical("white-disabled"),
-        ),
+        *scale_rules(),
         block(
             "treeview header button, columnview header button, column-header button",
             min_height=f"{stops.SIZES['header_height']}px",
@@ -671,6 +771,7 @@ def build_css(version):
         + adwaita
         + indicator_backend_rules(version)
         + "\n".join(widget_rules())
+        + scale_backend_rules(version)
         + scrollbar_backend_rules(version)
         + input_backend_rules(version)
         + "\n"
@@ -689,6 +790,12 @@ def write_theme(out):
     for version in VERSIONS:
         assets = out / f"gtk-{version}" / "assets"
         assets.mkdir(parents=True, exist_ok=True)
+        for orientation in ("horizontal", "vertical"):
+            (assets / f"scroll-grip-{orientation}.png").write_bytes(scrollbar_grip_png(orientation == "horizontal"))
+        for orientation in ("horizontal", "vertical"):
+            for state in ("normal", "hover", "pressed", "disabled"):
+                (assets / f"slider-{orientation}-{state}.png").write_bytes(
+                    slider_png(orientation == "horizontal", state))
         for direction in STEPPER_ARROWS:
             for disabled in (False, True):
                 suffix = "-disabled" if disabled else ""

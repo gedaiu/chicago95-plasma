@@ -63,6 +63,13 @@ combobox arrow, combobox > box > button > box > arrow, dropdown arrow {{
 dropdown{state} arrow {{ background-image: {image('down', insensitive)}; }}
 spinbutton:not(.vertical){state} button.up {{ background-image: {image('up', insensitive)}; }}
 spinbutton:not(.vertical){state} button.down {{ background-image: {image('down', insensitive)}; }}''')
+    if not luna:
+        rules.append(f"""{buttons}, combobox button:active, combobox button:checked,
+dropdown > button.toggle:active, dropdown > button.toggle:checked, spinbutton:not(.vertical) {{
+  border: none; padding: 2px;
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #FFFFFF,
+              inset 2px 2px #000000, inset -2px -2px #DFDFDF;
+}}""")
     if luna:
         rules.append("""combobox:hover button, dropdown:hover > button.toggle, spinbutton:not(.vertical):hover {
   border-color: #E59700;

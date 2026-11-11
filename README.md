@@ -362,8 +362,20 @@ Visual consistency checks:
   Group boxes compare a single border, fixed label space and child alignment in
   labelled, disabled and unlabelled cases. The showcase shows real labels and keeps
   group boxes in their own section, separate from switches.
+  Dropdowns and spin boxes compare geometry, borders, arrow artwork and text placement
+  in normal, disabled, hovered and pressed states. Smooth-font glyph antialiasing is
+  excluded from the pixel comparison; glyph bounds and surrounding pixels are checked.
+  Qt's Luna spin buttons also check for an uninterrupted surface between the arrows.
+  Luna progress bars compare Qt/GTK3/GTK4 thickness, white inset and chunk pixels
+  across fill levels, disabled, reversed and RTL states. Qt widget checks also
+  require readable black labels and consistent sizing with or without text.
+  Luna sliders compare Qt/GTK3/GTK4 thumb pixels in both orientations, including
+  hover, pressed, disabled and endpoint states. They require a smooth gradient and
+  compare GTK track geometry and thumb placement.
   Scrollbars compare bar/thumb geometry and end-arrow artwork, including disabled,
-  hover and pressed thumbs. **GTK4 removed native stepper buttons:** its end arrows
+  hover and pressed thumbs. Luna grip checks independently require four dark ridges
+  and four highlights, centred in horizontal and vertical thumbs, so two missing
+  textures cannot pass just by matching each other. **GTK4 removed native stepper buttons:** its end arrows
   are decorative CSS artwork, not clickable controls, and cannot individually disable
   at the adjustment limits. GTK3 retains working steppers. The showcase labels this
   distinction; restoring functional GTK4 steppers requires application/toolkit changes.

@@ -106,6 +106,8 @@ PROGRESS_FRAME = "#68A3C6"
 PROGRESS_CHUNK = "#39E63A"
 PROGRESS_CHUNK_WIDTH = 8
 PROGRESS_CHUNK_GAP = 2
+PROGRESS_THICKNESS = 17
+PROGRESS_INSET = 2
 
 HEADER_FACE = "#ECE9D8"
 HEADER_FACE_PRESSED = "#D6D2C2"
@@ -679,21 +681,51 @@ def paint_spin_box(painter, option):
 
 
 def paint_progress_groove(painter, option):
-    painter.fillRect(option.rect, option.palette.brush(QPalette.Base))
-    stroke_rect(painter, option.rect, PROGRESS_FRAME)
-
-
-def progress_chunk_count(option, width):
-    span = max(option.maximum - option.minimum, 1)
-    filled = width * (option.progress - option.minimum) / span
-    return round(filled / (PROGRESS_CHUNK_WIDTH + PROGRESS_CHUNK_GAP))
+    painter.save()
+    painter.setRenderHint(QPainter.Antialiasing)
+    painter.fillPath(rounded_path(option.rect, 2), QColor("#FFFFFF"))
+    stroke_rounded(painter, option.rect, 2, PROGRESS_FRAME)
+    painter.restore()
 
 
 def paint_progress_chunks(painter, option):
-    inner = option.rect.adjusted(1, 1, -1, -1)
-    for index in range(progress_chunk_count(option, inner.width())):
-        left = inner.left() + index * (PROGRESS_CHUNK_WIDTH + PROGRESS_CHUNK_GAP)
-        painter.fillRect(left, inner.top(), PROGRESS_CHUNK_WIDTH, inner.height(), QColor(PROGRESS_CHUNK))
+    inner = option.rect.adjusted(PROGRESS_INSET, PROGRESS_INSET, -PROGRESS_INSET, -PROGRESS_INSET)
+    horizontal = bool(option.state & QStyle.State_Horizontal)
+    length = inner.width() if horizontal else inner.height()
+    span = max(option.maximum - option.minimum, 1)
+    filled = int(length * max(0, min(1, (option.progress - option.minimum) / span)))
+    reverse = (option.direction == Qt.RightToLeft) if horizontal else True
+    reverse ^= option.invertedAppearance
+    painter.save()
+    painter.setClipRect(inner, Qt.IntersectClip)
+    for offset in range(0, filled, PROGRESS_CHUNK_WIDTH + PROGRESS_CHUNK_GAP):
+        chunk = min(PROGRESS_CHUNK_WIDTH, filled - offset)
+        # Anchor the repeated artwork like GTK: left for horizontal bars and
+        # bottom for vertical bars, independently of the fill's growing edge.
+        start = length - filled if reverse else 0
+        position = start + (offset if horizontal else filled - offset - chunk)
+        rect = (QRect(inner.x() + position, inner.y(), chunk, inner.height()) if horizontal else
+                QRect(inner.x(), inner.y() + position, inner.width(), chunk))
+        painter.fillRect(rect, QColor(PROGRESS_CHUNK))
+    painter.restore()
+
+
+def paint_progress_label(painter, option):
+    if not option.textVisible:
+        return
+    painter.save()
+    rect = QRect(option.rect)
+    if not option.state & QStyle.State_Horizontal:
+        if option.bottomToTop:
+            painter.translate(rect.left(), rect.bottom() + 1)
+            painter.rotate(-90)
+        else:
+            painter.translate(rect.right() + 1, rect.top())
+            painter.rotate(90)
+        rect = QRect(0, 0, rect.height(), rect.width())
+    painter.setPen(QColor("#000000"))
+    painter.drawText(rect, Qt.AlignCenter, option.text)
+    painter.restore()
 
 
 def paint_header_section(painter, option):
@@ -754,6 +786,7 @@ class LunaStyle(QProxyStyle):
             QStyle.CE_MenuItem: paint_menu_item,
             QStyle.CE_ProgressBarGroove: paint_progress_groove,
             QStyle.CE_ProgressBarContents: paint_progress_chunks,
+            QStyle.CE_ProgressBarLabel: paint_progress_label,
             QStyle.CE_HeaderSection: paint_header_section,
         }
         self.complex_painters = {
@@ -794,6 +827,11 @@ class LunaStyle(QProxyStyle):
         painter_for(painter, option)
 
     def drawControl(self, element, option, painter, widget=None):
+        if element == QStyle.CE_ProgressBar:
+            paint_progress_groove(painter, option)
+            paint_progress_chunks(painter, option)
+            paint_progress_label(painter, option)
+            return
         handlers = {
             QStyle.CE_TabBarTabShape: self.draw_tab_shape,
             QStyle.CE_TabBarTabLabel: self.draw_tab_label,
@@ -803,13 +841,9 @@ class LunaStyle(QProxyStyle):
         painter_for = self.control_painters.get(element)
         if handler is not None:
             return handler(element, option, painter, widget)
-        if painter_for is None or not self.handles_orientation(element, option):
+        if painter_for is None:
             return super().drawControl(element, option, painter, widget)
         painter_for(painter, option)
-
-    def handles_orientation(self, element, option):
-        progress_elements = (QStyle.CE_ProgressBarGroove, QStyle.CE_ProgressBarContents)
-        return element not in progress_elements or bool(option.state & QStyle.State_Horizontal)
 
     def draw_tab_shape(self, element, option, painter, widget):
         if option.shape not in NORTH_TAB_SHAPES:
@@ -897,6 +931,10 @@ class LunaStyle(QProxyStyle):
 
     def sizeFromContents(self, contents_type, option, size, widget=None):
         base = super().sizeFromContents(contents_type, option, size, widget)
+        if contents_type == QStyle.CT_ProgressBar:
+            thickness = max(PROGRESS_THICKNESS, option.fontMetrics.height() + 4 if option.textVisible else 0)
+            return (QSize(base.width(), thickness) if option.state & QStyle.State_Horizontal
+                    else QSize(thickness, base.height()))
         adjusters = {
             QStyle.CT_MenuItem: lambda: menu_item_size(option, base),
             QStyle.CT_TabBarTab: lambda: QSize(base.width(), max(base.height(), TAB_HEIGHT)),

@@ -847,6 +847,31 @@ def test_setup_replaces_home_in_the_tasks_applet_as_it_does_in_the_start_applet(
     )
 
 
+def run_dialog_rule(tmp_path, look):
+    run_setup(tmp_path, "--components=startmenu", f"--look={look}", "--screen=1920x1080@1")
+    rules = (tmp_path / ".config/kwinrulesrc").read_text()
+    return dict(
+        line.split("=", 1) for line in rules.split("[chicago95-run]")[1].split("\n[")[0].splitlines() if "=" in line
+    )
+
+
+def test_the_run_dialog_is_placed_when_it_opens_and_can_then_be_dragged(tmp_path):
+    """positionrule=2 forces the position for as long as the window lives, so it could not be moved; 3 applies
+    it once, as the window opens."""
+    assert run_dialog_rule(tmp_path, "1995")["positionrule"] == "3"
+
+
+@pytest.mark.parametrize(
+    "look, top",
+    [
+        ("1995", 1080 - 28 - 163),
+        ("luna", 1080 - 30 - (154 + 26 + 4 + 0 + 4)),  # the dialog, then KWin's Luna title (26 + 4 + 0) and border (4)
+    ],
+)
+def test_the_run_dialog_sits_on_the_taskbar_whatever_its_frame(tmp_path, look, top):
+    assert run_dialog_rule(tmp_path, look)["position"] == f"0,{top}"
+
+
 def test_clippy_window_rule_keeps_it_above_other_windows_by_default(tmp_path):
     run_setup(tmp_path, "--components=clippy")
     rules = (tmp_path / ".config/kwinrulesrc").read_text()
@@ -1422,11 +1447,11 @@ def test_look_luna_installs_the_gtk_theme_and_selects_it_for_gtk_three_four_and_
     ) == (True,) * 4
 
 
-
 def test_look_luna_selects_chicago95luna_in_gsettings_for_wayland_gtk_programs(tmp_path):
     log = widget_look_log(tmp_path, "--look=luna", qt_style_dirs=tmp_path / "no-styles")
 
     assert "would: gsettings set org.gnome.desktop.interface gtk-theme Chicago95Luna\n" in log
+
 
 @pytest.mark.parametrize("version", ["3.0", "4.0"])
 def test_the_look_turns_gtk_overlay_scrolling_off_so_scroll_bars_stay_on_screen(tmp_path, version):
@@ -1638,7 +1663,7 @@ def test_luna_decoration_writes_the_vertical_title_gradient_into_the_gtk_css(tmp
         "linear-gradient(to bottom, #0058EE 0%" in css,
         "border-radius: 6px 6px 0 0;" in css,
         "Trebuchet MS" in css,
-        "to right" in css,
+        "linear-gradient(to right, #000080" in css,
     ) == (True, True, True, False)
 
 
@@ -1687,7 +1712,9 @@ def test_progress_override_is_shared_idempotent_and_removed_for_luna(tmp_path):
         assert css.read_text().count("/* Chicago95 progress BEGIN */") == 1
         assert source in css.read_text()
         assert (REPO / "config/gtk-frames-classic.css").read_text() in css.read_text()
+        assert "Shared native dropdown/spin-box geometry" in css.read_text()
     run_bash_with_steps(tmp_path, "import_gtk_progress Chicago95Luna")
     for version in ("3.0", "4.0"):
         assert "progressbar" not in (tmp_path / f".config/gtk-{version}/gtk.css").read_text()
         assert "frame > label" not in (tmp_path / f".config/gtk-{version}/gtk.css").read_text()
+        assert "spinbutton" not in (tmp_path / f".config/gtk-{version}/gtk.css").read_text()

@@ -794,8 +794,29 @@ step_startmenu() {
 
 # The Run dialog opens at the bottom left, just above the taskbar, as the original's did.
 place_run_dialog() {
+  # Placed on the taskbar as it opens (positionrule 3), then free to be dragged; 2 would pin it for good.
   kwin_rule chicago95-run "Description=Chicago95 Run dialog" "wmclass=chicago95-run" "wmclassmatch=1" \
-    "position=0,$((SETUP_HEIGHT - PANEL_HEIGHT - RUN_HEIGHT))" "positionrule=2" "placement=Zero" "placementrule=2" "types=1"
+    "position=0,$((SETUP_HEIGHT - PANEL_HEIGHT - $(run_window_height)))" "positionrule=3" "placement=Zero" "placementrule=2" "types=1"
+}
+
+# The Run window's height: the dialog's own (it draws its classic frame itself), plus under the Luna widget style
+# the title and bottom border KWin's decoration adds around it.
+run_window_height() {
+  local dialog
+  dialog=$(QT_QPA_PLATFORM=offscreen QT_SCALE_FACTOR=1 python3 "$REPO/bin/chicago95-run" --height \
+    --widget-style="${SETUP_WIDGET_STYLE:-classic}" 2>/dev/null | tail -1)
+  [[ "$dialog" =~ ^[0-9]+$ ]] || dialog=$RUN_HEIGHT
+  widget_style_is_luna || {
+    echo "$dialog"
+    return
+  }
+  echo $((dialog + $(decoration_frame_height)))
+}
+
+decoration_frame_height() { # the title bar and bottom border of the decoration Setup installs
+  local rc="$REPO/aurorae/theme/Chicago95rc"
+  [ "${SETUP_DECORATION:-classic}" = luna ] && rc="$REPO/luna/aurorae/theme/Chicago95Lunarc"
+  awk -F= '$1 == "TitleHeight" || $1 == "TitleEdgeTop" || $1 == "TitleEdgeBottom" || $1 == "BorderBottom" { sum += $2 } END { print sum }' "$rc"
 }
 
 # The originals' keys: the Windows key alone and Ctrl+Esc open the Start menu, Win+R Run, Win+E Explorer, Win+D and

@@ -425,7 +425,7 @@ def controls(app, look, scratch):
 
 
 CONTROL_GROUPS = (
-    "Buttons", "Checkboxes", "Radio buttons", "Inputs", "Scrollbars", "Sliders", "Progress bars",
+    "Buttons", "Checkboxes", "Radio buttons", "Switches", "Inputs", "Scrollbars", "Sliders", "Progress bars",
     "Tabs", "Menus", "Toolbars", "Status bars", "Lists", "Trees", "Tables", "Headers",
     "Group boxes", "Containers and text", "Windows", "Shell",
 )
@@ -437,6 +437,7 @@ def group(name):
     for group_name, words in (
         ("Checkboxes", ("check box", "checkbox")),
         ("Radio buttons", ("radio",)),
+        ("Switches", ("switch",)),
         ("Toolbars", ("tool",)),
         ("Buttons", ("button",)),
         ("Inputs", ("field", "drop-down", "spin", "date", "text edit")),

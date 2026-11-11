@@ -28,6 +28,26 @@ def add(box, widget):
         box.pack_start(widget, False, False, 0)
 
 
+def input_widgets():
+    for kind in ("dropdown", "spinbox"):
+        for state in ("normal", "disabled", "hovered", "pressed"):
+            if kind == "dropdown":
+                control = Gtk.DropDown.new_from_strings(["First item", "Second item"]) if V4 else Gtk.ComboBoxText()
+                if not V4:
+                    control.append_text("First item")
+                    control.append_text("Second item")
+                    control.set_active(0)
+            else:
+                control = Gtk.SpinButton.new_with_range(0, 100, 1)
+                control.set_value(42)
+            control.set_size_request(160, -1)
+            control.set_sensitive(state != "disabled")
+            control.set_can_focus(False)
+            if state in ("hovered", "pressed"):
+                control.set_state_flags(Gtk.StateFlags.PRELIGHT if state == "hovered" else Gtk.StateFlags.ACTIVE, False)
+            yield kind, state, control
+
+
 def widgets():
     buttons = []
     for caption, state in (
@@ -72,22 +92,16 @@ def widgets():
         entry.set_sensitive(text != "Disabled")
         entries.append(entry)
     yield "Inputs", "Text fields", entries
-    combo = Gtk.DropDown.new_from_strings(["First item", "Second item"]) if V4 else Gtk.ComboBoxText()
-    if not V4:
-        combo.append_text("First item")
-        combo.append_text("Second item")
-        combo.set_active(0)
-    spin = Gtk.SpinButton.new_with_range(0, 100, 1)
-    spin.set_value(42)
-    yield "Inputs", "Drop-down and spin box", [combo, spin]
-    scales = []
-    for enabled in (True, False):
-        scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
-        scale.set_value(40)
-        scale.set_size_request(180, -1)
-        scale.set_sensitive(enabled)
-        scales.append(scale)
-    yield "Ranges", "Sliders: normal and disabled", scales
+    inputs = list(input_widgets())
+    for kind, title in (("dropdown", "Drop-down"), ("spinbox", "Spin box")):
+        yield "Inputs", f"{title}: normal, disabled, hovered, pressed", [
+            control for control_kind, _state, control in inputs if control_kind == kind
+        ]
+    for orientation in ("horizontal", "vertical"):
+        yield "Ranges", f"Sliders: {orientation}, normal, disabled, hovered, pressed", [
+            control for state, axis, control in slider_widgets()
+            if axis == orientation and state in ("normal", "disabled", "hovered", "pressed")
+        ]
     progress = Gtk.ProgressBar()
     progress.set_fraction(0.55)
     progress.set_size_request(260, -1)
@@ -104,7 +118,7 @@ def widgets():
     for vertical, inverted in ((False, True), (True, False), (True, True)):
         bar = Gtk.ProgressBar()
         bar.set_fraction(.55)
-        bar.set_inverted(inverted)
+        bar.set_inverted(inverted != vertical)
         bar.set_orientation(Gtk.Orientation.VERTICAL if vertical else Gtk.Orientation.HORIZONTAL)
         bar.set_size_request(-1, 90) if vertical else bar.set_size_request(160, -1)
         bar.set_valign(Gtk.Align.CENTER)
@@ -141,9 +155,27 @@ def widgets():
         frame.set_child(child) if V4 else frame.add(child)
         frame.set_sensitive(state != "disabled")
         yield "Containers and text", f"Group box: {state}", [frame]
-    switch = Gtk.Switch()
-    switch.set_active(True)
-    yield "Containers and text", "Switch", [switch]
+    for active in (False, True):
+        yield "Indicators", f"Switches: {'on' if active else 'off'}, normal, disabled, hovered, pressed, focused, RTL", [
+            widget for state, widget in switch_widgets() if state.startswith("on-" if active else "off-")
+        ]
+
+
+def switch_widgets():
+    for active in (False, True):
+        for state in ("normal", "disabled", "hovered", "pressed", "focused", "rtl"):
+            widget = Gtk.Switch()
+            widget.set_active(active)
+            widget.set_sensitive(state != "disabled")
+            widget.set_valign(Gtk.Align.CENTER)
+            widget.set_halign(Gtk.Align.CENTER)
+            if state == "rtl":
+                widget.set_direction(Gtk.TextDirection.RTL)
+            flag = {"hovered": Gtk.StateFlags.PRELIGHT, "pressed": Gtk.StateFlags.ACTIVE,
+                    "focused": Gtk.StateFlags.FOCUSED}.get(state)
+            if flag is not None:
+                widget.set_state_flags(flag, False)
+            yield f"{'on' if active else 'off'}-{state}", widget
 
 
 def consistency_widgets():
@@ -180,6 +212,9 @@ def consistency_widgets():
                 widget.set_state_flags(Gtk.StateFlags.FOCUSED, False)
             yield "Indicators", f"{kind} {state}", [widget]
 
+    for state, switch in switch_widgets():
+        yield "Indicators", f"switch {state}", [switch]
+
     yield "Typography", "tabfont normal", [Gtk.Label(label="General Details Advanced")]
 
     for position in ("top", "bottom", "left", "right"):
@@ -204,7 +239,9 @@ def consistency_widgets():
             progress.set_size_request(260, -1) if orientation == "horizontal" else progress.set_size_request(-1, 160)
             progress.set_fraction(fraction)
             progress.set_sensitive(state != "disabled")
-            progress.set_inverted(state == "inverted")
+            # Qt's vertical progress starts at the bottom; GTK's starts at the top.
+            # Request the same visual direction explicitly for cross-toolkit audits.
+            progress.set_inverted((state == "inverted") != (orientation == "vertical"))
             if state == "rtl":
                 progress.set_direction(Gtk.TextDirection.RTL)
             yield "Ranges", f"progress {state}-{orientation}", [progress]
@@ -221,6 +258,9 @@ def consistency_widgets():
             if state in ("hovered", "pressed"):
                 bar._audit_interaction = state
             yield "Ranges", f"scrollbar {state}-{orientation}", [bar]
+
+    for state, orientation, scale in slider_widgets():
+        yield "Ranges", f"slider {state}-{orientation}", [scale]
 
     for state in ("normal", "disabled", "unlabelled"):
         frame = Gtk.Frame()
@@ -245,23 +285,22 @@ def consistency_widgets():
         frame.set_sensitive(state != "disabled")
         yield "Containers and text", f"groupbox {state}", [frame]
 
-    for kind in ("dropdown", "spinbox"):
-        for state in ("normal", "disabled", "hovered", "pressed"):
-            if kind == "dropdown":
-                control = Gtk.DropDown.new_from_strings(["First item", "Second item"]) if V4 else Gtk.ComboBoxText()
-                if not V4:
-                    control.append_text("First item")
-                    control.append_text("Second item")
-                    control.set_active(0)
-            else:
-                control = Gtk.SpinButton.new_with_range(0, 100, 1)
-                control.set_value(42)
-            control.set_size_request(160, -1)
-            control.set_sensitive(state != "disabled")
-            control.set_can_focus(False)
+    for kind, state, control in input_widgets():
+        yield "Inputs", f"{kind} {state}", [control]
+
+
+def slider_widgets():
+    for orientation in ("horizontal", "vertical"):
+        for state, value in (("normal", 40), ("start", 0), ("end", 100), ("disabled", 40),
+                             ("hovered", 40), ("pressed", 40)):
+            scale = Gtk.Scale.new_with_range(getattr(Gtk.Orientation, orientation.upper()), 0, 100, 1)
+            scale.set_draw_value(False)
+            scale.set_value(value)
+            scale.set_size_request(180, 21) if orientation == "horizontal" else scale.set_size_request(21, 180)
+            scale.set_sensitive(state != "disabled")
             if state in ("hovered", "pressed"):
-                control.set_state_flags(Gtk.StateFlags.PRELIGHT if state == "hovered" else Gtk.StateFlags.ACTIVE, False)
-            yield "Inputs", f"{kind} {state}", [control]
+                scale._audit_interaction = state
+            yield state, orientation, scale
 
 
 def main():

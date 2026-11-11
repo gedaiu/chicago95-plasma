@@ -348,7 +348,15 @@ def main():
     parser = argparse.ArgumentParser(description="Chicago95 Run dialog for KDE")
     parser.add_argument("--dry-run", action="store_true", help="print the command instead of running it")
     parser.add_argument("--screenshot", metavar="PATH", help="save the dialog as PNG and exit")
+    parser.add_argument("--height", action="store_true", help="print the dialog's height in pixels and exit")
+    parser.add_argument("--widget-style", choices=("classic", "luna"), help="with --height: the style to measure")
     arguments = parser.parse_args()
+    if arguments.height:
+        chicago95ui.make_app(INSTANCE_NAME)
+        dialog = RunDialog({"widgetStyle": arguments.widget_style} if arguments.widget_style else None)
+        dialog.adjustSize()
+        print(dialog.height())
+        return 0
     if not arguments.screenshot and not arguments.dry_run and chicago95ui.send_to_running(INSTANCE_NAME, "raise"):
         return 0
     application = chicago95ui.make_app(INSTANCE_NAME)
