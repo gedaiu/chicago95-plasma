@@ -7,7 +7,7 @@ import pytest
 from PIL import Image, ImageChops
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPainter
-from PySide6.QtWidgets import QSlider, QStyle, QStyleOptionSlider
+from PySide6.QtWidgets import QProgressBar, QSlider, QStyle, QStyleOptionSlider
 from reference import qimage_to_pil
 
 sys.path.insert(0, str(Path(__file__).parent / "luna"))
@@ -80,13 +80,20 @@ def test_classic_gtk_thumb_matches_actual_qt(qt_app, classic_ranges, point, orie
 
 @pytest.mark.parametrize("orientation", ("horizontal", "vertical"))
 @pytest.mark.parametrize("state", ("empty", "low", "half", "full", "disabled", "inverted", "rtl"))
-def test_classic_progress_inset_and_thickness(classic_ranges, orientation, state):
+def test_classic_progress_inset_and_thickness(qt_app, classic_ranges, orientation, state):
     a, b = (classic_ranges[v, "progress", f"{state}-{orientation}"] for v in ("3.0", "4.0"))
     assert a.size == b.size
     assert ImageChops.difference(a, b).getbbox() is None
     if orientation == "vertical":
         a = a.transpose(Image.Transpose.TRANSPOSE)
-    assert a.height == 19
+    bar = QProgressBar()
+    bar.setTextVisible(False)
+    bar.setValue(100)
+    bar.resize(260, bar.sizeHint().height())
+    qt = qimage_to_pil(bar.grab().toImage())
+    assert a.height == qt.height == 19
+    assert next(x for x in range(qt.width) if qt.getpixel((x, 3)) == (0, 0, 128)) == 3
+    bar.close()
     for x in range(1, a.width - 1):
         for y in (1, 2, 16, 17):
             assert a.getpixel((x, y)) == (192, 192, 192)

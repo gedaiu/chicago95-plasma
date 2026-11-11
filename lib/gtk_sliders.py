@@ -274,9 +274,9 @@ scale.vertical marks.top { padding-right: 1px; }
         size = "100% 4px" if horizontal else "4px 100%"
         caps = "1px 3px, 1px 3px, 1px 1px" if horizontal else "3px 1px, 3px 1px, 1px 1px"
         positions = (
-            "left 7px, right 7px, right 1px top 8px, left 7px"
+            "0 7px, 100% 7px, calc(100% - 1px) 8px, 0 7px"
             if horizontal
-            else "7px top, 7px bottom, left 8px bottom 1px, 7px top"
+            else "7px 0, 7px 100%, 8px calc(100% - 1px), 7px 0"
         )
         # GTK3 moves the thumb centre to the trough endpoints. Its painted track
         # extends into the reserved half-thumb space; GTK4 already includes it.
@@ -308,8 +308,8 @@ scale.{orientation} mark indicator {{ min-width: {1 if horizontal else (1 if ver
         )
     rules.append(
         "scale.horizontal.marks-before { background-position: "
-        "left 10px, right 10px, right 1px top 11px, left 10px; }"
+        "0 10px, 100% 10px, calc(100% - 1px) 11px, 0 10px; }"
         "scale.vertical.marks-before { background-position: "
-        "10px top, 10px bottom, left 11px bottom 1px, 10px top; }"
+        "10px 0, 10px 100%, 11px calc(100% - 1px), 10px 0; }"
     )
     return "\n".join(rules) + "\n"

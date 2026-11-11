@@ -1736,6 +1736,7 @@ def test_progress_override_is_shared_idempotent_and_removed_for_luna(tmp_path):
         assert source in css.read_text()
         assert (REPO / "config/gtk-frames-classic.css").read_text() in css.read_text()
         assert "Shared native dropdown/spin-box geometry" in css.read_text()
+        assert "Classic trackbars" in css.read_text()
     run_bash_with_steps(tmp_path, "import_gtk_progress Chicago95Luna")
     for version in ("3.0", "4.0"):
         assert "progressbar" not in (tmp_path / f".config/gtk-{version}/gtk.css").read_text()
