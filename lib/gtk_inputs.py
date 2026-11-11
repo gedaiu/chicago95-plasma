@@ -6,7 +6,8 @@ from pathlib import Path
 def input_css(theme, version, luna=False):
     theme = Path(theme)
     size = 17 if luna else 16
-    face, border, disabled = ("#ECE9D8", "#7F9DB9", "#ACA899") if luna else ("#C0C0C0", "#808080", "#808080")
+    face, border, disabled = (("#ECE9D8", "#7F9DB9", "#ACA899") if luna else
+                              ("@bg_color", "@border_shade", "@border_shade"))
 
     def image(direction, insensitive=False):
         if luna:

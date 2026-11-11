@@ -278,6 +278,9 @@ set_gtk_font() { # set_gtk_font <Pango font description>   X11, Wayland and sett
 
 set_gtk_theme() { # set_gtk_theme <theme name>   GTK 3 and GTK 4 settings
   local version
+  if [ "$1" = Chicago95 ] && [ -d ~/.themes/Chicago95 ]; then
+    run python3 "$REPO/lib/gtk_palette.py"
+  fi
   for version in 3.0 4.0; do
     backup ~/.config/gtk-$version/settings.ini
     run mkdir -p ~/.config/gtk-$version
@@ -306,13 +309,15 @@ from pathlib import Path
 target, source = map(Path, sys.argv[1:3])
 sys.path.insert(0, str(source.parent.parent / "lib"))
 from gtk_inputs import input_css
+from gtk_sliders import slider_css
 begin, end = "/* Chicago95 progress BEGIN */", "/* Chicago95 progress END */"
 text = target.read_text() if target.exists() else ""
 text = re.sub(re.escape(begin) + r".*?" + re.escape(end) + r"\n?", "", text, flags=re.S)
 if sys.argv[3] == "Chicago95":
     text = (text.rstrip() + "\n" + begin + "\n" + source.read_text()
             + source.with_name("gtk-frames-classic.css").read_text()
-            + input_css(Path.home() / ".themes/Chicago95", sys.argv[4]) + end + "\n")
+            + input_css(Path.home() / ".themes/Chicago95", sys.argv[4])
+            + slider_css(sys.argv[4]) + end + "\n")
 target.write_text(text)
 PYPROGRESS
     record "$target"
@@ -376,6 +381,7 @@ step_base() {
   }
   local src="$SETUP_CHICAGO95_SRC"
   [ -d ~/.themes/Chicago95 ] || put_tree "$src/Theme/Chicago95" ~/.themes/Chicago95
+  put_tree "$src/Theme/Chicago95" ~/.local/share/chicago95/gtk-original
   [ -d ~/.icons/Chicago95 ] || put_tree "$src/Icons/Chicago95" ~/.icons/Chicago95
   [ -d ~/.icons/Chicago95_Animated_Hourglass_Cursors_HiDPI ] || put_tree "$src/Cursors/Chicago95_Animated_Hourglass_Cursors_HiDPI" ~/.icons/Chicago95_Animated_Hourglass_Cursors_HiDPI
   [ -d ~/.local/share/sounds/Chicago95 ] || put_tree "$src/sounds/Chicago95" ~/.local/share/sounds/Chicago95
@@ -669,6 +675,9 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   run kwriteconfig6 --file chicago95rc --group Look --key bevel "${SETUP_BEVEL:-1995}"
   run kwriteconfig6 --file chicago95rc --group Look --key taskbarStyle "${SETUP_TASKBAR_STYLE:-classic}"
   run kwriteconfig6 --file chicago95rc --group StartMenu --key style "${SETUP_START_MENU_STYLE:-1995}"
+  if ! widget_style_is_luna && [ -d ~/.themes/Chicago95 ]; then
+    run python3 "$REPO/lib/gtk_palette.py"
+  fi
   apply_title_colors
   run plasma-apply-desktoptheme "$([ "${SETUP_TASKBAR_STYLE:-classic}" = luna ] && echo Chicago95Luna || echo Chicago95)" >>"$SETUP_LOG" 2>&1 || true
   if [ "$SETUP_SCALE" != 1 ]; then
@@ -758,6 +767,7 @@ step_tools_common() { # shared by every PySide6 component; idempotent
     SHELL_CHANGED=1
   fi
   put_file "$REPO/lib/chicago95ui.py" ~/.local/lib/chicago95/chicago95ui.py
+  put_file "$REPO/lib/gtk_palette.py" ~/.local/lib/chicago95/gtk_palette.py
   put_file "$REPO/lib/login_preview.py" ~/.local/lib/chicago95/login_preview.py
   put_file "$REPO/lib/chicago95update.py" ~/.local/lib/chicago95/chicago95update.py
   put_file "$REPO/lib/chicago95animations.py" ~/.local/lib/chicago95/chicago95animations.py
@@ -812,6 +822,9 @@ step_startmenu() {
   run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerBackground "${SETUP_BANNER_BG:-#808080}"
   run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerTextColor "${SETUP_BANNER_FG:-#C0C0C0}"
   run kwriteconfig6 --file chicago95rc --group StartMenu --key style "${SETUP_START_MENU_STYLE:-1995}"
+  if ! widget_style_is_luna && [ -d ~/.themes/Chicago95 ]; then
+    run python3 "$REPO/lib/gtk_palette.py"
+  fi
   write_branding
   show_copy "(Start menu banner: ${SETUP_BANNER_TEXT:-Chicago95}, ${SETUP_BANNER_BG:-#808080} / ${SETUP_BANNER_FG:-#C0C0C0})" ~/.config/chicago95rc
   place_start_menu

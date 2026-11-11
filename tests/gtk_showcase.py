@@ -220,6 +220,16 @@ def consistency_widgets():
     for state, switch in switch_widgets():
         yield "Indicators", f"switch {state}", [switch]
 
+    for name in ("button", "disabled-button", "entry", "disabled-entry", "selection"):
+        control = Gtk.Button() if "button" in name else Gtk.Entry()
+        control.set_size_request(140, 24)
+        control.set_sensitive(not name.startswith("disabled"))
+        if name == "selection":
+            control.set_text("Selected text")
+            control.select_region(0, -1)
+            control._audit_focus = True
+        yield "Palette", f"palette {name}", [control]
+
     yield "Typography", "tabfont normal", [Gtk.Label(label="General Details Advanced")]
 
     for position in ("top", "bottom", "left", "right"):
@@ -392,6 +402,9 @@ def main():
                     child.event(event)
         window.set_focus(None)
         for child in children:
+            if getattr(child, "_audit_focus", False):
+                child.grab_focus()
+                child.select_region(0, -1)
             if hasattr(child, "_audit_switch_flag"):
                 child.set_state_flags(child._audit_switch_flag, False)
         for child in children:

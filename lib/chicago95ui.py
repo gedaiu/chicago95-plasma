@@ -513,7 +513,7 @@ def apply_style(app):
     """The controls, palette and font of the look's widget style: Luna's, else the classic ones."""
     if not luna_widgets():
         app.setStyle(classic_style())
-        app.setPalette(retro_palette())
+        app.setPalette(retro_palette(read_scheme()))
         app.setFont(ui_font())
         return
     import chicago95luna

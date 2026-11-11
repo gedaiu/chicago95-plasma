@@ -1131,8 +1131,17 @@ def test_the_base_theme_greys_gtk_toolbar_icons_until_the_pointer_is_over_them(t
 
 
 def test_the_gtk_toolbar_icon_rule_is_appended_once_however_often_setup_runs(tmp_path):
-    run_setup(tmp_path, "--components=base")
-    run_setup(tmp_path, "--components=base")
+    # This is an installer idempotence test, not a network/Chicago95 download test.
+    source = tmp_path / "src/Chicago95"
+    for part in ("Theme/Chicago95/gtk-3.0", "Theme/Chicago95/gtk-4.0", "Icons/Chicago95",
+                 "Cursors/Chicago95_Animated_Hourglass_Cursors_HiDPI", "sounds/Chicago95"):
+        (source / part).mkdir(parents=True)
+    for version in ("3.0", "4.0"):
+        (source / f"Theme/Chicago95/gtk-{version}/gtk.css").write_text("@define-color bg_color #c0c0c0;\n")
+    (source / "Icons/Chicago95/index.theme").write_text("[Icon Theme]\nName=Chicago95\nInherits=hicolor\n")
+    first = run_setup(tmp_path, "--components=base")
+    second = run_setup(tmp_path, "--components=base")
+    assert first.returncode == second.returncode == 0, first.stderr + second.stderr
 
     assert [
         (tmp_path / ".config/gtk-3.0/gtk.css").read_text().count("-gtk-icon-effect: dim"),

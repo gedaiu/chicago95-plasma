@@ -485,15 +485,29 @@ def gtk_controls(look, scratch, audit=False, audit_kinds=()):
         elif not (CHICAGO95_SRC / "Theme/Chicago95").exists():
             print(f"{look}: GTK controls omitted: Chicago95 GTK theme unavailable")
             return rows
+        classic_theme = CHICAGO95_SRC / "Theme/Chicago95"
+        if look in ("2000", "2001"):
+            import chicago95ui
+            from gtk_palette import prepare_theme, scheme_colours
+            from PySide6.QtWidgets import QApplication
+
+            app = QApplication.instance() or chicago95ui.make_app("gtk-showcase-palette")
+            with themed(app, look):
+                colours = scheme_colours(chicago95ui.read_scheme(), chicago95ui.look_settings()["bevel"])
+            classic_theme = home / ".themes/Chicago95"
+            if classic_theme.is_symlink():
+                classic_theme.unlink()
+            prepare_theme(CHICAGO95_SRC / "Theme/Chicago95", classic_theme, colours)
         if look != "luna":
             from gtk_inputs import input_css
             from gtk_notebooks import notebook_css
             from gtk_scrollbars import scrollbar_css
+            from gtk_sliders import slider_css
 
             config = home / ".config/gtk-4.0"
             config.mkdir(parents=True, exist_ok=True)
             (config / "gtk.css").write_text(
-                notebook_css(CHICAGO95_SRC / "Theme/Chicago95") + scrollbar_css(CHICAGO95_SRC / "Theme/Chicago95")
+                notebook_css(classic_theme) + scrollbar_css(classic_theme)
             )
             progress_css = (REPO / "config/gtk-progress-classic.css").read_text()
             progress_css += (REPO / "config/gtk-frames-classic.css").read_text()
@@ -502,7 +516,8 @@ def gtk_controls(look, scratch, audit=False, audit_kinds=()):
                 config.mkdir(parents=True, exist_ok=True)
                 with (config / "gtk.css").open("a") as stylesheet:
                     stylesheet.write(progress_css)
-                    stylesheet.write(input_css(CHICAGO95_SRC / "Theme/Chicago95", version))
+                    stylesheet.write(input_css(classic_theme, version))
+                    stylesheet.write(slider_css(version))
         # Use Qt's resolved family, so an unavailable font falls back identically in Pango.
         import chicago95ui
         from PySide6.QtGui import QFontInfo

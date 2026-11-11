@@ -102,6 +102,10 @@ def main():
     settings = chicago95ui.look_settings()
     scheme, bevel = chicago95ui.read_scheme(), settings["bevel"]
     decoration, plasma_style = settings["decoration"], settings["taskbarStyle"]
+    if settings["widgetStyle"] != "luna":
+        from gtk_palette import sync_installed
+
+        sync_installed(scheme, bevel)
     arguments = decoration_arguments(scheme, bevel)
     styles = [] if (decoration, plasma_style) == ("classic", "classic") else [decoration, plasma_style]
     stamp = " ".join([*styles, *arguments])
