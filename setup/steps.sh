@@ -5,6 +5,7 @@
 
 PANEL_HEIGHT=28
 MENU_HEIGHT=239 # fallback only; place_start_menu measures the real height
+RUN_HEIGHT=163 # the Run dialog with its frame and title (bin/chicago95-run)
 CLIPPY_W=124
 CLIPPY_H=93
 CLIPPY_MARGIN=24
@@ -543,7 +544,9 @@ step_startmenu() {
   run chmod +x ~/.local/bin/chicago95-startmenu
   put_file "$REPO/bin/chicago95-shutdown" ~/.local/bin/chicago95-shutdown
   run chmod +x ~/.local/bin/chicago95-shutdown
-  for entry in chicago95-startmenu chicago95-shutdown; do put_file "$REPO/config/applications/$entry.desktop" ~/.local/share/applications/$entry.desktop; done
+  put_file "$REPO/bin/chicago95-run" ~/.local/bin/chicago95-run
+  run chmod +x ~/.local/bin/chicago95-run
+  for entry in chicago95-startmenu chicago95-shutdown chicago95-run; do put_file "$REPO/config/applications/$entry.desktop" ~/.local/share/applications/$entry.desktop; done
   put_file "$REPO/config/autostart/chicago95-startmenu.desktop" ~/.config/autostart/chicago95-startmenu.desktop
   substitute_home ~/.local/share/applications ~/.config/autostart
   # Whatever logo was picked lands in one known file, so it can be swapped later without Setup.
@@ -558,7 +561,35 @@ step_startmenu() {
   write_branding
   show_copy "(Start menu banner: ${SETUP_BANNER_TEXT:-Chicago95}, ${SETUP_BANNER_BG:-#808080} / ${SETUP_BANNER_FG:-#C0C0C0})" ~/.config/chicago95rc
   place_start_menu
+  place_run_dialog
+  step_shortcuts
 }
+
+# The Run dialog opens at the bottom left, just above the taskbar, as the original's did.
+place_run_dialog() {
+  kwin_rule chicago95-run "Description=Chicago95 Run dialog" "wmclass=chicago95-run" "wmclassmatch=1" \
+    "position=0,$((SETUP_HEIGHT - PANEL_HEIGHT - RUN_HEIGHT))" "positionrule=2" "placement=Zero" "placementrule=2" "types=1"
+}
+
+# The originals' keys: the Windows key alone and Ctrl+Esc open the Start menu, Win+R Run, Win+E Explorer, Win+D and
+# Win+M show the desktop, Win+F Find. Service shortcuts live in kglobalshortcutsrc (and the desktop files' own
+# X-KDE-Shortcuts); kglobalaccel reads them at login. The Windows key alone is KWin's modifier-only shortcut.
+service_shortcut() { # service_shortcut <desktop file> <keys>
+  run kwriteconfig6 --file kglobalshortcutsrc --group services --group "$1" --key _launch "$2"
+  record "shortcut:$1"
+}
+
+step_shortcuts() {
+  service_shortcut chicago95-startmenu.desktop "Ctrl+Esc"
+  service_shortcut chicago95-run.desktop "Meta+R"
+  service_shortcut chicago95-showdesktop.desktop "Meta+D\tMeta+M"
+  service_shortcut org.kde.kfind.desktop "Meta+F"
+  service_shortcut "$(explorer_desktop_file)" "Meta+E"
+  kconf kwinrc ModifierOnlyShortcuts Meta "org.kde.kglobalaccel,/component/chicago95_startmenu_desktop,org.kde.kglobalaccel.Component,invokeShortcut,_launch"
+  kwin_reconfigure
+}
+
+explorer_desktop_file() { case "${SETUP_EXPLORER:-thunar}" in dolphin) printf 'org.kde.dolphin.desktop' ;; *) printf 'thunar.desktop' ;; esac }
 
 # The menu's height depends on its style and font, so it is measured (offscreen, with the settings just
 # written) rather than assumed; the rule puts the menu's bottom edge just above the taskbar (one pixel up:

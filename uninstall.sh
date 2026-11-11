@@ -36,12 +36,13 @@ while IFS= read -r entry; do
     theme | Theme | Engine | forceFontDPI | AccentColor | BorderSize | font | menuFont | toolBarFont | smallestReadableFont | activeFont | activeBackground | activeBlend | inactiveBackground | inactiveBlend | AnimationDurationFactor) kwriteconfig6 --file "$file" --group "$group" --key "$key" --delete ;;
     *)
       case "$group:$key" in # the effects the animations step switched, and our own animation choices
-      Plugins:*Enabled | Effect-chicago95zoom:* | Animations:* | TabBox:*) kwriteconfig6 --file "$file" --group "$group" --key "$key" --delete ;;
+      Plugins:*Enabled | Effect-chicago95zoom:* | Animations:* | TabBox:* | ModifierOnlyShortcuts:Meta) kwriteconfig6 --file "$file" --group "$group" --key "$key" --delete ;;
       esac
       ;;
     esac
     ;;
   kwinrule:*) remove_kwin_rule "${entry#kwinrule:}" ;;
+  shortcut:*) kwriteconfig6 --file kglobalshortcutsrc --group services --group "${entry#shortcut:}" --key _launch --delete ;;
   root:*) sudo rm -f "${entry#root:}" ;;
   root-dir:/usr/share/sddm/themes/*) sudo rm -rf "${entry#root-dir:}" ;;
   plymouth:*) [ -n "${entry#plymouth:}" ] && sudo plymouth-set-default-theme -R "${entry#plymouth:}" ;;

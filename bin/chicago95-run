@@ -10,7 +10,6 @@ import argparse
 import importlib.machinery
 import importlib.util
 import shlex
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -280,21 +279,24 @@ def main():
     arguments = parser.parse_args()
     if not arguments.screenshot and not arguments.dry_run and chicago95ui.send_to_running(INSTANCE_NAME, "raise"):
         return 0
-    app = chicago95ui.make_app(INSTANCE_NAME)
+    application = chicago95ui.make_app(INSTANCE_NAME)
     dialog = RunDialog()
     if arguments.screenshot:
         dialog.show()
         dialog.grab().save(arguments.screenshot)
         return 0
     instance = chicago95ui.SingleInstance(INSTANCE_NAME, lambda _message: (dialog.raise_(), dialog.activateWindow()))  # noqa: F841
+
+    def finished(result):
+        if result == RunDialog.Accepted and arguments.dry_run:
+            print("dry-run, would run:", " ".join(dialog.command))
+        elif result == RunDialog.Accepted:
+            launch(dialog.command)
+        application.quit()
+
+    dialog.finished.connect(finished)
     dialog.show()
-    if dialog.exec() != RunDialog.Accepted:
-        return 0
-    if arguments.dry_run:
-        print("dry-run, would run:", " ".join(dialog.command))
-        return 0
-    launch(dialog.command)
-    return 0
+    return application.exec()
 
 
 if __name__ == "__main__":

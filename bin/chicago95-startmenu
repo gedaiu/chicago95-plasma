@@ -609,6 +609,14 @@ def control_panel_command(which=shutil.which):
     return [installed] if installed else ["systemsettings"]
 
 
+RUN_TOOL = os.path.expanduser("~/.local/bin/chicago95-run")
+
+
+def run_command(exists=os.path.exists):
+    """Our Run dialog when it is installed, else KRunner."""
+    return [RUN_TOOL] if exists(RUN_TOOL) else ["krunner"]
+
+
 def taskbar_properties_command(which=shutil.which):
     installed = which("chicago95-control-panel")
     return [installed, "--page", "taskbar"] if installed else None
@@ -715,7 +723,7 @@ def build_root_menu():
     add_entry(find, "Computer...", "network-workgroup", lambda: launch(["dolphin", "remote:/"]))
     root.addMenu(find)
     add_entry(root, "&Help", root_icon("help", style), lambda: launch(["khelpcenter"]))
-    add_entry(root, "&Run...", root_icon("run", style), lambda: launch(["krunner"]))
+    add_entry(root, "&Run...", root_icon("run", style), lambda: launch(run_command()))
     root.addSeparator()
     add_entry(root, "&Log Off...", root_icon("log_off", style), lambda: launch(LOG_OFF_COMMAND))
     add_entry(root, "Sh&ut Down...", root_icon("shut_down", style), lambda: launch(SHUT_DOWN_COMMAND))
