@@ -872,6 +872,19 @@ def test_the_run_dialog_sits_on_the_taskbar_whatever_its_frame(tmp_path, look, t
     assert run_dialog_rule(tmp_path, look)["position"] == f"0,{top}"
 
 
+def start_menu_rule(tmp_path, look):
+    """The rule's menu height is measured from chicago95rc, which the stubbed kwriteconfig6 never writes here."""
+    (tmp_path / ".config").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".config/chicago95rc").write_text(f"[StartMenu]\nstyle={look}\n")
+    run_setup(tmp_path, "--components=look,startmenu", f"--look={look}", "--screen=1920x1080@1")
+    rules = (tmp_path / ".config/kwinrulesrc").read_text()
+    return dict(line.split("=", 1) for line in rules.split("[chicago95-startmenu]")[1].split("\n[")[0].splitlines() if "=" in line)
+
+
+def test_the_xp_start_menu_sits_right_on_the_taskbar_with_no_gap(tmp_path):
+    assert start_menu_rule(tmp_path, "luna")["position"] == f"0,{1080 - 30 - 477}"
+
+
 def test_clippy_window_rule_keeps_it_above_other_windows_by_default(tmp_path):
     run_setup(tmp_path, "--components=clippy")
     rules = (tmp_path / ".config/kwinrulesrc").read_text()

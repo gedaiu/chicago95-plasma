@@ -6,7 +6,7 @@ import pytest
 from conftest import REPO
 from PIL import Image
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
-from PySide6.QtGui import QColor, QIcon, QImage, QMouseEvent, QPainter, QPixmap
+from PySide6.QtGui import QColor, QFontMetrics, QIcon, QImage, QMouseEvent, QPainter, QPixmap
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QMenu, QWidget
 from reference import qimage_to_pil, screenshot
@@ -95,7 +95,7 @@ class FakeShield(QWidget):
         self.on_click = on_click
 
 
-def make_menu(launched, commands_run=None, recent_path=None):
+def make_menu(launched, commands_run=None, recent_path=None, programs_filler=None):
     commands = {name: (lambda name=name: commands_run.append(name)) for name in lunamenu.COMMAND_NAMES}
     return lunamenu.LunaMenu(
         fake_apps(),
@@ -107,6 +107,7 @@ def make_menu(launched, commands_run=None, recent_path=None):
         user_name="Nathan",
         commands=commands if commands_run is not None else None,
         recent_path=recent_path,
+        programs_filler=programs_filler,
     )
 
 
@@ -437,3 +438,29 @@ def test_submenus_hang_off_the_root_menu_so_wayland_has_a_parent_for_their_popup
     menu.close()
 
     assert parent is menu
+
+
+def test_the_footer_shows_log_off_and_turn_off_computer_in_full():
+    rows = [row for row in make_menu([]).rows if row.look is lunamenu.FOOTER_LOOK]
+
+    assert [lunamenu.row_title(row, QFontMetrics(lunamenu.ui_font(row.bold)), 1) for row in rows] == [
+        "Log Off",
+        "Turn Off Computer",
+    ]
+
+
+def test_all_programs_is_filled_by_the_menu_it_is_given_folders_and_all(qt_app):
+    def folders(menu):
+        accessories = QMenu("Accessories", menu)
+        accessories.addAction("Calculator")
+        menu.addMenu(accessories)
+
+    menu = make_menu([], programs_filler=folders)
+    menu.show()
+    row = next(row for row in menu.rows if row.submenu is not None and row.text == "All Programs")
+    menu.open_submenu(row)
+    titles = [action.text() for action in menu.submenu.actions()]
+    menu.submenu.close()
+    menu.close()
+
+    assert titles == ["Accessories"]

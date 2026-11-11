@@ -137,11 +137,15 @@ def widgets():
             bars.append(bar)
         label = f"Scroll bars: {name}, normal / disabled / thumb hover / thumb pressed"
         yield "Ranges", label + (" (GTK4 end arrows are decorative)" if V4 else ""), bars
-    tabs = Gtk.Notebook()
-    for name in ("General", "Details", "Advanced"):
-        tabs.append_page(Gtk.Label(label=f"{name} settings"), Gtk.Label(label=name))
-    tabs.set_size_request(350, 90)
-    yield "Navigation", "Tabs", [tabs]
+    for state in ("first", "second", "disabled", "hovered"):
+        tabs = Gtk.Notebook()
+        for name in ("General", "Details", "Advanced"):
+            tabs.append_page(Gtk.Label(label=f"{name} settings"), Gtk.Label(label=name))
+        tabs.set_size_request(350, 90)
+        tabs._audit_page = 1 if state == "second" else 0
+        tabs._audit_tab_hover = state == "hovered"
+        tabs.set_sensitive(state != "disabled")
+        yield "Navigation", "Tabs" if state == "first" else f"Tabs: {state}", [tabs]
     listing = Gtk.ListBox()
     for name in ("Documents", "Pictures", "Downloads"):
         listing.append(Gtk.Label(label=name)) if V4 else listing.add(Gtk.Label(label=name))
@@ -217,7 +221,7 @@ def consistency_widgets():
     yield "Typography", "tabfont normal", [Gtk.Label(label="General Details Advanced")]
 
     for position in ("top", "bottom", "left", "right"):
-        for state in ("first", "second", "disabled"):
+        for state in ("first", "second", "disabled", "hovered"):
             tabs = Gtk.Notebook()
             # Fixed label boxes isolate tab chrome from Pango's differing glyph metrics.
             for width in (42, 35, 52):
@@ -227,6 +231,7 @@ def consistency_widgets():
             tabs.set_tab_pos(getattr(Gtk.PositionType, position.upper()))
             tabs.set_size_request(350, 120)
             tabs._audit_page = 1 if state == "second" else 0
+            tabs._audit_tab_hover = state == "hovered"
             tabs.set_sensitive(state != "disabled")
             yield "Navigation", f"tabs {state}-{position}", [tabs]
 
@@ -343,6 +348,38 @@ def main():
         for child in children:
             if isinstance(child, Gtk.Notebook):
                 child.set_current_page(getattr(child, "_audit_page", 0))
+        for child in children:
+            if getattr(child, "_audit_tab_hover", False):
+                if V4:
+                    def hover_tab(node):
+                        if node.get_css_name() == "tabs":
+                            tab = node.get_first_child()
+                            while tab is not None and tab.get_css_name() != "tab":
+                                tab = tab.get_next_sibling()
+                            tab.get_next_sibling().set_state_flags(Gtk.StateFlags.PRELIGHT, False)
+                        node = node.get_first_child()
+                        while node is not None:
+                            hover_tab(node)
+                            node = node.get_next_sibling()
+                    hover_tab(child)
+                else:
+                    from gi.repository import Gdk
+
+                    label = child.get_tab_label(child.get_nth_page(1))
+                    x, y = label.translate_coordinates(window, label.get_allocated_width() // 2,
+                                                       label.get_allocated_height() // 2)
+                    event_window = child.get_window()
+                    for candidate in event_window.get_children():
+                        geometry = candidate.get_geometry()
+                        if (geometry.x <= x < geometry.x + geometry.width
+                                and geometry.y <= y < geometry.y + geometry.height):
+                            event_window = candidate
+                            x, y = x - geometry.x, y - geometry.y
+                            break
+                    event = Gdk.Event.new(Gdk.EventType.MOTION_NOTIFY)
+                    event.window, event.x, event.y = event_window, x, y
+                    event.set_device(window.get_display().get_default_seat().get_pointer())
+                    child.event(event)
         window.set_focus(None)
         for child in children:
             if hasattr(child, "_audit_switch_flag"):

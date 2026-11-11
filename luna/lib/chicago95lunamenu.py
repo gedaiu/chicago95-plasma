@@ -49,6 +49,7 @@ CORNER_RADIUS             a circle tangent to both edges whose cut matches the r
 import getpass
 import importlib.util
 import json
+import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -58,6 +59,7 @@ from PySide6.QtGui import (
     QColor,
     QFont,
     QFontMetrics,
+    QFontMetricsF,
     QIcon,
     QLinearGradient,
     QPainter,
@@ -323,7 +325,10 @@ def right_rows(icon, run_command, fill_recent_menu):
 
 
 def footer_rows(icon, run_command, metrics):
-    widths = [FOOTER_LOOK.text_x + metrics.horizontalAdvance(text) + TEXT_MARGIN for text, _icon, _name in FOOTER_ITEMS]
+    widths = [
+        FOOTER_LOOK.text_x + math.ceil(metrics.horizontalAdvance(text)) + 1 + TEXT_MARGIN
+        for text, _i, _n in FOOTER_ITEMS
+    ]
     rows = []
     right = FOOTER_RIGHT_EDGE + 1 + TEXT_MARGIN
     for (text, icon_name, command_name), width in reversed(list(zip(FOOTER_ITEMS, widths, strict=True))):
@@ -466,6 +471,12 @@ def paint_submenu_arrow(painter, row, colour):
     painter.drawPolygon(QPolygon([QPoint(right - 3, middle - 4), QPoint(right, middle), QPoint(right - 3, middle + 3)]))
 
 
+def row_title(row, metrics, room):
+    """The row's text, cut to its room; the footer's two buttons are sized to their text and always show it whole,
+    whatever the fonts measure at the screen's scale."""
+    return row.text if row.look is FOOTER_LOOK else metrics.elidedText(row.text, Qt.ElideRight, room)
+
+
 def paint_row(painter, row, hovered):
     look = row.look
     selected = hovered and look.highlights
@@ -480,7 +491,7 @@ def paint_row(painter, row, hovered):
     room = row.rect.right() + 1 - text_x - (14 if row.submenu is not None else TEXT_MARGIN)
     metrics = QFontMetrics(font)
     baseline = row.rect.top() + look.baseline
-    title = metrics.elidedText(row.text, Qt.ElideRight, room)
+    title = row_title(row, metrics, room)
     if look.shadow:
         painter.setPen(QColor(0, 0, 0, 120))
         painter.drawText(QPoint(text_x + 1, baseline + 1), title)
@@ -522,6 +533,7 @@ class LunaMenu(QWidget):
         commands=None,
         parent=None,
         recent_path=None,
+        programs_filler=None,
     ):
         # A frameless top-level, as the classic root menu: Wayland refuses a grabbing popup that has no parent window,
         # and KWin's chicago95-startmenu-root rule places the window above the Start button.
@@ -536,6 +548,7 @@ class LunaMenu(QWidget):
         self.apps, self.recent, self.launch, self.icon = apps, recent, launch, icon
         self.retro_menu_factory, self.click_shield_factory = retro_menu_factory, click_shield_factory
         self.recent_path = recent_path
+        self.programs_filler = programs_filler  # the classic menu's folders; else one flat list
         self.commands = commands or {}
         self.user_name = user_name or getpass.getuser()
         self.user_picture = load_user_picture(user_picture or Path.home() / ".face", icon)
@@ -549,7 +562,7 @@ class LunaMenu(QWidget):
         rows = left_rows(self.apps, usage, self.icon, self.launch_app)
         rows.append(all_programs_row(self.fill_programs_menu))
         rows += right_rows(self.icon, self.run_command, self.fill_recent_menu)
-        rows += footer_rows(self.icon, self.run_command, QFontMetrics(ui_font()))
+        rows += footer_rows(self.icon, self.run_command, QFontMetricsF(ui_font()))
         return rows
 
     def sizeHint(self):
@@ -571,6 +584,9 @@ class LunaMenu(QWidget):
             self.launch(command)
 
     def fill_programs_menu(self, menu):
+        if self.programs_filler is not None:
+            self.programs_filler(menu)
+            return
         for app in sorted(self.apps, key=lambda app: app["name"].lower()):
             action = menu.addAction(self.icon(app), app["name"])
             action.triggered.connect(lambda _checked=False, app=app: self.launch_app(app))

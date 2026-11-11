@@ -369,6 +369,9 @@ Visual consistency checks:
   Luna progress bars compare Qt/GTK3/GTK4 thickness, white inset and chunk pixels
   across fill levels, disabled, reversed and RTL states. Qt widget checks also
   require readable black labels and consistent sizing with or without text.
+  Luna top-tab artwork is compared directly with Qt, including all three orange
+  accent rows, inactive/hover gradients and the open selected-tab seam. GTK tab
+  comparisons cover all four positions and selection, disabled and hover states.
   Luna GTK switches compare both positions across normal, disabled, hover, pressed
   and keyboard-focus states, including marks, thumb placement and visible feedback.
   Luna sliders compare Qt/GTK3/GTK4 thumb pixels in both orientations, including

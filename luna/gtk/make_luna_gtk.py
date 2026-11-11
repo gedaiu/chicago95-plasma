@@ -175,7 +175,7 @@ def indicator_png(kind, colour):
     return buffer.getvalue()
 
 
-def tab_png(selected, hovered, position, fill=False):
+def tab_png(selected, hovered, position, fill=False, edge=False):
     import io
 
     from PIL import Image
@@ -198,8 +198,8 @@ def tab_png(selected, hovered, position, fill=False):
                     colour = "#919B9C"
             if colour:
                 image.putpixel((x, y), (*bytes.fromhex(colour[1:]), 255))
-    if fill:
-        image = image.crop((2, 0, 3, 21))
+    if fill or edge:
+        image = image.crop((0, 0, 1, 21) if edge else (2, 0, 3, 21))
     transforms = {"bottom": Image.Transpose.FLIP_TOP_BOTTOM, "left": Image.Transpose.ROTATE_90,
                   "right": Image.Transpose.ROTATE_270}
     if position in transforms:
@@ -218,8 +218,7 @@ def notebook_rules():
                 min_width="0", border_style="solid", border_color="transparent", border_radius="0",
                 background_image="none", background_color="transparent", box_shadow="none", color="#000000")
     yield block("notebook > header > tabs > tab label", padding="0", margin="0")
-    for position, edge, slices in (("top", "bottom", "3 1 2 1"), ("bottom", "top", "2 1 3 1"),
-                                   ("left", "right", "1 3 1 2"), ("right", "left", "1 2 1 3")):
+    for position, edge in (("top", "bottom"), ("bottom", "top"), ("left", "right"), ("right", "left")):
         header = f"notebook > header.{position}"
         horizontal = position in ("top", "bottom")
         yield block(header, background_image="linear-gradient(#919B9C, #919B9C)",
@@ -227,14 +226,34 @@ def notebook_rules():
                     background_size="100% 1px" if horizontal else "1px 100%")
         yield block(header + " + stack", **{f"border-{position}-width": "0"})
         for state, selected, hovered in (("", False, False), (":hover", False, True), (":checked", True, False)):
+            artwork = f"{position}-{int(selected)}-{int(hovered)}.png"
             yield block(header + " > tabs > tab" + state,
-                        border_width=" ".join(value + "px" for value in slices.split()),
-                        border_image_source=f'url("assets/tab-{position}-{int(selected)}-{int(hovered)}.png")',
-                        border_image_slice=slices, border_image_repeat="stretch",
-                        background_image=f'url("assets/tab-fill-{position}-{int(selected)}-{int(hovered)}.png")',
-                        background_size="100% 100%", background_origin="border-box", background_clip="border-box",
-                        min_height="16px" if horizontal else "0", min_width="0" if horizontal else "16px",
-                        padding="0 5px" if horizontal else "5px 0")
+                        border_width="0", border_image_source="none",
+                        background_image=(f'url("assets/tab-edge-{artwork}"), url("assets/tab-edge-{artwork}"), '
+                                          f'url("assets/tab-fill-{artwork}")'),
+                        background_size="1px 100%, 1px 100%, 1px 100%" if horizontal else "100% 1px, 100% 1px, 100% 1px",
+                        background_repeat="no-repeat, no-repeat, " + ("repeat-x" if horizontal else "repeat-y"),
+                        background_position="left top, right top, center" if horizontal else "left top, left bottom, center",
+                        background_origin="border-box", background_clip="border-box",
+                        min_height="21px" if horizontal else "14px", min_width="0" if horizontal else "21px",
+                        padding="0 6px" if horizontal else "6px 0")
+            if not horizontal:
+                direction = "right" if position == "left" else "left"
+                if selected:
+                    edge_fill = "#E68B2C 0px, #E68B2C 1px, #919B9C 1px, #919B9C 100%"
+                    body_fill = "#E68B2C 0px, #E68B2C 1px, #FFC83C 1px, #FFC83C 2px, #FFC73C 2px, #FFC73C 3px, #FCFCFE 3px"
+                else:
+                    edge_fill = ("transparent 0px, transparent 2px, #919B9C 2px, #919B9C calc(100% - 1px), "
+                                 "transparent calc(100% - 1px)")
+                    accent = "#FFC73C 2px, #FFC73C 4px, #FFFFFF 4px" if hovered else "#91A7B4 2px, #91A7B4 3px, #FFFFFF 3px"
+                    body_fill = (f"transparent 0px, transparent 2px, {accent}, #F0F0EA calc(100% - 2px), "
+                                 "#ECEBE6 calc(100% - 2px), #ECEBE6 calc(100% - 1px), transparent calc(100% - 1px)")
+                yield block(header + " > tabs > tab" + state,
+                            background_image=(f"linear-gradient(to {direction}, {edge_fill}), "
+                                              f"linear-gradient(to {direction}, {edge_fill}), "
+                                              f"linear-gradient(to {direction}, {body_fill})"))
+    yield block("notebook > header.top > tabs > tab:not(:checked) label", transform="translateY(1px)")
+    yield block("notebook > header.bottom > tabs > tab:not(:checked) label", transform="translateY(-1px)")
     yield block("notebook > header > tabs > tab:disabled", color=stops.DISABLED_TEXT)
 
 
@@ -899,8 +918,8 @@ def write_theme(out):
                 (assets / f"switch-{int(active)}-{state}.png").write_bytes(switch_png("track", active, state))
         for position in ("top", "bottom", "left", "right"):
             for selected, hovered in ((False, False), (False, True), (True, False)):
-                (assets / f"tab-{position}-{int(selected)}-{int(hovered)}.png").write_bytes(
-                    tab_png(selected, hovered, position))
+                (assets / f"tab-edge-{position}-{int(selected)}-{int(hovered)}.png").write_bytes(
+                    tab_png(selected, hovered, position, edge=True))
                 (assets / f"tab-fill-{position}-{int(selected)}-{int(hovered)}.png").write_bytes(
                     tab_png(selected, hovered, position, fill=True))
         for direction in STEPPER_ARROWS:

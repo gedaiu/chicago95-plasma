@@ -141,7 +141,7 @@ def classic_gtk_images(tmp_path_factory, gtk_images):
 
 @pytest.mark.parametrize("look", ("classic", "luna"))
 @pytest.mark.parametrize("position", ("top", "bottom", "left", "right"))
-@pytest.mark.parametrize("state", ("first", "second", "disabled"))
+@pytest.mark.parametrize("state", ("first", "second", "disabled", "hovered"))
 def test_gtk_tab_chrome_matches(gtk_images, classic_gtk_images, look, position, state, tmp_path):
     images = gtk_images if look == "luna" else classic_gtk_images
     a, b = (images[version, "tabs", f"{state}-{position}"] for version in ("3.0", "4.0"))
@@ -481,3 +481,37 @@ def test_luna_switches_match_in_both_positions_and_states(gtk_images, active, st
         if state == "normal":
             assert min(image.getpixel((26 if active else 9, 9))) > 200
             assert image.tobytes() != gtk_images[version, "switch", f"{'off' if active else 'on'}-normal"].tobytes()
+
+
+@pytest.mark.parametrize("state", ("first", "second", "disabled", "hovered"))
+def test_luna_top_tab_artwork_matches_qt_and_selected_tab_opens_into_page(qt_app, gtk_images, state):
+    import chicago95luna
+    from PySide6.QtGui import QColor
+    from PySide6.QtWidgets import QStyleOptionTab, QTabBar
+
+    style = chicago95luna.LunaStyle()
+    for index, sample_x in ((0, 20), (1, 70)):
+        selected = index == (1 if state == "second" else 0)
+        option = QStyleOptionTab()
+        option.rect = QRect(0, 0, 54, 21)
+        option.shape = QTabBar.RoundedNorth
+        option.position = QStyleOptionTab.OnlyOneTab
+        option.state = QStyle.State_None if state == "disabled" else QStyle.State_Enabled
+        if selected:
+            option.state |= QStyle.State_Selected
+        if state == "hovered" and index == 1:
+            option.state |= QStyle.State_MouseOver
+        image = QImage(54, 21, QImage.Format_RGB32)
+        image.fill(QColor(FACE))
+        painter = QPainter(image)
+        painter.fillRect(0, 20, 54, 1, QColor("#919B9C"))
+        style.drawControl(QStyle.CE_TabBarTabShape, option, painter)
+        painter.end()
+        qt = qimage_to_pil(image)
+        expected = [qt.getpixel((20, y)) for y in range(21)]
+        for version in ("3.0", "4.0"):
+            gtk = gtk_images[version, "tabs", f"{state}-top"]
+            assert [gtk.getpixel((sample_x, y)) for y in range(21)] == expected
+            if selected:
+                assert gtk.getpixel((sample_x, 20)) == gtk.getpixel((sample_x, 21)) == (252, 252, 254)
+                assert expected[:3] == [(230, 139, 44), (255, 200, 60), (255, 199, 60)]

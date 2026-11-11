@@ -560,11 +560,9 @@ def theme_icon_names():
 def themed_icon(name, *fallbacks):
     """The first of the names the icon set has; a path is used as is."""
     if name.startswith("/") and os.path.exists(name):
-        return QIcon(name)
-    for candidate in (name, *fallbacks):
-        if QIcon.hasThemeIcon(candidate):
-            return QIcon.fromTheme(candidate)
-    return QIcon.fromTheme(GENERIC_ICON)
+        return chicago95ui.crisp_icon(QIcon(name))
+    found = next((candidate for candidate in (name, *fallbacks) if QIcon.hasThemeIcon(candidate)), GENERIC_ICON)
+    return chicago95ui.crisp_icon(QIcon.fromTheme(found))
 
 
 # Root menu icons per style: the icon set and names whose pictures match the originals' 24px icons, found
@@ -838,7 +836,8 @@ def build_luna_menu():
         RetroMenu,
         ClickShield,
         user_name=getpass.getuser(),
-        user_picture=Path.home() / ".face",
+        user_picture=chicago95ui.user_picture_path(Path.home(), getpass.getuser(), chicago95ui.ACCOUNTS_ICONS),
+        programs_filler=fill_programs_menu,
         commands=luna_commands(),
         recent_path=CACHE_FILE.with_name("chicago95-startmenu-usage.json"),
     )
@@ -880,7 +879,9 @@ def apply_retro_look(app):
     QIcon.setFallbackSearchPaths(
         [f"{home}/.local/share/icons/Chicago95/apps/48", "/usr/share/pixmaps"] + QIcon.fallbackSearchPaths()
     )
-    QIcon.setThemeName(chicago95ui.icon_theme())  # the set chosen with the look
+    QIcon.setThemeName(
+        chicago95ui.menu_icon_theme(chicago95ui.icon_theme(), QIcon.themeSearchPaths())
+    )  # the look's set
     QIcon.setFallbackThemeName("hicolor")
 
 

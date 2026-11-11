@@ -873,8 +873,11 @@ place_start_menu() {
   local height
   height=$(QT_QPA_PLATFORM=offscreen QT_SCALE_FACTOR=1 python3 "$REPO/bin/chicago95-startmenu" --root-height 2>/dev/null | tail -1)
   [[ "$height" =~ ^[0-9]+$ ]] || height=$MENU_HEIGHT
+  # The classic menus stop a pixel short of the taskbar's top line; the XP menu sits right on the taskbar.
+  local gap=1
+  [ "${SETUP_START_MENU_STYLE:-1995}" = luna ] && gap=0
   kwin_rule chicago95-startmenu "Description=Chicago95 Start menu" "wmclass=chicago95-startmenu" "wmclassmatch=1" \
-    "title=chicago95-startmenu-root" "titlematch=1" "position=0,$((SETUP_HEIGHT - PANEL_HEIGHT - height - 1))" "positionrule=2" \
+    "title=chicago95-startmenu-root" "titlematch=1" "position=0,$((SETUP_HEIGHT - PANEL_HEIGHT - height - gap))" "positionrule=2" \
     "placement=Zero" "placementrule=2" "above=true" "aboverule=2" "skiptaskbar=true" "skiptaskbarrule=2" \
     "skippager=true" "skippagerrule=2" "skipswitcher=true" "skipswitcherrule=2" "noborder=true" "noborderrule=2" "types=1"
 }

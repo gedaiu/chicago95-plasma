@@ -58,13 +58,14 @@ if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
     os.environ.setdefault("QT_SCALE_FACTOR", detect_scale())
 os.environ.pop("QT_QPA_PLATFORMTHEME", None)
 
-from PySide6.QtCore import QEvent, QObject, QRect, QRectF, QSize, Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, QPointF, QRect, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import (
     QColor,
     QFont,
     QFontDatabase,
     QFontMetrics,
     QIcon,
+    QIconEngine,
     QImage,
     QLinearGradient,
     QPainter,
@@ -190,6 +191,75 @@ def icon_theme(path=None):
     settings.optionxform = str
     settings.read(path or KDEGLOBALS)
     return settings.get("Icons", "Theme", fallback="Chicago95")
+
+
+TOOLBAR_ICON_THEME = "Chicago95-Toolbar"
+ACCOUNTS_ICONS = Path("/var/lib/AccountsService/icons")
+
+
+def menu_icon_theme(theme, roots):
+    """The icon set menus draw from: the one under Chicago95-Toolbar, whose 22px Explorer buttons would stand in for
+    menu icons of the same names (Search, Run...)."""
+    if theme != TOOLBAR_ICON_THEME:
+        return theme
+    for root in roots:
+        index = configparser.ConfigParser(interpolation=None, strict=False)
+        if index.read(Path(root) / theme / "index.theme"):
+            return index.get("Icon Theme", "Inherits", fallback="hicolor").split(",")[0].strip() or "hicolor"
+    return theme
+
+
+def user_picture_path(home, user, accounts=ACCOUNTS_ICONS):
+    """The user's picture: ~/.face, ~/.face.icon, else the one KDE's Users settings keep for the account."""
+    candidates = [Path(home) / ".face", Path(home) / ".face.icon", Path(accounts) / user]
+    return next((path for path in candidates if path.is_file()), None)
+
+
+class CrispIconEngine(QIconEngine):
+    """An icon drawn from a whole-pixel picture: Qt's theme icons asked for at a fractional scale (1.5x) come back
+    as an opaque white square, and an icon with only a smaller picture is left small. Each picture is fetched at the
+    device size with no scale, stretched to it when the theme has nothing that large, then given the scale."""
+
+    def __init__(self, icon):
+        super().__init__()
+        self.icon = icon
+
+    def device_pixmap(self, size, mode, state, scale):
+        device = QSize(round(size.width() * scale), round(size.height() * scale))
+        picture = self.icon.pixmap(device, 1.0, mode, state)
+        if not picture.isNull() and picture.size() != device:
+            picture = picture.scaled(device, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        picture.setDevicePixelRatio(scale)
+        return picture
+
+    def scaledPixmap(self, size, mode, state, scale):  # noqa: N802
+        return self.device_pixmap(size, mode, state, scale)
+
+    def pixmap(self, size, mode, state):
+        return self.device_pixmap(size, mode, state, 1.0)
+
+    def paint(self, painter, rect, mode, state):
+        picture = self.device_pixmap(rect.size(), mode, state, painter.device().devicePixelRatioF())
+        logical = picture.deviceIndependentSize()
+        left = rect.x() + (rect.width() - logical.width()) / 2
+        top = rect.y() + (rect.height() - logical.height()) / 2
+        painter.drawPixmap(QPointF(left, top), picture)
+
+    def actualSize(self, size, mode, state):  # noqa: N802
+        return size
+
+    def availableSizes(self, mode=QIcon.Normal, state=QIcon.Off):  # noqa: N802
+        return self.icon.availableSizes(mode, state)
+
+    def isNull(self):  # noqa: N802
+        return self.icon.isNull()
+
+    def clone(self):
+        return CrispIconEngine(self.icon)
+
+
+def crisp_icon(icon):
+    return QIcon(CrispIconEngine(icon))
 
 
 def sound_file(theme, event, roots):
