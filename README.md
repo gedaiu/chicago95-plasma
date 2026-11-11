@@ -101,6 +101,10 @@ Office Assistant, extra tools, Control Panel, sound scheme, desktop background, 
 Dolphin), lock screen, splash screen, boot screen (Plymouth), login screen
 (SDDM), Firefox colours.
 
+Setup remembers: the components and choices of earlier runs are the defaults
+of the next one (flags and the screens still change them), so a reinstall or
+an update keeps your set-up with a few ENTERs.
+
 Options are pre-filled from detection and editable on the Setup Options
 screen or as flags:
 

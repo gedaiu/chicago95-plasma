@@ -874,3 +874,44 @@ def test_saved_settings_record_the_installed_commit_for_the_update_check(tmp_pat
     )
 
     assert saved == [f"COMMIT={head}"]
+
+
+def setup_log(home):
+    return next(home.glob("chicago95-setup-*.log")).read_text()
+
+
+def test_a_second_run_takes_the_previous_runs_choices_as_its_defaults(tmp_path):
+    run_setup(tmp_path, "--components=sounds", "--sounds=Windows98", "--look=2000", "--start-text=Go", "--panel=32")
+
+    run_setup(tmp_path, "--components=sounds")
+
+    assert {key: read_saved_settings(tmp_path).get(key) for key in ("SOUND_THEME", "LOOK", "START_TEXT", "PANEL")} == {
+        "SOUND_THEME": "Windows98",
+        "LOOK": "2000",
+        "START_TEXT": "Go",
+        "PANEL": "32",
+    }
+
+
+def test_a_flag_still_wins_over_the_remembered_choice(tmp_path):
+    run_setup(tmp_path, "--components=sounds", "--sounds=Windows98")
+
+    run_setup(tmp_path, "--components=sounds", "--sounds=Windows2000")
+
+    assert read_saved_settings(tmp_path)["SOUND_THEME"] == "Windows2000"
+
+
+def test_the_components_of_earlier_runs_are_remembered_and_picked_again_by_default(tmp_path):
+    run_setup(tmp_path, "--components=sounds,background")
+    run_setup(tmp_path, "--components=lockscreen")
+    for log in tmp_path.glob("chicago95-setup-*.log"):
+        log.unlink()
+
+    run_setup(tmp_path, "--dry-run")
+
+    picked = next(line for line in setup_log(tmp_path).splitlines() if line.startswith("Components: ")).split()[1:]
+
+    assert (read_saved_settings(tmp_path)["COMPONENTS"], picked) == (
+        "sounds background lockscreen",
+        ["sounds", "background", "lockscreen"],
+    )

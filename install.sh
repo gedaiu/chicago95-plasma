@@ -191,19 +191,24 @@ choose_sounds() {
     themes+=("$theme")
     names+=("$(sed -n 's/^Name=//p' "$REPO/data/sound-themes/$theme/index.theme")")
   done
-  choice=$(ui_choose "Sounds" "Which sound scheme should play for log on, log off, errors and windows?" 1 "${names[@]}")
+  local marked=1 index
+  for index in "${!themes[@]}"; do [ "${themes[$index]}" = "${SETUP_SOUND_THEME:-}" ] && marked=$((index + 1)); done
+  choice=$(ui_choose "Sounds" "Which sound scheme should play for log on, log off, errors and windows?" "$marked" "${names[@]}")
   SETUP_SOUND_THEME=${themes[$((choice - 1))]}
   return 0
 }
 
 choose_look() {
-  local choice
-  choice=$(ui_choose "Look" "How should title bars and the Start menu banner look?" 1 \
+  local choice marked=1
+  case "${SETUP_LOOK:-}" in 1998) marked=2 ;; 2000) marked=3 ;; custom) marked=4 ;; esac
+  choice=$(ui_choose "Look" "How should title bars and the Start menu banner look?" "$marked" \
     "1995: solid navy title bars, grey banner" \
     "1998: navy-to-blue title bars, navy banner with a blue glow, taller menu rows" \
     "2000: warm grey windows, navy-to-light-blue title bars, black-to-blue banner" \
     "Your own colours")
+  [ "$choice" = "$marked" ] && [ -n "${SETUP_LOOK:-}" ] && return 0 # the remembered look keeps its saved colours
   case "$choice" in
+  1) apply_look 1995 ;;
   2) apply_look 1998 ;;
   3) apply_look 2000 ;;
   4)
@@ -262,7 +267,9 @@ choose_font_scope() {
     "     ask for the system font." \
     "  2. Desktop only: window title bars. Programs and web pages keep your font." \
     "  3. Nowhere: Setup leaves your font settings alone."
-  case "$(ui_ask "Type 1, 2 or 3 and press ENTER" 1)" in
+  local marked=1
+  case "${SETUP_FONT_SCOPE:-}" in desktop) marked=2 ;; none) marked=3 ;; esac
+  case "$(ui_ask "Type 1, 2 or 3 and press ENTER" "$marked")" in
   2) SETUP_FONT_SCOPE=desktop ;;
   3) SETUP_FONT_SCOPE=none ;;
   *) SETUP_FONT_SCOPE=everywhere ;;
@@ -365,28 +372,38 @@ ui_step_done 0
 ui_step_start 1
 py_ok=1
 [ -n "$SETUP_PY_MISSING" ] && py_ok=0
+# Earlier runs' choices and components are this run's defaults; flags and the screens still change them.
+SAVED_SETTINGS=~/.config/chicago95/setup.conf
+[ -f "$SAVED_SETTINGS" ] && load_settings "$SAVED_SETTINGS"
+remembered() { # remembered <component> <default>   1 when an earlier run installed it, 0 when it was left out
+  [ -n "${SETUP_COMPONENTS:-}" ] && [ "$2" = 1 ] || {
+    echo "$2"
+    return
+  }
+  [[ " $SETUP_COMPONENTS " == *" $1 "* ]] && echo 1 || echo 0
+}
 if [ -n "$WANTED" ]; then
   COMPONENTS=$(printf '%s' "$WANTED" | tr ',' ' ')
 else
   COMPONENTS=$(ui_pick_components \
-    "base:Chicago95 base theme (GTK, icons, cursors, sounds):1" \
-    "look:Window decoration, Plasma style, colours, widget style:1" \
-    "taskbar:Taskbar (Start button, Quick Launch, task buttons, tray, clock):1" \
-    "startmenu:Start menu and Shut Down dialog:$py_ok" \
-    "notifications:Chicago95 notifications:$py_ok" \
-    "clippy:Office Assistant:$py_ok" \
-    "extras:System Properties, Device Manager, Dial-Up Networking, login chime:$py_ok" \
-    "controlpanel:Control Panel (change every choice later):$py_ok" \
-    "sounds:Sound scheme (Windows 98, Plus! 98, Windows 2000):1" \
-    "background:Desktop background (colour, pattern or picture):1" \
-    "screensaver:Screensaver (XScreenSaver hacks):$([ -n "$SETUP_HACK_DIR" ] && echo 1 || echo 0)" \
-    "winamp:Winamp (qmmp launch entries and window rule):$SETUP_HAS_QMMP" \
-    "explorer:Explorer (Thunar settings, GTK CSS, Dolphin toolbar):$SETUP_HAS_THUNAR" \
-    "lockscreen:Lock screen:1" \
-    "splash:Splash screen:1" \
-    "plymouth:Boot screen (asks for the administrator password):$(command -v plymouth-set-default-theme >/dev/null && [ "$SETUP_YES" = 0 ] && echo 1 || echo 0)" \
-    "sddm:Login screen (asks for the administrator password):$([ "$SETUP_HAS_SDDM" = 1 ] && [ "$SETUP_YES" = 0 ] && echo 1 || echo 0)" \
-    "firefox:Firefox system colours (user.js):$([ -n "$SETUP_FIREFOX_PROFILE" ] && echo 1 || echo 0)")
+    "base:Chicago95 base theme (GTK, icons, cursors, sounds):$(remembered base 1)" \
+    "look:Window decoration, Plasma style, colours, widget style:$(remembered look 1)" \
+    "taskbar:Taskbar (Start button, Quick Launch, task buttons, tray, clock):$(remembered taskbar 1)" \
+    "startmenu:Start menu and Shut Down dialog:$(remembered startmenu $py_ok)" \
+    "notifications:Chicago95 notifications:$(remembered notifications $py_ok)" \
+    "clippy:Office Assistant:$(remembered clippy $py_ok)" \
+    "extras:System Properties, Device Manager, Dial-Up Networking, login chime:$(remembered extras $py_ok)" \
+    "controlpanel:Control Panel (change every choice later):$(remembered controlpanel $py_ok)" \
+    "sounds:Sound scheme (Windows 98, Plus! 98, Windows 2000):$(remembered sounds 1)" \
+    "background:Desktop background (colour, pattern or picture):$(remembered background 1)" \
+    "screensaver:Screensaver (XScreenSaver hacks):$(remembered screensaver "$([ -n "$SETUP_HACK_DIR" ] && echo 1 || echo 0)")" \
+    "winamp:Winamp (qmmp launch entries and window rule):$(remembered winamp $SETUP_HAS_QMMP)" \
+    "explorer:Explorer (Thunar settings, GTK CSS, Dolphin toolbar):$(remembered explorer $SETUP_HAS_THUNAR)" \
+    "lockscreen:Lock screen:$(remembered lockscreen 1)" \
+    "splash:Splash screen:$(remembered splash 1)" \
+    "plymouth:Boot screen (asks for the administrator password):$(remembered plymouth "$(command -v plymouth-set-default-theme >/dev/null && [ "$SETUP_YES" = 0 ] && echo 1 || echo 0)")" \
+    "sddm:Login screen (asks for the administrator password):$(remembered sddm "$([ "$SETUP_HAS_SDDM" = 1 ] && [ "$SETUP_YES" = 0 ] && echo 1 || echo 0)")" \
+    "firefox:Firefox system colours (user.js):$(remembered firefox "$([ -n "$SETUP_FIREFOX_PROFILE" ] && echo 1 || echo 0)")")
 fi
 printf 'Components: %s\n' "$COMPONENTS" >>"$SETUP_LOG"
 
@@ -408,39 +425,40 @@ while IFS='=' read -r name value; do
   esac
 done < <(ui_pick_options \
   "screen|Screen size and scale (WxH@scale)|${OPT_SCREEN:-${SETUP_WIDTH}x${SETUP_HEIGHT}@${SETUP_SCALE}}" \
-  "panel|Taskbar height in pixels (classic is 28)|${OPT_PANEL:-28}" \
-  "explorer|File manager for Explorer (thunar/dolphin)|${OPT_EXPLORER:-$([ "$SETUP_HAS_THUNAR" = 1 ] && echo thunar || echo dolphin)}" \
-  "idle|Screensaver after (minutes)|${OPT_IDLE:-5}" \
-  "cursor|Cursor size (24/32/48)|${OPT_CURSOR:-$(awk -v s="$SETUP_SCALE" 'BEGIN{print (s>1)?48:32}')}" \
-  "clippy|Office Assistant at login (yes/no)|${OPT_CLIPPY:-yes}" \
-  "quicklaunch|Quick Launch on the taskbar (yes/no/auto: from the 1998 look on)|${OPT_QUICK_LAUNCH:-auto}" \
-  "font|UI font family|${OPT_FONT:-MS W98 UI}")
-SETUP_FONT_SCOPE=${OPT_FONT_SCOPE:-everywhere}
+  "panel|Taskbar height in pixels (classic is 28)|${OPT_PANEL:-${SETUP_PANEL:-28}}" \
+  "explorer|File manager for Explorer (thunar/dolphin)|${OPT_EXPLORER:-${SETUP_EXPLORER:-$([ "$SETUP_HAS_THUNAR" = 1 ] && echo thunar || echo dolphin)}}" \
+  "idle|Screensaver after (minutes)|${OPT_IDLE:-${SETUP_IDLE_MIN:-5}}" \
+  "cursor|Cursor size (24/32/48)|${OPT_CURSOR:-${SETUP_CURSOR:-$(awk -v s="$SETUP_SCALE" 'BEGIN{print (s>1)?48:32}')}}" \
+  "clippy|Office Assistant at login (yes/no)|${OPT_CLIPPY:-${SETUP_CLIPPY_AUTOSTART:-yes}}" \
+  "quicklaunch|Quick Launch on the taskbar (yes/no/auto: from the 1998 look on)|${OPT_QUICK_LAUNCH:-${SETUP_QUICK_LAUNCH:-auto}}" \
+  "font|UI font family|${OPT_FONT:-${SETUP_FONT:-MS W98 UI}}")
+SETUP_FONT_SCOPE=${OPT_FONT_SCOPE:-${SETUP_FONT_SCOPE:-everywhere}}
 [ -n "${OPT_FONT_SCOPE:-}" ] || choose_font_scope
-apply_look "${OPT_LOOK:-1995}"
+# A remembered look keeps its saved colours (a custom one has nothing else); a flag or a first run applies the look.
+if [ -n "${OPT_LOOK:-}" ] || [ -z "${SETUP_LOOK:-}" ]; then apply_look "${OPT_LOOK:-1995}"; fi
 [ -n "${OPT_LOOK:-}" ] || choose_look
-SETUP_START_TEXT=${OPT_START_TEXT:-Start}
-SETUP_START_LOGO=${OPT_START_LOGO:-flag}
-SETUP_BANNER_TEXT=${OPT_BANNER_TEXT:-Chicago95}
+SETUP_START_TEXT=${OPT_START_TEXT:-${SETUP_START_TEXT:-Start}}
+SETUP_START_LOGO=${OPT_START_LOGO:-${SETUP_START_LOGO:-flag}}
+SETUP_BANNER_TEXT=${OPT_BANNER_TEXT:-${SETUP_BANNER_TEXT:-Chicago95}}
 [[ " $COMPONENTS " == *" startmenu "* || " $COMPONENTS " == *" taskbar "* ]] && choose_start_menu
-SETUP_LOGIN_STYLE=${OPT_LOGIN_STYLE:-classic}
+SETUP_LOGIN_STYLE=${OPT_LOGIN_STYLE:-${SETUP_LOGIN_STYLE:-classic}}
 [[ " $COMPONENTS " == *" sddm "* || " $COMPONENTS " == *" splash "* ]] && [ -z "${OPT_LOGIN_STYLE:-}" ] && choose_login_style
-SETUP_LOGIN_TITLE="Log On to %h"
-SETUP_LOGIN_MESSAGE="Type a user name and password to log on."
-SETUP_LOGIN_ICON=keys
-SETUP_SPLASH_IMAGE=classic
+SETUP_LOGIN_TITLE=${SETUP_LOGIN_TITLE:-"Log On to %h"}
+SETUP_LOGIN_MESSAGE=${SETUP_LOGIN_MESSAGE:-"Type a user name and password to log on."}
+SETUP_LOGIN_ICON=${SETUP_LOGIN_ICON:-keys}
+SETUP_SPLASH_IMAGE=${SETUP_SPLASH_IMAGE:-classic}
 # The 2000 look's logo is the waving flag of its start-up screen; the others repeat the Start button's logo.
-SETUP_LOGIN_LOGO=$([ "$SETUP_MENU_STYLE" = 2000 ] && echo waving-flag || echo start)
-SETUP_EDITION=Professional
-SETUP_TAGLINE="Built on Linux Technology"
-SETUP_COMPANY=KDE
-SETUP_COMPANY_LOGO=text
-SETUP_LOADING_TEXT="Starting up..."
-SETUP_LOADING_FOOTER="Chicago95 for KDE Plasma"
+SETUP_LOGIN_LOGO=${SETUP_LOGIN_LOGO:-$([ "$SETUP_MENU_STYLE" = 2000 ] && echo waving-flag || echo start)}
+SETUP_EDITION=${SETUP_EDITION:-Professional}
+SETUP_TAGLINE=${SETUP_TAGLINE:-"Built on Linux Technology"}
+SETUP_COMPANY=${SETUP_COMPANY:-KDE}
+SETUP_COMPANY_LOGO=${SETUP_COMPANY_LOGO:-text}
+SETUP_LOADING_TEXT=${SETUP_LOADING_TEXT:-"Starting up..."}
+SETUP_LOADING_FOOTER=${SETUP_LOADING_FOOTER:-"Chicago95 for KDE Plasma"}
 [[ " $COMPONENTS " == *" sddm "* || " $COMPONENTS " == *" splash "* ]] && choose_branding
-SETUP_SAVER=${OPT_SAVER:-deepstars}
+SETUP_SAVER=${OPT_SAVER:-${SETUP_SAVER:-deepstars}}
 [[ " $COMPONENTS " == *" screensaver "* ]] && [ "$py_ok" = 1 ] && choose_screensaver
-SETUP_SOUND_THEME=${OPT_SOUNDS:-Chicago95}
+SETUP_SOUND_THEME=${OPT_SOUNDS:-${SETUP_SOUND_THEME:-Chicago95}}
 [[ " $COMPONENTS " == *" sounds "* ]] && [ -z "${OPT_SOUNDS:-}" ] && choose_sounds
 [ -n "${OPT_SETTINGS:-}" ] && load_settings "$OPT_SETTINGS"
 [ -n "${OPT_TASK_BUTTON_WIDTH:-}" ] && SETUP_TASK_BUTTON_WIDTH=$OPT_TASK_BUTTON_WIDTH

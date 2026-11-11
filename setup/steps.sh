@@ -123,10 +123,22 @@ save_settings() { # keys this run did not set keep their saved values
       variable=SETUP_$key
       if [ -n "${!variable+x}" ]; then printf '%s=%s\n' "$key" "${!variable}"; else grep -m1 "^$key=" <<<"$previous" || true; fi
     done
+    printf 'COMPONENTS=%s\n' "$(remembered_components "$previous")"
     printf 'REPO=%s\n' "$REPO"
     printf 'COMMIT=%s\n' "$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown)" # the update check compares it with the origin
   } >"$file"
   record "$file"
+}
+
+remembered_components() { # remembered_components <previous setup.conf text>   every component installed so far, in order
+  local component known
+  known=" $(sed -n 's/^COMPONENTS=//p' <<<"$1" | tail -1) "
+  for component in ${COMPONENTS:-}; do
+    [[ "$known" == *" $component "* ]] || known+="$component "
+  done
+  known="${known# }"
+  known="${known% }"
+  printf '%s' "${known# }"
 }
 
 load_settings() { # load_settings <file>   values are data: the file is read, never executed
@@ -134,7 +146,7 @@ load_settings() { # load_settings <file>   values are data: the file is read, ne
   look=$(sed -n 's/^LOOK=//p' "$1" | tail -1)
   case "$look" in 1995 | 1998 | 2000) apply_look "$look" ;; esac
   while IFS='=' read -r key value; do
-    case " ${SETTINGS_KEYS//$'\n'/ } " in *" $key "*) printf -v "SETUP_$key" '%s' "$value" ;; esac
+    case " ${SETTINGS_KEYS//$'\n'/ } COMPONENTS " in *" $key "*) printf -v "SETUP_$key" '%s' "$value" ;; esac
   done <"$1"
 }
 

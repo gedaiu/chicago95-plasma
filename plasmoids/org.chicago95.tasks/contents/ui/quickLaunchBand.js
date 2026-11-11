@@ -12,13 +12,15 @@ const METRICS = {
   gapWithoutQuickLaunch: 4,
   taskButtonGap: 3,
 };
+const FIT = -1;
 
 function metrics() {
   return METRICS;
 }
 
+// `size` is the band's width in pixels between its separators, or FIT for as wide as all its launchers.
 // eslint-disable-next-line max-params -- QML and its tests pass the taskbar's geometry positionally
-function layout(width, contentX, lead, count, cells, dock) {
+function layout(width, contentX, lead, count, size, dock) {
   if (count === 0) {
     return {
       leftSeparatorX: -1,
@@ -32,30 +34,41 @@ function layout(width, contentX, lead, count, cells, dock) {
     };
   }
 
-  const taskbar = { width: width, contentX: contentX, lead: lead, count: count, cells: cells };
+  const taskbar = { width: width, contentX: contentX, lead: lead, count: count, size: size };
 
   return dock === "right" ? rightDockedLayout(taskbar) : leftDockedLayout(taskbar);
 }
 
-// The left separator docks the band by the half of the taskbar it is let go in.
+function dockAfterDrag(gripX, width) {
+  return gripX < width / 2 ? "left" : "right";
+}
+
+function outerSeparator(dock) {
+  return dock === "right" ? "rightSeparatorX" : "leftSeparatorX";
+}
+
+// The inner separator's band reaches it; the band never gets narrower than its chevron nor wider than half the taskbar.
 // eslint-disable-next-line max-params -- as layout()
-function leftSeparatorReleased(gripX, width, contentX, lead, count, cells, dock) {
-  return { dock: gripX < width / 2 ? "left" : "right", cells: cells };
+function sizeAfterDrag(gripX, width, contentX, lead, dock) {
+  const reached =
+    dock === "right"
+      ? restingBandEnd(width) - gripX - separatorWidth(METRICS.separatorLead)
+      : gripX - METRICS.gapBeforeRightSeparator - contentX - separatorWidth(lead);
+
+  return Math.max(METRICS.chevronWidth, Math.min(Math.floor(width / 2), reached));
 }
 
 // eslint-disable-next-line max-params -- as layout()
-function rightSeparatorReleased(gripX, width, contentX, lead, count, cells, dock) {
-  return dock === "right"
-    ? { dock: dock, cells: cellsFitting(bandWidth(count, cells) + gripX - restingRightSeparatorX(width), count) }
-    : {
-        dock: dock,
-        cells: cellsFitting(gripX - METRICS.gapBeforeRightSeparator - contentX - separatorWidth(lead), count),
-      };
+function carriedShift(gripX, shape, dock, width, contentX) {
+  const leftmost = contentX - shape.leftSeparatorX;
+  const rightmost = width - shape.rightSeparatorX - separatorWidth(METRICS.separatorLead);
+
+  return Math.max(leftmost, Math.min(rightmost, gripX - shape[outerSeparator(dock)]));
 }
 
 // The chevron sits at the band's far end from its dock, so docked right it holds the first launchers.
-function chevronLaunchers(count, cells, dock) {
-  const chevronCount = count - shownCount(count, cells);
+function chevronLaunchers(count, size, dock) {
+  const chevronCount = count - shownCount(count, size);
   const first = dock === "right" ? 0 : count - chevronCount;
   const launchers = [];
 
@@ -65,16 +78,17 @@ function chevronLaunchers(count, cells, dock) {
 }
 
 function leftDockedLayout(taskbar) {
-  const shown = shownCount(taskbar.count, taskbar.cells);
-  const cellsX = taskbar.contentX + separatorWidth(taskbar.lead);
-  const rightSeparatorX = cellsX + bandWidth(taskbar.count, taskbar.cells) + METRICS.gapBeforeRightSeparator;
+  const shown = shownCount(taskbar.count, taskbar.size);
+  const bandX = taskbar.contentX + separatorWidth(taskbar.lead);
+  const bandEnd = bandX + bandWidth(taskbar.count, taskbar.size);
+  const rightSeparatorX = bandEnd + METRICS.gapBeforeRightSeparator;
 
   return {
     leftSeparatorX: taskbar.contentX,
-    cellsX: cellsX,
+    cellsX: bandX,
     shown: shown,
     firstShown: 0,
-    chevronX: shown < taskbar.count ? cellsX + cellsWidth(shown) : -1,
+    chevronX: shown < taskbar.count ? bandEnd - METRICS.chevronWidth : -1,
     rightSeparatorX: rightSeparatorX,
     tasksX: rightSeparatorX + separatorWidth(METRICS.separatorLead),
     tasksEnd: taskbar.width,
@@ -82,39 +96,36 @@ function leftDockedLayout(taskbar) {
 }
 
 function rightDockedLayout(taskbar) {
-  const shown = shownCount(taskbar.count, taskbar.cells);
-  const rightSeparatorX = restingRightSeparatorX(taskbar.width);
-  const bandEnd = rightSeparatorX - METRICS.gapBeforeRightSeparator;
-  const bandX = bandEnd - bandWidth(taskbar.count, taskbar.cells);
+  const shown = shownCount(taskbar.count, taskbar.size);
+  const chevron = shown < taskbar.count;
+  const bandX = restingBandEnd(taskbar.width) - bandWidth(taskbar.count, taskbar.size);
   const leftSeparatorX = bandX - separatorWidth(METRICS.separatorLead);
 
   return {
     leftSeparatorX: leftSeparatorX,
-    cellsX: bandEnd - cellsWidth(shown),
+    cellsX: bandX + (chevron ? METRICS.chevronWidth : 0),
     shown: shown,
     firstShown: taskbar.count - shown,
-    chevronX: shown < taskbar.count ? bandX : -1,
-    rightSeparatorX: rightSeparatorX,
+    chevronX: chevron ? bandX : -1,
+    rightSeparatorX: taskbar.width - separatorWidth(METRICS.separatorLead),
     tasksX: taskbar.contentX + METRICS.gapWithoutQuickLaunch,
     tasksEnd: leftSeparatorX,
   };
 }
 
-function restingRightSeparatorX(width) {
-  return width - separatorWidth(METRICS.separatorLead);
+function restingBandEnd(width) {
+  return width - separatorWidth(METRICS.separatorLead) - METRICS.gapBeforeRightSeparator;
 }
 
-// All the cells when the space holds them, else as many as fit beside the chevron.
-function cellsFitting(space, count) {
-  if (space >= cellsWidth(count)) return -1;
-
-  return Math.max(0, Math.min(count - 1, Math.round((space - METRICS.chevronWidth) / METRICS.cellWidth)));
+function bandWidth(count, size) {
+  return size === FIT ? cellsWidth(count) : size;
 }
 
-function bandWidth(count, cells) {
-  const shown = shownCount(count, cells);
+// All the launchers when the band holds them, else as many as fit beside the chevron.
+function shownCount(count, size) {
+  if (size === FIT || size >= cellsWidth(count)) return count;
 
-  return cellsWidth(shown) + (shown < count ? METRICS.chevronWidth : 0);
+  return Math.max(0, Math.floor((size - METRICS.chevronWidth) / METRICS.cellWidth));
 }
 
 function separatorWidth(lead) {
@@ -123,8 +134,4 @@ function separatorWidth(lead) {
 
 function cellsWidth(count) {
   return count * METRICS.cellWidth;
-}
-
-function shownCount(count, cells) {
-  return cells < 0 ? count : Math.min(cells, count);
 }
