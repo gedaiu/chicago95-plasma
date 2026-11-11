@@ -49,3 +49,10 @@ System Properties, from other pages:
 | `win98datetime02.png` | https://www.tech2u.com.au/training/tech2u/win98_2/images/date02.gif (Windows 98 Date/Time Properties: the Time Zone tab with its check box) |
 | `win98datetime03.png` | https://www.tech2u.com.au/training/tech2u/win98_2/images/date03.gif (Windows 98 Date/Time Properties: an open drop-down list at 1:1) |
 | `win98datetime04.png` | https://www.tech2u.com.au/training/tech2u/win98_2/images/date04.gif (Windows 98 Date/Time Properties: a disabled check box and an enabled Apply) |
+| `win98screensaver.png` | https://www.tech2u.com.au/training/tech2u/win98_2/desktop04.gif (Windows 98: Display Properties, Screen Saver tab: monitor preview, grouped combo with Settings and Preview, Wait spin box) |
+| `win98flowerbox.png` | https://www.tech2u.com.au/training/tech2u/win98_2/desktop05.gif (Windows 98: 3D FlowerBox Setup: radio buttons, check boxes, sliders with end labels, group frames) |
+| `win98effects.png` | https://www.tech2u.com.au/training/tech2u/win98_2/desktop07.gif (Windows 98: Display Properties, Effects tab: grouped check boxes) |
+| `win98viewmenu.png` | https://www.tech2u.com.au/training/tech2u/win98_1/appear01.gif (Windows 98: an open View menu at 1:1: check marks, a bullet, submenu arrows, separators) |
+| `win98mouse.png` | https://www.tech2u.com.au/training/tech2u/win98_2/mouse01.gif (Windows 98: Mouse Properties: radio buttons, a slider with Slow and Fast labels) |
+| `win98shutdown2.png` | https://www.tech2u.com.au/training/tech2u/win98_1/shutdown02.gif (Windows 98: Shut Down Windows: radio buttons and a Help button) |
+| `win98copying.png` | https://www.tech2u.com.au/training/tech2u/win98_1/copying03.gif (Windows 98: the Copying dialog: a progress bar with Cancel) |

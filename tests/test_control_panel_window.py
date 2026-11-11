@@ -259,7 +259,8 @@ def saved_settings_with_a_setup_checkout(window, tmp_path, **settings):
 
 def change_the_pointer_size(window, index=2):
     window.open_applet("Mouse")
-    window.pages.currentWidget().tabs.widget(0).findChildren(QComboBox)[0].setCurrentIndex(index)
+    from PySide6.QtWidgets import QRadioButton
+    window.pages.currentWidget().tabs.widget(0).findChildren(QRadioButton)[index].setChecked(True)
     return window.pages.currentWidget()
 
 

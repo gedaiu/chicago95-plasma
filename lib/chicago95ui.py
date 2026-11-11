@@ -41,7 +41,7 @@ if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
 os.environ.pop("QT_QPA_PLATFORMTHEME", None)
 
 from PySide6.QtCore import QEvent, QRect, QRectF, Qt, QTimer  # noqa: E402
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QLinearGradient, QPainter, QPainterPath, QPalette, QPen, QRadialGradient  # noqa: E402
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetrics, QIcon, QLinearGradient, QPainter, QPainterPath, QPalette, QPen, QRadialGradient  # noqa: E402
 from PySide6.QtWidgets import QApplication, QDialog, QFrame, QProxyStyle, QPushButton, QStyle, QStyledItemDelegate, QStyleOptionTab, QWidget  # noqa: E402
 
 KDEGLOBALS = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "kdeglobals")
@@ -310,6 +310,42 @@ def make_app(app_name):
 DIALOG_BUTTON_SIZE = (75, 23)
 
 
+TASK_BUTTON_HEIGHT, TASK_ICON_LEFT, TASK_ICON_TOP, TASK_LABEL_TOP = 22, 4, 3, 6
+TASK_LABEL_LEFT = {"2000": 22}   # else 23: Tahoma has no blank column before its capitals
+
+
+def paint_task_button(painter, rect, caption, icon, pressed, look, face=None):
+    """One taskbar button as the originals draw it and as the taskbar plasmoid does (TaskButton.qml,
+    tests/test_plasma_taskbar_reference.py): a 2px bevel, raised, or sunken over a white row and a white
+    and face checkerboard when pressed; the icon 16px at 4,3 and the title from 23px, a pixel lower while
+    pressed, bold for the active window."""
+    face = face or SCHEME["face"]
+    bevel = bevel_colors(face, look)
+    white = QColor("#ffffff")
+    rings = [(bevel["dark"], white), (bevel["shadow"], bevel["light"])] if pressed else [(white, bevel["dark"]), (bevel["light"], bevel["shadow"])]
+    painter.fillRect(rect, face)
+    for depth, (top_left, bottom_right) in enumerate(rings):
+        edge = rect.adjusted(depth, depth, -depth, -depth)
+        painter.fillRect(edge.left(), edge.top(), edge.width(), 1, top_left)
+        painter.fillRect(edge.left(), edge.top(), 1, edge.height(), top_left)
+        painter.fillRect(edge.left(), edge.bottom(), edge.width(), 1, bottom_right)
+        painter.fillRect(edge.right(), edge.top(), 1, edge.height(), bottom_right)
+    if pressed:
+        inside = rect.adjusted(2, 2, -2, -2)
+        painter.fillRect(inside.left(), inside.top(), inside.width(), 1, white)
+        for y in range(inside.top() + 1, inside.bottom() + 1):
+            for x in range(inside.left() + (y - inside.top() - 1) % 2, inside.right() + 1, 2):
+                painter.fillRect(x, y, 1, 1, white)
+    shift = 1 if pressed else 0
+    if icon is not None:
+        icon.paint(painter, rect.left() + TASK_ICON_LEFT, rect.top() + TASK_ICON_TOP + shift, 16, 16)
+    painter.setFont(ui_font(11, bold=pressed))
+    painter.setPen(QColor("#000000"))
+    label_left = rect.left() + TASK_LABEL_LEFT.get(look, 23)
+    label = QRect(label_left, rect.top() + TASK_LABEL_TOP + shift, max(0, rect.right() - 3 - label_left), 14)
+    painter.drawText(label, Qt.AlignLeft | Qt.AlignTop, QFontMetrics(painter.font()).elidedText(caption, Qt.ElideRight, label.width()))
+
+
 def dialog_button(caption, enabled=True):
     button = QPushButton(caption)
     button.setFixedSize(*DIALOG_BUTTON_SIZE)
@@ -392,6 +428,26 @@ class ClassicStyle(QProxyStyle):
             return
         super().drawPrimitive(element, option, painter, widget)
 
+    def drawControl(self, element, option, painter, widget=None):
+        if element == QStyle.CE_TabBarTabLabel and not option.state & QStyle.State_Selected:
+            # An unselected tab's label rectangle clips the font's top row: it grows two rows upwards, which
+            # moves the centred caption up one and its clip up two.
+            option = QStyleOptionTab(option)
+            option.rect.adjust(0, -2, 0, 0)
+        # A checked item of an exclusive group carries a round bullet, as the originals' menus do, not a tick.
+        if element == QStyle.CE_MenuItem and option.checkType == option.CheckType.Exclusive and option.checked:
+            plain = type(option)(option)
+            plain.checked = False
+            super().drawControl(element, plain, painter, widget)
+            selected = option.state & QStyle.State_Selected
+            colour = (option.palette.highlightedText() if selected else option.palette.text()).color()
+            left = option.rect.left() + 6
+            top = option.rect.top() + (option.rect.height() - 4) // 2
+            for row, (inset, width) in enumerate(((1, 2), (0, 4), (0, 4), (1, 2))):
+                painter.fillRect(left + inset, top + row, width, 1, colour)
+            return
+        super().drawControl(element, option, painter, widget)
+
     def drawComplexControl(self, control, option, painter, widget=None):
         super().drawComplexControl(control, option, painter, widget)
         # A closed drop-down's field is white up to its 2px frame, and the window colour when disabled;
@@ -422,14 +478,6 @@ class ClassicStyle(QProxyStyle):
         if contents == QStyle.CT_ComboBox:
             grown.setHeight(grown.height() + 1)   # the originals' lists are a row taller than Qt's
         return grown
-
-    def drawControl(self, element, option, painter, widget=None):
-        if element == QStyle.CE_TabBarTabLabel and not option.state & QStyle.State_Selected:
-            # An unselected tab's label rectangle clips the font's top row: it grows two rows upwards, which
-            # moves the centred caption up one and its clip up two.
-            option = QStyleOptionTab(option)
-            option.rect.adjust(0, -2, 0, 0)
-        super().drawControl(element, option, painter, widget)
 
     def pixelMetric(self, metric, option=None, widget=None):
         if metric in (QStyle.PM_IndicatorWidth, QStyle.PM_IndicatorHeight):

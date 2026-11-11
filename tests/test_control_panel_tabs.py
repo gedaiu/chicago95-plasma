@@ -149,7 +149,8 @@ def test_mouse_pointer_tab_reports_the_saved_pointer_size_and_defaults_to_32(con
 def test_mouse_pointer_tab_offers_24_32_and_48_pixel_pointers(control_panel, qt_app):
     tab = control_panel.build_tab("Mouse", "Pointer", {}, control_panel.Actions())
 
-    assert [tab.findChildren(QComboBox)[0].itemData(index) for index in range(3)] == ["24", "32", "48"]
+    from PySide6.QtWidgets import QRadioButton
+    assert [button.text() for button in tab.findChildren(QRadioButton)] == ["Normal (24 pixels)", "Large (32 pixels)", "Extra large (48 pixels)"]
 
 
 def built(control_panel, applet, tab, settings=None, **actions):
@@ -166,11 +167,11 @@ def test_explorer_tab_defaults_to_thunar_when_it_is_installed(control_panel, qt_
 
 
 def test_explorer_tab_defaults_to_dolphin_and_disables_thunar_when_thunar_is_missing(control_panel, qt_app):
+    from PySide6.QtWidgets import QRadioButton
     tab = built(control_panel, "Explorer", "General", program_installed=lambda name: None)
-    combo = tab.findChildren(QComboBox)[0]
+    buttons = {button.text(): button.isEnabled() for button in tab.findChildren(QRadioButton)}
 
-    assert (tab.values(), combo.model().item(combo.findData("thunar")).isEnabled(), combo.model().item(combo.findData("dolphin")).isEnabled()) == (
-        {"EXPLORER": "dolphin"}, False, True)
+    assert (tab.values(), buttons) == ({"EXPLORER": "dolphin"}, {"Thunar": False, "Dolphin": True})
 
 
 def test_fonts_tab_defaults_to_the_classic_font_everywhere_and_shows_a_saved_font_even_when_not_installed(control_panel, qt_app):
@@ -640,7 +641,7 @@ def test_taskbar_options_groups_the_taskbar_and_the_clock(control_panel, qt_app)
 
 
 def test_log_on_groups_the_window_and_its_pictures(control_panel, qt_app):
-    assert group_titles(built(control_panel, "Passwords", "Log On")) == ["Log on window", "Pictures"]
+    assert group_titles(built(control_panel, "Passwords", "Log On")) == ["Log on window", "Style", "Pictures"]
 
 
 def test_appearance_groups_the_scheme_and_the_icons(control_panel, qt_app):
@@ -675,3 +676,77 @@ def test_spin_boxes_are_narrow_like_the_originals_instead_of_stretching(control_
     spin = tab.findChildren(QSpinBox)[0]
 
     assert spin.width() <= 80
+
+
+def test_radio_field_offers_each_option_as_a_radio_button_and_reports_the_checked_one(make_tab):
+    from PySide6.QtWidgets import QRadioButton
+    tab = make_tab({"LOGIN_STYLE": "2000"})
+    group = tab.radios("LOGIN_STYLE", "Style", [("Classic", "classic"), ("Windows 2000", "2000")], default="classic")
+    buttons = group.findChildren(QRadioButton)
+    saved = tab.values()
+    buttons[0].setChecked(True)
+
+    assert ([button.text() for button in buttons], saved, tab.values(), len(tab.changes)) == (["Classic", "Windows 2000"], {"LOGIN_STYLE": "2000"}, {"LOGIN_STYLE": "classic"}, 1)
+
+
+def test_radio_field_with_a_saved_value_that_is_not_an_option_checks_the_default(make_tab):
+    tab = make_tab({"LOGIN_STYLE": "gone"})
+    tab.radios("LOGIN_STYLE", "Style", [("Classic", "classic"), ("Windows 2000", "2000")], default="classic")
+
+    assert tab.values() == {"LOGIN_STYLE": "classic"}
+
+
+def test_radio_field_sits_in_a_titled_group_like_the_originals(make_tab):
+    from PySide6.QtWidgets import QGroupBox
+    tab = make_tab()
+    group = tab.radios("CURSOR", "Pointer size", [("Normal", "24"), ("Large", "32")], default="32")
+
+    assert (isinstance(group, QGroupBox), group.title()) == (True, "Pointer size")
+
+
+def test_two_and_three_way_choices_are_radio_buttons_as_in_the_originals(control_panel, qt_app):
+    from PySide6.QtWidgets import QRadioButton
+    counts = {}
+    for applet, tab_name, key in (("Passwords", "Log On", "LOGIN_STYLE"), ("Mouse", "Pointer", "CURSOR"), ("Explorer", "General", "EXPLORER"),
+                                  ("Fonts", "Font", "FONT_SCOPE"), ("Display", "Background", "BACKGROUND_MODE")):
+        tab = built(control_panel, applet, tab_name, None, program_installed=lambda name: f"/usr/bin/{name}")
+        counts[key] = len(tab.findChildren(QRadioButton))
+
+    assert counts == {"LOGIN_STYLE": 2, "CURSOR": 3, "EXPLORER": 2, "FONT_SCOPE": 3, "BACKGROUND_MODE": 3}
+
+
+def preview_image(control_panel, qt_app, look="1998"):
+    """The task button preview at 160px, with a solid green 16px icon, grabbed."""
+    from PIL import Image
+    from PySide6.QtGui import QColor, QIcon, QPixmap
+    from reference import qimage_to_pil
+    field = width_field(built(control_panel, "Taskbar", "Taskbar Options", {"TASK_BUTTON_WIDTH": "160", "LOOK": look}))
+    square = QPixmap(16, 16)
+    square.fill(QColor(0, 200, 0))
+    field.preview.icon = QIcon(square)
+    field.preview.resize(field.preview.sizeHint())
+    field.preview.show()
+    qt_app.processEvents()
+    image = qimage_to_pil(field.preview.grab().toImage())
+    field.preview.close()
+    return image
+
+
+def test_width_preview_draws_a_raised_and_a_pressed_task_button_like_the_taskbar(control_panel, qt_app):
+    """As tests/test_plasma_taskbar_reference.py measures the real taskbar: 22px tall, the icon 16px at
+    4,3, the title from x 23 (not centred), the second button sunken with the white and face
+    checkerboard and its icon a pixel lower, the buttons 3px apart."""
+    image = preview_image(control_panel, qt_app)
+    green = (0, 200, 0)
+    first = [(x, y) for x in range(160) for y in range(image.height) if image.getpixel((x, y)) == green]
+    second = [(x, y) for x in range(163, 323) for y in range(image.height) if image.getpixel((x, y)) == green]
+    first_box = (min(x for x, _ in first), min(y for _, y in first), max(x for x, _ in first), max(y for _, y in first))
+    second_box = (min(x for x, _ in second), min(y for _, y in second), max(x for x, _ in second), max(y for _, y in second))
+    assert (first_box, second_box) == ((4, 3, 19, 18), (163 + 4, 4, 163 + 19, 19)), (first_box, second_box)
+    ink = [x for x in range(20, 157) if any(image.getpixel((x, y)) == (0, 0, 0) for y in range(5, 18))]
+    assert 22 <= ink[0] <= 24 and ink[-1] < 140, ink   # left-aligned after the icon, not centred in 160px
+    inside = {image.getpixel((x, y)) for x in range(163 + 60, 163 + 100) for y in range(5, 20)}
+    assert (255, 255, 255) in inside and (192, 192, 192) in inside, inside   # the pressed checkerboard
+    assert image.getpixel((0, 0)) == (255, 255, 255) and image.getpixel((163, 0)) == (0, 0, 0), "raised then sunken edges"
+    assert image.getpixel((161, 10)) not in {(255, 255, 255), (0, 0, 0)}, "a 3px gap of face between the buttons"
+    assert image.height == 22

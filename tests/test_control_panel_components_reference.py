@@ -90,7 +90,7 @@ def test_a_default_button_is_23_rows_with_a_black_frame_in_the_original_and_in_o
 
 
 def test_our_slider_has_tick_marks_below_its_groove(control_panel, qt_app):
-    field = control_panel.ButtonWidthField()
+    field = control_panel.ButtonWidthField("1998")
     field.checkbox.setChecked(False)
 
     assert (field.slider.tickPosition(), field.slider.tickInterval() > 0) == (QSlider.TicksBelow, True)
@@ -532,3 +532,88 @@ def test_our_enabled_check_box_is_white_with_a_black_check(qt_app):
     inside, _face, _shadow = check_box_inside(qt_app, enabled=True)
 
     assert inside == {(255, 255, 255), (0, 0, 0)}
+
+
+# ---- radio buttons: tests/references/win98shutdown2.png (and win98flowerbox.png, win98mouse.png). The 12px circle:
+# a shadow arc top-left, black inside it, white at the bottom right, and a 4-2 black dot when checked.
+
+def black_mask(image, left, top, size=12):
+    return ["".join("K" if classify(image.getpixel((x, y))) == "K" else "." for x in range(left, left + size)) for y in range(top, top + size)]
+
+
+def our_radio(qt_app, checked):
+    from PySide6.QtWidgets import QRadioButton
+    button = QRadioButton("Shut down")
+    button.setChecked(checked)
+    button.resize(button.sizeHint())
+    return render(button)
+
+
+@pytest.mark.parametrize("checked, original_top", [(True, 65), (False, 85)])
+def test_our_radio_button_is_the_originals_circle_pixel_for_pixel(qt_app, checked, original_top):
+    original = black_mask(reference_image("win98shutdown2"), 61, original_top)
+
+    assert black_mask(our_radio(qt_app, checked), 0, 0) == original
+
+
+def test_our_exclusive_menu_item_is_marked_with_a_bullet_not_a_tick(control_panel, qt_app, tmp_path):
+    window = control_panel.ControlPanel(settings_path=tmp_path / "setup.conf")
+    menu = window.view_menu
+    menu.show()
+    qt_app.processEvents()
+    image = render(menu)
+    rect = menu.actionGeometry(menu.actions()[0])
+    rows = [sum(1 for x in range(rect.left(), rect.left() + 16) if classify(image.getpixel((x, y))) == "K") for y in range(rect.top(), rect.bottom() + 1)]
+    inked = [count for count in rows if count]
+
+    assert (inked, inked == inked[::-1]) == ([2, 4, 4, 2], True)
+
+
+# ---- the Screen Saver tab: tests/references/win98screensaver.png. A monitor drawing at the top shows a 152 by 112
+# screen; the Screen Saver group holds the saver list with its Preview button on the same line, then Wait.
+
+def test_the_originals_screen_saver_monitor_shows_a_152_by_112_screen():
+    image = reference_image("win98screensaver")
+    teal = [(x, y) for x in range(60, 300) for y in range(40, 200) if image.getpixel((x, y))[1] > 100 and image.getpixel((x, y))[0] < 60]
+    xs, ys = [x for x, _ in teal], [y for _, y in teal]
+
+    assert (max(xs) - min(xs) + 1, max(ys) - min(ys) + 1) == (152, 112)
+
+
+def screen_saver_tab(control_panel):
+    return control_panel.build_tab("Display", "Screen Saver", {}, control_panel.Actions(list_screensavers=lambda: [("maze", "Maze")], lock_timeout_minutes=lambda: 60))
+
+
+def test_our_screen_saver_tab_draws_a_monitor_with_a_152_by_112_screen_in_the_desktop_colour(control_panel, qt_app):
+    tab = screen_saver_tab(control_panel)
+    tab.resize(380, 360)
+    tab.show()
+    qt_app.processEvents()
+    monitor = tab.monitor
+    image = render(monitor)
+    screen = monitor.screen_rect()
+    inside = {image.getpixel((x, y)) for x in range(screen.left(), screen.right() + 1, 7) for y in range(screen.top(), screen.bottom() + 1, 7)}
+
+    assert ((screen.width(), screen.height()), inside) == ((152, 112), {(0, 128, 128)})
+
+
+def test_our_screen_saver_group_has_the_preview_button_on_the_saver_lists_line(control_panel, qt_app):
+    from PySide6.QtWidgets import QComboBox, QGroupBox
+    tab = screen_saver_tab(control_panel)
+    tab.resize(380, 360)
+    tab.show()
+    qt_app.processEvents()
+    combo = tab.findChildren(QComboBox)[0]
+    preview = next(button for button in tab.findChildren(QPushButton) if button.text() == "Preview")
+    combo_middle = combo.mapTo(tab, combo.rect().center()).y()
+    preview_middle = preview.mapTo(tab, preview.rect().center()).y()
+
+    assert ([box.title() for box in tab.findChildren(QGroupBox)], abs(combo_middle - preview_middle) <= 1) == (["Screen Saver"], True)
+
+
+def test_our_button_width_slider_has_narrow_and_wide_labels_at_its_ends_like_the_originals(control_panel, qt_app):
+    from PySide6.QtWidgets import QLabel
+    field = control_panel.ButtonWidthField("1998")
+    labels = [label.text() for label in field.findChildren(QLabel)]
+
+    assert ("Narrow" in labels, "Wide" in labels) == (True, True)

@@ -206,3 +206,61 @@ def test_address_drop_down_arrow_is_a_centred_7_5_3_1_triangle_and_nothing_else(
     centres = {left + right for left, right in arrow}
 
     assert (widths, len(centres), sum(1 for run in inside if run)) == ([7, 5, 3, 1], 1, 4)
+
+
+MENU_TEXT_ROW = 8   # the menu captions' first ink row below the band's etched shadow row, in the original (23 -> 31)
+
+
+def test_the_original_menu_captions_start_8_rows_below_the_bands_etched_line(original):
+    etched = original_etched_rows(original, TITLE_BAR_BOTTOM, 60)[0]
+    file_rows = [y for y in range(etched, etched + BAND_PITCH) if any(sum(original.getpixel((x, y))) < 200 for x in range(23, 40))]
+    assert file_rows[0] == etched + MENU_TEXT_ROW, (etched, file_rows)
+
+
+def test_our_menu_captions_start_8_rows_below_the_bands_etched_line_like_the_originals(ours):
+    """Centred in the 22-row band, as the original's; Qt's menu bar sits them against the top otherwise."""
+    window, image, (_face, shadow) = ours
+    etched = our_etched_rows(image, shadow)[0]
+    left = window.menu_bar.x() + window.menu_bar.actionGeometry(window.menu_bar.actions()[0]).left()
+    file_rows = [y for y in range(etched, etched + BAND_PITCH) if any(image.getpixel((x, y)) == (0, 0, 0) for x in range(left, left + 24))]
+    assert file_rows[0] == etched + MENU_TEXT_ROW, (etched, file_rows)
+
+
+def toolbar_picture(button, qt_app, **state):
+    from PySide6.QtCore import Qt
+    button.setAttribute(Qt.WA_UnderMouse, state.get("hover", False))
+    button.setDown(state.get("down", False))
+    qt_app.processEvents()
+    picture = qimage_to_pil(button.grab().toImage())
+    button.setAttribute(Qt.WA_UnderMouse, False)
+    button.setDown(False)
+    return picture
+
+
+def icon_colours(picture, button, face):
+    return {picture.getpixel((x, y))[:3] for x in range(2, button.main_width() - 2) for y in range(0, 24)} - {face}
+
+
+def test_toolbar_icons_are_grey_until_the_pointer_is_over_them_as_internet_explorer_4_drew_them(ours, qt_app):
+    window, _image, (face, _shadow) = ours
+    button = window.toolbar_buttons["Up"]
+    plain = icon_colours(toolbar_picture(button, qt_app), button, face)
+    hovered = icon_colours(toolbar_picture(button, qt_app, hover=True), button, face)
+    assert plain and all(r == g == b for r, g, b in plain), sorted(plain)[:5]
+    assert any(not (r == g == b) for r, g, b in hovered), "the hovered icon is in colour"
+
+
+def test_pressed_toolbar_button_sinks_like_a_push_button_and_its_picture_moves_a_pixel(ours, qt_app):
+    """Held down: the raised frame turns sunken (shadow top-left, white bottom-right) and the icon and
+    label move a pixel down and right, as the push buttons do."""
+    window, _image, (face, shadow) = ours
+    button = window.toolbar_buttons["Up"]
+    raised = toolbar_picture(button, qt_app, hover=True)
+    pressed = toolbar_picture(button, qt_app, hover=True, down=True)
+    right, bottom = button.main_width() - 1, button.height() - 1
+    assert (pressed.getpixel((0, 10))[:3], pressed.getpixel((right, 10))[:3], pressed.getpixel((10, 0))[:3], pressed.getpixel((10, bottom))[:3]) \
+        == (shadow, (255, 255, 255), shadow, (255, 255, 255))
+    assert (raised.getpixel((0, 10))[:3], raised.getpixel((right, 10))[:3]) == ((255, 255, 255), shadow)
+    raised_rows = ink_rows(raised, 2, right - 1, 0, 24, face)
+    pressed_rows = ink_rows(pressed, 2, right - 1, 0, 24, face)
+    assert (pressed_rows[0], pressed_rows[-1]) == (raised_rows[0] + 1, raised_rows[-1] + 1), (raised_rows, pressed_rows)

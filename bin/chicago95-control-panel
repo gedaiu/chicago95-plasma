@@ -14,6 +14,7 @@ from typing import Callable
 from PySide6.QtCore import QPoint, QProcess, QProcessEnvironment, QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QActionGroup, QColor, QFontDatabase, QFontMetrics, QIcon, QLinearGradient, QPainter, QPalette, QPixmap
 from PySide6.QtWidgets import (
+    QButtonGroup,
     QCheckBox,
     QColorDialog,
     QComboBox,
@@ -35,6 +36,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
+    QRadioButton,
     QSizePolicy,
     QSlider,
     QSpinBox,
@@ -831,6 +833,11 @@ class PictureField(QWidget):
         self.path_edit.setText(path)
 
 
+class RadioGroup(QGroupBox):
+    """A titled group of radio buttons; `chosen` fires once per choice (Qt toggles the old and the new button)."""
+    chosen = Signal()
+
+
 class SettingsTab(QWidget):
     """A page of a property sheet: fields that each show and report one key of setup.conf."""
     changed = Signal()
@@ -878,7 +885,8 @@ class SettingsTab(QWidget):
         edit = chicago95ui.plain_disabled_text(QLineEdit())
         return self.register(key, label, edit, edit.text, edit.setText, default, edit.textChanged)
 
-    def choice(self, key, label, options, default):
+    def choice(self, key, label, options, default, beside=None):
+        """A drop-down list; `beside` puts a widget on the same line, as the Screen Saver tab's Preview button."""
         combo = chicago95ui.classic_combo(QComboBox())
         for option_label, value in options:
             combo.addItem(option_label, value)
@@ -887,7 +895,37 @@ class SettingsTab(QWidget):
             index = combo.findData(value)
             combo.setCurrentIndex(index if index >= 0 else combo.findData(default))
 
-        return self.register(key, label, combo, combo.currentData, select, default, combo.currentIndexChanged)
+        field = combo
+        if beside is not None:
+            field = QWidget()
+            row = QHBoxLayout(field)
+            row.setContentsMargins(0, 0, 0, 0)
+            row.addWidget(combo, 1)
+            row.addWidget(beside)
+        self.register(key, label, field, combo.currentData, select, default, combo.currentIndexChanged)
+        return combo
+
+    def radios(self, key, title, options, default):
+        """A titled group of radio buttons, one per option, as the originals offer two or three choices."""
+        box = RadioGroup(title)
+        column = QVBoxLayout(box)
+        buttons = QButtonGroup(box)
+        buttons.buttonToggled.connect(lambda _button, on: box.chosen.emit() if on else None)
+        for option_label, value in options:
+            button = QRadioButton(option_label)
+            button.setProperty("value", value)
+            buttons.addButton(button)
+            column.addWidget(button)
+
+        def checked_value():
+            return buttons.checkedButton().property("value")
+
+        def select(value):
+            values = [button.property("value") for button in buttons.buttons()]
+            buttons.buttons()[values.index(value if value in values else default)].setChecked(True)
+
+        self.register(key, "", box, checked_value, select, default, box.chosen)
+        return box
 
     def flag(self, key, label, default="no"):
         box = QCheckBox(label)
@@ -950,32 +988,36 @@ class SettingsTab(QWidget):
 
 
 class TaskButtonPreview(QWidget):
-    """Two task buttons as wide as the width chosen, drawn with the widget style."""
+    """Two task buttons as the taskbar draws them, as wide as the width chosen: a window's, then the
+    active window's pressed one."""
 
-    def __init__(self):
+    def __init__(self, look):
         super().__init__()
+        self.look = look
         self.button_width = LOOK_BUTTON_WIDTH
-        self.setFixedHeight(28)
+        self.icon = QIcon.fromTheme("text-x-generic")
+        self.setFixedHeight(chicago95ui.TASK_BUTTON_HEIGHT)
 
     def show_width(self, width):
         self.button_width = width
+        self.updateGeometry()
         self.update()
+
+    def sizeHint(self):
+        return QSize(2 * self.button_width + 3, chicago95ui.TASK_BUTTON_HEIGHT)
 
     def paintEvent(self, _event):
         painter = QPainter(self)
-        for position, caption in enumerate(("Document", "Browser")):
-            option = QStyleOptionButton()
-            option.rect = QRect(position * (self.button_width + 3), 0, self.button_width, self.height())
-            option.text = caption
-            option.state = QStyle.State_Enabled | QStyle.State_Raised
-            self.style().drawControl(QStyle.CE_PushButton, option, painter, self)
+        for position, (caption, pressed) in enumerate((("Document - Notepad", False), ("My Computer", True))):
+            rect = QRect(position * (self.button_width + 3), 0, self.button_width, self.height())
+            chicago95ui.paint_task_button(painter, rect, caption, self.icon, pressed, self.look)
 
 
 class ButtonWidthField(QWidget):
     """The longest a window's button on the taskbar may be: the look's own, or a width from 60 to 300 pixels."""
     changed = Signal()
 
-    def __init__(self):
+    def __init__(self, look):
         super().__init__()
         self.checkbox = QCheckBox("Use the look's own width")
         self.slider = QSlider(Qt.Horizontal)
@@ -984,9 +1026,11 @@ class ButtonWidthField(QWidget):
         self.spin = chicago95ui.plain_disabled_text(QSpinBox())
         for control in (self.slider, self.spin):
             control.setRange(MIN_BUTTON_WIDTH, MAX_BUTTON_WIDTH)
-        self.preview = TaskButtonPreview()
+        self.preview = TaskButtonPreview(look)
         controls = QHBoxLayout()
+        controls.addWidget(QLabel("Narrow"))
         controls.addWidget(self.slider, 1)
+        controls.addWidget(QLabel("Wide"))
         controls.addWidget(self.spin)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1181,12 +1225,12 @@ class TabControl(QWidget):
         self.place()
 
     def sizeHint(self):
-        page = self.stack.sizeHint()
-        return QSize(page.width() + 16, self.bar.height() + page.height() + 16)
+        page = self.pane.sizeHint()
+        return QSize(page.width(), self.bar.height() - TAB_SEAM + page.height())
 
     def minimumSizeHint(self):
-        page = self.stack.minimumSizeHint()
-        return QSize(page.width() + 16, self.bar.height() + page.height() + 16)
+        page = self.pane.minimumSizeHint()
+        return QSize(page.width(), self.bar.height() - TAB_SEAM + page.height())
 
     def addTab(self, widget, name):
         self.stack.addWidget(widget)
@@ -1279,7 +1323,7 @@ class PropertiesPage(QWidget):
 @tab_builder("Mouse", "Pointer")
 def mouse_pointer_tab(settings, actions):
     tab = SettingsTab(settings, actions)
-    tab.choice("CURSOR", "Pointer size:", [("Normal (24 pixels)", "24"), ("Large (32 pixels)", "32"), ("Extra large (48 pixels)", "48")], default="32")
+    tab.radios("CURSOR", "Pointer size", [("Normal (24 pixels)", "24"), ("Large (32 pixels)", "32"), ("Extra large (48 pixels)", "48")], default="32")
     return tab
 
 
@@ -1288,7 +1332,7 @@ def taskbar_options_tab(settings, actions):
     tab = SettingsTab(settings, actions)
     tab.group("Taskbar")
     tab.number("PANEL", "Taskbar height:", 22, 64, default=28, suffix=" pixels")
-    width = ButtonWidthField()
+    width = ButtonWidthField(settings.get("LOOK", "1995"))
     tab.register("TASK_BUTTON_WIDTH", "Taskbar button width:", width, width.value, width.set_value, "0", width.changed)
     tab.choice("QUICK_LAUNCH", "Quick Launch:", [("From the look (1998 on)", "auto"), ("Always", "yes"), ("Never", "no")], default="auto")
     tab.flag("TASKBAR_AUTOHIDE", "Auto hide", default="no")
@@ -1320,8 +1364,8 @@ def office_assistant_tab(settings, actions):
 def explorer_tab(settings, actions):
     tab = SettingsTab(settings, actions)
     has_thunar = bool(actions.program_installed("thunar"))
-    combo = tab.choice("EXPLORER", "File manager:", [("Thunar", "thunar"), ("Dolphin", "dolphin")], default="thunar" if has_thunar else "dolphin")
-    combo.model().item(combo.findData("thunar")).setEnabled(has_thunar)
+    box = tab.radios("EXPLORER", "File manager", [("Thunar", "thunar"), ("Dolphin", "dolphin")], default="thunar" if has_thunar else "dolphin")
+    box.findChildren(QRadioButton)[0].setEnabled(has_thunar)
     return tab
 
 
@@ -1329,7 +1373,7 @@ def explorer_tab(settings, actions):
 def fonts_tab(settings, actions):
     tab = SettingsTab(settings, actions)
     tab.font_family("FONT", "Font:", default="MS W98 UI")
-    tab.choice("FONT_SCOPE", "Use it:", [("Everywhere", "everywhere"), ("On the desktop only", "desktop"), ("Leave my fonts alone", "none")], default="everywhere")
+    tab.radios("FONT_SCOPE", "Use it", [("Everywhere", "everywhere"), ("On the desktop only", "desktop"), ("Leave my fonts alone", "none")], default="everywhere")
     return tab
 
 
@@ -1346,7 +1390,7 @@ def start_menu_tab(settings, actions):
 def log_on_tab(settings, actions):
     tab = SettingsTab(settings, actions)
     tab.group("Log on window")
-    tab.choice("LOGIN_STYLE", "Style:", [("Classic (1995 and 1998)", "classic"), ("Windows 2000", "2000")], default="classic")
+    tab.radios("LOGIN_STYLE", "Style", [("Classic (1995 and 1998)", "classic"), ("Windows 2000", "2000")], default="classic")
     tab.text("LOGIN_TITLE", "Title bar:", default="Log On to %h")
     tab.text("LOGIN_MESSAGE", "Message:", default="Type a user name and password to log on.")
     tab.group("Pictures")
@@ -1423,15 +1467,69 @@ def appearance_tab(settings, actions):
     return tab
 
 
+MONITOR_SCREEN = (152, 112)   # the Screen Saver tab's monitor (tests/references/win98screensaver.png)
+
+
+class MonitorPreview(QWidget):
+    """The monitor drawing at the top of the Screen Saver and Background tabs: a raised bezel round a sunken
+    screen in the desktop colour, on a stand."""
+    BEZEL, STAND = 10, 14
+
+    def __init__(self, desktop_colour):
+        super().__init__()
+        self.desktop_colour = QColor(desktop_colour)
+        self.setFixedSize(MONITOR_SCREEN[0] + 2 * self.BEZEL, MONITOR_SCREEN[1] + 2 * self.BEZEL + self.STAND)
+
+    def screen_rect(self):
+        return QRect(self.BEZEL, self.BEZEL, *MONITOR_SCREEN)
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        face, shadow = self.palette().window().color(), self.palette().dark().color()
+        white, black = QColor("#FFFFFF"), QColor("#000000")
+        case = QRect(0, 0, self.width(), self.height() - self.STAND)
+        painter.fillRect(case, face)
+        for inset, top_left, bottom_right in ((0, white, black), (1, face, shadow)):
+            edge = case.adjusted(inset, inset, -inset - 1, -inset - 1)
+            painter.setPen(top_left)
+            painter.drawLine(edge.topLeft(), edge.topRight())
+            painter.drawLine(edge.topLeft(), edge.bottomLeft())
+            painter.setPen(bottom_right)
+            painter.drawLine(edge.bottomLeft(), edge.bottomRight())
+            painter.drawLine(edge.topRight(), edge.bottomRight())
+        screen = self.screen_rect()
+        frame = screen.adjusted(-2, -2, 1, 1)
+        painter.setPen(shadow)
+        painter.drawLine(frame.topLeft(), frame.topRight())
+        painter.drawLine(frame.topLeft(), frame.bottomLeft())
+        painter.setPen(white)
+        painter.drawLine(frame.bottomLeft(), frame.bottomRight())
+        painter.drawLine(frame.topRight(), frame.bottomRight())
+        painter.setPen(black)
+        painter.drawRect(screen.adjusted(-1, -1, 0, 0))
+        painter.fillRect(screen, self.desktop_colour)
+        neck = QRect(self.width() // 2 - 12, case.bottom() + 1, 24, 6)
+        foot = QRect(self.width() // 2 - 36, case.bottom() + 7, 72, self.STAND - 8)
+        for part in (neck, foot):
+            painter.fillRect(part, face)
+            painter.setPen(white)
+            painter.drawLine(part.topLeft(), part.topRight())
+            painter.setPen(black)
+            painter.drawLine(part.bottomLeft(), part.bottomRight())
+            painter.drawLine(part.topRight(), part.bottomRight())
+
+
 @tab_builder("Display", "Screen Saver")
 def screen_saver_tab(settings, actions):
     tab = SettingsTab(settings, actions)
+    tab.monitor = MonitorPreview(settings.get("BACKGROUND_COLOR", "#008080") if valid_colors(settings.get("BACKGROUND_COLOR", "")) else "#008080")
+    tab.outer.insertWidget(0, tab.monitor, 0, Qt.AlignHCenter)
+    tab.group("Screen Saver")
     savers = actions.list_screensavers()
-    saver = tab.choice("SAVER", "Screen saver:", [(label, name) for name, label in savers] or [("Deep Stars", "deepstars")], default="deepstars")
-    wait = tab.number("IDLE_MIN", "Wait:", 1, 60, default=5, suffix=" minutes")
     preview = chicago95ui.dialog_button("Preview", enabled=bool(savers))
+    saver = tab.choice("SAVER", "", [(label, name) for name, label in savers] or [("Deep Stars", "deepstars")], default="deepstars", beside=preview)
+    wait = tab.number("IDLE_MIN", "Wait:", 1, 60, default=5, suffix=" minutes")
     preview.clicked.connect(lambda: actions.start_process(tool_path("chicago95-screensaver"), ["--hack", saver.currentData()]))
-    tab.form.addRow("", preview)
     tab.lock_warning = QLabel(f"Your screen locks after {actions.lock_timeout_minutes()} minutes, before the screen saver starts, so you will not see it.")
     tab.lock_warning.setWordWrap(True)
     tab.form.addRow("", tab.lock_warning)
@@ -1486,7 +1584,7 @@ def effects_tab(settings, actions):
 @tab_builder("Display", "Background")
 def background_tab(settings, actions):
     tab = SettingsTab(settings, actions)
-    tab.choice("BACKGROUND_MODE", "Desktop:", [("Solid color", "color"), ("Pattern", "pattern"), ("Picture", "image")], default="color")
+    tab.radios("BACKGROUND_MODE", "Desktop", [("Solid color", "color"), ("Pattern", "pattern"), ("Picture", "image")], default="color")
     tab.color("BACKGROUND_COLOR", "Color:", default="#008080")
     tab.choice("BACKGROUND_PATTERN", "Pattern:", [("Checks", "checks"), ("Diagonal", "diagonal"), ("Grid", "grid"), ("Dots", "dots")], default="checks")
     tab.picture("BACKGROUND_IMAGE", "Picture:", [], default="")
@@ -1695,6 +1793,7 @@ class ControlPanel(QMainWindow):
             applet_page = self.page_for(page[1])
             applet_page.tabs.setCurrentIndex(applet_page.tab_names().index(page[2]) if len(page) > 2 else 0)
             self.pages.setCurrentWidget(applet_page)
+            self.resize(self.size().expandedTo(self.minimumSizeHint()))
             self.status_message.clear()
         self.showing_page = False
         self.refresh_navigation()
