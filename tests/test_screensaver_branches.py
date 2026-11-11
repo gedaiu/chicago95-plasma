@@ -30,6 +30,13 @@ def keep_signal_handlers():
         signal.signal(number, handler)
 
 
+@pytest.fixture(autouse=True)
+def start_without_windows_left_by_other_tests(qt_app):
+    QApplication.closeAllWindows()
+    QApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    qt_app.processEvents()
+
+
 @pytest.fixture
 def runtime(tmp_path, monkeypatch, screensaver):
     folder = tmp_path / "runtime"

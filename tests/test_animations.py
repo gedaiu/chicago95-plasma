@@ -54,13 +54,13 @@ def test_the_effects_tab_groups_its_events_in_the_files_order(table):
         ("Windows", "ANIM_MAXIMIZE"),
         ("Windows", "ANIM_DIALOGS"),
         ("Windows", "ANIM_WOBBLY"),
-        ("Desktop", "ANIM_SHOW_DESKTOP"),
-        ("Desktop", "ANIM_DESKTOPS"),
-        ("Desktop", "ANIM_SESSION"),
-        ("Menus and taskbar", "ANIM_MENUS"),
-        ("Menus and taskbar", "ANIM_NOTIFICATIONS"),
-        ("Menus and taskbar", "ANIM_TASKBAR"),
-        ("Speed", "ANIM_SPEED"),
+        ("Desktop and taskbar", "ANIM_SHOW_DESKTOP"),
+        ("Desktop and taskbar", "ANIM_DESKTOPS"),
+        ("Desktop and taskbar", "ANIM_SESSION"),
+        ("Desktop and taskbar", "ANIM_MENUS"),
+        ("Desktop and taskbar", "ANIM_NOTIFICATIONS"),
+        ("Desktop and taskbar", "ANIM_TASKBAR"),
+        ("Desktop and taskbar", "ANIM_SPEED"),
     ]
 
 

@@ -249,15 +249,15 @@ def test_launcher_list_skips_empty_entries_when_set(control_panel, qt_app):
     assert launchers.value() == "a.desktop,b.desktop"
 
 
-def test_title_bar_preview_paints_a_gradient_for_each_bar(control_panel, qt_app):
-    preview = control_panel.TitleBarPreview("#000080,#1084D0", "#808080")
-    preview.resize(200, 46)
-    gradient_image = preview.grab().toImage()
+def test_appearance_preview_paints_a_two_colour_title_bar_as_a_gradient(control_panel, qt_app):
+    preview = control_panel.AppearancePreview()
+    preview.show_colors("#000080,#1084D0", "#808080", "#008080", "1998")
+    image = preview.grab().toImage()
+    title = preview.active_title
 
-    assert (gradient_image.pixelColor(100, 5) != gradient_image.pixelColor(100, 28), gradient_image.width()) == (
-        True,
-        200,
-    )
+    left, right = image.pixelColor(title.left(), title.bottom()), image.pixelColor(title.right(), title.bottom())
+
+    assert (left.blue() < right.blue(), left.green() < right.green()) == (True, True)
 
 
 def test_tab_rows_click_on_another_tab_chooses_it(control_panel, qt_app):

@@ -817,19 +817,34 @@ def signal_running_instance():
         return False
 
 
-def root_menu_height():
-    """The root menu's height in logical pixels with the current settings; Setup's window rule places
-    the menu from it (Wayland gives the position to KWin, so the rule needs the real height)."""
+def drawn_root_menu():
+    """The root menu with the current settings, laid out but not shown."""
     app = QApplication(sys.argv)
     apply_retro_look(app)
     menu = build_root_menu()
     menu.adjustSize()
+    return app, menu
+
+
+def root_menu_height():
+    """The root menu's height in logical pixels with the current settings; Setup's window rule places
+    the menu from it (Wayland gives the position to KWin, so the rule needs the real height)."""
+    _app, menu = drawn_root_menu()
     return menu.height()
+
+
+def save_screenshot(path):
+    """The root menu as it opens, for the Control Panel's preview of settings not yet applied."""
+    _app, menu = drawn_root_menu()
+    menu.grab().save(path)
 
 
 def main():
     if "--root-height" in sys.argv:
         print(root_menu_height())
+        return 0
+    if "--screenshot" in sys.argv:
+        save_screenshot(sys.argv[sys.argv.index("--screenshot") + 1])
         return 0
     if signal_running_instance():
         return 0

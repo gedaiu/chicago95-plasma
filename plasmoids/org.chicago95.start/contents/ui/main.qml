@@ -34,7 +34,6 @@ PlasmoidItem {
     // writes it): 2000's light line is the face itself and its shadows are #808080 and #404040.
     Kirigami.Theme.colorSet: Kirigami.Theme.Button
     Kirigami.Theme.inherit: false
-    readonly property bool look2000: Plasmoid.configuration.look === "2000"
 
     // Plasma's panel starts its first applet 3px in; the originals' Start button is 2px from the
     // screen's edge, so the button reaches a pixel left of the applet (tests/test_plasma_taskbar_reference.py).
@@ -74,9 +73,6 @@ PlasmoidItem {
         held: clickArea.pressed && clickArea.containsMouse
         look: Plasmoid.configuration.look
         face: Kirigami.Theme.backgroundColor
-        light: root.look2000 ? face : Qt.tint(face, "#80ffffff")  // halfway to white
-        shadow: root.look2000 ? "#808080" : Qt.darker(face, 1.5)  // two thirds of the face
-        dark: root.look2000 ? "#404040" : "#000000"
         textColor: Kirigami.Theme.textColor
     }
 

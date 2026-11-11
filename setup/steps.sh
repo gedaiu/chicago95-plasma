@@ -503,6 +503,7 @@ step_controlpanel() { # one window for every choice Setup asked; it saves them a
   done
   put_file "$REPO/config/applications/chicago95-control-panel.desktop" ~/.local/share/applications/chicago95-control-panel.desktop
   put_tree "$REPO/data/screensaver-previews" ~/.local/share/chicago95/screensaver-previews # the Screen Saver tab's monitor
+  put_tree "$REPO/data/control-panel" ~/.local/share/chicago95/control-panel               # the Mouse page's pictures
   substitute_home ~/.local/share/applications
 }
 

@@ -395,26 +395,76 @@ def test_animation_choices_are_applied_by_setups_animations_step_alone(control_p
     assert control_panel.components_for(["ANIM_MINIMIZE", "ANIM_SPEED", "ANIM_TASKBAR"]) == ["animations"]
 
 
-def test_background_tab_defaults_to_the_classic_teal_colour(control_panel, qt_app):
-    assert built(control_panel, "Display", "Background").values() == {
+def background_tab(control_panel, saved=None, pictures=(), pattern=None):
+    return built(
+        control_panel,
+        "Display",
+        "Background",
+        saved,
+        wallpapers=lambda: list(pictures),
+        choose_pattern=lambda parent, current, colour: pattern,
+    )
+
+
+def test_background_tab_defaults_to_no_wallpaper_and_no_pattern(control_panel, qt_app):
+    assert background_tab(control_panel).values() == {
         "BACKGROUND_MODE": "color",
-        "BACKGROUND_COLOR": "#008080",
-        "BACKGROUND_PATTERN": "checks",
+        "BACKGROUND_PATTERN": "none",
         "BACKGROUND_IMAGE": "",
         "BACKGROUND_FILL": "center",
     }
 
 
-def test_background_tab_reports_a_tiled_picture(control_panel, qt_app):
+def test_background_tab_reports_a_saved_tiled_picture_even_when_it_is_not_in_the_list(control_panel, qt_app):
     saved = {"BACKGROUND_MODE": "image", "BACKGROUND_IMAGE": "/home/u/wall.png", "BACKGROUND_FILL": "tile"}
 
-    assert built(control_panel, "Display", "Background", saved).values() == {
+    assert background_tab(control_panel, saved).values() == {
         "BACKGROUND_MODE": "image",
-        "BACKGROUND_COLOR": "#008080",
-        "BACKGROUND_PATTERN": "checks",
+        "BACKGROUND_PATTERN": "none",
         "BACKGROUND_IMAGE": "/home/u/wall.png",
         "BACKGROUND_FILL": "tile",
     }
+
+
+def test_the_wallpaper_list_starts_with_none_then_the_pictures_found(control_panel, qt_app):
+    tab = background_tab(control_panel, pictures=[("Clouds", "/p/clouds.png"), ("Setup", "/p/setup.bmp")])
+
+    assert [tab.wallpapers.item(row).text() for row in range(tab.wallpapers.count())] == ["(None)", "Clouds", "Setup"]
+
+
+def test_choosing_a_wallpaper_enables_display_and_disables_pattern_as_the_original_does(control_panel, qt_app):
+    tab = background_tab(control_panel, pictures=[("Clouds", "/p/clouds.png")])
+    none_state = (tab.display.isEnabled(), tab.pattern_button.isEnabled())
+    tab.wallpapers.setCurrentRow(1)
+
+    assert (none_state, (tab.display.isEnabled(), tab.pattern_button.isEnabled()), tab.values()["BACKGROUND_MODE"]) == (
+        (False, True),
+        (True, False),
+        "image",
+    )
+
+
+def test_a_pattern_chosen_in_the_pattern_dialog_makes_the_desktop_a_pattern(control_panel, qt_app):
+    tab = background_tab(control_panel, pattern="grid")
+    tab.pattern_button.click()
+
+    assert (tab.values()["BACKGROUND_MODE"], tab.values()["BACKGROUND_PATTERN"]) == ("pattern", "grid")
+
+
+def test_the_monitor_shows_the_chosen_wallpaper(control_panel, qt_app, tmp_path):
+    from PySide6.QtGui import QColor, QImage
+
+    picture = QImage(64, 48, QImage.Format_RGB32)
+    picture.fill(QColor("#FF0000"))
+    picture.save(str(tmp_path / "red.png"))
+    tab = background_tab(control_panel, {"BACKGROUND_FILL": "stretch"}, pictures=[("Red", str(tmp_path / "red.png"))])
+    tab.wallpapers.setCurrentRow(1)
+
+    assert monitor_screen_colour(tab) == "#ff0000"
+
+
+def test_the_monitor_shows_the_desktop_colour_without_a_wallpaper(control_panel, qt_app):
+    assert monitor_screen_colour(background_tab(control_panel, {"BACKGROUND_COLOR": "#102030"})) == "#102030"
 
 
 TASKBAR_OPTION_DEFAULTS = {
@@ -927,10 +977,6 @@ def test_log_on_groups_the_window_and_its_pictures(control_panel, qt_app):
     ]
 
 
-def test_appearance_groups_the_scheme_and_the_icons(control_panel, qt_app):
-    assert group_titles(appearance(control_panel)) == ["Scheme", "Icons"]
-
-
 def test_typing_a_picture_path_tells_the_tab(make_tab):
     tab = make_tab({"START_LOGO": "penguin"})
     picture = tab.picture("START_LOGO", "Logo:", [("Penguin", "penguin")], default="penguin")
@@ -1007,12 +1053,11 @@ def test_two_and_three_way_choices_are_radio_buttons_as_in_the_originals(control
         ("Mouse", "Pointers", "CURSOR"),
         ("Explorer", "General", "EXPLORER"),
         ("Fonts", "Font", "FONT_SCOPE"),
-        ("Display", "Background", "BACKGROUND_MODE"),
     ):
         tab = built(control_panel, applet, tab_name, None, program_installed=lambda name: f"/usr/bin/{name}")
         counts[key] = len(tab.findChildren(QRadioButton))
 
-    assert counts == {"LOGIN_STYLE": 2, "CURSOR": 3, "EXPLORER": 2, "FONT_SCOPE": 3, "BACKGROUND_MODE": 3}
+    assert counts == {"LOGIN_STYLE": 2, "CURSOR": 3, "EXPLORER": 2, "FONT_SCOPE": 3}
 
 
 def preview_image(control_panel, qt_app, look="1998"):
@@ -1121,3 +1166,64 @@ def test_every_screensaver_has_a_picture_the_size_of_the_monitors_screen(control
     assert {name: Image.open(pictures / f"{name}.png").size for name in savers} == dict.fromkeys(
         savers, control_panel.MONITOR_SCREEN
     )
+
+
+def test_wallpapers_are_the_pictures_in_pictures_then_each_plasma_wallpapers_largest_image(control_panel, tmp_path):
+    pictures = tmp_path / "home/Pictures"
+    pictures.mkdir(parents=True)
+    (pictures / "clouds.png").write_bytes(b"png")
+    (pictures / "notes.txt").write_text("no")
+    images = tmp_path / "wallpapers/Next/contents/images"
+    images.mkdir(parents=True)
+    (images / "1280x800.png").write_bytes(b"small")
+    (images / "3840x2160.png").write_bytes(b"much larger")
+
+    assert control_panel.find_wallpapers(tmp_path / "home", tmp_path / "wallpapers") == [
+        ("clouds", str(pictures / "clouds.png")),
+        ("Next", str(images / "3840x2160.png")),
+    ]
+
+
+def test_appearance_items_are_the_parts_this_desktop_can_colour_in_alphabetical_order(control_panel, qt_app):
+    tab = appearance(control_panel)
+
+    assert [tab.items.itemText(index) for index in range(tab.items.count())] == [
+        "Active Title Bar",
+        "Desktop",
+        "Icon",
+        "Inactive Title Bar",
+        "Start Menu Banner",
+        "Start Menu Banner Text",
+    ]
+
+
+def test_choosing_an_item_shows_its_settings_as_the_originals_item_list_does(control_panel, qt_app):
+    tab = appearance(control_panel)
+    tab.items.setCurrentIndex(tab.items.findText("Icon"))
+
+    assert tab.item_editors.currentWidget() is tab.icons.parentWidget()
+
+
+def test_the_schemes_set_the_desktop_colour_teal_and_windows_2000_blue(control_panel, qt_app):
+    tab = appearance(control_panel)
+    teal = tab.values()["BACKGROUND_COLOR"]
+    tab.scheme.setCurrentIndex(tab.scheme.findData("2000"))
+
+    assert (teal, tab.values()["BACKGROUND_COLOR"]) == ("#008080", "#3A6EA5")
+
+
+def test_save_as_and_delete_are_greyed_out_as_there_are_no_schemes_of_your_own(control_panel, qt_app):
+    tab = appearance(control_panel)
+
+    assert (tab.save_as_button.isEnabled(), tab.delete_button.isEnabled()) == (False, False)
+
+
+def test_the_appearance_preview_paints_the_desktop_and_title_bars_in_the_chosen_colours(control_panel, qt_app):
+    tab = appearance(control_panel)
+    tab.color_edits["BACKGROUND_COLOR"].set_value("#102030")
+    tab.color_edits["TITLE_ACTIVE"].set_value("#FF0000")
+    image = tab.preview.grab().toImage()
+    desktop = image.pixelColor(tab.preview.width() - 6, tab.preview.height() - 6).name()
+    active = image.pixelColor(tab.preview.active_title.center()).name()
+
+    assert (desktop, active) == ("#102030", "#ff0000")

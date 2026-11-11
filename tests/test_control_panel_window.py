@@ -141,12 +141,6 @@ def test_taskbar_page_has_the_options_start_menu_and_quick_launch_tabs(window):
     assert window.pages.currentWidget().tab_names() == ["Taskbar Options", "Start Menu", "Quick Launch"]
 
 
-def test_display_page_has_background_screen_saver_appearance_and_effects_tabs(window):
-    window.open_applet("Display")
-
-    assert window.pages.currentWidget().tab_names() == ["Background", "Screen Saver", "Appearance", "Effects"]
-
-
 def test_opening_the_same_applet_twice_reuses_its_page(window):
     window.open_applet("Taskbar")
     window.back_action.trigger()
@@ -445,10 +439,10 @@ def test_no_control_on_any_page_is_squeezed_below_its_minimum_height(window, con
     squeezed = []
     for applet, tab_names in control_panel.PAGE_TABS.items():
         window.open_applet(applet)
-        page = window.pages.currentWidget()
+        page = window.applet_sheet(applet)
         for index, tab_name in enumerate(tab_names):
             page.tabs.setCurrentIndex(index)
-            window.repaint()
+            page.window().repaint()
             controls = [
                 control
                 for kind in (QComboBox, QLineEdit, QAbstractSpinBox, QCheckBox, QSlider)
@@ -490,11 +484,11 @@ def test_address_bar_shows_only_the_current_pages_crumbs_after_moving_between_ap
 
     window.show()
     window.open_applet("Taskbar")
-    window.open_applet("Display")
+    window.open_applet("Mouse")
     visible = [
         button.text()
         for button in window.address_bar.box.findChildren(QToolButton)
         if button.isVisible() and button.text()
     ]
 
-    assert visible == ["Control Panel", "Display"]
+    assert visible == ["Control Panel", "Mouse"]

@@ -137,35 +137,24 @@ screen or as flags:
 
 ### Control Panel
 
-`chicago95-control-panel` (Start, Settings, Control Panel; or Properties in the
+![The Control Panel](docs/control-panel.png)
+
+`chicago95-control-panel` (Start, Settings, Control Panel, or Properties in the
 right-click menu of the Start button and the taskbar) is one Windows 98
-Explorer-style window for every choice Setup asked and more: colours (swatches
-that open a colour picker; + adds a gradient's second colour or a banner stop)
-and icons, desktop background, screensaver with Preview and its picture on the tab's monitor (`data/screensaver-previews`, made by `tests/render_screensaver_previews.py`), taskbar height and
-button width with a preview of the buttons, auto hide, clock, Quick Launch
-(drag shortcuts onto it, drag them off to remove), Start button and menu banner,
-login and loading screen texts and pictures with live previews of the log-on
-dialog, the 2000 banner and the loading screen, sounds with Play, fonts,
-the mouse (Mouse Properties as the original laid it out: button configuration with a
-test area for the double-click speed, pointer size, pointer speed) and the file manager. Display, Effects picks the animation of each
-event: opening and closing windows, minimize, maximize, dialogs, wobbly windows,
-showing the desktop, switching desktops, logging on and off, menus,
-notifications and taskbar buttons, with a speed slider (Off to Slow). The lists
-offer KDE's effects, any installed effect of the same kind (Burn-My-Windows and
-the like) and the Title Bar Zoom, Windows 95/98's own minimize and maximize
-motion (`kwin-effects/chicago95zoom`); a list shows what runs now until you
-choose, Settings… opens the chosen effect's KDE page, and Classic sets every
-list to what the look's Windows did. The choices live in
-`setup/animations.conf`, which Setup and the Control Panel both read; applying
-them reloads KWin without restarting Plasma. Back, Forward, Up and the clickable address
-bar move between pages. One window: Properties on the taskbar brings the open
-one back on its page. It saves `~/.config/chicago95/setup.conf` and runs
-Setup again for only what changed. Its Updates page shows the installed
-version (the commit Setup recorded) and the published one (one `git ls-remote`
-of the repository's origin), with Check now and Install update, which pulls
-the repository forward and reruns Setup for the saved settings. Clippy runs the
-same check once a day after login and says so in a balloon when a newer version
-is out; the answer is cached in `~/.cache/chicago95/update-check.json`.
+Explorer-style window for every choice Setup asks and more. It covers colours,
+icons, the desktop background, the screensaver with Preview, the taskbar, Quick
+Launch, the Start button and menu, login and loading screens, sounds, fonts, the
+mouse and the file manager, most with live previews. Display opens its own
+Display Properties window with the original's tabs, and its Effects tab picks the
+animation of each event with a speed slider from Off to Slow. Classic sets every
+list to what the look's Windows did, and the choices live in `setup/animations.conf`.
+
+Back, Forward, Up and the clickable address bar move between pages, and only one
+window runs at a time. The panel saves `~/.config/chicago95/setup.conf` and runs
+Setup again for only what changed. Its Updates page compares the installed
+version with the published one and offers Check now and Install update. Clippy
+runs the same check once a day after login and says so in a balloon when a newer
+version is out.
 
 Other modes: `--yes` takes every default without questions,
 `--components base,look,taskbar` installs only those, `--dry-run` writes

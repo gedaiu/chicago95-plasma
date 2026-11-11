@@ -827,7 +827,7 @@ def test_our_monitor_sits_11_rows_under_the_page_frame_and_centred_on_it(control
     window = control_panel.ControlPanel(settings_path=tmp_path / "setup.conf", actions=actions)
     window.show()
     window.open_applet("Display")
-    page = window.pages.currentWidget()
+    page = window.applet_sheet("Display")
     page.tabs.setCurrentIndex(1)
     qt_app.processEvents()
     monitor = page.tabs.widget(1).monitor
@@ -854,7 +854,7 @@ def test_our_groups_run_from_15_to_14_pixels_inside_the_page_frames_outer_edges(
     window = control_panel.ControlPanel(settings_path=tmp_path / "setup.conf", actions=actions)
     window.show()
     window.open_applet("Display")
-    page = window.pages.currentWidget()
+    page = window.applet_sheet("Display")
     page.tabs.setCurrentIndex(1)
     qt_app.processEvents()
     pane = page.tabs.pane

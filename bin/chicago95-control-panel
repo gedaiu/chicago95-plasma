@@ -34,6 +34,7 @@ from PySide6.QtGui import (
     QColor,
     QFontDatabase,
     QFontMetrics,
+    QGuiApplication,
     QIcon,
     QLinearGradient,
     QPainter,
@@ -166,6 +167,7 @@ LOOK_PRESETS = {
         "BANNER_BG": "#808080",
         "BANNER_FG": "#C0C0C0",
         "ICONS": "chicago95",
+        "BACKGROUND_COLOR": "#008080",
     },
     "1998": {
         "TITLE_ACTIVE": "#000080,#1084D0",
@@ -173,6 +175,7 @@ LOOK_PRESETS = {
         "BANNER_BG": "#00007B,#00007B@95,#0000B0@70,#0000F8@45,#0000EE@20,#0000A9@0",
         "BANNER_FG": "#FFFFFF",
         "ICONS": "se98",
+        "BACKGROUND_COLOR": "#008080",
     },
     "2000": {
         "TITLE_ACTIVE": "#0A246A,#A6CAF0",
@@ -180,6 +183,7 @@ LOOK_PRESETS = {
         "BANNER_BG": "#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0",
         "BANNER_FG": "#FFFFFF",
         "ICONS": "classicos2000",
+        "BACKGROUND_COLOR": "#3A6EA5",  # Windows 2000's desktop blue
     },
 }
 
@@ -207,6 +211,7 @@ class Applet:
     icon_names: tuple
     description: str
     external_tool: str = ""
+    own_window: bool = False  # opens as its own property sheet, as Windows 98's Display Properties did
 
 
 APPLETS = (
@@ -220,6 +225,7 @@ APPLETS = (
         "Display",
         ("preferences-desktop-display", "video-display"),
         "Changes the desktop background, screen saver, colors and icons.",
+        own_window=True,
     ),
     Applet("Explorer", ("system-file-manager", "folder"), "Chooses the file manager."),
     Applet("Fonts", ("preferences-desktop-font", "font-x-generic"), "Changes the font used on screen."),
@@ -247,7 +253,7 @@ APPLETS = (
 APPLET_BY_NAME = {applet.name: applet for applet in APPLETS}
 
 PAGE_TABS = {
-    "Display": ("Background", "Screen Saver", "Appearance", "Effects"),
+    "Display": ("Background", "Screen Saver", "Appearance", "Effects", "Settings"),
     "Explorer": ("General",),
     "Fonts": ("Font",),
     "Mouse": ("Buttons", "Pointers", "Motion"),
@@ -493,6 +499,68 @@ def live_launchers():
     return read_launchers(APPLETS_FILE)
 
 
+@dataclass(frozen=True)
+class Screen:
+    output: str
+    current: str  # "WIDTHxHEIGHT"
+    sizes: list  # every size it offers, smallest first
+    modes: dict  # size -> kscreen-doctor mode id, the fastest refresh of that size
+
+
+def screen_size(mode):
+    return f"{mode['size']['width']}x{mode['size']['height']}"
+
+
+def screen_from_doctor(report):
+    """The first enabled output of `kscreen-doctor -j`: its size now and the sizes it offers."""
+    output = next((output for output in report.get("outputs", []) if output.get("enabled")), None)
+    if output is None:
+        return None
+    fastest = {}
+    for mode in sorted(output["modes"], key=lambda mode: mode.get("refreshRate", 0)):
+        fastest[screen_size(mode)] = mode["id"]
+    current = next(screen_size(mode) for mode in output["modes"] if mode["id"] == output["currentModeId"])
+    sizes = sorted(fastest, key=lambda size: tuple(int(side) for side in size.split("x")))
+    return Screen(output["name"], current, sizes, {size: fastest[size] for size in sizes})
+
+
+def live_screen():
+    try:
+        report = subprocess.run(["kscreen-doctor", "-j"], capture_output=True, text=True, timeout=5, check=False)
+        return screen_from_doctor(json.loads(report.stdout))
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return None
+
+
+def set_screen_mode(output, mode):
+    subprocess.run(["kscreen-doctor", f"output.{output}.mode.{mode}"], capture_output=True, timeout=15, check=False)
+
+
+KEEP_SCREEN_SECONDS = 15
+
+
+def keep_screen_mode(parent):
+    """Windows 98's question after a new screen area: kept only when answered Yes within 15 seconds."""
+    box = QMessageBox(QMessageBox.Question, "Monitor Settings", "", QMessageBox.Yes | QMessageBox.No, parent)
+    box.setDefaultButton(QMessageBox.No)
+    left = {"seconds": KEEP_SCREEN_SECONDS}
+
+    def tick():
+        box.setText(
+            "Your desktop has been reconfigured. Do you want to keep these settings?\n\n"
+            f"Reverting in {left['seconds']} seconds."
+        )
+        left["seconds"] -= 1
+        if left["seconds"] < 0:
+            box.done(QMessageBox.No)
+
+    timer = QTimer(box)
+    timer.timeout.connect(tick)
+    tick()
+    timer.start(1000)
+    return box.exec() == QMessageBox.Yes
+
+
 def installed_screensavers():
     try:
         listing = subprocess.run(
@@ -718,6 +786,58 @@ def ask_to_apply_changes(parent):
     return question.answer
 
 
+PICTURE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".svg", ".webp"}
+
+
+def find_wallpapers(home=None, system=Path("/usr/share/wallpapers")):
+    """(label, path) of the pictures to offer: those in ~/Pictures, then each Plasma wallpaper's largest image."""
+    pictures = Path(home or Path.home()) / "Pictures"
+    found = [
+        (picture.stem, str(picture))
+        for picture in sorted(pictures.glob("*"))
+        if picture.suffix.lower() in PICTURE_SUFFIXES and picture.is_file()
+    ]
+    for images in sorted(Path(system).glob("*/contents/images")):
+        largest = max(images.glob("*"), key=lambda image: image.stat().st_size, default=None)
+        if largest is not None:
+            found.append((images.parent.parent.name, str(largest)))
+    return found
+
+
+def background_patterns(settings):
+    """The desktop patterns Setup draws (setup/background_pattern.py), by name, as 8 rows of bits."""
+    script = Path(settings.get("REPO") or REPO_DIR) / "setup/background_pattern.py"
+    if not script.exists():
+        return {}
+    spec = importlib.util.spec_from_file_location("background_pattern", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.PATTERNS
+
+
+def choose_pattern_dialog(parent, current, patterns):
+    """Windows 98's Pattern dialog: the patterns by name with (None) first, the chosen one previewed."""
+    dialog = QDialog(parent)
+    dialog.setWindowTitle("Pattern")
+    names = QListWidget()
+    names.addItem("(None)")
+    for name in patterns:
+        names.addItem(name.capitalize())
+    choices = ["none", *patterns]
+    names.setCurrentRow(choices.index(current) if current in choices else 0)
+    buttons = QHBoxLayout()
+    buttons.addStretch(1)
+    for caption, slot in (("OK", dialog.accept), ("Cancel", dialog.reject)):
+        button = chicago95ui.dialog_button(caption)
+        button.clicked.connect(slot)
+        buttons.addWidget(button)
+    layout = QVBoxLayout(dialog)
+    layout.addWidget(QLabel("&Pattern:"))
+    layout.addWidget(names)
+    layout.addLayout(buttons)
+    return choices[names.currentRow()] if dialog.exec() == QDialog.Accepted else None
+
+
 @dataclass
 class Actions:
     """What the window does outside itself; tests swap these for recorders."""
@@ -734,6 +854,11 @@ class Actions:
     lock_timeout_minutes: Callable = lock_timeout_minutes
     sound_roots: tuple = SOUND_ROOTS
     screensaver_pictures: Callable = screensaver_picture_dir
+    wallpapers: Callable = find_wallpapers
+    choose_pattern: Callable = choose_pattern_dialog
+    current_screen: Callable = live_screen
+    set_screen_mode: Callable = set_screen_mode
+    keep_screen_mode: Callable = keep_screen_mode
     installed_effects: Callable = chicago95animations.installed_effects
     live_animations: Callable = chicago95animations.live_state
 
@@ -1168,10 +1293,15 @@ class SettingsTab(QWidget):
         if not self.loading:
             self.changed.emit()
 
-    def register(self, key, label, widget, getter, setter, default, signal):
+    def track(self, key, getter, setter, default, signal=None):
+        """A field the tab reports, laid out by its builder; without a signal, its builder notifies the changes."""
         self.fields[key] = (getter, setter, default)
         setter(self.saved.get(key, default))
-        signal.connect(lambda *_: self.notify())
+        if signal is not None:
+            signal.connect(lambda *_: self.notify())
+
+    def register(self, key, label, widget, getter, setter, default, signal):
+        self.track(key, getter, setter, default, signal)
         if label:
             self.form.addRow(label, widget)
         else:
@@ -1484,6 +1614,110 @@ class LogOnPreview(QmlPreview):
         self.load(main_qml, login_preview.login_context(theme, host_name=socket.gethostname(), **settings))
 
 
+MENU_STYLES = ("1995", "1998", "2000")
+LOOK_FACES = {"2000": "#D4D0C8"}  # the button face of a look; the others are the classic grey
+CLASSIC_FACE = "#C0C0C0"
+TASKBAR_STRIP = QSize(120, 28)  # the taskbar's height; widened to the menu once it is drawn
+START_BUTTON_SCENE = """import QtQuick
+import "{ui}"
+Rectangle {{
+    color: face
+    Rectangle {{
+        width: parent.width
+        height: 1
+        color: Qt.tint(face, "#80ffffff")
+    }}
+    Rectangle {{
+        y: 1
+        width: parent.width
+        height: 1
+        color: "#ffffff"
+    }}
+    StartButton {{
+        id: button
+        objectName: "startButton"
+        x: 2
+        y: 4
+        text: startText
+        logoSource: startLogo
+        look: startLook
+        face: parent.color
+        held: true
+    }}
+}}
+"""
+
+
+class StartMenuPreview(QWidget):
+    """The Start menu open above the pressed Start button, with the tab's values before they are applied: the menu
+    drawn by the Start menu itself, offscreen on a scratch chicago95rc; the button by the taskbar's StartButton.qml."""
+
+    def __init__(self):
+        super().__init__()
+        self.scratch = None
+        self.shot = None
+        self.menu_label = QLabel()
+        self.button = QQuickWidget()  # a strip of taskbar with the Start button, as wide as the menu above it
+        self.button.setResizeMode(QQuickWidget.SizeRootObjectToView)
+        self.button.setFixedSize(TASKBAR_STRIP)
+        self.process = QProcess(self)
+        self.process.finished.connect(self.show_menu)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.menu_label, 0, Qt.AlignLeft)
+        layout.addWidget(self.button, 0, Qt.AlignLeft)
+
+    def refresh(self, values):
+        folder = fresh_scratch(self)
+        look = values.get("LOOK") if values.get("LOOK") in MENU_STYLES else "1998"
+        self.draw_menu(folder, values, look)
+        scene = folder / "StartButtonPreview.qml"
+        scene.write_text(
+            START_BUTTON_SCENE.format(ui=(REPO_DIR / "plasmoids/org.chicago95.start/contents/ui").as_uri())
+        )
+        context = {
+            "startText": values.get("START_TEXT", "Start"),
+            "startLogo": QUrl.fromLocalFile(str(picture_file(values.get("START_LOGO", "flag")))),
+            "startLook": look,
+            "face": QColor(LOOK_FACES.get(look, CLASSIC_FACE)),
+        }
+        for name, value in context.items():
+            self.button.rootContext().setContextProperty(name, value)
+        self.button.engine().clearComponentCache()
+        self.button.setSource(QUrl.fromLocalFile(str(scene)))
+
+    def draw_menu(self, folder, values, look):
+        config = folder / "config"
+        config.mkdir()
+        user_colours = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "kdeglobals"
+        if user_colours.exists():
+            shutil.copy(user_colours, config / "kdeglobals")
+        (config / "chicago95rc").write_text(
+            "[StartMenu]\n"
+            f"bannerText={values.get('BANNER_TEXT', 'Chicago95')}\n"
+            f"bannerBackground={values.get('BANNER_BG', '#808080')}\n"
+            f"bannerTextColor={values.get('BANNER_FG', '#C0C0C0')}\n"
+            f"style={look}\n"
+        )
+        if self.process.state() != QProcess.NotRunning:
+            self.process.kill()
+            self.process.waitForFinished()
+        environment = QProcessEnvironment.systemEnvironment()
+        environment.insert("XDG_CONFIG_HOME", str(config))
+        environment.insert("QT_QPA_PLATFORM", "offscreen")
+        self.process.setProcessEnvironment(environment)
+        self.shot = folder / "menu.png"
+        # The Start menu beside this Control Panel: both installed by Setup, or both in the checkout.
+        start_menu = Path(__file__).resolve().parent / "chicago95-startmenu"
+        self.process.start(sys.executable, [str(start_menu), "--screenshot", str(self.shot)])
+
+    def show_menu(self):
+        menu = QPixmap(str(self.shot))
+        self.menu_label.setPixmap(menu)
+        self.button.setFixedWidth(max(menu.width(), TASKBAR_STRIP.width()))
+
+
 class BrandingPreview(QLabel):
     """The 2000 log-on banner, drawn with the branding chosen."""
 
@@ -1596,6 +1830,41 @@ class ChoiceSlider(QWidget):
         self.slider.setValue(self.values.index(value) if value in self.values else 0)
 
 
+class ScreenAreaField(QWidget):
+    """Windows 98's Screen area: a slider from Less to More over the screen's sizes, the chosen one in words."""
+
+    changed = Signal()
+
+    def __init__(self, sizes):
+        super().__init__()
+        self.sizes = sizes or [""]
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setRange(0, len(self.sizes) - 1)
+        self.slider.setPageStep(1)
+        self.label = QLabel()
+        self.label.setAlignment(Qt.AlignHCenter)
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Less"))
+        row.addWidget(self.slider, 1)
+        row.addWidget(QLabel("More"))
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addLayout(row)
+        layout.addWidget(self.label)
+        self.slider.valueChanged.connect(self.moved)
+        self.moved()
+
+    def moved(self):
+        self.label.setText(self.value().replace("x", " by ") + " pixels" if self.value() else "")
+        self.changed.emit()
+
+    def value(self):
+        return self.sizes[self.slider.value()]
+
+    def set_value(self, value):
+        self.slider.setValue(self.sizes.index(value) if value in self.sizes else 0)
+
+
 class ButtonWidthField(QWidget):
     """The longest a window's button on the taskbar may be: the look's own, or a width from 60 to 300 pixels."""
 
@@ -1705,29 +1974,130 @@ class LauncherList(QWidget):
         self.changed.emit()
 
 
-class TitleBarPreview(QWidget):
-    """An active and an inactive title bar in the colours chosen; two colours make a gradient from left to right."""
+class AppearancePreview(QWidget):
+    """Windows 98's Appearance sample (the tech2u Display Properties picture), on the desktop colour: an inactive
+    window, the active one with its Normal, Disabled and Selected menu and its Window Text, and a Message Box."""
 
-    def __init__(self, active, inactive):
+    SIZE = QSize(358, 178)
+    INACTIVE, ACTIVE, MESSAGE = QRect(10, 9, 302, 112), QRect(16, 29, 300, 126), QRect(22, 104, 212, 66)
+    TITLE_HEIGHT = 18
+
+    def __init__(self):
         super().__init__()
-        self.active, self.inactive = active, inactive
-        self.setFixedHeight(46)
+        self.active, self.inactive, self.desktop, self.look = "#000080", "#808080", "#008080", "1995"
+        self.active_title = QRect()
+        self.setFixedSize(self.SIZE)
 
-    def show_colors(self, active, inactive):
-        self.active, self.inactive = active, inactive
+    def show_colors(self, active, inactive, desktop, look):
+        self.active, self.inactive, self.desktop, self.look = active, inactive, desktop, look
         self.update()
+
+    def face(self):
+        return QColor(LOOK_FACES.get(self.look, CLASSIC_FACE))
 
     def paintEvent(self, _event):
         painter = QPainter(self)
-        for row, (colors, caption) in enumerate(((self.active, "Active Window"), (self.inactive, "Inactive Window"))):
-            bar = QRect(0, row * 23, self.width(), 21)
-            gradient = QLinearGradient(bar.left(), 0, bar.right(), 0)
-            stops = [QColor(stop.split("@")[0]) for stop in colors.split(",")]
-            gradient.setColorAt(0, stops[0])
-            gradient.setColorAt(1, stops[-1])
-            painter.fillRect(bar, gradient)
-            painter.setPen(QColor("#FFFFFF"))
-            painter.drawText(bar.adjusted(4, 0, 0, 0), Qt.AlignVCenter, caption)
+        painter.fillRect(self.rect(), QColor(self.desktop.split(",")[0]))
+        self.sunken(painter, self.rect())
+        self.window(painter, self.INACTIVE, "Inactive Window", self.inactive, buttons=3)
+        self.active_title = self.window(painter, self.ACTIVE, "Active Window", self.active, buttons=3)
+        self.menu_and_text(painter, self.ACTIVE)
+        self.window(painter, self.MESSAGE, "Message Box", self.active, buttons=1)
+        self.message(painter, self.MESSAGE)
+
+    def sunken(self, painter, rect):
+        colours = chicago95ui.bevel_colors(self.face(), self.look)
+        for inset, (top_left, bottom_right) in enumerate(
+            ((colours["shadow"], QColor("#FFFFFF")), (colours["dark"], colours["light"]))
+        ):
+            edge = rect.adjusted(inset, inset, -inset, -inset)
+            painter.fillRect(edge.left(), edge.top(), edge.width(), 1, top_left)
+            painter.fillRect(edge.left(), edge.top(), 1, edge.height(), top_left)
+            painter.fillRect(edge.left(), edge.bottom(), edge.width(), 1, bottom_right)
+            painter.fillRect(edge.right(), edge.top(), 1, edge.height(), bottom_right)
+
+    def raised(self, painter, rect):
+        colours = chicago95ui.bevel_colors(self.face(), self.look)
+        painter.fillRect(rect, self.face())
+        painter.fillRect(rect.left(), rect.top(), rect.width(), 1, colours["light"])
+        painter.fillRect(rect.left(), rect.top(), 1, rect.height(), colours["light"])
+        painter.fillRect(rect.left() + 1, rect.top() + 1, rect.width() - 2, 1, QColor("#FFFFFF"))
+        painter.fillRect(rect.left() + 1, rect.top() + 1, 1, rect.height() - 2, QColor("#FFFFFF"))
+        painter.fillRect(rect.left(), rect.bottom(), rect.width(), 1, colours["dark"])
+        painter.fillRect(rect.right(), rect.top(), 1, rect.height(), colours["dark"])
+        painter.fillRect(rect.left() + 1, rect.bottom() - 1, rect.width() - 2, 1, colours["shadow"])
+        painter.fillRect(rect.right() - 1, rect.top() + 1, 1, rect.height() - 2, colours["shadow"])
+
+    def window(self, painter, rect, caption, colours, buttons):
+        """A window's frame and title bar; the title bar's rectangle."""
+        self.raised(painter, rect)
+        title = QRect(rect.left() + 4, rect.top() + 4, rect.width() - 8, self.TITLE_HEIGHT)
+        stops = [QColor(stop.split("@")[0]) for stop in colours.split(",")]
+        gradient = QLinearGradient(title.left(), 0, title.right(), 0)
+        gradient.setColorAt(0, stops[0])
+        gradient.setColorAt(1, stops[-1])
+        painter.fillRect(title, gradient)
+        painter.setPen(QColor("#FFFFFF") if colours is self.active else QColor(LOOK_FACES.get(self.look, CLASSIC_FACE)))
+        painter.setFont(chicago95ui.ui_font(bold=True))
+        painter.drawText(title.adjusted(3, 0, 0, 0), Qt.AlignVCenter, caption)
+        right = title.right() - 2
+        for index, glyph in enumerate(("minimize", "maximize", "close")[-buttons:][::-1]):
+            button = QRect(right - 16 - index * 16 - (2 if index else 0), title.top() + 2, 16, 14)
+            self.raised(painter, button)
+            self.glyph(painter, button, glyph)
+        return title
+
+    def glyph(self, painter, button, glyph):
+        """The title buttons' black marks, drawn on their pixel grid: a bar, a box with a thick top, a cross."""
+        left, top, black = button.left() + 4, button.top() + 3, QColor("#000000")
+        if glyph == "minimize":
+            painter.fillRect(left, top + 6, 6, 2, black)
+        elif glyph == "maximize":
+            painter.fillRect(left, top, 9, 2, black)
+            painter.fillRect(left, top, 1, 8, black)
+            painter.fillRect(left + 8, top, 1, 8, black)
+            painter.fillRect(left, top + 7, 9, 1, black)
+        else:
+            for step in range(7):
+                painter.fillRect(left + step, top + step, 2, 1, black)
+                painter.fillRect(left + 6 - step, top + step, 2, 1, black)
+
+    def menu_and_text(self, painter, rect):
+        menu = QRect(rect.left() + 4, rect.top() + 4 + self.TITLE_HEIGHT + 1, rect.width() - 8, 18)
+        painter.setFont(chicago95ui.ui_font())
+        x = menu.left() + 6
+        for word, kind in (("Normal", "normal"), ("Disabled", "disabled"), ("Selected", "selected")):
+            width = painter.fontMetrics().horizontalAdvance(word) + 12
+            cell = QRect(x - 6, menu.top(), width, menu.height())
+            if kind == "selected":
+                painter.fillRect(cell, self.palette().highlight())
+            painter.setPen(
+                self.palette().highlightedText().color()
+                if kind == "selected"
+                else chicago95ui.bevel_colors(self.face(), self.look)["shadow"]
+                if kind == "disabled"
+                else QColor("#000000")
+            )
+            painter.drawText(cell, Qt.AlignCenter, word)
+            x += width
+        text = QRect(menu.left() + 2, menu.bottom() + 3, menu.width() - 4, rect.bottom() - menu.bottom() - 8)
+        painter.fillRect(text, QColor("#FFFFFF"))
+        scroll = QRect(text.right() - 15, text.top(), 16, text.height())
+        painter.fillRect(scroll, self.face())
+        for arrow in (QRect(scroll.left(), scroll.top(), 16, 16), QRect(scroll.left(), scroll.bottom() - 15, 16, 16)):
+            self.raised(painter, arrow)
+        painter.setPen(QColor("#000000"))
+        painter.setFont(chicago95ui.ui_font(13, bold=True))
+        painter.drawText(text.adjusted(4, 2, -20, 0), Qt.AlignTop | Qt.AlignLeft, "Window Text")
+
+    def message(self, painter, rect):
+        painter.setFont(chicago95ui.ui_font())
+        painter.setPen(QColor("#000000"))
+        painter.drawText(rect.adjusted(8, 4 + self.TITLE_HEIGHT + 4, 0, 0), Qt.AlignTop | Qt.AlignLeft, "Message Text")
+        button = QRect(rect.center().x() - 37, rect.bottom() - 28, 75, 23)
+        painter.fillRect(button, QColor("#000000"))
+        self.raised(painter, button.adjusted(1, 1, -1, -1))
+        painter.drawText(button, Qt.AlignCenter, "OK")
 
 
 SHEET_MARGINS = (
@@ -1955,6 +2325,38 @@ class PropertiesPage(QWidget):
         self.finished.emit()
 
 
+SHEET_SIZE = QSize(398, 424)  # Display Properties inside its 3px frame and title bar (the tech2u pictures: 404 by 448)
+
+
+class PropertySheetWindow(QDialog):
+    """An applet in its own window, as Windows 98 opened Display Properties: a property sheet of fixed size whose
+    title bar has only the ? and close buttons; closing it is Cancel."""
+
+    def __init__(self, page, parent):
+        super().__init__(
+            parent,
+            Qt.Dialog
+            | Qt.CustomizeWindowHint
+            | Qt.WindowTitleHint
+            | Qt.WindowContextHelpButtonHint
+            | Qt.WindowCloseButtonHint,
+        )
+        self.page = page
+        self.setWindowTitle(f"{page.title} Properties")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(page)
+        page.finished.connect(self.hide)
+        self.setFixedSize(self.sizeHint().expandedTo(SHEET_SIZE))
+
+    def reject(self):
+        self.page.cancel()
+
+    def closeEvent(self, event):
+        self.page.discard_changes()
+        super().closeEvent(event)
+
+
 # ---- Mouse Properties (tests/references/win98mouse.png, tests/test_mouse_page.py): the Buttons tab's parts sit
 # where the original's do, in page-frame coordinates; the tab's own origin is TAB_PAGE_FRAME pixels inside the frame.
 TAB_PAGE_FRAME = 2
@@ -1985,8 +2387,15 @@ def page_rect(rect):
     return rect.translated(-TAB_PAGE_FRAME, -TAB_PAGE_FRAME)
 
 
+def control_panel_picture(name):
+    """A picture of the Control Panel's own (data/control-panel), from the install or the repository."""
+    installed = CHICAGO95_DATA / "control-panel" / name
+    return QPixmap(str(installed if installed.exists() else REPO_DIR / "data/control-panel" / name))
+
+
 class MousePicture(QWidget):
-    """A two-button mouse, its primary button in the selection colour; our own drawing, not the original's."""
+    """The mouse of Mouse Properties, its primary button marked: the left one, or the picture mirrored for
+    the left-handed."""
 
     def __init__(self):
         super().__init__()
@@ -1997,25 +2406,9 @@ class MousePicture(QWidget):
         self.update()
 
     def paintEvent(self, _event):
-        painter = QPainter(self)
-        palette = self.palette()
-        body = self.rect().adjusted(0, 0, -1, -1)
-        painter.setPen(palette.shadow().color())
-        painter.setBrush(palette.light())
-        painter.drawRoundedRect(body, body.width() // 2, body.height() // 3)
-        buttons = QRect(body.left(), body.top(), body.width(), body.height() * 2 // 5)
-        primary = QRect(buttons.left(), buttons.top(), buttons.width() // 2, buttons.height())
-        if self.left_handed:
-            primary.moveLeft(buttons.center().x())
-        painter.setClipRect(buttons)
-        painter.setBrush(palette.highlight())
-        painter.drawRoundedRect(body, body.width() // 2, body.height() // 3)
-        painter.setClipRect(primary.intersected(buttons))
-        painter.setBrush(palette.highlight().color().darker(130))
-        painter.drawRoundedRect(body, body.width() // 2, body.height() // 3)
-        painter.setClipping(False)
-        painter.drawLine(buttons.center().x(), body.top(), buttons.center().x(), buttons.bottom())
-        painter.drawLine(body.left(), buttons.bottom(), body.right(), buttons.bottom())
+        QPainter(self).drawPixmap(
+            0, 0, control_panel_picture("mouse-left.png" if self.left_handed else "mouse-right.png")
+        )
 
 
 class ClickTestArea(QFrame):
@@ -2044,16 +2437,12 @@ class ClickTestArea(QFrame):
 
     def paintEvent(self, event):
         super().paintEvent(event)
-        painter = QPainter(self)
-        box = QRect(self.width() // 2 - 12, self.height() // 2 + 2, 24, 22)
-        painter.setPen(self.palette().shadow().color())
-        painter.setBrush(QColor("#C000C0"))
-        painter.drawRect(box)
-        if self.open:
-            painter.drawLine(box.left(), box.top(), box.center().x(), box.top() - 18)
-            painter.drawLine(box.right(), box.top(), box.center().x(), box.top() - 18)
-            painter.setBrush(self.palette().light())
-            painter.drawEllipse(QRect(box.center().x() - 6, box.top() - 16, 12, 12))
+        closed = control_panel_picture("jack-closed.png")
+        picture = control_panel_picture("jack-open.png") if self.open else closed
+        inside = self.contentsRect()
+        # The closed box sits in the lower half, as the original's; the open one grows upwards from the same floor.
+        floor = inside.center().y() + closed.height() + 2
+        QPainter(self).drawPixmap(inside.center().x() - picture.width() // 2, floor - picture.height(), picture)
 
 
 class MouseButtonsTab(SettingsTab):
@@ -2094,7 +2483,7 @@ class MouseButtonsTab(SettingsTab):
         self.speed.setSingleStep(100)
         self.speed.setPageStep(100)
         self.speed.setTickPosition(QSlider.TicksBelow)
-        self.speed.setTickInterval(100)
+        self.speed.setTickInterval(DOUBLE_CLICK_RANGE[1] - DOUBLE_CLICK_RANGE[0])  # a tick at each end, as the original
         self.speed.setInvertedAppearance(True)  # slow (a long time) on the left, fast on the right
         slider = page_rect(MOUSE_LAYOUT["slider"])
         self.speed.setGeometry(slider.left(), slider.top(), slider.width(), self.speed.sizeHint().height())
@@ -2102,7 +2491,7 @@ class MouseButtonsTab(SettingsTab):
         self.text_at("Fast", MOUSE_LAYOUT["fast"])
         self.test_area = ClickTestArea()
         self.test_area.setParent(self)
-        self.text_at("&Test area:", MOUSE_LAYOUT["test area label"]).setBuddy(self.test_area)
+        self.text_at("Test area:", MOUSE_LAYOUT["test area label"])
         self.test_area.setGeometry(page_rect(MOUSE_LAYOUT["test area"]))
         self.hands.buttonToggled.connect(lambda button, on: self.hand_changed() if on else None)
         self.speed.valueChanged.connect(lambda value: setattr(self.test_area, "interval_ms", value))
@@ -2363,6 +2752,8 @@ def start_menu_tab(settings, actions):
     tab.text("START_TEXT", "Button text:", default="Start")
     tab.picture("START_LOGO", "Button logo:", [("Classic flag", "flag"), ("Penguin", "penguin")], default="flag")
     tab.text("BANNER_TEXT", "Menu banner text:", default="Chicago95")
+    tab.group("Preview")
+    tab.preview(StartMenuPreview())
     return tab
 
 
@@ -2417,33 +2808,93 @@ def loading_screen_tab(settings, actions):
 
 
 ICON_SETS = [("Chicago95 (1995)", "chicago95"), ("SE98 (1998)", "se98"), ("ClassicOS 2000", "classicos2000")]
-COLOR_FIELDS = (
-    ("TITLE_ACTIVE", "Active title bar:"),
-    ("TITLE_INACTIVE", "Inactive title bar:"),
-    ("BANNER_BG", "Start menu banner:"),
-    ("BANNER_FG", "Banner text:"),
+# The Appearance tab's items (Windows 98 lists every part of the screen; these are the ones this desktop
+# colours): its setting, and how many colours it takes (stops: the banner's base colour and its glows).
+APPEARANCE_ITEMS = (
+    ("Active Title Bar", "TITLE_ACTIVE", 2, False),
+    ("Desktop", "BACKGROUND_COLOR", 1, False),
+    ("Icon", "ICONS", 0, False),
+    ("Inactive Title Bar", "TITLE_INACTIVE", 2, False),
+    ("Start Menu Banner", "BANNER_BG", 8, True),
+    ("Start Menu Banner Text", "BANNER_FG", 1, False),
 )
 
 
 @tab_builder("Display", "Appearance")
 def appearance_tab(settings, actions):
+    """Windows 98's Appearance tab (the tech2u Display Properties picture): the sample windows in the scheme's
+    colours, Scheme with Save As and Delete, and Item with the chosen part's settings."""
     tab = SettingsTab(settings, actions)
     start = LOOK_PRESETS["1995"]
-    tab.group("Scheme")
-    tab.scheme = tab.choice(
+    tab.preview = AppearancePreview()
+    tab.outer.insertWidget(0, tab.preview)
+    tab.scheme = chicago95ui.classic_combo(QComboBox())
+    for label, value in (
+        ("Windows 95", "1995"),
+        ("Windows 98", "1998"),
+        ("Windows 2000", "2000"),
+        ("Custom", "custom"),
+    ):
+        tab.scheme.addItem(label, value)
+    tab.save_as_button = chicago95ui.dialog_button("Sa&ve As...", enabled=False)
+    tab.delete_button = chicago95ui.dialog_button("&Delete", enabled=False)
+    tab.items = chicago95ui.classic_combo(QComboBox())
+    tab.item_editors = QStackedWidget()
+    tab.color_edits = {}
+    for label, key, most, stops in APPEARANCE_ITEMS:
+        editor = QWidget()
+        form = QFormLayout(editor)
+        form.setContentsMargins(0, 0, 0, 0)
+        if key == "ICONS":
+            tab.icons = chicago95ui.classic_combo(QComboBox())
+            for icon_label, value in ICON_SETS:
+                tab.icons.addItem(icon_label, value)
+            form.addRow("Icon set:", tab.icons)
+        else:
+            tab.color_edits[key] = ColorListField(lambda current: actions.choose_color(tab, current), most, stops)
+            form.addRow("Color:", tab.color_edits[key])
+        tab.items.addItem(label, key)
+        tab.item_editors.addWidget(editor)
+    tab.items.currentIndexChanged.connect(tab.item_editors.setCurrentIndex)
+    tab.items.setCurrentIndex(tab.items.findText("Desktop"))
+    scheme_row = QHBoxLayout()
+    scheme_row.addWidget(tab.scheme, 1)
+    scheme_row.addWidget(tab.save_as_button)
+    scheme_row.addWidget(tab.delete_button)
+    item_row = QHBoxLayout()
+    item_row.addWidget(tab.items, 1)
+    item_row.addWidget(tab.item_editors, 1)
+    for label, row, buddy in (("&Scheme:", scheme_row, tab.scheme), ("&Item:", item_row, tab.items)):
+        tab.form.addRow(buddy_label(label, buddy))
+        tab.form.addRow(row)
+    font_row = QHBoxLayout()  # the original's Font line, greyed out as for the Desktop: fonts are the Fonts applet's
+    font = chicago95ui.classic_combo(QComboBox())
+    font.addItem(chicago95ui.ui_font().family())
+    font_row.addWidget(font, 1)
+    for caption in ("B", "I"):
+        style_button = QPushButton(caption)
+        style_button.setFixedSize(20, 21)
+        font_row.addWidget(style_button)
+    tab.form.addRow(buddy_label("&Font:", font))
+    tab.form.addRow(font_row)
+    for index in range(font_row.count()):
+        font_row.itemAt(index).widget().setEnabled(False)
+    tab.track(
         "LOOK",
-        "Scheme:",
-        [("Windows 95", "1995"), ("Windows 98", "1998"), ("Windows 2000", "2000"), ("Custom", "custom")],
-        default="1995",
+        tab.scheme.currentData,
+        lambda value: tab.scheme.setCurrentIndex(max(tab.scheme.findData(value), 0)),
+        "1995",
+        tab.scheme.currentIndexChanged,
     )
-    tab.color_edits = {
-        key: tab.color(key, label, default=start[key], most=8 if key == "BANNER_BG" else 2, stops=key == "BANNER_BG")
-        for key, label in COLOR_FIELDS
-    }
-    tab.preview = TitleBarPreview(start["TITLE_ACTIVE"], start["TITLE_INACTIVE"])
-    tab.form.addRow("", tab.preview)
-    tab.group("Icons")
-    tab.icons = tab.choice("ICONS", "Icon set:", ICON_SETS, default=start["ICONS"])
+    for key, field in tab.color_edits.items():
+        tab.track(key, field.value, field.set_value, start[key], field.changed)
+    tab.track(
+        "ICONS",
+        tab.icons.currentData,
+        lambda value: tab.icons.setCurrentIndex(max(tab.icons.findData(value), 0)),
+        start["ICONS"],
+        tab.icons.currentIndexChanged,
+    )
     state = {"applying": False}
 
     def settling():
@@ -2458,9 +2909,15 @@ def appearance_tab(settings, actions):
             field.set_value(preset[key])
         tab.icons.setCurrentIndex(tab.icons.findData(preset["ICONS"]))
         state["applying"] = False
+        refresh_preview()
 
     def refresh_preview():
-        tab.preview.show_colors(tab.color_edits["TITLE_ACTIVE"].value(), tab.color_edits["TITLE_INACTIVE"].value())
+        tab.preview.show_colors(
+            tab.color_edits["TITLE_ACTIVE"].value(),
+            tab.color_edits["TITLE_INACTIVE"].value(),
+            tab.color_edits["BACKGROUND_COLOR"].value(),
+            tab.scheme.currentData(),
+        )
 
     def colour_edited():
         refresh_preview()
@@ -2575,7 +3032,45 @@ class MonitorPreview(QWidget):
         self.desktop_colour = QColor(desktop_colour)
         self.rows = monitor_rows()
         self.picture = QPixmap()
+        self.pattern, self.wallpaper, self.fill = None, QPixmap(), "center"
         self.setFixedSize(MONITOR_CASE[0], len(self.rows))
+
+    def show_desktop(self, colour, pattern, wallpaper, fill):
+        """The desktop as the Background tab sets it: its colour, an 8 by 8 pattern over it, or a wallpaper."""
+        self.desktop_colour = QColor(colour)
+        self.pattern = pattern
+        self.wallpaper = QPixmap(str(wallpaper)) if wallpaper and Path(wallpaper).exists() else QPixmap()
+        self.fill = fill
+        self.update()
+
+    def paint_desktop(self, painter):
+        screen = self.screen_rect()
+        painter.save()
+        painter.setClipRect(screen)
+        for row, bits in enumerate(self.pattern or []):
+            for column in range(8):
+                if bits & (0x80 >> column):
+                    for x in range(screen.left() + column, screen.right() + 1, 8):
+                        for y in range(screen.top() + row, screen.bottom() + 1, 8):
+                            painter.fillRect(x, y, 1, 1, Qt.black)
+        if not self.wallpaper.isNull():
+            self.paint_wallpaper(painter, screen)
+        painter.restore()
+
+    def paint_wallpaper(self, painter, screen):
+        if self.fill == "stretch":
+            painter.drawPixmap(screen, self.wallpaper)
+            return
+        # The screen in the picture stands for the real one: the wallpaper shrinks by as much.
+        real = QGuiApplication.primaryScreen().size() if QGuiApplication.primaryScreen() else QSize(1024, 768)
+        size = self.wallpaper.size() * (screen.width() / max(1, real.width()))
+        size = QSize(max(1, size.width()), max(1, size.height()))
+        if self.fill == "tile":
+            for x in range(screen.left(), screen.right() + 1, size.width()):
+                for y in range(screen.top(), screen.bottom() + 1, size.height()):
+                    painter.drawPixmap(QRect(QPoint(x, y), size), self.wallpaper)
+            return
+        painter.drawPixmap(QRect(screen.center() - QPoint(size.width() // 2, size.height() // 2), size), self.wallpaper)
 
     def show_picture(self, path):
         self.picture = QPixmap(str(path)) if path is not None and Path(path).exists() else QPixmap()
@@ -2598,16 +3093,53 @@ class MonitorPreview(QWidget):
             for x, mark in enumerate(line):
                 if mark in colours:
                     painter.fillRect(x, y, 1, 1, colours[mark])
+        self.paint_desktop(painter)
         if not self.picture.isNull():
             painter.drawPixmap(self.screen_rect(), self.picture)
+
+
+def desktop_colour(settings):
+    return (
+        settings.get("BACKGROUND_COLOR", "#008080") if valid_colors(settings.get("BACKGROUND_COLOR", "")) else "#008080"
+    )
+
+
+@tab_builder("Display", "Settings")
+def display_settings_tab(settings, actions):
+    """Windows 98's Settings tab: the monitor, the display's name, Colors and Screen area side by side, Advanced."""
+    tab = SettingsTab(settings, actions)
+    tab.monitor = MonitorPreview(desktop_colour(settings))
+    tab.outer.insertWidget(0, tab.monitor, 0, Qt.AlignHCenter)
+    screen = actions.current_screen()
+    tab.display_name = QLabel(screen.output if screen else "Unknown monitor")
+    tab.form.addRow("Display:", tab.display_name)
+    colours, area = QGroupBox("Colors"), QGroupBox("Screen area")
+    QVBoxLayout(colours).addWidget(chicago95ui.classic_combo(QComboBox()))
+    colours.findChild(QComboBox).addItem("True Color (32 bit)")
+    tab.screen_area = ScreenAreaField(screen.sizes if screen else [])
+    tab.screen_area.setEnabled(screen is not None)
+    QVBoxLayout(area).addWidget(tab.screen_area)
+    row = QHBoxLayout()
+    row.addWidget(colours, 1)
+    row.addWidget(area, 1)
+    tab.outer.insertLayout(tab.outer.count() - 1, row)
+    if screen is not None:
+        tab.fields["SCREEN_AREA"] = (tab.screen_area.value, tab.screen_area.set_value, screen.current)
+        tab.screen_area.set_value(screen.current)
+        tab.screen_area.changed.connect(tab.notify)
+    tab.advanced_button = chicago95ui.dialog_button("Ad&vanced...")
+    tab.advanced_button.clicked.connect(lambda: actions.start_process("kcmshell6", ["kcm_kscreen"]))
+    buttons = QHBoxLayout()
+    buttons.addStretch(1)
+    buttons.addWidget(tab.advanced_button)
+    tab.outer.insertLayout(tab.outer.count() - 1, buttons)
+    return tab
 
 
 @tab_builder("Display", "Screen Saver")
 def screen_saver_tab(settings, actions):
     tab = SettingsTab(settings, actions)
-    tab.monitor = MonitorPreview(
-        settings.get("BACKGROUND_COLOR", "#008080") if valid_colors(settings.get("BACKGROUND_COLOR", "")) else "#008080"
-    )
+    tab.monitor = MonitorPreview(desktop_colour(settings))
     tab.outer.insertWidget(0, tab.monitor, 0, Qt.AlignHCenter)
     tab.group("Screen Saver")
     savers = actions.list_screensavers()
@@ -2686,6 +3218,9 @@ def sounds_tab(settings, actions):
     return tab
 
 
+EFFECTS_ROW_SPACING = 3  # the lists sit close, so Display Properties keeps near the original's size
+
+
 @tab_builder("Display", "Effects")
 def effects_tab(settings, actions):
     """Every animation by event (setup/animations.conf): KDE's effects, ours and the installed ones of each
@@ -2697,6 +3232,7 @@ def effects_tab(settings, actions):
     tab.combos, tab.settings_buttons = {}, {}
     for group in dict.fromkeys(event.group for event in table.events):
         tab.group(group)
+        tab.form.setVerticalSpacing(EFFECTS_ROW_SPACING)
         for event in (event for event in table.events if event.group == group):
             add_animation_field(
                 tab, table, installed, event, chicago95animations.current_choice(table, event.key, installed, live)
@@ -2732,7 +3268,7 @@ def add_animation_field(tab, table, installed, event, current):
         tab.speed_slider = ChoiceSlider(options)
         tab.register(
             event.key,
-            "",
+            event.label,
             tab.speed_slider,
             tab.speed_slider.value,
             tab.speed_slider.set_value,
@@ -2764,28 +3300,100 @@ def add_animation_field(tab, table, installed, event, current):
 
 @tab_builder("Display", "Background")
 def background_tab(settings, actions):
+    """Windows 98's Background tab (the tech2u Display Properties picture): the monitor showing the desktop, the
+    Wallpaper list with (None) first, Browse..., Pattern... and Display. The desktop colour is Appearance's."""
     tab = SettingsTab(settings, actions)
-    tab.radios(
-        "BACKGROUND_MODE",
-        "Desktop",
-        [("Solid color", "color"), ("Pattern", "pattern"), ("Picture", "image")],
-        default="color",
-    )
-    tab.color("BACKGROUND_COLOR", "Color:", default="#008080", most=1)
-    tab.choice(
-        "BACKGROUND_PATTERN",
-        "Pattern:",
-        [("Checks", "checks"), ("Diagonal", "diagonal"), ("Grid", "grid"), ("Dots", "dots")],
-        default="checks",
-    )
-    tab.picture("BACKGROUND_IMAGE", "Picture:", [], default="")
-    tab.choice(
+    patterns = background_patterns(settings)
+    tab.monitor = MonitorPreview(desktop_colour(settings))
+    tab.outer.insertWidget(0, tab.monitor, 0, Qt.AlignHCenter)
+    tab.group("Wallpaper")
+    tab.wallpapers = QListWidget()
+    tab.wallpapers.addItem(QListWidgetItem(QIcon.fromTheme("dialog-cancel"), "(None)"))
+    for label, path in actions.wallpapers():
+        add_wallpaper(tab.wallpapers, label, path)
+    browse = chicago95ui.dialog_button("&Browse...")
+    tab.pattern_button = chicago95ui.dialog_button("&Pattern...")
+    tab.display = chicago95ui.classic_combo(QComboBox())
+    for label, value in (("Center", "center"), ("Tile", "tile"), ("Stretch", "stretch")):
+        tab.display.addItem(label, value)
+    side = QVBoxLayout()
+    for widget in (browse, tab.pattern_button):
+        side.addWidget(widget)
+    side.addStretch(1)
+    side.addWidget(buddy_label("&Display:", tab.display))
+    side.addWidget(tab.display)
+    row = QHBoxLayout()
+    row.addWidget(tab.wallpapers, 1)
+    row.addLayout(side)
+    tab.form.addRow(buddy_label("&Select a picture:", tab.wallpapers))
+    tab.form.addRow(row)
+    pattern = {"name": "none"}
+
+    def wallpaper():
+        item = tab.wallpapers.currentItem()
+        return item.data(Qt.UserRole) or "" if item is not None else ""
+
+    def show_wallpaper(path):
+        rows = [tab.wallpapers.item(row).data(Qt.UserRole) for row in range(tab.wallpapers.count())]
+        if path and path not in rows:
+            add_wallpaper(tab.wallpapers, Path(path).stem, path)
+            rows.append(path)
+        tab.wallpapers.setCurrentRow(rows.index(path) if path in rows else 0)
+
+    def set_pattern(name):
+        pattern["name"] = name if name in patterns else "none"
+        refresh()
+
+    def mode():
+        return "image" if wallpaper() else ("pattern" if pattern["name"] != "none" else "color")
+
+    def refresh():
+        tab.display.setEnabled(bool(wallpaper()))
+        tab.pattern_button.setEnabled(not wallpaper())
+        tab.monitor.show_desktop(
+            desktop_colour(settings), patterns.get(pattern["name"]), wallpaper(), tab.display.currentData()
+        )
+
+    def choose_pattern():
+        chosen = actions.choose_pattern(tab, pattern["name"], patterns)
+        if chosen is not None:
+            set_pattern(chosen)
+            tab.notify()
+
+    def browse_picture():
+        chosen = actions.choose_file(tab, "Browse", "Pictures (*.png *.jpg *.jpeg *.bmp *.gif *.svg *.webp)")
+        if chosen:
+            show_wallpaper(chosen)
+
+    tab.track("BACKGROUND_MODE", mode, lambda _value: None, "color")
+    tab.track("BACKGROUND_PATTERN", lambda: pattern["name"], set_pattern, "none")
+    tab.track("BACKGROUND_IMAGE", wallpaper, show_wallpaper, "", tab.wallpapers.currentRowChanged)
+    tab.track(
         "BACKGROUND_FILL",
-        "Display:",
-        [("Center", "center"), ("Tile", "tile"), ("Stretch", "stretch")],
-        default="center",
+        tab.display.currentData,
+        lambda value: tab.display.setCurrentIndex(max(tab.display.findData(value), 0)),
+        "center",
+        tab.display.currentIndexChanged,
     )
+    tab.wallpapers.currentRowChanged.connect(refresh)
+    tab.display.currentIndexChanged.connect(refresh)
+    tab.pattern_button.clicked.connect(choose_pattern)
+    browse.clicked.connect(browse_picture)
+    refresh()
     return tab
+
+
+def buddy_label(text, widget):
+    """A caption whose underlined letter takes the focus to its control, as the originals' captions do."""
+    label = QLabel(text)
+    label.setBuddy(widget)
+    return label
+
+
+def add_wallpaper(wallpapers, label, path):
+    item = QListWidgetItem(QIcon.fromTheme("image-x-generic"), label)
+    item.setData(Qt.UserRole, path)
+    wallpapers.addItem(item)
 
 
 class ControlPanel(QMainWindow):
@@ -2795,6 +3403,7 @@ class ControlPanel(QMainWindow):
         self.actions = actions or Actions()
         self.history = NavigationHistory(HOME_PAGE)
         self.applet_pages = {}
+        self.applet_windows = {}
         self.showing_page = False
         self.setWindowTitle("Control Panel")
         self.setWindowIcon(QIcon.fromTheme("preferences-system"))
@@ -2940,7 +3549,30 @@ class ControlPanel(QMainWindow):
         if applet.external_tool:
             self.actions.start_process(tool_path(applet.external_tool), [])
             return
+        if applet.own_window:
+            self.open_window(name)
+            return
         self.navigate(HOME_PAGE + (name,))
+
+    def open_window(self, applet_name):
+        if applet_name not in self.applet_windows:
+            self.applet_windows[applet_name] = PropertySheetWindow(self.build_sheet(applet_name), self)
+        sheet = self.applet_windows[applet_name]
+        sheet.show()
+        sheet.raise_()
+        sheet.activateWindow()
+
+    def applet_sheet(self, applet_name):
+        """An opened applet's property sheet: in its own window, or a page of this one."""
+        window = self.applet_windows.get(applet_name)
+        return window.page if window is not None else self.page_for(applet_name)
+
+    def build_sheet(self, applet_name):
+        settings = read_settings(self.settings_path)
+        tabs = [
+            (tab_name, build_tab(applet_name, tab_name, settings, self.actions)) for tab_name in PAGE_TABS[applet_name]
+        ]
+        return PropertiesPage(applet_name, tabs, self.apply_changes)
 
     def navigate(self, page):
         if not self.may_go_to(page):
@@ -2987,12 +3619,7 @@ class ControlPanel(QMainWindow):
 
     def page_for(self, applet_name):
         if applet_name not in self.applet_pages:
-            settings = read_settings(self.settings_path)
-            tabs = [
-                (tab_name, build_tab(applet_name, tab_name, settings, self.actions))
-                for tab_name in PAGE_TABS[applet_name]
-            ]
-            page = PropertiesPage(applet_name, tabs, self.apply_changes)
+            page = self.build_sheet(applet_name)
             page.finished.connect(lambda: self.navigate(HOME_PAGE))
             page.tabs.currentChanged.connect(lambda index, name=applet_name: self.tab_changed(name, index))
             self.applet_pages[applet_name] = page
@@ -3014,6 +3641,12 @@ class ControlPanel(QMainWindow):
         self.refresh_navigation()
 
     def apply_changes(self, changes):
+        changes = dict(changes)
+        area = changes.pop("SCREEN_AREA", None)
+        if area:
+            self.change_screen_area(area)
+        if not changes:
+            return True
         settings = read_settings(self.settings_path)
         settings.update(changes)
         write_settings(self.settings_path, settings)
@@ -3029,6 +3662,20 @@ class ControlPanel(QMainWindow):
         if components:
             self.actions.run_setup(self, setup_command(repo, self.settings_path, components))
         return True
+
+    def change_screen_area(self, area):
+        """A new size for the screen, kept only when confirmed in time; otherwise the old size and its slider return."""
+        screen = self.actions.current_screen()
+        if screen is None or area not in screen.modes:
+            return
+        self.actions.set_screen_mode(screen.output, screen.modes[area])
+        if self.actions.keep_screen_mode(self):
+            return
+        self.actions.set_screen_mode(screen.output, screen.modes[screen.current])
+        for sheet in [window.page for window in self.applet_windows.values()] + list(self.applet_pages.values()):
+            for tab in sheet.settings_tabs:
+                if hasattr(tab, "screen_area"):
+                    tab.screen_area.set_value(screen.current)
 
     def tab_changed(self, applet_name, index):
         if self.showing_page:

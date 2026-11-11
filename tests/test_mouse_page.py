@@ -164,3 +164,35 @@ def test_mouse_keys_are_applied_by_the_mouse_component(control_panel):
     assert [control_panel.COMPONENTS_BY_KEY[key] for key in ("MOUSE_HAND", "DOUBLE_CLICK_MS", "POINTER_SPEED")] == [
         ("mouse",)
     ] * 3 and "mouse" in control_panel.INSTALL_ORDER
+
+
+def test_the_mouse_picture_is_the_originals_83_by_80_with_the_primary_button_in_navy(control_panel, qt_app):
+    """Left-handed: the same mouse, the navy moved from the left button to the right one, not a mirror image."""
+    right = control_panel.control_panel_picture("mouse-right.png").toImage()
+    left = control_panel.control_panel_picture("mouse-left.png").toImage()
+    navy, white = "#000080", "#ffffff"
+    left_button, right_button, cord = (10, 20), (40, 13), (8, 2)
+
+    assert (
+        right.size().toTuple(),
+        [right.pixelColor(*at).name() for at in (left_button, right_button)],
+        [left.pixelColor(*at).name() for at in (left_button, right_button)],
+        left.pixelColor(*cord) == right.pixelColor(*cord),
+    ) == ((83, 80), [navy, white], [white, navy], True)
+
+
+def test_the_test_areas_box_is_the_originals_closed_and_taller_when_open(control_panel, qt_app):
+    closed = control_panel.control_panel_picture("jack-closed.png")
+    opened = control_panel.control_panel_picture("jack-open.png")
+
+    assert (
+        closed.isNull(),
+        opened.isNull(),
+        opened.height() > closed.height() * 2,
+        opened.width() <= closed.width() * 3,
+    ) == (
+        False,
+        False,
+        True,
+        True,
+    )
