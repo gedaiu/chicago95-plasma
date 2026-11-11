@@ -465,6 +465,37 @@ def test_the_monitor_shows_the_chosen_wallpaper(control_panel, qt_app, tmp_path)
     assert monitor_screen_colour(tab) == "#ff0000"
 
 
+def test_the_display_choices_are_center_tile_stretch_and_cover(control_panel, qt_app):
+    tab = background_tab(control_panel)
+
+    assert [tab.display.itemData(index) for index in range(tab.display.count())] == [
+        "center",
+        "tile",
+        "stretch",
+        "cover",
+    ]
+
+
+def test_a_covering_wallpaper_is_scaled_to_the_screens_wider_side_and_centred(control_panel):
+    from PySide6.QtCore import QRect, QSize
+
+    assert control_panel.cover_rect(QSize(64, 48), QRect(10, 20, 100, 50)) == QRect(10, 8, 100, 75)
+
+
+def test_the_monitor_shows_a_covering_wallpaper_edge_to_edge(control_panel, qt_app, tmp_path):
+    from PySide6.QtGui import QColor, QImage
+
+    picture = QImage(640, 10, QImage.Format_RGB32)
+    picture.fill(QColor("#0000FF"))
+    picture.save(str(tmp_path / "wide.png"))
+    tab = background_tab(control_panel, {"BACKGROUND_FILL": "cover"}, pictures=[("Wide", str(tmp_path / "wide.png"))])
+    tab.wallpapers.setCurrentRow(1)
+    screen = tab.monitor.screen_rect()
+    corners = (screen.topLeft(), screen.bottomRight(), screen.center())
+
+    assert [tab.monitor.grab().toImage().pixelColor(point).name() for point in corners] == ["#0000ff"] * 3
+
+
 def test_the_monitor_shows_the_desktop_colour_without_a_wallpaper(control_panel, qt_app):
     assert monitor_screen_colour(background_tab(control_panel, {"BACKGROUND_COLOR": "#102030"})) == "#102030"
 

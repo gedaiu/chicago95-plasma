@@ -38,7 +38,7 @@ def test_background_color_that_is_not_a_hex_colour_falls_back_to_teal(tmp_path):
     assert ('desktop.writeConfig("Color", "0,128,128");' in script, "evil" in script) == (True, False)
 
 
-@pytest.mark.parametrize("fill, fill_mode", [("center", 6), ("tile", 3), ("stretch", 0), ("", 6)])
+@pytest.mark.parametrize("fill, fill_mode", [("center", 6), ("tile", 3), ("stretch", 0), ("cover", 2), ("", 6)])
 def test_background_image_is_written_as_a_file_url_with_the_fill_mode(tmp_path, fill, fill_mode):
     script = background_script(
         tmp_path, f"SETUP_BACKGROUND_MODE=image SETUP_BACKGROUND_IMAGE=/home/u/wall.png SETUP_BACKGROUND_FILL={fill}"

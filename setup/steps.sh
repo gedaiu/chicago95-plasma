@@ -1156,8 +1156,8 @@ background_color() { [[ "${SETUP_BACKGROUND_COLOR:-}" =~ ^#[0-9A-Fa-f]{6}$ ]] &&
 
 background_pattern() { case "${SETUP_BACKGROUND_PATTERN:-}" in checks | diagonal | grid | dots) printf '%s' "$SETUP_BACKGROUND_PATTERN" ;; *) printf 'checks' ;; esac }
 
-background_fill_mode() { # Qt's Image fill modes: Stretch 0, Tile 3, Pad (centred) 6
-  case "${SETUP_BACKGROUND_FILL:-}" in tile) printf 3 ;; stretch) printf 0 ;; *) printf 6 ;; esac
+background_fill_mode() { # Qt's Image fill modes: Stretch 0, PreserveAspectCrop (cover) 2, Tile 3, Pad (centred) 6
+  case "${SETUP_BACKGROUND_FILL:-}" in tile) printf 3 ;; stretch) printf 0 ;; cover) printf 2 ;; *) printf 6 ;; esac
 }
 
 background_script() {

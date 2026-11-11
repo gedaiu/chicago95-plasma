@@ -2,10 +2,11 @@ import QtQuick
 import org.kde.kirigami as Kirigami
 import org.kde.kwin as KWin
 
-// The switcher's box (tests/test_switcher.py): a raised 2px frame around the face, 7px in from it a grid of
-// 43px cells with each window's 32px icon, the chosen one in a 1px black frame, and under the grid a sunken
-// white field with the chosen window's title. With a preview size, each cell holds a live preview of the
-// window, 4:3, in a 1px sunken frame with the icon over its lower right corner.
+// The switcher's box as the 1995 original's (tests/references/win95alttab.png, tests/test_switcher.py): a raised
+// 2px frame around a 379px-wide face; 48px cells for the windows' 32px icons, seven to a row and a single row
+// centred, the chosen one in a 1px navy frame; under them a 27px sunken field, 16px in from the sides, with the
+// chosen window's title in bold. With a preview size, each cell holds a live preview of the window, 4:3, in a
+// 1px sunken frame with the icon over its lower right corner, as many to a row as nine tenths of the screen take.
 Item {
     id: box
 
@@ -19,26 +20,34 @@ Item {
     signal activated(int index)
 
     readonly property int frame: 2
-    readonly property int inset: 7
+    readonly property int sidePad: 19
+    readonly property int topPad: 18
     readonly property int iconSize: 32
-    readonly property int iconCell: 43
+    readonly property int iconCell: 48
+    readonly property int perRow: 7
+    readonly property int classicWidth: 379
+    readonly property int captionGap: 10
+    readonly property int captionHeight: 27
+    readonly property int captionInset: 16
+    readonly property int bottomPad: 9
     readonly property int previewHeight: Math.round(previewSize * 3 / 4)
-    readonly property int cellWidth: previewSize > 0 ? previewSize + 10 : iconCell
-    readonly property int cellHeight: previewSize > 0 ? previewHeight + 10 : iconCell
+    readonly property bool previews: previewSize > 0
+    readonly property int cellWidth: previews ? previewSize + 10 : iconCell
+    readonly property int cellHeight: previews ? previewHeight + 10 : iconCell
     readonly property int count: model ? (model.rowCount ? model.rowCount() : model.count) : 0
-    readonly property int columns: Math.max(1, Math.min(count, previewSize > 0 ? Math.floor((widest - 2 * (frame + inset)) / cellWidth) : 7))
+    readonly property int columns: Math.max(1, Math.min(count, previews ? Math.floor((widest - 2 * (frame + sidePad)) / cellWidth) : perRow))
     readonly property int rows: Math.max(1, Math.ceil(count / columns))
-    readonly property int captionHeight: 21
-    readonly property int captionGap: 4
+    readonly property int rowWidth: columns * cellWidth
 
     // The bevel as the look draws it: 1995 and 1998 light a shade above the face with a black dark line,
     // 2000 the face itself with #404040 (lib/chicago95ui.py bevel_colors).
     readonly property color light: look === "2000" ? face : Qt.lighter(face, 1.16)
     readonly property color shadow: "#808080"
     readonly property color dark: look === "2000" ? "#404040" : "#000000"
+    readonly property color navy: "#000080"
 
-    width: 2 * (frame + inset) + columns * cellWidth
-    height: 2 * (frame + inset) + rows * cellHeight + captionGap + captionHeight
+    width: previews ? 2 * (frame + sidePad) + rowWidth : classicWidth
+    height: frame + topPad + rows * cellHeight + captionGap + captionHeight + bottomPad + frame
 
     Rectangle {
         anchors.fill: parent
@@ -56,9 +65,10 @@ Item {
 
     GridView {
         id: grid
-        x: box.frame + box.inset
-        y: box.frame + box.inset
-        width: box.columns * box.cellWidth
+        // A single row sits centred; rows that wrap start at the left pad, as the originals' did.
+        x: box.rows === 1 ? Math.floor((box.width - box.rowWidth) / 2) : box.frame + box.sidePad
+        y: box.frame + box.topPad
+        width: box.rowWidth
         height: box.rows * box.cellHeight
         cellWidth: box.cellWidth
         cellHeight: box.cellHeight
@@ -75,26 +85,25 @@ Item {
             width: box.cellWidth
             height: box.cellHeight
 
-            // The chosen window's 1px frame, a pixel in from the cell.
+            // The chosen window's 1px navy frame on the cell's edge.
             Rectangle {
                 anchors.fill: parent
-                anchors.margins: 1
                 color: "transparent"
                 border.width: 1
-                border.color: "#000000"
+                border.color: box.navy
                 visible: cell.chosen
             }
             Kirigami.Icon {
-                visible: box.previewSize === 0
-                x: Math.floor((box.iconCell - box.iconSize) / 2)
-                y: Math.floor((box.iconCell - box.iconSize) / 2)
+                visible: !box.previews
+                x: (box.iconCell - box.iconSize) / 2
+                y: (box.iconCell - box.iconSize) / 2
                 width: box.iconSize
                 height: box.iconSize
                 source: cell.model.icon
                 roundToIconSize: false
             }
             Item {
-                visible: box.previewSize > 0
+                visible: box.previews
                 x: 5
                 y: 5
                 width: box.previewSize
@@ -125,31 +134,29 @@ Item {
         }
     }
 
-    // The chosen window's title in a sunken white field under the grid.
+    // The chosen window's title, bold, in a sunken field on the face under the grid.
     Item {
         id: caption
-        x: box.frame + box.inset
+        x: box.captionInset
         y: grid.y + grid.height + box.captionGap
-        width: grid.width
+        width: box.width - 2 * box.captionInset
         height: box.captionHeight
-        Rectangle { anchors.fill: parent; color: "#FFFFFF" }
         Rectangle { x: 0; y: 0; width: parent.width; height: 1; color: box.shadow }
         Rectangle { x: 0; y: 0; width: 1; height: parent.height; color: box.shadow }
         Rectangle { x: 1; y: 1; width: parent.width - 2; height: 1; color: box.dark }
         Rectangle { x: 1; y: 1; width: 1; height: parent.height - 2; color: box.dark }
-        Rectangle { x: 0; y: parent.height - 1; width: parent.width; height: 1; color: box.light }
-        Rectangle { x: parent.width - 1; y: 0; width: 1; height: parent.height; color: box.light }
-        Rectangle { x: 1; y: parent.height - 2; width: parent.width - 2; height: 1; color: "#FFFFFF" }
-        Rectangle { x: parent.width - 2; y: 1; width: 1; height: parent.height - 2; color: "#FFFFFF" }
+        Rectangle { x: 0; y: parent.height - 1; width: parent.width; height: 1; color: "#FFFFFF" }
+        Rectangle { x: parent.width - 1; y: 0; width: 1; height: parent.height; color: "#FFFFFF" }
+        Rectangle { x: 1; y: parent.height - 2; width: parent.width - 2; height: 1; color: box.light }
+        Rectangle { x: parent.width - 2; y: 1; width: 1; height: parent.height - 2; color: box.light }
         Text {
-            anchors.fill: parent
-            anchors.leftMargin: 4
-            anchors.rightMargin: 4
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
+            x: 4
+            y: 9
+            width: parent.width - 8
             text: grid.currentItem ? grid.currentItem.model.caption : ""
             font.family: "MS W98 UI"
             font.pixelSize: 11
+            font.bold: true
             color: "#000000"
             elide: Text.ElideRight
             renderType: Text.NativeRendering

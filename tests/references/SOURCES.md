@@ -71,3 +71,5 @@ Desktop icons, Run, and the taskbar's menu:
 | `win98cascade.png` | https://www.tech2u.com.au/training/tech2u/win98_1/images/view04.gif (Windows 98: three windows after Cascade Windows; a palette GIF, saved as PNG) |
 | `win98tilev.png` | https://www.tech2u.com.au/training/tech2u/win98_1/images/view05.gif (Windows 98: three windows after Tile Windows Vertically; a palette GIF, saved as PNG) |
 | `win98tileh.png` | https://www.tech2u.com.au/training/tech2u/win98_1/images/view06.gif (Windows 98: three windows after Tile Windows Horizontally; a palette GIF, saved as PNG) |
+| `win95alttab.png` | screenshot supplied by the project owner (Windows 95 Alt+Tab with four windows: smoothed and scaled 4.625x, so rules and positions, not exact pixels) |
+| `win8classicalttab.png` | https://i.sstatic.net/a6lrf.png (the classic Alt+Tab box on Windows 8: seven icons per row at a fixed width, further rows below) |

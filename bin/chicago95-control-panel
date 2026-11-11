@@ -3142,6 +3142,15 @@ def monitor_rows():
     return case + stand
 
 
+def cover_rect(picture, screen):
+    """Where a picture that covers the screen goes: scaled to reach both edges, keeping its shape, centred."""
+    scale = max(screen.width() / picture.width(), screen.height() / picture.height())
+    size = QSize(round(picture.width() * scale), round(picture.height() * scale))
+    left = screen.left() + int((screen.width() - size.width()) / 2)
+    top = screen.top() + int((screen.height() - size.height()) / 2)
+    return QRect(QPoint(left, top), size)
+
+
 class MonitorPreview(QWidget):
     """The monitor drawn at the top of the Screen Saver tab: its screen shows the chosen screensaver's picture,
     or the desktop colour."""
@@ -3179,6 +3188,9 @@ class MonitorPreview(QWidget):
     def paint_wallpaper(self, painter, screen):
         if self.fill == "stretch":
             painter.drawPixmap(screen, self.wallpaper)
+            return
+        if self.fill == "cover":
+            painter.drawPixmap(cover_rect(self.wallpaper.size(), screen), self.wallpaper)
             return
         # The screen in the picture stands for the real one: the wallpaper shrinks by as much.
         real = QGuiApplication.primaryScreen().size() if QGuiApplication.primaryScreen() else QSize(1024, 768)
@@ -3467,7 +3479,7 @@ def background_tab(settings, actions):
     browse = chicago95ui.dialog_button("&Browse...")
     tab.pattern_button = chicago95ui.dialog_button("&Pattern...")
     tab.display = chicago95ui.classic_combo(QComboBox())
-    for label, value in (("Center", "center"), ("Tile", "tile"), ("Stretch", "stretch")):
+    for label, value in (("Center", "center"), ("Tile", "tile"), ("Stretch", "stretch"), ("Cover", "cover")):
         tab.display.addItem(label, value)
     side = QVBoxLayout()
     for widget in (browse, tab.pattern_button):

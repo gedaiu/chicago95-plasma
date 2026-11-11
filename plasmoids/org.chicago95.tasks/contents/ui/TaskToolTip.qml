@@ -39,14 +39,18 @@ Item {
         Rectangle { x: 0; y: 0; width: 1; height: parent.height; color: "#808080" }
         Rectangle { x: 0; y: parent.height - 1; width: parent.width; height: 1; color: "#FFFFFF" }
         Rectangle { x: parent.width - 1; y: 0; width: 1; height: parent.height; color: "#FFFFFF" }
-        PipeWire.PipeWireSourceItem {
+        // The stream starts only once the tooltip is on screen: a screencast item without a window gives up
+        // ("Window not available"), and the tooltip's content exists long before it is shown.
+        Loader {
             anchors.fill: parent
             anchors.margins: 1
-            visible: tip.previewSize > 0 && tip.windowId !== null
-            nodeId: screencast.nodeId
-            TaskManager.ScreencastingRequest {
-                id: screencast
-                uuid: tip.previewSize > 0 && tip.windowId !== null ? tip.windowId : ""
+            active: tip.previewSize > 0 && tip.windowId !== null && tip.Window.visibility !== Window.Hidden
+            sourceComponent: PipeWire.PipeWireSourceItem {
+                nodeId: screencast.nodeId
+                TaskManager.ScreencastingRequest {
+                    id: screencast
+                    uuid: tip.windowId
+                }
             }
         }
     }

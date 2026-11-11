@@ -1,8 +1,9 @@
-"""Alt+Tab (kwin-tabbox/chicago95): the classic grey box with the windows' icons in a row and the chosen window's
-title under them, or window previews at the size chosen in the Control Panel. The box is rendered offscreen with
-stubs for KWin's thumbnail and Kirigami's icon (plain coloured squares), so every frame and cell is measured.
-No screenshot of the original box has been found: the metrics are the classic ones (43px cells, 32px icons,
-a 1px black frame around the chosen one) and are pinned here until an original can be compared."""
+"""Alt+Tab (kwin-tabbox/chicago95) against the 1995 original (tests/references/win95alttab.png, a smoothed 4.625x
+capture, so its rules and positions are measured, not its pixels): a 379px box with a raised 2px frame, 48px cells
+seven to a row with 32px icons, a single row centred, the chosen window in a 1px navy frame, and a 27px sunken field
+16px in from the sides with the title in bold. Further rows wrap as the classic box did (win8classicalttab.png).
+With a preview size chosen in the Control Panel the cells hold window previews instead. The box is rendered offscreen
+with stubs for KWin's thumbnail and Kirigami's icon (plain coloured squares)."""
 
 import pytest
 from conftest import REPO, run_bash_with_steps
@@ -16,7 +17,10 @@ from test_install import dry_run_log, kwriteconfig
 UI = REPO / "kwin-tabbox/chicago95/contents/ui"
 ICON, THUMBNAIL = (0, 200, 0), (64, 128, 192)
 FACE, LIGHT, SHADOW, WHITE, BLACK = (192, 192, 192), (223, 223, 223), (128, 128, 128), (255, 255, 255), (0, 0, 0)
-CELL, INSET = 43, 9  # a cell's pitch; the grid's offset from the box's corner (2px frame, 7px in)
+NAVY = (0, 0, 128)
+BOX_WIDTH, CELL, TOP, PER_ROW = 379, 48, 20, 7  # the box; a cell's pitch; the first row's top; cells per row
+FIELD_TOP, FIELD_HEIGHT, FIELD_INSET = 78, 27, 16  # the caption field under one row
+ROW_LEFT = (BOX_WIDTH - 3 * CELL) // 2  # three cells centred
 
 STUBS = {
     "org/kde/kwin/qmldir": "module org.kde.kwin\nWindowThumbnail 1.0 WindowThumbnail.qml\n",
@@ -29,11 +33,19 @@ STUBS = {
 WINDOWS = """
 import QtQuick
 ListModel {
-    ListElement { caption: "My Computer"; icon: "computer"; windowId: "1" }
-    ListElement { caption: "Untitled - Notepad"; icon: "text"; windowId: "2" }
-    ListElement { caption: "Recycle Bin"; icon: "trash"; windowId: "3" }
+%s
 }
 """
+TITLES = [
+    "My Computer",
+    "Exploring - Windows",
+    "Untitled - Notepad",
+    "Recycle Bin",
+    "Paint",
+    "Solitaire",
+    "Calculator",
+    "Minesweeper",
+]
 
 
 @pytest.fixture(scope="module")
@@ -45,11 +57,15 @@ def imports(tmp_path_factory):
     return folder
 
 
-def render(qt_app, imports, current_index, preview_size=0, look="1995"):
+def render(qt_app, imports, current_index, preview_size=0, look="1995", windows=3):
     view = QQuickView()
     view.engine().addImportPath(str(imports))
     model = QQmlComponent(view.engine())
-    model.setData(WINDOWS.encode(), QUrl())
+    elements = "\n".join(
+        f'    ListElement {{ caption: "{title}"; icon: "icon{index}"; windowId: "{index}" }}'
+        for index, title in enumerate(TITLES[:windows])
+    )
+    model.setData((WINDOWS % elements).encode(), QUrl())
     windows = model.create()
     assert windows is not None, model.errorString()
     view.setSource(QUrl.fromLocalFile(str(UI / "SwitcherBox.qml")))
@@ -84,23 +100,24 @@ def boxes(image, colour):
     return found
 
 
-def test_the_box_holds_three_43px_cells_with_32px_icons_and_the_title_field_under_them(qt_app, imports):
+def test_three_windows_sit_in_one_centred_row_of_48px_cells_in_the_379px_box(qt_app, imports):
     image = render(qt_app, imports, 0)
 
     assert (image.size, boxes(image, ICON)) == (
-        (2 * INSET + 3 * CELL, 2 * INSET + CELL + 4 + 21),
-        [(INSET + 5 + CELL * column, INSET + 5, INSET + 5 + CELL * column + 31, INSET + 5 + 31) for column in range(3)],
+        (BOX_WIDTH, 116),
+        [
+            (ROW_LEFT + 8 + CELL * column, TOP + 8, ROW_LEFT + 8 + CELL * column + 31, TOP + 8 + 31)
+            for column in range(3)
+        ],
     )
 
 
 def test_the_frame_is_raised_light_and_white_above_and_left_dark_and_shadow_below_and_right(qt_app, imports):
     image = render(qt_app, imports, 0)
     right, bottom = image.width - 1, image.height - 1
+    probes = ((5, 0), (0, 5), (5, 1), (1, 5), (5, bottom), (right, 5), (5, bottom - 1), (right - 1, 5), (20, 4))
 
-    assert [
-        image.getpixel(point)
-        for point in ((5, 0), (0, 5), (5, 1), (1, 5), (5, bottom), (right, 5), (5, bottom - 1), (right - 1, 5), (20, 4))
-    ] == [
+    assert [image.getpixel(point) for point in probes] == [
         LIGHT,
         LIGHT,
         WHITE,
@@ -113,45 +130,58 @@ def test_the_frame_is_raised_light_and_white_above_and_left_dark_and_shadow_belo
     ]
 
 
-def test_the_chosen_window_gets_a_1px_black_frame_a_pixel_inside_its_cell(qt_app, imports):
+def test_the_chosen_window_gets_a_1px_navy_frame_on_its_cells_edge(qt_app, imports):
     image = render(qt_app, imports, 1)
-    cell_left, cell_top = INSET + CELL, INSET
+    cell_left = ROW_LEFT + CELL
 
     assert (
-        boxes(image.crop((2, 2, image.width - 2, INSET + CELL)), BLACK),
-        image.getpixel((cell_left + 1, cell_top + 1)),
-        image.getpixel((cell_left + 2, cell_top + 2)),
-    ) == ([(cell_left - 1, cell_top - 1, cell_left + CELL - 4, cell_top + CELL - 4)], BLACK, FACE)
+        boxes(image.crop((2, 2, image.width - 2, TOP + CELL + 2)), NAVY),
+        image.getpixel((cell_left, TOP)),
+        image.getpixel((cell_left + 1, TOP + 1)),
+    ) == ([(cell_left - 2, TOP - 2, cell_left + CELL - 3, TOP + CELL - 3)], NAVY, FACE)
 
 
-def test_the_title_field_is_sunken_and_white_under_the_grid(qt_app, imports):
+def test_the_title_field_is_sunken_on_the_face_with_the_title_in_bold_four_pixels_in(qt_app, imports):
     image = render(qt_app, imports, 0)
-    top = INSET + CELL + 4
-    left = INSET
+    left, top, right = FIELD_INSET, FIELD_TOP, BOX_WIDTH - FIELD_INSET - 1
+    field = image.crop((left + 2, top + 2, right - 1, top + FIELD_HEIGHT - 2))
+    ink = boxes(field, BLACK)
 
-    assert [
-        image.getpixel(point)
-        for point in (
-            (left + 30, top),
-            (left, top + 10),
-            (left + 30, top + 1),
-            (left + 30, top + 20),
-            (left + 30, top + 19),
-            (left + 30, top + 10),
-        )
-    ] == [
-        SHADOW,
-        SHADOW,
-        BLACK,
-        LIGHT,
-        WHITE,
-        WHITE,
-    ]
+    assert (
+        [
+            image.getpixel(point)
+            for point in (
+                (left + 30, top),
+                (left, top + 10),
+                (left + 30, top + 1),
+                (right, top + 10),
+                (left + 30, top + FIELD_HEIGHT - 1),
+                (left + 30, top + FIELD_HEIGHT - 2),
+                (right - 40, top + 5),
+            )
+        ],
+        ink[0][0] + 2,
+        ink[0][1] + 2 in range(8, 11),
+        max(bottom for _l, _t, _r, bottom in ink) + 2 <= 21,
+    ) == ([SHADOW, SHADOW, BLACK, WHITE, WHITE, LIGHT, FACE], 4, True, True)
+
+
+def test_eight_windows_wrap_into_a_second_row_from_the_left_pad(qt_app, imports):
+    image = render(qt_app, imports, 0, windows=8)
+    icons = boxes(image.crop((0, 0, image.width, TOP + CELL)), ICON)
+    second = boxes(image.crop((0, TOP + CELL, image.width, TOP + 2 * CELL)), ICON)
+
+    assert (image.size, len(icons), icons[0][0], second) == (
+        (BOX_WIDTH, 116 + CELL),
+        PER_ROW,
+        2 + 19 + 8,
+        [(2 + 19 + 8, 8, 2 + 19 + 8 + 31, 8 + 31)],
+    )
 
 
 def test_with_previews_each_cell_shows_the_window_at_the_chosen_width_in_a_sunken_frame_with_its_icon(qt_app, imports):
     image = render(qt_app, imports, 0, preview_size=160)
-    first = (INSET + 5, INSET + 5)
+    first = (2 + 19 + 5, TOP + 5)
 
     assert (
         image.size[0],
@@ -160,7 +190,7 @@ def test_with_previews_each_cell_shows_the_window_at_the_chosen_width_in_a_sunke
         image.getpixel((first[0] + 159, first[1] + 119)),
         boxes(image.crop((first[0], first[1], first[0] + 160, first[1] + 120)), ICON),
     ) == (
-        2 * INSET + 3 * 170,
+        2 * (2 + 19) + 3 * 170,
         (first[0] + 1, first[1] + 1, first[0] + 158, first[1] + 118),
         SHADOW,
         WHITE,

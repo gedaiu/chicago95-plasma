@@ -217,11 +217,11 @@ at the next login (Setup offers to log out). The Run dialog is the 1995 original
 (`tests/test_run_reference.py`), with a twist: as you type, programs, commands on the PATH, folders and files that
 match are listed under the field; Enter runs the first, or the typed line as it is.
 
-Alt+Tab is our KWin switcher layout: the classic grey box with the windows' icons in a row and the chosen one's
-title under them. Taskbar > Taskbar Options' "Window previews" (Off, Small, Medium, Large) switches both it and the
-task buttons' tooltips to live previews of the windows at that width; the tooltips are otherwise the flat pale
-yellow title. No screenshot of the original Alt+Tab box has been found, so its metrics are the classic ones
-(43px cells, 32px icons, a 1px frame around the chosen one) rather than measured.
+Alt+Tab is our KWin switcher layout, measured from a Windows 95 capture (`tests/references/win95alttab.png`): a
+379px grey box with the windows' icons in 48px cells, seven to a row and further rows below, the chosen one in a
+1px navy frame, and its title in bold in a sunken field under them. Taskbar > Taskbar Options' "Window previews"
+(Off, Small, Medium, Large) switches both it and the task buttons' tooltips to live previews of the windows at
+that width; the tooltips are otherwise the flat pale yellow title.
 
 A right-click on the taskbar offers the Quick Launch, Cascade Windows, Tile Windows Horizontally, Tile Windows
 Vertically, Minimize All Windows, the Undo of the last of those, and Properties. The arrangements are a KWin
