@@ -232,3 +232,30 @@ def test_up_from_quick_launch_tab_is_the_taskbar_page_and_from_the_control_panel
 
 def test_breadcrumb_text_joins_the_path_with_arrows(control_panel):
     assert control_panel.breadcrumb_text(QUICK_LAUNCH_TAB) == "Control Panel > Taskbar > Quick Launch"
+
+
+def test_show_again_brings_a_minimized_window_back_on_the_named_page(control_panel, qt_app, tmp_path):
+    window = control_panel.ControlPanel(settings_path=tmp_path / "setup.conf")
+    window.show()
+    window.showMinimized()
+    qt_app.processEvents()
+
+    window.show_again("taskbar")
+    qt_app.processEvents()
+
+    assert (window.isMinimized(), window.history.current) == (False, control_panel.HOME_PAGE + ("Taskbar",))
+
+
+def test_a_second_launch_hands_its_page_to_the_running_window(qt_app, monkeypatch, tmp_path):
+    import chicago95ui
+
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    received = []
+    before = chicago95ui.send_to_running("chicago95-test", "taskbar")
+    instance = chicago95ui.SingleInstance("chicago95-test", received.append)
+    sent = chicago95ui.send_to_running("chicago95-test", "taskbar")
+    while not received:
+        qt_app.processEvents()
+    instance.server.close()
+
+    assert (before, sent, received) == (False, True, ["taskbar"])

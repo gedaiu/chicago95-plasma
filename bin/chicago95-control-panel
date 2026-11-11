@@ -22,6 +22,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+import chicago95animations
 import chicago95ui  # noqa: E401,E702
 import chicago95update  # noqa: E402
 import login_preview
@@ -84,6 +85,7 @@ APPLETS_FILE = Path.home() / ".config/plasma-org.kde.plasma.desktop-appletsrc"
 INSTALL_ORDER = (
     "base",
     "look",
+    "animations",
     "taskbar",
     "startmenu",
     "notifications",
@@ -109,7 +111,10 @@ COMPONENTS_BY_KEY = {
     "ICONS": ("look",),
     "FONT": ("look",),
     "FONT_SCOPE": ("look",),
-    "CLASSIC_EFFECTS": ("look",),
+    **{
+        event.key: ("animations",)
+        for event in chicago95animations.read_animations(chicago95animations.table_path()).events
+    },
     "BANNER_BG": ("startmenu",),
     "BANNER_FG": ("startmenu",),
     "BANNER_TEXT": ("startmenu", "splash"),
@@ -717,6 +722,8 @@ class Actions:
     list_screensavers: Callable = installed_screensavers
     lock_timeout_minutes: Callable = lock_timeout_minutes
     sound_roots: tuple = SOUND_ROOTS
+    installed_effects: Callable = chicago95animations.installed_effects
+    live_animations: Callable = chicago95animations.live_state
 
 
 class HeaderBand(QWidget):
@@ -1550,6 +1557,33 @@ class TaskButtonPreview(QWidget):
             chicago95ui.paint_task_button(painter, rect, caption, self.icon, pressed, self.look)
 
 
+class ChoiceSlider(QWidget):
+    """A slider over a few named steps, labelled at its ends, as the Mouse page's pointer speed."""
+
+    changed = Signal()
+
+    def __init__(self, options):
+        super().__init__()
+        self.values = [value for _label, value in options]
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setRange(0, len(options) - 1)
+        self.slider.setPageStep(1)
+        self.slider.setTickPosition(QSlider.TicksBelow)
+        self.slider.setTickInterval(1)
+        row = QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(QLabel(options[0][0]))
+        row.addWidget(self.slider, 1)
+        row.addWidget(QLabel(options[-1][0]))
+        self.slider.valueChanged.connect(lambda *_: self.changed.emit())
+
+    def value(self):
+        return self.values[self.slider.value()]
+
+    def set_value(self, value):
+        self.slider.setValue(self.values.index(value) if value in self.values else 0)
+
+
 class ButtonWidthField(QWidget):
     """The longest a window's button on the taskbar may be: the look's own, or a width from 60 to 300 pixels."""
 
@@ -1978,7 +2012,12 @@ class UpdatesTab(SettingsTab):
         super().__init__(settings, actions)
         self.check = None
         self.group("Chicago95 for Plasma")
-        self.installed_label, self.latest_label, self.checked_label, self.status_label = QLabel(), QLabel(), QLabel(), QLabel()
+        self.installed_label, self.latest_label, self.checked_label, self.status_label = (
+            QLabel(),
+            QLabel(),
+            QLabel(),
+            QLabel(),
+        )
         self.form.addRow("Installed version:", self.installed_label)
         self.form.addRow("Latest version:", self.latest_label)
         self.form.addRow("Last checked:", self.checked_label)
@@ -2014,7 +2053,9 @@ class UpdatesTab(SettingsTab):
         if result.get("error"):
             status = f"Could not check: {result['error']}"
         else:
-            status = UPDATE_STATUS["available" if result.get("available") else "current" if result.get("latest") else "unchecked"]
+            status = UPDATE_STATUS[
+                "available" if result.get("available") else "current" if result.get("latest") else "unchecked"
+            ]
         self.status_label.setText(status)
         self.install_button.setEnabled(bool(result.get("available")))
 
@@ -2374,9 +2415,78 @@ def sounds_tab(settings, actions):
 
 @tab_builder("Display", "Effects")
 def effects_tab(settings, actions):
+    """Every animation by event (setup/animations.conf): KDE's effects, ours and the installed ones of each
+    event's kind; a list shows what runs now until a choice is saved."""
     tab = SettingsTab(settings, actions)
-    tab.flag("CLASSIC_EFFECTS", "Make windows and menus appear instantly, without animations", default="no")
+    table = chicago95animations.read_animations(chicago95animations.table_path())
+    installed = actions.installed_effects()
+    live = actions.live_animations()
+    tab.combos, tab.settings_buttons = {}, {}
+    for group in dict.fromkeys(event.group for event in table.events):
+        tab.group(group)
+        for event in (event for event in table.events if event.group == group):
+            add_animation_field(
+                tab, table, installed, event, chicago95animations.current_choice(table, event.key, installed, live)
+            )
+    align_labels(tab)
+    tab.classic_button = chicago95ui.dialog_button("&Classic")
+    tab.classic_button.clicked.connect(
+        lambda: tab.load({**tab.values(), **table.classic.get(settings.get("LOOK", "1998"), {})}) or tab.notify()
+    )
+    row = QHBoxLayout()
+    row.addStretch(1)
+    row.addWidget(tab.classic_button)
+    tab.outer.insertLayout(tab.outer.count() - 1, row)
     return tab
+
+
+def align_labels(page):
+    """The lists of every group start in one column, as one long form would put them."""
+    labels = [
+        form.itemAt(row, QFormLayout.LabelRole).widget()
+        for form in page.findChildren(QFormLayout)
+        for row in range(form.rowCount())
+        if form.itemAt(row, QFormLayout.LabelRole) is not None
+    ]
+    width = max((label.sizeHint().width() for label in labels), default=0)
+    for label in labels:
+        label.setMinimumWidth(width)
+
+
+def add_animation_field(tab, table, installed, event, current):
+    options = chicago95animations.event_choices(table, event.key, installed)
+    if event.key == chicago95animations.SPEED_KEY:
+        tab.speed_slider = ChoiceSlider(options)
+        tab.register(
+            event.key,
+            "",
+            tab.speed_slider,
+            tab.speed_slider.value,
+            tab.speed_slider.set_value,
+            current,
+            tab.speed_slider.changed,
+        )
+        return
+    if [value for _label, value in options] == ["no", "yes"]:
+        tab.flag(event.key, event.label, default=current)
+        return
+    button = chicago95ui.dialog_button("Se&ttings...")
+    tab.combos[event.key] = combo = tab.choice(event.key, event.label, options, default=current, beside=button)
+    tab.settings_buttons[event.key] = button
+
+    def settings_command():
+        effects = chicago95animations.choice_effects(table, event.key, combo.currentData())
+        pages = [
+            installed[effect].settings for effect in map(chicago95animations.effect_id, effects) if effect in installed
+        ]
+        return next((page for page in pages if page), None)
+
+    def show_state():
+        button.setEnabled(settings_command() is not None)
+
+    button.clicked.connect(lambda: tab.actions.start_process(settings_command()[0], list(settings_command()[1:])))
+    combo.currentIndexChanged.connect(show_state)
+    show_state()
 
 
 @tab_builder("Display", "Background")
@@ -2544,6 +2654,14 @@ class ControlPanel(QMainWindow):
             selected[0].data(Qt.UserRole).description if selected else f"{self.icon_view.count()} object(s)"
         )
 
+    def show_again(self, page_slug):
+        """A later launch asked for the window: its page, if named, then the window up and in front."""
+        if page_slug in PAGE_SLUGS:
+            self.open_applet(PAGE_SLUGS[page_slug])
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
     def open_applet(self, name):
         applet = APPLET_BY_NAME[name]
         if applet.external_tool:
@@ -2665,17 +2783,24 @@ class ControlPanel(QMainWindow):
         return menu
 
 
+INSTANCE_NAME = "chicago95-control-panel"
+
+
 def main():
     parser = argparse.ArgumentParser(description="Chicago95 Control Panel")
     parser.add_argument("--page", choices=sorted(PAGE_SLUGS), help="open this applet's page")
     parser.add_argument("--screenshot", metavar="PNG", help="save a picture of the window and exit")
     arguments = parser.parse_args()
     app = chicago95ui.make_app("Control Panel")
+    # One window: a later launch (Properties on the taskbar) hands its page to the open one, which comes back up.
+    if not arguments.screenshot and chicago95ui.send_to_running(INSTANCE_NAME, arguments.page or ""):
+        return 0
     window = ControlPanel()
     if arguments.page:
         window.open_applet(PAGE_SLUGS[arguments.page])
     if arguments.screenshot:
         return 0 if window.grab().save(arguments.screenshot) else 1
+    instance = chicago95ui.SingleInstance(INSTANCE_NAME, window.show_again)  # noqa: F841  kept alive with the window
     window.show()
     return app.exec()
 

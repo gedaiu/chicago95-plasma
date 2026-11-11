@@ -33,7 +33,12 @@ while IFS= read -r entry; do
     case "$key" in
     widgetStyle) kwriteconfig6 --file "$file" --group "$group" --key "$key" Breeze ;;
     library) kwriteconfig6 --file "$file" --group "$group" --key "$key" org.kde.breeze ;;
-    theme | Theme | Engine | forceFontDPI | chicago95notificationsEnabled | AccentColor | BorderSize | font | menuFont | toolBarFont | smallestReadableFont | activeFont | activeBackground | activeBlend | inactiveBackground | inactiveBlend | AnimationDurationFactor | squashEnabled | magiclampEnabled | fadeEnabled | scaleEnabled | glideEnabled | fallapartEnabled | wobblywindowsEnabled | fadingpopupsEnabled | slidingpopupsEnabled | maximizeEnabled) kwriteconfig6 --file "$file" --group "$group" --key "$key" --delete ;;
+    theme | Theme | Engine | forceFontDPI | AccentColor | BorderSize | font | menuFont | toolBarFont | smallestReadableFont | activeFont | activeBackground | activeBlend | inactiveBackground | inactiveBlend | AnimationDurationFactor) kwriteconfig6 --file "$file" --group "$group" --key "$key" --delete ;;
+    *)
+      case "$group:$key" in # the effects the animations step switched, and our own animation choices
+      Plugins:*Enabled | Effect-chicago95zoom:* | Animations:*) kwriteconfig6 --file "$file" --group "$group" --key "$key" --delete ;;
+      esac
+      ;;
     esac
     ;;
   kwinrule:*) remove_kwin_rule "${entry#kwinrule:}" ;;

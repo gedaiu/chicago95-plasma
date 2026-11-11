@@ -108,7 +108,10 @@ a QML override under `data/qml`, loaded ahead of Plasma's through
 gets an outline instead.
 
 Toolbar icons in every program are grey until the pointer is over them, as
-Explorer's were: KDE's icon effects for Qt programs, a GTK CSS rule for the rest.
+Explorer's were: KDE's icon effects for Qt programs, a GTK CSS rule for the
+rest, and for Plasma's own buttons (KRunner, the tray's popups, widgets) one
+file of Plasma's components module shadowed under `data/qml`; Setup links the
+rest of that module from the system's copy.
 
 Setup remembers: the components and choices of earlier runs are the defaults
 of the next one (flags and the screens still change them), so a reinstall or
@@ -144,7 +147,8 @@ button width with a preview of the buttons, auto hide, clock, Quick Launch
 login and loading screen texts and pictures with live previews of the log-on
 dialog, the 2000 banner and the loading screen, sounds with Play, fonts,
 pointer size and the file manager. Back, Forward, Up and the clickable address
-bar move between pages. It saves `~/.config/chicago95/setup.conf` and runs
+bar move between pages. One window: Properties on the taskbar brings the open
+one back on its page. It saves `~/.config/chicago95/setup.conf` and runs
 Setup again for only what changed. Its Updates page shows the installed
 version (the commit Setup recorded) and the published one (one `git ls-remote`
 of the repository's origin), with Check now and Install update, which pulls

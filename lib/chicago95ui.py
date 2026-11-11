@@ -8,6 +8,7 @@ Every tool then calls make_app() instead of QApplication() directly.
 import configparser
 import glob
 import os
+from pathlib import Path
 import re
 import signal
 import subprocess
@@ -43,7 +44,7 @@ if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
     os.environ.setdefault("QT_SCALE_FACTOR", detect_scale())
 os.environ.pop("QT_QPA_PLATFORMTHEME", None)
 
-from PySide6.QtCore import QEvent, QRect, QRectF, QSize, Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, QRect, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -205,6 +206,44 @@ ICON_SEARCH_PATHS = [
     "/usr/share/icons",
     "/usr/share/pixmaps",
 ]
+
+
+def instance_socket(name):
+    return str(Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / f"{name}.sock")
+
+
+def send_to_running(name, message, timeout_ms=500):
+    """Hands the message to the tool's running instance; False when none listens."""
+    from PySide6.QtNetwork import QLocalSocket
+
+    socket = QLocalSocket()
+    socket.connectToServer(instance_socket(name))
+    if not socket.waitForConnected(timeout_ms):
+        return False
+    socket.write(message.encode())
+    socket.waitForBytesWritten(timeout_ms)
+    socket.disconnectFromServer()
+    return True
+
+
+class SingleInstance(QObject):
+    """The running instance's end: on_message(text) for every message a later launch sends it."""
+
+    def __init__(self, name, on_message, parent=None):
+        from PySide6.QtNetwork import QLocalServer
+
+        super().__init__(parent)
+        self.on_message = on_message
+        self.server = QLocalServer(self)
+        QLocalServer.removeServer(instance_socket(name))
+        self.server.listen(instance_socket(name))
+        self.server.newConnection.connect(self.read_connection)
+
+    def read_connection(self):
+        connection = self.server.nextPendingConnection()
+        if connection.bytesAvailable() or connection.waitForReadyRead(500):
+            self.on_message(bytes(connection.readAll()).decode())
+        connection.disconnectFromServer()
 
 
 def quit_on_signals(app, *signal_numbers):

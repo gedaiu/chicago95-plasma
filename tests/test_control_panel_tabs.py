@@ -280,11 +280,119 @@ def test_loading_screen_tab_defaults_to_the_classic_picture_and_texts(control_pa
     }
 
 
-def test_effects_tab_reports_the_classic_window_feel_choice(control_panel, qt_app):
-    assert (
-        built(control_panel, "Display", "Effects").values(),
-        built(control_panel, "Display", "Effects", {"CLASSIC_EFFECTS": "yes"}).values(),
-    ) == ({"CLASSIC_EFFECTS": "no"}, {"CLASSIC_EFFECTS": "yes"})
+def kde_effects():
+    import chicago95animations as animations
+
+    def effect(name, category, enabled, settings=None):
+        return animations.InstalledEffect(name, category, enabled, settings)
+
+    return {
+        "scale": effect("Scale", "toplevel-open-close-animation", True),
+        "kwin6_effect_fire": effect(
+            "Fire [Burn-My-Windows]", "toplevel-open-close-animation", False, ("kcmshell6", "kcm_kwin_effects")
+        ),
+        "squash": effect("Squash", "minimize", True),
+        "magiclamp": effect(
+            "Magic Lamp", "minimize", False, ("kcmshell6", "kwin/effects/configs/kwin_magiclamp_config")
+        ),
+        "maximize": effect("Stretch", "maximize", True),
+        "fullscreen": effect("Stretch", "fullscreen", True),
+        "slide": effect("Slide", "desktop-animations", True),
+        "slidingpopups": effect("Sliding popups", None, True),
+        "fadingpopups": effect("Fading popups", None, True),
+        "dialogparent": effect("Dialog Parent", None, True),
+        "login": effect("Login", None, True),
+        "logout": effect("Logout", None, True),
+        "windowaperture": effect("Window Aperture", "show-desktop", True),
+    }
+
+
+def effects_tab(control_panel, settings=None, plugins=None, started=None):
+    import chicago95animations as animations
+
+    return built(
+        control_panel,
+        "Display",
+        "Effects",
+        settings,
+        installed_effects=kde_effects,
+        live_animations=lambda: animations.LiveState(kwinrc={"Plugins": plugins or {}}),
+        start_process=lambda program, arguments: (started if started is not None else []).append((program, arguments)),
+    )
+
+
+def test_effects_tab_shows_what_kde_does_now_for_every_event_while_nothing_is_saved(control_panel, qt_app):
+    assert effects_tab(control_panel, plugins={"wobblywindowsEnabled": "true"}).values() == {
+        "ANIM_WINDOWS": "scale",
+        "ANIM_MINIMIZE": "squash",
+        "ANIM_MAXIMIZE": "stretch",
+        "ANIM_DIALOGS": "dim",
+        "ANIM_WOBBLY": "yes",
+        "ANIM_SHOW_DESKTOP": "aperture",
+        "ANIM_DESKTOPS": "slide",
+        "ANIM_SESSION": "fade",
+        "ANIM_MENUS": "both",
+        "ANIM_NOTIFICATIONS": "none",
+        "ANIM_TASKBAR": "slide",
+        "ANIM_SPEED": "1",
+    }
+
+
+def test_effects_tab_reports_a_saved_choice_over_what_kde_does(control_panel, qt_app):
+    values = effects_tab(control_panel, {"ANIM_MINIMIZE": "zoom", "ANIM_SPEED": "0"}).values()
+
+    assert (values["ANIM_MINIMIZE"], values["ANIM_SPEED"]) == ("zoom", "0")
+
+
+def test_effects_tab_offers_installed_burn_my_windows_effects_for_opening_and_closing_windows(control_panel, qt_app):
+    combo = effects_tab(control_panel).combos["ANIM_WINDOWS"]
+
+    assert [combo.itemText(index) for index in range(combo.count())] == [
+        "None",
+        "Scale",
+        "Glide",
+        "Fade",
+        "Fire [Burn-My-Windows]",
+    ]
+
+
+def test_classic_button_on_the_1998_look_zooms_title_bars_slides_menus_and_turns_the_rest_off(control_panel, qt_app):
+    tab = effects_tab(control_panel, {"LOOK": "1998"})
+    tab.classic_button.click()
+
+    assert {key: value for key, value in tab.values().items() if value not in ("none", "no")} == {
+        "ANIM_MINIMIZE": "zoom",
+        "ANIM_MAXIMIZE": "zoom",
+        "ANIM_MENUS": "slide",
+        "ANIM_SPEED": "1",
+    }
+
+
+def test_settings_button_opens_kdes_page_for_the_chosen_effect_and_is_off_without_one(control_panel, qt_app):
+    started = []
+    tab = effects_tab(control_panel, {"ANIM_MINIMIZE": "squash"}, started=started)
+    button = tab.settings_buttons["ANIM_MINIMIZE"]
+    without_page = button.isEnabled()
+    tab.combos["ANIM_MINIMIZE"].setCurrentIndex(tab.combos["ANIM_MINIMIZE"].findData("magiclamp"))
+    button.click()
+
+    assert (without_page, button.isEnabled(), started) == (
+        False,
+        True,
+        [("kcmshell6", ["kwin/effects/configs/kwin_magiclamp_config"])],
+    )
+
+
+@pytest.mark.parametrize("position, speed", [(0, "0"), (1, "0.5"), (2, "1"), (3, "2")])
+def test_speed_slider_runs_from_off_to_slow(control_panel, qt_app, position, speed):
+    tab = effects_tab(control_panel)
+    tab.speed_slider.slider.setValue(position)
+
+    assert tab.values()["ANIM_SPEED"] == speed
+
+
+def test_animation_choices_are_applied_by_setups_animations_step_alone(control_panel):
+    assert control_panel.components_for(["ANIM_MINIMIZE", "ANIM_SPEED", "ANIM_TASKBAR"]) == ["animations"]
 
 
 def test_background_tab_defaults_to_the_classic_teal_colour(control_panel, qt_app):

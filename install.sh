@@ -122,8 +122,12 @@ choose_image() {
     printf '%s' "${names[$((choice - 1))]}"
     return
   fi
+  [ "${SETUP_YES:-0}" = 1 ] && [ ! -f "${current/#\~/$HOME}" ] && {
+    printf '%s' "${names[0]}"
+    return
+  }
   until [ -f "${path:-}" ]; do
-    path=$(ui_ask "Full path of the image file" "")
+    path=$(ui_ask "Full path of the image file" "$current")
     path=${path/#\~/$HOME}
   done
   printf '%s' "$path"
@@ -388,6 +392,7 @@ else
   COMPONENTS=$(ui_pick_components \
     "base:Chicago95 base theme (GTK, icons, cursors, sounds):$(remembered base 1)" \
     "look:Window decoration, Plasma style, colours, widget style:$(remembered look 1)" \
+    "animations:Animations (windows, menus, notifications, taskbar):$(remembered animations 1)" \
     "taskbar:Taskbar (Start button, Quick Launch, task buttons, tray, clock):$(remembered taskbar 1)" \
     "startmenu:Start menu and Shut Down dialog:$(remembered startmenu $py_ok)" \
     "notifications:Chicago95 notifications:$(remembered notifications $py_ok)" \
@@ -491,7 +496,7 @@ TO_COPY=$(
 fix_font_spaces
 for component in $COMPONENTS; do
   case $component in
-  base | look | taskbar | startmenu | notifications | clippy | extras | controlpanel | sounds | background | screensaver | winamp | explorer | lockscreen | splash | plymouth | sddm | firefox) "step_$component" ;;
+  base | look | animations | taskbar | startmenu | notifications | clippy | extras | controlpanel | sounds | background | screensaver | winamp | explorer | lockscreen | splash | plymouth | sddm | firefox) "step_$component" ;;
   *) printf 'unknown component: %s\n' "$component" >>"$SETUP_LOG" ;;
   esac
 done

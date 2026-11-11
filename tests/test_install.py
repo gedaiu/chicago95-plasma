@@ -580,47 +580,135 @@ def dry_run_log(tmp_path, *arguments):
     return next(tmp_path.glob("chicago95-setup-*.log")).read_text()
 
 
-def test_classic_effects_yes_makes_animations_instant_and_turns_the_window_effects_off(tmp_path):
-    saved = tmp_path / "setup.conf"
-    saved.write_text("CLASSIC_EFFECTS=yes\n")
+def kwriteconfig(file, group, key, value):
+    return f"would: kwriteconfig6 --file {file} --group {group} --key {key} {value}"
 
-    log = dry_run_log(tmp_path, f"--settings={saved}", "--components=look")
+
+def plugin(effect, value):
+    return kwriteconfig("kwinrc", "Plugins", f"{effect}Enabled", value)
+
+
+def animations_log(tmp_path, settings):
+    saved = tmp_path / "setup.conf"
+    saved.write_text(settings)
+    return dry_run_log(tmp_path, f"--settings={saved}", "--components=animations")
+
+
+def written(log, lines):
+    return {line: line in log for line in lines}
+
+
+def test_minimize_with_magic_lamp_turns_it_on_and_the_events_other_effects_off(tmp_path):
+    log = animations_log(tmp_path, "ANIM_MINIMIZE=magiclamp\n")
+    lines = (
+        plugin("magiclamp", "true"),
+        plugin("squash", "false"),
+        plugin("chicago95zoom", "false"),
+        kwriteconfig("kwinrc", "Effect-chicago95zoom", "Minimize", "false"),
+    )
+
+    assert written(log, lines) == dict.fromkeys(lines, True)
+
+
+def test_title_bar_zoom_for_minimize_only_keeps_the_zoom_effect_on_and_tells_it_which_events(tmp_path):
+    log = animations_log(tmp_path, "ANIM_MINIMIZE=zoom\nANIM_MAXIMIZE=stretch\n")
+    lines = (
+        plugin("chicago95zoom", "true"),
+        kwriteconfig("kwinrc", "Effect-chicago95zoom", "Minimize", "true"),
+        kwriteconfig("kwinrc", "Effect-chicago95zoom", "Maximize", "false"),
+        plugin("maximize", "true"),
+        plugin("fullscreen", "true"),
+        plugin("squash", "false"),
+    )
+
+    assert (written(log, lines), plugin("chicago95zoom", "false") in log) == (dict.fromkeys(lines, True), False)
+
+
+def test_an_installed_effect_of_the_events_category_is_a_choice_and_turns_the_others_off(tmp_path):
+    fire = tmp_path / ".local/share/kwin/effects/kwin6_effect_fire"
+    fire.mkdir(parents=True)
+    (fire / "metadata.json").write_text(
+        '{"KPlugin": {"Id": "kwin6_effect_fire"}, "X-KWin-Exclusive-Category": "toplevel-open-close-animation"}'
+    )
+    log = animations_log(tmp_path, "ANIM_WINDOWS=kwin6_effect_fire\n")
+    lines = (
+        plugin("kwin6_effect_fire", "true"),
+        plugin("scale", "false"),
+        plugin("glide", "false"),
+        plugin("fade", "false"),
+    )
+
+    assert written(log, lines) == dict.fromkeys(lines, True)
+
+
+def test_events_without_a_saved_choice_are_left_as_kde_has_them(tmp_path):
+    log = animations_log(tmp_path, "ANIM_MINIMIZE=squash\n")
 
     assert [
-        line in log
-        for line in (
-            "would: kwriteconfig6 --file kdeglobals --group KDE --key AnimationDurationFactor 0",
-            "would: kwriteconfig6 --file kwinrc --group Plugins --key squashEnabled false",
-            "would: kwriteconfig6 --file kwinrc --group Plugins --key fadeEnabled false",
-            "would: kwriteconfig6 --file kwinrc --group Plugins --key wobblywindowsEnabled false",
-        )
-    ] == [True] * 4
+        effect for effect in ("scale", "slide", "slidingpopups", "wobblywindows") if f" {effect}Enabled " in log
+    ] == []
 
 
-def test_classic_effects_no_restores_the_animation_speed_and_the_effects_defaults(tmp_path):
-    saved = tmp_path / "setup.conf"
-    saved.write_text("CLASSIC_EFFECTS=no\n")
+def test_speed_off_makes_every_animation_instant(tmp_path):
+    assert kwriteconfig("kdeglobals", "KDE", "AnimationDurationFactor", "0") in animations_log(
+        tmp_path, "ANIM_SPEED=0\n"
+    )
 
-    log = dry_run_log(tmp_path, f"--settings={saved}", "--components=look")
 
-    assert [
-        line in log
-        for line in (
-            "would: kwriteconfig6 --file kdeglobals --group KDE --key AnimationDurationFactor 1",
-            "would: kwriteconfig6 --file kwinrc --group Plugins --key squashEnabled --delete",
-        )
-    ] == [True, True]
+def test_our_own_menus_and_notifications_read_their_choice_from_chicago95rc(tmp_path):
+    log = animations_log(tmp_path, "ANIM_MENUS=fade\nANIM_NOTIFICATIONS=none\n")
+    lines = (
+        kwriteconfig("chicago95rc", "Animations", "ANIM_MENUS", "fade"),
+        kwriteconfig("chicago95rc", "Animations", "ANIM_NOTIFICATIONS", "none"),
+        plugin("fadingpopups", "true"),
+        plugin("slidingpopups", "false"),
+        plugin("chicago95notifications", "false"),
+    )
+
+    assert written(log, lines) == dict.fromkeys(lines, True)
+
+
+def test_a_saved_classic_effects_yes_turns_every_animation_off(tmp_path):
+    log = animations_log(tmp_path, "CLASSIC_EFFECTS=yes\n")
+    lines = (
+        kwriteconfig("kdeglobals", "KDE", "AnimationDurationFactor", "0"),
+        plugin("scale", "false"),
+        plugin("squash", "false"),
+        plugin("wobblywindows", "false"),
+        plugin("slidingpopups", "false"),
+    )
+
+    assert written(log, lines) == dict.fromkeys(lines, True)
+
+
+def test_animations_alone_reload_kwin_without_restarting_plasma_or_clearing_its_caches(tmp_path):
+    log = animations_log(tmp_path, "ANIM_MINIMIZE=squash\n")
+
+    assert ("org.kde.KWin.reconfigure" in log, "qmlcache" in log) == (True, False)
+
+
+def test_the_animations_step_installs_the_title_bar_zoom_effect(tmp_path):
+    log = animations_log(tmp_path, "ANIM_MINIMIZE=zoom\n")
+
+    assert "kwin/effects/chicago95zoom" in log
+
+
+def test_taskbar_buttons_without_animation_are_written_to_each_task_list(tmp_path):
+    script = squeezed(taskbar_script_written(tmp_path, "SETUP_ANIM_TASKBAR=none"))
+
+    assert "widget.writeConfig('animateButtons', false);" in script
 
 
 def test_animations_are_left_alone_when_no_choice_was_saved(tmp_path):
     assert "AnimationDurationFactor" not in dry_run_log(tmp_path, "--components=look")
 
 
-def test_uninstall_deletes_the_animation_speed_and_effect_settings_setup_wrote(tmp_path):
+def test_uninstall_deletes_the_animation_settings_setup_wrote(tmp_path):
     state = tmp_path / ".local/share/chicago95"
     state.mkdir(parents=True)
     (state / "installed-files.txt").write_text(
-        "kconf:kdeglobals:KDE:AnimationDurationFactor\nkconf:kwinrc:Plugins:squashEnabled\n"
+        "kconf:kdeglobals:KDE:AnimationDurationFactor\nkconf:kwinrc:Plugins:kwin6_effect_fireEnabled\n"
+        "kconf:kwinrc:Effect-chicago95zoom:Minimize\nkconf:chicago95rc:Animations:ANIM_MENUS\n"
     )
     stubs = tmp_path / "stubs"
     stubs.mkdir()
@@ -638,8 +726,10 @@ def test_uninstall_deletes_the_animation_speed_and_effect_settings_setup_wrote(t
     )
 
     assert sorted((tmp_path / "kwriteconfig6-calls").read_text().splitlines()) == [
+        "--file chicago95rc --group Animations --key ANIM_MENUS --delete",
         "--file kdeglobals --group KDE --key AnimationDurationFactor --delete",
-        "--file kwinrc --group Plugins --key squashEnabled --delete",
+        "--file kwinrc --group Effect-chicago95zoom --key Minimize --delete",
+        "--file kwinrc --group Plugins --key kwin6_effect_fireEnabled --delete",
     ]
 
 
@@ -963,3 +1053,12 @@ def test_the_gtk_toolbar_icon_rule_is_appended_once_however_often_setup_runs(tmp
         (tmp_path / f".config/gtk-{version}/gtk.css").read_text().count("-gtk-icon-filter: grayscale(1)")
         for version in ("3.0", "4.0")
     ] == [1, 1]
+
+
+def test_the_tools_get_the_animations_library_and_its_table_beside_it(tmp_path):
+    log = dry_run_log(tmp_path, "--components=controlpanel")
+
+    assert (
+        ".local/lib/chicago95/chicago95animations.py" in log,
+        ".local/lib/chicago95/animations.conf" in log,
+    ) == (True, True)

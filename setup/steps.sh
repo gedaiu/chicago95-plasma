@@ -82,7 +82,8 @@ SETTINGS_KEYS="LOOK TITLE_ACTIVE TITLE_INACTIVE BANNER_BG BANNER_FG ICONS FONT F
     TASK_BUTTON_WIDTH QUICK_LAUNCH LAUNCHERS TASKBAR_AUTOHIDE TASKBAR_ON_TOP CLOCK_SHOW CLOCK_HOURS START_TEXT START_LOGO BANNER_TEXT
     SAVER IDLE_MIN LOGIN_STYLE LOGIN_TITLE LOGIN_MESSAGE LOGIN_ICON LOGIN_LOGO EDITION TAGLINE COMPANY COMPANY_LOGO
     SPLASH_IMAGE LOADING_TEXT LOADING_FOOTER SOUND_THEME CLIPPY_AUTOSTART EXPLORER
-    BACKGROUND_MODE BACKGROUND_COLOR BACKGROUND_PATTERN BACKGROUND_IMAGE BACKGROUND_FILL CLASSIC_EFFECTS"
+    BACKGROUND_MODE BACKGROUND_COLOR BACKGROUND_PATTERN BACKGROUND_IMAGE BACKGROUND_FILL
+    $(sed -n 's/^EVENT|\([^|]*\)|.*/\1/p' "$REPO/setup/animations.conf" | tr '\n' ' ')"
 
 # A look is four colour settings; each is one #RRGGBB, or two separated by a comma for a gradient.
 # A look: menu style, title bars, Start menu banner and, for 2000, the warm grey face. Colours are
@@ -146,8 +147,22 @@ load_settings() { # load_settings <file>   values are data: the file is read, ne
   look=$(sed -n 's/^LOOK=//p' "$1" | tail -1)
   case "$look" in 1995 | 1998 | 2000) apply_look "$look" ;; esac
   while IFS='=' read -r key value; do
-    case " ${SETTINGS_KEYS//$'\n'/ } COMPONENTS " in *" $key "*) printf -v "SETUP_$key" '%s' "$value" ;; esac
+    case " ${SETTINGS_KEYS//$'\n'/ } COMPONENTS CLASSIC_EFFECTS " in *" $key "*) printf -v "SETUP_$key" '%s' "$value" ;; esac
   done <"$1"
+  classic_effects_as_animations
+}
+
+classic_effects_as_animations() { # the old single "no animations" choice, as every animation event turned off
+  [ "${SETUP_CLASSIC_EFFECTS:-}" = yes ] || return 0
+  local key
+  for key in $(animation_events); do [ -n "$(animation_choice "$key")" ] && return 0; done
+  for key in $(animation_events); do
+    case "$key" in
+    ANIM_SPEED) SETUP_ANIM_SPEED=0 ;;
+    ANIM_WOBBLY) SETUP_ANIM_WOBBLY=no ;;
+    *) printf -v "SETUP_$key" none ;;
+    esac
+  done
 }
 
 # --- KWin rules: merged as text, never through kwriteconfig6 (it drops every other group) ---
@@ -322,21 +337,73 @@ EOF
   record "$dest"
 }
 
-# The effects that animate windows and popups; "yes" turns them and every animation off, as in the originals.
-CLASSIC_EFFECT_IDS="squash magiclamp fade scale glide fallapart wobblywindows fadingpopups slidingpopups maximize"
+# --- Animations: setup/animations.conf lists each event, its choices and the KWin effects they turn on ---
 
-classic_effects() {
-  local effect
-  case "${SETUP_CLASSIC_EFFECTS:-}" in
-  yes)
-    kconf kdeglobals KDE AnimationDurationFactor 0
-    for effect in $CLASSIC_EFFECT_IDS; do kconf kwinrc Plugins "${effect}Enabled" false; done
-    ;;
-  no)
-    kconf kdeglobals KDE AnimationDurationFactor 1
-    for effect in $CLASSIC_EFFECT_IDS; do kconf kwinrc Plugins "${effect}Enabled" --delete; done
-    ;;
-  esac
+ANIMATIONS_FILE="$REPO/setup/animations.conf"
+KWIN_BUILTIN_EFFECTS=/usr/share/kwin/builtin-effects
+
+animation_events() { sed -n 's/^EVENT|\([^|]*\)|.*/\1/p' "$ANIMATIONS_FILE"; }
+animation_choice() {
+  local variable="SETUP_$1"
+  printf '%s' "${!variable:-}"
+}
+animation_category() { awk -F'|' -v key="$1" '$1 == "EVENT" && $2 == key && $4 != "-" { print $4 }' "$ANIMATIONS_FILE"; }
+
+effects_in_category() { # effects_in_category <category>   installed KWin effects of an exclusive category, by id
+  [ -n "$1" ] || return 0
+  local file
+  for file in "$HOME/.local/share/kwin/effects"/*/metadata.json /usr/share/kwin/effects/*/metadata.json; do
+    [ -f "$file" ] && grep -q "\"X-KWin-Exclusive-Category\": *\"$1\"" "$file" && basename "$(dirname "$file")"
+  done
+  for file in "$KWIN_BUILTIN_EFFECTS"/*.json; do
+    [ -f "$file" ] && grep -q "\"exclusiveGroup\": *\"$1\"" "$file" && basename "$file" .json
+  done
+}
+
+choice_effects() { # choice_effects <event> <value>   the effects a choice turns on; any other value is an effect's id
+  local listed
+  listed=$(awk -F'|' -v key="$1" -v value="$2" '$1 == "CHOICE" && $2 == key && $3 == value { print $5 "|" }' "$ANIMATIONS_FILE")
+  if [ -n "$listed" ]; then printf '%s\n' "${listed%|}"; else printf '%s\n' "$2"; fi
+}
+
+event_effects() { # event_effects <event>   every effect its choices name, and the installed ones of its category
+  awk -F'|' -v key="$1" '$1 == "CHOICE" && $2 == key { print $5 }' "$ANIMATIONS_FILE"
+  effects_in_category "$(animation_category "$1")"
+}
+
+step_animations() { # the saved animation choices into KWin, KDE's speed and our own tools; unset events stay as they are
+  put_tree "$REPO/kwin-effects/chicago95zoom" ~/.local/share/kwin/effects/chicago95zoom
+  local key value token effect
+  local -A managed=() chosen=()
+  local order=()
+  for key in $(animation_events); do
+    value=$(animation_choice "$key")
+    [ -n "$value" ] || continue
+    case "$key" in
+    ANIM_SPEED)
+      kconf kdeglobals KDE AnimationDurationFactor "$value"
+      continue
+      ;;
+    ANIM_MENUS | ANIM_NOTIFICATIONS | ANIM_TASKBAR) kconf chicago95rc Animations "$key" "$value" ;;
+    esac
+    for token in $(event_effects "$key"); do
+      [ -n "${managed[$token]+x}" ] || order+=("$token")
+      managed[$token]=1
+    done
+    for token in $(choice_effects "$key" "$value"); do chosen[$token]=1; done
+  done
+  local -A switched=()
+  for token in "${order[@]}"; do
+    effect=${token%%/*}
+    [ -n "${switched[$effect]+x}" ] && continue
+    switched[$effect]=false
+    for key in "${!chosen[@]}"; do [ "${key%%/*}" = "$effect" ] && switched[$effect]=true; done
+    kconf kwinrc Plugins "${effect}Enabled" "${switched[$effect]}"
+  done
+  for token in "${order[@]}"; do
+    [[ "$token" == */* ]] || continue
+    kconf kwinrc "Effect-${token%%/*}" "${token#*/}" "$([ -n "${chosen[$token]+x}" ] && echo true || echo false)"
+  done
 }
 
 step_look() { # decoration, Plasma style, colours, widget style, DPI
@@ -350,7 +417,6 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   kconf kwinrc org.kde.kdecoration2 library org.kde.kwin.aurorae
   kconf kwinrc org.kde.kdecoration2 theme __aurorae__svg__Chicago95
   kconf kwinrc org.kde.kdecoration2 BorderSize Normal
-  classic_effects
   run plasma-apply-colorscheme Chicago95 >>"$SETUP_LOG" 2>&1 || true
   apply_icon_set
   if [ -n "${SETUP_FACE:-}" ]; then # the 2000 look: warm grey face and its selection colour
@@ -388,15 +454,42 @@ step_taskbar() {
   substitute_home ~/.local/share/plasma/plasmoids/org.chicago95.start ~/.local/share/plasma/plasmoids/org.chicago95.tasks ~/.local/share/plasma/plasmoids/org.chicago95.trayframe
 }
 
+# complete_qml_module <system module dir> <our module dir>   our files shadow the module (QML_IMPORT_PATH): the rest
+# of it is linked from the system's, and its qmldir copied without the `prefer` line that would send Qt back
+# to the compiled-in copy.
+complete_qml_module() {
+  local system="$1" ours="$2" file relative
+  [ -d "$system" ] || return 0
+  while IFS= read -r file; do
+    relative=${file#"$system"/}
+    [ -e "$ours/$relative" ] && [ ! -L "$ours/$relative" ] && continue
+    run mkdir -p "$ours/$(dirname "$relative")"
+    if [ "$relative" = qmldir ]; then
+      [ "${SETUP_DRY_RUN:-0}" = 1 ] || grep -v '^prefer ' "$file" >"$ours/qmldir"
+      show_copy "$file" "$ours/qmldir"
+    else
+      run ln -sfn "$file" "$ours/$relative"
+    fi
+  done < <(find "$system" -type f | sort)
+  record "$ours"
+}
+
+qt_qml_dir() {
+  qtpaths6 --query QT_INSTALL_QML 2>/dev/null || echo /usr/lib64/qt6/qml
+}
+
 step_tools_common() { # shared by every PySide6 component; idempotent
   [ "${TOOLS_COMMON_DONE:-0}" = 1 ] && return
   TOOLS_COMMON_DONE=1
   put_file "$REPO/lib/chicago95ui.py" ~/.local/lib/chicago95/chicago95ui.py
   put_file "$REPO/lib/login_preview.py" ~/.local/lib/chicago95/login_preview.py
   put_file "$REPO/lib/chicago95update.py" ~/.local/lib/chicago95/chicago95update.py
+  put_file "$REPO/lib/chicago95animations.py" ~/.local/lib/chicago95/chicago95animations.py
+  put_file "$REPO/setup/animations.conf" ~/.local/lib/chicago95/animations.conf
   put_file "$REPO/data/plasmashell-menus.qss" ~/.local/share/chicago95/plasmashell-menus.qss
   put_file "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" ~/.config/systemd/user/plasma-plasmashell.service.d/chicago95-menus.conf
   put_tree "$REPO/data/qml" ~/.local/share/chicago95/qml
+  complete_qml_module "$(qt_qml_dir)/org/kde/plasma/components" ~/.local/share/chicago95/qml/org/kde/plasma/components
   put_file "$REPO/config/environment.d/chicago95.conf" ~/.config/environment.d/chicago95.conf
   substitute_home ~/.config/environment.d/chicago95.conf
   run systemctl --user set-environment "QML_IMPORT_PATH=$HOME/.local/share/chicago95/qml"
@@ -889,7 +982,7 @@ js_list() { python3 -c 'import json, sys; print(json.dumps([entry for entry in s
 
 apply_taskbar() { # every run: the Start button's text and logo, and the look into each taskbar applet
   [ "$SETUP_IN_PLASMA" = 1 ] && [ "${SETUP_DRY_RUN:-0}" = 0 ] || return 0
-  local width height height_script="" width_script="" launchers_script="" hiding hiding_script="" hours clock_script=""
+  local width height height_script="" width_script="" launchers_script="" hiding hiding_script="" hours clock_script="" slide_script=""
   width=$(only_digits "${SETUP_TASK_BUTTON_WIDTH:-}")
   [ -n "$width" ] && width_script="panel.widgets('org.chicago95.tasks').forEach(widget => { widget.currentConfigGroup = ['General']; widget.writeConfig('maxButtonWidth', $width); });"
   if [ -n "${SETUP_LAUNCHERS+x}" ]; then
@@ -910,6 +1003,9 @@ apply_taskbar() { # every run: the Start button's text and logo, and the look in
   no) clock_script="panel.widgets('org.chicago95.clock').forEach(widget => widget.remove());" ;;
   yes) clock_script="if (panel.widgets('org.chicago95.tasks').length > 0 && panel.widgets('org.chicago95.clock').length === 0) { const clock = panel.addWidget('org.chicago95.clock'); clock.currentConfigGroup = ['General']; clock.writeConfig('look', $(js_string "${SETUP_MENU_STYLE:-1995}")); }" ;;
   esac
+  case "${SETUP_ANIM_TASKBAR:-}" in
+  none | slide) slide_script="widget.writeConfig('animateButtons', $([ "$SETUP_ANIM_TASKBAR" = slide ] && echo true || echo false));" ;;
+  esac
   hours=$(clock_hours)
   [ -n "$hours" ] && clock_script+=" panel.widgets('org.chicago95.clock').forEach(widget => { widget.currentConfigGroup = ['General']; widget.writeConfig('hourFormat', $(js_string "$hours")); });"
   plasma_script "panels().forEach(panel => {
@@ -920,6 +1016,7 @@ apply_taskbar() { # every run: the Start button's text and logo, and the look in
         panel.widgets('org.chicago95.tasks').forEach(widget => {
             widget.currentConfigGroup = ['General'];
             widget.writeConfig('quickLaunch', $(js_string "${SETUP_QUICK_LAUNCH:-auto}"));
+            $slide_script
         });
         panel.widgets('org.chicago95.start').forEach(widget => {
             widget.currentConfigGroup = ['General'];
@@ -1064,6 +1161,10 @@ step_fonts() { # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bar
 }
 
 finish_session() {
+  if [ "$COMPONENTS" = animations ]; then # KWin rereads its effects; Plasma has nothing new to load
+    kwin_reconfigure
+    return 0
+  fi
   run rm -rf ~/.cache/plasmashell/qmlcache ~/.cache/ksvg-elements ~/.cache/plasma_theme_Chicago95.kcache
   run systemctl --user daemon-reload
   kwin_reconfigure

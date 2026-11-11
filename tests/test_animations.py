@@ -3,10 +3,9 @@ installed beside them, as the Control Panel's Effects tab offers them."""
 
 import json
 
+import chicago95animations as animations
 import pytest
 from conftest import REPO
-
-import chicago95animations as animations
 
 TOPLEVEL = "toplevel-open-close-animation"
 
@@ -154,3 +153,22 @@ def test_reading_kwinrc_keeps_its_keys_case(tmp_path):
         "Plugins": {"wobblywindowsEnabled": "true"},
         "Effect-chicago95zoom": {"Minimize": "true"},
     }
+
+
+def test_the_live_state_is_kwinrc_our_own_animation_choices_and_kdes_speed(tmp_path):
+    (tmp_path / "kwinrc").write_text("[Plugins]\nsquashEnabled=false\n")
+    (tmp_path / "chicago95rc").write_text("[Animations]\nANIM_MENUS=fade\n")
+    (tmp_path / "kdeglobals").write_text("[KDE]\nAnimationDurationFactor=0.5\n")
+
+    assert animations.live_state(tmp_path) == animations.LiveState(
+        kwinrc={"Plugins": {"squashEnabled": "false"}}, own={"ANIM_MENUS": "fade"}, speed="0.5"
+    )
+
+
+@pytest.mark.parametrize(
+    "own, speed, expected",
+    [({}, None, ("slide", 90)), ({"ANIM_MENUS": "fade"}, "2", ("fade", 180)), ({"ANIM_MENUS": "slide"}, "0", ("none", 0))],
+)
+def test_our_own_animation_is_the_saved_choice_at_kdes_speed_and_none_when_the_speed_is_off(own, speed, expected):
+    state = animations.LiveState(kwinrc={}, own=own, speed=speed)
+    assert animations.own_animation(state, "ANIM_MENUS", "slide", 90) == expected
