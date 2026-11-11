@@ -499,7 +499,7 @@ class ClippyWindow(QWidget):
 
     def exit_application(self):
         self.balloon.hide()
-        self.play("GoodBye", on_finished=lambda: self.window().close() or sys.exit(0))
+        self.play("GoodBye", on_finished=lambda: (self.window().close(), sys.exit(0)))
 
 
 def render_screenshot(animations: dict[str, Animation], sprites: SpriteSheet, font, output_path: Path):

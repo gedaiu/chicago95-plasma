@@ -49,7 +49,9 @@ def strip_ansi(text):
 
 
 def read_os_name():
-    for line in Path("/etc/os-release").read_text().splitlines():
+    os_release = Path("/etc/os-release")
+    lines = os_release.read_text().splitlines() if os_release.exists() else []
+    for line in lines:
         if line.startswith("PRETTY_NAME="):
             return line.split("=", 1)[1].strip().strip('"')
     return platform.system()
@@ -74,7 +76,7 @@ def read_full_name():
 
 def read_product_key():
     machine_id = Path("/etc/machine-id").read_text().strip()
-    digits = str(int(machine_id, 16))
+    digits = str(int(machine_id, 16)).zfill(17)
     return f"{digits[:5]}-OEM-{digits[5:12]}-{digits[12:17]}"
 
 

@@ -12,8 +12,8 @@
       <label>Where the Quick Launch sits: "left", after the Start button, or "right", at the taskbar's end before the tray</label>
       <default>left</default>
     </entry>
-    <entry name="quickLaunchCells" type="Int">
-      <label>How many Quick Launch buttons show; -1 shows them all, the rest go behind a chevron</label>
+    <entry name="quickLaunchWidth" type="Int">
+      <label>The Quick Launch's width in pixels; -1 fits all its buttons. Buttons that do not fit go behind a chevron</label>
       <default>-1</default>
     </entry>
     <entry name="maxButtonWidth" type="Int">

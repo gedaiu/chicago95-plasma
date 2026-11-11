@@ -329,7 +329,8 @@ def test_exit_application_plays_goodbye_and_closes_the_window_when_it_ends(clipp
     goodbye = window.playback.animation.name
     window.playback.frame_index = len(window.playback.animation.frames)
 
-    window.show_frame()
+    with pytest.raises(SystemExit):
+        window.show_frame()
 
     assert (goodbye, window.playback, window.isVisible()) == ("GoodBye", None, False)
 

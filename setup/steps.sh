@@ -207,6 +207,7 @@ step_base() {
   run mkdir -p ~/.local/share/icons
   run ln -sfn ~/.icons/Chicago95 ~/.local/share/icons/Chicago95
   record ~/.local/share/icons/Chicago95
+  append_gtk_css "$REPO/config/gtk-toolbar-icons.css" 3.0 4.0
   # GTK programs draw their own widgets, and GTK 4 its own title bars: both take the classic theme.
   local version
   for version in 3.0 4.0; do
@@ -291,6 +292,14 @@ apply_icon_set() {
   [ "$theme" = Chicago95 ] && [ "${SETUP_ICONS:-chicago95}" != chicago95 ] && ui_status "That icon set is unavailable; keeping Chicago95"
   install_toolbar_icons "$theme"
   kconf kdeglobals Icons Theme Chicago95-Toolbar
+  # Toolbar icons are grey until the pointer is over them, as Explorer's were: KIconLoader's effects, which
+  # the Plasma platform theme applies to every Qt program's themed icons.
+  local group
+  for group in MainToolbarIcons ToolbarIcons; do
+    kconf kdeglobals "$group" DefaultEffect togray
+    kconf kdeglobals "$group" DefaultValue 1
+    kconf kdeglobals "$group" ActiveEffect none
+  done
 }
 
 # Explorer's toolbar buttons (Back, Up, Cut, Copy...) of Windows 95 or 2000 as a small theme over the icon set.
@@ -532,6 +541,22 @@ step_winamp() {
     "noborder=true" "noborderrule=2" "types=1"
   run mkdir -p ~/.qmmp/skins
   [ -n "$SETUP_CHICAGO95_SRC" ] && [ -d "$SETUP_CHICAGO95_SRC/Extras/qmmp" ] && put_tree "$SETUP_CHICAGO95_SRC/Extras/qmmp" ~/.qmmp/skins/chicago95 || true
+}
+
+append_gtk_css() { # append_gtk_css <css file> <gtk version>...   once per file: its first line marks it
+  local css="$1" version target marker
+  marker=$(head -1 "$css")
+  for version in "${@:2}"; do
+    target=~/.config/gtk-$version/gtk.css
+    backup "$target"
+    grep -qF "$marker" "$target" 2>/dev/null && continue
+    [ "${SETUP_DRY_RUN:-0}" = 1 ] || {
+      mkdir -p "$(dirname "$target")"
+      cat "$css" >>"$target"
+      record "$target"
+    }
+    show_copy "$css" "$target"
+  done
 }
 
 step_explorer() {

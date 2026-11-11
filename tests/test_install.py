@@ -915,3 +915,51 @@ def test_the_components_of_earlier_runs_are_remembered_and_picked_again_by_defau
         "sounds background lockscreen",
         ["sounds", "background", "lockscreen"],
     )
+
+
+def dry_run_log(tmp_path, *arguments):
+    subprocess.run(
+        [str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", *arguments],
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        timeout=60,
+        env={
+            "PATH": "/usr/bin:/bin",
+            "HOME": str(tmp_path),
+            "TMPDIR": str(tmp_path),
+            "CHICAGO95_SRC": str(Path.home() / "src/Chicago95"),
+        },
+        check=False,
+    )
+    return next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+
+
+def test_the_look_greys_toolbar_icons_until_the_pointer_is_over_them_in_every_kde_program(tmp_path):
+    """KIconLoader's effects, which the Plasma platform theme applies to every Qt program's themed icons."""
+    log = dry_run_log(tmp_path, "--components=look")
+
+    assert [
+        f"would: kwriteconfig6 --file kdeglobals --group {group} --key {key} {value}" in log
+        for group in ("MainToolbarIcons", "ToolbarIcons")
+        for key, value in (("DefaultEffect", "togray"), ("DefaultValue", "1"), ("ActiveEffect", "none"))
+    ] == [True] * 6
+
+
+def test_the_base_theme_greys_gtk_toolbar_icons_until_the_pointer_is_over_them(tmp_path):
+    log = dry_run_log(tmp_path, "--components=base")
+
+    assert [
+        f"{REPO}/config/gtk-toolbar-icons.css" in log and f"{tmp_path}/.config/gtk-{version}/gtk.css" in log
+        for version in ("3.0", "4.0")
+    ] == [True, True]
+
+
+def test_the_gtk_toolbar_icon_rule_is_appended_once_however_often_setup_runs(tmp_path):
+    run_setup(tmp_path, "--components=base")
+    run_setup(tmp_path, "--components=base")
+
+    assert [
+        (tmp_path / f".config/gtk-{version}/gtk.css").read_text().count("-gtk-icon-filter: grayscale(1)")
+        for version in ("3.0", "4.0")
+    ] == [1, 1]

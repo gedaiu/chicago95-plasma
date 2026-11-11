@@ -391,7 +391,6 @@ class RetroMenu(QMenu):
             self.setWindowFlags(
                 Qt.Window | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint | Qt.WindowStaysOnTopHint
             )
-            self.setWindowTitle("chicago95-startmenu-root")
         else:
             self.setWindowFlags(self.windowFlags() | Qt.Popup | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint)
         self.setWindowTitle("chicago95-startmenu-root" if banner else "chicago95-startmenu-sub")
@@ -405,7 +404,7 @@ class RetroMenu(QMenu):
             )  # and System Settings colours
             return  # Wayland top-levels cannot be moved by the client; KWin places the root menu.
         final = self.pos()
-        offset = QPoint(0, self.height()) if self.banner else QPoint(-self.width(), 0)
+        offset = QPoint(-self.width(), 0)
         self.move(final + offset)
         self._slide = QPropertyAnimation(self, b"pos", self)
         self._slide.setStartValue(final + offset)
@@ -746,6 +745,7 @@ class StartMenu:
     def __init__(self, app):
         self.app = app
         self.menu = None
+        self.watching_focus = False
         self.shield = ClickShield(self.hide)
         self.shield.hide()
 
@@ -771,6 +771,7 @@ class StartMenu:
         self.menu.activateWindow()
         if os.environ.get("QT_QPA_PLATFORM") == "wayland":
             self.app.focusWindowChanged.connect(self._on_focus_window)
+            self.watching_focus = True
         debug_keys = [k for k in os.environ.get("CHICAGO95_DEBUG_KEYS", "").split(",") if k]
         for index, name in enumerate(debug_keys):
             key = getattr(Qt, f"Key_{name}")
@@ -787,10 +788,9 @@ class StartMenu:
             QTimer.singleShot(150, lambda: self.hide() if self.app.focusWindow() is None else None)
 
     def hide(self):
-        try:
+        if self.watching_focus:
             self.app.focusWindowChanged.disconnect(self._on_focus_window)
-        except (RuntimeError, TypeError):
-            pass
+            self.watching_focus = False
         if self.menu is not None:
             self.menu.hide()
         self.shield.hide()
@@ -825,7 +825,6 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("chicago95-startmenu")
     app.setDesktopFileName("chicago95-startmenu")
-    app.setApplicationName("chicago95-startmenu")
     app.setQuitOnLastWindowClosed(False)
     apply_retro_look(app)
     PID_FILE.write_text(str(os.getpid()))

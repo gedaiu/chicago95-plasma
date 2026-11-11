@@ -20,8 +20,8 @@ import "quickLaunchBand.js" as Band
 // button opens the classic window menu, with "Add to Quick Launch". A Quick Launch entry's menu removes
 // it; programs dropped on the Quick Launch are added. Dragging a task button or a Quick Launch entry along
 // the taskbar sorts it (DragSortArea.qml); the Quick Launch order is saved. Whether it shows is Setup's option (quickLaunch.js).
-// It sits between its two separators: the left one docks it beside the Start button or at the taskbar's
-// end, by where it is let go; the right one sets how many launchers show, and a chevron opens the rest
+// It sits between its two separators: the one at its docked edge carries it to either end of the taskbar;
+// the one facing the window buttons sizes it, and a chevron opens the launchers that do not fit
 // (quickLaunchBand.js).
 PlasmoidItem {
     id: root
@@ -40,34 +40,35 @@ PlasmoidItem {
     readonly property int windowCount: tasksModel.count - launcherCount
     readonly property int lead: Plasmoid.configuration.look === "2000" ? metrics.separatorLeadAfterStart2000 : metrics.separatorLead
     readonly property string dock: Plasmoid.configuration.quickLaunchDock === "right" ? "right" : "left"
-    // While a separator is dragged: the cells the band would show, and where the dragged separator is when it
-    // does not simply follow the band (the left one, which docks it; the right one when docked right).
+    // While a separator is dragged: the band's width as the inner one sizes it, or where the outer one carries it.
     readonly property int notDragged: -2
-    property int liveCells: notDragged
-    property int floatingLeftX: notDragged
-    property int floatingRightX: notDragged
-    readonly property int cells: liveCells !== notDragged ? liveCells : Plasmoid.configuration.quickLaunchCells
-    readonly property var band: Band.layout(width, contentX, lead, launcherCount, cells, dock)
+    property int liveSize: notDragged
+    property int carriedGripX: notDragged
+    readonly property bool bandCarried: carriedGripX !== notDragged
+    readonly property int size: liveSize !== notDragged ? liveSize : Plasmoid.configuration.quickLaunchWidth
+    readonly property var band: Band.layout(width, contentX, lead, launcherCount, size, dock)
+    readonly property int bandShift: bandCarried ? Band.carriedShift(carriedGripX, band, dock, width, contentX) : 0
     readonly property int shownLaunchers: band.shown
     readonly property int firstShown: band.firstShown   // the launchers before it are behind the chevron
-    readonly property int quickLaunchX: band.cellsX
+    readonly property int quickLaunchX: band.cellsX + bandShift
     readonly property int quickLaunchEnd: quickLaunchX + Band.cellsWidth(shownLaunchers)
     readonly property int tasksX: band.tasksX
     readonly property int buttonWidth: windowCount === 0 ? 0 : Math.min(maxButtonWidth, Math.floor((band.tasksEnd - tasksX + gap) / windowCount) - gap)
 
-    function bandSettled(result) {
-        liveCells = notDragged;
-        floatingLeftX = notDragged;
-        floatingRightX = notDragged;
-        Plasmoid.configuration.quickLaunchDock = result.dock;
-        Plasmoid.configuration.quickLaunchCells = result.cells;
+    function separatorDragged(separator, gripX) {
+        if (Band.outerSeparator(dock) === separator)
+            carriedGripX = gripX;
+        else
+            liveSize = Band.sizeAfterDrag(gripX, width, contentX, lead, dock);
     }
-    function separatorResult(released, gripX) {
-        return released(gripX, width, contentX, lead, launcherCount, Plasmoid.configuration.quickLaunchCells, dock);
-    }
-    // The separator stays on the taskbar: it follows the pointer only along it.
-    function onTaskbar(gripX, gripWidth) {
-        return Math.max(contentX, Math.min(width - gripWidth, gripX));
+    function separatorReleased(separator, gripX) {
+        const outer = Band.outerSeparator(dock) === separator;
+        const newDock = outer ? Band.dockAfterDrag(gripX, width) : dock;
+        const newSize = outer ? Plasmoid.configuration.quickLaunchWidth : Band.sizeAfterDrag(gripX, width, contentX, lead, dock);
+        liveSize = notDragged;
+        carriedGripX = notDragged;
+        Plasmoid.configuration.quickLaunchDock = newDock;
+        Plasmoid.configuration.quickLaunchWidth = newSize;
     }
 
     Plasmoid.contextualActions: [
@@ -145,35 +146,41 @@ PlasmoidItem {
     }
 
 
+    // While carried, the band is drawn over the window buttons on the taskbar's face.
+    Rectangle {
+        visible: root.bandCarried
+        x: root.band.leftSeparatorX + root.bandShift
+        width: root.band.rightSeparatorX + Band.separatorWidth(root.metrics.separatorLead) - root.band.leftSeparatorX
+        height: parent.height
+        z: 4
+        color: Kirigami.Theme.backgroundColor
+    }
     Separator {
         id: leftSeparator
         visible: root.launcherCount > 0
-        x: root.floatingLeftX !== root.notDragged ? root.floatingLeftX : root.band.leftSeparatorX
+        x: root.band.leftSeparatorX + root.bandShift
         z: 5
         height: parent.height
         lead: root.dock === "left" ? root.lead : root.metrics.separatorLead
         draggable: true
-        onDragged: gripX => root.floatingLeftX = root.onTaskbar(gripX, width)
-        onReleased: gripX => root.bandSettled(root.separatorResult(Band.leftSeparatorReleased, gripX))
+        onDragged: gripX => root.separatorDragged("leftSeparatorX", gripX)
+        onReleased: gripX => root.separatorReleased("leftSeparatorX", gripX)
     }
     Separator {
         id: rightSeparator
         visible: root.launcherCount > 0
-        x: root.floatingRightX !== root.notDragged ? root.floatingRightX : root.band.rightSeparatorX
+        x: root.band.rightSeparatorX + root.bandShift
         z: 5
         height: parent.height
         draggable: true
-        onDragged: gripX => {
-            root.liveCells = root.separatorResult(Band.rightSeparatorReleased, gripX).cells;
-            if (root.dock === "right")
-                root.floatingRightX = root.onTaskbar(gripX, width);
-        }
-        onReleased: gripX => root.bandSettled(root.separatorResult(Band.rightSeparatorReleased, gripX))
+        onDragged: gripX => root.separatorDragged("rightSeparatorX", gripX)
+        onReleased: gripX => root.separatorReleased("rightSeparatorX", gripX)
     }
     Chevron {
         id: chevron
         visible: root.band.chevronX >= 0
-        x: root.band.chevronX
+        x: root.band.chevronX + root.bandShift
+        z: 5
         height: parent.height
         pointsRight: root.dock === "left"
         hovered: chevronArea.containsMouse
@@ -199,7 +206,7 @@ PlasmoidItem {
     }
     function openChevronMenu() {
         chevronMenu.clearMenuItems();
-        Band.chevronLaunchers(launcherCount, cells, dock).forEach(index => {
+        Band.chevronLaunchers(launcherCount, size, dock).forEach(index => {
             const modelIndex = tasksModel.makeModelIndex(index);
             chevronMenu.addMenuItem(chevronEntry.createObject(chevronMenu, {
                 launcher: index,
@@ -226,8 +233,13 @@ PlasmoidItem {
             property int dragX: 0
             x: entry.dragging ? entry.dragX : entry.laidOutX
             z: entry.dragging ? 1 : 0
+            // A carried band's cells ride over the window buttons with its separators.
+            Binding on z {
+                when: entry.launcher && root.bandCarried
+                value: 5
+            }
             Behavior on x {
-                enabled: entry.slides
+                enabled: entry.slides && !root.bandCarried
                 NumberAnimation {
                     duration: 120
                 }

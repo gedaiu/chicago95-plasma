@@ -35,8 +35,9 @@ def metrics(band):
 
 
 @pytest.fixture(scope="module")
-def taskbar(desktops):
-    screen = desktops(LOOK, tasks_config=(("quickLaunchDock", "right"), ("quickLaunchCells", SHOWN)))
+def taskbar(desktops, band, metrics):
+    width = metrics["chevronWidth"] + call(band, "cellsWidth", SHOWN)
+    screen = desktops(LOOK, tasks_config=(("quickLaunchDock", "right"), ("quickLaunchWidth", width)))
     return screen.crop((0, SCREEN[1] - HEIGHT, SCREEN[0], SCREEN[1]))
 
 
