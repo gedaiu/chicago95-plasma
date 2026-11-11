@@ -247,7 +247,8 @@ def test_fonts_tab_defaults_to_the_classic_font_everywhere_and_shows_a_saved_fon
 
 def test_start_menu_tab_defaults_to_start_the_flag_and_chicago95(control_panel, qt_app):
     assert built(control_panel, "Taskbar", "Start Menu").values() == {
-        "START_TEXT": "Start",
+        "START_MENU_STYLE": "1995",
+            "START_TEXT": "Start",
         "START_LOGO": "flag",
         "BANNER_TEXT": "Chicago95",
     }
