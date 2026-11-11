@@ -32,7 +32,7 @@ FACE = "#ece9d8"
 
 
 @pytest.fixture(scope="module")
-def gtk_images(tmp_path_factory):
+def gtk_images(tmp_path_factory, qt_app):
     if not shutil.which("kwin_wayland") or not shutil.which("dbus-run-session"):
         pytest.skip("native GTK visual checks need isolated KWin and D-Bus")
     for version in ("3.0", "4.0"):
@@ -62,6 +62,8 @@ def load_images(folder, face):
             box = ImageChops.difference(image, Image.new("RGB", image.size, face)).getbbox()
             assert box is not None, f"{version}: {label} rendered blank"
             images[version, *label.split()] = image.crop(box)
+            if label == "tabfont normal":
+                images[version, "tabfont", "normal"].info["font"] = json.loads((output / "font.json").read_text())
     return images
 
 
@@ -151,21 +153,15 @@ def test_gtk_tab_chrome_matches(gtk_images, classic_gtk_images, look, position, 
     if look == "luna":
         assert max(high for _, high in diff.getextrema()) <= 2, f"tab chrome differs; see {tmp_path}"
     else:
-        # GTK4 composites the selected tab/page seam and bitmap slice corners differently.
-        # Allow at most 0.2% edge pixels; a shifted border or changed tab size must fail.
+        # Allow bitmap-slice corner antialiasing, never a border through the selected tab.
+        # A shifted border or changed tab size must fail.
         changed = sum(max(pixel) > 2 for pixel in diff.get_flattened_data())
         assert changed <= a.width * a.height * 0.002, f"tab chrome differs; see {tmp_path}"
         low = a.filter(ImageFilter.MinFilter(3))
         high = a.filter(ImageFilter.MaxFilter(3))
         assert ImageChops.subtract(low, b).getbbox() is None
-        seam = ImageChops.subtract(b, high).getbbox()
-        if seam is not None:
-            # GTK4 paints the page highlight over the selected tab's overlap.
-            assert position in ("top", "left")
-            assert (seam[3] - seam[1] if position == "top" else seam[2] - seam[0]) == 1
-            for y in range(seam[1], seam[3]):
-                for x in range(seam[0], seam[2]):
-                    assert b.getpixel((x, y)) == (255, 255, 255)
+        assert ImageChops.subtract(b, high).getbbox() is None, "selected tab has a closing page border"
+
 
 
 @pytest.mark.parametrize("look", ("classic", "luna"))
@@ -270,3 +266,20 @@ def test_gtk_group_box_border_and_content_alignment(gtk_images, classic_gtk_imag
     assert max(high for _, high in diff.getextrema()) <= 2, str(tmp_path)
     # The child marker must remain 8x8; border parity must not hide missing content.
     assert sum(pixel == (0, 0, 0) for pixel in a.get_flattened_data()) == 64
+
+
+@pytest.mark.parametrize("look", ("classic", "luna"))
+def test_gtk_tab_fonts_match_qt(qt_app, gtk_images, classic_gtk_images, look):
+    from PySide6.QtGui import QFontInfo
+    from showcase import themed
+
+    images = gtk_images if look == "luna" else classic_gtk_images
+    with themed(qt_app, "1995" if look == "classic" else "luna"):
+        font = qt_app.font()
+        resolved = QFontInfo(font)
+        for version in ("3.0", "4.0"):
+            actual = images[version, "tabfont", "normal"].info["font"]
+            assert actual["requested_family"] == resolved.family()
+            assert actual["resolved_family"] == resolved.family()
+            pixels = actual["size"] if actual["absolute"] else actual["size"] * 96 / 72
+            assert pixels == font.pixelSize() == 11

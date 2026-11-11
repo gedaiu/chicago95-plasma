@@ -38,12 +38,14 @@ notebook > header.top {
   background-image: linear-gradient(@border_bright, @border_bright);
   background-repeat: no-repeat; background-size: 100% 1px; background-position: left bottom;
 }
+notebook > header.top > tabs { transform: translateX(-3px); }
 notebook > header.top + stack { border-top-width: 0; }
 notebook > header.left {
   margin-top: 0; margin-bottom: 0; padding-top: 3px; padding-bottom: 3px; padding-right: 1px;
   background-image: linear-gradient(@border_bright, @border_bright);
   background-repeat: no-repeat; background-size: 1px 100%; background-position: right top;
 }
+notebook > header.left > tabs { transform: translateY(-3px); }
 notebook > header.left + stack { border-left-width: 0; }
 notebook:focus > header > tabs > tab:checked,
 notebook > header > tabs > tab:checked:focus {

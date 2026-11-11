@@ -457,7 +457,7 @@ def group(name):
     return "Containers and text"
 
 
-def gtk_controls(look, scratch, audit=False):
+def gtk_controls(look, scratch, audit=False, audit_kinds=()):
     """Run both GTK versions in one isolated compositor; absent runtimes are recorded, never faked."""
     import os
     import subprocess
@@ -487,6 +487,7 @@ def gtk_controls(look, scratch, audit=False):
         if look != "luna":
             from gtk_notebooks import notebook_css
             from gtk_scrollbars import scrollbar_css
+            from gtk_inputs import input_css
 
             config = home / ".config/gtk-4.0"
             config.mkdir(parents=True, exist_ok=True)
@@ -500,6 +501,28 @@ def gtk_controls(look, scratch, audit=False):
                 config.mkdir(parents=True, exist_ok=True)
                 with (config / "gtk.css").open("a") as stylesheet:
                     stylesheet.write(progress_css)
+                    stylesheet.write(input_css(CHICAGO95_SRC / "Theme/Chicago95", version))
+        # Use Qt's resolved family, so an unavailable font falls back identically in Pango.
+        import chicago95ui
+        from PySide6.QtGui import QFontInfo
+        from PySide6.QtWidgets import QApplication
+
+        app = QApplication.instance()
+        if app is None:
+            app = chicago95ui.make_app("gtk-showcase-fonts")
+            gtk_controls._font_app = app  # retain the application for standalone GTK audits
+        with themed(app, look):
+            font_family = QFontInfo(app.font()).family()
+        fontconfig = home / ".config/fontconfig/conf.d"
+        fontconfig.mkdir(parents=True, exist_ok=True)
+        font_rules = (REPO / "luna/fontconfig/61-chicago95-luna-fonts.conf" if look == "luna"
+                      else REPO / "config/fontconfig/60-chicago95-pixel-font.conf")
+        shutil.copy(font_rules, fontconfig / font_rules.name)
+        for version in ("3.0", "4.0"):
+            config = home / f".config/gtk-{version}"
+            config.mkdir(parents=True, exist_ok=True)
+            with (config / "gtk.css").open("a") as stylesheet:
+                stylesheet.write(f'\n* {{ font-family: "{font_family}"; font-size: 11px; }}\n')
         commands = []
         for version in ("3.0", "4.0"):
             probe = subprocess.run(
@@ -515,6 +538,8 @@ def gtk_controls(look, scratch, audit=False):
             commands.append(
                 f"timeout 30 {quote(sys.executable)} {quote(str(REPO / 'tests/gtk_showcase.py'))} "
                 f"{version} {theme} {quote(str(output))}{' --consistency' if audit else ''} "
+                + (f"--only {quote(','.join(audit_kinds))} " if audit_kinds else "")
+                +
                 f"> {quote(str(work / (version + '.log')))} 2>&1"
             )
         script = work / "gtk.sh"
@@ -524,6 +549,7 @@ def gtk_controls(look, scratch, audit=False):
             "HOME": str(home),
             "XDG_CONFIG_HOME": str(home / ".config"),
             "XDG_RUNTIME_DIR": str(runtime),
+            "CHICAGO95_SHOWCASE_FONT": font_family,
             "GDK_BACKEND": "wayland",
             "GSK_RENDERER": "cairo",
             "GTK_A11Y": "none",

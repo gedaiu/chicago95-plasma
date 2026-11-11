@@ -4,6 +4,7 @@ Invoked inside a disposable KWin session by showcase.gtk_controls; never uses th
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -179,6 +180,8 @@ def consistency_widgets():
                 widget.set_state_flags(Gtk.StateFlags.FOCUSED, False)
             yield "Indicators", f"{kind} {state}", [widget]
 
+    yield "Typography", "tabfont normal", [Gtk.Label(label="General Details Advanced")]
+
     for position in ("top", "bottom", "left", "right"):
         for state in ("first", "second", "disabled"):
             tabs = Gtk.Notebook()
@@ -242,15 +245,41 @@ def consistency_widgets():
         frame.set_sensitive(state != "disabled")
         yield "Containers and text", f"groupbox {state}", [frame]
 
+    for kind in ("dropdown", "spinbox"):
+        for state in ("normal", "disabled", "hovered", "pressed"):
+            if kind == "dropdown":
+                control = Gtk.DropDown.new_from_strings(["First item", "Second item"]) if V4 else Gtk.ComboBoxText()
+                if not V4:
+                    control.append_text("First item")
+                    control.append_text("Second item")
+                    control.set_active(0)
+            else:
+                control = Gtk.SpinButton.new_with_range(0, 100, 1)
+                control.set_value(42)
+            control.set_size_request(160, -1)
+            control.set_sensitive(state != "disabled")
+            control.set_can_focus(False)
+            if state in ("hovered", "pressed"):
+                control.set_state_flags(Gtk.StateFlags.PRELIGHT if state == "hovered" else Gtk.StateFlags.ACTIVE, False)
+            yield "Inputs", f"{kind} {state}", [control]
+
 
 def main():
     Gtk.init() if V4 else Gtk.init([])
     settings = Gtk.Settings.get_default()
     settings.set_property("gtk-theme-name", THEME)
     settings.set_property("gtk-enable-animations", False)
+    font_family = os.environ.get("CHICAGO95_SHOWCASE_FONT")
+    if font_family:
+        settings.set_property("gtk-font-name", f"{font_family} 11px")
+        settings.set_property("gtk-xft-dpi", 96 * 1024)
+        settings.set_property("gtk-xft-antialias", 0 if font_family == "MS W98 UI" else 1)
     output = Path(OUTPUT)
     output.mkdir(parents=True, exist_ok=True)
     catalogue = list(consistency_widgets() if AUDIT else widgets())
+    if AUDIT and "--only" in sys.argv:
+        kinds = sys.argv[sys.argv.index("--only") + 1].split(",")
+        catalogue = [row for row in catalogue if row[1].split()[0] in kinds]
     manifest = []
     loop = GLib.MainLoop()
     position = 0
@@ -328,7 +357,19 @@ def main():
 
     def capture():
         nonlocal position, capture_attempts
-        group, label, _ = catalogue[position]
+        group, label, children = catalogue[position]
+        if label == "tabfont normal":
+            from gi.repository import Pango
+
+            context = children[0].get_pango_context()
+            description = context.get_font_description()
+            resolved = context.load_font(description).describe()
+            (output / "font.json").write_text(json.dumps({
+                "requested_family": description.get_family(),
+                "resolved_family": resolved.get_family(),
+                "size": description.get_size() / Pango.SCALE,
+                "absolute": description.get_size_is_absolute(),
+            }))
         path = output / f"{position}.png"
         if V4:
             # Snapshot the real widget tree, including the native theme's state styling.

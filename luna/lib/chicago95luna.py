@@ -658,7 +658,7 @@ def spin_halves(button):
     upper_height = button.height() // 2
     return (
         QRect(button.left(), button.top(), button.width(), upper_height),
-        QRect(button.left(), button.top() + upper_height + 1, button.width(), button.height() - upper_height - 1),
+        QRect(button.left(), button.top() + upper_height, button.width(), button.height() - upper_height),
     )
 
 
@@ -668,9 +668,12 @@ def paint_spin_box(painter, option):
     paint_field_background(painter, option)
     button = drop_column(option.rect).adjusted(1, 1, -1, -1)
     upper, lower = spin_halves(button)
-    drop_button_painter(option, QStyle.SC_SpinBoxUp)(painter, upper)
-    drop_button_painter(option, QStyle.SC_SpinBoxDown)(painter, lower)
-    painter.fillRect(button.left(), upper.bottom() + 1, button.width(), 1, QColor(DROP_BUTTON_DIVIDER))
+    # One continuous column: clip state painting to each half without adding an inner border.
+    for half, sub_control in ((upper, QStyle.SC_SpinBoxUp), (lower, QStyle.SC_SpinBoxDown)):
+        painter.save()
+        painter.setClipRect(half, Qt.IntersectClip)
+        drop_button_painter(option, sub_control)(painter, button)
+        painter.restore()
     paint_centred_pixels(painter, upper, ARROWS["up"], arrow_colour(option))
     paint_centred_pixels(painter, lower, ARROWS["down"], arrow_colour(option))
     painter.restore()

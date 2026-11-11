@@ -564,6 +564,53 @@ scrollbar.vertical button.down:disabled {
   background-image: url("assets/stepper-down-disabled.svg");
 }
 
+/* Shared native dropdown/spin-box geometry; GTK retains its native button arrangement. */
+combobox, dropdown { padding: 0; margin: 0; border: none; background: transparent; }
+combobox button.combo, combobox button, dropdown > button.toggle, spinbutton:not(.vertical) {
+  min-height: 17px; min-width: 0; padding: 1px; margin: 0;
+  border: 1px solid #7F9DB9; border-image: none; border-radius: 0;
+  background-color: #FFFFFF; background-image: none; box-shadow: none; color: #000000;
+  text-shadow: none; outline-width: 0;
+}
+combobox button:checked, combobox button:active, dropdown > button.toggle:checked,
+dropdown > button.toggle:active { background: #FFFFFF; border-color: #7F9DB9; box-shadow: none; }
+combobox:disabled button, dropdown:disabled > button.toggle, spinbutton:disabled {
+  background-color: #ECE9D8; background-image: none; color: #ACA899; text-shadow: none;
+}
+combobox button > box, dropdown > button > box { margin: 0; padding: 0; border-spacing: 0; }
+combobox cellview, dropdown > button > box > stack > row {
+  padding: 0 2px; margin: 0; border: none; background: transparent; box-shadow: none;
+  color: inherit; text-shadow: none;
+}
+dropdown > button > box > stack > row label { padding: 0; margin: 0; color: inherit; text-shadow: none; }
+spinbutton:not(.vertical) entry, spinbutton:not(.vertical) > text {
+  min-height: 17px; min-width: 0; padding: 0 2px; margin: 0;
+  border: none; border-image: none; border-radius: 0; background: transparent; box-shadow: none;
+  color: inherit; text-shadow: none;
+}
+spinbutton:not(.vertical) button,
+spinbutton:not(.vertical) button:hover,
+spinbutton:not(.vertical) button:active,
+spinbutton:not(.vertical) button:disabled {
+  min-width: 17px; min-height: 17px; padding: 0; margin: 0;
+  border: none; border-image: none; border-radius: 0; box-shadow: none;
+  background-color: transparent; background-repeat: no-repeat; background-position: center;
+  background-size: 17px 17px; -gtk-icon-source: none;
+}
+combobox arrow, combobox > box > button > box > arrow, dropdown arrow {
+  min-width: 17px; min-height: 17px; padding: 0; margin: 0;
+  border: none; background-repeat: no-repeat; background-position: center;
+  background-size: 17px 17px; -gtk-icon-source: none;
+}
+
+combobox arrow, combobox > box > button > box > arrow,
+dropdown arrow { background-image: url("assets/stepper-down.svg"); }
+spinbutton:not(.vertical) button.up { background-image: url("assets/stepper-up.svg"); }
+spinbutton:not(.vertical) button.down { background-image: url("assets/stepper-down.svg"); }
+combobox:disabled arrow, combobox:disabled > box > button > box > arrow:disabled,
+dropdown:disabled arrow { background-image: url("assets/stepper-down-disabled.svg"); }
+spinbutton:not(.vertical):disabled button.up { background-image: url("assets/stepper-up-disabled.svg"); }
+spinbutton:not(.vertical):disabled button.down { background-image: url("assets/stepper-down-disabled.svg"); }
 
 headerbar.titlebar, .titlebar.default-decoration, messagedialog .titlebar {
   background-image: linear-gradient(to bottom, #0058EE 0%, #3F97FF 3%, #2B90FF 7%, #0372FF 10%, #0365F1 14%, #005CE9 17%, #0058E6 21%, #0054E3 24%, #0054E3 31%, #0055E5 34%, #0055E5 48%, #0055EA 52%, #0055EA 55%, #0058EE 59%, #005BF2 62%, #005AF5 66%, #0060F9 69%, #0164F9 72%, #026AFE 76%, #026AFE 86%, #0065FD 90%, #0060FC 93%, #004DE3 97%, #0043CF 100%);

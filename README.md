@@ -350,9 +350,11 @@ Visual consistency checks:
   targeted cross-toolkit coverage, not a claim that every Qt/GTK widget is pixel-identical.
   It also compares classic and Luna tab borders with the first/second page selected
   and with disabled tabs, on all four sides. Fixed label boxes isolate borders from
-  font rasterisation. Classic allows a narrowly bounded bitmap-corner and page-seam
-  difference; Luna allows 2/255 corner antialiasing. The classic GTK4 override reuses
+  font rasterisation. Classic allows narrowly bounded bitmap-corner antialiasing,
+  but rejects a border through the selected tab; Luna allows 2/255 corner antialiasing. The classic GTK4 override reuses
   the installed GTK3 notebook assets and is removed from the imports when switching to Luna.
+  Qt and GTK previews use the same 11px interface font. GTK receives Qt's resolved font
+  family so missing-font fallbacks also match; native font metadata verifies this.
   Progress bars are compared at 0%, 1%, 55% and 100%, disabled, reversed and RTL,
   horizontally and vertically. Checks require visible, increasing fill as well as
   matching pixels. Both classic GTK versions share the installed progress CSS;

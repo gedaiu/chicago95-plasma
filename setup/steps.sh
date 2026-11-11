@@ -298,18 +298,21 @@ import_gtk_progress() {
     target=~/.config/gtk-$version/gtk.css
     backup "$target"
     mkdir -p "$(dirname "$target")"
-    python3 - "$target" "$REPO/config/gtk-progress-classic.css" "$1" <<'PYPROGRESS'
+    python3 - "$target" "$REPO/config/gtk-progress-classic.css" "$1" "$version" <<'PYPROGRESS'
 import re
 import sys
 from pathlib import Path
 
 target, source = map(Path, sys.argv[1:3])
+sys.path.insert(0, str(source.parent.parent / "lib"))
+from gtk_inputs import input_css
 begin, end = "/* Chicago95 progress BEGIN */", "/* Chicago95 progress END */"
 text = target.read_text() if target.exists() else ""
 text = re.sub(re.escape(begin) + r".*?" + re.escape(end) + r"\n?", "", text, flags=re.S)
 if sys.argv[3] == "Chicago95":
     text = (text.rstrip() + "\n" + begin + "\n" + source.read_text()
-            + source.with_name("gtk-frames-classic.css").read_text() + end + "\n")
+            + source.with_name("gtk-frames-classic.css").read_text()
+            + input_css(Path.home() / ".themes/Chicago95", sys.argv[4]) + end + "\n")
 target.write_text(text)
 PYPROGRESS
     record "$target"
