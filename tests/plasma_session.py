@@ -180,7 +180,13 @@ for (const window of workspace.windowList()) {{ if (window.caption === {active})
 SCRIPT
 kwin_script "$WORK/arrange.js" arrange
 sleep 4
-spectacle --background --nonotify --fullscreen --output "$WORK/screen.png" >"$WORK/spectacle.log" 2>&1
+# Screenshots until two in a row match: Plasma settles its widgets on timers, later when the machine is busy.
+for shot in 1 2 3 4 5 6 7 8 9 10; do
+    spectacle --background --nonotify --fullscreen --output "$WORK/shot-$shot.png" >"$WORK/spectacle.log" 2>&1
+    if [ "$shot" -gt 1 ] && cmp -s "$WORK/shot-$shot.png" "$WORK/shot-$((shot - 1)).png"; then break; fi
+    sleep 1
+done
+cp "$WORK/shot-$shot.png" "$WORK/screen.png"
 gdbus call --session --dest org.kde.KWin --object-path /Effects --method org.freedesktop.DBus.Properties.Get \
     org.kde.kwin.Effects loadedEffects >"$WORK/effects.txt" 2>&1
 """

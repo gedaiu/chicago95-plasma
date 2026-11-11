@@ -105,13 +105,43 @@ def frame_pieces(prefix, title_colors, x0):
     )
 
 
+def maximized_pieces(prefix, title_colors, x0):
+    """A maximized window's decoration: KWin draws its title bar from the centre piece alone (no borders), so
+    every piece, the centre above all, is the title band itself; the gradient runs once across it."""
+    defs, title_fill = title_paint(prefix, title_colors)
+    b, s = BORDER, FRAME
+
+    def piece(name, fx, fy, w, h):
+        return f'<g id="{prefix}{name}">{rect(x0 + fx, fy, w, h, title_fill)}</g>'
+
+    return defs + "\n".join(
+        [
+            piece("topleft", 0, 0, b, b),
+            piece("top", b, 0, s - 2 * b, b),
+            piece("topright", s - b, 0, b, b),
+            piece("left", 0, b, b, s - 2 * b),
+            piece("right", s - b, b, b, s - 2 * b),
+            piece("bottomleft", 0, s - b, b, b),
+            piece("bottom", b, s - b, s - 2 * b, b),
+            piece("bottomright", s - b, s - b, b, b),
+            piece("center", b, b, s - 2 * b, s - 2 * b),
+            f'<rect id="{prefix}hint-stretch-borders" x="{x0}" y="0" width="1" height="1" fill="none"/>',
+        ]
+    )
+
+
 (OUT / "decoration.svg").write_text(
     svg(
-        2 * FRAME + 8,
+        4 * (FRAME + 8),
         FRAME,
-        frame_pieces("decoration-", ACTIVE_TITLE, 0)
-        + "\n"
-        + frame_pieces("decoration-inactive-", INACTIVE_TITLE, FRAME + 8),
+        "\n".join(
+            [
+                frame_pieces("decoration-", ACTIVE_TITLE, 0),
+                frame_pieces("decoration-inactive-", INACTIVE_TITLE, FRAME + 8),
+                maximized_pieces("decoration-maximized-", ACTIVE_TITLE, 2 * (FRAME + 8)),
+                maximized_pieces("decoration-maximized-inactive-", INACTIVE_TITLE, 3 * (FRAME + 8)),
+            ]
+        ),
     )
 )
 

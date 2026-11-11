@@ -183,7 +183,8 @@ def tasks_qml():
 
 
 def test_taskbar_buttons_slide_only_while_the_effects_tab_lets_them():
-    assert "enabled: entry.slides && !root.bandCarried && Plasmoid.configuration.animateButtons !== false" in tasks_qml()
+    sliding = "enabled: entry.slides && !root.bandCarried && Plasmoid.configuration.animateButtons !== false"
+    assert sliding in tasks_qml()
 
 
 def test_window_buttons_tell_kwin_where_they_are_so_minimizing_aims_at_them():
