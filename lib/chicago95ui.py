@@ -953,16 +953,16 @@ class ClassicStyle(QProxyStyle):
                 self.dither_disabled_slider_handle(option, painter, widget)
             return
         super().drawComplexControl(control, option, painter, widget)
-        # A closed drop-down's field is white up to its 2px frame, and the window colour when disabled;
-        # Qt leaves the button colour there, and a ring of it around the field.
-        if control == QStyle.CC_ComboBox and not option.editable:
+        # A drop-down's field is white up to its 2px frame, and the window colour when disabled; Qt leaves the
+        # button colour there, and a ring of it around the field (around the line edit of an editable one).
+        if control == QStyle.CC_ComboBox:
             arrow = self.subControlRect(QStyle.CC_ComboBox, option, QStyle.SC_ComboBoxArrow, widget)
             inside = option.rect.adjusted(2, 2, -2, -2)
             inside.setRight(arrow.left() - 1)
             painter.fillRect(
                 inside, option.palette.base() if option.state & QStyle.State_Enabled else option.palette.window()
             )
-            if option.state & QStyle.State_HasFocus:
+            if option.state & QStyle.State_HasFocus and not option.editable:
                 self.paint_drop_down_focus(option, painter, inside.adjusted(1, 1, -1, -1))
             self.paint_drop_down_arrow(option, painter, arrow)
             self.paint_drop_down_light_edges(option, painter, arrow)

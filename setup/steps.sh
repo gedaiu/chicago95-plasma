@@ -582,7 +582,7 @@ service_shortcut() { # service_shortcut <desktop file> <keys>
 step_shortcuts() {
   service_shortcut chicago95-startmenu.desktop "Ctrl+Esc"
   service_shortcut chicago95-run.desktop "Meta+R"
-  service_shortcut chicago95-showdesktop.desktop "Meta+D\tMeta+M"
+  service_shortcut chicago95-showdesktop.desktop $'Meta+D\tMeta+M' # KConfig separates alternatives with a tab
   service_shortcut org.kde.kfind.desktop "Meta+F"
   service_shortcut "$(explorer_desktop_file)" "Meta+E"
   kconf kwinrc ModifierOnlyShortcuts Meta "org.kde.kglobalaccel,/component/chicago95_startmenu_desktop,org.kde.kglobalaccel.Component,invokeShortcut,_launch"
@@ -1123,6 +1123,7 @@ apply_taskbar() { # every run: the Start button's text and logo, and the look in
         panel.widgets('org.chicago95.tasks').forEach(widget => {
             widget.currentConfigGroup = ['General'];
             widget.writeConfig('quickLaunch', $(js_string "${SETUP_QUICK_LAUNCH:-auto}"));
+            widget.writeConfig('previewSize', $(preview_size));
             $slide_script
         });
         panel.widgets('org.chicago95.start').forEach(widget => {
@@ -1190,10 +1191,14 @@ step_background() {
 }
 
 # The desktop icons: links in ~/Desktop, shown by Plasma's Folder View at the originals' 32px (its size 1) with two label lines.
-# SETUP_DESKTOP_ICONS lists them (computer, documents, network, recycle); unset takes the look's own, empty none.
+# SETUP_DESKTOP_ICONS lists them (computer, documents, network, recycle); unset or auto takes the look's own, empty none.
 desktop_icon_defaults() { case "${SETUP_MENU_STYLE:-1995}" in 1995) printf 'computer,network,recycle' ;; *) printf 'computer,documents,network,recycle' ;; esac }
 
-desktop_icons_chosen() { printf '%s' "${SETUP_DESKTOP_ICONS-$(desktop_icon_defaults)}" | tr ',' '\n' | grep -xE 'computer|documents|network|recycle' || true; }
+desktop_icons_chosen() {
+  local chosen="${SETUP_DESKTOP_ICONS-auto}"
+  [ "$chosen" = auto ] && chosen=$(desktop_icon_defaults)
+  printf '%s' "$chosen" | tr ',' '\n' | grep -xE 'computer|documents|network|recycle' || true
+}
 
 desktop_icon_source() { # desktop_icon_source <icon>   the link file in the repository; 2000 calls the network My Network Places
   case "$1" in

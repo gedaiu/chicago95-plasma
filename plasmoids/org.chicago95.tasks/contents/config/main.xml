@@ -28,6 +28,10 @@
       <label>Quick Launch: "yes", "no", or "auto" for the look's own (from the 1998 look on)</label>
       <default>auto</default>
     </entry>
+    <entry name="previewSize" type="Int">
+      <label>The width of a window's live preview in the tooltip over its task button, in pixels; 0 shows the title alone</label>
+      <default>0</default>
+    </entry>
     <entry name="look" type="String">
       <label>The look: "1995" (no Quick Launch, 95px task buttons), "1998" or "2000" (a pixel more before the Quick Launch)</label>
       <default>1998</default>

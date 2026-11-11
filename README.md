@@ -38,22 +38,25 @@ originals' wording for the comparison. The pictures are made by `tests/render_re
 
 ## Layout
 
-| Folder                 | Contents                                                                                                                                                                                                                                        |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `aurorae/`             | `make_chicago95_aurorae.py`, `bevel.py`, Start button images, and the generated theme under `theme/`                                                                                                                                            |
-| `plasma-style/`        | `make_chicago95_plasmastyle.py` and the generated style under `theme/`                                                                                                                                                                          |
-| `plasmoids/`           | `org.chicago95.start`, `org.chicago95.tasks` (Quick Launch and task buttons), `org.chicago95.trayframe`, `org.chicago95.clock`                                                                                                                  |
-| `bin/`                 | `chicago95-startmenu`, `chicago95-notifyd`, `chicago95-clippy`, `chicago95-shutdown`, `chicago95-screensaver`, `chicago95-sysprops`, `chicago95-devmgr` (Device Manager, read-only, from lshw), `chicago95-k8sview` (the Kubernetes cluster as a device tree), `chicago95-dialup`, `chicago95-deezer`, `chicago95-control-panel`, `chicago95-askpass` |
-| `lib/`                 | `chicago95ui.py`, the shared PySide6 look module                                                                                                                                                                                                |
-| `data/`                | Menu stylesheet for plasmashell, tray arrow, Clippy sprites and sounds, KRunner QML override, fastfetch preset                                                                                                                                  |
-| `data/sound-themes/`   | Freedesktop sound themes for Windows 98, the 16 Plus! 98 schemes and Windows 2000, built by `setup/make_sound_themes.py`                                                                                                                        |
-| `data/toolbar-icons/`  | Windows 95 and 2000 Explorer toolbar buttons (Back, Up, Cut, Copy...), installed as the `Chicago95-Toolbar` icon theme over the look's icon set; built by `setup/make_toolbar_icons.py`                                                         |
-| `config/`              | Colour scheme, KWin rules, systemd drop-in and unit, environment.d, autostart entries, Thunar, xsettingsd, GTK CSS, Dolphin toolbar, Firefox `user.js`                                                                                          |
-| `kwin-effects/`        | `chicago95notifications`, the slide-in effect; `chicago95zoom`, the title bar zoom                                                                                                                                                              |
-| `lockscreen/`          | The `contents/lockscreen` override for the Plasma desktop shell                                                                                                                                                                                 |
-| `splash/`              | `chicago95.splashscreen` KSplash package                                                                                                                                                                                                        |
-| `install.sh`, `setup/` | Chicago95 Setup: detection, component and option screens, install steps                                                                                                                                                                         |
-| `uninstall.sh`         | Removes what Setup installed and restores backups                                                                                                                                                                                               |
+| Folder                 | Contents                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `aurorae/`             | `make_chicago95_aurorae.py`, `bevel.py`, Start button images, and the generated theme under `theme/`                                                                                                                                                                                                                                                                                    |
+| `plasma-style/`        | `make_chicago95_plasmastyle.py` and the generated style under `theme/`                                                                                                                                                                                                                                                                                                                  |
+| `plasmoids/`           | `org.chicago95.start`, `org.chicago95.tasks` (Quick Launch and task buttons), `org.chicago95.trayframe`, `org.chicago95.clock`                                                                                                                                                                                                                                                          |
+| `bin/`                 | `chicago95-startmenu`, `chicago95-notifyd`, `chicago95-clippy`, `chicago95-shutdown`, `chicago95-screensaver`, `chicago95-sysprops`, `chicago95-devmgr` (Device Manager, read-only, from lshw), `chicago95-k8sview` (the Kubernetes cluster as a device tree), `chicago95-dialup`, `chicago95-deezer`, `chicago95-control-panel`, `chicago95-askpass`, `chicago95-run` (the Run dialog) |
+| `lib/`                 | `chicago95ui.py`, the shared PySide6 look module                                                                                                                                                                                                                                                                                                                                        |
+| `data/`                | Menu stylesheet for plasmashell, tray arrow, Clippy sprites and sounds, KRunner QML override, fastfetch preset                                                                                                                                                                                                                                                                          |
+| `data/sound-themes/`   | Freedesktop sound themes for Windows 98, the 16 Plus! 98 schemes and Windows 2000, built by `setup/make_sound_themes.py`                                                                                                                                                                                                                                                                |
+| `data/toolbar-icons/`  | Windows 95 and 2000 Explorer toolbar buttons (Back, Up, Cut, Copy...), installed as the `Chicago95-Toolbar` icon theme over the look's icon set; built by `setup/make_toolbar_icons.py`                                                                                                                                                                                                 |
+| `config/`              | Colour scheme, KWin rules, systemd drop-in and unit, environment.d, autostart entries, Thunar, xsettingsd, GTK CSS, Dolphin toolbar, Firefox `user.js`                                                                                                                                                                                                                                  |
+| `kwin-scripts/`        | `chicago95windows`, the taskbar menu's Cascade Windows, Tile Windows and Minimize All Windows with Undo, a KWin script                                                                                                                                                                                                                                                                  |
+| `kwin-tabbox/`         | `chicago95`, the Alt+Tab switcher layout: the classic icon box, or window previews                                                                                                                                                                                                                                                                                                      |
+| `config/desktop/`      | The desktop icons' links: My Computer, Network Neighborhood (My Network Places on 2000), Recycle Bin, My Documents                                                                                                                                                                                                                                                                      |
+| `kwin-effects/`        | `chicago95notifications`, the slide-in effect; `chicago95zoom`, the title bar zoom                                                                                                                                                                                                                                                                                                      |
+| `lockscreen/`          | The `contents/lockscreen` override for the Plasma desktop shell                                                                                                                                                                                                                                                                                                                         |
+| `splash/`              | `chicago95.splashscreen` KSplash package                                                                                                                                                                                                                                                                                                                                                |
+| `install.sh`, `setup/` | Chicago95 Setup: detection, component and option screens, install steps                                                                                                                                                                                                                                                                                                                 |
+| `uninstall.sh`         | Removes what Setup installed and restores backups                                                                                                                                                                                                                                                                                                                                       |
 
 ## Requirements
 
@@ -96,8 +99,8 @@ profile in daily use, whether Thunar and qmmp are installed, and missing
 Python modules, with the install command for your distribution.
 
 Components, each optional: Chicago95 base theme, decoration and Plasma
-style, animations, taskbar plasmoids, Start menu and Shut Down dialog, notifications,
-Office Assistant, extra tools, Control Panel, sound scheme, desktop background, screensaver, Winamp, Explorer (Thunar or
+style, animations, taskbar plasmoids, Start menu (with the Run dialog and the keys), Shut Down dialog, notifications,
+Office Assistant, extra tools, Control Panel, sound scheme, desktop background, desktop icons, Alt+Tab, screensaver, Winamp, Explorer (Thunar or
 Dolphin), lock screen, splash screen, boot screen (Plymouth), login screen
 (SDDM), Firefox colours. GTK programs on Wayland, Firefox among them, draw their own title
 bars: the look writes its title bar colours, active and inactive, into GTK's `gtk.css` so
@@ -201,6 +204,31 @@ order and the last file wins, so the `zz-` name beats a leftover theme
 setting from another file there. Both are off with `--yes`; ask for them with
 `--components=plymouth,sddm`.
 
+## Desktop, keys, Alt+Tab and the taskbar's menu
+
+The desktop icons are links in `~/Desktop` (My Computer, Network Neighborhood, Recycle Bin, and My Documents
+from the 1998 look on), shown by Plasma's Folder View at the originals' 32px with two label lines; Display
+Properties > Effects picks the set. Folder View's rows are 90px apart where the originals' were 75, and its
+labels keep their shadow.
+
+The originals' keys: the Windows key alone and Ctrl+Esc open the Start menu, Win+R the Run dialog, Win+E Explorer,
+Win+D and Win+M show the desktop, Win+F Find. They are service shortcuts in `kglobalshortcutsrc` and take effect
+at the next login (Setup offers to log out). The Run dialog is the 1995 original's, pixel for pixel
+(`tests/test_run_reference.py`), with a twist: as you type, programs, commands on the PATH, folders and files that
+match are listed under the field; Enter runs the first, or the typed line as it is.
+
+Alt+Tab is our KWin switcher layout: the classic grey box with the windows' icons in a row and the chosen one's
+title under them. Taskbar > Taskbar Options' "Window previews" (Off, Small, Medium, Large) switches both it and the
+task buttons' tooltips to live previews of the windows at that width; the tooltips are otherwise the flat pale
+yellow title. No screenshot of the original Alt+Tab box has been found, so its metrics are the classic ones
+(43px cells, 32px icons, a 1px frame around the chosen one) rather than measured.
+
+A right-click on the taskbar offers the Quick Launch, Cascade Windows, Tile Windows Horizontally, Tile Windows
+Vertically, Minimize All Windows, the Undo of the last of those, and Properties. The arrangements are a KWin
+script (`kwin-scripts/chicago95windows`) measured from the Windows 98 originals: Cascade steps 22 right and 21
+down with every window seven eighths of what is left; Tile splits the work area into equal columns or rows, a grid
+past four windows.
+
 ## Resolution
 
 Wayland does not let clients position their own windows, so the Start
@@ -243,7 +271,7 @@ screenshot of the 1995 original:
 size, bevel, separator, highlight, arrows and text positions must match; outside the icons and
 the letter shapes, not a pixel may differ. The screenshots are in `tests/references` (sources in `SOURCES.md` there).
 
-`tests/test_plasma_taskbar_reference.py` and `tests/test_plasma_window_reference.py` run the real
+`tests/test_plasma_taskbar_reference.py`, `tests/test_plasma_window_reference.py` and `tests/test_plasma_desktop_reference.py` run the real
 desktop: Setup installs into a throwaway home, then KWin and plasmashell run headless at 640x480 with
 each original's windows (Qt, GTK 3, GTK 4 and X11), Quick Launch entries and tray icons, and the
 screenshot is compared with the original's taskbar and windows. They need KWin, plasmashell, spectacle,

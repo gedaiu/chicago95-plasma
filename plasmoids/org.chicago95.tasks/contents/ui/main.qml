@@ -355,6 +355,17 @@ PlasmoidItem {
                     icon: entry.model.decoration
                     pressed: entry.model.IsActive === true
                     look: Plasmoid.configuration.look
+                    // The pointer resting on the button: the window's title in the classic flat tooltip and, with a
+                    // preview size chosen in the Control Panel, a live picture of the window above it (TaskToolTip.qml).
+                    PlasmaCore.ToolTipArea {
+                        anchors.fill: parent
+                        interactive: false
+                        mainItem: TaskToolTip {
+                            title: entry.model.display
+                            windowId: entry.model.WinIdList ? entry.model.WinIdList[0] : null
+                            previewSize: Plasmoid.configuration.previewSize ?? 0
+                        }
+                    }
                     DragSortArea {
                         anchors.fill: parent
                         layoutParent: root

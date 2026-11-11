@@ -15,8 +15,8 @@ from pathlib import Path
 
 import chicago95ui  # noqa: E401,E702
 from PySide6.QtCore import QEvent, Qt
-from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QComboBox, QFileDialog, QLabel, QListWidget, QListWidgetItem, QPushButton
+from PySide6.QtGui import QColor, QIcon, QPainter
+from PySide6.QtWidgets import QComboBox, QFileDialog, QLabel, QListWidget, QListWidgetItem, QPushButton, QWidget
 
 INSTANCE_NAME = "chicago95-run"
 HISTORY_FILE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "chicago95/run-history"
@@ -24,18 +24,11 @@ HISTORY_LENGTH = 26
 MATCH_LIMIT = 8
 MATCH_ROW_HEIGHT = 18
 # The dialog as the 1995 original (tests/references/win95run.png, tests/test_run_reference.py): a 341x139 client
-# area, the icon at 13,15, the text from 56,17, "Open:" at 17,64, the field at 55,61 (273x21) and three 75x23
-# buttons at 96, 175 and 254, 102 rows down.
+# area, the icon at 13,15, the text from 56,17, "Open:" at 11,66, the field at 54,61 (275x21) and three 75x23
+# buttons painted from 93, 174 and 255, 103 rows down.
 BODY = (341, 139)
-ICON_AT, TEXT_AT, LABEL_AT, FIELD_AT, FIELD_WIDTH, BUTTON_TOP, BUTTON_LEFTS = (
-    (13, 15),
-    (56, 17),
-    (17, 64),
-    (55, 61),
-    273,
-    102,
-    (96, 175, 254),
-)
+ICON_AT, TEXT_AT, LABEL_AT, FIELD_AT, FIELD_WIDTH = (13, 15), (56, 17), (11, 66), (54, 61), 275
+BUTTON_TOP, BUTTON_LEFTS = 103, (93, 174, 255)
 PROMPTS = {
     "1995": "Type the name of a program, folder, or document, and {os} will open it for you.",
     "1998": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
@@ -43,9 +36,9 @@ PROMPTS = {
 }
 
 
-def read_history(path=HISTORY_FILE):
+def read_history(path=None):
     try:
-        return [line for line in path.read_text().splitlines() if line]
+        return [line for line in (path or HISTORY_FILE).read_text().splitlines() if line]
     except OSError:
         return []
 
@@ -55,7 +48,8 @@ def remember(command, history):
     return [command, *[entry for entry in history if entry != command]][:HISTORY_LENGTH]
 
 
-def write_history(history, path=HISTORY_FILE):
+def write_history(history, path=None):
+    path = path or HISTORY_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("".join(f"{entry}\n" for entry in history))
 
@@ -169,6 +163,15 @@ def themed_icon(name):
     return QIcon.fromTheme(name, QIcon.fromTheme("application-x-executable"))
 
 
+class DefaultOutline(QWidget):
+    """The black 1px rectangle the originals drew around the default button."""
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        painter.setPen(QColor("#000000"))
+        painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
+
+
 class RunDialog(chicago95ui.ClassicDialog):
     """The Run dialog of the look, with a list of matching programs, files and commands under the field as the
     text is typed: the dialog grows to hold the list and shrinks back when it empties."""
@@ -209,13 +212,16 @@ class RunDialog(chicago95ui.ClassicDialog):
         self.results.itemActivated.connect(lambda _item: self.accept())
         self.results.itemClicked.connect(lambda _item: self.accept())
         self.buttons = {}
+        # The original's default button: a 1px black outline around a whole 75x23 button; Qt would draw the
+        # outline a pixel inside, so OK sits in an outline of its own and Enter is handled by the dialog.
+        self.outline = DefaultOutline(body)
+        self.outline.setGeometry(BUTTON_LEFTS[0], BUTTON_TOP, *chicago95ui.DIALOG_BUTTON_SIZE)
         for left, label in zip(BUTTON_LEFTS, ("OK", "Cancel", "&Browse..."), strict=False):
             button = QPushButton(label, body)
-            # Qt draws a button's bottom and right edges a pixel inside its rectangle, and a non-default
-            # button's left edge too, so the rectangles grow to put the painted edges where the original's are.
-            button.setGeometry(left if label == "OK" else left - 1, BUTTON_TOP, 76 if label == "OK" else 77, 24)
+            button.setAutoDefault(False)
+            button.setGeometry(left, BUTTON_TOP, *chicago95ui.DIALOG_BUTTON_SIZE)
             self.buttons[label] = button
-        self.buttons["OK"].setDefault(True)
+        self.buttons["OK"].setGeometry(BUTTON_LEFTS[0] + 1, BUTTON_TOP + 1, 73, 21)
         self.buttons["OK"].setEnabled(False)
         self.buttons["OK"].clicked.connect(self.accept)
         self.buttons["Cancel"].clicked.connect(self.reject)
@@ -223,6 +229,9 @@ class RunDialog(chicago95ui.ClassicDialog):
         self.field.setFocus()
 
     def eventFilter(self, watched, event):
+        if event.type() == QEvent.KeyPress and event.key() in (Qt.Key_Return, Qt.Key_Enter):
+            self.accept()
+            return True
         if event.type() == QEvent.KeyPress and event.key() in (Qt.Key_Down, Qt.Key_Up) and self.results.isVisible():
             step = 1 if event.key() == Qt.Key_Down else -1
             self.results.setCurrentRow(max(0, min(self.results.count() - 1, self.results.currentRow() + step)))
@@ -252,8 +261,8 @@ class RunDialog(chicago95ui.ClassicDialog):
         self.results.setVisible(count > 0)
         self.setFixedSize(self.width(), BODY[1] + chicago95ui.DIALOG_FRAME * 2 + chicago95ui.DIALOG_TITLE + extra)
         self.body.resize(BODY[0], BODY[1] + extra)
-        for button in self.buttons.values():
-            button.move(button.x(), BUTTON_TOP + extra)
+        for widget in (*self.buttons.values(), self.outline):
+            widget.move(widget.x(), BUTTON_TOP + extra + (1 if widget is self.buttons["OK"] else 0))
 
     def browse(self):
         path, _filter = QFileDialog.getOpenFileName(self, "Browse", str(Path.home()))

@@ -137,25 +137,33 @@ def test_each_link_names_its_place_and_a_chicago95_icon(name, expected):
     ) == (expected, [])
 
 
-def test_control_panel_defaults_match_setups_defaults_for_every_look(tmp_path):
+def test_an_auto_choice_takes_the_looks_own_icons(tmp_path):
+    assert chosen(tmp_path, "SETUP_DESKTOP_ICONS=auto SETUP_MENU_STYLE=1998") == [
+        "computer",
+        "documents",
+        "network",
+        "recycle",
+    ]
+
+
+def test_every_control_panel_choice_is_one_setup_understands(tmp_path):
     control_panel = load_script("chicago95-control-panel")
 
-    assert {
-        look: ",".join(chosen(tmp_path, f"SETUP_MENU_STYLE={look}")) for look in control_panel.DESKTOP_ICON_DEFAULTS
-    } == control_panel.DESKTOP_ICON_DEFAULTS
+    assert [
+        chosen(tmp_path, f"SETUP_DESKTOP_ICONS='{value}'") for _label, value in control_panel.DESKTOP_ICON_CHOICES
+    ] == [
+        ["computer", "network", "recycle"],
+        [],
+        ["computer", "network", "recycle"],
+        ["computer", "documents", "network", "recycle"],
+    ]
 
 
-def test_effects_tab_lists_the_desktop_icons_and_reports_the_checked_ones(qt_app):
+def test_effects_tab_offers_the_desktop_icon_sets_and_reports_the_saved_one(qt_app):
     control_panel = load_script("chicago95-control-panel")
-    tab = control_panel.build_tab(
-        "Display", "Effects", {"LOOK": "1995", "DESKTOP_ICONS": "recycle,computer"}, control_panel.Actions()
+    saved = control_panel.build_tab(
+        "Display", "Effects", {"DESKTOP_ICONS": "computer,network,recycle"}, control_panel.Actions()
     )
-    before = tab.values()["DESKTOP_ICONS"]
-    field = tab.findChild(control_panel.CheckListField)
-    field.boxes[1].setChecked(True)
+    unset = control_panel.build_tab("Display", "Effects", {}, control_panel.Actions())
 
-    assert (before, tab.values()["DESKTOP_ICONS"], [box.text() for box in field.boxes]) == (
-        "computer,recycle",
-        "computer,documents,recycle",
-        ["My Computer", "My Documents", "Network Neighborhood", "Recycle Bin"],
-    )
+    assert (saved.values()["DESKTOP_ICONS"], unset.values()["DESKTOP_ICONS"]) == ("computer,network,recycle", "auto")
