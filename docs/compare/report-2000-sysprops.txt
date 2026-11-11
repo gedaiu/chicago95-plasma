@@ -1,6 +1,6 @@
-  19921  10.5%  2000 System Properties: whole
+  19889  10.5%  2000 System Properties: whole
     532  77.8%  2000 System Properties: help and close buttons
     772  10.5%  2000 System Properties: tabs
   10219   7.0%  2000 System Properties: General page
-    550   6.3%  2000 System Properties: buttons (OK is the default)
-    148   5.8%  2000 System Properties: disabled button (Apply)
+    518   5.9%  2000 System Properties: buttons (OK is the default)
+     94   3.7%  2000 System Properties: disabled button (Apply)

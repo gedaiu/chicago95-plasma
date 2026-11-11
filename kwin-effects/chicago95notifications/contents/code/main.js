@@ -1,7 +1,6 @@
 "use strict";
 
-// Durations are fixed on purpose: the desktop runs with AnimationDurationFactor=0
-// (instant, like the classic desktop), and animationTime() would scale these to nothing too.
+// Durations are fixed: the desktop runs with AnimationDurationFactor=0, which would scale animationTime() to nothing.
 const SLIDE_IN_MS = 340;
 const SLIDE_OUT_MS = 220;
 const RESTACK_MS = 240;
@@ -11,10 +10,19 @@ function isNotification(window) {
   return window.notification || window.criticalNotification;
 }
 
+function isShownNotification(window) {
+  return isNotification(window) && window.visible;
+}
+
+function isCloseAnimationWanted(window) {
+  return !window.skipsCloseAnimation && !effects.hasActiveFullScreenEffect;
+}
+
 function slideDistance(window) {
   const screenArea = (window.screen && window.screen.geometry) || effects.virtualScreenGeometry;
   const fromRightEdge = window.geometry.x + window.geometry.width / 2 > screenArea.x + screenArea.width / 2;
   const distance = window.geometry.width + EDGE_GAP;
+
   return fromRightEdge ? distance : -distance;
 }
 
@@ -32,9 +40,11 @@ const notificationMotion = {
     if (!isNotification(window) || !window.visible || effects.hasActiveFullScreenEffect) {
       return;
     }
+
     if (!effect.grab(window, Effect.WindowAddedGrabRole)) {
       return;
     }
+
     window.windowFrameGeometryChanged.connect(notificationMotion.onGeometryChanged);
     window.slideInAnimation = animate({
       window: window,
@@ -57,12 +67,14 @@ const notificationMotion = {
   },
 
   onWindowClosed(window) {
-    if (!isNotification(window) || !window.visible || window.skipsCloseAnimation || effects.hasActiveFullScreenEffect) {
+    if (!isShownNotification(window) || !isCloseAnimationWanted(window)) {
       return;
     }
+
     if (!effect.grab(window, Effect.WindowClosedGrabRole)) {
       return;
     }
+
     cancelAll(window);
     animate({
       window: window,
@@ -84,20 +96,23 @@ const notificationMotion = {
     });
   },
 
-  // The popup stack is re-laid out whenever one notification closes or grows;
-  // glide each popup from where it was instead of jumping.
+  // The popup stack is re-laid out when a notification closes or grows: glide each popup instead of jumping.
   onGeometryChanged(window, oldGeometry) {
     if (!window.visible || window.slideInAnimation) {
       return;
     }
+
     const deltaX = oldGeometry.x - window.geometry.x;
     const deltaY = oldGeometry.y - window.geometry.y;
+
     if (deltaX === 0 && deltaY === 0) {
       return;
     }
+
     if (window.restackAnimation) {
       cancel(window.restackAnimation);
     }
+
     window.restackAnimation = animate({
       window: window,
       duration: RESTACK_MS,
@@ -115,7 +130,11 @@ const notificationMotion = {
   onAnimationEnded(window, animation) {
     if (animation === window.slideInAnimation) {
       delete window.slideInAnimation;
-    } else if (animation === window.restackAnimation) {
+
+      return;
+    }
+
+    if (animation === window.restackAnimation) {
       delete window.restackAnimation;
     }
   },

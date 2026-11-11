@@ -99,7 +99,7 @@ from PySide6.QtGui import (
     QPainter,
     QPalette,
 )
-from PySide6.QtWidgets import QApplication, QMenu, QProxyStyle, QStyle, QStyleOptionMenuItem, QWidget
+from PySide6.QtWidgets import QApplication, QMenu, QStyle, QStyleOptionMenuItem, QWidget
 
 RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
 PID_FILE = RUNTIME_DIR / "chicago95-startmenu.pid"
@@ -275,8 +275,8 @@ LOG_OFF_COMMAND = [SHUTDOWN_TOOL, "--log-off"]
 SHUT_DOWN_COMMAND = [SHUTDOWN_TOOL]
 
 
-class RetroMenuStyle(QProxyStyle):
-    """Windows style with classic menu metrics: bigger root icons, roomier rows, small submenu arrows."""
+class RetroMenuStyle(chicago95ui.ClassicStyle):
+    """The classic style with classic menu metrics: bigger root icons, roomier rows, small submenu arrows."""
 
     underline_shortcuts = True  # 2000 hides the shortcut letters' underlines until Alt is pressed
 

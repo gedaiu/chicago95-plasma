@@ -1,11 +1,9 @@
 .pragma library
 
-// Whether the taskbar shows its Quick Launch: Setup's option, "yes" or "no", or "auto": the look's own
-// (the originals had one from 1998 on). Setup's quick_launch_shown decides the same way.
+// Quick Launch shows per Setup's "yes" or "no", or for "auto" as the look's own does (1998 on), like quick_launch_shown.
 function shown(setting, look) {
-    if (setting === "yes")
-        return true
-    if (setting === "no")
-        return false
-    return look !== "1995"
+  if (setting === "yes") return true;
+  if (setting === "no") return false;
+
+  return look !== "1995";
 }

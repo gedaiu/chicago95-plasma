@@ -196,15 +196,16 @@ anywhere. At 1x or 2x the DPI section of the tutorial can be skipped.
 
 `make check` verifies formatting and lints every source file without changing anything; CI runs it. `make format` rewrites the files into the house style.
 
-| Files                               | Tools                                                |
-| ----------------------------------- | ---------------------------------------------------- |
-| Python, including `bin/chicago95-*` | ruff (settings in `pyproject.toml`, line length 120) |
-| Shell                               | shfmt and shellcheck                                 |
-| QML                                 | qmlformat and qmllint, from `pyside6-*`              |
-| JS, JSON, YAML, CSS, Markdown       | prettier, run through `npx`                          |
-| XML, `.desktop`                     | xmllint, desktop-file-validate                       |
+| Files                               | Tools                                                                                                  |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Python, including `bin/chicago95-*` | ruff (settings in `pyproject.toml`, line length 120)                                                   |
+| Shell                               | shfmt and shellcheck                                                                                   |
+| QML                                 | qmlformat and qmllint, from `pyside6-*`                                                                |
+| JS                                  | eslint with `@re-cinq/eslint-plugin-re-lint` (it also adds blank lines for readability), then prettier |
+| JSON, YAML, CSS, Markdown           | prettier, run through `npx`                                                                            |
+| XML, `.desktop`                     | xmllint, desktop-file-validate                                                                         |
 
-`pip install --user -r requirements-dev.txt` brings ruff, shellcheck and shfmt. A tool that is missing is skipped locally and is an error in CI. SVG files are generated and left alone.
+`pip install --user -r requirements-dev.txt` brings ruff, shellcheck and shfmt, and `npm ci` the JavaScript tooling (`make` does that itself). A tool that is missing is skipped locally and is an error in CI. SVG files are generated and left alone. The KDE-derived `lockscreen/` and `data/qml/` QML is formatted but not linted, and qmllint only gates on every message when the Plasma QML modules are installed.
 
 ## Tests
 

@@ -73,3 +73,20 @@ def test_taskbar_properties_command_opens_the_taskbar_page_and_is_absent_without
         startmenu.taskbar_properties_command(lambda name: f"/bin/{name}"),
         startmenu.taskbar_properties_command(lambda name: None),
     ) == (["/bin/chicago95-control-panel", "--page", "taskbar"], None)
+
+
+def test_the_start_menus_style_keeps_the_classic_controls_for_everything_else(startmenu, qt_app):
+    """apply_retro_look replaces the application's style; the windows the tool opens, and the report rendered
+    after it, must still get the classic controls (a tab bar 22 rows tall, not Qt's 19)."""
+    import chicago95ui
+    from PySide6.QtWidgets import QTabWidget, QWidget
+
+    startmenu.apply_retro_look(qt_app)
+    tabs = QTabWidget()
+    tabs.addTab(QWidget(), "General")
+    tabs.show()
+    qt_app.processEvents()
+    try:
+        assert (isinstance(qt_app.style(), chicago95ui.ClassicStyle), tabs.tabBar().height()) == (True, 22)
+    finally:
+        qt_app.setStyle(chicago95ui.classic_style())

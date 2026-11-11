@@ -1,31 +1,45 @@
-"""Runs prettier over QML JavaScript libraries, whose first line `.pragma library` prettier cannot parse.
+"""Runs eslint's fixes and prettier over QML JavaScript libraries.
 
-    python3 tests/tools_prettier_pragma.py check|write PRETTIER_COMMAND FILE...
+Their first line, `.pragma library`, is not valid JavaScript, so it is set aside while the rest is formatted.
+
+python3 tests/tools_prettier_pragma.py check|write PRETTIER_COMMAND FILE...
 """
 
+import json
 import shlex
 import subprocess
 import sys
 
 PRAGMA = ".pragma library"
-
-
-def formatted(prettier_command, path):
-    lines = open(path, encoding="utf-8").read().split("\n", 1)
-    enforce(lines[0] == PRAGMA, f"{path} does not start with {PRAGMA}")
-    body = subprocess.run(
-        [*shlex.split(prettier_command), "--stdin-filepath", "pragma.js"],
-        input=lines[1],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    return f"{PRAGMA}\n\n{body}"
+ESLINT_STDIN = ["npx", "eslint", "--stdin", "--stdin-filename", "pragma.js", "--fix-dry-run", "--format", "json"]
 
 
 def enforce(condition, message):
     if not condition:
         sys.exit(message)
+
+
+def eslint_fixed(path, body):
+    report = json.loads(subprocess.run(ESLINT_STDIN, input=body, capture_output=True, text=True, check=False).stdout)
+    problems = [f"{path}:{message['line'] + 1}: {message['message']}" for message in report[0]["messages"]]
+    enforce(not problems, "\n".join(problems))
+    return report[0].get("output", body)
+
+
+def prettier_formatted(prettier_command, body):
+    return subprocess.run(
+        [*shlex.split(prettier_command), "--stdin-filepath", "pragma.js"],
+        input=body,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+
+def formatted(prettier_command, path):
+    first_line, body = open(path, encoding="utf-8").read().split("\n", 1)
+    enforce(first_line == PRAGMA, f"{path} does not start with {PRAGMA}")
+    return f"{PRAGMA}\n\n{prettier_formatted(prettier_command, eslint_fixed(path, body))}"
 
 
 def main(mode, prettier_command, paths):

@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 *.pre-*
 *.bak*
+node_modules/

@@ -1,0 +1,19 @@
+{
+  "name": "chicago95-plasma-tooling",
+  "private": true,
+  "type": "module",
+  "description": "Lint and format tooling only; nothing here ships with the theme.",
+  "scripts": {
+    "lint:js": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/css": "^2.0.1",
+    "@eslint/markdown": "^8.0.3",
+    "@re-cinq/eslint-plugin-re-lint": "^1.13.0",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "eslint": "^10.14.0",
+    "jscpd": "^5.4.3",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.2"
+  }
+}
