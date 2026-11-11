@@ -246,15 +246,20 @@ def test_show_again_brings_a_minimized_window_back_on_the_named_page(control_pan
     assert (window.isMinimized(), window.history.current) == (False, control_panel.HOME_PAGE + ("Taskbar",))
 
 
-def test_a_second_launch_hands_its_page_to_the_running_window(qt_app, monkeypatch, tmp_path):
+def test_a_second_launch_hands_its_page_to_the_running_window(qt_app, monkeypatch):
+    import tempfile
+    import time
+
     import chicago95ui
 
-    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    short_runtime_dir = tempfile.mkdtemp(prefix="c95-", dir="/tmp")
+    monkeypatch.setenv("XDG_RUNTIME_DIR", short_runtime_dir)
     received = []
     before = chicago95ui.send_to_running("chicago95-test", "taskbar")
     instance = chicago95ui.SingleInstance("chicago95-test", received.append)
     sent = chicago95ui.send_to_running("chicago95-test", "taskbar")
-    while not received:
+    deadline = time.monotonic() + 5
+    while not received and time.monotonic() < deadline:
         qt_app.processEvents()
     instance.server.close()
 

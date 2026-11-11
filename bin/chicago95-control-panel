@@ -17,6 +17,7 @@ import shutil
 import socket
 import subprocess
 import tempfile
+import time
 import xml.etree.ElementTree as ElementTree
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -96,6 +97,7 @@ INSTALL_ORDER = (
     "screensaver",
     "winamp",
     "explorer",
+    "mouse",
     "lockscreen",
     "splash",
     "plymouth",
@@ -119,6 +121,9 @@ COMPONENTS_BY_KEY = {
     "BANNER_FG": ("startmenu",),
     "BANNER_TEXT": ("startmenu", "splash"),
     "CURSOR": ("base",),
+    "MOUSE_HAND": ("mouse",),
+    "DOUBLE_CLICK_MS": ("mouse",),
+    "POINTER_SPEED": ("mouse",),
     "PANEL": ("taskbar",),
     "TASK_BUTTON_WIDTH": ("taskbar",),
     "QUICK_LAUNCH": ("taskbar",),
@@ -245,7 +250,7 @@ PAGE_TABS = {
     "Display": ("Background", "Screen Saver", "Appearance", "Effects"),
     "Explorer": ("General",),
     "Fonts": ("Font",),
-    "Mouse": ("Pointer",),
+    "Mouse": ("Buttons", "Pointers", "Motion"),
     "Office Assistant": ("Options",),
     "Passwords": ("Log On", "Branding", "Loading Screen"),
     "Sounds": ("Sounds",),
@@ -548,6 +553,12 @@ def tool_path(name):
     return str(installed if installed.exists() else Path(__file__).resolve().parent / name)
 
 
+def screensaver_picture_dir():
+    """The Screen Saver tab's monitor pictures (data/screensaver-previews): installed by Setup, or the checkout's."""
+    installed = Path.home() / ".local/share/chicago95/screensaver-previews"
+    return installed if installed.is_dir() else Path(__file__).resolve().parent.parent / "data/screensaver-previews"
+
+
 def start_detached(program, arguments):
     QProcess.startDetached(program, arguments)
 
@@ -722,6 +733,7 @@ class Actions:
     list_screensavers: Callable = installed_screensavers
     lock_timeout_minutes: Callable = lock_timeout_minutes
     sound_roots: tuple = SOUND_ROOTS
+    screensaver_pictures: Callable = screensaver_picture_dir
     installed_effects: Callable = chicago95animations.installed_effects
     live_animations: Callable = chicago95animations.live_state
 
@@ -1943,8 +1955,211 @@ class PropertiesPage(QWidget):
         self.finished.emit()
 
 
-@tab_builder("Mouse", "Pointer")
-def mouse_pointer_tab(settings, actions):
+# ---- Mouse Properties (tests/references/win98mouse.png, tests/test_mouse_page.py): the Buttons tab's parts sit
+# where the original's do, in page-frame coordinates; the tab's own origin is TAB_PAGE_FRAME pixels inside the frame.
+TAB_PAGE_FRAME = 2
+MOUSE_LAYOUT = {
+    "configuration": QRect(15, 19, 355, 165),
+    "speed": QRect(15, 198, 355, 138),
+    "right-handed": (QPoint(25, 38), 16),  # the circle, and how far its caption's ink starts from it
+    "left-handed": (QPoint(125, 38), 21),
+    "left heading": QPoint(25, 71),
+    "left lines": (QPoint(34, 87), QPoint(34, 100)),
+    "right heading": QPoint(260, 71),
+    "right lines": (QPoint(269, 87), QPoint(269, 100)),
+    "picture": QRect(151, 79, 83, 80),
+    "slider": QRect(63, 238, 137, 0),
+    "slow": QPoint(25, 238),
+    "fast": QPoint(215, 238),
+    "test area label": QPoint(260, 220),
+    "test area": QRect(259, 236, 80, 85),
+}
+# A QGroupBox's frame starts GROUP_TITLE_RISE rows below its widget's top and ends a row and a column short of it;
+# a QLabel draws its ink a pixel right of the font's bearing.
+GROUP_TITLE_RISE, GROUP_FRAME_SLACK, LABEL_INK_SHIFT, RADIO_RISE = 5, 1, 1, 1
+DOUBLE_CLICK_RANGE = (100, 900)
+POINTER_SPEED_STEPS = 10
+
+
+def page_rect(rect):
+    return rect.translated(-TAB_PAGE_FRAME, -TAB_PAGE_FRAME)
+
+
+class MousePicture(QWidget):
+    """A two-button mouse, its primary button in the selection colour; our own drawing, not the original's."""
+
+    def __init__(self):
+        super().__init__()
+        self.left_handed = False
+
+    def show_hand(self, left_handed):
+        self.left_handed = left_handed
+        self.update()
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        palette = self.palette()
+        body = self.rect().adjusted(0, 0, -1, -1)
+        painter.setPen(palette.shadow().color())
+        painter.setBrush(palette.light())
+        painter.drawRoundedRect(body, body.width() // 2, body.height() // 3)
+        buttons = QRect(body.left(), body.top(), body.width(), body.height() * 2 // 5)
+        primary = QRect(buttons.left(), buttons.top(), buttons.width() // 2, buttons.height())
+        if self.left_handed:
+            primary.moveLeft(buttons.center().x())
+        painter.setClipRect(buttons)
+        painter.setBrush(palette.highlight())
+        painter.drawRoundedRect(body, body.width() // 2, body.height() // 3)
+        painter.setClipRect(primary.intersected(buttons))
+        painter.setBrush(palette.highlight().color().darker(130))
+        painter.drawRoundedRect(body, body.width() // 2, body.height() // 3)
+        painter.setClipping(False)
+        painter.drawLine(buttons.center().x(), body.top(), buttons.center().x(), buttons.bottom())
+        painter.drawLine(body.left(), buttons.bottom(), body.right(), buttons.bottom())
+
+
+class ClickTestArea(QFrame):
+    """The double-click test area: two clicks within the chosen time open the box, two more close it."""
+
+    def __init__(self):
+        super().__init__()
+        self.setFrameStyle(QFrame.StyledPanel | QFrame.Sunken)
+        self.interval_ms = 500
+        self.open = False
+        self.last_click_at = None
+
+    def clicked_at(self, milliseconds):
+        if self.last_click_at is not None and milliseconds - self.last_click_at <= self.interval_ms:
+            self.open = not self.open
+            self.last_click_at = None
+            self.update()
+        else:
+            self.last_click_at = milliseconds
+
+    def mousePressEvent(self, _event):
+        self.clicked_at(int(time.monotonic() * 1000))
+
+    def mouseDoubleClickEvent(self, event):
+        self.mousePressEvent(event)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        box = QRect(self.width() // 2 - 12, self.height() // 2 + 2, 24, 22)
+        painter.setPen(self.palette().shadow().color())
+        painter.setBrush(QColor("#C000C0"))
+        painter.drawRect(box)
+        if self.open:
+            painter.drawLine(box.left(), box.top(), box.center().x(), box.top() - 18)
+            painter.drawLine(box.right(), box.top(), box.center().x(), box.top() - 18)
+            painter.setBrush(self.palette().light())
+            painter.drawEllipse(QRect(box.center().x() - 6, box.top() - 16, 12, 12))
+
+
+class MouseButtonsTab(SettingsTab):
+    """Button configuration, with the mouse picture and what each button does, and the double-click speed."""
+
+    def __init__(self, settings, actions):
+        super().__init__(settings, actions)
+        self.outer.setContentsMargins(0, 0, 0, 0)
+        self.setMinimumSize(
+            page_rect(MOUSE_LAYOUT["speed"]).bottomRight().x() + 20, page_rect(MOUSE_LAYOUT["speed"]).bottom() + 14
+        )
+        self.group_at("&Button configuration", MOUSE_LAYOUT["configuration"])
+        self.group_at("&Double-click speed", MOUSE_LAYOUT["speed"])
+        self.hands = QButtonGroup(self)
+        for text, value, at in (("&Right-handed", "right", "right-handed"), ("&Left-handed", "left", "left-handed")):
+            circle, caption_gap = MOUSE_LAYOUT[at]
+            button = QRadioButton(text, self)
+            button.setProperty("value", value)
+            button.setProperty("captionGap", caption_gap)
+            self.hands.addButton(button)
+            button.move(page_rect(QRect(circle, QSize(1, 1))).topLeft() - QPoint(0, RADIO_RISE))
+            button.adjustSize()
+            button.resize(
+                button.width() + caption_gap, max(button.height(), QFontMetrics(button.font()).height() + RADIO_RISE)
+            )
+        self.picture = MousePicture()
+        self.picture.setParent(self)
+        self.picture.setGeometry(page_rect(MOUSE_LAYOUT["picture"]))
+        for heading, lines, texts in (
+            ("left heading", "left lines", ("Left Button:", "- Normal Select", "- Normal Drag")),
+            ("right heading", "right lines", ("Right Button:", "- Context Menu", "- Special Drag")),
+        ):
+            self.text_at(texts[0], MOUSE_LAYOUT[heading])
+            for text, at in zip(texts[1:], MOUSE_LAYOUT[lines], strict=True):
+                self.text_at(text, at)
+        self.speed = QSlider(Qt.Horizontal, self)
+        self.speed.setRange(*DOUBLE_CLICK_RANGE)
+        self.speed.setSingleStep(100)
+        self.speed.setPageStep(100)
+        self.speed.setTickPosition(QSlider.TicksBelow)
+        self.speed.setTickInterval(100)
+        self.speed.setInvertedAppearance(True)  # slow (a long time) on the left, fast on the right
+        slider = page_rect(MOUSE_LAYOUT["slider"])
+        self.speed.setGeometry(slider.left(), slider.top(), slider.width(), self.speed.sizeHint().height())
+        self.text_at("Slow", MOUSE_LAYOUT["slow"])
+        self.text_at("Fast", MOUSE_LAYOUT["fast"])
+        self.test_area = ClickTestArea()
+        self.test_area.setParent(self)
+        self.text_at("&Test area:", MOUSE_LAYOUT["test area label"]).setBuddy(self.test_area)
+        self.test_area.setGeometry(page_rect(MOUSE_LAYOUT["test area"]))
+        self.hands.buttonToggled.connect(lambda button, on: self.hand_changed() if on else None)
+        self.speed.valueChanged.connect(lambda value: setattr(self.test_area, "interval_ms", value))
+        self.field(
+            "MOUSE_HAND",
+            lambda: self.hands.checkedButton().property("value"),
+            self.select_hand,
+            "right",
+            self.hands.buttonToggled,
+        )
+        self.field(
+            "DOUBLE_CLICK_MS",
+            lambda: str(self.speed.value()),
+            lambda value: self.speed.setValue(int(value)),
+            "500",
+            self.speed.valueChanged,
+        )
+
+    def field(self, key, getter, setter, default, signal):
+        self.fields[key] = (getter, setter, default)
+        setter(self.saved.get(key, default))
+        signal.connect(lambda *_: self.notify())
+
+    def select_hand(self, value):
+        for button in self.hands.buttons():
+            if button.property("value") == value:
+                button.setChecked(True)
+
+    def hand_changed(self):
+        self.picture.show_hand(self.hands.checkedButton().property("value") == "left")
+
+    def group_at(self, title, rect):
+        box = QGroupBox(title, self)
+        box.setGeometry(page_rect(rect).adjusted(0, -GROUP_TITLE_RISE, GROUP_FRAME_SLACK, GROUP_FRAME_SLACK))
+        box.lower()
+
+    def text_at(self, text, ink_at):
+        """A label whose ink starts at ink_at (page-frame coordinates), whatever the font's bearings."""
+        label = QLabel(text, self)
+        label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        metrics = QFontMetrics(label.font())
+        ink = metrics.tightBoundingRect(text.replace("&", ""))
+        label.move(
+            page_rect(QRect(ink_at, QSize(1, 1))).topLeft()
+            - QPoint(ink.left() + LABEL_INK_SHIFT, metrics.ascent() + ink.top())
+        )
+        label.adjustSize()
+        return label
+
+
+@tab_builder("Mouse", "Buttons")
+def mouse_buttons_tab(settings, actions):
+    return MouseButtonsTab(settings, actions)
+
+
+@tab_builder("Mouse", "Pointers")
+def mouse_pointers_tab(settings, actions):
     tab = SettingsTab(settings, actions)
     tab.radios(
         "CURSOR",
@@ -1953,6 +2168,49 @@ def mouse_pointer_tab(settings, actions):
         default="32",
     )
     return tab
+
+
+@tab_builder("Mouse", "Motion")
+def mouse_motion_tab(settings, actions):
+    tab = SettingsTab(settings, actions)
+    tab.group("Pointer speed")
+    tab.pointer_speed = QSlider(Qt.Horizontal)
+    tab.pointer_speed.setRange(-POINTER_SPEED_STEPS, POINTER_SPEED_STEPS)
+    tab.pointer_speed.setTickPosition(QSlider.TicksBelow)
+    tab.pointer_speed.setTickInterval(2)
+    row = QHBoxLayout()
+    row.addWidget(QLabel("Slow"))
+    row.addWidget(tab.pointer_speed, 1)
+    row.addWidget(QLabel("Fast"))
+    tab.register(
+        "POINTER_SPEED",
+        "",
+        row_widget(row),
+        lambda: f"{tab.pointer_speed.value() / POINTER_SPEED_STEPS:.1f}",
+        lambda value: tab.pointer_speed.setValue(round(float(value) * POINTER_SPEED_STEPS)),
+        "0.0",
+        tab.pointer_speed.valueChanged,
+    )
+    tab.group("Pointer trail")
+    tab.trails = QCheckBox("Show pointer trails")
+    tab.trails.setEnabled(False)  # Wayland draws no pointer trails
+    tab.trails.setToolTip("Plasma on Wayland does not draw pointer trails.")
+    trail = QSlider(Qt.Horizontal)
+    trail.setEnabled(False)
+    trail_row = QHBoxLayout()
+    trail_row.addWidget(QLabel("Short"))
+    trail_row.addWidget(trail, 1)
+    trail_row.addWidget(QLabel("Long"))
+    tab.form.addRow(tab.trails)
+    tab.form.addRow(row_widget(trail_row))
+    return tab
+
+
+def row_widget(layout):
+    widget = QWidget()
+    layout.setContentsMargins(0, 0, 0, 0)
+    widget.setLayout(layout)
+    return widget
 
 
 @tab_builder("Taskbar", "Taskbar Options")
@@ -2309,13 +2567,19 @@ def monitor_rows():
 
 
 class MonitorPreview(QWidget):
-    """The monitor drawn at the top of the Screen Saver tab, its screen in the desktop colour."""
+    """The monitor drawn at the top of the Screen Saver tab: its screen shows the chosen screensaver's picture,
+    or the desktop colour."""
 
     def __init__(self, desktop_colour):
         super().__init__()
         self.desktop_colour = QColor(desktop_colour)
         self.rows = monitor_rows()
+        self.picture = QPixmap()
         self.setFixedSize(MONITOR_CASE[0], len(self.rows))
+
+    def show_picture(self, path):
+        self.picture = QPixmap(str(path)) if path is not None and Path(path).exists() else QPixmap()
+        self.update()
 
     def screen_rect(self):
         return QRect(16, 17, *MONITOR_SCREEN)
@@ -2334,6 +2598,8 @@ class MonitorPreview(QWidget):
             for x, mark in enumerate(line):
                 if mark in colours:
                     painter.fillRect(x, y, 1, 1, colours[mark])
+        if not self.picture.isNull():
+            painter.drawPixmap(self.screen_rect(), self.picture)
 
 
 @tab_builder("Display", "Screen Saver")
@@ -2346,13 +2612,20 @@ def screen_saver_tab(settings, actions):
     tab.group("Screen Saver")
     savers = actions.list_screensavers()
     preview = chicago95ui.dialog_button("Preview", enabled=bool(savers))
-    saver = tab.choice(
+    tab.saver_combo = saver = tab.choice(
         "SAVER",
         "",
         [(label, name) for name, label in savers] or [("Deep Stars", "deepstars")],
         default="deepstars",
         beside=preview,
     )
+    pictures = actions.screensaver_pictures()
+
+    def show_picture():
+        tab.monitor.show_picture(pictures / f"{saver.currentData()}.png")
+
+    saver.currentIndexChanged.connect(show_picture)
+    show_picture()
     wait = tab.number("IDLE_MIN", "Wait:", 1, 60, default=5, suffix=" minutes")
     preview.clicked.connect(
         lambda: actions.start_process(tool_path("chicago95-screensaver"), ["--hack", saver.currentData()])

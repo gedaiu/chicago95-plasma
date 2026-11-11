@@ -1007,24 +1007,6 @@ def test_the_components_of_earlier_runs_are_remembered_and_picked_again_by_defau
     )
 
 
-def dry_run_log(tmp_path, *arguments):
-    subprocess.run(
-        [str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", *arguments],
-        capture_output=True,
-        text=True,
-        stdin=subprocess.DEVNULL,
-        timeout=60,
-        env={
-            "PATH": "/usr/bin:/bin",
-            "HOME": str(tmp_path),
-            "TMPDIR": str(tmp_path),
-            "CHICAGO95_SRC": str(Path.home() / "src/Chicago95"),
-        },
-        check=False,
-    )
-    return next(tmp_path.glob("chicago95-setup-*.log")).read_text()
-
-
 def test_the_look_greys_toolbar_icons_until_the_pointer_is_over_them_in_every_kde_program(tmp_path):
     """KIconLoader's effects, which the Plasma platform theme applies to every Qt program's themed icons."""
     log = dry_run_log(tmp_path, "--components=look")
@@ -1071,3 +1053,26 @@ def test_reinstalling_notifications_keeps_their_motion_off_when_the_effects_tab_
     log = dry_run_log(tmp_path, f"--settings={saved}", "--components=notifications")
 
     assert plugin("chicago95notifications", "true") not in log
+
+
+def test_the_control_panel_gets_the_screensaver_pictures_for_its_monitor(tmp_path):
+    assert ".local/share/chicago95/screensaver-previews" in dry_run_log(tmp_path, "--components=controlpanel")
+
+
+POINTER = "would: kwriteconfig6 --file kcminputrc --group Libinput --group 5426 --group 148 --group Razer Orochi V2"
+
+
+def test_dry_run_of_the_mouse_component_sets_the_double_click_time_and_each_pointers_hand_and_speed(tmp_path):
+    (tmp_path / ".config").mkdir()
+    (tmp_path / ".config/kcminputrc").write_text(
+        "[Libinput][5426][148][Razer Orochi V2]\nNaturalScroll=true\n\n[Mouse]\ncursorSize=48\n"
+    )
+    settings = tmp_path / "chosen.conf"
+    settings.write_text("MOUSE_HAND=left\nDOUBLE_CLICK_MS=300\nPOINTER_SPEED=0.4\n")
+    log = dry_run_log(tmp_path, "--components=mouse", f"--settings={settings}")
+
+    assert [
+        "would: kwriteconfig6 --file kdeglobals --group KDE --key DoubleClickInterval 300" in log,
+        f"{POINTER} --key LeftHanded true" in log,
+        f"{POINTER} --key PointerAcceleration 0.4" in log,
+    ] == [True, True, True]

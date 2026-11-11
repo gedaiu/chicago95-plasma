@@ -404,6 +404,7 @@ else
     "screensaver:Screensaver (XScreenSaver hacks):$(remembered screensaver "$([ -n "$SETUP_HACK_DIR" ] && echo 1 || echo 0)")" \
     "winamp:Winamp (qmmp launch entries and window rule):$(remembered winamp $SETUP_HAS_QMMP)" \
     "explorer:Explorer (Thunar settings, GTK CSS, Dolphin toolbar):$(remembered explorer $SETUP_HAS_THUNAR)" \
+    "mouse:Mouse (buttons, double-click and pointer speed):$(remembered mouse 1)" \
     "lockscreen:Lock screen:$(remembered lockscreen 1)" \
     "splash:Splash screen:$(remembered splash 1)" \
     "plymouth:Boot screen (asks for the administrator password):$(remembered plymouth "$(command -v plymouth-set-default-theme >/dev/null && [ "$SETUP_YES" = 0 ] && echo 1 || echo 0)")" \
@@ -496,7 +497,7 @@ TO_COPY=$(
 fix_font_spaces
 for component in $COMPONENTS; do
   case $component in
-  base | look | animations | taskbar | startmenu | notifications | clippy | extras | controlpanel | sounds | background | screensaver | winamp | explorer | lockscreen | splash | plymouth | sddm | firefox) "step_$component" ;;
+  base | look | animations | taskbar | startmenu | notifications | clippy | extras | controlpanel | sounds | background | screensaver | winamp | explorer | mouse | lockscreen | splash | plymouth | sddm | firefox) "step_$component" ;;
   *) printf 'unknown component: %s\n' "$component" >>"$SETUP_LOG" ;;
   esac
 done

@@ -1,5 +1,5 @@
 import pytest
-from conftest import load_script
+from conftest import REPO, load_script
 from PySide6.QtWidgets import QComboBox, QLabel, QPushButton, QSpinBox
 
 
@@ -192,14 +192,14 @@ def test_loading_settings_into_a_tab_replaces_every_field_without_reporting_a_ch
 
 
 def test_mouse_pointer_tab_reports_the_saved_pointer_size_and_defaults_to_32(control_panel, qt_app):
-    saved = control_panel.build_tab("Mouse", "Pointer", {"CURSOR": "48"}, control_panel.Actions())
-    unset = control_panel.build_tab("Mouse", "Pointer", {}, control_panel.Actions())
+    saved = control_panel.build_tab("Mouse", "Pointers", {"CURSOR": "48"}, control_panel.Actions())
+    unset = control_panel.build_tab("Mouse", "Pointers", {}, control_panel.Actions())
 
     assert (saved.values(), unset.values()) == ({"CURSOR": "48"}, {"CURSOR": "32"})
 
 
 def test_mouse_pointer_tab_offers_24_32_and_48_pixel_pointers(control_panel, qt_app):
-    tab = control_panel.build_tab("Mouse", "Pointer", {}, control_panel.Actions())
+    tab = control_panel.build_tab("Mouse", "Pointers", {}, control_panel.Actions())
 
     from PySide6.QtWidgets import QRadioButton
 
@@ -1004,7 +1004,7 @@ def test_two_and_three_way_choices_are_radio_buttons_as_in_the_originals(control
     counts = {}
     for applet, tab_name, key in (
         ("Passwords", "Log On", "LOGIN_STYLE"),
-        ("Mouse", "Pointer", "CURSOR"),
+        ("Mouse", "Pointers", "CURSOR"),
         ("Explorer", "General", "EXPLORER"),
         ("Fonts", "Font", "FONT_SCOPE"),
         ("Display", "Background", "BACKGROUND_MODE"),
@@ -1078,4 +1078,46 @@ def test_a_field_without_a_label_spans_the_whole_row_like_the_originals(make_tab
     assert (
         combo.mapTo(tab, combo.rect().topLeft()).x()
         == tab.findChildren(QLabel)[0].mapTo(tab, tab.findChildren(QLabel)[0].rect().topLeft()).x()
+    )
+
+
+def screen_saver_tab(control_panel, pictures, saved=None):
+    return built(
+        control_panel,
+        "Display",
+        "Screen Saver",
+        saved or {"SAVER": "pipes"},
+        list_screensavers=lambda: [("pipes", "3D Pipes"), ("maze3d", "3D Maze")],
+        lock_timeout_minutes=lambda: 60,
+        screensaver_pictures=lambda: pictures,
+    )
+
+
+def monitor_screen_colour(tab):
+    return tab.monitor.grab().toImage().pixelColor(tab.monitor.screen_rect().center()).name()
+
+
+def test_the_monitor_shows_the_chosen_screensavers_picture_and_the_desktop_for_one_without(
+    control_panel, qt_app, tmp_path
+):
+    from PySide6.QtGui import QColor, QImage
+
+    picture = QImage(*control_panel.MONITOR_SCREEN, QImage.Format_RGB32)
+    picture.fill(QColor("#FF0000"))
+    picture.save(str(tmp_path / "pipes.png"))
+    tab = screen_saver_tab(control_panel, tmp_path)
+    with_picture = monitor_screen_colour(tab)
+    tab.saver_combo.setCurrentIndex(tab.saver_combo.findData("maze3d"))
+
+    assert (with_picture, monitor_screen_colour(tab)) == ("#ff0000", "#008080")
+
+
+def test_every_screensaver_has_a_picture_the_size_of_the_monitors_screen(control_panel):
+    from PIL import Image
+
+    savers = load_script("chicago95-screensaver").CATALOG
+    pictures = REPO / "data/screensaver-previews"
+
+    assert {name: Image.open(pictures / f"{name}.png").size for name in savers} == dict.fromkeys(
+        savers, control_panel.MONITOR_SCREEN
     )

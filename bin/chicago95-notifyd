@@ -539,10 +539,10 @@ class PopupStack(QObject):
             return
         popup = NotificationPopup(notification, self.host)
         notification_id, resident = notification.notification_id, notification.resident
-        self.sync_host()
         popup.dismissed.connect(lambda reason: self.close(notification_id, reason))
         popup.action_invoked.connect(lambda key: self.invoke(notification_id, key, resident))
         self.popups[notification_id] = popup
+        self.sync_host()
         self.drop_overflow()
         targets = self.targets()
         popup.slide_in(targets[notification_id])

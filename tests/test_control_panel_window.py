@@ -332,7 +332,8 @@ def change_the_pointer_size(window, index=2):
     window.open_applet("Mouse")
     from PySide6.QtWidgets import QRadioButton
 
-    window.pages.currentWidget().tabs.widget(0).findChildren(QRadioButton)[index].setChecked(True)
+    pointers = window.pages.currentWidget().tabs.widget(1)  # Buttons, Pointers, Motion
+    pointers.findChildren(QRadioButton)[index].setChecked(True)
     return window.pages.currentWidget()
 
 

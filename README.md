@@ -141,12 +141,13 @@ screen or as flags:
 right-click menu of the Start button and the taskbar) is one Windows 98
 Explorer-style window for every choice Setup asked and more: colours (swatches
 that open a colour picker; + adds a gradient's second colour or a banner stop)
-and icons, desktop background, screensaver with Preview, taskbar height and
+and icons, desktop background, screensaver with Preview and its picture on the tab's monitor (`data/screensaver-previews`, made by `tests/render_screensaver_previews.py`), taskbar height and
 button width with a preview of the buttons, auto hide, clock, Quick Launch
 (drag shortcuts onto it, drag them off to remove), Start button and menu banner,
 login and loading screen texts and pictures with live previews of the log-on
 dialog, the 2000 banner and the loading screen, sounds with Play, fonts,
-pointer size and the file manager. Display, Effects picks the animation of each
+the mouse (Mouse Properties as the original laid it out: button configuration with a
+test area for the double-click speed, pointer size, pointer speed) and the file manager. Display, Effects picks the animation of each
 event: opening and closing windows, minimize, maximize, dialogs, wobbly windows,
 showing the desktop, switching desktops, logging on and off, menus,
 notifications and taskbar buttons, with a speed slider (Off to Slow). The lists

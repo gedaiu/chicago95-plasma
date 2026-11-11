@@ -8,11 +8,11 @@ Every tool then calls make_app() instead of QApplication() directly.
 import configparser
 import glob
 import os
-from pathlib import Path
 import re
 import signal
 import subprocess
 import sys
+from pathlib import Path
 
 
 def detect_scale():
@@ -568,6 +568,7 @@ SLIDER_GROOVE_TOP, SLIDER_TICK_GAP, SLIDER_TICK_ROWS = 7, 1, 2
 # the top line stops
 # 3 pixels before the ink and starts again 2 after the text (tests/test_control_panel_components_reference.py).
 GROUP_TITLE_INK, GROUP_TITLE_DROP, GROUP_LINE_BEFORE, GROUP_LINE_AFTER = 10, 1, 3, 2
+RADIO_CAPTION_SHIFT, RADIO_CAPTION_DROP, RADIO_FOCUS_INSETS, RADIO_CAPTION_GAP = 1, 1, (0, -2, 1, 1), 16
 # A spin box as Windows 98 built it, 1:1 from tests/references/win98datetime01.png: a 21-row sunken edit field with a
 # separate up-down control beside it, outside its border: two 16x10 buttons, each with a 1-3 pixel arrow.
 SPIN_HEIGHT, SPIN_BUTTON = 21, (16, 10)
@@ -752,6 +753,9 @@ class ClassicStyle(QProxyStyle):
         super().drawPrimitive(element, option, painter, widget)
 
     def drawControl(self, element, option, painter, widget=None):
+        if element == QStyle.CE_RadioButton:
+            self.draw_classic_radio_button(option, painter, widget)
+            return
         if element == QStyle.CE_SizeGrip:
             palette = option.palette
             paint_bitmap(
@@ -1063,6 +1067,30 @@ class ClassicStyle(QProxyStyle):
         if contents == QStyle.CT_ComboBox:
             grown.setHeight(grown.height() + 1)  # the originals' lists are a row taller than Qt's
         return grown
+
+    def draw_classic_radio_button(self, option, painter, widget):
+        """The circle where Qt puts it; the caption a pixel lower and closer to it than Qt's, and the focus
+        rectangle hugging the caption's ink (tests/test_mouse_page.py, from Mouse Properties)."""
+        from PySide6.QtWidgets import QStyleOptionButton, QStyleOptionFocusRect
+
+        indicator = QStyleOptionButton(option)
+        indicator.rect = self.subElementRect(QStyle.SE_RadioButtonIndicator, option, widget)
+        self.drawPrimitive(QStyle.PE_IndicatorRadioButton, indicator, painter, widget)
+        # A widget's "captionGap" property asks for the caption further from the circle than the usual
+        # RADIO_CAPTION_GAP, as some originals space theirs.
+        wider = (widget.property("captionGap") or RADIO_CAPTION_GAP) - RADIO_CAPTION_GAP if widget else 0
+        label = QStyleOptionButton(option)
+        label.rect = self.subElementRect(QStyle.SE_RadioButtonContents, option, widget).translated(
+            wider - RADIO_CAPTION_SHIFT, RADIO_CAPTION_DROP
+        )
+        self.drawControl(QStyle.CE_RadioButtonLabel, label, painter, widget)
+        if option.state & QStyle.State_HasFocus and option.text:
+            focus = QStyleOptionFocusRect()
+            focus.palette, focus.state = option.palette, option.state
+            metrics = QFontMetrics(widget.font() if widget else painter.font())
+            ink = metrics.boundingRect(label.rect, Qt.AlignLeft | Qt.AlignVCenter | Qt.TextShowMnemonic, option.text)
+            focus.rect = ink.adjusted(*RADIO_FOCUS_INSETS)
+            self.drawPrimitive(QStyle.PE_FrameFocusRect, focus, painter, widget)
 
     def pixelMetric(self, metric, option=None, widget=None):
         if metric == QStyle.PM_TabBarBaseOverlap:

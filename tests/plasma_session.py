@@ -239,7 +239,7 @@ def window_commands(work, applications, windows):
     return "\n".join(commands)
 
 
-def run_session(work, script, environment, xwayland=False):
+def run_session(work, script, environment, xwayland=False, screen=SCREEN):
     (work / script.name).chmod(0o755)
     command = [
         "timeout",
@@ -248,9 +248,9 @@ def run_session(work, script, environment, xwayland=False):
         "kwin_wayland",
         "--virtual",
         "--width",
-        str(SCREEN[0]),
+        str(screen[0]),
         "--height",
-        str(SCREEN[1]),
+        str(screen[1]),
         "--no-lockscreen",
         *(["--xwayland"] if xwayland else []),
         "--exit-with-session",

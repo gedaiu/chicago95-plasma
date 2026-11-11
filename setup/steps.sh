@@ -78,7 +78,7 @@ kconf() {
 }
 
 # The choices the Control Panel saves in ~/.config/chicago95/setup.conf, one KEY=value per line; KEY sets SETUP_KEY.
-SETTINGS_KEYS="LOOK TITLE_ACTIVE TITLE_INACTIVE BANNER_BG BANNER_FG ICONS FONT FONT_SCOPE CURSOR PANEL
+SETTINGS_KEYS="LOOK TITLE_ACTIVE TITLE_INACTIVE BANNER_BG BANNER_FG ICONS FONT FONT_SCOPE CURSOR PANEL MOUSE_HAND DOUBLE_CLICK_MS POINTER_SPEED
     TASK_BUTTON_WIDTH QUICK_LAUNCH LAUNCHERS TASKBAR_AUTOHIDE TASKBAR_ON_TOP CLOCK_SHOW CLOCK_HOURS START_TEXT START_LOGO BANNER_TEXT
     SAVER IDLE_MIN LOGIN_STYLE LOGIN_TITLE LOGIN_MESSAGE LOGIN_ICON LOGIN_LOGO EDITION TAGLINE COMPANY COMPANY_LOGO
     SPLASH_IMAGE LOADING_TEXT LOADING_FOOTER SOUND_THEME CLIPPY_AUTOSTART EXPLORER
@@ -502,6 +502,7 @@ step_controlpanel() { # one window for every choice Setup asked; it saves them a
     run chmod +x ~/.local/bin/chicago95-$tool
   done
   put_file "$REPO/config/applications/chicago95-control-panel.desktop" ~/.local/share/applications/chicago95-control-panel.desktop
+  put_tree "$REPO/data/screensaver-previews" ~/.local/share/chicago95/screensaver-previews # the Screen Saver tab's monitor
   substitute_home ~/.local/share/applications
 }
 
@@ -583,6 +584,17 @@ step_extras() { # System Properties, Device Manager, Dial-Up, Deezer helper, log
   put_file "$REPO/config/autostart/chicago95-startup.desktop" ~/.config/autostart/chicago95-startup.desktop
   substitute_home ~/.config/autostart
   [ "${SETUP_DRY_RUN:-0}" = 1 ] || sed -i "s|@SOUND_THEME@|${SETUP_SOUND_THEME:-Chicago95}|g" ~/.config/autostart/chicago95-startup.desktop
+}
+
+step_mouse() { # the double-click time, and for every pointer KWin has configured, which button is primary and its speed
+  kconf kdeglobals KDE DoubleClickInterval "${SETUP_DOUBLE_CLICK_MS:-500}"
+  local left_handed=false vendor product name
+  [ "${SETUP_MOUSE_HAND:-right}" = left ] && left_handed=true
+  while IFS=$'\t' read -r vendor product name; do
+    run kwriteconfig6 --file kcminputrc --group Libinput --group "$vendor" --group "$product" --group "$name" --key LeftHanded "$left_handed"
+    run kwriteconfig6 --file kcminputrc --group Libinput --group "$vendor" --group "$product" --group "$name" --key PointerAcceleration "${SETUP_POINTER_SPEED:-0.0}"
+    record "kconf:kcminputrc:Libinput:LeftHanded"
+  done < <(sed -n 's/^\[Libinput\]\[\([^]]*\)\]\[\([^]]*\)\]\[\([^]]*\)\]$/\1\t\2\t\3/p' ~/.config/kcminputrc 2>/dev/null)
 }
 
 step_sounds() { # the Windows 98, Plus! and Windows 2000 sound themes, and the one chosen for events
