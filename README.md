@@ -16,37 +16,37 @@ territory.
 
 Built and tested on Fedora 44, Plasma 6.8.2 (Wayland), 3840x2160 at 1.5x.
 
-## The five looks beside the originals
+## The five looks
 
-Setup offers five looks: 1995, 1998, 2000, 2001 (Windows XP Classic, the grey theme XP shipped) and Luna
-(Windows XP's blue theme). Each picture shows an original screenshot (left) beside ours (right),
-component by component: the desktop, the taskbar, the windows, the Start menu, the Shut Down dialog, and
-for the 2000, 2001 and Luna looks the loading and log-on screens. Ours is the real desktop, run headless by
-the tests: its windows are empty test programs and its icons green test squares. The texts are set to the
-originals' wording for the comparison. The pictures are made by `tests/render_report.py` (see Tests).
+Setup offers five looks: 1995, 1998, 2000, 2001 (Windows XP Classic) and Luna.
+Each scenes image uses the same 800×600 boot/login/desktop scenario, followed by idle,
+open-window and crowded taskbars, each with Quick Launch, tray icons and a fixed clock. The desktop is a composed preview of native widgets
+inside the theme's window decorations, with real icons and populated windows.
+Shared boot/login designs are shown as implemented, even when multiple looks use the same design.
 
-XP Classic has no screenshot of its own Shut Down dialog or System Properties, so those are compared with
-2000's. Luna has no System Properties original: its layout is not written yet, so the report leaves it out.
+The separate controls sheet groups Qt Widgets, GTK3, GTK4, Plasma Qt Quick components
+and Aurorae decorations by type. Available historical references appear only as component crops;
+missing references take no space and do not prevent a control from being rendered.
 
 ### 1995 look
 
-![The 1995 look beside the original](docs/compare/showcase-1995.jpg)
+![The 1995 look showcase](docs/compare/showcase-1995.jpg)
 
 ### 1998 look
 
-![The 1998 look beside the original](docs/compare/showcase-1998.jpg)
+![The 1998 look showcase](docs/compare/showcase-1998.jpg)
 
 ### 2000 look
 
-![The 2000 look beside the original](docs/compare/showcase-2000.jpg)
+![The 2000 look showcase](docs/compare/showcase-2000.jpg)
 
 ### 2001 look (Windows XP Classic)
 
-![The 2001 look beside the original](docs/compare/showcase-2001.jpg)
+![The 2001 look showcase](docs/compare/showcase-2001.jpg)
 
 ### Luna look (Windows XP)
 
-![The Luna look beside the original](docs/compare/showcase-luna.jpg)
+![The Luna look showcase](docs/compare/showcase-luna.jpg)
 
 The controls of each look, beside the originals' where a screenshot shows them, are in
 `docs/compare/showcase-controls-<look>.jpg`.
@@ -314,22 +314,26 @@ Xwayland, xmessage and the MS W98 UI font, and are skipped without them; each lo
 Plasma style and taskbar QML, the widget style, the Start menu, the Turn Off dialog, the log-on, splash and
 Plymouth screens, and `test_flat_looks_unchanged.py`, which pins the flat looks' files byte for byte.
 
-`python3 tests/render_report.py docs/compare [LOOK ...]` writes, per OS (1995, 1998, 2000, 2001, luna):
+`python3 tests/render_report.py docs/compare [LOOK ...]` writes two images per look
+(1995, 1998, 2000, 2001, luna):
 
-- `showcase-<look>.jpg`, to show people: component by component (desktop, taskbar, windows, Start menu,
-  Shut Down, System Properties, and on 2000, 2001 and Luna the loading and log-on screens), the original beside ours;
-- `showcase-controls-<look>.jpg`: every control, rendered by `tests/controls_gallery.py` in the look's
-  colours (push buttons in each state, check boxes, radio buttons, text fields, drop-downs, disabled
-  drop-down and spin box, spin box, sliders, scroll bars including disabled and empty ones, progress bar,
-  group box, tabs, list box, menu bar, tool bar buttons, the Explorer toolbar's buttons in each state,
-  status bar, labels), each beside the same control cropped from an original screenshot where one shows
-  it, then our own controls (title bar buttons, tabs, menu rows, the taskbar's parts);
-- `report-<look>-<part>.png`: every detail the tests compare, the original, ours and their difference
-  in red, enlarged, with a `.txt` listing how many pixels differ in each. The programs' content in the
-  windows, icons and the clock's time are hatched alike in both; our banners carry the original's wording.
+- `showcase-<look>.jpg`: boot, login, a populated desktop preview, and three taskbar variants.
+- `showcase-controls-<look>.jpg`: controls grouped by type and labelled by toolkit and state.
+  Coverage includes buttons, checkboxes, radios, text and numeric fields, date/time editors,
+  sliders, scrollbars, progress bars, tabs, lists, trees, tables, menus, toolbars, splitters,
+  labels, window decorations and taskbars. Every look uses the same Qt catalogue in
+  `controls_gallery.py`; GTK3 and GTK4 use `tests/gtk_showcase.py` in separate processes.
 
-The taskbar and windows come from the real headless desktop when KWin and Plasma are installed; CI, which
-has neither, draws them from our files and publishes the images as an artifact.
+Scenes and controls render independently of reference screenshots. Missing reference files are
+omitted. GTK rendering needs PyGObject, the corresponding GTK runtimes, KWin and D-Bus;
+it runs in a disposable home and compositor session. Missing optional runtimes/assets are
+reported on stdout, while rendering failures stop generation. Classic boot previews need the
+upstream Chicago95 Plymouth assets (`CHICAGO95_SRC`, default `~/src/Chicago95`).
+Qt Quick rendering requires the KDE KSvg and Kirigami QML modules.
+
+Add `--details` to also generate `report-<look>-<part>.png` and `.txt` historical pixel
+comparisons. Those diagnostic reports still require their reference screenshots and use the
+original test scenes, masks and pixel differences.
 
 ## Credits
 

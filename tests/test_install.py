@@ -1405,6 +1405,45 @@ def test_the_look_turns_gtk_overlay_scrolling_off_so_scroll_bars_stay_on_screen(
     assert kwriteconfig(settings, "Settings", "gtk-overlay-scrolling", "false") in log
 
 
+def test_the_luna_fonts_warn_when_no_tahoma_is_installed(tmp_path):
+    lines = run_bash_with_steps(
+        tmp_path,
+        'fc-match() { echo "DejaVuSansCondensed.ttf: \\"DejaVu Sans\\" \\"Condensed\\""; }; '
+        'ui_status() { echo "$*"; }; warn_without_tahoma',
+    )
+
+    assert [line for line in lines if line.startswith("Tahoma is not installed")] != []
+
+
+def test_the_luna_fonts_say_nothing_when_tahoma_resolves(tmp_path):
+    lines = run_bash_with_steps(
+        tmp_path,
+        'fc-match() { echo "tahoma.ttf: \\"Tahoma\\" \\"Regular\\""; }; '
+        'ui_status() { echo "$*"; }; warn_without_tahoma',
+    )
+
+    assert lines == []
+
+
+def test_a_running_clippy_is_restarted_so_it_takes_the_new_look(tmp_path):
+    lines = run_bash_with_steps(
+        tmp_path, "pgrep() { return 0; }; SETUP_DRY_RUN=1 SETUP_LOG=$HOME/log restart_clippy; cat $HOME/log"
+    )
+
+    assert lines == [
+        f"  would: pkill -f python3 {tmp_path}/.local/bin/chicago95-clippy",
+        f"  would: setsid -f {tmp_path}/.local/bin/chicago95-clippy",
+    ]
+
+
+def test_clippy_is_left_alone_when_none_is_running(tmp_path):
+    lines = run_bash_with_steps(
+        tmp_path, "pgrep() { return 1; }; SETUP_DRY_RUN=1 SETUP_LOG=$HOME/log restart_clippy; cat $HOME/log 2>/dev/null"
+    )
+
+    assert lines == []
+
+
 def test_look_luna_imports_its_gtk_four_sheet_for_libadwaita_programs(tmp_path):
     log = widget_look_log(tmp_path, "--look=luna", qt_style_dirs=tmp_path / "no-styles")
 

@@ -44,7 +44,7 @@ jobs:
         if: always()
         env:
           QT_QPA_PLATFORM: offscreen
-        run: python tests/render_report.py report
+        run: python tests/render_report.py report --details
       - uses: actions/upload-artifact@v4
         if: always()
         with:

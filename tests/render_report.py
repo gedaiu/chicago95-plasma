@@ -1,20 +1,11 @@
 #!/usr/bin/env python3
-"""The comparison report: every detail the reference tests compare, the original's beside ours.
+"""Reference-independent showcase sheets, plus optional historical pixel comparisons.
 
-    python3 tests/render_report.py [OUTPUT_DIR [LOOK ...]]
+    python3 tests/render_report.py [OUTPUT_DIR [LOOK ...]] [--details]
 
-writes, for 1995, 1998, 2000, 2001 (XP Classic) and luna (Windows XP):
-- showcase-<look>.jpg, to show people: component by component (desktop, taskbar, windows, Start menu,
-  Shut Down, System Properties, and for 2000, 2001 and luna the loading and log-on screens) the original
-  beside ours; showcase-controls-<look>.jpg the same for the controls;
-- report-<look>-<section>.png (and .txt, the counts): every detail the tests compare, one per row: the
-  original, ours and their difference (red where a pixel differs, the original faded elsewhere),
-  enlarged together. What is not ours to compare (the programs' content in the windows, icons, the
-  clock's time) is hatched alike in both. Our banners carry the original's wording, as in the tests.
-
-The taskbar and the windows come from the real desktop (tests/plasma_session.py: Setup, KWin and
-plasmashell in a headless session, the test's icons solid squares) when KWin and Plasma are installed;
-otherwise from the decoration and the taskbar parts drawn the way KWin and Plasma draw them.
+The default writes two images per look: consistent boot/login/desktop/taskbar scenes,
+and native controls grouped by type and toolkit. References are optional control crops.
+--details also writes the original report-<look>-<section>.png and pixel-count .txt files.
 """
 
 import os
@@ -27,7 +18,13 @@ os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ["QT_SCALE_FACTOR"] = "1"
 os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="chicago95-report-config-")
 TESTS = Path(__file__).resolve().parent
-sys.path[:0] = [str(TESTS), str(TESTS / "luna"), str(TESTS.parent / "lib")]
+sys.path[:0] = [
+    str(TESTS),
+    str(TESTS / "luna"),
+    str(TESTS.parent / "lib"),
+    str(TESTS.parent),
+    str(TESTS.parent / "luna"),
+]
 
 from conftest import REPO, load_script  # noqa: E402
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
@@ -652,7 +649,12 @@ def luna_window_details(desktop, scratch):
     left, top, right, bottom = LUNA_INACTIVE_VISIBLE
     original = screenshot("xpfulldesktop").crop(LUNA_INACTIVE_VISIBLE)
     ours = luna_window(400, 402, False, scratch).crop((0, 0, right - left, bottom - top))
-    masks = [(0, 0, LUNA_CORNER, LUNA_CORNER), (4, 30, right - left - 4, bottom - top), (4, 4, 26, 26), (26, 3, 225, 27)]
+    masks = [
+        (0, 0, LUNA_CORNER, LUNA_CORNER),
+        (4, 30, right - left - 4, bottom - top),
+        (4, 4, 26, 26),
+        (26, 3, 225, 27),
+    ]
     boxes = luna_window_boxes(right - left, bottom - top, "whole visible part")
     rows += details(original, ours, boxes, "Help and Support Center (inactive; ours: our decoration): ", masks)
     return rows
@@ -667,15 +669,29 @@ def luna_taskbar_details(desktop, app, scratch):
         if desktop
         else luna_taskbar(app, scratch)
     )
-    boxes = {"whole": (0, 0, original.width, LUNA_PANEL_HEIGHT), "Start button": (0, 0, START_PILL[1] + 2, LUNA_PANEL_HEIGHT)}
-    masks = [(6, 4, 78, 27), (TRAY_BOX[0] + 3, 4, original.width - 5, 26)]  # the flag and lettering, the tray's icon and clock
+    boxes = {
+        "whole": (0, 0, original.width, LUNA_PANEL_HEIGHT),
+        "Start button": (0, 0, START_PILL[1] + 2, LUNA_PANEL_HEIGHT),
+    }
+    masks = [
+        (6, 4, 78, 27),
+        (TRAY_BOX[0] + 3, 4, original.width - 5, 26),
+    ]  # the flag and lettering, the tray's icon and clock
     for index, (left, width, _text, pressed) in enumerate(TASK_BUTTONS, 1):
-        boxes[f"task button {index}{' (pressed)' if pressed else ''}"] = (left - 2, 0, left + width + 2, LUNA_PANEL_HEIGHT)
+        boxes[f"task button {index}{' (pressed)' if pressed else ''}"] = (
+            left - 2,
+            0,
+            left + width + 2,
+            LUNA_PANEL_HEIGHT,
+        )
         masks += [(left + 4, 4, left + 24, 22), (left + 25, 5, left + width - 5, 22)]  # the icon, the label
     boxes["tray box"] = (TRAY_BOX[0] - 3, 0, original.width, LUNA_PANEL_HEIGHT)
     rows = details(original, ours, boxes, masks=masks)
     wide, wide_ours = screenshot("xptaskbar-1x"), luna_taskbar(app, scratch, 3000, 147)
-    wide_boxes = {"Start button (3000px shot)": (0, 0, 100, LUNA_PANEL_HEIGHT), "tray box (3000px shot)": (2850, 0, 3000, LUNA_PANEL_HEIGHT)}
+    wide_boxes = {
+        "Start button (3000px shot)": (0, 0, 100, LUNA_PANEL_HEIGHT),
+        "tray box (3000px shot)": (2850, 0, 3000, LUNA_PANEL_HEIGHT),
+    }
     return rows + details(wide, wide_ours, wide_boxes, masks=[(6, 4, 78, 27), (2858, 4, 2996, 26)])
 
 
@@ -729,7 +745,9 @@ def luna_login_details(app):
         "bottom band": (0, 500, 800, 600),
         "fields": (490, 301, 665, 340),
     }
-    return details(screenshot("xplogin"), render_luna_login(app), boxes, masks=[(20, 520, 215, 555), (465, 520, 755, 558)])
+    return details(
+        screenshot("xplogin"), render_luna_login(app), boxes, masks=[(20, 520, 215, 555), (465, 520, 755, 558)]
+    )
 
 
 def luna_sysprops_details(app):
@@ -788,6 +806,9 @@ def luna_showcase_panels(sections):
 
 def label_font(size=15):
     for path in (
+        "/usr/share/fonts/bitstream-vera-sans-fonts/Vera.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
         "/usr/share/fonts/liberation-sans/LiberationSans-Bold.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
     ):
@@ -891,9 +912,7 @@ def showcase_panels(look, desktop, sections, app, scratch, startmenu):
         else model_taskbar(look, app, scratch)
     )
     panels.append(("Taskbar", original_taskbar(look), bar))
-    theme = build_theme(
-        scratch / f"showcase-aurorae-{look}", look, **SIXTEEN_COLOUR_SCREENSHOT_COLOURS.get(look, {})
-    )
+    theme = build_theme(scratch / f"showcase-aurorae-{look}", look, **SIXTEEN_COLOUR_SCREENSHOT_COLOURS.get(look, {}))
     toolkits = {box: toolkit for _title, toolkit, box in CONTENT[look]["windows"]}
     for window_look, name, (left, top, right, bottom), active, caption, _covered in WINDOWS.values():
         if window_look != look:
@@ -986,8 +1005,16 @@ def luna_controls_panels(app):
     display, appearance = screenshot("xpdisplayprop-1x"), screenshot("xpappearance")
     return [
         ("Tabs, group box, combo, slider and buttons (the original: Display Properties)", display, gallery),
-        ("Push buttons (the original: Display Properties' OK and Cancel)", display.crop((150, 415, 404, 452)), gallery.crop((6, 6, 260, 43))),
-        ("Fields, check boxes, radio buttons and tabs (the original: Appearance)", appearance, gallery.crop((0, 40, 400, 215))),
+        (
+            "Push buttons (the original: Display Properties' OK and Cancel)",
+            display.crop((150, 415, 404, 452)),
+            gallery.crop((6, 6, 260, 43)),
+        ),
+        (
+            "Fields, check boxes, radio buttons and tabs (the original: Appearance)",
+            appearance,
+            gallery.crop((0, 40, 400, 215)),
+        ),
     ]
 
 
@@ -1009,17 +1036,18 @@ def compose_showcase(title, panels, path):
     inner = SHOWCASE_WIDTH - 4 * GAP
     laid_out = []
     for component, original_shot, ours in panels:
-        original = original_shot
-        if original is None:  # no original screenshot shows this control
-            original = no_reference(ours.size, "no original screenshot shows this control")
-        width = max(original.width, ours.width)
-        side_by_side = 2 * width + GAP <= inner
-        zoom = max(1, min(3, (inner - GAP) // 2 // width)) if side_by_side else max(1, min(2, inner // width))
-        zoom = max(1, min(zoom, 400 // max(original.height, ours.height)))  # tall crops (a scroll bar) stay in view
-        images = [image.resize((image.width * zoom, image.height * zoom), Image.NEAREST) for image in (original, ours)]
-        laid_out.append((component, side_by_side, zoom, images))
+        sources = [("Chicago95 for Plasma", ours)]
+        if original_shot is not None:
+            sources.insert(0, ("Reference detail", original_shot))
+        width = max(image.width for _, image in sources)
+        side_by_side = sum(image.width for _, image in sources) + 2 * GAP <= inner
+        zoom = max(1, min(3, (inner - 2 * GAP) // len(sources) // width))
+        zoom = max(1, min(zoom, 400 // max(image.height for _, image in sources)))
+        images = [image.resize((image.width * zoom, image.height * zoom), Image.NEAREST) for _, image in sources]
+        names = [name for name, _ in sources]
+        laid_out.append((component, side_by_side, zoom, images, names))
     height = 70
-    for _component, side_by_side, _zoom, images in laid_out:
+    for _component, side_by_side, _zoom, images, _names in laid_out:
         body = (
             max(image.height for image in images) + 24
             if side_by_side
@@ -1030,18 +1058,18 @@ def compose_showcase(title, panels, path):
     draw = ImageDraw.Draw(sheet)
     draw.text((2 * GAP, 20), title, fill=INK, font=heading)
     y = 70
-    for component, side_by_side, zoom, images in laid_out:
+    for component, side_by_side, zoom, images, names in laid_out:
         body = (
             max(image.height for image in images) + 24
             if side_by_side
             else sum(image.height + 24 for image in images) + GAP
         )
         draw.rectangle((GAP, y, SHOWCASE_WIDTH - GAP, y + 40 + body + GAP), fill=CARD)
-        draw.text((2 * GAP, y + 10), component + (f"  (enlarged x{zoom})" if zoom > 1 else ""), fill=INK, font=heading)
+        draw.text((2 * GAP, y + 10), component + (f"  (enlarged x{zoom})" if zoom > 1 else ""), fill=INK, font=caption)
         x, top = 2 * GAP, y + 40
-        for name, image in zip(("Original", "Chicago95 for Plasma"), images, strict=False):
+        for name, image in zip(names, images, strict=True):
             draw.text((x, top), name, fill=(90, 90, 90), font=caption)
-            sheet.paste(image, (x, top + 20))
+            sheet.paste(image, (x, top + 20), image if image.mode == "RGBA" else None)
             if side_by_side:
                 x += image.width + 2 * GAP
             else:
@@ -1088,7 +1116,7 @@ def flat_sections(look, desktop, app, scratch, startmenu, shutdown):
     return sections
 
 
-def main(output, looks):
+def comparison_main(output, looks):
     import chicago95ui  # noqa: F401  sets the platform before the application exists
     from PySide6.QtWidgets import QApplication
 
@@ -1096,7 +1124,11 @@ def main(output, looks):
     startmenu, shutdown = load_script("chicago95-startmenu"), load_script("chicago95-shutdown")
     output.mkdir(parents=True, exist_ok=True)
     for look in looks:
-        for stale in [*output.glob(f"report-{look}-*"), *output.glob(f"showcase-{look}.jpg"), *output.glob(f"showcase-controls-{look}.jpg")]:
+        for stale in [
+            *output.glob(f"report-{look}-*"),
+            *output.glob(f"showcase-{look}.jpg"),
+            *output.glob(f"showcase-controls-{look}.jpg"),
+        ]:
             stale.unlink()
     scratch = Path(tempfile.mkdtemp(prefix="chicago95-report-"))
     desktops = real_desktops(looks)
@@ -1104,23 +1136,46 @@ def main(output, looks):
         desktop = desktops.get(look)
         if look == "luna":
             sections = luna_sections(desktop, app, scratch)
-            panels = luna_showcase_panels(sections)
         else:
             sections = flat_sections(look, desktop, app, scratch, startmenu, shutdown)
-            panels = showcase_panels(look, desktop, sections, app, scratch, startmenu)
         for key, (title, rows) in sections.items():
             compose(f"{look} {title}", rows, output / f"report-{look}-{key}.png")
-        compose_showcase(
-            f"Chicago95 for KDE Plasma, {LOOK_NAMES[look]}: the original beside ours",
-            panels,
-            output / f"showcase-{look}.jpg",
-        )
-        compose_showcase(
-            f"Chicago95 for KDE Plasma, {LOOK_NAMES[look]}: the controls, the original's beside ours",
-            controls_panels(sections, look, app),
-            output / f"showcase-controls-{look}.jpg",
-        )
+
+
+def main(output, looks):
+    import chicago95ui
+    from PySide6.QtWidgets import QApplication
+    from showcase import controls, scenes, themed
+
+    app = QApplication.instance() or chicago95ui.make_app("chicago95-showcase")
+    app.setQuitOnLastWindowClosed(False)
+    output.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="chicago95-showcase-") as work:
+        for look in looks:
+            scratch = Path(work) / look
+            scratch.mkdir()
+            with themed(app, look):
+                compose_showcase(
+                    f"Chicago95 for KDE Plasma · {LOOK_NAMES[look]}",
+                    scenes(app, look, scratch),
+                    output / f"showcase-{look}.jpg",
+                )
+                compose_showcase(
+                    f"{LOOK_NAMES[look]} · Controls by type and toolkit",
+                    controls(app, look, scratch),
+                    output / f"showcase-controls-{look}.jpg",
+                )
 
 
 if __name__ == "__main__":
-    main(Path(sys.argv[1] if len(sys.argv) > 1 else "report"), sys.argv[2:] or list(LOOK_NAMES))
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Render reference-independent showcase sheets.")
+    parser.add_argument("output", nargs="?", type=Path, default=Path("report"))
+    parser.add_argument("looks", nargs="*", choices=list(LOOK_NAMES))
+    parser.add_argument("--details", action="store_true", help="Also generate the historical pixel comparison reports")
+    args = parser.parse_args()
+    looks = args.looks or list(LOOK_NAMES)
+    if args.details:
+        comparison_main(args.output, looks)
+    main(args.output, looks)

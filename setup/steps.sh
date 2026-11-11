@@ -799,6 +799,14 @@ step_clippy() {
     "position=$((SETUP_WIDTH - CLIPPY_W - CLIPPY_MARGIN)),$((SETUP_HEIGHT - PANEL_HEIGHT - CLIPPY_H - CLIPPY_MARGIN))" "positionrule=3" \
     "placement=Zero" "placementrule=3" "skiptaskbar=true" "skiptaskbarrule=2" "skippager=true" "skippagerrule=2" "noborder=true" "noborderrule=2" \
     "above=true" "aboverule=2" "types=1"
+  restart_clippy
+}
+
+restart_clippy() { # a Clippy already on screen keeps the balloon it started with: the new one takes the look
+  local clippy=~/.local/bin/chicago95-clippy
+  pgrep -f "python3 $clippy" >/dev/null 2>&1 || return 0
+  run pkill -f "python3 $clippy"
+  run setsid -f "$clippy"
 }
 
 step_extras() { # System Properties, Device Manager, Kubernetes Viewer, Dial-Up, Deezer helper, login chime
@@ -1560,9 +1568,16 @@ restore_classic_gtk_font() {
   edit_xsettings Gtk/FontName "$(sed -n 's|^Gtk/FontName ||p' "$REPO/config/xsettingsd/xsettingsd.conf")"
 }
 
+# Luna's text is Tahoma, which no free font matches; without it fontconfig falls back to DejaVu Sans Condensed.
+warn_without_tahoma() {
+  fc-match Tahoma 2>/dev/null | grep -qi tahoma && return 0
+  ui_status "Tahoma is not installed: Luna text falls back to DejaVu Sans Condensed. Install Wine's Tahoma (wine-tahoma-fonts) or put tahoma.ttf in ~/.local/share/fonts, then log out and in."
+}
+
 step_luna_fonts() {
   local key
   put_file "$REPO/luna/fontconfig/61-chicago95-luna-fonts.conf" ~/.config/fontconfig/conf.d/61-chicago95-luna-fonts.conf
+  warn_without_tahoma
   [ "${SETUP_FONT_SCOPE:-everywhere}" = none ] && return 0
   [ "${SETUP_FONT_SCOPE:-everywhere}" = everywhere ] && for key in "${APP_FONT_KEYS[@]}"; do kconf kdeglobals General "$key" "Tahoma,8,-1,5,50,0,0,0,0,0"; done
   widget_style_is_luna && [ "${SETUP_FONT_SCOPE:-everywhere}" = everywhere ] && apply_luna_gtk_font

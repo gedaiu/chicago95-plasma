@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QStyleOptionButton,
     QStyleOptionComboBox,
     QStyleOptionMenuItem,
+    QStyleOptionSpinBox,
     QTabWidget,
 )
 from reference import qimage_to_pil
@@ -248,6 +249,34 @@ def test_disabled_push_button_has_grey_border_and_flat_face(style):
     image = painted(75, 23, lambda painter: style.drawControl(QStyle.CE_PushButtonBevel, option, painter))
 
     assert [hex_at(image, 1, 10), hex_at(image, 37, 11)] == ["#C9C7BA", "#F5F4EA"]
+
+
+def uniform_cells(rows, scale):
+    """The device pixels a pixel-art pattern covers when every cell is the same whole number of device pixels:
+    at 1.5x a cell is 2x2, as at 2x; at 1x it is the pixel itself. Alternating 1 and 2 pixel cells made the
+    arrows' edges look broken."""
+    return sum(row.count("#") for row in rows) * max(1, round(scale)) ** 2
+
+
+def test_check_box_tick_at_one_and_a_half_scale_is_drawn_in_even_two_pixel_cells(style):
+    option = button_option(style, QRect(0, 0, 13, 13), QStyle.State_On)
+    image = painted_at_scale(
+        1.5, 13, 13, lambda painter: style.drawPrimitive(QStyle.PE_IndicatorCheckBox, option, painter)
+    )
+
+    assert count_of(image, "#21A121") == uniform_cells(luna_style.CHECK_TICK, 1.5)
+
+
+def test_spin_box_arrows_at_one_and_a_half_scale_are_whole_device_pixels_without_blended_edges(style):
+    option = QStyleOptionSpinBox()
+    option.rect = QRect(0, 0, 60, 21)
+    option.state = QStyle.State_Enabled
+    option.palette = luna_style.luna_palette()
+    image = painted_at_scale(1.5, 60, 21, lambda painter: style.drawComplexControl(QStyle.CC_SpinBox, option, painter))
+
+    assert count_of(image, "#4D6185") == uniform_cells(luna_style.ARROWS["up"], 1.5) + uniform_cells(
+        luna_style.ARROWS["down"], 1.5
+    )
 
 
 def test_checked_check_box_is_13_square_with_border_and_green_tick(style):

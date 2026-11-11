@@ -1,0 +1,65 @@
+"""Contract checks for showcase coverage, optional references and theme isolation."""
+
+import subprocess
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+
+
+def test_reference_free_catalogue_and_composition(tmp_path):
+    # The report owns a QApplication and temporary config; keep that out of pytest's shared Qt process.
+    program = r'''
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path.cwd() / "tests"))
+import render_report as report
+import chicago95ui
+import controls_gallery
+import reference
+from showcase import group, themed
+from PIL import Image
+
+out = Path(sys.argv[1])
+app = chicago95ui.make_app("showcase-test")
+app.setQuitOnLastWindowClosed(False)
+reference.REFERENCES = out / "no-references"
+expected = None
+styles = []
+for look in report.LOOK_NAMES:
+    with themed(app, look):
+        rows = controls_gallery.controls(app, look)
+        labels = [name for name, _, _ in rows]
+        assert len(labels) >= 30
+        assert expected is None or labels == expected
+        expected = labels
+        assert all(original is None for _, original, _ in rows)
+        assert all(image.width > 0 and image.height > 0 for _, _, image in rows)
+        styles.append((look, type(app.style()).__name__, app.palette().window().color().name()))
+assert styles[-1][1] == "LunaStyle", styles
+assert styles[0][2] != styles[-1][2], styles
+assert group("Popup menu: checked, disabled") == "Navigation"
+
+# A missing original must never call the placeholder renderer or allocate a second column.
+def forbidden(*args):
+    raise AssertionError("placeholder was rendered")
+report.no_reference = forbidden
+ours = Image.new("RGB", (100, 20), "red")
+report.compose_showcase("Only ours", [("Control", None, ours)], out / "ours.png")
+report.compose_showcase("Pair", [("Control", Image.new("RGB", (100, 20), "blue"), ours)], out / "pair.png")
+single = Image.open(out / "ours.png")
+assert single.getpixel((24, 130)) == (255, 0, 0)
+assert single.getpixel((400, 130)) == report.CARD
+pair = Image.open(out / "pair.png")
+assert pair.getpixel((24, 130)) == (0, 0, 255)
+assert pair.getpixel((350, 130)) == (255, 0, 0)
+'''
+    result = subprocess.run(
+        [sys.executable, "-c", program, str(tmp_path)],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

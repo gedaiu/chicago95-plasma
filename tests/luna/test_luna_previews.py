@@ -5,6 +5,7 @@ import time
 
 import pytest
 from conftest import load_script, needs_ui_font
+from PySide6.QtWidgets import QWidget
 
 
 @pytest.fixture(scope="module")
@@ -131,9 +132,16 @@ def test_task_button_preview_is_the_blue_xp_pill_when_the_taskbar_is_luna(contro
     preview.refresh({"TASKBAR_STYLE": "luna"})
     show_settled(preview, qt_app)
     image = preview.luna_view.grabFramebuffer()
-    pressed = image.pixelColor(preview.button_width + 3 + 150, 15).name()
+    columns = (preview.button_width + 1, 80, preview.button_width + 3 + 80)
+    panel, pill, pressed = (image.pixelColor(x, 15).name() for x in columns)
 
-    assert (preview.height(), preview.luna_view.isVisibleTo(preview), is_blue(pressed)) == (30, True, True)
+    assert (
+        preview.height(),
+        preview.luna_view.isVisibleTo(preview),
+        is_blue(pressed),
+        pill != panel,
+        pressed != panel,
+    ) == (30, True, True, True, True)
 
 
 def test_task_button_preview_goes_back_to_the_classic_buttons_when_the_taskbar_is_classic(control_panel, qt_app):
@@ -205,3 +213,10 @@ def test_the_appearance_preview_swaps_the_classic_mock_for_the_xp_one_when_the_c
         True,
         "LunaAppearancePreview",
     )
+
+
+@pytest.mark.parametrize("luna, filled", [(True, False), (False, True)])
+def test_the_tab_page_shows_through_the_scroll_area_only_under_luna(control_panel, qt_app, monkeypatch, luna, filled):
+    monkeypatch.setattr(control_panel.chicago95ui, "luna_widgets", lambda: luna)
+
+    assert control_panel.scrolling(QWidget()).viewport().autoFillBackground() is filled

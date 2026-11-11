@@ -14,9 +14,12 @@ FRAME_IMPORTS = """import QtQuick
 import org.kde.ksvg as KSvg
 """
 PANEL_ROWS = """    color: "#ff00ff"
+    // In a QQuickWidget the frame items keep the image set they were created with: the buttons load once
+    // the Luna one is named (a QQuickView re-resolves them; the previews are widgets).
     Component.onCompleted: {
         KSvg.ImageSet.basePath = "%(themes)s"
         KSvg.ImageSet.imageSetName = "Chicago95Luna"
+        parts.active = true
     }
     Column {
         Repeater {
@@ -31,7 +34,13 @@ START_SCENE = (
 Rectangle {
 """
     + PANEL_ROWS
-    + """    Start.StartButton { objectName: "startButton"; width: 98; height: %(height)d; text: startText; held: true }
+    + """    Loader {
+        id: parts
+        active: false
+        sourceComponent: Start.StartButton {
+            objectName: "startButton"; width: 98; height: %(height)d; text: startText; held: true
+        }
+    }
 }
 """
 )
@@ -41,15 +50,21 @@ TASKS_SCENE = (
 Rectangle {
 """
     + PANEL_ROWS
-    + """    Tasks.TaskButton {
-        objectName: "windowButton"
-        width: taskWidth; height: %(height)d
-        text: "Document - Notepad"; icon: "text-x-generic"
-    }
-    Tasks.TaskButton {
-        objectName: "activeButton"
-        x: taskWidth + %(gap)d; width: taskWidth; height: %(height)d
-        text: "My Computer"; icon: "text-x-generic"; pressed: true
+    + """    Loader {
+        id: parts
+        active: false
+        sourceComponent: Item {
+            Tasks.TaskButton {
+                objectName: "windowButton"
+                width: taskWidth; height: %(height)d
+                text: "Document - Notepad"; icon: "text-x-generic"
+            }
+            Tasks.TaskButton {
+                objectName: "activeButton"
+                x: taskWidth + %(gap)d; width: taskWidth; height: %(height)d
+                text: "My Computer"; icon: "text-x-generic"; pressed: true
+            }
+        }
     }
 }
 """

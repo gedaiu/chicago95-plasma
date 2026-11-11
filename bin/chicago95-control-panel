@@ -2582,6 +2582,8 @@ def scrolling(tab):
     area.setFrameShape(QFrame.NoFrame)
     area.setWidgetResizable(True)
     area.viewport().setBackgroundRole(QPalette.Window)
+    # Luna's tab page is the near-white XP page the style paints; the viewport stays clear so it shows through.
+    area.viewport().setAutoFillBackground(not chicago95ui.luna_widgets())
     area.setWidget(tab)
     return area
 

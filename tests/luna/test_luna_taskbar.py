@@ -109,6 +109,14 @@ def render_task(qt_app, qml_root, installed, tmp_path, **properties):
     return render(qt_app, qml_root, installed, tmp_path, "org.chicago95.tasks", "TaskButton", 160, properties)
 
 
+def test_task_button_draws_the_pill_from_the_luna_plasma_theme(qt_app, qml_root, installed, tmp_path):
+    """KSvg finds an image set by name in the data directories alone: a basePath of its own never reached the
+    frame items, and the buttons were bare text on the panel."""
+    image = render_task(qt_app, qml_root, installed, tmp_path, text="Document - Notepad", pressed=False)
+
+    assert image.getpixel((80, 15)) != panel_colour(15) and image.getpixel((80, 1)) == panel_colour(1)
+
+
 def column(image, x, rows):
     return [image.getpixel((x, row)) for row in rows]
 

@@ -1,7 +1,7 @@
 """Every control our theme draws, rendered one by one at 1x in a look's colours, for the controls
 showcase (tests/render_report.py). Each is a Qt widget as the tools make it (chicago95ui's style and
 palette), on a patch of the window colour; next to it the report shows the same control cropped from an
-original screenshot where one shows it (ORIGINALS), and says so where none does.
+original screenshot where one shows it (ORIGINALS), and omits the reference where none exists.
 """
 
 from PySide6.QtCore import Qt
@@ -242,6 +242,118 @@ def labels():
     return row(plain, disabled)
 
 
+def extra_controls():
+    """Native widgets beyond the classic dialogs, shared by every look."""
+    from PySide6.QtCore import QDate, QTime
+    from PySide6.QtWidgets import (
+        QDateEdit,
+        QDial,
+        QDoubleSpinBox,
+        QMenu,
+        QPlainTextEdit,
+        QSplitter,
+        QTableWidget,
+        QTableWidgetItem,
+        QTimeEdit,
+        QTreeWidget,
+        QTreeWidgetItem,
+    )
+
+    def check_states():
+        widgets = []
+        for state in (Qt.Unchecked, Qt.PartiallyChecked, Qt.Checked):
+            check = QCheckBox(state.name)
+            check.setTristate(True)
+            check.setCheckState(state)
+            widgets.append(check)
+        return row(*widgets)
+
+    def button_states():
+        widgets = []
+        for state in ("Normal", "Hovered", "Focused", "Checked", "Disabled"):
+            button = QPushButton(state)
+            button.setAttribute(Qt.WA_UnderMouse, state == "Hovered")
+            button.setCheckable(state == "Checked")
+            button.setChecked(state == "Checked")
+            button.setEnabled(state != "Disabled")
+            button.setProperty("keepsFocus", state == "Focused")
+            widgets.append(button)
+        return row(*widgets)
+
+    def editors():
+        date = QDateEdit(QDate(2000, 6, 15))
+        date.setDisplayFormat("yyyy-MM-dd")
+        time = QTimeEdit(QTime(10, 30))
+        time.setDisplayFormat("HH:mm")
+        number = QDoubleSpinBox()
+        number.setValue(12.5)
+        return row(date, time, number)
+
+    def multiline():
+        text = QPlainTextEdit("Project notes\nReview the controls and their states.\nSelected text")
+        text.setFixedSize(350, 95)
+        return text
+
+    def tree():
+        view = QTreeWidget()
+        view.setHeaderLabels(["Name", "Type"])
+        parent = QTreeWidgetItem(view, ["Documents", "Folder"])
+        QTreeWidgetItem(parent, ["Notes.txt", "Text file"])
+        QTreeWidgetItem(view, ["Pictures", "Folder"])
+        view.expandAll()
+        view.setCurrentItem(parent.child(0))
+        view.setFixedSize(350, 120)
+        return view
+
+    def table():
+        view = QTableWidget(3, 2)
+        view.setHorizontalHeaderLabels(["Name", "Size"])
+        for r, values in enumerate((("Notes.txt", "2 KB"), ("Photo.png", "24 KB"), ("Archive.zip", "100 KB"))):
+            for c, value in enumerate(values):
+                view.setItem(r, c, QTableWidgetItem(value))
+        view.selectRow(1)
+        view.setFixedSize(350, 130)
+        return view
+
+    def menu():
+        widget = QMenu()
+        widget.addAction("Open")
+        checked = widget.addAction("Show previews")
+        checked.setCheckable(True)
+        checked.setChecked(True)
+        widget.addAction("Unavailable").setEnabled(False)
+        widget.addSeparator()
+        widget.addMenu("More").addAction("Details")
+        widget.setActiveAction(widget.actions()[0])
+        return widget
+
+    def split():
+        widget = QSplitter()
+        widget.addWidget(QLabel("Folders"))
+        widget.addWidget(QLabel("Document preview"))
+        widget.setFixedSize(350, 70)
+        return widget
+
+    def dial():
+        widget = QDial()
+        widget.setValue(35)
+        widget.setNotchesVisible(True)
+        widget.setFixedSize(70, 70)
+        return widget
+
+    return [
+        ("Push button states (normal, hovered, focused, checked, disabled)", button_states),
+        ("Check boxes (unchecked, mixed, checked)", check_states),
+        ("Date, time and decimal spin fields", editors),
+        ("Text editor, multiline", multiline),
+        ("Tree view and header", tree),
+        ("Table view and headers", table),
+        ("Popup menu: selected, checked, disabled, separator, submenu", menu),
+        ("Splitter", split),
+        ("Dial", dial),
+    ]
+
+
 # (control, how to make it): the showcase's rows, in this order.
 CONTROLS = [
     ("Push buttons (default, plain, disabled, pressed)", push_buttons),
@@ -292,6 +404,9 @@ ORIGINALS = {
         "Scroll bar, horizontal": ("win98notepad", (7, 342, 392, 360)),
         "Scroll bar, vertical": ("win98notepad", (389, 47, 406, 188)),  # down to the alert that covers the rest
     },
+    "luna": {
+        "Push buttons (default, plain, disabled, pressed)": ("xpdisplayprop-1x", (150, 415, 404, 452)),
+    },
     "2000": {
         "Push buttons (default, plain, disabled, pressed)": ("w2kshutdown", (272, 297, 520, 330)),
         "Check boxes": ("w2klogon", (194, 258, 330, 279)),
@@ -329,19 +444,26 @@ def render_control(app, make, inspect=None):
     return image
 
 
-def controls(app, look):
-    """[(control, original crop or None, ours)] for a look, our widgets in the look's colours (the
-    caller installs them, see reference.installed_look)."""
+def original_control(look, name):
+    """Only an explicitly mapped crop; absence never prevents native rendering."""
     from PIL import Image
     from reference import screenshot
 
-    rows = []
-    for name, make in CONTROLS:
-        original = None
-        if name in ORIGINALS.get(look, {}):
-            reference, box = ORIGINALS[look][name]
-            original = screenshot(reference).crop(box)
-            if reference in HALF_SIZE:
-                original = original.resize((original.width * 2, original.height * 2), Image.NEAREST)
-        rows.append((name, original, render_control(app, make)))
-    return rows
+    counterpart = ORIGINALS.get(look, {}).get(name)
+    if counterpart is None:
+        return None
+    reference, box = counterpart
+    try:
+        image = screenshot(reference).crop(box)
+    except FileNotFoundError:
+        return None
+    if reference in HALF_SIZE:
+        image = image.resize((image.width * 2, image.height * 2), Image.NEAREST)
+    return image
+
+
+def controls(app, look):
+    """Every control in the same order for each look; only mapped, available reference crops."""
+    return [
+        (name, original_control(look, name), render_control(app, make)) for name, make in [*CONTROLS, *extra_controls()]
+    ]

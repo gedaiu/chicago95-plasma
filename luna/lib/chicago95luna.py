@@ -227,17 +227,35 @@ def device_pixels(painter, rect):
     return QRect(*scaled), scale
 
 
+def pixel_cell(painter):
+    """A pixel-art cell in device pixels: 1 at 1x, 2 at 1.5x and 2x. Cells of one and two pixels by turns, which
+    plain scaling gives at 1.5x, break the arrows' straight edges."""
+    return max(1, round(painter.device().devicePixelRatioF()))
+
+
 def paint_pixels(painter, left, top, rows, colour):
-    for y, row in enumerate(rows):
-        for x, mark in enumerate(row):
-            if mark == "#":
-                painter.fillRect(left + x, top + y, 1, 1, QColor(colour))
+    """The pattern with its top-left cell at the logical point, drawn in whole device-pixel cells."""
+    scale = painter.device().devicePixelRatioF()
+    paint_cells(painter, round(left * scale), round(top * scale), rows, colour)
 
 
 def paint_centred_pixels(painter, rect, rows, colour):
-    left = rect.left() + (rect.width() - len(rows[0])) // 2
-    top = rect.top() + (rect.height() - len(rows)) // 2
-    paint_pixels(painter, left, top, rows, colour)
+    scale, cell = painter.device().devicePixelRatioF(), pixel_cell(painter)
+    device = QRect(*(round(value * scale) for value in (rect.left(), rect.top(), rect.width(), rect.height())))
+    left = device.left() + (device.width() - len(rows[0]) * cell) // 2
+    top = device.top() + (device.height() - len(rows) * cell) // 2
+    paint_cells(painter, left, top, rows, colour)
+
+
+def paint_cells(painter, device_left, device_top, rows, colour):
+    scale, cell = painter.device().devicePixelRatioF(), pixel_cell(painter)
+    painter.save()
+    painter.scale(1 / scale, 1 / scale)
+    for y, row in enumerate(rows):
+        for x, mark in enumerate(row):
+            if mark == "#":
+                painter.fillRect(device_left + x * cell, device_top + y * cell, cell, cell, QColor(colour))
+    painter.restore()
 
 
 def button_state(option):
