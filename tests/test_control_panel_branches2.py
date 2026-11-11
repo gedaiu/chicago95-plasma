@@ -239,7 +239,7 @@ def test_loading_preview_without_a_loadable_screen_leaves_its_stage_alone(contro
 
     preview.refresh({})
 
-    assert preview.rootObject() is None
+    assert preview.dialog() is None  # the scaling wrapper loads; the screen inside it does not
 
 
 def test_launcher_list_skips_empty_entries_when_set(control_panel, qt_app):

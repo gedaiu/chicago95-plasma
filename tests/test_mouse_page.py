@@ -196,3 +196,17 @@ def test_the_test_areas_box_is_the_originals_closed_and_taller_when_open(control
         True,
         True,
     )
+
+
+def test_the_pictures_grey_face_is_repainted_in_the_looks_face_colour(control_panel, qt_app):
+    from PySide6.QtGui import QColor
+
+    classic = control_panel.control_panel_picture("mouse-right.png").toImage()
+    warm = control_panel.control_panel_picture("mouse-right.png", QColor("#D4D0C8")).toImage()
+    corner, button = (0, 79), (10, 20)
+
+    assert (classic.pixelColor(*corner).name(), warm.pixelColor(*corner).name(), warm.pixelColor(*button).name()) == (
+        "#c0c0c0",
+        "#d4d0c8",
+        "#000080",
+    )

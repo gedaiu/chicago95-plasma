@@ -36,6 +36,7 @@ from PySide6.QtGui import (
     QFontMetrics,
     QGuiApplication,
     QIcon,
+    QImage,
     QLinearGradient,
     QPainter,
     QPalette,
@@ -51,6 +52,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QFrame,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -66,6 +68,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QRadioButton,
+    QScrollArea,
     QSizeGrip,
     QSlider,
     QSpinBox,
@@ -1512,6 +1515,26 @@ CHICAGO95_DATA = Path.home() / ".local/share/chicago95"
 PREVIEW_SCRATCH = tempfile.TemporaryDirectory(prefix="chicago95-previews-")
 
 
+INSTALLED_SDDM_THEME = Path("/usr/share/sddm/themes/Chicago95Plasma")
+INSTALLED_SPLASH = Path.home() / ".local/share/plasma/look-and-feel/chicago95.splashscreen/contents/splash"
+
+
+def repo_of(values):
+    """The checkout Setup ran from (REPO in setup.conf), or this program's own when it is run from one."""
+    saved = values.get("REPO")
+    return Path(saved).resolve() if saved and (Path(saved) / "install.sh").exists() else REPO_DIR
+
+
+def sddm_theme_of(values):
+    theme = repo_of(values) / "sddm/Chicago95Plasma"
+    return theme if theme.exists() else INSTALLED_SDDM_THEME
+
+
+def splash_of(values):
+    splash = repo_of(values) / "splash/chicago95.splashscreen/contents/splash"
+    return splash if splash.exists() else INSTALLED_SPLASH
+
+
 def picture_file(choice, repo=REPO_DIR):
     """The file behind a picture choice, as Setup resolves it (setup/steps.sh image_source and login_logo):
     a bundled name, the Start button's logo, or the user's own file."""
@@ -1548,7 +1571,7 @@ def branding_look(values):
         "osName": values.get("BANNER_TEXT", "Chicago95"),
         "osCompany": values.get("COMPANY", "KDE"),
         "edition": values.get("EDITION", "Professional"),
-        "osLogo": str(picture_file(values.get("LOGIN_LOGO", "start"))),
+        "osLogo": str(picture_file(values.get("LOGIN_LOGO", "start"), repo_of(values))),
         "companyLogo": "" if company_logo in ("text", "") else company_logo,
         "tagline": values.get("TAGLINE", "Built on Linux Technology"),
     }
@@ -1572,35 +1595,64 @@ class QmlPreview(QQuickWidget):
     """A QML screen in a scratch copy, reloaded from a fresh copy on every refresh (its settings file is a
     JavaScript library, which the engine would otherwise keep)."""
 
-    def __init__(self, size):
+    SCALED_SCENE = """import QtQuick
+Item {{
+    property alias dialog: inner.item
+    Loader {{
+        id: inner
+        source: "{source}"
+        width: {width}
+        height: {height}
+        scale: {scale}
+        transformOrigin: Item.TopLeft
+    }}
+}}
+"""
+
+    def __init__(self, size, scale=1.0):
         super().__init__()
         self.scratch = None
         self.context = {}
+        self.full_size, self.scale = size, scale
         self.setResizeMode(QQuickWidget.SizeRootObjectToView)
-        self.setFixedSize(*size)
+        self.setFixedSize(round(size[0] * scale), round(size[1] * scale))
 
     def load(self, main_qml, context=None):
+        """The screen at its own size, shrunk by `scale` to fit a property sheet (a wrapper beside the file)."""
         self.context = context or {}
         for name, value in self.context.items():
             self.rootContext().setContextProperty(name, value)
         self.engine().clearComponentCache()
-        self.setSource(QUrl.fromLocalFile(str(main_qml)))
+        source = Path(main_qml)
+        if self.scale != 1.0:
+            width, height = self.full_size
+            wrapper = source.parent / "scaled-preview.qml"
+            wrapper.write_text(
+                self.SCALED_SCENE.format(source=source.name, width=width, height=height, scale=self.scale)
+            )
+            source = wrapper
+        self.setSource(QUrl.fromLocalFile(str(source)))
+
+    def dialog(self):
+        """The screen's own root item (behind the scaling wrapper, when there is one)."""
+        root = self.rootObject()
+        return root.property("dialog") if root is not None and self.scale != 1.0 else root
 
 
 class LogOnPreview(QmlPreview):
     """The log-on dialog as the theme draws it, with the texts, pictures and style chosen."""
 
-    SIZE = (440, 250)
+    SIZE, SCALE = (440, 250), 0.6  # the dialog's own size, shrunk to fit the property sheet
 
     def __init__(self):
-        super().__init__(self.SIZE)
+        super().__init__(self.SIZE, self.SCALE)
 
     def refresh(self, values):
         folder = fresh_scratch(self)
         style = values.get("LOGIN_STYLE", "classic")
-        theme = REPO_DIR / "sddm/Chicago95Plasma"
+        theme = sddm_theme_of(values)
         banner = render_banner(values, folder / "login-banner.png") if style == "2000" else None
-        icon = picture_file(values.get("LOGIN_ICON", "keys"))
+        icon = picture_file(values.get("LOGIN_ICON", "keys"), repo_of(values))
         main_qml = login_preview.prepare_login_theme(theme, folder, banner=banner, icon=icon)
         self.engine().addImportPath(str(folder / "imports"))
         settings = {
@@ -1648,6 +1700,15 @@ Rectangle {{
 """
 
 
+INSTALLED_START_PLASMOID = Path.home() / ".local/share/plasma/plasmoids/org.chicago95.start/contents/ui"
+
+
+def start_button_ui(installed=INSTALLED_START_PLASMOID, repo=REPO_DIR):
+    """The folder with StartButton.qml: the plasmoid Setup installed, or the checkout's when running from it."""
+    checkout = repo / "plasmoids/org.chicago95.start/contents/ui"
+    return checkout if checkout.exists() else installed
+
+
 class StartMenuPreview(QWidget):
     """The Start menu open above the pressed Start button, with the tab's values before they are applied: the menu
     drawn by the Start menu itself, offscreen on a scratch chicago95rc; the button by the taskbar's StartButton.qml."""
@@ -1673,12 +1734,10 @@ class StartMenuPreview(QWidget):
         look = values.get("LOOK") if values.get("LOOK") in MENU_STYLES else "1998"
         self.draw_menu(folder, values, look)
         scene = folder / "StartButtonPreview.qml"
-        scene.write_text(
-            START_BUTTON_SCENE.format(ui=(REPO_DIR / "plasmoids/org.chicago95.start/contents/ui").as_uri())
-        )
+        scene.write_text(START_BUTTON_SCENE.format(ui=start_button_ui(repo=repo_of(values)).as_uri()))
         context = {
             "startText": values.get("START_TEXT", "Start"),
-            "startLogo": QUrl.fromLocalFile(str(picture_file(values.get("START_LOGO", "flag")))),
+            "startLogo": QUrl.fromLocalFile(str(picture_file(values.get("START_LOGO", "flag"), repo_of(values)))),
             "startLook": look,
             "face": QColor(LOOK_FACES.get(look, CLASSIC_FACE)),
         }
@@ -1721,12 +1780,12 @@ class StartMenuPreview(QWidget):
 class BrandingPreview(QLabel):
     """The 2000 log-on banner, drawn with the branding chosen."""
 
-    WIDTH = 411
+    WIDTH = 350  # the 411-wide banner shrunk to fit the property sheet
 
     def __init__(self):
         super().__init__()
         self.scratch = None
-        self.setFixedSize(self.WIDTH, 93)
+        self.setFixedSize(self.WIDTH, round(93 * self.WIDTH / 411))
 
     def refresh(self, values):
         banner = render_banner({**values, "LOGIN_STYLE": "2000"}, fresh_scratch(self) / "banner.png")
@@ -1736,10 +1795,10 @@ class BrandingPreview(QLabel):
 class LoadingPreview(QmlPreview):
     """The loading screen as Plasma shows it, with the style, pictures and texts chosen, at stage 3."""
 
-    SIZE = (320, 240)
+    SIZE, SCALE = (320, 240), 0.6
 
     def __init__(self):
-        super().__init__(self.SIZE)
+        super().__init__(self.SIZE, self.SCALE)
 
     @staticmethod
     def settings_js(values):
@@ -1747,24 +1806,24 @@ class LoadingPreview(QmlPreview):
         entries = {
             "style": values.get("LOGIN_STYLE", "classic"),
             "brandText": values.get("BANNER_TEXT", "Chicago95"),
-            "brandLogo": str(picture_file(values.get("LOGIN_LOGO", "start"))),
+            "brandLogo": str(picture_file(values.get("LOGIN_LOGO", "start"), repo_of(values))),
             "edition": values.get("EDITION", "Professional"),
             "tagline": values.get("TAGLINE", "Built on Linux Technology"),
             "company": values.get("COMPANY", "KDE"),
             "companyLogo": "" if company_logo in ("text", "") else company_logo,
             "loadingText": values.get("LOADING_TEXT", "Starting up..."),
             "footer": values.get("LOADING_FOOTER", "Chicago95 for KDE Plasma").replace("%h", socket.gethostname()),
-            "picture": str(picture_file(values.get("SPLASH_IMAGE", "classic"))),
+            "picture": str(picture_file(values.get("SPLASH_IMAGE", "classic"), repo_of(values))),
         }
         return ".pragma library\n" + "".join(f"var {name} = {json.dumps(value)}\n" for name, value in entries.items())
 
     def refresh(self, values):
         folder = fresh_scratch(self) / "splash"
-        shutil.copytree(REPO_DIR / "splash/chicago95.splashscreen/contents/splash", folder)
+        shutil.copytree(splash_of(values), folder)
         (folder / "settings.js").write_text(self.settings_js(values))
         self.load(folder / "Splash.qml")
-        if self.rootObject() is not None:
-            self.rootObject().setProperty("stage", 3)
+        if self.dialog() is not None:
+            self.dialog().setProperty("stage", 3)
 
 
 def swatch_icon(colour):
@@ -2248,6 +2307,16 @@ class TabControl(QWidget):
         self.currentChanged.emit(index)
 
 
+def scrolling(tab):
+    """The tab in a frameless scroll area: a sheet keeps the standard size, and a tab too big for it scrolls."""
+    area = QScrollArea()
+    area.setFrameShape(QFrame.NoFrame)
+    area.setWidgetResizable(True)
+    area.viewport().setBackgroundRole(QPalette.Window)
+    area.setWidget(tab)
+    return area
+
+
 class PropertiesPage(QWidget):
     """An applet's page in the Control Panel's window: property sheet tabs with OK, Cancel and Apply."""
 
@@ -2260,7 +2329,7 @@ class PropertiesPage(QWidget):
         self.tabs = TabControl()
         self.settings_tabs = [tab for _name, tab in tabs]
         for name, tab in tabs:
-            self.tabs.addTab(tab, name)
+            self.tabs.addTab(scrolling(tab), name)
             tab.changed.connect(self.refresh_apply_button)
         self.baseline = self.collect_values()
         self.preview_timer = QTimer(self)
@@ -2347,7 +2416,7 @@ class PropertySheetWindow(QDialog):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(page)
         page.finished.connect(self.hide)
-        self.setFixedSize(self.sizeHint().expandedTo(SHEET_SIZE))
+        self.setFixedSize(SHEET_SIZE)
 
     def reject(self):
         self.page.cancel()
@@ -2387,10 +2456,22 @@ def page_rect(rect):
     return rect.translated(-TAB_PAGE_FRAME, -TAB_PAGE_FRAME)
 
 
-def control_panel_picture(name):
-    """A picture of the Control Panel's own (data/control-panel), from the install or the repository."""
+PICTURE_FACE = QColor("#C0C0C0").rgb()  # the 16-colour pictures' button face, repainted in the look's own
+
+
+def control_panel_picture(name, face=None):
+    """A picture of the Control Panel's own (data/control-panel), from the install or the repository, its grey
+    button-face pixels repainted in `face` (a QColor), as the originals mapped their bitmaps' 3D colours."""
     installed = CHICAGO95_DATA / "control-panel" / name
-    return QPixmap(str(installed if installed.exists() else REPO_DIR / "data/control-panel" / name))
+    image = QImage(str(installed if installed.exists() else REPO_DIR / "data/control-panel" / name)).convertToFormat(
+        QImage.Format_ARGB32
+    )
+    if face is not None and face.rgb() != PICTURE_FACE:
+        for y in range(image.height()):
+            for x in range(image.width()):
+                if image.pixel(x, y) == PICTURE_FACE:
+                    image.setPixel(x, y, face.rgb())
+    return QPixmap.fromImage(image)
 
 
 class MousePicture(QWidget):
@@ -2437,8 +2518,9 @@ class ClickTestArea(QFrame):
 
     def paintEvent(self, event):
         super().paintEvent(event)
-        closed = control_panel_picture("jack-closed.png")
-        picture = control_panel_picture("jack-open.png") if self.open else closed
+        face = self.palette().window().color()
+        closed = control_panel_picture("jack-closed.png", face)
+        picture = control_panel_picture("jack-open.png", face) if self.open else closed
         inside = self.contentsRect()
         # The closed box sits in the lower half, as the original's; the open one grows upwards from the same floor.
         floor = inside.center().y() + closed.height() + 2
@@ -2825,6 +2907,7 @@ def appearance_tab(settings, actions):
     """Windows 98's Appearance tab (the tech2u Display Properties picture): the sample windows in the scheme's
     colours, Scheme with Save As and Delete, and Item with the chosen part's settings."""
     tab = SettingsTab(settings, actions)
+    tab.outer.setContentsMargins(12, PAGE_INSETS[1], 12, PAGE_INSETS[3])  # the 358px preview fits the sheet's 386
     start = LOOK_PRESETS["1995"]
     tab.preview = AppearancePreview()
     tab.outer.insertWidget(0, tab.preview)
@@ -3218,7 +3301,8 @@ def sounds_tab(settings, actions):
     return tab
 
 
-EFFECTS_ROW_SPACING = 3  # the lists sit close, so Display Properties keeps near the original's size
+EFFECTS_COLUMNS = 2  # the lists in two columns, each under its caption, so the tab fits Display Properties
+EFFECTS_LIST_LETTERS = 9
 
 
 @tab_builder("Display", "Effects")
@@ -3230,58 +3314,71 @@ def effects_tab(settings, actions):
     installed = actions.installed_effects()
     live = actions.live_animations()
     tab.combos, tab.settings_buttons = {}, {}
-    for group in dict.fromkeys(event.group for event in table.events):
-        tab.group(group)
-        tab.form.setVerticalSpacing(EFFECTS_ROW_SPACING)
-        for event in (event for event in table.events if event.group == group):
-            add_animation_field(
-                tab, table, installed, event, chicago95animations.current_choice(table, event.key, installed, live)
-            )
-    align_labels(tab)
     tab.classic_button = chicago95ui.dialog_button("&Classic")
     tab.classic_button.clicked.connect(
         lambda: tab.load({**tab.values(), **table.classic.get(settings.get("LOOK", "1998"), {})}) or tab.notify()
     )
-    row = QHBoxLayout()
-    row.addStretch(1)
-    row.addWidget(tab.classic_button)
-    tab.outer.insertLayout(tab.outer.count() - 1, row)
+    for group in dict.fromkeys(event.group for event in table.events):
+        box = QGroupBox(group)
+        grid = QGridLayout(box)
+        grid.setVerticalSpacing(2)
+        events = [event for event in table.events if event.group == group]
+        for index, event in enumerate(events):
+            current = chicago95animations.current_choice(table, event.key, installed, live)
+            field = animation_field(tab, table, installed, event, current)
+            grid.addWidget(field, index // EFFECTS_COLUMNS, index % EFFECTS_COLUMNS)
+        if group == events[-1].group == table.events[-1].group:
+            grid.addWidget(tab.classic_button, len(events) // EFFECTS_COLUMNS, 1, Qt.AlignRight | Qt.AlignBottom)
+        tab.outer.insertWidget(tab.outer.count() - 1, box)
     return tab
 
 
-def align_labels(page):
-    """The lists of every group start in one column, as one long form would put them."""
-    labels = [
-        form.itemAt(row, QFormLayout.LabelRole).widget()
-        for form in page.findChildren(QFormLayout)
-        for row in range(form.rowCount())
-        if form.itemAt(row, QFormLayout.LabelRole) is not None
-    ]
-    width = max((label.sizeHint().width() for label in labels), default=0)
-    for label in labels:
-        label.setMinimumWidth(width)
-
-
-def add_animation_field(tab, table, installed, event, current):
+def animation_field(tab, table, installed, event, current):
+    """One event's control under its caption: the speed slider, the wobbly check box, or a list with a button
+    that opens the chosen effect's KDE settings."""
     options = chicago95animations.event_choices(table, event.key, installed)
+    cell = QWidget()
+    column = QVBoxLayout(cell)
+    column.setContentsMargins(0, 0, 0, 0)
+    column.setSpacing(1)
+    if [value for _label, value in options] == ["no", "yes"]:
+        box = QCheckBox(event.label)
+        tab.track(
+            event.key,
+            lambda: "yes" if box.isChecked() else "no",
+            lambda value: box.setChecked(value == "yes"),
+            current,
+            box.toggled,
+        )
+        column.addWidget(box)
+        return cell
+    column.addWidget(QLabel(event.label))
     if event.key == chicago95animations.SPEED_KEY:
         tab.speed_slider = ChoiceSlider(options)
-        tab.register(
-            event.key,
-            event.label,
-            tab.speed_slider,
-            tab.speed_slider.value,
-            tab.speed_slider.set_value,
-            current,
-            tab.speed_slider.changed,
-        )
-        return
-    if [value for _label, value in options] == ["no", "yes"]:
-        tab.flag(event.key, event.label, default=current)
-        return
-    button = chicago95ui.dialog_button("Se&ttings...")
-    tab.combos[event.key] = combo = tab.choice(event.key, event.label, options, default=current, beside=button)
-    tab.settings_buttons[event.key] = button
+        tab.track(event.key, tab.speed_slider.value, tab.speed_slider.set_value, current, tab.speed_slider.changed)
+        column.addWidget(tab.speed_slider)
+        return cell
+    combo = chicago95ui.classic_combo(QComboBox())
+    combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)  # long names show when it opens
+    combo.setMinimumContentsLength(EFFECTS_LIST_LETTERS)
+    for label, value in options:
+        combo.addItem(label, value)
+    button = QPushButton("...")
+    button.setFixedSize(20, combo.sizeHint().height())
+    button.setToolTip("Settings for this effect")
+    row = QHBoxLayout()
+    row.setSpacing(2)
+    row.addWidget(combo, 1)
+    row.addWidget(button)
+    column.addLayout(row)
+    tab.track(
+        event.key,
+        combo.currentData,
+        lambda value: combo.setCurrentIndex(max(combo.findData(value), 0)),
+        current,
+        combo.currentIndexChanged,
+    )
+    tab.combos[event.key], tab.settings_buttons[event.key] = combo, button
 
     def settings_command():
         effects = chicago95animations.choice_effects(table, event.key, combo.currentData())
@@ -3296,6 +3393,7 @@ def add_animation_field(tab, table, installed, event, current):
     button.clicked.connect(lambda: tab.actions.start_process(settings_command()[0], list(settings_command()[1:])))
     combo.currentIndexChanged.connect(show_state)
     show_state()
+    return cell
 
 
 @tab_builder("Display", "Background")

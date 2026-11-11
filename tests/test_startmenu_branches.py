@@ -35,7 +35,7 @@ def retro_look(startmenu, qt_app, tmp_path, monkeypatch):
 
     yield apply
     settings_file.unlink(missing_ok=True)
-    qt_app.setStyle(chicago95ui.ClassicStyle("Windows"))
+    qt_app.setStyle(chicago95ui.classic_style())
 
 
 def test_banner_stops_spread_two_colours_from_top_to_bottom(startmenu):

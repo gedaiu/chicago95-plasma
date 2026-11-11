@@ -173,3 +173,15 @@ def test_advanced_opens_kdes_display_settings(settings_window):
     sheet.page.settings_tabs[4].advanced_button.click()
 
     assert calls["started"] == [("kcmshell6", ["kcm_kscreen"])]
+
+
+@pytest.mark.parametrize("tab_name", ["Background", "Screen Saver", "Appearance", "Effects", "Settings"])
+def test_every_display_tab_fits_the_originals_window_without_scrolling(window, qt_app, tab_name):
+    window.open_applet("Display")
+    page = window.applet_windows["Display"].page
+    index = page.tab_names().index(tab_name)
+    page.tabs.setCurrentIndex(index)
+    qt_app.processEvents()
+    scroller = page.tabs.widget(index)
+
+    assert (scroller.verticalScrollBar().maximum(), scroller.horizontalScrollBar().maximum()) == (0, 0)

@@ -830,7 +830,7 @@ def test_our_monitor_sits_11_rows_under_the_page_frame_and_centred_on_it(control
     page = window.applet_sheet("Display")
     page.tabs.setCurrentIndex(1)
     qt_app.processEvents()
-    monitor = page.tabs.widget(1).monitor
+    monitor = page.settings_tabs[1].monitor
     monitor_top_left = monitor.mapTo(page.tabs.pane, monitor.rect().topLeft())
     pane = page.tabs.pane.rect()
 

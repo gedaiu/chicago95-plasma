@@ -83,6 +83,7 @@ class Device:
     logical_name: str = ""
     claimed: bool = True
     children: list = field(default_factory=list)
+    details: list = field(default_factory=list)  # (name, value) for everything else lshw reported
 
     @property
     def status(self):
@@ -145,6 +146,49 @@ def device_name(node):
     return str(node.get("product") or node.get("description") or node.get("id", "Unknown device")).strip()
 
 
+DETAIL_LABELS = {
+    "businfo": "Bus information",
+    "handle": "Handle",
+    "physid": "Physical ID",
+    "serial": "Serial number",
+    "slot": "Slot",
+    "size": "Size",
+    "capacity": "Capacity",
+    "clock": "Clock",
+    "width": "Width",
+    "units": "Units",
+    "dev": "Device node",
+    "date": "Date",
+}
+UNIT_FIELDS = {"size", "capacity", "clock"}
+
+
+def readable(name, value, units):
+    """A number with its unit as the Device Manager would print it: 1073741824 bytes -> 1 GB, 33000000 Hz -> 33 MHz."""
+    if not isinstance(value, (int, float)) or name not in UNIT_FIELDS:
+        return str(value)
+    unit = units or ("Hz" if name == "clock" else "bytes")
+    steps = ["", "K", "M", "G", "T"] if unit != "bytes" else ["bytes", "KB", "MB", "GB", "TB"]
+    amount, index = float(value), 0
+    while amount >= 1000 and index < len(steps) - 1:
+        amount, index = amount / (1024 if unit == "bytes" else 1000), index + 1
+    text = f"{amount:.0f}" if amount == int(amount) or amount >= 100 else f"{amount:.1f}"
+    return f"{text} {steps[index]}" + ("" if unit == "bytes" else unit)
+
+
+def details_of(node):
+    """Every other fact lshw gives about the node, as (name, value) rows: its fields, configuration and capabilities."""
+    rows = []
+    for key, label in DETAIL_LABELS.items():
+        if key in node and node[key] not in ("", None):
+            rows.append((label, readable(key, node[key], node.get("units"))))
+    for key, value in node.get("configuration", {}).items():
+        rows.append((f"Configuration: {key}", str(value)))
+    for key, value in node.get("capabilities", {}).items():
+        rows.append((f"Capability: {key}", value if isinstance(value, str) else key))
+    return rows
+
+
 def device_of(node, category):
     configuration = node.get("configuration", {})
     return Device(
@@ -156,6 +200,7 @@ def device_of(node, category):
         driver=str(configuration.get("driver", "")),
         bus_info=str(node.get("businfo", "")),
         logical_name=logical_names(node),
+        details=details_of(node),
         claimed=bool(node.get("claimed", False))
         or node.get("class") in ("processor", "bridge", "bus")
         or "iommu" in node_text(node),
@@ -252,6 +297,7 @@ def driver_fields(device):
         ("Provider:", "Linux kernel" if device.driver else "Not available"),
         ("Driver:", device.driver or "No driver files are required or have been loaded for this device."),
         ("Device:", device.logical_name or device.bus_info or "Not available"),
+        ("Serial number:", next((value for name, value in device.details if name == "Serial number"), "Not available")),
     ]
 
 
@@ -342,6 +388,7 @@ class PropertiesDialog(QDialog):
         self.tabs.addTab(self.general_page(device, icon), "General")
         self.tabs.addTab(self.driver_page(device), "Driver")
         self.tabs.addTab(self.resources_page(resources_of(device, sysfs_root)), "Resources")
+        self.tabs.addTab(self.details_page(device), "Details")
         ok_button = chicago95ui.dialog_button("OK")
         cancel_button = chicago95ui.dialog_button("Cancel")
         ok_button.clicked.connect(self.accept)
@@ -389,6 +436,29 @@ class PropertiesDialog(QDialog):
         page = QWidget()
         fields = QFormLayout(page)
         field_rows(fields, driver_fields(device))
+        return page
+
+    def details_page(self, device):
+        """Everything lshw reported about the device, as a Property / Value list."""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        self.details = QTreeWidget()
+        self.details.setHeaderLabels(["Property", "Value"])
+        self.details.setRootIsDecorated(False)
+        rows = [
+            ("Device type", device.category),
+            ("Manufacturer", device.manufacturer or "Not available"),
+            ("Hardware version", device.version or "Not available"),
+            ("Driver", device.driver or "None"),
+            ("Logical name", device.logical_name or "Not available"),
+            ("Class (lshw)", device.kind),
+            ("Status", device.status),
+            *device.details,
+        ]
+        for name, value in rows:
+            self.details.addTopLevelItem(QTreeWidgetItem([name, value]))
+        self.details.resizeColumnToContents(0)
+        layout.addWidget(self.details, 1)
         return page
 
     def resources_page(self, rows):

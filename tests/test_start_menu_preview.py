@@ -61,3 +61,33 @@ def test_the_start_menu_tab_has_the_preview_below_its_fields(control_panel, qt_a
     tab = control_panel.build_tab("Taskbar", "Start Menu", {}, control_panel.Actions())
 
     assert [type(preview).__name__ for preview in tab.previews] == ["StartMenuPreview"]
+
+
+def test_the_start_button_qml_comes_from_the_checkout_or_else_from_the_installed_plasmoid(control_panel, tmp_path):
+    checkout = tmp_path / "repo"
+    (checkout / "plasmoids/org.chicago95.start/contents/ui").mkdir(parents=True)
+    installed = tmp_path / "plasmoids/org.chicago95.start/contents/ui"
+
+    assert (
+        control_panel.start_button_ui(installed=installed, repo=checkout),
+        control_panel.start_button_ui(installed=installed, repo=tmp_path / "not-a-checkout"),
+    ) == (checkout / "plasmoids/org.chicago95.start/contents/ui", installed)
+
+
+@needs_ui_font
+def test_the_preview_draws_the_taskbar_strip_and_the_pressed_button_under_the_menu(control_panel, qt_app):
+    preview = control_panel.StartMenuPreview()
+    preview.refresh({"START_TEXT": "Start", "LOOK": "1998"})
+    preview.process.waitForFinished(60000)
+    preview.show()
+    qt_app.processEvents()
+    strip = preview.button.grabFramebuffer()
+    face = strip.pixelColor(strip.width() - 3, strip.height() - 3).name()
+    dark = [x for x in range(0, 80) if strip.pixelColor(x, 14).lightness() < 100]
+
+    assert (preview.button.status(), face, bool(dark), strip.height()) == (
+        control_panel.QQuickWidget.Status.Ready,
+        "#c0c0c0",
+        True,
+        28,
+    )

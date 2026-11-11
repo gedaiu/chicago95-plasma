@@ -50,8 +50,12 @@ INVENTORY = {
                             "product": "SSD 980 PRO",
                             "vendor": "Samsung",
                             "businfo": "pci@0000:07:00.0",
+                            "serial": "S5GXNG0N",
+                            "size": 1000204886016,
+                            "clock": 33000000,
                             "claimed": True,
-                            "configuration": {"driver": "nvme"},
+                            "configuration": {"driver": "nvme", "state": "live"},
+                            "capabilities": {"nvme": True, "bus_master": "bus mastering"},
                             "children": [
                                 {
                                     "id": "namespace:0",
@@ -174,7 +178,12 @@ def test_general_and_driver_fields_name_the_class_maker_version_and_kernel_drive
 
     assert (devmgr.general_fields(network), devmgr.driver_fields(network)) == (
         [("Device type:", "Network adapters"), ("Manufacturer:", "Realtek"), ("Hardware version:", "Not available")],
-        [("Provider:", "Linux kernel"), ("Driver:", "r8169"), ("Device:", "enp5s0")],
+        [
+            ("Provider:", "Linux kernel"),
+            ("Driver:", "r8169"),
+            ("Device:", "enp5s0"),
+            ("Serial number:", "Not available"),
+        ],
     )
 
 
@@ -260,7 +269,7 @@ def test_the_property_sheet_has_the_originals_three_pages_and_shows_the_status(d
         dialog.windowTitle(),
         devmgr.NO_DRIVER in texts,
         dialog.resources.topLevelItemCount(),
-    ) == (["General", "Driver", "Resources"], "Mystery Chip Properties", True, 1)
+    ) == (["General", "Driver", "Resources", "Details"], "Mystery Chip Properties", True, 1)
 
 
 def test_a_failing_lshw_leaves_an_empty_computer_with_the_reason(devmgr):
@@ -285,3 +294,38 @@ def test_the_kubernetes_viewer_is_the_old_tool_under_its_own_name():
         True,
         True,
     )
+
+
+def test_the_details_page_lists_every_fact_lshw_gave_with_readable_sizes(devmgr, snapshot, qt_app, tmp_path):
+    controller = next(device for device in snapshot.devices if device.name == "SSD 980 PRO")
+    dialog = devmgr.PropertiesDialog(controller, devmgr.themed_icon("drive-harddisk"), sysfs_root=tmp_path)
+    rows = {
+        dialog.details.topLevelItem(index).text(0): dialog.details.topLevelItem(index).text(1)
+        for index in range(dialog.details.topLevelItemCount())
+    }
+
+    assert (
+        [dialog.tabs.tabText(index) for index in range(dialog.tabs.count())],
+        rows["Serial number"],
+        rows["Size"],
+        rows["Clock"],
+        rows["Configuration: state"],
+        rows["Capability: bus_master"],
+        rows["Capability: nvme"],
+        rows["Driver"],
+    ) == (
+        ["General", "Driver", "Resources", "Details"],
+        "S5GXNG0N",
+        "932 GB",
+        "33 MHz",
+        "live",
+        "bus mastering",
+        "nvme",
+        "nvme",
+    )
+
+
+def test_the_driver_page_shows_the_serial_number_when_lshw_knows_it(devmgr, snapshot):
+    controller = next(device for device in snapshot.devices if device.name == "SSD 980 PRO")
+
+    assert devmgr.driver_fields(controller)[-1] == ("Serial number:", "S5GXNG0N")
