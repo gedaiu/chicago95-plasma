@@ -169,6 +169,7 @@ def test_gtk_three_and_four_share_the_widget_rules():
             css(version).replace(f"GTK {version}", "GTK")
             .replace(generator.indicator_backend_rules(version), "")
             .replace(generator.scrollbar_backend_rules(version), "")
+            .replace(generator.input_backend_rules(version), "")
             .replace(generator.libadwaita_block(), "")
         )
 

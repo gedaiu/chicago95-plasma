@@ -632,6 +632,7 @@ combobox cellview, dropdown > button > box > stack > row {
   padding: 0 2px; margin: 0; border: none; background: transparent; box-shadow: none;
   color: inherit; text-shadow: none;
 }
+combobox cellview { padding: 0; margin-top: -1px; margin-bottom: -1px; }
 dropdown > button > box > stack > row label { padding: 0; margin: 0; color: inherit; text-shadow: none; }
 spinbutton:not(.vertical) entry, spinbutton:not(.vertical) > text {
   min-height: 17px; min-width: 0; padding: 0 2px; margin: 0;
@@ -646,6 +647,7 @@ spinbutton:not(.vertical) button:disabled {
   border: none; border-image: none; border-radius: 0; box-shadow: none;
   background-color: transparent; background-repeat: no-repeat; background-position: center;
   background-size: 17px 17px; -gtk-icon-source: none;
+  color: transparent; text-shadow: none; -gtk-icon-shadow: none;
 }
 combobox arrow, combobox > box > button > box > arrow, dropdown arrow {
   min-width: 17px; min-height: 17px; padding: 0; margin: 0;
@@ -661,6 +663,12 @@ combobox:disabled arrow, combobox:disabled > box > button > box > arrow:disabled
 dropdown:disabled arrow { background-image: url("assets/stepper-down-disabled.svg"); }
 spinbutton:not(.vertical):disabled button.up { background-image: url("assets/stepper-up-disabled.svg"); }
 spinbutton:not(.vertical):disabled button.down { background-image: url("assets/stepper-down-disabled.svg"); }
+combobox:hover button, dropdown:hover > button.toggle, spinbutton:not(.vertical):hover {
+  border-color: #E59700;
+}
+combobox:active button, dropdown:active > button.toggle, spinbutton:not(.vertical):active {
+  border-color: #6F8DDB;
+}
 spinbutton > button > image { -gtk-icon-size: 0; min-width: 0; min-height: 0; opacity: 0; }
 combobox arrow, dropdown arrow { -gtk-icon-size: 0; }
 

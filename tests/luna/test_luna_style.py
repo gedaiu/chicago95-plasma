@@ -391,3 +391,20 @@ def test_previews_are_written(gallery):
     sheet.save(PREVIEW_DIR / "controls-compare.png")
 
     assert (PREVIEW_DIR / "gallery.png").exists() and (PREVIEW_DIR / "controls-compare.png").exists()
+
+
+@pytest.mark.parametrize("enabled", (True, False))
+def test_spin_button_column_has_no_divider_between_arrows(style, enabled):
+    spin, combo = QStyleOptionSpinBox(), QStyleOptionComboBox()
+    for option in (spin, combo):
+        option.rect = QRect(0, 0, 60, 21)
+        option.state = QStyle.State_Enabled if enabled else QStyle.State_None
+        option.palette = luna_style.luna_palette()
+    spin_image = painted(60, 21, lambda p: style.drawComplexControl(QStyle.CC_SpinBox, spin, p))
+    combo_image = painted(60, 21, lambda p: style.drawComplexControl(QStyle.CC_ComboBox, combo, p))
+    column = luna_style.drop_column(spin.rect).adjusted(1, 1, -1, -1)
+    # The clear strip beside the glyphs must have the same uninterrupted surface as a combo arrow button.
+    x = column.left() + 1
+    assert [hex_at(spin_image, x, y) for y in range(column.top(), column.bottom() + 1)] == [
+        hex_at(combo_image, x, y) for y in range(column.top(), column.bottom() + 1)
+    ]

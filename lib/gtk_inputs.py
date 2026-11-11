@@ -35,6 +35,7 @@ combobox cellview, dropdown > button > box > stack > row {{
   padding: 0 2px; margin: 0; border: none; background: transparent; box-shadow: none;
   color: inherit; text-shadow: none;
 }}
+combobox cellview {{ padding: 0; margin-top: -1px; margin-bottom: -1px; }}
 dropdown > button > box > stack > row label {{ padding: 0; margin: 0; color: inherit; text-shadow: none; }}
 spinbutton:not(.vertical) entry, spinbutton:not(.vertical) > text {{
   min-height: {size}px; min-width: 0; padding: 0 2px; margin: 0;
@@ -49,6 +50,7 @@ spinbutton:not(.vertical) button:disabled {{
   border: none; border-image: none; border-radius: 0; box-shadow: none;
   background-color: transparent; background-repeat: no-repeat; background-position: center;
   background-size: {size}px {size}px; -gtk-icon-source: none;
+  color: transparent; text-shadow: none; -gtk-icon-shadow: none;
 }}
 combobox arrow, combobox > box > button > box > arrow, dropdown arrow {{
   min-width: {size}px; min-height: {size}px; padding: 0; margin: 0;
@@ -61,6 +63,13 @@ combobox arrow, combobox > box > button > box > arrow, dropdown arrow {{
 dropdown{state} arrow {{ background-image: {image('down', insensitive)}; }}
 spinbutton:not(.vertical){state} button.up {{ background-image: {image('up', insensitive)}; }}
 spinbutton:not(.vertical){state} button.down {{ background-image: {image('down', insensitive)}; }}''')
+    if luna:
+        rules.append("""combobox:hover button, dropdown:hover > button.toggle, spinbutton:not(.vertical):hover {
+  border-color: #E59700;
+}
+combobox:active button, dropdown:active > button.toggle, spinbutton:not(.vertical):active {
+  border-color: #6F8DDB;
+}""")
     if version == "4.0":
         rules.append('''spinbutton > button > image { -gtk-icon-size: 0; min-width: 0; min-height: 0; opacity: 0; }
 combobox arrow, dropdown arrow { -gtk-icon-size: 0; }''')

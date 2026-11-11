@@ -485,9 +485,9 @@ def gtk_controls(look, scratch, audit=False, audit_kinds=()):
             print(f"{look}: GTK controls omitted: Chicago95 GTK theme unavailable")
             return rows
         if look != "luna":
+            from gtk_inputs import input_css
             from gtk_notebooks import notebook_css
             from gtk_scrollbars import scrollbar_css
-            from gtk_inputs import input_css
 
             config = home / ".config/gtk-4.0"
             config.mkdir(parents=True, exist_ok=True)
@@ -539,8 +539,7 @@ def gtk_controls(look, scratch, audit=False, audit_kinds=()):
                 f"timeout 30 {quote(sys.executable)} {quote(str(REPO / 'tests/gtk_showcase.py'))} "
                 f"{version} {theme} {quote(str(output))}{' --consistency' if audit else ''} "
                 + (f"--only {quote(','.join(audit_kinds))} " if audit_kinds else "")
-                +
-                f"> {quote(str(work / (version + '.log')))} 2>&1"
+                + f"> {quote(str(work / (version + '.log')))} 2>&1"
             )
         script = work / "gtk.sh"
         script.write_text("#!/bin/sh\n" + "\n".join(commands) + "\n")
