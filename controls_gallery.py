@@ -118,16 +118,18 @@ def spin_box():
 
 
 def sliders():
-    horizontal, disabled, vertical = QSlider(Qt.Horizontal), QSlider(Qt.Horizontal), QSlider(Qt.Vertical)
-    horizontal.setFixedWidth(120)
-    disabled.setFixedWidth(120)
+    plain, marked, disabled = (QSlider(Qt.Horizontal) for _ in range(3))
+    vertical = QSlider(Qt.Vertical)
+    for slider in (plain, marked, disabled):
+        slider.setFixedWidth(120)
     disabled.setEnabled(False)
     vertical.setFixedHeight(60)
-    for slider in (horizontal, disabled, vertical):
+    for slider in (plain, marked, disabled, vertical):
         slider.setRange(0, 10)
         slider.setValue(3)
-        slider.setTickPosition(QSlider.TicksBelow)
-    return row(horizontal, disabled, vertical)
+        slider.setTickInterval(2)
+        slider.setTickPosition(QSlider.NoTicks if slider is plain else QSlider.TicksBelow)
+    return row(plain, marked, disabled, vertical)
 
 
 def scroll_bar(orientation, length, maximum=100, enabled=True):
@@ -387,7 +389,7 @@ CONTROLS = [
     ("Drop-down lists", drop_down),
     ("Spin box", spin_box),
     ("Disabled drop-down and spin box", disabled_fields),
-    ("Sliders (plain, disabled, vertical)", sliders),
+    ("Sliders (plain, ticks, disabled, vertical)", sliders),
     ("Scroll bar, horizontal", lambda: scroll_bar(Qt.Horizontal, 300)),
     ("Scroll bar, vertical", lambda: scroll_bar(Qt.Vertical, 120)),
     ("Scroll bar, disabled", lambda: scroll_bar(Qt.Vertical, 120, enabled=False)),
@@ -423,7 +425,7 @@ ORIGINALS = {
         "Text fields": ("win98newconnection", (148, 62, 431, 93)),
         "Drop-down lists": ("win98dialing", (32, 71, 166, 100)),
         "Group box": ("win98dialing", (20, 148, 374, 374)),
-        "Sliders (plain, disabled, vertical)": ("win98mouse", (28, 282, 250, 312)),
+        "Sliders (plain, ticks, disabled, vertical)": ("win98mouse", (28, 282, 250, 312)),
         "Disabled drop-down and spin box": ("win98finddate", (110, 100, 225, 182)),
         "Tabs (Qt's own tab widget)": ("win98dialing", (4, 26, 200, 60)),
         "Explorer toolbar buttons (plain, under the pointer, held, disabled)": ("ie4", (10, 49, 320, 91)),

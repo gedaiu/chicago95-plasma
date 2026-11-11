@@ -178,9 +178,11 @@ def test_scroll_bar_slider_has_the_four_line_grip_and_disabled_has_no_slider(sty
     assert (grip, "#98BAE9" in {colour_at(disabled, 8, y) for y in range(120)}) == (4, False)
 
 
-def test_track_bar_groove_is_four_rows_dark_to_white(style, palette):
+def test_track_bar_groove_is_one_grey_row_without_a_white_highlight(style, palette):
     image = luna_states.track_bar(style, palette, "normal")
-    assert [colour_at(image, 10, y) for y in range(12, 16)] == ["#838383", "#ECECE7", "#F5F4EF", "#FFFFFF"]
+    column = [colour_at(image, 10, y) for y in range(image.height())]
+    assert column.count("#9D9C96") == 1
+    assert "#FFFFFF" not in column
 
 
 def test_track_bar_thumb_hover_has_the_orange_accent_and_normal_has_none(style, palette):

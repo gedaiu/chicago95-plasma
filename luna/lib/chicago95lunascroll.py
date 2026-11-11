@@ -9,15 +9,16 @@ Measured from the B00merang Windows XP Luna theme's bitmaps (averaged, not copie
                disabled gradient #EEEEE7 .. #E6E6DC, border #C9C9B6, arrow #C9C9C2
   slider       same family, the gradient across the bar: normal #CADBF3 .. #B6CEEF, hover #DDE8F8 .. #D2E1F5,
                pressed #B3CCEE .. #97B9E8; a grip of four #98BAE9 lines each over a #ECF2FB line
-  track bar    4px groove #838383 #ECECE7 #F5F4EF #FFFFFF; thumb 11x21 gradient #F7F7F4 #F3F3EF #DCDCD9 #C3C3C0,
-               border #B5C4CD top and left, #778892 bottom and right; hover accent rows #FBCB74 #FAC158
+  track bar    1px neutral-grey groove, with no white highlight; thumb 11x21 gradient #F7F7F4 #F3F3EF #DCDCD9 #C3C3C0,
+               border #B5C4CD top and left, #778892 bottom and right; green normal caps, orange hover caps;
+               a pointed end faces a single row of tick marks, a rectangular thumb serves unmarked/two-sided ranges
 """
 
 from chicago95luna import blend_rows, fill_rows, rounded_path, stroke_rounded
 from chicago95lunaslider import GROOVE_ROWS, thumb_pixels
 from PySide6.QtCore import QPointF, QRect, Qt
 from PySide6.QtGui import QColor, QPainter, QPolygonF
-from PySide6.QtWidgets import QStyle
+from PySide6.QtWidgets import QSlider, QStyle
 
 SCROLL_EXTENT = 17
 TROUGH_STOPS = ("#EEEDE5", "#FEFEFB")
@@ -158,12 +159,13 @@ def paint_slider_groove(painter, rect, horizontal):
     fill_stripes(painter, groove, horizontal, GROOVE_ROWS)
 
 
-def paint_thumb(painter, rect, horizontal, state):
+def paint_thumb(painter, rect, horizontal, state, point=None):
     painter.save()
     painter.setRenderHint(QPainter.Antialiasing, False)
-    for y, row in enumerate(thumb_pixels(rect.width(), rect.height(), horizontal, state)):
+    for y, row in enumerate(thumb_pixels(rect.width(), rect.height(), horizontal, state, point)):
         for x, colour in enumerate(row):
-            painter.fillRect(rect.left() + x, rect.top() + y, 1, 1, QColor(colour))
+            if colour is not None:
+                painter.fillRect(rect.left() + x, rect.top() + y, 1, 1, QColor(colour))
     painter.restore()
 
 
@@ -175,4 +177,24 @@ def paint_slider(painter, option, style, widget):
                   -5 if horizontal else 0, 0 if horizontal else -5)
     paint_slider_groove(painter, groove, horizontal)
     state = part_state(option, QStyle.SC_SliderHandle)
-    paint_thumb(painter, handle, horizontal, state)
+    point = {QSlider.TicksAbove: "before", QSlider.TicksBelow: "after"}.get(option.tickPosition)
+    paint_thumb(painter, handle, horizontal, state, point)
+    if option.subControls & QStyle.SC_SliderTickmarks and option.tickPosition != QSlider.NoTicks:
+        interval = option.tickInterval or option.pageStep or 1
+        span = max(option.maximum - option.minimum, 1)
+        # Do not paint the same pixel millions of times for very large ranges.
+        extent = option.rect.width() if horizontal else option.rect.height()
+        interval = max(interval, span // max(extent, 1), 1)
+        for value in range(option.minimum, option.maximum + 1, interval):
+            fraction = (value - option.minimum) / span
+            if option.upsideDown:
+                fraction = 1 - fraction
+            start = option.rect.left() if horizontal else option.rect.top()
+            length = option.rect.width() - handle.width() if horizontal else option.rect.height() - handle.height()
+            centre = start + round(fraction * length) + (handle.width() if horizontal else handle.height()) // 2
+            for before, side in ((True, QSlider.TicksAbove), (False, QSlider.TicksBelow)):
+                if option.tickPosition in (side, QSlider.TicksBothSides):
+                    edge = ((handle.top() - 5 if before else handle.bottom() + 3) if horizontal else
+                            (handle.left() - 5 if before else handle.right() + 3))
+                    tick = QRect(centre, edge, 1, 3) if horizontal else QRect(edge, centre, 3, 1)
+                    painter.fillRect(tick, QColor("#ACA899"))

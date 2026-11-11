@@ -1,6 +1,6 @@
 """Pixel artwork shared by Luna's Qt and GTK track bars (no toolkit dependency)."""
 
-GROOVE_ROWS = ("#838383", "#ECECE7", "#F5F4EF", "#FFFFFF")
+GROOVE_ROWS = ("#9D9C96",)
 THUMB_STOPS = ("#F7F7F4", "#F3F3EF", "#DCDCD9", "#C3C3C0")
 THUMB_BORDER_LIGHT, THUMB_BORDER_DARK = "#B5C4CD", "#778892"
 THUMB_HOVER_ACCENT = ("#FBCB74", "#FAC158")
@@ -23,17 +23,40 @@ def thumb_shades(state, length):
     return rows
 
 
-def thumb_pixels(width, height, horizontal, state):
-    shades = thumb_shades(state, height if horizontal else width)
-    pixels = [[shades[y if horizontal else x] for x in range(width)] for y in range(height)]
-    for y in range(height):
-        pixels[y][0] = THUMB_BORDER_LIGHT
-        pixels[y][-1] = THUMB_BORDER_DARK
-    for x in range(width - 1):
-        pixels[0][x] = THUMB_BORDER_LIGHT
-        pixels[-1][x] = THUMB_BORDER_DARK
-    if state == "hover":
-        for band, colour in enumerate(THUMB_HOVER_ACCENT, 1):
-            for along in range(1, (width if horizontal else height) - 1):
-                pixels[band if horizontal else along][along if horizontal else band] = colour
-    return pixels
+def thumb_pixels(width, height, horizontal, state, point=None):
+    """A green-capped rectangle, or a pointer toward a single row of tick marks.
+
+    ``before`` points up/left and ``after`` down/right. Both-sided or unmarked
+    ranges use the rectangular thumb. Transparent pixels preserve the track.
+    """
+    across, length = (width, height) if horizontal else (height, width)
+    shades = thumb_shades(state, length)
+    pixels = [[None] * across for _ in range(length)]
+    accent = {"normal": ("#81DC83", "#49C94B"), "hover": THUMB_HOVER_ACCENT,
+              "pressed": ("#409D42", "#2D8F30"), "disabled": ("#DAD8CD", "#C9C7BA")}[state]
+    taper = across // 2
+    for y in range(length):
+        inset = max(0, y - (length - taper - 1)) if point else 0
+        left, right = inset, across - 1 - inset
+        for x in range(left, right + 1):
+            pixels[y][x] = shades[y]
+        pixels[y][left] = THUMB_BORDER_LIGHT
+        pixels[y][right] = THUMB_BORDER_DARK
+        if y == 0:
+            for x in range(left, right):
+                pixels[y][x] = THUMB_BORDER_LIGHT
+        elif y in (1, 2):
+            for x in range(left + 1, right):
+                pixels[y][x] = accent[y - 1]
+        elif inset and right - left > 1:
+            pixels[y][left + 1] = accent[0]
+            pixels[y][right - 1] = accent[1]
+        elif not point and y in (length - 3, length - 2):
+            for x in range(left + 1, right):
+                pixels[y][x] = accent[length - 2 - y]
+        if y == length - 1:
+            for x in range(left, right + 1):
+                pixels[y][x] = THUMB_BORDER_DARK
+    if point == "before":
+        pixels.reverse()
+    return pixels if horizontal else [list(row) for row in zip(*pixels, strict=True)]

@@ -61,6 +61,7 @@ from PySide6.QtGui import (
     QFontMetrics,
     QFontMetricsF,
     QIcon,
+    QIconEngine,
     QLinearGradient,
     QPainter,
     QPainterPath,
@@ -340,11 +341,15 @@ def footer_rows(icon, run_command, metrics):
     return rows[::-1]
 
 
-def green_arrow_icon():
-    pixmap = QPixmap(16, 24)
-    pixmap.fill(Qt.transparent)
-    painter = QPainter(pixmap)
+ARROW_DESIGN = QSize(16, 24)  # the original's arrow box; the arrow is drawn at the screen's resolution from it
+
+
+def paint_green_arrow(painter, rect):
+    """The All Programs arrow, a shaded green triangle in the 16x24 design box, scaled to rect as vector paths."""
+    painter.save()
     painter.setRenderHint(QPainter.Antialiasing)
+    painter.translate(rect.x(), rect.y())
+    painter.scale(rect.width() / ARROW_DESIGN.width(), rect.height() / ARROW_DESIGN.height())
     gradient = QRadialGradient(QPointF(5, 9), 15)
     gradient.setColorAt(0, QColor("#B4E8B4"))
     gradient.setColorAt(0.45, QColor("#3DBE3D"))
@@ -357,8 +362,31 @@ def green_arrow_icon():
     painter.setBrush(gradient)
     painter.setPen(QPen(QColor("#1C7C1C"), 1.6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
     painter.drawPath(path)
-    painter.end()
-    return QIcon(pixmap)
+    painter.restore()
+
+
+class GreenArrowEngine(QIconEngine):
+    def paint(self, painter, rect, _mode, _state):
+        paint_green_arrow(painter, rect)
+
+    def scaledPixmap(self, size, _mode, _state, scale):  # noqa: N802
+        pixmap = QPixmap(round(size.width() * scale), round(size.height() * scale))
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        paint_green_arrow(painter, QRect(0, 0, pixmap.width(), pixmap.height()))
+        painter.end()
+        pixmap.setDevicePixelRatio(scale)
+        return pixmap
+
+    def pixmap(self, size, mode, state):
+        return self.scaledPixmap(size, mode, state, 1.0)
+
+    def clone(self):
+        return GreenArrowEngine()
+
+
+def green_arrow_icon():
+    return QIcon(GreenArrowEngine())
 
 
 def rounded_top_outline():

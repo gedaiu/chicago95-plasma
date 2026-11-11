@@ -374,6 +374,9 @@ Visual consistency checks:
   comparisons cover all four positions and selection, disabled and hover states.
   Luna GTK switches compare both positions across normal, disabled, hover, pressed
   and keyboard-focus states, including marks, thumb placement and visible feedback.
+  Luna sliders use green-capped rectangular thumbs without marks and pointed
+  thumbs facing a single row of tick marks, as in the XP screen-resolution control.
+  Qt tests also require visible ticks and the pointed silhouette.
   Luna sliders compare Qt/GTK3/GTK4 thumb pixels in both orientations, including
   hover, pressed, disabled and endpoint states. They require a smooth gradient and
   compare GTK track geometry and thumb placement.

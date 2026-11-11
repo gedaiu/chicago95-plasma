@@ -1,11 +1,10 @@
 """Icons the Start menus draw at a fractional screen scale (chicago95ui.crisp_icon) and the icon set they come from
 (chicago95ui.menu_icon_theme)."""
 
+import chicago95ui
 import pytest
 from PySide6.QtCore import QRect, QSize, Qt
 from PySide6.QtGui import QIcon, QImage, QPainter
-
-import chicago95ui
 
 
 @pytest.fixture
@@ -19,7 +18,8 @@ def icon_theme(tmp_path, qt_app):
         QPainter(picture).fillRect(size // 4, size // 4, size // 2, size // 2, Qt.red)
         picture.save(str(root / f"apps/{size}/{name}.png"))
     (root / "index.theme").write_text(
-        "[Icon Theme]\nName=Probe\nDirectories=apps/48,apps/22\n\n[apps/48]\nSize=48\nType=Fixed\n\n[apps/22]\nSize=22\nType=Fixed\n"
+        "[Icon Theme]\nName=Probe\nDirectories=apps/48,apps/22\n\n"
+        "[apps/48]\nSize=48\nType=Fixed\n\n[apps/22]\nSize=22\nType=Fixed\n"
     )
     paths, name = QIcon.themeSearchPaths(), QIcon.themeName()
     QIcon.setThemeSearchPaths([str(tmp_path / "icons")])

@@ -365,15 +365,20 @@ def test_luna_scrollbar_thumb_has_four_visible_grip_ridges(gtk_images, version, 
 
 @pytest.mark.parametrize("orientation", ("horizontal", "vertical"))
 @pytest.mark.parametrize("state", ("normal", "start", "end", "disabled", "hovered", "pressed"))
-def test_luna_slider_thumb_matches_qt_and_has_a_smooth_gradient(qt_app, gtk_images, orientation, state, tmp_path):
+@pytest.mark.parametrize("point", (None, "before", "after"))
+def test_luna_slider_thumb_matches_qt_and_has_a_smooth_gradient(
+    qt_app, gtk_images, orientation, state, point, tmp_path
+):
     import chicago95luna
     from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QStyleOptionSlider
+    from PySide6.QtWidgets import QSlider, QStyleOptionSlider
 
     horizontal = orientation == "horizontal"
     style = chicago95luna.LunaStyle()
     option = QStyleOptionSlider()
-    option.rect = QRect(0, 0, 180, 21) if horizontal else QRect(0, 0, 21, 180)
+    thickness = 31 if point else 21
+    option.rect = QRect(0, 0, 180, thickness) if horizontal else QRect(0, 0, thickness, 180)
+    option.tickPosition = {None: QSlider.NoTicks, "before": QSlider.TicksAbove, "after": QSlider.TicksBelow}[point]
     option.orientation = Qt.Horizontal if horizontal else Qt.Vertical
     option.minimum, option.maximum = 0, 100
     option.sliderPosition = {"start": 0, "end": 100}.get(state, 40)
@@ -393,15 +398,30 @@ def test_luna_slider_thumb_matches_qt_and_has_a_smooth_gradient(qt_app, gtk_imag
     handle = style.subControlRect(QStyle.CC_Slider, option, QStyle.SC_SliderHandle)
     qt = qimage_to_pil(image).crop((handle.x(), handle.y(), handle.right() + 1, handle.bottom() + 1))
     assert qt.size == ((11, 21) if horizontal else (21, 11))
-    # Four flat colour bands are not a gradient, even if both GTK versions match them.
-    shades = [qt.getpixel((5, i) if horizontal else (i, 5)) for i in range(3, 20)]
-    assert len(set(shades)) >= 12
+    # Inspect the neutral body, excluding the green/orange end accents and pointer.
+    shades = [qt.getpixel((5, i) if horizontal else (i, 5)) for i in range(5, 15)]
+    assert len(set(shades)) >= 8
     luminance = [sum(pixel) for pixel in shades]
-    assert luminance == sorted(luminance, reverse=state != "pressed")
+    assert luminance == sorted(luminance, reverse=(state != "pressed") != (point == "before"))
+    if point:
+        # Both corners at the pointed end must be transparent to the window background.
+        end = 0 if point == "before" else 20
+        assert qt.getpixel((0, end) if horizontal else (end, 0)) == (236, 233, 216)
+        assert qt.getpixel((10, end) if horizontal else (end, 10)) == (236, 233, 216)
+        assert qt.getpixel((5, end) if horizontal else (end, 5)) != (236, 233, 216)
+    if state in ("normal", "start", "end"):
+        assert (73, 201, 75) in set(qt.get_flattened_data()), "normal thumb must have the reference's green accent"
     for version in ("3.0", "4.0"):
-        actual = gtk_images[version, "slider", f"{state}-{orientation}"]
+        actual = gtk_images[version, "slider" if point is None else f"slider-{point}", f"{state}-{orientation}"]
+        track_column = ([actual.getpixel((30, y)) for y in range(actual.height)] if horizontal else
+                        [actual.getpixel((x, 30)) for x in range(actual.width)])
+        assert track_column.count((157, 156, 150)) == 1, "track must be a single grey line"
+        assert (255, 255, 255) not in track_column, "the reference has no white track highlight"
         border = [(x, y) for y in range(actual.height) for x in range(actual.width)
                   if actual.getpixel((x, y)) in ((181, 196, 205), (119, 136, 146))]
+        if point:
+            ticks = sum(pixel == (172, 168, 153) for pixel in actual.get_flattened_data())
+            assert ticks == 15, "five visible ticks required"
         assert border, "slider thumb is missing"
         xs, ys = zip(*border, strict=True)
         thumb = actual.crop((min(xs), min(ys), max(xs) + 1, max(ys) + 1))

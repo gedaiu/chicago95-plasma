@@ -792,6 +792,55 @@ scale {
   margin: 0;
 }
 
+scale.horizontal.marks-before, scale.horizontal.marks-after {
+  min-height: 26px;
+}
+
+scale.vertical.marks-before, scale.vertical.marks-after {
+  min-width: 26px;
+}
+
+scale marks {
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+scale.horizontal marks.bottom {
+  padding-top: 2px;
+}
+
+scale.horizontal marks.top {
+  padding-bottom: 2px;
+}
+
+scale.vertical marks.right {
+  padding-left: 2px;
+}
+
+scale.vertical marks.left {
+  padding-right: 2px;
+}
+
+scale mark indicator {
+  color: #ACA899;
+  background-color: #ACA899;
+  background-image: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+scale.horizontal mark indicator {
+  min-width: 1px;
+  min-height: 3px;
+}
+
+scale.vertical mark indicator {
+  min-width: 3px;
+  min-height: 1px;
+}
+
 scale trough {
   padding: 0;
   margin: 0;
@@ -819,9 +868,12 @@ scale slider {
 }
 
 scale.horizontal trough {
-  min-height: 4px;
+  min-height: 1px;
   min-width: 0;
-  background-image: linear-gradient(to bottom, #838383 0px, #838383 1px, #ECECE7 1px, #ECECE7 2px, #F5F4EF 2px, #F5F4EF 3px, #FFFFFF 3px, #FFFFFF 4px);
+  background-image: linear-gradient(to bottom, #9D9C96 0px, #9D9C96 1px);
+  background-size: 100% 1px;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 scale.horizontal slider {
@@ -834,22 +886,57 @@ scale.horizontal slider {
   background-image: url("assets/slider-horizontal-normal.png");
 }
 
+scale.horizontal.marks-before:not(.marks-after) slider {
+  background-image: url("assets/slider-horizontal-normal-before.png");
+}
+
+scale.horizontal.marks-after:not(.marks-before) slider {
+  background-image: url("assets/slider-horizontal-normal-after.png");
+}
+
 scale.horizontal slider:hover {
   background-image: url("assets/slider-horizontal-hover.png");
+}
+
+scale.horizontal.marks-before:not(.marks-after) slider:hover {
+  background-image: url("assets/slider-horizontal-hover-before.png");
+}
+
+scale.horizontal.marks-after:not(.marks-before) slider:hover {
+  background-image: url("assets/slider-horizontal-hover-after.png");
 }
 
 scale.horizontal slider:active {
   background-image: url("assets/slider-horizontal-pressed.png");
 }
 
+scale.horizontal.marks-before:not(.marks-after) slider:active {
+  background-image: url("assets/slider-horizontal-pressed-before.png");
+}
+
+scale.horizontal.marks-after:not(.marks-before) slider:active {
+  background-image: url("assets/slider-horizontal-pressed-after.png");
+}
+
 scale.horizontal slider:disabled {
   background-image: url("assets/slider-horizontal-disabled.png");
 }
 
+scale.horizontal.marks-before:not(.marks-after) slider:disabled {
+  background-image: url("assets/slider-horizontal-disabled-before.png");
+}
+
+scale.horizontal.marks-after:not(.marks-before) slider:disabled {
+  background-image: url("assets/slider-horizontal-disabled-after.png");
+}
+
 scale.vertical trough {
   min-height: 0;
-  min-width: 4px;
-  background-image: linear-gradient(to right, #838383 0px, #838383 1px, #ECECE7 1px, #ECECE7 2px, #F5F4EF 2px, #F5F4EF 3px, #FFFFFF 3px, #FFFFFF 4px);
+  min-width: 1px;
+  background-image: linear-gradient(to right, #9D9C96 0px, #9D9C96 1px);
+  background-size: 1px 100%;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 scale.vertical slider {
@@ -862,16 +949,48 @@ scale.vertical slider {
   background-image: url("assets/slider-vertical-normal.png");
 }
 
+scale.vertical.marks-before:not(.marks-after) slider {
+  background-image: url("assets/slider-vertical-normal-before.png");
+}
+
+scale.vertical.marks-after:not(.marks-before) slider {
+  background-image: url("assets/slider-vertical-normal-after.png");
+}
+
 scale.vertical slider:hover {
   background-image: url("assets/slider-vertical-hover.png");
+}
+
+scale.vertical.marks-before:not(.marks-after) slider:hover {
+  background-image: url("assets/slider-vertical-hover-before.png");
+}
+
+scale.vertical.marks-after:not(.marks-before) slider:hover {
+  background-image: url("assets/slider-vertical-hover-after.png");
 }
 
 scale.vertical slider:active {
   background-image: url("assets/slider-vertical-pressed.png");
 }
 
+scale.vertical.marks-before:not(.marks-after) slider:active {
+  background-image: url("assets/slider-vertical-pressed-before.png");
+}
+
+scale.vertical.marks-after:not(.marks-before) slider:active {
+  background-image: url("assets/slider-vertical-pressed-after.png");
+}
+
 scale.vertical slider:disabled {
   background-image: url("assets/slider-vertical-disabled.png");
+}
+
+scale.vertical.marks-before:not(.marks-after) slider:disabled {
+  background-image: url("assets/slider-vertical-disabled-before.png");
+}
+
+scale.vertical.marks-after:not(.marks-before) slider:disabled {
+  background-image: url("assets/slider-vertical-disabled-after.png");
 }
 
 treeview header button, columnview header button, column-header button {
@@ -1036,13 +1155,13 @@ label.title, headerbar .title {
   font-weight: bold;
 }
 scale.horizontal trough {
-  background-size: calc(100% - 10px) 100%;
+  background-size: calc(100% - 10px) 1px;
   background-position: center;
   background-repeat: no-repeat;
 }
 
 scale.vertical trough {
-  background-size: 100% calc(100% - 10px);
+  background-size: 1px calc(100% - 10px);
   background-position: center;
   background-repeat: no-repeat;
 }

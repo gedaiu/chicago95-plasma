@@ -464,3 +464,20 @@ def test_all_programs_is_filled_by_the_menu_it_is_given_folders_and_all(qt_app):
     menu.close()
 
     assert titles == ["Accessories"]
+
+
+def test_the_all_programs_arrow_is_drawn_at_the_screens_own_resolution(qt_app):
+    """A 16x24 bitmap stretched to 2x is made of 2x2 blocks; a vector arrow draws its edges in device pixels."""
+    image = QImage(32, 48, QImage.Format_ARGB32_Premultiplied)
+    image.setDevicePixelRatio(2)
+    image.fill(Qt.transparent)
+    painter = QPainter(image)
+    lunamenu.green_arrow_icon().paint(painter, 0, 0, 16, 24)
+    painter.end()
+    split_blocks = sum(
+        len({image.pixel(x + dx, y + dy) for dx in (0, 1) for dy in (0, 1)}) > 1
+        for x in range(0, 32, 2)
+        for y in range(0, 48, 2)
+    )
+
+    assert split_blocks >= 30

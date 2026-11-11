@@ -878,7 +878,8 @@ def start_menu_rule(tmp_path, look):
     (tmp_path / ".config/chicago95rc").write_text(f"[StartMenu]\nstyle={look}\n")
     run_setup(tmp_path, "--components=look,startmenu", f"--look={look}", "--screen=1920x1080@1")
     rules = (tmp_path / ".config/kwinrulesrc").read_text()
-    return dict(line.split("=", 1) for line in rules.split("[chicago95-startmenu]")[1].split("\n[")[0].splitlines() if "=" in line)
+    rule = rules.split("[chicago95-startmenu]")[1].split("\n[")[0]
+    return dict(line.split("=", 1) for line in rule.splitlines() if "=" in line)
 
 
 def test_the_xp_start_menu_sits_right_on_the_taskbar_with_no_gap(tmp_path):

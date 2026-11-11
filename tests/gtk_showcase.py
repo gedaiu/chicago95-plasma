@@ -97,11 +97,13 @@ def widgets():
         yield "Inputs", f"{title}: normal, disabled, hovered, pressed", [
             control for control_kind, _state, control in inputs if control_kind == kind
         ]
-    for orientation in ("horizontal", "vertical"):
-        yield "Ranges", f"Sliders: {orientation}, normal, disabled, hovered, pressed", [
-            control for state, axis, control in slider_widgets()
-            if axis == orientation and state in ("normal", "disabled", "hovered", "pressed")
-        ]
+    for point in (None, "after"):
+        for orientation in ("horizontal", "vertical"):
+            label = "with ticks" if point else "plain"
+            yield "Ranges", f"Sliders: {orientation}, {label}, normal, disabled, hovered, pressed", [
+                control for state, axis, control in slider_widgets(point)
+                if axis == orientation and state in ("normal", "disabled", "hovered", "pressed")
+            ]
     progress = Gtk.ProgressBar()
     progress.set_fraction(0.55)
     progress.set_size_request(260, -1)
@@ -263,8 +265,10 @@ def consistency_widgets():
                 bar._audit_interaction = state
             yield "Ranges", f"scrollbar {state}-{orientation}", [bar]
 
-    for state, orientation, scale in slider_widgets():
-        yield "Ranges", f"slider {state}-{orientation}", [scale]
+    for point in (None, "before", "after"):
+        for state, orientation, scale in slider_widgets(point):
+            kind = "slider" if point is None else f"slider-{point}"
+            yield "Ranges", f"{kind} {state}-{orientation}", [scale]
 
     for state in ("normal", "disabled", "unlabelled"):
         frame = Gtk.Frame()
@@ -293,12 +297,18 @@ def consistency_widgets():
         yield "Inputs", f"{kind} {state}", [control]
 
 
-def slider_widgets():
+def slider_widgets(point=None):
     for orientation in ("horizontal", "vertical"):
         for state, value in (("normal", 40), ("start", 0), ("end", 100), ("disabled", 40),
                              ("hovered", 40), ("pressed", 40)):
             scale = Gtk.Scale.new_with_range(getattr(Gtk.Orientation, orientation.upper()), 0, 100, 1)
             scale.set_draw_value(False)
+            if point:
+                side = ((Gtk.PositionType.TOP if point == "before" else Gtk.PositionType.BOTTOM)
+                        if orientation == "horizontal" else
+                        (Gtk.PositionType.LEFT if point == "before" else Gtk.PositionType.RIGHT))
+                for mark in (0, 25, 50, 75, 100):
+                    scale.add_mark(mark, side, None)
             scale.set_value(value)
             scale.set_size_request(180, 21) if orientation == "horizontal" else scale.set_size_request(21, 180)
             scale.set_sensitive(state != "disabled")

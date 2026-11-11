@@ -322,15 +322,15 @@ def switch_rules():
         yield block(f"switch{pseudo} slider", background_image=f'url("assets/switch-thumb-{state}.png")')
 
 
-def slider_png(horizontal, state):
+def slider_png(horizontal, state, point=None):
     import io
 
     from PIL import Image
 
     width, height = slider.THUMB_SIZE if horizontal else slider.THUMB_SIZE[::-1]
-    image = Image.new("RGB", (width, height))
-    image.putdata([tuple(bytes.fromhex(pixel[1:]))
-                   for row in slider.thumb_pixels(width, height, horizontal, state) for pixel in row])
+    image = Image.new("RGBA", (width, height))
+    image.putdata([(*bytes.fromhex(pixel[1:]), 255) if pixel else (0, 0, 0, 0)
+                   for row in slider.thumb_pixels(width, height, horizontal, state, point) for pixel in row])
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
     return buffer.getvalue()
@@ -338,6 +338,17 @@ def slider_png(horizontal, state):
 
 def scale_rules():
     yield block("scale", padding="0", margin="0")
+    yield block("scale.horizontal.marks-before, scale.horizontal.marks-after", min_height="26px")
+    yield block("scale.vertical.marks-before, scale.vertical.marks-after", min_width="26px")
+    yield block("scale marks", padding="0", margin="0", border="0")
+    yield block("scale.horizontal marks.bottom", padding_top="2px")
+    yield block("scale.horizontal marks.top", padding_bottom="2px")
+    yield block("scale.vertical marks.right", padding_left="2px")
+    yield block("scale.vertical marks.left", padding_right="2px")
+    yield block("scale mark indicator", color="#ACA899", background_color="#ACA899", background_image="none",
+                border="0", padding="0", margin="0")
+    yield block("scale.horizontal mark indicator", min_width="1px", min_height="3px")
+    yield block("scale.vertical mark indicator", min_width="3px", min_height="1px")
     yield block("scale trough", padding="0", margin="0", border="0", border_radius="0",
                 box_shadow="none", min_width="0", min_height="0")
     yield block("scale highlight, scale fill", background="none", border="0", box_shadow="none")
@@ -348,8 +359,10 @@ def scale_rules():
         bands = ", ".join(f"{colour} {i}px, {colour} {i + 1}px"
                           for i, colour in enumerate(slider.GROOVE_ROWS))
         yield block(f"scale.{orientation} trough",
-                    min_height="4px" if horizontal else "0", min_width="0" if horizontal else "4px",
-                    background_image=f"linear-gradient(to {direction}, {bands})")
+                    min_height="1px" if horizontal else "0", min_width="0" if horizontal else "1px",
+                    background_image=f"linear-gradient(to {direction}, {bands})",
+                    background_size="100% 1px" if horizontal else "1px 100%",
+                    background_position="center", background_repeat="no-repeat")
         yield block(f"scale.{orientation} slider", min_width="11px" if horizontal else "21px",
                     min_height="21px" if horizontal else "11px",
                     margin="-8px 0" if horizontal else "0 -8px")
@@ -357,6 +370,10 @@ def scale_rules():
                               ("disabled", ":disabled")):
             yield block(f"scale.{orientation} slider{pseudo}",
                         background_image=f'url("assets/slider-{orientation}-{state}.png")')
+            for point in ("before", "after"):
+                other = "after" if point == "before" else "before"
+                yield block(f"scale.{orientation}.marks-{point}:not(.marks-{other}) slider{pseudo}",
+                            background_image=f'url("assets/slider-{orientation}-{state}-{point}.png")')
 
 
 def scale_backend_rules(version):
@@ -368,9 +385,13 @@ def scale_backend_rules(version):
         horizontal = orientation == "horizontal"
         if version == "3.0":
             rules.append(block(f"scale.{orientation}", padding="0 5px" if horizontal else "5px 0"))
+            # GTK3 draws its indicator line with inclusive endpoints (2 CSS pixels become 3).
+            rules.append(block(f"scale.{orientation} mark indicator",
+                               min_height="2px" if horizontal else "1px",
+                               min_width="1px" if horizontal else "2px"))
         else:
             rules.append(block(f"scale.{orientation} trough",
-                               background_size="calc(100% - 10px) 100%" if horizontal else "100% calc(100% - 10px)",
+                               background_size="calc(100% - 10px) 1px" if horizontal else "1px calc(100% - 10px)",
                                background_position="center", background_repeat="no-repeat"))
     return "\n".join(rules)
 
@@ -912,6 +933,9 @@ def write_theme(out):
             for state in ("normal", "hover", "pressed", "disabled"):
                 (assets / f"slider-{orientation}-{state}.png").write_bytes(
                     slider_png(orientation == "horizontal", state))
+                for point in ("before", "after"):
+                    (assets / f"slider-{orientation}-{state}-{point}.png").write_bytes(
+                        slider_png(orientation == "horizontal", state, point))
         for state in ("normal", "hovered", "pressed", "focused", "disabled"):
             (assets / f"switch-thumb-{state}.png").write_bytes(switch_png("thumb", state=state))
             for active in (False, True):

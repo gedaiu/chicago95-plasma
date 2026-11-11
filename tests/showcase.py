@@ -537,7 +537,7 @@ def gtk_controls(look, scratch, audit=False, audit_kinds=()):
             output = scratch / f"gtk-{version}"
             (output / "manifest.json").unlink(missing_ok=True)
             commands.append(
-                f"timeout 30 {quote(sys.executable)} {quote(str(REPO / 'tests/gtk_showcase.py'))} "
+                f"timeout 60 {quote(sys.executable)} {quote(str(REPO / 'tests/gtk_showcase.py'))} "
                 f"{version} {theme} {quote(str(output))}{' --consistency' if audit else ''} "
                 + (f"--only {quote(','.join(audit_kinds))} " if audit_kinds else "")
                 + f"> {quote(str(work / (version + '.log')))} 2>&1"
@@ -584,7 +584,7 @@ def gtk_controls(look, scratch, audit=False, audit_kinds=()):
                     "Radio buttons": "Radio buttons",
                     "Text fields": "Text fields",
                     "Progress bar": "Progress bar",
-                    "Sliders": "Sliders (plain, disabled, vertical)",
+                    "Sliders": "Sliders (plain, ticks, disabled, vertical)",
                     "Tabs": "Tabs (Qt's own tab widget)",
                 }.get(label.split(":")[0])
                 counterpart = original_control(look, reference_name)
