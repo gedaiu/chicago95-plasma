@@ -41,6 +41,9 @@ KEY_SELECTORS = [
     "tooltip",
     "treeview header button",
     "spinbutton button",
+    "switch",
+    "switch:checked",
+    "switch slider",
 ]
 KEY_COLOURS = [
     "#003C74",
@@ -237,18 +240,30 @@ def test_inactive_titlebar_uses_the_inactive_palette_column():
 
 
 
-def test_titlebar_block_paints_the_message_dialog_title_box_active_and_backdrop():
+def titlebar_rules():
     block = subprocess.run(
         [sys.executable, str(GENERATOR), "--titlebar"], capture_output=True, text=True, check=True
     ).stdout
-    selector_lines = [line for line in block.splitlines() if line.endswith("{")]
+    return re.findall(r"(?:^|\n)([^\n{]+) \{\n(.*?)\n\}", block, re.S)
 
+
+def test_titlebar_block_paints_the_message_dialog_title_box_active_and_backdrop():
+    selectors = {selector.strip() for line, _ in titlebar_rules() for selector in line.split(",")}
+
+    assert {
+        "messagedialog .titlebar",
+        "messagedialog .titlebar .title",
+        "messagedialog .titlebar:backdrop",
+        "messagedialog .titlebar:backdrop .title",
+    } <= selectors
+
+
+def test_title_labels_get_the_caption_text_but_no_second_gradient_of_their_own():
     assert [
-        ("messagedialog .titlebar, " in line, "messagedialog .titlebar .title" in line) for line in selector_lines
-    ] + [
-        ("messagedialog .titlebar:backdrop, " in line, "messagedialog .titlebar:backdrop .title" in line)
-        for line in selector_lines
-    ] == [(True, True), (False, False), (False, False), (True, True)]
+        ("background" in body, "color:" in body, "text-shadow: 1px 1px 0 #0A246A;" in body)
+        for selectors, body in titlebar_rules()
+        if selectors.strip().endswith(" .title")
+    ] == [(False, True, True)] * 2
 
 
 @pytest.mark.parametrize("version", ["3.0", "4.0"])
@@ -259,6 +274,34 @@ def test_message_dialog_buttons_stand_six_pixels_apart_inside_an_eleven_pixel_ma
         rule_bodies(text, "messagedialog .dialog-action-area > button:not(:first-child)"),
         rule_bodies(text, "messagedialog .dialog-action-box"),
     ) == (["  margin-left: 6px;"], ["  padding: 0 11px 11px 11px;"])
+
+
+@pytest.mark.parametrize(
+    ("selector", "outer_left", "outer_bottom"),
+    [
+        ("messagedialog .dialog-vbox", "#0019CF", "#00138C"),
+        ("messagedialog .dialog-vbox:backdrop", "#5B68CD", "#4F53BC"),
+    ],
+)
+def test_message_dialog_body_carries_the_four_pixel_luna_window_frame(selector, outer_left, outer_bottom):
+    body = rule_bodies(css("3.0"), selector)[0]
+
+    assert (
+        f"inset 1px 0 {outer_left}" in body,
+        f"inset 0 -1px {outer_bottom}" in body,
+        f"inset -1px 0 {outer_bottom}" in body,
+        "inset 0 1px" in body,
+        "inset 5px" in body,
+        body.rstrip(";").endswith(f"inset -1px 0 {outer_bottom}"),
+    ) == (True, True, True, False, False, True)
+
+
+def test_band_shadow_lists_the_deepest_band_first_because_gtk_paints_the_last_shadow_on_top():
+    assert generator.band_shadow(None, None, ["#OUTER", "#INNER"], None) == "inset 2px 0 #INNER, inset 1px 0 #OUTER"
+
+
+def test_message_dialog_body_keeps_its_content_off_the_frame():
+    assert "padding: 0 4px 4px 4px;" in rule_bodies(css("3.0"), "messagedialog .dialog-vbox")[0]
 
 PARSE_SCRIPT = """
 import sys

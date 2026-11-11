@@ -290,7 +290,7 @@ set_gtk_theme() { # set_gtk_theme <theme name>   GTK 3 and GTK 4 settings
   import_gtk_progress "$1"
 }
 
-# Keep the classic progress override in both GTK versions; remove it when selecting Luna.
+# Keep shared classic progress/frame rules in both GTK versions; remove them when selecting Luna.
 import_gtk_progress() {
   local version target
   [ "${SETUP_DRY_RUN:-0}" = 1 ] && return 0
@@ -308,7 +308,8 @@ begin, end = "/* Chicago95 progress BEGIN */", "/* Chicago95 progress END */"
 text = target.read_text() if target.exists() else ""
 text = re.sub(re.escape(begin) + r".*?" + re.escape(end) + r"\n?", "", text, flags=re.S)
 if sys.argv[3] == "Chicago95":
-    text = text.rstrip() + "\n" + begin + "\n" + source.read_text() + end + "\n"
+    text = (text.rstrip() + "\n" + begin + "\n" + source.read_text()
+            + source.with_name("gtk-frames-classic.css").read_text() + end + "\n")
 target.write_text(text)
 PYPROGRESS
     record "$target"
@@ -957,10 +958,12 @@ gtk_titlebar_rules() {
     return
   fi
   cat <<RULES
-headerbar.titlebar, .titlebar.default-decoration, headerbar.titlebar .title, .titlebar.default-decoration .title {
+headerbar.titlebar, .titlebar.default-decoration {
   background-image: $(gtk_gradient "$1"); background-color: ${1%%,*}; color: #FFFFFF; font-weight: bold; text-shadow: none; }
-headerbar.titlebar:backdrop, .titlebar.default-decoration:backdrop, headerbar.titlebar:backdrop .title, .titlebar.default-decoration:backdrop .title {
+headerbar.titlebar .title, .titlebar.default-decoration .title { color: #FFFFFF; font-weight: bold; text-shadow: none; }
+headerbar.titlebar:backdrop, .titlebar.default-decoration:backdrop {
   background-image: $(gtk_gradient "$2"); background-color: ${2%%,*}; color: $3; }
+headerbar.titlebar:backdrop .title, .titlebar.default-decoration:backdrop .title { color: $3; }
 RULES
 }
 

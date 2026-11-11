@@ -357,6 +357,9 @@ Visual consistency checks:
   horizontally and vertically. Checks require visible, increasing fill as well as
   matching pixels. Both classic GTK versions share the installed progress CSS;
   Luna explicitly sizes and segments the fill in both orientations.
+  Group boxes compare a single border, fixed label space and child alignment in
+  labelled, disabled and unlabelled cases. The showcase shows real labels and keeps
+  group boxes in their own section, separate from switches.
   Scrollbars compare bar/thumb geometry and end-arrow artwork, including disabled,
   hover and pressed thumbs. **GTK4 removed native stepper buttons:** its end arrows
   are decorative CSS artwork, not clickable controls, and cannot individually disable

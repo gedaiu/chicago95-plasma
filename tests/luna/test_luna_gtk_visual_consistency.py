@@ -255,3 +255,18 @@ def test_luna_thumb_hover_and_press_change_pixels(gtk_images, version):
         hovered = gtk_images[version, "scrollbar", f"hovered-{orientation}"].tobytes()
         pressed = gtk_images[version, "scrollbar", f"pressed-{orientation}"].tobytes()
         assert len({normal, hovered, pressed}) == 3
+
+
+@pytest.mark.parametrize("look", ("classic", "luna"))
+@pytest.mark.parametrize("state", ("normal", "disabled", "unlabelled"))
+def test_gtk_group_box_border_and_content_alignment(gtk_images, classic_gtk_images, look, state, tmp_path):
+    images = gtk_images if look == "luna" else classic_gtk_images
+    a, b = (images[version, "groupbox", state] for version in ("3.0", "4.0"))
+    a.save(tmp_path / "gtk3.png")
+    b.save(tmp_path / "gtk4.png")
+    assert a.size == b.size == (240, 80)
+    diff = ImageChops.difference(a, b)
+    diff.save(tmp_path / "difference.png")
+    assert max(high for _, high in diff.getextrema()) <= 2, str(tmp_path)
+    # The child marker must remain 8x8; border parity must not hide missing content.
+    assert sum(pixel == (0, 0, 0) for pixel in a.get_flattened_data()) == 64

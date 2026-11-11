@@ -1614,6 +1614,19 @@ def test_look_1995_after_luna_restores_the_classic_gtk_theme_font_and_pixel_rule
     ) == (True,) * 6
 
 
+def test_classic_title_labels_take_the_caption_colour_without_restarting_the_gradient(tmp_path):
+    lines = run_bash_with_steps(
+        tmp_path,
+        'SETUP_DECORATION=classic; write_gtk_titlebar_css "#000080,#1084D0" "#808080" "#C0C0C0"; cat ~/.config/gtk-3.0/gtk.css',
+    )
+
+    rules = [rule.split("{") for rule in "\n".join(lines).split("}") if "{" in rule]
+
+    assert [
+        ("background" in body, "color:" in body) for selectors, body in rules if selectors.strip().endswith(" .title")
+    ] == [(False, True)] * 2
+
+
 def test_luna_decoration_writes_the_vertical_title_gradient_into_the_gtk_css(tmp_path):
     lines = run_bash_with_steps(
         tmp_path,
@@ -1673,6 +1686,8 @@ def test_progress_override_is_shared_idempotent_and_removed_for_luna(tmp_path):
         css = tmp_path / f".config/gtk-{version}/gtk.css"
         assert css.read_text().count("/* Chicago95 progress BEGIN */") == 1
         assert source in css.read_text()
+        assert (REPO / "config/gtk-frames-classic.css").read_text() in css.read_text()
     run_bash_with_steps(tmp_path, "import_gtk_progress Chicago95Luna")
     for version in ("3.0", "4.0"):
         assert "progressbar" not in (tmp_path / f".config/gtk-{version}/gtk.css").read_text()
+        assert "frame > label" not in (tmp_path / f".config/gtk-{version}/gtk.css").read_text()

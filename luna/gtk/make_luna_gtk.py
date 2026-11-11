@@ -24,6 +24,7 @@ CAPTION_SHADOW = "#0A246A"
 TITLE_RADIUS = 6
 INACTIVE_CAPTION = "#D8E4F8"
 VERSIONS = ("3.0", "4.0")
+BAND_DEPTH = 4
 
 
 def load_module(name, path):
@@ -35,6 +36,7 @@ def load_module(name, path):
 
 
 kvantum = load_module("luna_kvantum_generator", LUNA_ROOT / "kvantum/make_luna_kvantum.py")
+aurorae_stops = load_module("luna_aurorae_stops", LUNA_ROOT / "aurorae/stops.py")
 stops = kvantum.stops
 palette = kvantum.palette
 GRADIENTS = kvantum.gradient_table()
@@ -49,17 +51,25 @@ def vertical(name):
     )
 
 
+OFFSETS = ("0 {}px", "0 -{}px", "{}px 0", "-{}px 0")
+
+
 def band_shadow(top, bottom, left, right):
-    """Inset one pixel bands, outermost first: a longer offset is painted underneath, so only its inner band shows."""
-    bands = []
-    for depth, (top_colour, bottom_colour, left_colour, right_colour) in enumerate(zip(top, bottom, left, right), 1):
-        bands += [
-            f"inset 0 {depth}px {top_colour}",
-            f"inset 0 -{depth}px {bottom_colour}",
-            f"inset {depth}px 0 {left_colour}",
-            f"inset -{depth}px 0 {right_colour}",
-        ]
-    return ", ".join(bands)
+    """Inset one pixel bands, each side's colours given from the outer edge in. GTK paints the last shadow on top, so
+    the deepest band comes first and every shallower one covers all but its innermost pixel. A side given as None
+    gets no bands."""
+    sides = [(colours, offset) for colours, offset in zip((top, bottom, left, right), OFFSETS) if colours]
+    depth = min(len(colours) for colours, _ in sides)
+    return ", ".join(
+        f"inset {offset.format(band)} {colours[band - 1]}" for band in range(depth, 0, -1) for colours, offset in sides
+    )
+
+
+def window_frame(frame_left, frame_bottom):
+    """The Luna window frame on the left, right and bottom; the right edge shares the bottom's colours, as Aurorae's
+    does. frame_left runs from the outer edge inwards and frame_bottom from the face outwards, as they were sampled."""
+    outward_bottom = list(reversed(frame_bottom))
+    return band_shadow(None, outward_bottom, frame_left, outward_bottom)
 
 
 def corner_glow(light, dark):
@@ -156,27 +166,25 @@ def block(selectors, **properties):
     return f"{selectors} {{\n{body}}}\n"
 
 
-def titlebar_block(active, inactive, caption):
-    corners = f"{TITLE_RADIUS}px {TITLE_RADIUS}px 0 0"
-    shared = dict(
-        border_radius=corners, text_shadow=f"1px 1px 0 {CAPTION_SHADOW}", font_family=CAPTION_FONT, font_weight="bold"
-    )
+TITLE_BARS = ("headerbar.titlebar", ".titlebar.default-decoration", "messagedialog .titlebar")
+
+
+def titlebar_state(state, gradient, caption):
+    """The bar paints the gradient; its title label only the caption text, or it would lay a shorter gradient of its
+    own over the bar's."""
+    bars = [bar + state for bar in TITLE_BARS]
+    text = dict(color=caption, text_shadow=f"1px 1px 0 {CAPTION_SHADOW}", font_family=CAPTION_FONT, font_weight="bold")
     return block(
-        "headerbar.titlebar, .titlebar.default-decoration, messagedialog .titlebar, "
-        "headerbar.titlebar .title, .titlebar.default-decoration .title, messagedialog .titlebar .title",
-        background_image=vertical(active),
-        background_color=GRADIENTS[active][0][1],
-        color="#FFFFFF",
-        **shared,
-    ) + block(
-        "headerbar.titlebar:backdrop, .titlebar.default-decoration:backdrop, messagedialog .titlebar:backdrop, "
-        "headerbar.titlebar:backdrop .title, .titlebar.default-decoration:backdrop .title, "
-        "messagedialog .titlebar:backdrop .title",
-        background_image=vertical(inactive),
-        background_color=GRADIENTS[inactive][0][1],
-        color=caption,
-        **shared,
-    )
+        ", ".join(bars),
+        background_image=vertical(gradient),
+        background_color=GRADIENTS[gradient][0][1],
+        border_radius=f"{TITLE_RADIUS}px {TITLE_RADIUS}px 0 0",
+        **text,
+    ) + block(", ".join(f"{bar} .title" for bar in bars), **text)
+
+
+def titlebar_block(active, inactive, caption):
+    return titlebar_state("", active, "#FFFFFF") + titlebar_state(":backdrop", inactive, caption)
 
 
 def widget_rules():
@@ -207,6 +215,16 @@ def widget_rules():
             margin_left="6px",
         ),
         block("messagedialog .dialog-action-box, .messagedialog .dialog-action-box", padding="0 11px 11px 11px"),
+        # GTK draws a message box's title itself, so no window manager frame surrounds it: its body draws one.
+        block(
+            "messagedialog .dialog-vbox",
+            padding=f"0 {BAND_DEPTH}px {BAND_DEPTH}px {BAND_DEPTH}px",
+            box_shadow=window_frame(palette.PALETTE["border_left"], palette.PALETTE["border_bottom"]),
+        ),
+        block(
+            "messagedialog .dialog-vbox:backdrop",
+            box_shadow=window_frame(aurorae_stops.INACTIVE_BORDER_LEFT, aurorae_stops.INACTIVE_BORDER_BOTTOM),
+        ),
         block("button:active, button:checked", background_image=vertical("button-pressed"), box_shadow="none"),
         block("button:focus, button.default", box_shadow=DEFAULT_SHADOW),
         block("button.default:hover, button:focus:hover", box_shadow=HOVER_SHADOW),
@@ -518,7 +536,14 @@ def widget_rules():
             border_radius="0",
             padding="0",
         ),
-        block("frame > border, frame", border="1px solid " + stops.GROUP_BORDER, border_radius="4px"),
+        block("switch", min_width="34px", min_height="17px", padding="0",
+              border="1px solid " + stops.CHECK_BORDER, border_radius="2px", background_color=FACE),
+        block("switch:checked", background_color=SELECTION),
+        block("switch slider", min_width="15px", min_height="15px", padding="0", margin="0",
+              border="1px solid " + stops.BORDER, border_radius="2px", background_image=vertical("button-body")),
+        block("switch:disabled", background_color=FACE, border_color=stops.DISABLED_BORDER),
+        block("frame", border="1px solid " + stops.GROUP_BORDER, border_radius="4px"),
+        block("frame > border", border="none", padding="0", margin="0"),
         block("separator", background_color=stops.MENU_BORDER, min_width="1px", min_height="1px"),
         block("label:disabled, *:disabled", color=stops.DISABLED_TEXT),
         block("label.title, headerbar .title", font_weight="bold"),

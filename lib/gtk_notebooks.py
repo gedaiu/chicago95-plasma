@@ -31,6 +31,20 @@ notebook > header > tabs > arrow {
   border: none; box-shadow: none; padding: 0; margin: 0;
 }
 """ + css + """
+/* Paint the page's leading edge behind the tabs, not over the selected tab.
+   GTK4 snapshots the stack after the header, so a stack border otherwise closes the gap. */
+notebook > header.top {
+  margin-left: 0; margin-right: 0; padding-left: 3px; padding-right: 3px; padding-bottom: 1px;
+  background-image: linear-gradient(@border_bright, @border_bright);
+  background-repeat: no-repeat; background-size: 100% 1px; background-position: left bottom;
+}
+notebook > header.top + stack { border-top-width: 0; }
+notebook > header.left {
+  margin-top: 0; margin-bottom: 0; padding-top: 3px; padding-bottom: 3px; padding-right: 1px;
+  background-image: linear-gradient(@border_bright, @border_bright);
+  background-repeat: no-repeat; background-size: 1px 100%; background-position: right top;
+}
+notebook > header.left + stack { border-left-width: 0; }
 notebook:focus > header > tabs > tab:checked,
 notebook > header > tabs > tab:checked:focus {
   outline: 1px dotted @outline_color; outline-offset: -5px;

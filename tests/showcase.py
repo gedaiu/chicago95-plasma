@@ -427,7 +427,7 @@ def controls(app, look, scratch):
 CONTROL_GROUPS = (
     "Buttons", "Checkboxes", "Radio buttons", "Inputs", "Scrollbars", "Sliders", "Progress bars",
     "Tabs", "Menus", "Toolbars", "Status bars", "Lists", "Trees", "Tables", "Headers",
-    "Containers and text", "Windows", "Shell",
+    "Group boxes", "Containers and text", "Windows", "Shell",
 )
 
 
@@ -450,6 +450,7 @@ def group(name):
         ("Lists", ("list",)),
         ("Trees", ("tree",)),
         ("Headers", ("header",)),
+        ("Group boxes", ("group box",)),
     ):
         if any(word in name for word in words):
             return group_name
@@ -493,6 +494,7 @@ def gtk_controls(look, scratch, audit=False):
                 notebook_css(CHICAGO95_SRC / "Theme/Chicago95") + scrollbar_css(CHICAGO95_SRC / "Theme/Chicago95")
             )
             progress_css = (REPO / "config/gtk-progress-classic.css").read_text()
+            progress_css += (REPO / "config/gtk-frames-classic.css").read_text()
             for version in ("3.0", "4.0"):
                 config = home / f".config/gtk-{version}"
                 config.mkdir(parents=True, exist_ok=True)

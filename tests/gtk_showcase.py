@@ -133,12 +133,16 @@ def widgets():
     listing.select_row(listing.get_row_at_index(1))
     listing.set_size_request(260, 90)
     yield "Views", "List: selected row", [listing]
-    frame = Gtk.Frame(label="Options")
-    child = Gtk.CheckButton(label="Enable previews")
-    frame.set_child(child) if V4 else frame.add(child)
+    for state in ("normal", "disabled", "unlabelled"):
+        frame = Gtk.Frame(label="Options" if state != "unlabelled" else None)
+        frame.set_size_request(240, 80)
+        child = Gtk.CheckButton(label="Enable previews")
+        frame.set_child(child) if V4 else frame.add(child)
+        frame.set_sensitive(state != "disabled")
+        yield "Containers and text", f"Group box: {state}", [frame]
     switch = Gtk.Switch()
     switch.set_active(True)
-    yield "Containers and text", "Group box and switch", [frame, switch]
+    yield "Containers and text", "Switch", [switch]
 
 
 def consistency_widgets():
@@ -215,6 +219,29 @@ def consistency_widgets():
                 bar._audit_interaction = state
             yield "Ranges", f"scrollbar {state}-{orientation}", [bar]
 
+    for state in ("normal", "disabled", "unlabelled"):
+        frame = Gtk.Frame()
+        if state != "unlabelled":
+            # Fixed label geometry isolates frame layout from Pango glyph rasterisation.
+            label = Gtk.Label()
+            label.set_size_request(48, 18)
+            frame.set_label_widget(label)
+        frame.set_size_request(240, 80)
+        child = Gtk.DrawingArea()
+        child.set_size_request(8, 8)
+        child.set_halign(Gtk.Align.CENTER)
+        child.set_valign(Gtk.Align.CENTER)
+
+        def draw_marker(_area, context, *_args):
+            context.set_source_rgb(0, 0, 0)
+            context.paint()
+            return False
+
+        child.set_draw_func(draw_marker) if V4 else child.connect("draw", draw_marker)
+        frame.set_child(child) if V4 else frame.add(child)
+        frame.set_sensitive(state != "disabled")
+        yield "Containers and text", f"groupbox {state}", [frame]
+
 
 def main():
     Gtk.init() if V4 else Gtk.init([])
@@ -228,9 +255,11 @@ def main():
     loop = GLib.MainLoop()
     position = 0
     window = None
+    capture_attempts = 0
 
     def show_next():
-        nonlocal position, window
+        nonlocal position, window, capture_attempts
+        capture_attempts = 0
         if position == len(catalogue):
             (output / "manifest.json").write_text(json.dumps(manifest))
             loop.quit()
@@ -298,7 +327,7 @@ def main():
         return False
 
     def capture():
-        nonlocal position
+        nonlocal position, capture_attempts
         group, label, _ = catalogue[position]
         path = output / f"{position}.png"
         if V4:
@@ -307,6 +336,12 @@ def main():
             snapshot = Gtk.Snapshot()
             paintable.snapshot(snapshot, window.get_child().get_width(), window.get_child().get_height())
             node = snapshot.to_node()
+            if node is None:
+                # A busy compositor may not have produced the first frame yet.
+                capture_attempts += 1
+                if capture_attempts <= 10:
+                    return True
+                raise RuntimeError(f"GTK4 did not paint {label} after repeated capture attempts")
             renderer = Gsk.CairoRenderer.new()
             renderer.realize(window.get_surface())
             texture = renderer.render_texture(node, None)

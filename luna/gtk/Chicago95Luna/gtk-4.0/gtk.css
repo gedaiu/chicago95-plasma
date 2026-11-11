@@ -129,7 +129,7 @@ button {
 }
 
 button:hover {
-  box-shadow: inset 0 1px #FFF0CF, inset 0 -1px #E59700, inset 1px 0 #FFF0CF, inset -1px 0 #E59700, inset 0 2px #FDD889, inset 0 -2px #F8B330, inset 2px 0 #FDD889, inset -2px 0 #F8B330;
+  box-shadow: inset 0 2px #FDD889, inset 0 -2px #F8B330, inset 2px 0 #FDD889, inset -2px 0 #F8B330, inset 0 1px #FFF0CF, inset 0 -1px #E59700, inset 1px 0 #FFF0CF, inset -1px 0 #E59700;
 }
 
 messagedialog .dialog-action-area > button:not(:first-child), .messagedialog .dialog-action-area > button:not(:first-child) {
@@ -140,17 +140,26 @@ messagedialog .dialog-action-box, .messagedialog .dialog-action-box {
   padding: 0 11px 11px 11px;
 }
 
+messagedialog .dialog-vbox {
+  padding: 0 4px 4px 4px;
+  box-shadow: inset 0 -4px #0048F1, inset 4px 0 #0855DD, inset -4px 0 #0048F1, inset 0 -3px #003DDD, inset 3px 0 #166AEE, inset -3px 0 #003DDD, inset 0 -2px #001EA0, inset 2px 0 #0831D9, inset -2px 0 #001EA0, inset 0 -1px #00138C, inset 1px 0 #0019CF, inset -1px 0 #00138C;
+}
+
+messagedialog .dialog-vbox:backdrop {
+  box-shadow: inset 0 -4px #7586DC, inset 4px 0 #758CDC, inset -4px 0 #7586DC, inset 0 -3px #7587DD, inset 3px 0 #758CDD, inset -3px 0 #7587DD, inset 0 -2px #6D74CD, inset 2px 0 #7480DC, inset -2px 0 #6D74CD, inset 0 -1px #4F53BC, inset 1px 0 #5B68CD, inset -1px 0 #4F53BC;
+}
+
 button:active, button:checked {
   background-image: linear-gradient(to bottom, #D0CBBF 0%, #E2E0D8 33%, #DFDFD6 67%, #F0F0EC 100%);
   box-shadow: none;
 }
 
 button:focus, button.default {
-  box-shadow: inset 0 1px #CEE7FF, inset 0 -1px #89ADE4, inset 1px 0 #BAD2F5, inset -1px 0 #BAD2F5, inset 0 2px #BCD4F6, inset 0 -2px #6982EE, inset 2px 0 #89ADE4, inset -2px 0 #89ADE4;
+  box-shadow: inset 0 2px #BCD4F6, inset 0 -2px #6982EE, inset 2px 0 #89ADE4, inset -2px 0 #89ADE4, inset 0 1px #CEE7FF, inset 0 -1px #89ADE4, inset 1px 0 #BAD2F5, inset -1px 0 #BAD2F5;
 }
 
 button.default:hover, button:focus:hover {
-  box-shadow: inset 0 1px #FFF0CF, inset 0 -1px #E59700, inset 1px 0 #FFF0CF, inset -1px 0 #E59700, inset 0 2px #FDD889, inset 0 -2px #F8B330, inset 2px 0 #FDD889, inset -2px 0 #F8B330;
+  box-shadow: inset 0 2px #FDD889, inset 0 -2px #F8B330, inset 2px 0 #FDD889, inset -2px 0 #F8B330, inset 0 1px #FFF0CF, inset 0 -1px #E59700, inset 1px 0 #FFF0CF, inset -1px 0 #E59700;
 }
 
 button:disabled {
@@ -239,7 +248,7 @@ radio {
 }
 
 check:hover, radio:hover {
-  box-shadow: inset 0 1px #FDDFA2, inset 0 -1px #FAC45D, inset 1px 0 #FDDFA2, inset -1px 0 #FAC45D, inset 0 2px #FDDFA2, inset 0 -2px #FAC45D, inset 2px 0 #FDDFA2, inset -2px 0 #FAC45D;
+  box-shadow: inset 0 2px #FDDFA2, inset 0 -2px #FAC45D, inset 2px 0 #FDDFA2, inset -2px 0 #FAC45D, inset 0 1px #FDDFA2, inset 0 -1px #FAC45D, inset 1px 0 #FDDFA2, inset -1px 0 #FAC45D;
 }
 
 check:active, radio:active {
@@ -495,7 +504,7 @@ scale slider {
 }
 
 scale slider:hover {
-  box-shadow: inset 0 1px #FDDFA2, inset 0 -1px #FAC45D, inset 1px 0 #FDDFA2, inset -1px 0 #FAC45D, inset 0 2px #FDDFA2, inset 0 -2px #FAC45D, inset 2px 0 #FDDFA2, inset -2px 0 #FAC45D;
+  box-shadow: inset 0 2px #FDDFA2, inset 0 -2px #FAC45D, inset 2px 0 #FDDFA2, inset -2px 0 #FAC45D, inset 0 1px #FDDFA2, inset 0 -1px #FAC45D, inset 1px 0 #FDDFA2, inset -1px 0 #FAC45D;
 }
 
 scale slider:active {
@@ -537,9 +546,43 @@ tooltip, tooltip.background {
   padding: 0;
 }
 
-frame > border, frame {
+switch {
+  min-width: 34px;
+  min-height: 17px;
+  padding: 0;
+  border: 1px solid #1C5180;
+  border-radius: 2px;
+  background-color: #ECE9D8;
+}
+
+switch:checked {
+  background-color: #316AC5;
+}
+
+switch slider {
+  min-width: 15px;
+  min-height: 15px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid #003C74;
+  border-radius: 2px;
+  background-image: linear-gradient(to bottom, #FFFFFF 0%, #F8F8F6 22%, #F1F1EC 72%, #ECEBE6 89%, #D6D0C5 100%);
+}
+
+switch:disabled {
+  background-color: #ECE9D8;
+  border-color: #C9C7BA;
+}
+
+frame {
   border: 1px solid #D0D0BF;
   border-radius: 4px;
+}
+
+frame > border {
+  border: none;
+  padding: 0;
+  margin: 0;
 }
 
 separator {
@@ -572,20 +615,32 @@ scrollbar.vertical:disabled trough {
 }
 
 
-headerbar.titlebar, .titlebar.default-decoration, messagedialog .titlebar, headerbar.titlebar .title, .titlebar.default-decoration .title, messagedialog .titlebar .title {
+headerbar.titlebar, .titlebar.default-decoration, messagedialog .titlebar {
   background-image: linear-gradient(to bottom, #0058EE 0%, #3F97FF 3%, #2B90FF 7%, #0372FF 10%, #0365F1 14%, #005CE9 17%, #0058E6 21%, #0054E3 24%, #0054E3 31%, #0055E5 34%, #0055E5 48%, #0055EA 52%, #0055EA 55%, #0058EE 59%, #005BF2 62%, #005AF5 66%, #0060F9 69%, #0164F9 72%, #026AFE 76%, #026AFE 86%, #0065FD 90%, #0060FC 93%, #004DE3 97%, #0043CF 100%);
   background-color: #0058EE;
-  color: #FFFFFF;
   border-radius: 6px 6px 0 0;
+  color: #FFFFFF;
   text-shadow: 1px 1px 0 #0A246A;
   font-family: "Trebuchet MS", "Fira Sans", sans-serif;
   font-weight: bold;
 }
-headerbar.titlebar:backdrop, .titlebar.default-decoration:backdrop, messagedialog .titlebar:backdrop, headerbar.titlebar:backdrop .title, .titlebar.default-decoration:backdrop .title, messagedialog .titlebar:backdrop .title {
+headerbar.titlebar .title, .titlebar.default-decoration .title, messagedialog .titlebar .title {
+  color: #FFFFFF;
+  text-shadow: 1px 1px 0 #0A246A;
+  font-family: "Trebuchet MS", "Fira Sans", sans-serif;
+  font-weight: bold;
+}
+headerbar.titlebar:backdrop, .titlebar.default-decoration:backdrop, messagedialog .titlebar:backdrop {
   background-image: linear-gradient(to bottom, #688DE0 0%, #98B2E8 3%, #9DB9EB 7%, #8AACE7 10%, #7EA2E4 14%, #7B9DE1 17%, #7A99E0 21%, #7996DE 24%, #7996DE 31%, #7A96DF 34%, #7A96DF 41%, #7A96E0 45%, #7B97E0 48%, #7B99E1 52%, #7B99E1 55%, #7D9BE3 59%, #7D9BE3 62%, #7F9FE6 66%, #7FA2E6 69%, #80A5E7 72%, #81A7E8 76%, #82A9E9 79%, #82A9E9 83%, #81A7E8 86%, #80A5E7 90%, #7E9DE5 93%, #7A93DF 97%, #7A93DF 100%);
   background-color: #688DE0;
-  color: #D8E4F8;
   border-radius: 6px 6px 0 0;
+  color: #D8E4F8;
+  text-shadow: 1px 1px 0 #0A246A;
+  font-family: "Trebuchet MS", "Fira Sans", sans-serif;
+  font-weight: bold;
+}
+headerbar.titlebar:backdrop .title, .titlebar.default-decoration:backdrop .title, messagedialog .titlebar:backdrop .title {
+  color: #D8E4F8;
   text-shadow: 1px 1px 0 #0A246A;
   font-family: "Trebuchet MS", "Fira Sans", sans-serif;
   font-weight: bold;
