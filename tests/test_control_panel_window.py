@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QComboBox
 
 APPLET_NAMES = [
     "Add New Hardware",
+    "Booting Screen",
     "Display",
     "Explorer",
     "Fonts",
@@ -55,7 +56,7 @@ def test_control_panel_lists_its_applets_alphabetically(window):
 
 
 def test_status_bar_counts_the_objects_when_nothing_is_selected(window):
-    assert window.status_message.text() == "12 object(s)"
+    assert window.status_message.text() == "13 object(s)"
 
 
 def test_status_bar_shows_the_selected_applets_description(window):
@@ -228,8 +229,9 @@ def test_clicking_the_applet_crumb_goes_to_its_first_tab(window):
 
 
 def test_address_bar_drop_down_lists_the_control_panel_and_every_applet_page(window):
-    assert window.address_bar.known_pages()[:3] == [
+    assert window.address_bar.known_pages()[:4] == [
         "Control Panel",
+        "Control Panel > Booting Screen",
         "Control Panel > Display",
         "Control Panel > Explorer",
     ]
@@ -309,7 +311,7 @@ def test_status_bar_is_empty_on_an_applet_page_and_counts_again_on_the_control_p
     on_page = window.status_message.text()
     window.back_action.trigger()
 
-    assert (on_page, window.status_message.text()) == ("", "12 object(s)")
+    assert (on_page, window.status_message.text()) == ("", "13 object(s)")
 
 
 def saved_settings_with_a_setup_checkout(window, tmp_path, **settings):
@@ -465,7 +467,7 @@ def test_status_bar_shows_the_object_count_the_place_icon_and_a_size_grip(window
         window.status_message.text(),
         window.status_place_icon.pixmap().isNull(),
         window.statusBar().grip.isVisible(),
-    ) == ("12 object(s)", False, True)
+    ) == ("13 object(s)", False, True)
 
 
 def test_size_grip_hides_while_the_window_is_maximized_and_returns_when_restored(window, qt_app):

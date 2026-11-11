@@ -8,5 +8,13 @@
       <label>The look's tray spacing: "1995", "1998" or "2000" (wider around the icons)</label>
       <default>1995</default>
     </entry>
+    <entry name="taskbarStyle" type="String">
+      <label>The taskbar component: "classic"</label>
+      <default>classic</default>
+    </entry>
+    <entry name="bevel" type="String">
+      <label>The bevel palette: "1995" (also 1998) or "2000"</label>
+      <default>1995</default>
+    </entry>
   </group>
 </kcfg>

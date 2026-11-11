@@ -95,10 +95,10 @@ kconf() {
 }
 
 # The choices the Control Panel saves in ~/.config/chicago95/setup.conf, one KEY=value per line; KEY sets SETUP_KEY.
-SETTINGS_KEYS="LOOK TITLE_ACTIVE TITLE_INACTIVE BANNER_BG BANNER_FG ICONS FONT FONT_SCOPE CURSOR PANEL MOUSE_HAND DOUBLE_CLICK_MS POINTER_SPEED
+SETTINGS_KEYS="LOOK DECORATION WIDGET_STYLE TASKBAR_STYLE START_MENU_STYLE BEVEL TITLE_ACTIVE TITLE_INACTIVE BANNER_BG BANNER_FG ICONS FONT FONT_SCOPE CURSOR PANEL MOUSE_HAND DOUBLE_CLICK_MS POINTER_SPEED
     TASK_BUTTON_WIDTH QUICK_LAUNCH LAUNCHERS TASKBAR_AUTOHIDE TASKBAR_ON_TOP CLOCK_SHOW CLOCK_HOURS START_TEXT START_LOGO BANNER_TEXT
     SAVER IDLE_MIN LOGIN_STYLE LOGIN_TITLE LOGIN_MESSAGE LOGIN_ICON LOGIN_LOGO EDITION TAGLINE COMPANY COMPANY_LOGO
-    SPLASH_IMAGE LOADING_TEXT LOADING_FOOTER SOUND_THEME CLIPPY_AUTOSTART EXPLORER
+    BOOT_STYLE SPLASH_IMAGE LOADING_TEXT LOADING_FOOTER SOUND_THEME CLIPPY_AUTOSTART EXPLORER
     BACKGROUND_MODE BACKGROUND_COLOR BACKGROUND_PATTERN BACKGROUND_IMAGE BACKGROUND_FILL DESKTOP_ICONS PREVIEW_SIZE
     $(sed -n 's/^EVENT|\([^|]*\)|.*/\1/p' "$REPO/setup/animations.conf" | tr '\n' ' ')"
 
@@ -108,19 +108,24 @@ SETTINGS_KEYS="LOOK TITLE_ACTIVE TITLE_INACTIVE BANNER_BG BANNER_FG ICONS FONT F
 # The 1998 and 2000 banners are measured from the originals (tests/test_startmenu_styles_reference.py).
 apply_look() {
   SETUP_LOOK=$1
-  SETUP_MENU_STYLE=1995
+  SETUP_DECORATION=classic
+  SETUP_WIDGET_STYLE=classic
+  SETUP_TASKBAR_STYLE=classic
+  SETUP_BEVEL=1995
+  SETUP_START_MENU_STYLE=1995
   SETUP_FACE=""
   SETUP_SELECTION=""
   SETUP_ICONS=${OPT_ICONS:-chicago95}
   case "$1" in
   1995) set -- "#000080;#808080;#808080;#C0C0C0" ;;
   1998)
-    SETUP_MENU_STYLE=1998
+    SETUP_START_MENU_STYLE=1998
     SETUP_ICONS=${OPT_ICONS:-se98}
     set -- "#000080,#1084D0;#808080,#C0C0C0;#00007B,#00007B@95,#0000B0@70,#0000F8@45,#0000EE@20,#0000A9@0;#FFFFFF"
     ;;
   2000)
-    SETUP_MENU_STYLE=2000
+    SETUP_START_MENU_STYLE=2000
+    SETUP_BEVEL=2000
     SETUP_FACE="212,208,200"
     SETUP_SELECTION="10,36,106"
     SETUP_ICONS=${OPT_ICONS:-classicos2000}
@@ -339,7 +344,7 @@ apply_icon_set() {
 # Explorer's toolbar buttons (Back, Up, Cut, Copy...) of Windows 95 or 2000 as a small theme over the icon set.
 install_toolbar_icons() { # install_toolbar_icons <icon set it inherits>
   local dest=~/.local/share/icons/Chicago95-Toolbar buttons=1995
-  [ "${SETUP_MENU_STYLE:-1995}" = 2000 ] && buttons=2000
+  [ "${SETUP_BEVEL:-1995}" = 2000 ] && buttons=2000
   put_tree "$REPO/data/toolbar-icons/$buttons" "$dest/actions/22"
   run tee "$dest/index.theme" >/dev/null <<EOF
 [Icon Theme]
@@ -449,7 +454,10 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   kconf kwinrc org.kde.kdecoration2 ButtonsOnLeft M
   kconf kwinrc org.kde.kdecoration2 ButtonsOnRight IAX
   # chicago95-sync-colors draws the bevels with the look's colours, and reads the look from here.
-  run kwriteconfig6 --file chicago95rc --group StartMenu --key style "${SETUP_MENU_STYLE:-1995}"
+  run kwriteconfig6 --file chicago95rc --group Look --key decoration "${SETUP_DECORATION:-classic}"
+  run kwriteconfig6 --file chicago95rc --group Look --key widgetStyle "${SETUP_WIDGET_STYLE:-classic}"
+  run kwriteconfig6 --file chicago95rc --group Look --key bevel "${SETUP_BEVEL:-1995}"
+  run kwriteconfig6 --file chicago95rc --group StartMenu --key style "${SETUP_START_MENU_STYLE:-1995}"
   apply_title_colors
   run plasma-apply-desktoptheme Chicago95 >>"$SETUP_LOG" 2>&1 || true
   if [ "$SETUP_SCALE" != 1 ]; then
@@ -557,7 +565,7 @@ step_startmenu() {
   run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerText "${SETUP_BANNER_TEXT:-Chicago95}"
   run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerBackground "${SETUP_BANNER_BG:-#808080}"
   run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerTextColor "${SETUP_BANNER_FG:-#C0C0C0}"
-  run kwriteconfig6 --file chicago95rc --group StartMenu --key style "${SETUP_MENU_STYLE:-1995}"
+  run kwriteconfig6 --file chicago95rc --group StartMenu --key style "${SETUP_START_MENU_STYLE:-1995}"
   write_branding
   show_copy "(Start menu banner: ${SETUP_BANNER_TEXT:-Chicago95}, ${SETUP_BANNER_BG:-#808080} / ${SETUP_BANNER_FG:-#C0C0C0})" ~/.config/chicago95rc
   place_start_menu
@@ -810,6 +818,9 @@ step_lockscreen() {
   record "$dst"
 }
 
+# The boot and loading screens' style, chosen on its own (Control Panel: Booting Screen); until then, the login's.
+boot_style() { printf '%s' "${SETUP_BOOT_STYLE:-${SETUP_LOGIN_STYLE:-classic}}"; }
+
 write_splash_settings() { # <dir>  settings.js: the loading screen's style, texts and pictures
   local dir="$1" logo image
   ensure_waving_flag
@@ -819,7 +830,7 @@ write_splash_settings() { # <dir>  settings.js: the loading screen's style, text
   if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run tee "$dir/settings.js"; else
     {
       echo ".pragma library"
-      echo "var style = $(js_string "${SETUP_LOGIN_STYLE:-classic}")"
+      echo "var style = $(js_string "$(boot_style)")"
       echo "var brandText = $(js_string "${SETUP_BANNER_TEXT:-Chicago95}")"
       echo "var brandLogo = $(js_string "$logo")"
       echo "var edition = $(js_string "${SETUP_EDITION:-Professional}")"
@@ -831,10 +842,10 @@ write_splash_settings() { # <dir>  settings.js: the loading screen's style, text
       echo "var picture = $(js_string "$image")"
     } >"$dir/settings.js"
   fi
-  show_copy "(loading screen: ${SETUP_LOGIN_STYLE:-classic}, ${SETUP_BANNER_TEXT:-Chicago95})" "$dir/settings.js"
+  show_copy "(loading screen: $(boot_style), ${SETUP_BANNER_TEXT:-Chicago95})" "$dir/settings.js"
 }
 
-step_splash() { # the loading screen follows the login style; its texts and pictures go into settings.js
+step_splash() { # the loading screen in the boot style; its texts and pictures go into settings.js
   local dir=~/.local/share/plasma/look-and-feel/chicago95.splashscreen/contents/splash
   put_tree "$REPO/splash/chicago95.splashscreen" ~/.local/share/plasma/look-and-feel/chicago95.splashscreen
   write_splash_settings "$dir"
@@ -991,7 +1002,7 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
     ui_status "Plymouth is not installed; skipping the boot screen"
     return
   }
-  if [ "${SETUP_LOGIN_STYLE:-classic}" = 2000 ]; then
+  if [ "$(boot_style)" = 2000 ]; then
     # The 2000 start-up screen: our loading screen, rendered at the monitor's size, under the Plymouth
     # script's progress blocks (plymouth/Chicago95-2000); the classic look keeps Chicago95's own theme.
     name=Chicago95-2000
@@ -1071,7 +1082,7 @@ panel_hiding() { # the panel.hiding value the saved choices ask for; nothing whe
 clock_hours() { case "${SETUP_CLOCK_HOURS:-}" in locale | 12 | 24) printf '%s' "$SETUP_CLOCK_HOURS" ;; esac }
 
 panel_layout_script() { # panel_layout_script <layout file>   the layout with this run's height, look and task button width
-  local width hiding hours edits=(-e "s/^panel.height = 28;/panel.height = $PANEL_HEIGHT;/" -e "s/^const look = \"1995\";/const look = \"${SETUP_MENU_STYLE:-1995}\";/")
+  local width hiding hours edits=(-e "s/^panel.height = 28;/panel.height = $PANEL_HEIGHT;/" -e "s/^const look = \"1995\";/const look = \"${SETUP_START_MENU_STYLE:-1995}\";/" -e "s/^const taskbarStyle = \"classic\";/const taskbarStyle = \"${SETUP_TASKBAR_STYLE:-classic}\";/" -e "s/^const bevel = \"1995\";/const bevel = \"${SETUP_BEVEL:-1995}\";/")
   width=$(only_digits "${SETUP_TASK_BUTTON_WIDTH:-}")
   [ -n "$width" ] && edits+=(-e "/^tasks.writeConfig(\"look\", look);/a tasks.writeConfig(\"maxButtonWidth\", $width);")
   [ -n "${SETUP_LAUNCHERS+x}" ] && edits+=(-e "/^tasks.writeConfig(\"look\", look);/a tasks.writeConfig(\"launchers\", $(js_list "$SETUP_LAUNCHERS"));")
@@ -1079,7 +1090,7 @@ panel_layout_script() { # panel_layout_script <layout file>   the layout with th
   [ -n "$hiding" ] && edits+=(-e "s/^panel.hiding = \"none\";/panel.hiding = \"$hiding\";/")
   hours=$(clock_hours)
   if [ "${SETUP_CLOCK_SHOW:-}" = no ]; then
-    edits+=(-e '/^const clock = panel.addWidget/,/^clock.writeConfig/d')
+    edits+=(-e '/^const clock = panel.addWidget/,/^clock.writeConfig("bevel"/d')
   elif [ -n "$hours" ]; then edits+=(-e "/^clock.writeConfig(\"look\", look);/a clock.writeConfig(\"hourFormat\", \"$hours\");"); fi
   sed "${edits[@]}" "$1"
 }
@@ -1108,7 +1119,7 @@ apply_taskbar() { # every run: the Start button's text and logo, and the look in
   [ -n "$hiding" ] && hiding_script="if (panel.widgets('org.chicago95.tasks').length > 0) panel.hiding = \"$hiding\";"
   case "${SETUP_CLOCK_SHOW:-}" in
   no) clock_script="panel.widgets('org.chicago95.clock').forEach(widget => widget.remove());" ;;
-  yes) clock_script="if (panel.widgets('org.chicago95.tasks').length > 0 && panel.widgets('org.chicago95.clock').length === 0) { const clock = panel.addWidget('org.chicago95.clock'); clock.currentConfigGroup = ['General']; clock.writeConfig('look', $(js_string "${SETUP_MENU_STYLE:-1995}")); }" ;;
+  yes) clock_script="if (panel.widgets('org.chicago95.tasks').length > 0 && panel.widgets('org.chicago95.clock').length === 0) { const clock = panel.addWidget('org.chicago95.clock'); clock.currentConfigGroup = ['General']; clock.writeConfig('look', $(js_string "${SETUP_START_MENU_STYLE:-1995}")); clock.writeConfig('taskbarStyle', $(js_string "${SETUP_TASKBAR_STYLE:-classic}")); clock.writeConfig('bevel', $(js_string "${SETUP_BEVEL:-1995}")); }" ;;
   esac
   case "${SETUP_ANIM_TASKBAR:-}" in
   none | slide) slide_script="widget.writeConfig('animateButtons', $([ "$SETUP_ANIM_TASKBAR" = slide ] && echo true || echo false));" ;;
@@ -1134,14 +1145,16 @@ apply_taskbar() { # every run: the Start button's text and logo, and the look in
         ['org.chicago95.start', 'org.chicago95.tasks', 'org.chicago95.trayframe', 'org.chicago95.clock'].forEach(applet =>
             panel.widgets(applet).forEach(widget => {
                 widget.currentConfigGroup = ['General'];
-                widget.writeConfig('look', $(js_string "${SETUP_MENU_STYLE:-1995}"));
+                widget.writeConfig('look', $(js_string "${SETUP_START_MENU_STYLE:-1995}"));
+                widget.writeConfig('taskbarStyle', $(js_string "${SETUP_TASKBAR_STYLE:-classic}"));
+                widget.writeConfig('bevel', $(js_string "${SETUP_BEVEL:-1995}"));
             }));
         $launchers_script
     })" >>"$SETUP_LOG" 2>&1
 }
 
 quick_launch_shown() { # the Quick Launch option: yes, no, or auto for the look's own (quickLaunch.js decides alike)
-  case "${SETUP_QUICK_LAUNCH:-auto}" in yes) return 0 ;; no) return 1 ;; *) [ "${SETUP_MENU_STYLE:-1995}" != 1995 ] ;; esac
+  case "${SETUP_QUICK_LAUNCH:-auto}" in yes) return 0 ;; no) return 1 ;; *) [ "${SETUP_START_MENU_STYLE:-1995}" != 1995 ] ;; esac
 }
 
 quick_launch_defaults() { # the task list's default Quick Launch programs, from its settings file, as a JS list
@@ -1192,7 +1205,7 @@ step_background() {
 
 # The desktop icons: links in ~/Desktop, shown by Plasma's Folder View at the originals' 32px (its size 1) with two label lines.
 # SETUP_DESKTOP_ICONS lists them (computer, documents, network, recycle); unset or auto takes the look's own, empty none.
-desktop_icon_defaults() { case "${SETUP_MENU_STYLE:-1995}" in 1995) printf 'computer,network,recycle' ;; *) printf 'computer,documents,network,recycle' ;; esac }
+desktop_icon_defaults() { case "${SETUP_START_MENU_STYLE:-1995}" in 1995) printf 'computer,network,recycle' ;; *) printf 'computer,documents,network,recycle' ;; esac }
 
 desktop_icons_chosen() {
   local chosen="${SETUP_DESKTOP_ICONS-auto}"
@@ -1204,7 +1217,7 @@ desktop_icon_source() { # desktop_icon_source <icon>   the link file in the repo
   case "$1" in
   computer) printf '%s' "$REPO/config/desktop/my-computer.desktop" ;;
   documents) printf '%s' "$REPO/config/desktop/my-documents.desktop" ;;
-  network) [ "${SETUP_MENU_STYLE:-1995}" = 2000 ] && printf '%s' "$REPO/config/desktop/my-network-places.desktop" || printf '%s' "$REPO/config/desktop/network-neighborhood.desktop" ;;
+  network) [ "${SETUP_START_MENU_STYLE:-1995}" = 2000 ] && printf '%s' "$REPO/config/desktop/my-network-places.desktop" || printf '%s' "$REPO/config/desktop/network-neighborhood.desktop" ;;
   recycle) printf '%s' "$REPO/config/desktop/trash.desktop" ;;
   esac
 }
@@ -1254,11 +1267,11 @@ write_switcher_settings() { # <dir>  settings.js: the Alt+Tab box's preview size
     {
       echo ".pragma library"
       echo "var previewSize = $(preview_size);"
-      echo "var look = $(js_string "${SETUP_MENU_STYLE:-1995}");"
+      echo "var look = $(js_string "${SETUP_START_MENU_STYLE:-1995}");"
       echo "var face = $(js_string "$(face_hex)");"
     } >"$dir/settings.js"
   fi
-  show_copy "(Alt+Tab: previews $(preview_size), look ${SETUP_MENU_STYLE:-1995})" "$dir/settings.js"
+  show_copy "(Alt+Tab: previews $(preview_size), look ${SETUP_START_MENU_STYLE:-1995})" "$dir/settings.js"
 }
 
 step_switcher() { # Alt+Tab: our KWin switcher layout, chosen in kwinrc

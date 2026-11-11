@@ -35,22 +35,22 @@ def title_argument(start, blend):
 GRADIENT_MARGINS = {"2000": "18,52"}
 
 
-def bevel_arguments(scheme, style):
+def bevel_arguments(scheme, bevel):
     """Both generators' options for the face and the look's 3D lines."""
-    bevel = chicago95ui.bevel_colors(scheme["face"], style)
+    colors = chicago95ui.bevel_colors(scheme["face"], bevel)
     return [
         "--face",
         scheme["face"].name(),
         "--light",
-        bevel["light"].name(),
+        colors["light"].name(),
         "--shadow",
-        bevel["shadow"].name(),
+        colors["shadow"].name(),
         "--dark",
-        bevel["dark"].name(),
+        colors["dark"].name(),
     ]
 
 
-def decoration_arguments(scheme, style):
+def decoration_arguments(scheme, bevel):
     """The decoration generator's options for the colour scheme's title colours and the look's bevel."""
     return [
         "--active",
@@ -59,15 +59,15 @@ def decoration_arguments(scheme, style):
         title_argument(scheme["title_inactive"], scheme["title_inactive_blend"]),
         "--inactive-text",
         scheme["title_inactive_text"].name(),
-        *bevel_arguments(scheme, style),
+        *bevel_arguments(scheme, bevel),
         "--gradient-margins",
-        GRADIENT_MARGINS.get(style, "0,0"),
+        GRADIENT_MARGINS.get(bevel, "0,0"),
     ]
 
 
 def main():
-    scheme, style = chicago95ui.read_scheme(), chicago95ui.look_settings()["style"]
-    arguments = decoration_arguments(scheme, style)
+    scheme, bevel = chicago95ui.read_scheme(), chicago95ui.look_settings()["bevel"]
+    arguments = decoration_arguments(scheme, bevel)
     stamp = " ".join(arguments)
     # kdeglobals is rewritten for any setting; only a title colour change is worth a redraw.
     if "--force" not in sys.argv and STAMP.exists() and STAMP.read_text() == stamp:
@@ -84,7 +84,7 @@ def main():
                 str(DECORATION / "make_chicago95_plasmastyle.py"),
                 "--out",
                 str(PLASMA_STYLE),
-                *bevel_arguments(scheme, style),
+                *bevel_arguments(scheme, bevel),
                 "--selection",
                 scheme["selection"].name(),
             ],

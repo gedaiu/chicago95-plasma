@@ -80,7 +80,7 @@ def written_by_apply_taskbar(tmp_path, **settings):
 
 @pytest.mark.parametrize("option", ["yes", "no", "auto"])
 def test_setup_writes_the_quick_launch_option_into_the_task_list(tmp_path, option):
-    written = written_by_apply_taskbar(tmp_path, SETUP_MENU_STYLE=1995, SETUP_QUICK_LAUNCH=option)
+    written = written_by_apply_taskbar(tmp_path, SETUP_START_MENU_STYLE=1995, SETUP_QUICK_LAUNCH=option)
 
     assert f"widget.writeConfig('quickLaunch', \"{option}\")" in written
 
@@ -90,7 +90,7 @@ def test_setup_writes_the_quick_launch_option_into_the_task_list(tmp_path, optio
     [("yes", "1995", True), ("no", "2000", False), ("auto", "1995", False), ("auto", "1998", True)],
 )
 def test_an_empty_quick_launch_is_filled_with_the_defaults_only_where_it_shows(tmp_path, option, look, filled):
-    written = written_by_apply_taskbar(tmp_path, SETUP_MENU_STYLE=look, SETUP_QUICK_LAUNCH=option)
+    written = written_by_apply_taskbar(tmp_path, SETUP_START_MENU_STYLE=look, SETUP_QUICK_LAUNCH=option)
 
     assert ('"applications:firefox.desktop"' in written) is filled
 

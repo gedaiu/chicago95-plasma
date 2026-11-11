@@ -101,7 +101,7 @@ def start_button(qt_app, look, folder, width=None):
     colours = LOOKS[look]
     properties = {key: colours[key] for key in ("face", "light", "shadow", "dark")}
     properties.update(
-        look=look,
+        bevel="2000" if look == "2000" else "1995",
         text="Start",
         logoSource=QUrl.fromLocalFile(str(PLASMOIDS / "org.chicago95.start/contents/images/logo-flag-16.png")),
     )

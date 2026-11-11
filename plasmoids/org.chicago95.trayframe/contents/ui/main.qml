@@ -21,12 +21,12 @@ PlasmoidItem {
     Layout.maximumWidth: 1
     Layout.fillHeight: true
 
-    readonly property bool look2000: Plasmoid.configuration.look === "2000"
+    readonly property bool bevel2000: Plasmoid.configuration.bevel === "2000"
     readonly property int iconSize: 16
     readonly property int iconPitch: 17
     readonly property int iconTop: 7
-    readonly property int clockGap: look2000 ? 4 : 1
-    readonly property int boxPadding: look2000 ? 4 : 3
+    readonly property int clockGap: bevel2000 ? 4 : 1
+    readonly property int boxPadding: bevel2000 ? 4 : 3
 
     // The panel layout holds one container per applet: ours, the tray's and the clock's.
     property Item container: null

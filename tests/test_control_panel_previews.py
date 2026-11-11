@@ -12,8 +12,8 @@ def control_panel():
     return load_script("chicago95-control-panel")
 
 
-def preview_of(control_panel, tab_name):
-    tab = control_panel.build_tab("Passwords", tab_name, {}, control_panel.Actions())
+def preview_of(control_panel, tab_name, applet="Passwords"):
+    tab = control_panel.build_tab(applet, tab_name, {}, control_panel.Actions())
     (preview,) = tab.previews
     return preview
 
@@ -71,8 +71,8 @@ def test_branding_preview_is_the_2000_banner_shrunk_to_the_sheet_and_follows_the
 
 
 def test_loading_preview_shows_the_2000_screen_at_stage_3_with_the_texts_chosen(control_panel, qt_app):
-    preview = preview_of(control_panel, "Loading Screen")
-    preview.refresh({"LOGIN_STYLE": "2000", "LOADING_TEXT": "Loading Chicago...", "LOADING_FOOTER": "Bottom line"})
+    preview = preview_of(control_panel, "Boot Screen", "Booting Screen")
+    preview.refresh({"BOOT_STYLE": "2000", "LOADING_TEXT": "Loading Chicago...", "LOADING_FOOTER": "Bottom line"})
     qt_app.processEvents()
     root = preview.dialog()
 
@@ -85,8 +85,8 @@ def test_loading_preview_shows_the_2000_screen_at_stage_3_with_the_texts_chosen(
 
 
 def test_loading_preview_shows_the_classic_picture_for_the_classic_style(control_panel, qt_app):
-    preview = preview_of(control_panel, "Loading Screen")
-    preview.refresh({"LOGIN_STYLE": "classic", "SPLASH_IMAGE": "classic"})
+    preview = preview_of(control_panel, "Boot Screen", "Booting Screen")
+    preview.refresh({"BOOT_STYLE": "classic", "LOGIN_STYLE": "2000", "SPLASH_IMAGE": "classic"})
     qt_app.processEvents()
     settings = (preview.scratch / "splash/settings.js").read_text()
 
@@ -97,17 +97,25 @@ def test_loading_preview_shows_the_classic_picture_for_the_classic_style(control
     ) == (False, True, True)
 
 
-def test_a_sheet_refreshes_every_tabs_previews_with_the_values_of_all_its_tabs(control_panel, qt_app, tmp_path):
+def test_the_boot_screen_preview_follows_its_own_style_as_soon_as_the_radio_changes(control_panel, qt_app, tmp_path):
     window = control_panel.ControlPanel(settings_path=tmp_path / "setup.conf")
-    window.navigate(control_panel.HOME_PAGE + ("Passwords",))
+    window.navigate(control_panel.HOME_PAGE + ("Booting Screen",))
     sheet = window.pages.currentWidget()
-    log_on = next(tab for tab in sheet.settings_tabs if "LOGIN_STYLE" in tab.fields)
-    loading = next(tab for tab in sheet.settings_tabs if "LOADING_TEXT" in tab.fields)
-    log_on.fields["LOGIN_STYLE"][1]("2000")
+    (boot,) = sheet.settings_tabs
+    boot.fields["BOOT_STYLE"][1]("2000")
     sheet.refresh_previews()
     qt_app.processEvents()
 
-    assert loading.previews[0].dialog().property("modern") is True
+    assert boot.previews[0].dialog().property("modern") is True
+
+
+def test_the_boot_screen_preview_defaults_to_the_saved_login_style_until_a_boot_style_is_chosen(control_panel, qt_app):
+    tab = control_panel.build_tab("Booting Screen", "Boot Screen", {"LOGIN_STYLE": "2000"}, control_panel.Actions())
+    (preview,) = tab.previews
+    preview.refresh({"LOGIN_STYLE": "2000", **tab.values()})
+    qt_app.processEvents()
+
+    assert (tab.values()["BOOT_STYLE"], preview.dialog().property("modern")) == ("2000", True)
 
 
 def test_qml_previews_are_the_screens_at_their_own_size_shrunk_to_fit_the_sheet(control_panel, qt_app):
@@ -173,4 +181,4 @@ def test_the_control_panel_installed_outside_the_checkout_opens_passwords_with_w
     previews = [preview for tab in sheet.settings_tabs for preview in tab.previews]
     qml_errors = [error.toString() for preview in previews if hasattr(preview, "errors") for error in preview.errors()]
 
-    assert (module.REPO_DIR, len(previews), qml_errors) == (tmp_path / "local", 3, [])
+    assert (module.REPO_DIR, len(previews), qml_errors) == (tmp_path / "local", 2, [])

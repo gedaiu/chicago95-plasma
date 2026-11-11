@@ -36,5 +36,13 @@
       <label>The look: "1995" (no Quick Launch, 95px task buttons), "1998" or "2000" (a pixel more before the Quick Launch)</label>
       <default>1998</default>
     </entry>
+    <entry name="taskbarStyle" type="String">
+      <label>The taskbar component: "classic"</label>
+      <default>classic</default>
+    </entry>
+    <entry name="bevel" type="String">
+      <label>The bevel palette: "1995" (also 1998) or "2000"</label>
+      <default>1995</default>
+    </entry>
   </group>
 </kcfg>

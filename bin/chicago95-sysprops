@@ -246,7 +246,7 @@ class TabStrip(QWidget):
 
     def paintEvent(self, _event):
         scheme = chicago95ui.read_scheme()
-        face, bevel = scheme["face"], chicago95ui.bevel_colors(scheme["face"], self.style)
+        face, bevel = scheme["face"], chicago95ui.bevel_colors(scheme["face"], chicago95ui.bevel_for_style(self.style))
         white, shadow, dark = QColor("#ffffff"), bevel["shadow"], bevel["dark"]
         painter = QPainter(self)
         painter.translate(-BODY_ORIGIN[0], -BODY_ORIGIN[1])  # paint in dialog coordinates

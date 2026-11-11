@@ -1,5 +1,6 @@
 """A task button's tooltip (plasmoids/org.chicago95.tasks TaskToolTip.qml): the window's title on the classic pale
-yellow inside a 1px black border, and with the Control Panel's preview size a live picture of the window above it.
+yellow inside a 1px black border; with the Control Panel's preview size, a raised grey panel with the title along the
+top and a live picture of the window in a sunken frame under it, as Windows 7 laid its previews out.
 Rendered offscreen with stubs for the screencast items (a solid blue square), as a real session cannot hover."""
 
 import re
@@ -15,6 +16,7 @@ from test_quick_launch_drop import qml_block
 
 UI = REPO / "plasmoids/org.chicago95.tasks/contents/ui"
 YELLOW, BLACK, SHADOW, WHITE, PICTURE = (255, 255, 225), (0, 0, 0), (128, 128, 128), (255, 255, 255), (64, 128, 192)
+FACE, LIGHT = (192, 192, 192), (223, 223, 223)
 STUBS = {
     "org/kde/pipewire/qmldir": "module org.kde.pipewire\nPipeWireSourceItem 1.0 PipeWireSourceItem.qml\n",
     "org/kde/pipewire/PipeWireSourceItem.qml": "import QtQuick\nRectangle { property var nodeId; color: '#4080c0' }\n",
@@ -68,24 +70,37 @@ def test_the_tooltip_is_the_title_on_pale_yellow_inside_a_1px_black_border(qt_ap
     ) == (BLACK, BLACK, YELLOW, YELLOW, True, True)
 
 
-def test_with_a_preview_size_the_window_picture_sits_above_the_title_in_a_sunken_frame(qt_app, imports):
+def test_with_a_preview_size_the_panel_is_raised_grey_with_the_title_above_the_picture_in_a_sunken_frame(
+    qt_app, imports
+):
     image = render(qt_app, imports, 160)
+    right, bottom = image.width - 1, image.height - 1
+    title_rows = [y for y in range(2, 30) if any(image.getpixel((x, y)) == BLACK for x in range(8, 60))]
+    picture_top = next(y for y in range(8, image.height) if image.getpixel((9, y)) == PICTURE)
 
     assert (
-        image.getpixel((4, 4)),
-        image.getpixel((5, 5)),
-        image.getpixel((5 + 159, 5 + 119)),
-        image.getpixel((4 + 161, 4 + 121)),
+        [
+            image.getpixel(point)
+            for point in ((5, 0), (5, 1), (5, bottom), (5, bottom - 1), (right, 5), (right - 1, 5), (20, 4))
+        ],
         image.width,
-        image.getpixel((40, 4 + 122 + 4 + 2)),
-    ) == (SHADOW, PICTURE, PICTURE, WHITE, 2 + 6 + 162, YELLOW)
+        title_rows[0] >= 8 and title_rows[-1] < picture_top - 4,
+        image.getpixel((9, picture_top - 1)),
+        image.getpixel((8, picture_top)),
+        image.getpixel((9, picture_top)),
+        image.getpixel((9 + 159, picture_top + 119)),
+        image.getpixel((8 + 161, picture_top + 120)),
+        bottom - (picture_top + 120),
+    ) == ([LIGHT, WHITE, BLACK, SHADOW, BLACK, SHADOW, FACE], 2 * 8 + 162, True, SHADOW, SHADOW, PICTURE, PICTURE, WHITE, 8)
 
 
-def test_the_task_button_shows_the_tooltip_with_the_windows_id_and_the_configured_preview_size():
+def test_the_task_button_shows_the_tooltip_over_its_drag_area_with_the_windows_id_and_the_preview_size():
     button = qml_block((UI / "main.qml").read_text(), "id: windowButton")
 
+    tooltip_area = qml_block(button, "PlasmaCore.ToolTipArea {")
+
     assert (
-        "PlasmaCore.ToolTipArea {" in button,
+        "DragSortArea {" in tooltip_area,
         re.search(r"windowId: entry\.model\.WinIdList \? entry\.model\.WinIdList\[0\] : null", button) is not None,
         "previewSize: Plasmoid.configuration.previewSize ?? 0" in button,
     ) == (True, True, True)

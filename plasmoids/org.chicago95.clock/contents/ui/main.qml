@@ -16,7 +16,7 @@ PlasmoidItem {
     preferredRepresentation: fullRepresentation
     Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground
 
-    readonly property int cellWidth: Plasmoid.configuration.look === "2000" ? 69 : 60
+    readonly property int cellWidth: Plasmoid.configuration.bevel === "2000" ? 69 : 60
     readonly property int textTop: 9   // the lettering's top row in the applet, which starts 2px into the taskbar
     property date now: new Date()
 

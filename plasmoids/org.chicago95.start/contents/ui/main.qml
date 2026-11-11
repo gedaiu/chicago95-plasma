@@ -71,7 +71,7 @@ PlasmoidItem {
         text: root.buttonText
         logoSource: root.logoSource
         held: clickArea.pressed && clickArea.containsMouse
-        look: Plasmoid.configuration.look
+        bevel: Plasmoid.configuration.bevel
         face: Kirigami.Theme.backgroundColor
         textColor: Kirigami.Theme.textColor
     }

@@ -117,6 +117,11 @@ LIVE_KEYS = ("SCREEN_AREA",)
 # Each key of setup.conf with the Setup components that apply it.
 COMPONENTS_BY_KEY = {
     "LOOK": ("look", "taskbar", "startmenu"),
+    "DECORATION": ("look",),
+    "WIDGET_STYLE": ("look",),
+    "BEVEL": ("look",),
+    "TASKBAR_STYLE": ("taskbar",),
+    "START_MENU_STYLE": ("startmenu",),
     "TITLE_ACTIVE": ("look",),
     "TITLE_INACTIVE": ("look",),
     "ICONS": ("look",),
@@ -154,9 +159,11 @@ COMPONENTS_BY_KEY = {
     "LOGIN_TITLE": ("sddm",),
     "LOGIN_MESSAGE": ("sddm",),
     "LOGIN_ICON": ("sddm",),
-    "SPLASH_IMAGE": ("splash",),
-    "LOADING_TEXT": ("splash",),
-    "LOADING_FOOTER": ("splash",),
+    # The boot screen is a picture of the loading screen, so its style, picture and texts rebuild the boot image.
+    "BOOT_STYLE": ("splash", "plymouth"),
+    "SPLASH_IMAGE": ("splash", "plymouth"),
+    "LOADING_TEXT": ("splash", "plymouth"),
+    "LOADING_FOOTER": ("splash", "plymouth"),
     "SOUND_THEME": ("sounds",),
     "CLIPPY_AUTOSTART": ("clippy",),
     "EXPLORER": ("explorer",),
@@ -169,9 +176,19 @@ COMPONENTS_BY_KEY = {
     "PREVIEW_SIZE": ("taskbar", "switcher"),
 }
 
+# The settings of one component each: changing one alone makes the look a custom one.
+COMPONENT_KEYS = ("DECORATION", "WIDGET_STYLE", "BEVEL", "TASKBAR_STYLE", "START_MENU_STYLE")
+# The ones the Appearance tab saves with its Scheme without a field of their own.
+UNSEEN_COMPONENT_KEYS = ("TASKBAR_STYLE", "START_MENU_STYLE", "BEVEL")
+
 # What setup/steps.sh's apply_look sets for each look (tests/test_control_panel.py compares the two).
 LOOK_PRESETS = {
     "1995": {
+        "DECORATION": "classic",
+        "WIDGET_STYLE": "classic",
+        "TASKBAR_STYLE": "classic",
+        "START_MENU_STYLE": "1995",
+        "BEVEL": "1995",
         "TITLE_ACTIVE": "#000080",
         "TITLE_INACTIVE": "#808080",
         "BANNER_BG": "#808080",
@@ -180,6 +197,11 @@ LOOK_PRESETS = {
         "BACKGROUND_COLOR": "#008080",
     },
     "1998": {
+        "DECORATION": "classic",
+        "WIDGET_STYLE": "classic",
+        "TASKBAR_STYLE": "classic",
+        "START_MENU_STYLE": "1998",
+        "BEVEL": "1995",
         "TITLE_ACTIVE": "#000080,#1084D0",
         "TITLE_INACTIVE": "#808080,#C0C0C0",
         "BANNER_BG": "#00007B,#00007B@95,#0000B0@70,#0000F8@45,#0000EE@20,#0000A9@0",
@@ -188,6 +210,11 @@ LOOK_PRESETS = {
         "BACKGROUND_COLOR": "#008080",
     },
     "2000": {
+        "DECORATION": "classic",
+        "WIDGET_STYLE": "classic",
+        "TASKBAR_STYLE": "classic",
+        "START_MENU_STYLE": "2000",
+        "BEVEL": "2000",
         "TITLE_ACTIVE": "#0A246A,#A6CAF0",
         "TITLE_INACTIVE": "#808080,#C0C0C0",
         "BANNER_BG": "#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0",
@@ -232,6 +259,11 @@ APPLETS = (
         "chicago95-devmgr",
     ),
     Applet(
+        "Booting Screen",
+        ("preferences-system-startup", "system-reboot", "computer"),
+        "Chooses the start-up screen: the classic picture or the 2000 page with its progress bar.",
+    ),
+    Applet(
         "Display",
         ("preferences-desktop-display", "video-display"),
         "Changes the desktop background, screen saver, colors and icons.",
@@ -242,9 +274,7 @@ APPLETS = (
     Applet("Modems", ("modem", "network-modem"), "Opens Dial-Up Networking.", "chicago95-dialup"),
     Applet("Mouse", ("preferences-desktop-mouse", "input-mouse"), "Changes the pointer size."),
     Applet("Office Assistant", ("help-browser",), "Turns the Office Assistant on or off when you log on."),
-    Applet(
-        "Passwords", ("dialog-password", "preferences-desktop-user-password"), "Changes the log on and loading screens."
-    ),
+    Applet("Passwords", ("dialog-password", "preferences-desktop-user-password"), "Changes the log on screen."),
     Applet("Sounds", ("preferences-desktop-sound", "audio-card"), "Assigns sounds to system events."),
     Applet("System", ("computer",), "Shows system information and hardware settings.", "chicago95-sysprops"),
     Applet(
@@ -263,12 +293,13 @@ APPLETS = (
 APPLET_BY_NAME = {applet.name: applet for applet in APPLETS}
 
 PAGE_TABS = {
+    "Booting Screen": ("Boot Screen",),
     "Display": ("Background", "Screen Saver", "Appearance", "Effects", "Settings"),
     "Explorer": ("General",),
     "Fonts": ("Font",),
     "Mouse": ("Buttons", "Pointers", "Motion"),
     "Office Assistant": ("Options",),
-    "Passwords": ("Log On", "Branding", "Loading Screen"),
+    "Passwords": ("Log On", "Branding"),
     "Sounds": ("Sounds",),
     "Taskbar": ("Taskbar Options", "Start Menu", "Quick Launch"),
     "Updates": ("Updates",),
@@ -276,6 +307,7 @@ PAGE_TABS = {
 
 
 PAGE_SLUGS = {
+    "boot": "Booting Screen",
     "display": "Display",
     "explorer": "Explorer",
     "fonts": "Fonts",
@@ -1722,7 +1754,7 @@ Rectangle {{
         y: 4
         text: startText
         logoSource: startLogo
-        look: startLook
+        bevel: startBevel
         face: parent.color
         held: true
     }}
@@ -1768,7 +1800,7 @@ class StartMenuPreview(QWidget):
         context = {
             "startText": values.get("START_TEXT", "Start"),
             "startLogo": QUrl.fromLocalFile(str(picture_file(values.get("START_LOGO", "flag"), repo_of(values)))),
-            "startLook": look,
+            "startBevel": chicago95ui.bevel_for_style(look),
             "face": QColor(LOOK_FACES.get(look, CLASSIC_FACE)),
         }
         for name, value in context.items():
@@ -1834,7 +1866,7 @@ class LoadingPreview(QmlPreview):
     def settings_js(values):
         company_logo = values.get("COMPANY_LOGO", "text")
         entries = {
-            "style": values.get("LOGIN_STYLE", "classic"),
+            "style": boot_style(values),
             "brandText": values.get("BANNER_TEXT", "Chicago95"),
             "brandLogo": str(picture_file(values.get("LOGIN_LOGO", "start"), repo_of(values))),
             "edition": values.get("EDITION", "Professional"),
@@ -2095,7 +2127,7 @@ class AppearancePreview(QWidget):
         self.message(painter, self.MESSAGE)
 
     def sunken(self, painter, rect):
-        colours = chicago95ui.bevel_colors(self.face(), self.look)
+        colours = chicago95ui.bevel_colors(self.face(), chicago95ui.bevel_for_style(self.look))
         for inset, (top_left, bottom_right) in enumerate(
             ((colours["shadow"], QColor("#FFFFFF")), (colours["dark"], colours["light"]))
         ):
@@ -2106,7 +2138,7 @@ class AppearancePreview(QWidget):
             painter.fillRect(edge.right(), edge.top(), 1, edge.height(), bottom_right)
 
     def raised(self, painter, rect):
-        colours = chicago95ui.bevel_colors(self.face(), self.look)
+        colours = chicago95ui.bevel_colors(self.face(), chicago95ui.bevel_for_style(self.look))
         painter.fillRect(rect, self.face())
         painter.fillRect(rect.left(), rect.top(), rect.width(), 1, colours["light"])
         painter.fillRect(rect.left(), rect.top(), 1, rect.height(), colours["light"])
@@ -2163,7 +2195,7 @@ class AppearancePreview(QWidget):
             painter.setPen(
                 self.palette().highlightedText().color()
                 if kind == "selected"
-                else chicago95ui.bevel_colors(self.face(), self.look)["shadow"]
+                else chicago95ui.bevel_colors(self.face(), chicago95ui.bevel_for_style(self.look))["shadow"]
                 if kind == "disabled"
                 else QColor("#000000")
             )
@@ -2347,6 +2379,12 @@ def scrolling(tab):
     return area
 
 
+def with_custom_look(changed):
+    """A component changed on its own, without the Scheme choosing it, makes the look a custom one."""
+    own_component = any(key in changed for key in COMPONENT_KEYS) and "LOOK" not in changed
+    return {**changed, "LOOK": "custom"} if own_component else changed
+
+
 class PropertiesPage(QWidget):
     """An applet's page in the Control Panel's window: property sheet tabs with OK, Cancel and Apply."""
 
@@ -2389,7 +2427,8 @@ class PropertiesPage(QWidget):
         return {key: value for tab in self.settings_tabs for key, value in tab.values().items()}
 
     def changed_values(self):
-        return {key: value for key, value in self.collect_values().items() if self.baseline.get(key) != value}
+        changed = {key: value for key, value in self.collect_values().items() if self.baseline.get(key) != value}
+        return with_custom_look(changed)
 
     def refresh_apply_button(self):
         self.apply_button.setEnabled(bool(self.changed_values()))
@@ -2727,6 +2766,12 @@ def taskbar_options_tab(settings, actions):
         [("From the look (1998 on)", "auto"), ("Always", "yes"), ("Never", "no")],
         default="auto",
     )
+    tab.choice(
+        "TASKBAR_STYLE",
+        "Taskbar style:",
+        [("Classic", "classic")],
+        default=LOOK_PRESETS.get(settings.get("LOOK"), LOOK_PRESETS["1995"])["TASKBAR_STYLE"],
+    )
     tab.flag("TASKBAR_AUTOHIDE", "Auto hide", default="no")
     tab.flag("TASKBAR_ON_TOP", "Always on top", default="yes")
     tab.choice(
@@ -2867,6 +2912,12 @@ def fonts_tab(settings, actions):
 @tab_builder("Taskbar", "Start Menu")
 def start_menu_tab(settings, actions):
     tab = SettingsTab(settings, actions)
+    tab.choice(
+        "START_MENU_STYLE",
+        "Start menu style:",
+        [("Windows 95", "1995"), ("Windows 98", "1998"), ("Windows 2000", "2000")],
+        default=LOOK_PRESETS.get(settings.get("LOOK"), LOOK_PRESETS["1995"])["START_MENU_STYLE"],
+    )
     tab.text("START_TEXT", "Button text:", default="Start")
     tab.picture("START_LOGO", "Button logo:", [("Classic flag", "flag"), ("Penguin", "penguin")], default="flag")
     tab.text("BANNER_TEXT", "Menu banner text:", default="Chicago95")
@@ -2914,10 +2965,25 @@ def branding_tab(settings, actions):
     return tab
 
 
-@tab_builder("Passwords", "Loading Screen")
-def loading_screen_tab(settings, actions):
+def boot_style(values):
+    """The boot and loading screens' style: chosen on its own, or the login's until it is (as setup/steps.sh)."""
+    return values.get("BOOT_STYLE") or values.get("LOGIN_STYLE", "classic")
+
+
+@tab_builder("Booting Screen", "Boot Screen")
+def boot_screen_tab(settings, actions):
+    """The screen shown while the computer boots and while Plasma loads: a picture, as 1995 and 1998 had, or
+    the 2000 page with the progress bar. Applying rebuilds the boot image, which asks for the administrator password."""
     tab = SettingsTab(settings, actions)
+    tab.radios(
+        "BOOT_STYLE",
+        "Style",
+        [("Classic (1995 and 1998): a picture", "classic"), ("Windows 2000: the page with its progress bar", "2000")],
+        default=boot_style(settings),
+    )
+    tab.group("Classic picture")
     tab.picture("SPLASH_IMAGE", "Picture:", [("Chicago95 picture", "classic")], default="classic")
+    tab.group("2000 texts")
     tab.text("LOADING_TEXT", "Text beside the progress bar:", default="Starting up...")
     tab.text("LOADING_FOOTER", "Bottom line:", default="Chicago95 for KDE Plasma")
     tab.group("Preview")
@@ -3014,6 +3080,19 @@ def appearance_tab(settings, actions):
         start["ICONS"],
         tab.icons.currentIndexChanged,
     )
+    saved_look = LOOK_PRESETS.get(settings.get("LOOK"), start)
+    component_combos = [
+        tab.choice("DECORATION", "Window &frames:", [("Classic", "classic")], default=saved_look["DECORATION"]),
+        tab.choice("WIDGET_STYLE", "&Controls:", [("Classic", "classic")], default=saved_look["WIDGET_STYLE"]),
+    ]
+    unseen_components = {key: saved_look[key] for key in UNSEEN_COMPONENT_KEYS}
+    for key in UNSEEN_COMPONENT_KEYS:
+        tab.track(
+            key,
+            lambda key=key: unseen_components[key],
+            lambda value, key=key: unseen_components.update({key: value}),
+            saved_look[key],
+        )
     state = {"applying": False}
 
     def settling():
@@ -3027,6 +3106,9 @@ def appearance_tab(settings, actions):
         for key, field in tab.color_edits.items():
             field.set_value(preset[key])
         tab.icons.setCurrentIndex(tab.icons.findData(preset["ICONS"]))
+        for combo, key in zip(component_combos, ("DECORATION", "WIDGET_STYLE"), strict=True):
+            combo.setCurrentIndex(combo.findData(preset[key]))
+        unseen_components.update({key: preset[key] for key in UNSEEN_COMPONENT_KEYS})
         state["applying"] = False
         refresh_preview()
 
@@ -3049,6 +3131,8 @@ def appearance_tab(settings, actions):
     tab.scheme.currentIndexChanged.connect(scheme_changed)
     for field in tab.color_edits.values():
         field.changed.connect(colour_edited)
+    for combo in component_combos:
+        combo.currentIndexChanged.connect(lambda *_: colour_edited())
     refresh_preview()
     return tab
 

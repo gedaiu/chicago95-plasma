@@ -11,13 +11,13 @@ Item {
     property alias text: label.text
     property var icon
     property bool pressed
-    property string look: "1995"
+    property string bevel: "1995"
     property color textColor: Kirigami.Theme.textColor
 
     readonly property int buttonHeight: 22
     readonly property int iconLeft: 4
     readonly property int iconTop: 3
-    readonly property int labelLeft: look === "2000" ? 22 : 23
+    readonly property int labelLeft: bevel === "2000" ? 22 : 23
     readonly property int labelTop: 6
     readonly property int labelRight: 4
     readonly property int shift: pressed ? 1 : 0

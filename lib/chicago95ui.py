@@ -111,10 +111,17 @@ def read_scheme(path=None):
 CHICAGO95RC = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "chicago95rc")
 
 
+def bevel_for_style(style):
+    """The bevel palette a Start menu style implies when [Look] bevel is not set: 2000 or 1995."""
+    return "2000" if style == "2000" else "1995"
+
+
 def look_settings(path=None):
     """The look chosen in Setup, from ~/.config/chicago95rc.
 
-    [StartMenu] style is 1995, 1998 or 2000. [Branding] describes the "operating system" the screens
+    [StartMenu] style is 1995, 1998 or 2000. [Look] decoration, widgetStyle and bevel name the window
+    frames, the controls and the bevel palette (1995 or 2000); a config without them is classic, with
+    the bevel the Start menu style implies. [Branding] describes the "operating system" the screens
     show: osCompany (the small word above the name), osName ("Windows 2000", "Fedora 44"; its number
     is drawn thin), osEdition, tagline (the login banner's line under the edition), osLogo and
     companyLogo (image paths). Each falls back to the Start menu's
@@ -130,8 +137,12 @@ def look_settings(path=None):
 
     logos = sorted(glob.glob(os.path.expanduser("~/.local/share/chicago95/start-logo.*")))
     banner_text = start_menu("bannerText", "Chicago95")
+    style = start_menu("style", "1995")
     return {
-        "style": start_menu("style", "1995"),
+        "style": style,
+        "decoration": settings.get("Look", "decoration", fallback="classic"),
+        "widgetStyle": settings.get("Look", "widgetStyle", fallback="classic"),
+        "bevel": settings.get("Look", "bevel", fallback=bevel_for_style(style)),
         "bannerText": banner_text,
         "osCompany": branding("osCompany", ""),
         "osName": branding("osName", banner_text),
@@ -190,11 +201,11 @@ def bevel_shades(face):
     return light, shadow
 
 
-def bevel_colors(face, style):
+def bevel_colors(face, bevel):
     """The 3D lines around a face, as {light, shadow, dark}: the light line inside the white one, the
     shadow line inside the dark one. 1995 and 1998 derive light and shadow from the face (#DFDFDF and
     #808080 for #C0C0C0) with a black dark line; 2000 uses the face itself as light, #808080 and #404040."""
-    if style == "2000":
+    if bevel == "2000":
         return {"light": QColor(face), "shadow": QColor("#808080"), "dark": QColor("#404040")}
     light, shadow = bevel_shades(face)
     return {"light": light, "shadow": shadow, "dark": QColor("#000000")}
@@ -269,7 +280,7 @@ def retro_palette(scheme=None):
     """A Qt palette from the colour scheme; pass read_scheme() again to pick up a change made in System Settings."""
     scheme = scheme or SCHEME
     face, selection = scheme["face"], scheme["selection"]
-    bevel = bevel_colors(face, look_settings()["style"])
+    bevel = bevel_colors(face, look_settings()["bevel"])
     light, shadow, dark = bevel["light"], bevel["shadow"], bevel["dark"]
     palette = QPalette()
     for group in (QPalette.Active, QPalette.Inactive, QPalette.Disabled):
@@ -436,7 +447,8 @@ def paint_task_button(painter, rect, caption, icon, pressed, look, face=None):
     and face checkerboard when pressed; the icon 16px at 4,3 and the title from 23px, a pixel lower while
     pressed, bold for the active window."""
     face = face or SCHEME["face"]
-    bevel = bevel_colors(face, look)
+    bevel_key = bevel_for_style(look)
+    bevel = bevel_colors(face, bevel_key)
     white = QColor("#ffffff")
     rings = (
         [(bevel["dark"], white), (bevel["shadow"], bevel["light"])]
@@ -461,7 +473,7 @@ def paint_task_button(painter, rect, caption, icon, pressed, look, face=None):
         icon.paint(painter, rect.left() + TASK_ICON_LEFT, rect.top() + TASK_ICON_TOP + shift, 16, 16)
     painter.setFont(ui_font(11, bold=pressed))
     painter.setPen(QColor("#000000"))
-    label_left = rect.left() + TASK_LABEL_LEFT.get(look, 23)
+    label_left = rect.left() + TASK_LABEL_LEFT.get(bevel_key, 23)
     label = QRect(label_left, rect.top() + TASK_LABEL_TOP + shift, max(0, rect.right() - 3 - label_left), 14)
     painter.drawText(
         label,
@@ -1235,7 +1247,7 @@ class ClassicDialog(QDialog):
 
     def paintEvent(self, _event):
         scheme = read_scheme()
-        face, bevel = scheme["face"], bevel_colors(scheme["face"], self.style)
+        face, bevel = scheme["face"], bevel_colors(scheme["face"], bevel_for_style(self.style))
         painter = QPainter(self)
         painter.fillRect(self.rect(), face)
         rings = [(bevel["light"], bevel["dark"]), (QColor("#ffffff"), bevel["shadow"]), (face, face)]

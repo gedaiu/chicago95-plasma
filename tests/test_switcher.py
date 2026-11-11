@@ -237,7 +237,7 @@ def test_the_preview_size_is_one_of_the_offered_sizes_or_off(tmp_path, saved, si
 def test_the_switcher_settings_carry_the_2000_face_as_hex(tmp_path):
     run_bash_with_steps(
         tmp_path,
-        f"SETUP_DRY_RUN=0 SETUP_MENU_STYLE=2000 SETUP_FACE=212,208,200 SETUP_PREVIEW_SIZE=160;"
+        f"SETUP_DRY_RUN=0 SETUP_START_MENU_STYLE=2000 SETUP_FACE=212,208,200 SETUP_PREVIEW_SIZE=160;"
         f" write_switcher_settings {tmp_path}",
     )
 

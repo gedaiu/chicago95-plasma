@@ -12,23 +12,31 @@ panel.addWidget("org.chicago95.start");
 
 // The look's taskbar, set by Setup: 1995 has no Quick Launch and narrower task buttons.
 const look = "1995";
+const taskbarStyle = "classic";
+const bevel = "1995";
 
 // Start, then Quick Launch (1998 on) and the windows' buttons, all drawn by org.chicago95.tasks.
 const tasks = panel.addWidget("org.chicago95.tasks");
 
 tasks.currentConfigGroup = ["General"];
 tasks.writeConfig("look", look);
+tasks.writeConfig("taskbarStyle", taskbarStyle);
+tasks.writeConfig("bevel", bevel);
 
 // The tray: trayframe draws the sunken box around Plasma's tray icons, then the clock ends it.
 const trayframe = panel.addWidget("org.chicago95.trayframe");
 
 trayframe.currentConfigGroup = ["General"];
 trayframe.writeConfig("look", look);
+trayframe.writeConfig("taskbarStyle", taskbarStyle);
+trayframe.writeConfig("bevel", bevel);
 panel.addWidget("org.kde.plasma.systemtray");
 
 const clock = panel.addWidget("org.chicago95.clock");
 
 clock.currentConfigGroup = ["General"];
 clock.writeConfig("look", look);
+clock.writeConfig("taskbarStyle", taskbarStyle);
+clock.writeConfig("bevel", bevel);
 
 panel.reloadConfig();

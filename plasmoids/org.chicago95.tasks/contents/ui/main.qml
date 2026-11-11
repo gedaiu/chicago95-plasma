@@ -39,7 +39,7 @@ PlasmoidItem {
     readonly property int gap: metrics.taskButtonGap
     readonly property int launcherCount: tasksModel.launcherCount
     readonly property int windowCount: tasksModel.count - launcherCount
-    readonly property int lead: Plasmoid.configuration.look === "2000" ? metrics.separatorLeadAfterStart2000 : metrics.separatorLead
+    readonly property int lead: Plasmoid.configuration.bevel === "2000" ? metrics.separatorLeadAfterStart2000 : metrics.separatorLead
     readonly property string dock: Plasmoid.configuration.quickLaunchDock === "right" ? "right" : "left"
     // While a separator is dragged: the band's width as the inner one sizes it, or where the outer one carries it.
     readonly property int notDragged: -2
@@ -354,9 +354,11 @@ PlasmoidItem {
                     text: entry.model.display
                     icon: entry.model.decoration
                     pressed: entry.model.IsActive === true
-                    look: Plasmoid.configuration.look
+                    bevel: Plasmoid.configuration.bevel
                     // The pointer resting on the button: the window's title in the classic flat tooltip and, with a
                     // preview size chosen in the Control Panel, a live picture of the window above it (TaskToolTip.qml).
+                    // The drag area sits inside the tooltip area, as the Quick Launch cell's does: a hover-enabled
+                    // mouse area on top of the tooltip area would take every hover and the tooltip would never show.
                     PlasmaCore.ToolTipArea {
                         anchors.fill: parent
                         interactive: false
@@ -364,31 +366,33 @@ PlasmoidItem {
                             title: entry.model.display
                             windowId: entry.model.WinIdList ? entry.model.WinIdList[0] : null
                             previewSize: Plasmoid.configuration.previewSize ?? 0
+                            bevel: Plasmoid.configuration.bevel
+                            face: Kirigami.Theme.backgroundColor
                         }
-                    }
-                    DragSortArea {
-                        anchors.fill: parent
-                        layoutParent: root
-                        origin: root.tasksX
-                        pitch: root.buttonWidth + root.gap
-                        count: root.windowCount
-                        slot: entry.index - root.launcherCount
-                        itemWidth: root.buttonWidth
-                        onDraggingChanged: entry.dragging = dragging
-                        onSlidesChanged: entry.slides = slides
-                        onDragXChanged: entry.dragX = dragX
-                        onMoved: (from, to) => tasksModel.move(root.launcherCount + from, root.launcherCount + to)
-                        onTapped: (mouseButton, clickX, clickY) => {
-                            if (mouseButton === Qt.RightButton) {
-                                windowMenu.visualParent = button;
-                                windowMenu.task = entry.modelIndex;
-                                windowMenu.window = WindowMenu.windowState(entry.model);
-                                windowMenu.launcher = entry.model.LauncherUrlWithoutIcon;
-                                windowMenu.open(clickX, clickY);
-                            } else if (entry.model.IsActive) {
-                                tasksModel.requestToggleMinimized(entry.modelIndex);
-                            } else {
-                                tasksModel.requestActivate(entry.modelIndex);
+                        DragSortArea {
+                            anchors.fill: parent
+                            layoutParent: root
+                            origin: root.tasksX
+                            pitch: root.buttonWidth + root.gap
+                            count: root.windowCount
+                            slot: entry.index - root.launcherCount
+                            itemWidth: root.buttonWidth
+                            onDraggingChanged: entry.dragging = dragging
+                            onSlidesChanged: entry.slides = slides
+                            onDragXChanged: entry.dragX = dragX
+                            onMoved: (from, to) => tasksModel.move(root.launcherCount + from, root.launcherCount + to)
+                            onTapped: (mouseButton, clickX, clickY) => {
+                                if (mouseButton === Qt.RightButton) {
+                                    windowMenu.visualParent = button;
+                                    windowMenu.task = entry.modelIndex;
+                                    windowMenu.window = WindowMenu.windowState(entry.model);
+                                    windowMenu.launcher = entry.model.LauncherUrlWithoutIcon;
+                                    windowMenu.open(clickX, clickY);
+                                } else if (entry.model.IsActive) {
+                                    tasksModel.requestToggleMinimized(entry.modelIndex);
+                                } else {
+                                    tasksModel.requestActivate(entry.modelIndex);
+                                }
                             }
                         }
                     }

@@ -11,13 +11,13 @@ Item {
     property url logoSource
     property bool held
     // 2000's lettering is wider than this font's: its button has a pixel more face after the text.
-    property string look: "1995"
+    property string bevel: "1995"
     // Bevel colours: 1995 and 1998 derive light and shadow from the face (#DFDFDF and #808080 for
     // #C0C0C0) with a black outer shadow; 2000 uses the face itself as light, #808080 and #404040.
     property color face: "#c0c0c0"
-    property color light: look === "2000" ? face : Qt.tint(face, "#80ffffff")  // halfway to white
-    property color shadow: look === "2000" ? "#808080" : Qt.darker(face, 1.5)  // two thirds of the face
-    property color dark: look === "2000" ? "#404040" : "#000000"
+    property color light: bevel === "2000" ? face : Qt.tint(face, "#80ffffff")  // halfway to white
+    property color shadow: bevel === "2000" ? "#808080" : Qt.darker(face, 1.5)  // two thirds of the face
+    property color dark: bevel === "2000" ? "#404040" : "#000000"
     property color textColor: "#000000"
 
     readonly property int buttonHeight: 22
@@ -25,7 +25,7 @@ Item {
 
     readonly property int contentX: 4
     // The text's advance runs 3px past its last stroke: the original's face before the bevel.
-    implicitWidth: contentX + content.implicitWidth + (label.visible ? 0 : 3) + 2 + (look === "2000" ? 1 : 0)
+    implicitWidth: contentX + content.implicitWidth + (label.visible ? 0 : 3) + 2 + (bevel === "2000" ? 1 : 0)
     implicitHeight: buttonHeight
 
     Item {

@@ -272,8 +272,9 @@ def test_branding_tab_defaults_to_professional_kde_text_logo_and_the_tagline(con
     }
 
 
-def test_loading_screen_tab_defaults_to_the_classic_picture_and_texts(control_panel, qt_app):
-    assert built(control_panel, "Passwords", "Loading Screen").values() == {
+def test_boot_screen_tab_defaults_to_the_classic_style_picture_and_texts(control_panel, qt_app):
+    assert built(control_panel, "Booting Screen", "Boot Screen").values() == {
+        "BOOT_STYLE": "classic",
         "SPLASH_IMAGE": "classic",
         "LOADING_TEXT": "Starting up...",
         "LOADING_FOOTER": "Chicago95 for KDE Plasma",
@@ -1085,6 +1086,7 @@ def test_two_and_three_way_choices_are_radio_buttons_as_in_the_originals(control
     counts = {}
     for applet, tab_name, key in (
         ("Passwords", "Log On", "LOGIN_STYLE"),
+        ("Booting Screen", "Boot Screen", "BOOT_STYLE"),
         ("Mouse", "Pointers", "CURSOR"),
         ("Explorer", "General", "EXPLORER"),
         ("Fonts", "Font", "FONT_SCOPE"),
@@ -1092,7 +1094,7 @@ def test_two_and_three_way_choices_are_radio_buttons_as_in_the_originals(control
         tab = built(control_panel, applet, tab_name, None, program_installed=lambda name: f"/usr/bin/{name}")
         counts[key] = len(tab.findChildren(QRadioButton))
 
-    assert counts == {"LOGIN_STYLE": 2, "CURSOR": 3, "EXPLORER": 2, "FONT_SCOPE": 3}
+    assert counts == {"LOGIN_STYLE": 2, "BOOT_STYLE": 2, "CURSOR": 3, "EXPLORER": 2, "FONT_SCOPE": 3}
 
 
 def preview_image(control_panel, qt_app, look="1998"):

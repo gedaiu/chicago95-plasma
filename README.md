@@ -148,8 +148,11 @@ screen or as flags:
 right-click menu of the Start button and the taskbar) is one Windows 98
 Explorer-style window for every choice Setup asks and more. It covers colours,
 icons, the desktop background, the screensaver with Preview, the taskbar, Quick
-Launch, the Start button and menu, login and loading screens, sounds, fonts, the
-mouse and the file manager, most with live previews. Display opens its own
+Launch, the Start button and menu, the login screen, the booting screen, sounds,
+fonts, the mouse and the file manager, most with live previews. Booting Screen
+picks the start-up screen on its own: the classic picture or the 2000 page with
+its progress bar, whatever the login style; it is `BOOT_STYLE` in `setup.conf`
+and `--boot-style=classic|2000` for Setup. Display opens its own
 Display Properties window with the original's tabs, and its Effects tab picks the
 animation of each event with a speed slider from Off to Slow. Classic sets every
 list to what the look's Windows did, and the choices live in `setup/animations.conf`.
@@ -191,7 +194,7 @@ mouse movement ends it.
 The "Boot screen" and "Login screen" components ask for the administrator
 password on the Setup screen and list the exact commands first. The boot
 screen copies `~/src/Chicago95/Plymouth/Chicago95` and rebuilds the boot
-image with `plymouth-set-default-theme -R`; with the 2000 log-on style it
+image with `plymouth-set-default-theme -R`; with the 2000 boot style it
 instead renders our 2000 loading screen at the monitor's size
 (`bin/chicago95-splash-image`) and installs it as `Chicago95-2000`, a
 Plymouth script theme (`plymouth/Chicago95-2000`) that fills in the progress

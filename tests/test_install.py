@@ -233,7 +233,7 @@ def test_every_run_writes_the_look_into_each_taskbar_applet(tmp_path):
     log = tmp_path / "setup.log"
     script = (
         f'REPO={REPO}; source {REPO}/setup/steps.sh; plasma_script() {{ printf "%s\\n" "$1"; }}; '
-        f"SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 SETUP_LOG={log} SETUP_MENU_STYLE=2000 apply_taskbar"
+        f"SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 SETUP_LOG={log} SETUP_START_MENU_STYLE=2000 apply_taskbar"
     )
     subprocess.run(
         ["bash", "-c", script], timeout=30, env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}, check=False
@@ -253,7 +253,7 @@ def test_an_empty_quick_launch_gets_the_default_programs_on_a_look_that_shows_it
     log = tmp_path / "setup.log"
     script = (
         f'REPO={REPO}; source {REPO}/setup/steps.sh; plasma_script() {{ printf "%s\\n" "$1"; }}; '
-        f"SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 SETUP_LOG={log} SETUP_MENU_STYLE=1998 apply_taskbar"
+        f"SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 SETUP_LOG={log} SETUP_START_MENU_STYLE=1998 apply_taskbar"
     )
     subprocess.run(
         ["bash", "-c", script], timeout=30, env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}, check=False
@@ -420,7 +420,7 @@ def test_saved_launchers_are_written_to_each_task_list_as_a_list(tmp_path):
 
 
 def test_empty_saved_launchers_clear_the_quick_launch_instead_of_restoring_the_defaults(tmp_path):
-    written = taskbar_script_written(tmp_path, "SETUP_MENU_STYLE=1998 SETUP_LAUNCHERS=")
+    written = taskbar_script_written(tmp_path, "SETUP_START_MENU_STYLE=1998 SETUP_LAUNCHERS=")
 
     assert (
         "widget.writeConfig('launchers', []);" in " ".join(written.split()),
@@ -441,8 +441,8 @@ def test_panel_layout_for_a_new_taskbar_starts_with_the_saved_launchers(tmp_path
 @pytest.mark.parametrize(
     "assignments",
     [
-        "SETUP_MENU_STYLE=1998",
-        "SETUP_MENU_STYLE=2000 SETUP_LAUNCHERS=applications:a.desktop SETUP_TASK_BUTTON_WIDTH=200",
+        "SETUP_START_MENU_STYLE=1998",
+        "SETUP_START_MENU_STYLE=2000 SETUP_LAUNCHERS=applications:a.desktop SETUP_TASK_BUTTON_WIDTH=200",
     ],
 )
 def test_taskbar_script_parses_as_javascript(qt_app, tmp_path, assignments):
@@ -499,7 +499,7 @@ def test_hiding_the_clock_removes_it_from_the_taskbar(tmp_path):
 
 
 def test_showing_the_clock_adds_one_to_a_taskbar_without_it(tmp_path):
-    written = squeezed(taskbar_script_written(tmp_path, "SETUP_CLOCK_SHOW=yes SETUP_MENU_STYLE=2000"))
+    written = squeezed(taskbar_script_written(tmp_path, "SETUP_CLOCK_SHOW=yes SETUP_START_MENU_STYLE=2000"))
 
     assert (
         "if (panel.widgets('org.chicago95.tasks').length > 0 && panel.widgets('org.chicago95.clock').length === 0) { "
@@ -532,7 +532,7 @@ def test_panel_layout_for_a_new_taskbar_leaves_the_clock_out_when_hidden(tmp_pat
     "assignments",
     [
         "SETUP_TASKBAR_AUTOHIDE=yes SETUP_CLOCK_SHOW=no",
-        "SETUP_TASKBAR_ON_TOP=no SETUP_CLOCK_SHOW=yes SETUP_CLOCK_HOURS=12 SETUP_MENU_STYLE=2000",
+        "SETUP_TASKBAR_ON_TOP=no SETUP_CLOCK_SHOW=yes SETUP_CLOCK_HOURS=12 SETUP_START_MENU_STYLE=2000",
     ],
 )
 def test_taskbar_script_with_behaviour_choices_parses_as_javascript(qt_app, tmp_path, assignments):
@@ -908,6 +908,32 @@ def test_dry_run_of_the_2000_boot_screen_renders_our_loading_screen_into_a_plymo
         "/usr/share/plymouth/themes/Chicago95-2000" in log,
         "would: sudo plymouth-set-default-theme -R Chicago95-2000" in log,
     ) == (True, True, True, True)
+
+
+@pytest.mark.parametrize(
+    "assignments, style",
+    [("SETUP_BOOT_STYLE=2000 SETUP_LOGIN_STYLE=classic", "2000"), ("SETUP_LOGIN_STYLE=2000", "2000"), ("", "classic")],
+)
+def test_the_boot_style_is_its_own_setting_and_follows_the_login_style_until_set(tmp_path, assignments, style):
+    assert run_bash_with_steps(tmp_path, f"{assignments} boot_style") == [style]
+
+
+def test_dry_run_of_a_2000_boot_screen_with_a_classic_login_still_builds_the_2000_plymouth_theme(tmp_path):
+    plymouth_stub(tmp_path)
+    run_setup(tmp_path, "--dry-run", "--login-style=classic", "--boot-style=2000", "--components=plymouth,splash")
+    log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+    assert (
+        "would: sudo plymouth-set-default-theme -R Chicago95-2000" in log,
+        "(loading screen: 2000, " in log,
+    ) == (True, True)
+
+
+def test_dry_run_of_a_classic_boot_screen_with_a_2000_login_keeps_chicago95s_own_plymouth_theme(tmp_path):
+    plymouth_stub(tmp_path)
+    (tmp_path / "src/Chicago95/Plymouth/Chicago95").mkdir(parents=True)
+    run_setup(tmp_path, "--dry-run", "--login-style=2000", "--boot-style=classic", "--components=plymouth")
+    log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+    assert ("would: sudo plymouth-set-default-theme -R Chicago95\n" in log, "Chicago95-2000" in log) == (True, False)
 
 
 def test_dry_run_of_the_classic_boot_screen_keeps_chicago95s_own_plymouth_theme(tmp_path):

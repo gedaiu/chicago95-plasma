@@ -12,7 +12,7 @@
 #     --idle=5  --cursor=48  --clippy=yes|no  --quick-launch=yes|no|auto  --font="MS W98 UI"  --font-scope=everywhere|desktop|none
 #     --start-text=Start  --start-logo=flag|penguin|/path/to/image  --banner-text=Chicago95
 #     --look=1995|1998|2000|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
-#     --login-style=classic|2000  --icons=chicago95|se98|classicos2000
+#     --login-style=classic|2000  --boot-style=classic|2000  --icons=chicago95|se98|classicos2000
 #     --sounds=Chicago95|Windows98|Windows2000|Plus98-Jungle|...  (data/sound-themes/)
 #     --settings=FILE  choices saved by the Control Panel (KEY=value lines), applied over the defaults
 #     --task-button-width=160  longest a task button on the taskbar may be, in pixels
@@ -48,6 +48,7 @@ for arg in "$@"; do
   --look=*) OPT_LOOK="${arg#*=}" ;;
   --icons=*) OPT_ICONS="${arg#*=}" ;;
   --login-style=*) OPT_LOGIN_STYLE="${arg#*=}" ;;
+  --boot-style=*) OPT_BOOT_STYLE="${arg#*=}" ;;
   --sounds=*) OPT_SOUNDS="${arg#*=}" ;;
   --settings=*) OPT_SETTINGS="${arg#*=}" ;;
   --task-button-width=*) OPT_TASK_BUTTON_WIDTH="${arg#*=}" ;;
@@ -157,8 +158,6 @@ choose_branding() {
       "Type a user name and password to log on." "Welcome. Please log on.")
     SETUP_LOGIN_ICON=$(choose_image "Login picture" "Which picture should sit beside the fields?" "$SETUP_LOGIN_ICON" \
       "keys|Keys" "padlock|Padlock")
-    SETUP_SPLASH_IMAGE=$(choose_image "Loading screen picture" "Which picture should fill the screen while Plasma loads?" \
-      "$SETUP_SPLASH_IMAGE" "classic|Chicago95 picture")
   else
     SETUP_LOGIN_LOGO=$(choose_image "Login and loading logo" "Which logo should the login and loading screens show?" "$SETUP_LOGIN_LOGO" \
       "start|Same as the Start button" "waving-flag|Waving flag (downloaded from Wikimedia Commons)" \
@@ -171,6 +170,11 @@ choose_branding() {
       "$SETUP_COMPANY_LOGO" "text|The company's name in heavy italics")
     SETUP_TAGLINE=$(choose_text "Tagline" "What should the small line under the edition say?" "$SETUP_TAGLINE" \
       "Built on Linux Technology" "Built on KDE Plasma")
+  fi
+  if [ "$SETUP_BOOT_STYLE" = classic ]; then
+    SETUP_SPLASH_IMAGE=$(choose_image "Loading screen picture" "Which picture should fill the screen while Plasma loads?" \
+      "$SETUP_SPLASH_IMAGE" "classic|Chicago95 picture")
+  else
     SETUP_LOADING_TEXT=$(choose_text "Loading text" "What should stand beside the progress bar?" "$SETUP_LOADING_TEXT" \
       "Starting up..." "Loading Plasma...")
     SETUP_LOADING_FOOTER=$(choose_text "Loading screen footer" "What should the bottom line of the loading screen say?" \
@@ -451,12 +455,13 @@ SETUP_BANNER_TEXT=${OPT_BANNER_TEXT:-${SETUP_BANNER_TEXT:-Chicago95}}
 [[ " $COMPONENTS " == *" startmenu "* || " $COMPONENTS " == *" taskbar "* ]] && choose_start_menu
 SETUP_LOGIN_STYLE=${OPT_LOGIN_STYLE:-${SETUP_LOGIN_STYLE:-classic}}
 [[ " $COMPONENTS " == *" sddm "* || " $COMPONENTS " == *" splash "* ]] && [ -z "${OPT_LOGIN_STYLE:-}" ] && choose_login_style
+SETUP_BOOT_STYLE=${OPT_BOOT_STYLE:-${SETUP_BOOT_STYLE:-$SETUP_LOGIN_STYLE}}
 SETUP_LOGIN_TITLE=${SETUP_LOGIN_TITLE:-"Log On to %h"}
 SETUP_LOGIN_MESSAGE=${SETUP_LOGIN_MESSAGE:-"Type a user name and password to log on."}
 SETUP_LOGIN_ICON=${SETUP_LOGIN_ICON:-keys}
 SETUP_SPLASH_IMAGE=${SETUP_SPLASH_IMAGE:-classic}
 # The 2000 look's logo is the waving flag of its start-up screen; the others repeat the Start button's logo.
-SETUP_LOGIN_LOGO=${SETUP_LOGIN_LOGO:-$([ "$SETUP_MENU_STYLE" = 2000 ] && echo waving-flag || echo start)}
+SETUP_LOGIN_LOGO=${SETUP_LOGIN_LOGO:-$([ "$SETUP_START_MENU_STYLE" = 2000 ] && echo waving-flag || echo start)}
 SETUP_EDITION=${SETUP_EDITION:-Professional}
 SETUP_TAGLINE=${SETUP_TAGLINE:-"Built on Linux Technology"}
 SETUP_COMPANY=${SETUP_COMPANY:-KDE}
