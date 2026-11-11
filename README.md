@@ -192,6 +192,20 @@ the tools pin 10 px, and X11 apps need `Xft.dpi: 144` in `~/.Xresources`
 and `forceFontDPI=144` in `~/.config/kcmfonts` with no `QT_SCALE_FACTOR`
 anywhere. At 1x or 2x the DPI section of the tutorial can be skipped.
 
+## Linting and formatting
+
+`make check` verifies formatting and lints every source file without changing anything; CI runs it. `make format` rewrites the files into the house style.
+
+| Files                               | Tools                                                |
+| ----------------------------------- | ---------------------------------------------------- |
+| Python, including `bin/chicago95-*` | ruff (settings in `pyproject.toml`, line length 120) |
+| Shell                               | shfmt and shellcheck                                 |
+| QML                                 | qmlformat and qmllint, from `pyside6-*`              |
+| JS, JSON, YAML, CSS, Markdown       | prettier, run through `npx`                          |
+| XML, `.desktop`                     | xmllint, desktop-file-validate                       |
+
+`pip install --user -r requirements-dev.txt` brings ruff, shellcheck and shfmt. A tool that is missing is skipped locally and is an error in CI. SVG files are generated and left alone.
+
 ## Tests
 
 ```
