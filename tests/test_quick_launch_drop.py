@@ -133,7 +133,7 @@ def test_tap_handlers_name_the_mouse_button_so_the_task_button_id_stays_the_menu
 
     assert (
         "onTapped: button =>" in window_button,
-        "onTapped: mouseButton =>" in window_button,
+        "onTapped: (mouseButton, clickX, clickY) =>" in window_button,
         "windowMenu.visualParent = button" in window_button,
     ) == (
         False,

@@ -71,3 +71,13 @@ def test_the_window_menu_lists_the_system_menu_in_the_originals_order():
     positions = [menu.index(f'i18n("{item}")') for item in items]
 
     assert (positions == sorted(positions), "requestMove(" in menu, "requestResize(" in menu) == (True, True, True)
+
+
+def test_right_clicks_open_the_window_and_quick_launch_menus_at_the_pointer():
+    text = main_qml()
+
+    assert (
+        "windowMenu.open(clickX, clickY);" in qml_block(text, "id: windowButton"),
+        "launcherMenu.open(clickX, clickY);" in qml_block(text, "id: launcherCell"),
+        "windowMenu.openRelative()" in text or "launcherMenu.openRelative()" in text,
+    ) == (True, True, False)

@@ -3,7 +3,7 @@ import "dragSort.js" as DragSort
 
 // The mouse area of one item in a row sorted by dragging: past the start-drag distance the item follows the
 // pointer under a closed hand (dragX, clamped to its section), moved(from, to) fires each time its centre
-// crosses into another slot, dropped() when it is let go, and tapped(button) for a click that was no drag.
+// crosses into another slot, dropped() when it is let go, and tapped(button, x, y) for a click that was no drag.
 MouseArea {
     id: area
 
@@ -22,7 +22,7 @@ MouseArea {
 
     signal moved(int fromSlot, int toSlot)
     signal dropped(real pointerX, real pointerY)
-    signal tapped(int button)
+    signal tapped(int button, real x, real y)
 
     hoverEnabled: true
     acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -72,6 +72,6 @@ MouseArea {
             state.dragged = false;
             return;
         }
-        tapped(mouse.button);
+        tapped(mouse.button, mouse.x, mouse.y);
     }
 }

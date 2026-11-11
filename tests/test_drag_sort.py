@@ -59,6 +59,7 @@ Item {
     height: 28
     property var moves: []
     property var taps: []
+    property var tapPoints: []
     ListModel {
         id: cells
         ListElement { name: "a" }
@@ -87,7 +88,10 @@ Item {
                 itemWidth: 23
                 threshold: 10
                 onMoved: (from, to) => { harness.moves = harness.moves.concat([[from, to]]); cells.move(from, to, 1); }
-                onTapped: button => harness.taps = harness.taps.concat([button])
+                onTapped: (button, x, y) => {
+                    harness.taps = harness.taps.concat([button]);
+                    harness.tapPoints = harness.tapPoints.concat([[x, y]]);
+                }
             }
         }
     }
@@ -166,6 +170,14 @@ def test_a_drag_is_not_a_click_but_a_small_movement_still_is(qt_app, harness):
     drag(qt_app, view, (5, 14), (7, 14))
 
     assert (after_drag, recorded(root, "taps"), recorded(root, "moves")) == ([], [int(Qt.LeftButton.value)], [[0, 1]])
+
+
+def test_a_click_reports_where_it_landed_inside_the_item_so_a_menu_can_open_at_the_pointer(qt_app, harness):
+    view, root = harness
+    QTest.mouseClick(view, Qt.RightButton, Qt.NoModifier, QPoint(23 + 7, 9))
+    qt_app.processEvents()
+
+    assert (recorded(root, "taps"), recorded(root, "tapPoints")) == ([int(Qt.RightButton.value)], [[7, 9]])
 
 
 def test_the_dragged_item_cannot_leave_its_section(qt_app, harness):

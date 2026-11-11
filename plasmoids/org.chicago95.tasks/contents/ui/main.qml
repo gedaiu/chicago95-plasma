@@ -282,11 +282,11 @@ PlasmoidItem {
                                 if (Launchers.releasedOffTaskbar(pointerX, pointerY, root.width, root.height))
                                     tasksModel.requestRemoveLauncher(entry.model.LauncherUrlWithoutIcon);
                             }
-                            onTapped: mouseButton => {
+                            onTapped: (mouseButton, clickX, clickY) => {
                                 if (mouseButton === Qt.RightButton) {
                                     launcherMenu.launcher = entry.model.LauncherUrlWithoutIcon;
                                     launcherMenu.visualParent = parent;
-                                    launcherMenu.openRelative();
+                                    launcherMenu.open(clickX, clickY);
                                 } else {
                                     tasksModel.requestNewInstance(entry.modelIndex);
                                 }
@@ -328,13 +328,13 @@ PlasmoidItem {
                         onSlidesChanged: entry.slides = slides
                         onDragXChanged: entry.dragX = dragX
                         onMoved: (from, to) => tasksModel.move(root.launcherCount + from, root.launcherCount + to)
-                        onTapped: mouseButton => {
+                        onTapped: (mouseButton, clickX, clickY) => {
                             if (mouseButton === Qt.RightButton) {
                                 windowMenu.visualParent = button;
                                 windowMenu.task = entry.modelIndex;
                                 windowMenu.window = WindowMenu.windowState(entry.model);
                                 windowMenu.launcher = entry.model.LauncherUrlWithoutIcon;
-                                windowMenu.openRelative();
+                                windowMenu.open(clickX, clickY);
                             } else if (entry.model.IsActive) {
                                 tasksModel.requestToggleMinimized(entry.modelIndex);
                             } else {
@@ -350,7 +350,6 @@ PlasmoidItem {
     PlasmaExtras.Menu {
         id: launcherMenu
         property var launcher
-        placement: PlasmaExtras.Menu.TopPosedLeftAlignedPopup
         PlasmaExtras.MenuItem {
             text: i18n("Remove from Quick Launch")
             onClicked: tasksModel.requestRemoveLauncher(launcherMenu.launcher)
@@ -363,7 +362,6 @@ PlasmoidItem {
         property var launcher
         property var window: WindowMenu.windowState({})
         readonly property var enabledItems: WindowMenu.enabledItems(window)
-        placement: PlasmaExtras.Menu.TopPosedLeftAlignedPopup
 
         PlasmaExtras.MenuItem {
             text: i18n("Restore")
