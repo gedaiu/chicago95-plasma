@@ -17,3 +17,8 @@ quote-style = "double"
 # These programs extend sys.path (or set Qt's environment) before importing chicago95ui and Qt.
 "bin/*" = ["E402"]
 "lib/chicago95ui.py" = ["E402"]
+
+[tool.coverage.run]
+branch = true
+patch = ["subprocess"]
+source = ["lib", "bin", "setup", "aurorae", "plasma-style"]

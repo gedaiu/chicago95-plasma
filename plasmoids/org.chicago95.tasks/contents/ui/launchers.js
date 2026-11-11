@@ -1,6 +1,7 @@
 .pragma library
+.import "quickLaunchBand.js" as Band
 
-const CELL_WIDTH = 23;
+const CELL_WIDTH = Band.metrics().cellWidth;
 const REMOVE_DISTANCE = 12;
 
 // eslint-disable-next-line max-params -- QML and its tests pass the drag geometry positionally

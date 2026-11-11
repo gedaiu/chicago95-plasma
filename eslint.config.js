@@ -19,6 +19,7 @@ export default tseslint.config(
       "**/clockFormat.js",
       "**/launchers.js",
       "**/quickLaunch.js",
+      "**/quickLaunchBand.js",
       "**/sizing.js",
       "**/settings.js",
       // user.js is a list of Firefox preferences, so its boolean arguments are data, not behaviour flags.

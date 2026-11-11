@@ -148,6 +148,7 @@ TMPDIR="$WORK" ./install.sh --plain --yes --components=base,look,taskbar,fonts "
 evaluate 'panels().forEach(panel => {{
     panel.widgets("org.chicago95.tasks").forEach(widget => {{
         widget.currentConfigGroup = ["General"]; widget.writeConfig("launchers", {launchers});
+        Object.entries({tasks_config}).forEach(([key, value]) => widget.writeConfig(key, value));
     }});
     panel.widgets("org.kde.plasma.systemtray").forEach(widget => {{
         widget.currentConfigGroup = ["General"]; widget.writeConfig("extraItems", """
@@ -257,11 +258,12 @@ def run_session(work, script, environment, xwayland=False):
         subprocess.run(command, env=environment, cwd=work, stdout=log, stderr=subprocess.STDOUT, check=False)
 
 
-def desktop_session(look, work, tray_applets=(), tray_icons=None, hidden_applets=()):
+def desktop_session(look, work, tray_applets=(), tray_icons=None, hidden_applets=(), tasks_config=()):
     """Runs both sessions for a look in work (a short path: Wayland's socket path is limited to 108
     bytes); returns the 640x480 screenshot. tray_applets are Plasma applets shown in the tray (such
     as org.kde.plasma.notifications), hidden_applets ones behind its "show hidden icons" arrow, and
-    tray_icons the number of the test's icons there, beside the original's."""
+    tray_icons the number of the test's icons there, beside the original's; tasks_config (key, value) pairs
+    for the taskbar widget's settings."""
     work = Path(work)
     home, runtime = work / "home", work / "run"
     for folder in (home / ".config", runtime):
@@ -292,6 +294,7 @@ def desktop_session(look, work, tray_applets=(), tray_icons=None, hidden_applets
             launchers=json.dumps(launchers),
             tray_applets=json.dumps(list(tray_applets)),
             hidden_applets=json.dumps(list(hidden_applets)),
+            tasks_config=json.dumps(dict(tasks_config)),
         )
     )
     (work / "desktop.sh").write_text(

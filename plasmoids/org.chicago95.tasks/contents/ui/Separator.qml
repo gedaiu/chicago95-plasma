@@ -1,20 +1,24 @@
 import QtQuick
+import "quickLaunchBand.js" as Band
 
 // The originals' toolbar separator on the taskbar (tests/test_taskbar_reference.py): after a 2px gap an
 // etched line (shadow, then white) as tall as the buttons, 2px of face, then a 3px grip 18px tall (white
 // left and top, shadow right and bottom), then 4px before the next item. Bottom-aligned like the
 // buttons. The gap before the line is the look's: 2px, 3px on 2000 after its wider Start button.
+// A draggable one shows the left-right cursor and reports where its left edge is dragged to, in its parent.
 Item {
     id: separator
+    property bool draggable: false
+    signal dragged(int x)
+    signal released(int x)
     property color shadow: "#808080"
     property color white: "#ffffff"
 
-    property int lead: 2
-    readonly property int trail: 4
+    property int lead: Band.metrics().separatorLead
     readonly property int lineHeight: 22
     readonly property int gripHeight: 18
 
-    implicitWidth: lead + 2 + 2 + 3 + trail
+    implicitWidth: Band.separatorWidth(lead)
     implicitHeight: lineHeight
 
     Item {
@@ -70,5 +74,23 @@ Item {
                 color: separator.shadow
             }
         }
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        enabled: separator.draggable
+        hoverEnabled: true
+        preventStealing: true
+        cursorShape: Qt.SizeHorCursor
+        property int grabbedAt
+        function leftEdge(mouse) {
+            return Math.round(mapToItem(separator.parent, mouse.x - grabbedAt, 0).x);
+        }
+        onPressed: mouse => grabbedAt = mouse.x
+        onPositionChanged: mouse => {
+            if (pressed)
+                separator.dragged(leftEdge(mouse));
+        }
+        onReleased: mouse => separator.released(leftEdge(mouse))
     }
 }

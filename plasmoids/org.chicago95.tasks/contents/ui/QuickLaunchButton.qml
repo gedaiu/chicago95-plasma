@@ -1,5 +1,6 @@
 import QtQuick
 import org.kde.kirigami as Kirigami
+import "quickLaunchBand.js" as Band
 
 // A Quick Launch cell as the originals draw it (tests/test_plasma_taskbar_reference.py): 23px wide and as
 // tall as the buttons, the program's 16px icon 3px in and 3px down; a flat button that rises under the
@@ -12,9 +13,9 @@ Item {
     property color shadow: "#808080"
     property color white: "#ffffff"
 
-    readonly property int cellWidth: 23
+    readonly property int cellWidth: Band.metrics().cellWidth
     readonly property int cellHeight: 22
-    readonly property int iconInset: 3
+    readonly property int iconInset: Band.metrics().iconInset
 
     implicitWidth: cellWidth
     implicitHeight: cellHeight

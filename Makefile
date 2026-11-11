@@ -30,9 +30,13 @@ elif [ "$(STRICT)" = 1 ]; then echo "missing tool: $(1)"; exit 1; \
 else echo "skipped (not installed): $(1)"; fi
 endef
 
-.PHONY: check format lint lint-python lint-shell lint-qml lint-xml lint-desktop format-check format-python format-shell format-qml format-js format-prettier lint-js
+.PHONY: check coverage format lint lint-python lint-shell lint-qml lint-xml lint-desktop format-check format-python format-shell format-qml format-js format-prettier lint-js
 
 check: format-check lint
+
+# Branch coverage of the programs, including the ones the tests start as subprocesses.
+coverage:
+	QT_QPA_PLATFORM=offscreen python3 -m pytest tests -q --cov --cov-report=term-missing:skip-covered
 
 format: format-python format-shell format-qml format-js format-prettier
 

@@ -5,3 +5,4 @@ numpy
 ruff
 shellcheck-py
 shfmt-py
+pytest-cov

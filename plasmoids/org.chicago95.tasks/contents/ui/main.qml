@@ -9,6 +9,7 @@ import org.kde.taskmanager as TaskManager
 import "sizing.js" as Sizing
 import "launchers.js" as Launchers
 import "quickLaunch.js" as QuickLaunch
+import "quickLaunchBand.js" as Band
 
 // The taskbar between the Start button and the tray, as the originals lay it out
 // (tests/test_plasma_taskbar_reference.py): with Quick Launch entries, a separator, their 23px cells
@@ -18,6 +19,9 @@ import "quickLaunch.js" as QuickLaunch
 // A click on a window's button activates it, or minimizes it when it is already active; the right
 // button opens the classic window menu, with "Add to Quick Launch". A Quick Launch entry's menu removes
 // it; programs dropped on the Quick Launch are added. Whether it shows is Setup's option (quickLaunch.js).
+// Its separator docks it beside the Start button or at the taskbar's end, by where it is let go; the
+// separator beside the window buttons sets how many launchers show, and a chevron opens the rest
+// (quickLaunchBand.js).
 PlasmoidItem {
     id: root
 
@@ -29,14 +33,40 @@ PlasmoidItem {
     readonly property int contentX: -Kirigami.Units.smallSpacing   // the panel's gap between applets
     readonly property bool showQuickLaunch: QuickLaunch.shown(Plasmoid.configuration.quickLaunch, Plasmoid.configuration.look)
     readonly property int maxButtonWidth: Sizing.maxButtonWidth(Plasmoid.configuration.maxButtonWidth, Plasmoid.configuration.look)
-    readonly property int gap: 3
-    readonly property int gapWithoutQuickLaunch: 4
+    readonly property var metrics: Band.metrics()
+    readonly property int gap: metrics.taskButtonGap
     readonly property int launcherCount: tasksModel.launcherCount
     readonly property int windowCount: tasksModel.count - launcherCount
-    readonly property int quickLaunchX: contentX + leadingSeparator.width
-    readonly property int quickLaunchEnd: quickLaunchX + launcherCount * 23
-    readonly property int tasksX: launcherCount > 0 ? trailingSeparator.x + trailingSeparator.width : contentX + gapWithoutQuickLaunch
-    readonly property int buttonWidth: windowCount === 0 ? 0 : Math.min(maxButtonWidth, Math.floor((width - tasksX + gap) / windowCount) - gap)
+    readonly property int lead: Plasmoid.configuration.look === "2000" ? metrics.separatorLeadAfterStart2000 : metrics.separatorLead
+    readonly property string dock: Plasmoid.configuration.quickLaunchDock === "right" ? "right" : "left"
+    // While a separator is dragged: the cells the band would show, and where a separator that would dock it is.
+    property int liveCells: -2
+    property int floatingGripX: -1
+    readonly property int cells: liveCells !== -2 ? liveCells : Plasmoid.configuration.quickLaunchCells
+    readonly property var band: Band.layout(width, contentX, lead, launcherCount, cells, dock)
+    readonly property int shownLaunchers: band.shown
+    readonly property int firstShown: band.firstShown   // the launchers before it are behind the chevron
+    readonly property int quickLaunchX: band.cellsX
+    readonly property int quickLaunchEnd: quickLaunchX + Band.cellsWidth(shownLaunchers)
+    readonly property int tasksX: band.tasksX
+    readonly property int buttonWidth: windowCount === 0 ? 0 : Math.min(maxButtonWidth, Math.floor((band.tasksEnd - tasksX + gap) / windowCount) - gap)
+
+    function bandSettled(result) {
+        liveCells = -2;
+        floatingGripX = -1;
+        Plasmoid.configuration.quickLaunchDock = result.dock;
+        Plasmoid.configuration.quickLaunchCells = result.cells;
+    }
+    function quickLaunchGripResult(gripX) {
+        return Band.quickLaunchGripReleased(gripX, width, contentX, lead, launcherCount, Plasmoid.configuration.quickLaunchCells, dock);
+    }
+    function taskGripResult(gripX) {
+        return Band.taskGripReleased(gripX, width, contentX, lead, launcherCount, Plasmoid.configuration.quickLaunchCells, dock);
+    }
+    // The separator stays on the taskbar: it follows the pointer only along it.
+    function onTaskbar(gripX, gripWidth) {
+        return Math.max(contentX, Math.min(width - gripWidth, gripX));
+    }
 
     Plasmoid.contextualActions: [
         PlasmaCore.Action {
@@ -99,15 +129,15 @@ PlasmoidItem {
     DropArea {
         visible: root.showQuickLaunch
         x: root.quickLaunchX
-        width: Math.max(23, root.quickLaunchEnd - root.quickLaunchX)
+        width: Math.max(root.metrics.cellWidth, root.quickLaunchEnd - root.quickLaunchX)
         height: parent.height
         onDropped: drop => {
-            const insertAt = Launchers.insertionIndexAt(x + drop.x, root.quickLaunchX, root.launcherCount);
+            const insertAt = Launchers.insertionIndexAt(x + drop.x, root.quickLaunchX, root.shownLaunchers);
             drop.urls.forEach((url, offset) => {
                 const before = tasksModel.launcherCount;
                 tasksModel.requestAddLauncher(url);
                 if (tasksModel.launcherCount > before)
-                    tasksModel.move(before, insertAt + offset);
+                    tasksModel.move(before, root.firstShown + insertAt + offset);
             });
         }
     }
@@ -116,10 +146,10 @@ PlasmoidItem {
     property int draggedIndex: -1
     property var draggedIcon
     property point dragPoint
-    readonly property bool dragInsideTaskbar: Launchers.dragResult(draggedIndex, dragPoint.x, dragPoint.y, width, height, quickLaunchX, launcherCount).action !== "remove"
+    readonly property bool dragInsideTaskbar: Launchers.dragResult(draggedIndex, dragPoint.x, dragPoint.y, width, height, quickLaunchX, shownLaunchers).action !== "remove"
     Rectangle {
         visible: root.draggedIndex >= 0 && root.dragInsideTaskbar
-        x: root.quickLaunchX + Launchers.insertionIndexAt(root.dragPoint.x, root.quickLaunchX, root.launcherCount) * 23 - 1
+        x: root.quickLaunchX + Launchers.insertionIndexAt(root.dragPoint.x, root.quickLaunchX, root.shownLaunchers) * root.metrics.cellWidth - 1
         y: 3
         width: 2
         height: root.height - 6
@@ -138,17 +168,69 @@ PlasmoidItem {
     }
 
     Separator {
-        id: leadingSeparator
+        id: quickLaunchGrip
         visible: root.launcherCount > 0
-        x: root.contentX
+        x: root.floatingGripX >= 0 ? root.floatingGripX : root.band.quickLaunchGripX
+        z: 5
         height: parent.height
-        lead: Plasmoid.configuration.look === "2000" ? 3 : 2   // after 2000's wider Start button
+        lead: root.dock === "left" ? root.lead : root.metrics.separatorLead
+        draggable: true
+        onDragged: gripX => {
+            const result = root.quickLaunchGripResult(gripX);
+            const resizing = result.dock === "right" && root.dock === "right";
+            root.liveCells = resizing ? result.cells : -2;
+            root.floatingGripX = resizing ? -1 : root.onTaskbar(gripX, width);
+        }
+        onReleased: gripX => root.bandSettled(root.quickLaunchGripResult(gripX))
     }
     Separator {
-        id: trailingSeparator
+        id: taskGrip
         visible: root.launcherCount > 0
-        x: root.quickLaunchEnd + 2
+        x: root.band.taskGripX
         height: parent.height
+        lead: root.dock === "left" ? root.metrics.separatorLead : root.lead
+        draggable: root.dock === "left"
+        onDragged: gripX => root.liveCells = root.taskGripResult(gripX).cells
+        onReleased: gripX => root.bandSettled(root.taskGripResult(gripX))
+    }
+    Chevron {
+        id: chevron
+        visible: root.band.chevronX >= 0
+        x: root.band.chevronX
+        height: parent.height
+        pointsRight: root.dock === "left"
+        hovered: chevronArea.containsMouse
+        held: chevronArea.pressed && chevronArea.containsMouse
+        MouseArea {
+            id: chevronArea
+            anchors.fill: parent
+            hoverEnabled: true
+            onClicked: root.openChevronMenu()
+        }
+    }
+    PlasmaExtras.Menu {
+        id: chevronMenu
+        visualParent: chevron
+        placement: PlasmaExtras.Menu.TopPosedLeftAlignedPopup
+    }
+    Component {
+        id: chevronEntry
+        PlasmaExtras.MenuItem {
+            property int launcher
+            onClicked: tasksModel.requestNewInstance(tasksModel.makeModelIndex(launcher))
+        }
+    }
+    function openChevronMenu() {
+        chevronMenu.clearMenuItems();
+        Band.hiddenLaunchers(launcherCount, cells, dock).forEach(index => {
+            const modelIndex = tasksModel.makeModelIndex(index);
+            chevronMenu.addMenuItem(chevronEntry.createObject(chevronMenu, {
+                launcher: index,
+                text: tasksModel.data(modelIndex, Qt.DisplayRole),
+                icon: tasksModel.data(modelIndex, Qt.DecorationRole)
+            }));
+        });
+        chevronMenu.openRelative();
     }
 
     Repeater {
@@ -160,9 +242,10 @@ PlasmoidItem {
             required property int index
             readonly property bool launcher: index < root.launcherCount
             readonly property var modelIndex: tasksModel.makeModelIndex(index)
-            x: launcher ? root.quickLaunchX + index * 23 : root.tasksX + (index - root.launcherCount) * (root.buttonWidth + root.gap)
-            width: launcher ? 23 : root.buttonWidth
+            x: launcher ? root.quickLaunchX + Band.cellsWidth(index - root.firstShown) : root.tasksX + (index - root.launcherCount) * (root.buttonWidth + root.gap)
+            width: launcher ? root.metrics.cellWidth : root.buttonWidth
             height: root.height
+            visible: !launcher || (index >= root.firstShown && index < root.firstShown + root.shownLaunchers)
             sourceComponent: launcher ? launcherCell : windowButton
 
             Component {
@@ -192,7 +275,7 @@ PlasmoidItem {
                                     return;
                                 dragging = true;
                                 root.draggedIcon = entry.model.decoration;
-                                root.draggedIndex = entry.index;
+                                root.draggedIndex = entry.index - root.firstShown;
                                 root.dragPoint = mapToItem(root, mouse.x, mouse.y);
                             }
                             onReleased: mouse => {
@@ -200,12 +283,12 @@ PlasmoidItem {
                                     return;
                                 dragging = false;
                                 dragEndedClick = true;
-                                const result = Launchers.dragResult(entry.index, root.dragPoint.x, root.dragPoint.y, root.width, root.height, root.quickLaunchX, root.launcherCount);
+                                const result = Launchers.dragResult(entry.index - root.firstShown, root.dragPoint.x, root.dragPoint.y, root.width, root.height, root.quickLaunchX, root.shownLaunchers);
                                 root.draggedIndex = -1;
                                 if (result.action === "remove")
                                     tasksModel.requestRemoveLauncher(entry.model.LauncherUrlWithoutIcon);
                                 else if (result.action === "move")
-                                    tasksModel.move(entry.index, result.to);
+                                    tasksModel.move(entry.index, root.firstShown + result.to);
                             }
                             onClicked: mouse => {
                                 if (dragEndedClick) {
