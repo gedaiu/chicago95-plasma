@@ -1,8 +1,8 @@
 import fcntl
-import subprocess
 import os
 import pty
 import struct
+import subprocess
 import termios
 import time
 
@@ -90,6 +90,11 @@ for i in $(seq 2000); do show_copy "$HOME/src/icons/apps/16/icon$i.png" "$HOME/.
 echo "seconds $(( (${{EPOCHREALTIME/./}} - ${{start/./}}) / 1000000 ))"
 grep -c '^copied' {tmp_path}/setup.log
 """
-    output = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=120,
-                            env={"PATH": os.environ["PATH"], "HOME": str(tmp_path), "TERM": "xterm-256color"}).stdout.split()
+    output = subprocess.run(
+        ["bash", "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env={"PATH": os.environ["PATH"], "HOME": str(tmp_path), "TERM": "xterm-256color"},
+    ).stdout.split()
     assert output[-1] == "2000" and int(output[-2]) < 3, output

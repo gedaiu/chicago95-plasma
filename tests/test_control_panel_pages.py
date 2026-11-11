@@ -1,9 +1,8 @@
 import sys
 
 import pytest
-from PySide6.QtWidgets import QDialog
-
 from conftest import load_script
+from PySide6.QtWidgets import QDialog
 
 
 @pytest.fixture(scope="session")
@@ -22,6 +21,7 @@ def make_page(control_panel, qt_app):
         page.tab, page.applied, page.finishes = tab, applied, []
         page.finished.connect(lambda: page.finishes.append(1))
         return page
+
     return build
 
 
@@ -97,7 +97,12 @@ def test_cancel_puts_the_fields_back_and_finishes_without_applying(make_page):
     page.tab.title_field.setText("Other")
     page.cancel_button.click()
 
-    assert (page.tab.values()["LOGIN_TITLE"], page.applied, page.finishes, page.apply_button.isEnabled()) == ("Saved", [], [1], False)
+    assert (page.tab.values()["LOGIN_TITLE"], page.applied, page.finishes, page.apply_button.isEnabled()) == (
+        "Saved",
+        [],
+        [1],
+        False,
+    )
 
 
 def test_discarding_changes_puts_the_fields_back_without_finishing(make_page):
@@ -125,7 +130,12 @@ def test_progress_that_fails_stays_open_with_the_details_shown_and_a_close_butto
     progress = control_panel.ApplyProgress(None, [sys.executable, "-c", "import sys; print('bad thing'); sys.exit(3)"])
     run_to_the_end(progress, qt_app)
 
-    assert (progress.result(), progress.log.isHidden(), progress.details_button.text(), "bad thing" in progress.log.toPlainText()) == (QDialog.Rejected, False, "Close", True)
+    assert (
+        progress.result(),
+        progress.log.isHidden(),
+        progress.details_button.text(),
+        "bad thing" in progress.log.toPlainText(),
+    ) == (QDialog.Rejected, False, "Close", True)
 
 
 def test_progress_collects_the_error_output_too(control_panel, qt_app):
@@ -149,7 +159,12 @@ def test_details_button_shows_and_hides_the_log_while_setup_runs(control_panel, 
     shown = not progress.log.isHidden()
     progress.details_button.click()
 
-    assert (initially_hidden, shown, progress.log.isHidden(), progress.details_button.text()) == (True, True, True, "Details >>")
+    assert (initially_hidden, shown, progress.log.isHidden(), progress.details_button.text()) == (
+        True,
+        True,
+        True,
+        "Details >>",
+    )
 
 
 def test_progress_for_a_command_that_cannot_start_fails_instead_of_waiting_forever(control_panel, qt_app, tmp_path):
@@ -157,4 +172,8 @@ def test_progress_for_a_command_that_cannot_start_fails_instead_of_waiting_forev
     progress.start()
     qt_app.processEvents()
 
-    assert (progress.result(), progress.details_button.text(), "missing-install.sh" in progress.log.toPlainText() or "No such file" in progress.log.toPlainText()) == (QDialog.Rejected, "Close", True)
+    assert (
+        progress.result(),
+        progress.details_button.text(),
+        "missing-install.sh" in progress.log.toPlainText() or "No such file" in progress.log.toPlainText(),
+    ) == (QDialog.Rejected, "Close", True)

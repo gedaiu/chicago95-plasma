@@ -2,3 +2,6 @@ pytest
 Pillow
 pixelmatch==0.4.0
 numpy
+ruff
+shellcheck-py
+shfmt-py

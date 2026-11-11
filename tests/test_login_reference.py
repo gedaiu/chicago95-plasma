@@ -6,24 +6,39 @@ put each line of lettering where the original does. The original's Options show 
 check box); ours show two (the session list, then the Num Lock and Show password boxes), so the dialog
 is compared above those rows as it is, and below them one row (27 pixels) lower.
 """
-import pytest
 
+import pytest
 from conftest import needs_ui_font
 from login_theme import render_login
 from reference import LOOK_2000_KDEGLOBALS, bounding_box, close, differing_pixels, installed_look, screenshot
 
 DIALOG = (111, 74, 528, 330)
 OPTION_ROWS_TOP, ORIGINAL_ROWS_BOTTOM, EXTRA_ROW = 258, 282, 27
-LOOK = {"style": "2000", "bannerText": "Windows 2000", "osName": "Windows 2000", "osCompany": "Microsoft",
-        "edition": "Professional", "osLogo": "", "companyLogo": "", "tagline": "Built on NT Technology"}
-BANNER_LINES = {"company": (212, 98, 300, 112), "name": (212, 110, 480, 142), "edition": (280, 143, 460, 165),
-                "tagline": (280, 166, 460, 182), "corner": (440, 98, 522, 118)}
+LOOK = {
+    "style": "2000",
+    "bannerText": "Windows 2000",
+    "osName": "Windows 2000",
+    "osCompany": "Microsoft",
+    "edition": "Professional",
+    "osLogo": "",
+    "companyLogo": "",
+    "tagline": "Built on NT Technology",
+}
+BANNER_LINES = {
+    "company": (212, 98, 300, 112),
+    "name": (212, 110, 480, 142),
+    "edition": (280, 143, 460, 165),
+    "tagline": (280, 166, 460, 182),
+    "corner": (440, 98, 522, 118),
+}
 LETTERING_SLACK = 2
-MASKS = [(114, 96, 525, 189),     # banner: its artwork and lettering have their own tests
-         (116, 78, 300, 93),      # title text
-         (118, 204, 190, 276),    # labels
-         (200, 206, 440, 249),    # field contents and the original's mouse pointer
-         (198, 294, 516, 315)]    # button captions (the frames are compared)
+MASKS = [
+    (114, 96, 525, 189),  # banner: its artwork and lettering have their own tests
+    (116, 78, 300, 93),  # title text
+    (118, 204, 190, 276),  # labels
+    (200, 206, 440, 249),  # field contents and the original's mouse pointer
+    (198, 294, 516, 315),
+]  # button captions (the frames are compared)
 
 
 @pytest.fixture(scope="module")
@@ -36,8 +51,15 @@ def ours(qt_app, shutdown, tmp_path_factory):
     folder = tmp_path_factory.mktemp("login")
     shutdown.render_login_banner(LOOK, folder / "banner.png")
     with installed_look(qt_app, "[StartMenu]\nstyle=2000\n", LOOK_2000_KDEGLOBALS):
-        return render_login(qt_app, folder, banner=folder / "banner.png", show_options=True, loginStyle="2000",
-                            titleActive="#0A246A,#A6CAF0", loginTitle="Log On to Windows")
+        return render_login(
+            qt_app,
+            folder,
+            banner=folder / "banner.png",
+            show_options=True,
+            loginStyle="2000",
+            titleActive="#0A246A,#A6CAF0",
+            loginTitle="Log On to Windows",
+        )
 
 
 def masks_in(area):
@@ -47,7 +69,9 @@ def masks_in(area):
 @needs_ui_font
 def test_dialog_above_the_option_rows_matches_the_original(reference, ours, tmp_path):
     area = (DIALOG[0], DIALOG[1], DIALOG[2], OPTION_ROWS_TOP)
-    count = differing_pixels(reference.crop(area), ours.crop(area), masks_in(area), tmp_path / "login-top-diff.png", threshold=0.15)
+    count = differing_pixels(
+        reference.crop(area), ours.crop(area), masks_in(area), tmp_path / "login-top-diff.png", threshold=0.15
+    )
     assert count == 0, f"{count} pixels differ; see {tmp_path}"
 
 
@@ -55,7 +79,9 @@ def test_dialog_above_the_option_rows_matches_the_original(reference, ours, tmp_
 def test_dialog_below_the_option_rows_matches_the_original_one_row_lower(reference, ours, tmp_path):
     area = (DIALOG[0], ORIGINAL_ROWS_BOTTOM, DIALOG[2], DIALOG[3])
     lower = (area[0], area[1] + EXTRA_ROW, area[2], area[3] + EXTRA_ROW)
-    count = differing_pixels(reference.crop(area), ours.crop(lower), masks_in(area), tmp_path / "login-bottom-diff.png", threshold=0.15)
+    count = differing_pixels(
+        reference.crop(area), ours.crop(lower), masks_in(area), tmp_path / "login-bottom-diff.png", threshold=0.15
+    )
     assert count == 0, f"{count} pixels differ; see {tmp_path}"
 
 
@@ -63,6 +89,7 @@ def test_dialog_below_the_option_rows_matches_the_original_one_row_lower(referen
 def test_banner_lettering_covers_the_original_lines_within_2_pixels(reference, ours, line):
     def ink(image):
         return bounding_box(image, lambda c: sum(c) < 250, (line[0], line[2]), (line[1], line[3]))
+
     expected, actual = ink(reference), ink(ours)
     assert all(abs(a - e) <= LETTERING_SLACK for a, e in zip(actual, expected)), (actual, expected)
 
@@ -77,16 +104,28 @@ def test_session_dropdown_is_drawn_like_the_shut_down_dropdown(ours):
     assert all(close(a, e) for a, e in zip(actual, expected)), list(zip(actual, expected))
 
 
-@pytest.mark.parametrize("show_options, layouts, expected", [
-    (False, (("us", "English (US)"),), (74, 229)),
-    (True, (("us", "English (US)"),), (74, 283)),
-    (True, (("us", "English (US)"), ("ro", "Romanian")), (74, 310)),
-], ids=["collapsed", "session and check box rows", "session, keyboard and check box rows"])
-def test_options_grows_the_dialog_down_by_27_pixels_per_row_from_the_same_top(qt_app, shutdown, tmp_path, show_options, layouts, expected):
+@pytest.mark.parametrize(
+    "show_options, layouts, expected",
+    [
+        (False, (("us", "English (US)"),), (74, 229)),
+        (True, (("us", "English (US)"),), (74, 283)),
+        (True, (("us", "English (US)"), ("ro", "Romanian")), (74, 310)),
+    ],
+    ids=["collapsed", "session and check box rows", "session, keyboard and check box rows"],
+)
+def test_options_grows_the_dialog_down_by_27_pixels_per_row_from_the_same_top(
+    qt_app, shutdown, tmp_path, show_options, layouts, expected
+):
     shutdown.render_login_banner(LOOK, tmp_path / "banner.png")
     with installed_look(qt_app, "[StartMenu]\nstyle=2000\n", LOOK_2000_KDEGLOBALS):
-        image = render_login(qt_app, tmp_path, banner=tmp_path / "banner.png", show_options=show_options, layouts=layouts,
-                             loginStyle="2000")
+        image = render_login(
+            qt_app,
+            tmp_path,
+            banner=tmp_path / "banner.png",
+            show_options=show_options,
+            layouts=layouts,
+            loginStyle="2000",
+        )
     background = image.getpixel((5, 5))
     rows = [y for y in range(image.height) if image.getpixel((300, y)) != background]
     assert (rows[0], rows[-1] - rows[0] + 1) == expected

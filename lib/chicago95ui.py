@@ -4,6 +4,7 @@ Import this before any other PySide6 import: it pins the platform to XWayland,
 forces the Windows style and reads the Plasma scale so dialogs render sharp.
 Every tool then calls make_app() instead of QApplication() directly.
 """
+
 import configparser
 import glob
 import os
@@ -15,10 +16,12 @@ import sys
 
 def detect_scale():
     if not (os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY")):
-        return "1"   # no compositor to ask: kscreen-doctor would abort, and each abort is a crash report
+        return "1"  # no compositor to ask: kscreen-doctor would abort, and each abort is a crash report
     try:
         child_env = {key: value for key, value in os.environ.items() if key != "QT_QPA_PLATFORM"}
-        output = subprocess.run(["kscreen-doctor", "-o"], capture_output=True, text=True, timeout=3, env=child_env).stdout
+        output = subprocess.run(
+            ["kscreen-doctor", "-o"], capture_output=True, text=True, timeout=3, env=child_env
+        ).stdout
     except (OSError, subprocess.TimeoutExpired):
         return "1"
     plain = re.sub(r"\x1b\[[0-9;]*m", "", output)
@@ -40,9 +43,36 @@ if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
     os.environ.setdefault("QT_SCALE_FACTOR", detect_scale())
 os.environ.pop("QT_QPA_PLATFORMTHEME", None)
 
-from PySide6.QtCore import QEvent, QRect, QRectF, Qt, QTimer  # noqa: E402
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetrics, QIcon, QLinearGradient, QPainter, QPainterPath, QPalette, QPen, QRadialGradient  # noqa: E402
-from PySide6.QtWidgets import QApplication, QDialog, QFrame, QProxyStyle, QPushButton, QStyle, QStyledItemDelegate, QStyleOptionTab, QWidget  # noqa: E402
+from PySide6.QtCore import QEvent, QRect, QRectF, QSize, Qt, QTimer  # noqa: E402
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QFontDatabase,
+    QFontMetrics,
+    QIcon,
+    QImage,
+    QLinearGradient,
+    QPainter,
+    QPainterPath,
+    QPalette,
+    QPen,
+    QPixmap,
+    QRadialGradient,
+    QRegion,
+)  # noqa: E402
+from PySide6.QtWidgets import (
+    QAbstractSpinBox,
+    QApplication,
+    QDialog,
+    QFrame,
+    QProxyStyle,
+    QPushButton,
+    QStyle,
+    QStyledItemDelegate,
+    QStyleOptionFrame,
+    QTabBar,
+    QWidget,
+)  # noqa: E402
 
 KDEGLOBALS = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "kdeglobals")
 
@@ -66,8 +96,10 @@ def read_scheme(path=None):
     settings = configparser.ConfigParser(interpolation=None, strict=False)
     settings.optionxform = str
     settings.read(path or KDEGLOBALS)
-    return {name: QColor(*(int(part) for part in settings.get(group, key, fallback=default).split(",")[:3]))
-            for name, (group, key, default) in SCHEME_DEFAULTS.items()}
+    return {
+        name: QColor(*(int(part) for part in settings.get(group, key, fallback=default).split(",")[:3]))
+        for name, (group, key, default) in SCHEME_DEFAULTS.items()
+    }
 
 
 CHICAGO95RC = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "chicago95rc")
@@ -108,8 +140,15 @@ def fill_placeholders(text, look):
     """Replaces {os}, {osname}, {company}, {edition}, {user} and {computer} in a text from Setup."""
     import getpass
     import socket
-    values = {"os": short_os_name(look["osName"]), "osname": look["osName"], "company": look["osCompany"],
-              "edition": look["edition"], "user": getpass.getuser(), "computer": socket.gethostname()}
+
+    values = {
+        "os": short_os_name(look["osName"]),
+        "osname": look["osName"],
+        "company": look["osCompany"],
+        "edition": look["edition"],
+        "user": getpass.getuser(),
+        "computer": socket.gethostname(),
+    }
     return re.sub(r"\{(os|osname|company|edition|user|computer)\}", lambda match: values[match.group(1)], text)
 
 
@@ -155,7 +194,10 @@ LIGHT, SHADOW = bevel_shades(FACE)
 TEAL = QColor("#008080")
 UI_FONT_FAMILY = "MS W98 UI"
 ICON_SEARCH_PATHS = [
-    os.path.expanduser("~/.local/share/icons"), os.path.expanduser("~/.icons"), "/usr/share/icons", "/usr/share/pixmaps",
+    os.path.expanduser("~/.local/share/icons"),
+    os.path.expanduser("~/.icons"),
+    "/usr/share/icons",
+    "/usr/share/pixmaps",
 ]
 
 
@@ -235,17 +277,40 @@ def paint_banner_mark(painter, x, y, logo=None, paper="#ffffff"):
     painter.scale(1, 24 / 46)
     painter.fillRect(QRectF(-46, -46, 92, 92), glow)
     painter.restore()
-    painter.fillRect(QRectF(57, 49, 53, 8), edge_gradient(
-        (57, 0), (110, 0), ((0, "#add69c"), (0.3, "#d2e4c3"), (1, "paper")), paper))
-    painter.fillRect(QRectF(18, 57, 92, 4), edge_gradient(
-        (18, 0), (110, 0), ((0, "paper"), (0.04, "#8cb96f"), (0.41, "#8cb96f"), (0.48, "#add69c"), (0.61, "#d2e4c1"),
-                            (0.74, "#e2efda"), (1, "paper")), paper))
+    painter.fillRect(
+        QRectF(57, 49, 53, 8), edge_gradient((57, 0), (110, 0), ((0, "#add69c"), (0.3, "#d2e4c3"), (1, "paper")), paper)
+    )
+    painter.fillRect(
+        QRectF(18, 57, 92, 4),
+        edge_gradient(
+            (18, 0),
+            (110, 0),
+            (
+                (0, "paper"),
+                (0.04, "#8cb96f"),
+                (0.41, "#8cb96f"),
+                (0.48, "#add69c"),
+                (0.61, "#d2e4c1"),
+                (0.74, "#e2efda"),
+                (1, "paper"),
+            ),
+            paper,
+        ),
+    )
     painter.fillRect(QRectF(4, 2, 53, 55), QColor(BANNER_BACK_ORANGE))
     painter.fillRect(QRectF(0, 0, 55, 55), QColor(paper))
-    painter.fillRect(QRectF(0, 0, 55, 4), edge_gradient((0, 0), (55, 0), ((0.6, "paper"), (0.72, BANNER_ORANGE)), paper))
-    painter.fillRect(QRectF(0, 0, 4, 55), edge_gradient((0, 0), (0, 55), ((0.67, "paper"), (0.82, BANNER_ORANGE)), paper))
-    painter.fillRect(QRectF(51, 0, 4, 55), edge_gradient(
-        (0, 0), (0, 55), ((0.07, BANNER_ORANGE), (0.24, "paper"), (0.36, "paper"), (0.58, BANNER_ORANGE)), paper))
+    painter.fillRect(
+        QRectF(0, 0, 55, 4), edge_gradient((0, 0), (55, 0), ((0.6, "paper"), (0.72, BANNER_ORANGE)), paper)
+    )
+    painter.fillRect(
+        QRectF(0, 0, 4, 55), edge_gradient((0, 0), (0, 55), ((0.67, "paper"), (0.82, BANNER_ORANGE)), paper)
+    )
+    painter.fillRect(
+        QRectF(51, 0, 4, 55),
+        edge_gradient(
+            (0, 0), (0, 55), ((0.07, BANNER_ORANGE), (0.24, "paper"), (0.36, "paper"), (0.58, BANNER_ORANGE)), paper
+        ),
+    )
     painter.fillRect(QRectF(0, 51, 55, 4), QColor(BANNER_ORANGE))
     if logo is not None and not logo.isNull():
         size = logo.size().scaled(BANNER_MARK_LOGO.size().toSize(), Qt.KeepAspectRatio)
@@ -276,7 +341,7 @@ def screen_scale():
 
 import functools  # noqa: E402
 
-screen_scale = functools.lru_cache(maxsize=None)(screen_scale)   # kscreen-doctor is asked once per process
+screen_scale = functools.lru_cache(maxsize=None)(screen_scale)  # kscreen-doctor is asked once per process
 
 
 def ui_font(pixel_size=11, bold=False):
@@ -288,7 +353,7 @@ def ui_font(pixel_size=11, bold=False):
     font = QFont(family)
     font.setPixelSize(pixel_size)
     font.setBold(bold)
-    if family == UI_FONT_FAMILY:   # said either way: a font that leaves it open inherits the application font's choice
+    if family == UI_FONT_FAMILY:  # said either way: a font that leaves it open inherits the application font's choice
         font.setStyleStrategy(QFont.NoAntialias if float(screen_scale()).is_integer() else QFont.PreferAntialias)
     return font
 
@@ -311,7 +376,7 @@ DIALOG_BUTTON_SIZE = (75, 23)
 
 
 TASK_BUTTON_HEIGHT, TASK_ICON_LEFT, TASK_ICON_TOP, TASK_LABEL_TOP = 22, 4, 3, 6
-TASK_LABEL_LEFT = {"2000": 22}   # else 23: Tahoma has no blank column before its capitals
+TASK_LABEL_LEFT = {"2000": 22}  # else 23: Tahoma has no blank column before its capitals
 
 
 def paint_task_button(painter, rect, caption, icon, pressed, look, face=None):
@@ -322,7 +387,11 @@ def paint_task_button(painter, rect, caption, icon, pressed, look, face=None):
     face = face or SCHEME["face"]
     bevel = bevel_colors(face, look)
     white = QColor("#ffffff")
-    rings = [(bevel["dark"], white), (bevel["shadow"], bevel["light"])] if pressed else [(white, bevel["dark"]), (bevel["light"], bevel["shadow"])]
+    rings = (
+        [(bevel["dark"], white), (bevel["shadow"], bevel["light"])]
+        if pressed
+        else [(white, bevel["dark"]), (bevel["light"], bevel["shadow"])]
+    )
     painter.fillRect(rect, face)
     for depth, (top_left, bottom_right) in enumerate(rings):
         edge = rect.adjusted(depth, depth, -depth, -depth)
@@ -343,7 +412,29 @@ def paint_task_button(painter, rect, caption, icon, pressed, look, face=None):
     painter.setPen(QColor("#000000"))
     label_left = rect.left() + TASK_LABEL_LEFT.get(look, 23)
     label = QRect(label_left, rect.top() + TASK_LABEL_TOP + shift, max(0, rect.right() - 3 - label_left), 14)
-    painter.drawText(label, Qt.AlignLeft | Qt.AlignTop, QFontMetrics(painter.font()).elidedText(caption, Qt.ElideRight, label.width()))
+    painter.drawText(
+        label,
+        Qt.AlignLeft | Qt.AlignTop,
+        QFontMetrics(painter.font()).elidedText(caption, Qt.ElideRight, label.width()),
+    )
+
+
+_GREY_PIXMAPS = {}
+
+
+def grey_pixmap(pixmap):
+    """The pixmap in greys, its transparency kept: Internet Explorer 4's toolbar icons until the pointer is over them."""
+    key = (pixmap.cacheKey(), pixmap.devicePixelRatio())
+    if key not in _GREY_PIXMAPS:
+        image = pixmap.toImage().convertToFormat(QImage.Format_ARGB32)
+        for y in range(image.height()):
+            for x in range(image.width()):
+                colour = image.pixelColor(x, y)
+                grey = (colour.red() * 299 + colour.green() * 587 + colour.blue() * 114) // 1000
+                image.setPixelColor(x, y, QColor(grey, grey, grey, colour.alpha()))
+        _GREY_PIXMAPS[key] = QPixmap.fromImage(image)
+        _GREY_PIXMAPS[key].setDevicePixelRatio(pixmap.devicePixelRatio())
+    return _GREY_PIXMAPS[key]
 
 
 def dialog_button(caption, enabled=True):
@@ -356,9 +447,31 @@ def dialog_button(caption, enabled=True):
 # The check box and radio button indicators, pixel for pixel from the 1998 original
 # (tests/test_qt_controls_reference.py): s shadow, K black, l light, W white, . the window colour.
 CHECK_BOX = ["ssssssssssssW", "sKKKKKKKKKKlW"] + ["sKiiiiiiiiilW"] * 9 + ["slllllllllllW", "WWWWWWWWWWWWW"]
-CHECK_MARK = ["WWWWWWWWW", "WWWWWWWKW", "WWWWWWKKW", "WKWWWKKKW", "WKKWKKKWW", "WKKKKKWWW", "WWKKKWWWW", "WWWKWWWWW", "WWWWWWWWW"]
-RADIO_BUTTON = ["....ssss....", "..ssKKKKss..", ".sKKiiiiKKW.", ".sKiiiiiilW.", "sKiiiiiiiilW", "sKiiiiiiiilW",
-                "sKiiiiiiiilW", "sKiiiiiiiilW", ".sKiiiiiilW.", ".slliiiillW.", "..WWllllWW..", "....WWWW...."]
+CHECK_MARK = [
+    "WWWWWWWWW",
+    "WWWWWWWKW",
+    "WWWWWWKKW",
+    "WKWWWKKKW",
+    "WKKWKKKWW",
+    "WKKKKKWWW",
+    "WWKKKWWWW",
+    "WWWKWWWWW",
+    "WWWWWWWWW",
+]
+RADIO_BUTTON = [
+    "....ssss....",
+    "..ssKKKKss..",
+    ".sKKiiiiKKW.",
+    ".sKiiiiiilW.",
+    "sKiiiiiiiilW",
+    "sKiiiiiiiilW",
+    "sKiiiiiiiilW",
+    "sKiiiiiiiilW",
+    ".sKiiiiiilW.",
+    ".slliiiillW.",
+    "..WWllllWW..",
+    "....WWWW....",
+]
 DROP_DOWN_ARROW = ["KKKKKKK", ".KKKKK.", "..KKK..", "...K..."]
 RADIO_DOT = [(5, 4), (6, 4), (4, 5), (5, 5), (6, 5), (7, 5), (4, 6), (5, 6), (6, 6), (7, 6), (5, 7), (6, 7)]
 
@@ -370,8 +483,137 @@ def paint_bitmap(painter, left, top, rows, colours):
                 painter.fillRect(left + x, top + y, 1, 1, colours[key])
 
 
+def slider_handle_inside(width, height, horizontal, pointed_start, pointed_end):
+    """The pixels inside a slider handle's 2px bevel, in handle coordinates: Qt's Windows-style handle is a
+    rectangle, drawn to a point on the side its tick marks are on (the point is half the handle's width high)."""
+    across, along = (width, height) if horizontal else (height, width)
+    point = across // 2 if pointed_start != pointed_end else 0
+    body_from = point if pointed_start else 2
+    body_to = along - 1 - (point if pointed_end else 2)
+    cells = [(a, b) for b in range(body_from, body_to + 1) for a in range(2, across - 2)]
+    for step in range(point):
+        inset = 3 + step
+        for a in range(inset, across - inset):
+            if pointed_end:
+                cells.append((a, body_to + 1 + step))
+            if pointed_start:
+                cells.append((a, body_from - 1 - step))
+    return [(a, b) if horizontal else (b, a) for a, b in cells]
+
+
 def is_drop_down_list(widget):
     return widget is not None and widget.window().inherits("QComboBoxPrivateContainer")
+
+
+# A horizontal track bar as the originals drew it, 1:1 from tests/references/win98mouse.png: an 11x21 thumb pointing at
+# its tick marks, over a 4-row groove; ticks are 2 rows tall, a row below the point. ' ' is outside the thumb.
+SLIDER_THUMB = (
+    "WWWWWWWWWWK",
+    *["W........SK"] * 15,
+    " W......SK ",
+    "  W....SK  ",
+    "   W..SK   ",
+    "    WSK    ",
+    "     K     ",
+)
+SLIDER_GROOVE_TOP, SLIDER_TICK_GAP, SLIDER_TICK_ROWS = 7, 1, 2
+# A group box's title, from three originals: its ink starts 10 pixels in, a row lower than Qt puts it; the top line stops
+# 3 pixels before the ink and starts again 2 after the text (tests/test_control_panel_components_reference.py).
+GROUP_TITLE_INK, GROUP_TITLE_DROP, GROUP_LINE_BEFORE, GROUP_LINE_AFTER = 10, 1, 3, 2
+# A spin box as Windows 98 built it, 1:1 from tests/references/win98datetime01.png: a 21-row sunken edit field with a
+# separate up-down control beside it, outside its border: two 16x10 buttons, each with a 1-3 pixel arrow.
+SPIN_HEIGHT, SPIN_BUTTON = 21, (16, 10)
+SPIN_BUTTON_FACE = (  # L is the 3D light: face in the 16-colour capture, DFDFDF in true colour
+    "LLLLLLLLLLLLLLLK",
+    "LWWWWWWWWWWWWWSK",
+    *["LW............SK"] * 6,
+    "LSSSSSSSSSSSSSSK",
+    "KKKKKKKKKKKKKKKK",
+)
+SPIN_BUTTON_PUSHED = (
+    "SSSSSSSSSSSSSSSS",
+    *["S..............S"] * 8,
+    "SSSSSSSSSSSSSSSS",
+)
+SPIN_ARROW_UP, SPIN_ARROW_DOWN, SPIN_ARROW_AT = (".K.", "KKK"), ("KKK", ".K."), (6, 4)
+
+
+@functools.lru_cache(maxsize=512)
+def caption_ink_width(text, font_key):
+    """How wide a caption's ink is, drawn once: the UI font keeps its glyphs' spacing on their right, so its advance
+    widths overstate the ink and centring on them pulls captions left of where the originals put them."""
+    font = QFont()
+    font.fromString(font_key)
+    metrics = QFontMetrics(font)
+    image = QImage(metrics.horizontalAdvance(text) + 4, metrics.height() + 4, QImage.Format_RGB32)
+    image.fill(QColor("#FFFFFF"))
+    painter = QPainter(image)
+    painter.setFont(font)
+    painter.setPen(QColor("#000000"))
+    painter.drawText(image.rect(), Qt.AlignLeft | Qt.AlignTop | Qt.TextHideMnemonic, text)
+    painter.end()
+    inked = [x for x in range(image.width()) if any(image.pixelColor(x, y).red() < 128 for y in range(image.height()))]
+    return inked[-1] - inked[0] + 1 if inked else 0
+
+
+def slider_tick_values(minimum, maximum, interval, single_step, page_step, span):
+    """The values a slider marks with ticks, as Qt's common style picks them."""
+    step = interval if interval > 0 else single_step
+    if maximum > minimum and step * span / (maximum - minimum) < 3:
+        step = page_step
+    step = max(step, 1)
+    return list(range(minimum, maximum + 1, step))
+
+
+# The classic tab control (tests/test_tab_control.py, measured in tests/references/win98mouse.png): a tab is its caption
+# plus 6 pixels each side and at least 42 wide, 18 rows tall; the selected one rises 2 rows, spreads 2 pixels each side
+# and covers 2 rows of the page frame; the first tab starts 2 pixels inside the page frame.
+TAB_ROW_HEIGHT, TAB_RISE, TAB_SEAM, TAB_CAPTION_TOP = 18, 2, 2, 5
+TAB_PADDING, TAB_MIN_WIDTH, TAB_INSET, TAB_SPREAD = 6, 42, 2, 2
+TAB_HEIGHT = TAB_ROW_HEIGHT + TAB_RISE + TAB_SEAM
+
+
+def tab_width(metrics, caption):
+    return max(metrics.horizontalAdvance(caption) + TAB_PADDING * 2, TAB_MIN_WIDTH)
+
+
+def paint_tab(painter, rect, palette, selected):
+    """A tab as the originals draw it: a white left edge and top with a two-step corner, a grey-and-black right
+    edge; the selected tab also hides the page frame under it and runs its edges down to meet the frame."""
+    face, light, shadow, dark = (
+        palette.window().color(),
+        palette.light().color(),
+        palette.dark().color(),
+        palette.shadow().color(),
+    )
+    left, top, right, bottom = rect.left(), rect.top(), rect.right(), rect.bottom()
+    seam = TAB_SEAM if selected else 0
+    painter.fillRect(rect.adjusted(0, 0, 0, seam), face)
+    painter.fillRect(left + 2, top, rect.width() - 4, 1, light)
+    painter.fillRect(left + 1, top + 1, 1, 1, light)
+    painter.fillRect(left, top + 2, 1, bottom - top - 1 + seam, light)
+    painter.fillRect(right - 1, top + 1, 1, 1, dark)
+    painter.fillRect(right - 1, top + 2, 1, bottom - top - 1 + seam // 2, shadow)
+    painter.fillRect(right, top + 2, 1, bottom - top - 1 + seam // 2, dark)
+
+
+def paint_tab_caption(painter, rect, palette, caption, enabled=True):
+    """The caption centred in the tab's padding, one column right of it (the originals' bitmap font's side bearing)."""
+    metrics = painter.fontMetrics()
+    left = rect.left() + TAB_PADDING + 1 + (rect.width() - TAB_PADDING * 2 - metrics.horizontalAdvance(caption)) // 2
+    painter.setPen((palette.windowText() if enabled else palette.mid()).color())
+    painter.drawText(left, rect.top() + TAB_CAPTION_TOP + metrics.ascent(), caption)
+
+
+def tab_rects(option):
+    """(shape rect, caption rect) for Qt's tab: the first and last tab carry the inset to the page frame, an
+    unselected tab starts 2 rows down and ends above the page frame, the selected one spreads over its neighbours."""
+    first = option.position in (option.TabPosition.Beginning, option.TabPosition.OnlyOneTab)
+    last = option.position in (option.TabPosition.End, option.TabPosition.OnlyOneTab)
+    base = option.rect.adjusted(TAB_INSET if first else 0, 0, -TAB_INSET if last else 0, -TAB_SEAM)
+    if option.state & QStyle.State_Selected:
+        return base.adjusted(-TAB_SPREAD, 0, TAB_SPREAD, 0), base
+    return base.adjusted(0, TAB_RISE, 0, 0), base.adjusted(0, TAB_RISE, 0, 0)
 
 
 class ClassicStyle(QProxyStyle):
@@ -385,23 +627,35 @@ class ClassicStyle(QProxyStyle):
     def indicator_colours(self, option):
         palette = option.palette
         enabled = bool(option.state & QStyle.State_Enabled)
-        return {"s": palette.dark().color(), "K": palette.shadow().color(), "l": palette.midlight().color(),
-                "W": palette.light().color(), "i": palette.base().color() if enabled else palette.window().color(), ".": None,
-                "mark": palette.text().color() if enabled else palette.dark().color()}
+        return {
+            "s": palette.dark().color(),
+            "K": palette.shadow().color(),
+            "l": palette.midlight().color(),
+            "W": palette.light().color(),
+            "i": palette.base().color() if enabled else palette.window().color(),
+            ".": None,
+            "mark": palette.text().color() if enabled else palette.dark().color(),
+        }
 
     def drawPrimitive(self, element, option, painter, widget=None):
         if element == QStyle.PE_FrameFocusRect and is_drop_down_list(widget):
             return
         if element == QStyle.PE_IndicatorCheckBox:
             colours = self.indicator_colours(option)
-            left, top = option.rect.left() + (option.rect.width() - 13) // 2, option.rect.top() + (option.rect.height() - 13) // 2
+            left, top = (
+                option.rect.left() + (option.rect.width() - 13) // 2,
+                option.rect.top() + (option.rect.height() - 13) // 2,
+            )
             paint_bitmap(painter, left, top, CHECK_BOX, colours)
             if option.state & QStyle.State_On:
                 paint_bitmap(painter, left + 2, top + 2, CHECK_MARK, {"K": colours["mark"]})
             return
         if element == QStyle.PE_IndicatorRadioButton:
             colours = self.indicator_colours(option)
-            left, top = option.rect.left() + (option.rect.width() - 12) // 2, option.rect.top() + (option.rect.height() - 12) // 2
+            left, top = (
+                option.rect.left() + (option.rect.width() - 12) // 2,
+                option.rect.top() + (option.rect.height() - 12) // 2,
+            )
             paint_bitmap(painter, left, top, RADIO_BUTTON, colours)
             if option.state & QStyle.State_On:
                 for x, y in RADIO_DOT:
@@ -411,7 +665,12 @@ class ClassicStyle(QProxyStyle):
             # A field's sunken frame: shadow and black outside and inside at the top left, light grey and
             # white at the bottom right (Qt puts the button colour where the light grey goes).
             palette, rect = option.palette, option.rect
-            for depth, (top_left, bottom_right) in enumerate(((palette.dark().color(), palette.light().color()), (palette.shadow().color(), palette.midlight().color()))):
+            for depth, (top_left, bottom_right) in enumerate(
+                (
+                    (palette.dark().color(), palette.light().color()),
+                    (palette.shadow().color(), palette.midlight().color()),
+                )
+            ):
                 inner = rect.adjusted(depth, depth, -depth, -depth)
                 painter.fillRect(inner.left(), inner.top(), inner.width() - 1, 1, top_left)
                 painter.fillRect(inner.left(), inner.top(), 1, inner.height() - 1, top_left)
@@ -429,11 +688,38 @@ class ClassicStyle(QProxyStyle):
         super().drawPrimitive(element, option, painter, widget)
 
     def drawControl(self, element, option, painter, widget=None):
-        if element == QStyle.CE_TabBarTabLabel and not option.state & QStyle.State_Selected:
-            # An unselected tab's label rectangle clips the font's top row: it grows two rows upwards, which
-            # moves the centred caption up one and its clip up two.
-            option = QStyleOptionTab(option)
-            option.rect.adjust(0, -2, 0, 0)
+        if element == QStyle.CE_PushButtonLabel and option.text and option.icon.isNull():
+            # Centred on the caption's ink, as the originals' captions are (tests/test_control_panel_components_reference.py).
+            font = widget.font() if widget else painter.font()
+            ink = caption_ink_width(
+                option.text.replace("&&", "\0").replace("&", "").replace("\0", "&"), font.toString()
+            )
+            left = option.rect.left() + (option.rect.width() - ink + 1) // 2
+            label = QRect(left, option.rect.top(), option.rect.right() - left + 1, option.rect.height())
+            if option.state & (QStyle.State_Sunken | QStyle.State_On):
+                label.translate(
+                    self.pixelMetric(QStyle.PM_ButtonShiftHorizontal, option, widget),
+                    self.pixelMetric(QStyle.PM_ButtonShiftVertical, option, widget),
+                )
+            self.drawItemText(
+                painter,
+                label,
+                Qt.AlignLeft | Qt.AlignVCenter | Qt.TextShowMnemonic,
+                option.palette,
+                bool(option.state & QStyle.State_Enabled),
+                option.text,
+                QPalette.ButtonText,
+            )
+            return
+        if element in (QStyle.CE_TabBarTabShape, QStyle.CE_TabBarTabLabel) and option.shape == QTabBar.RoundedNorth:
+            shape, caption = tab_rects(option)
+            if element == QStyle.CE_TabBarTabShape:
+                paint_tab(painter, shape, option.palette, bool(option.state & QStyle.State_Selected))
+            else:
+                paint_tab_caption(
+                    painter, caption, option.palette, option.text, bool(option.state & QStyle.State_Enabled)
+                )
+            return
         # A checked item of an exclusive group carries a round bullet, as the originals' menus do, not a tick.
         if element == QStyle.CE_MenuItem and option.checkType == option.CheckType.Exclusive and option.checked:
             plain = type(option)(option)
@@ -448,7 +734,138 @@ class ClassicStyle(QProxyStyle):
             return
         super().drawControl(element, option, painter, widget)
 
+    def classic_slider(self, option):
+        from PySide6.QtWidgets import QSlider
+
+        return option.orientation == Qt.Horizontal and option.tickPosition in (QSlider.NoTicks, QSlider.TicksBelow)
+
+    def slider_handle_left(self, option):
+        return QStyle.sliderPositionFromValue(
+            option.minimum,
+            option.maximum,
+            option.sliderPosition,
+            option.rect.width() - len(SLIDER_THUMB[0]),
+            option.upsideDown,
+        )
+
+    def draw_classic_slider(self, option, painter):
+        from PySide6.QtWidgets import QSlider
+
+        left, top, width = option.rect.left(), option.rect.top(), option.rect.width()
+        white, shadow, black, face = (
+            QColor("#FFFFFF"),
+            option.palette.dark().color(),
+            QColor("#000000"),
+            option.palette.window().color(),
+        )
+        groove = top + SLIDER_GROOVE_TOP
+        right = left + width - 1
+        painter.fillRect(left, groove, right - left, 1, shadow)
+        painter.fillRect(right, groove, 1, 3, white)
+        painter.fillRect(left, groove + 1, 1, 2, shadow)
+        painter.fillRect(left + 1, groove + 1, right - left - 2, 1, black)
+        painter.fillRect(left, groove + 3, right - left + 1, 1, white)
+        span = width - len(SLIDER_THUMB[0])
+        if option.tickPosition == QSlider.TicksBelow:
+            tick_top = top + len(SLIDER_THUMB) + SLIDER_TICK_GAP
+            for value in slider_tick_values(
+                option.minimum, option.maximum, option.tickInterval, option.singleStep, option.pageStep, span
+            ):
+                x = (
+                    left
+                    + QStyle.sliderPositionFromValue(option.minimum, option.maximum, value, span, option.upsideDown)
+                    + len(SLIDER_THUMB[0]) // 2
+                )
+                painter.fillRect(x, tick_top, 1, SLIDER_TICK_ROWS, black)
+        paint_bitmap(
+            painter,
+            left + self.slider_handle_left(option),
+            top,
+            SLIDER_THUMB,
+            {"W": white, ".": face, "S": shadow, "K": black},
+        )
+
+    def draw_classic_group_box(self, option, painter, widget):
+        frame_rect = self.subControlRect(QStyle.CC_GroupBox, option, QStyle.SC_GroupBoxFrame, widget)
+        label = self.subControlRect(QStyle.CC_GroupBox, option, QStyle.SC_GroupBoxLabel, widget)
+        text_width = QFontMetrics(widget.font() if widget else painter.font()).horizontalAdvance(
+            option.text.replace("&", "")
+        )
+        ink_left = frame_rect.left() + GROUP_TITLE_INK
+        gap = QRect(
+            ink_left - GROUP_LINE_BEFORE,
+            frame_rect.top(),
+            label.left() + text_width + GROUP_LINE_AFTER - (ink_left - GROUP_LINE_BEFORE),
+            2,
+        )
+        frame = QStyleOptionFrame()
+        frame.rect = frame_rect
+        frame.palette = option.palette
+        frame.state = option.state | QStyle.State_Sunken
+        frame.lineWidth, frame.midLineWidth = option.lineWidth, option.midLineWidth
+        frame.features = option.features
+        painter.save()
+        painter.setClipRegion(QRegion(option.rect).subtracted(QRegion(gap)))
+        self.drawPrimitive(QStyle.PE_FrameGroupBox, frame, painter, widget)
+        painter.restore()
+        enabled = bool(option.state & QStyle.State_Enabled)
+        self.drawItemText(
+            painter,
+            label,
+            Qt.TextShowMnemonic | Qt.AlignLeft | Qt.AlignTop,
+            option.palette,
+            enabled,
+            option.text,
+            QPalette.WindowText,
+        )
+
+    def draw_classic_spin_box(self, option, painter, widget):
+        white, shadow, black = QColor("#FFFFFF"), option.palette.dark().color(), QColor("#000000")
+        face, light = option.palette.window().color(), option.palette.midlight().color()
+        enabled = bool(option.state & QStyle.State_Enabled)
+        field = self.subControlRect(QStyle.CC_SpinBox, option, QStyle.SC_SpinBoxFrame, widget)
+        painter.fillRect(option.rect, face)
+        painter.fillRect(field.adjusted(2, 2, -2, -2), option.palette.base() if enabled else option.palette.window())
+        painter.fillRect(field.left(), field.top(), field.width() - 1, 1, shadow)
+        painter.fillRect(field.left(), field.top(), 1, field.height() - 1, shadow)
+        painter.fillRect(field.left() + 1, field.top() + 1, field.width() - 3, 1, black)
+        painter.fillRect(field.left() + 1, field.top() + 1, 1, field.height() - 3, black)
+        painter.fillRect(field.right() - 1, field.top() + 1, 1, field.height() - 2, light)
+        painter.fillRect(field.left() + 1, field.bottom() - 1, field.width() - 2, 1, light)
+        painter.fillRect(field.right(), field.top(), 1, field.height(), white)
+        painter.fillRect(field.left(), field.bottom(), field.width(), 1, white)
+        for sub_control, arrow, step_enabled in (
+            (QStyle.SC_SpinBoxUp, SPIN_ARROW_UP, QAbstractSpinBox.StepUpEnabled),
+            (QStyle.SC_SpinBoxDown, SPIN_ARROW_DOWN, QAbstractSpinBox.StepDownEnabled),
+        ):
+            button = self.subControlRect(QStyle.CC_SpinBox, option, sub_control, widget)
+            pushed = bool(option.activeSubControls & sub_control and option.state & QStyle.State_Sunken)
+            paint_bitmap(
+                painter,
+                button.left(),
+                button.top(),
+                SPIN_BUTTON_PUSHED if pushed else SPIN_BUTTON_FACE,
+                {"W": white, "S": shadow, "K": black, ".": face, "L": light},
+            )
+            left, top = button.left() + SPIN_ARROW_AT[0] + pushed, button.top() + SPIN_ARROW_AT[1] + pushed
+            if enabled and option.stepEnabled & step_enabled:
+                paint_bitmap(painter, left, top, arrow, {"K": black})
+            else:
+                paint_bitmap(painter, left + 1, top + 1, arrow, {"K": white})
+                paint_bitmap(painter, left, top, arrow, {"K": shadow})
+
     def drawComplexControl(self, control, option, painter, widget=None):
+        if control == QStyle.CC_SpinBox:
+            self.draw_classic_spin_box(option, painter, widget)
+            return
+        if control == QStyle.CC_GroupBox and option.text and not option.subControls & QStyle.SC_GroupBoxCheckBox:
+            self.draw_classic_group_box(option, painter, widget)
+            return
+        if control == QStyle.CC_Slider and self.classic_slider(option):
+            self.draw_classic_slider(option, painter)
+            if not option.state & QStyle.State_Enabled:
+                self.dither_disabled_slider_handle(option, painter, widget)
+            return
         super().drawComplexControl(control, option, painter, widget)
         # A closed drop-down's field is white up to its 2px frame, and the window colour when disabled;
         # Qt leaves the button colour there, and a ring of it around the field.
@@ -456,10 +873,57 @@ class ClassicStyle(QProxyStyle):
             arrow = self.subControlRect(QStyle.CC_ComboBox, option, QStyle.SC_ComboBoxArrow, widget)
             inside = option.rect.adjusted(2, 2, -2, -2)
             inside.setRight(arrow.left() - 1)
-            painter.fillRect(inside, option.palette.base() if option.state & QStyle.State_Enabled else option.palette.window())
+            painter.fillRect(
+                inside, option.palette.base() if option.state & QStyle.State_Enabled else option.palette.window()
+            )
             if option.state & QStyle.State_HasFocus:
-                painter.fillRect(self.subControlRect(QStyle.CC_ComboBox, option, QStyle.SC_ComboBoxEditField, widget), option.palette.highlight())
+                self.paint_drop_down_focus(option, painter, inside.adjusted(1, 1, -1, -1))
             self.paint_drop_down_arrow(option, painter, arrow)
+            self.paint_drop_down_light_edges(option, painter, arrow)
+        if (
+            control == QStyle.CC_Slider
+            and not option.state & QStyle.State_Enabled
+            and option.subControls & QStyle.SC_SliderHandle
+        ):
+            self.dither_disabled_slider_handle(option, painter, widget)
+
+    def dither_disabled_slider_handle(self, option, painter, widget):
+        """The classic track bar greys its thumb with the 50% dither (tests/test_qt_controls_reference.py)."""
+        from PySide6.QtWidgets import QSlider
+
+        handle = self.subControlRect(QStyle.CC_Slider, option, QStyle.SC_SliderHandle, widget)
+        ticks = option.tickPosition
+        above, below = (
+            ticks in (QSlider.TicksAbove, QSlider.TicksBothSides),
+            ticks in (QSlider.TicksBelow, QSlider.TicksBothSides),
+        )
+        horizontal = option.orientation == Qt.Horizontal
+        for x, y in slider_handle_inside(handle.width(), handle.height(), horizontal, above, below):
+            if (x + y) % 2 == 0:
+                painter.fillRect(handle.left() + x, handle.top() + y, 1, 1, option.palette.light())
+
+    def paint_drop_down_light_edges(self, option, painter, button):
+        """The sunken field's inner bottom and right edges and the arrow button's outer top and left edges are the 3D
+        light, as Windows drew them (tests/test_control_panel_components_reference.py); Qt leaves the face there."""
+        light, rect = option.palette.midlight().color(), option.rect
+        painter.fillRect(rect.left() + 1, rect.bottom() - 1, rect.width() - 2, 1, light)
+        painter.fillRect(rect.right() - 1, rect.top() + 1, 1, rect.height() - 2, light)
+        if option.state & QStyle.State_Sunken:
+            return
+        painter.fillRect(button.left(), button.top(), button.width() - 1, 1, light)
+        painter.fillRect(button.left(), button.top(), 1, button.height() - 1, light)
+
+    def paint_drop_down_focus(self, option, painter, focus):
+        """The focused drop-down's field, as the originals drew it (tests/references/win98datetime04.png): the highlight
+        a pixel inside the white, and on its edge the dotted focus rectangle, every other dot inverted, the rest black."""
+        highlight = option.palette.highlight().color()
+        painter.fillRect(focus, highlight)
+        inverted = QColor(255 - highlight.red(), 255 - highlight.green(), 255 - highlight.blue())
+        origin = option.rect.topLeft()
+        edge = [(x, y) for x in range(focus.left(), focus.right() + 1) for y in (focus.top(), focus.bottom())]
+        edge += [(x, y) for y in range(focus.top() + 1, focus.bottom()) for x in (focus.left(), focus.right())]
+        for x, y in edge:
+            painter.fillRect(x, y, 1, 1, inverted if (x - origin.x() + y - origin.y()) % 2 == 0 else QColor("#000000"))
 
     def paint_drop_down_arrow(self, option, painter, button):
         """The originals' 7-5-3-1 arrow in the middle of the button; disabled, engraved."""
@@ -473,17 +937,68 @@ class ClassicStyle(QProxyStyle):
         paint_bitmap(painter, left + 1, top + 1, DROP_DOWN_ARROW, {"K": option.palette.light().color()})
         paint_bitmap(painter, left, top, DROP_DOWN_ARROW, {"K": option.palette.dark().color()})
 
+    def subControlRect(self, control, option, sub_control, widget=None):
+        if control == QStyle.CC_SpinBox:
+            rect = option.rect
+            button_width, button_height = SPIN_BUTTON
+            field = QRect(rect.left(), rect.top(), rect.width() - button_width, rect.height())
+            spin_rects = {
+                QStyle.SC_SpinBoxFrame: field,
+                QStyle.SC_SpinBoxEditField: field.adjusted(2, 2, -2, -2),
+                QStyle.SC_SpinBoxUp: QRect(field.right() + 1, rect.top(), button_width, button_height),
+                QStyle.SC_SpinBoxDown: QRect(
+                    field.right() + 1, rect.top() + button_height, button_width, button_height
+                ),
+            }
+            if sub_control in spin_rects:
+                return spin_rects[sub_control]
+        if control == QStyle.CC_GroupBox and sub_control == QStyle.SC_GroupBoxLabel and option.text:
+            label = super().subControlRect(control, option, sub_control, widget)
+            frame = super().subControlRect(control, option, QStyle.SC_GroupBoxFrame, widget)
+            return label.translated(frame.left() + GROUP_TITLE_INK - label.left(), GROUP_TITLE_DROP)
+        if control == QStyle.CC_Slider and self.classic_slider(option):
+            if sub_control == QStyle.SC_SliderHandle:
+                return QRect(
+                    option.rect.left() + self.slider_handle_left(option),
+                    option.rect.top(),
+                    len(SLIDER_THUMB[0]),
+                    len(SLIDER_THUMB),
+                )
+            if sub_control == QStyle.SC_SliderGroove:
+                return QRect(option.rect.left(), option.rect.top() + SLIDER_GROOVE_TOP, option.rect.width(), 4)
+        return super().subControlRect(control, option, sub_control, widget)
+
     def sizeFromContents(self, contents, option, size, widget=None):
+        if contents == QStyle.CT_TabBarTab and option.shape == QTabBar.RoundedNorth:
+            insets = (option.position in (option.TabPosition.Beginning, option.TabPosition.OnlyOneTab)) + (
+                option.position in (option.TabPosition.End, option.TabPosition.OnlyOneTab)
+            )
+            return QSize(tab_width(option.fontMetrics, option.text) + insets * TAB_INSET, TAB_HEIGHT)
+        if contents == QStyle.CT_SpinBox:
+            return QSize(size.width() + SPIN_BUTTON[0] + 4, SPIN_HEIGHT)
+        if contents == QStyle.CT_Slider and self.classic_slider(option):
+            from PySide6.QtWidgets import QSlider
+
+            ticks = SLIDER_TICK_GAP + SLIDER_TICK_ROWS if option.tickPosition == QSlider.TicksBelow else 0
+            return QSize(size.width(), len(SLIDER_THUMB) + ticks)
         grown = super().sizeFromContents(contents, option, size, widget)
         if contents == QStyle.CT_ComboBox:
-            grown.setHeight(grown.height() + 1)   # the originals' lists are a row taller than Qt's
+            grown.setHeight(grown.height() + 1)  # the originals' lists are a row taller than Qt's
         return grown
 
     def pixelMetric(self, metric, option=None, widget=None):
+        if metric == QStyle.PM_TabBarBaseOverlap:
+            return TAB_SEAM
+        if metric in (QStyle.PM_TabBarTabOverlap, QStyle.PM_TabBarTabShiftHorizontal, QStyle.PM_TabBarTabShiftVertical):
+            return 0
         if metric in (QStyle.PM_IndicatorWidth, QStyle.PM_IndicatorHeight):
             return 13
         if metric in (QStyle.PM_ExclusiveIndicatorWidth, QStyle.PM_ExclusiveIndicatorHeight):
             return 12
+        if metric == QStyle.PM_SliderLength:
+            return len(SLIDER_THUMB[0])
+        if metric in (QStyle.PM_SliderThickness, QStyle.PM_SliderControlThickness):
+            return len(SLIDER_THUMB)
         return super().pixelMetric(metric, option, widget)
 
 
@@ -532,8 +1047,8 @@ def plain_disabled_text(widget):
     return widget
 
 
-LIST_ROW_HEIGHT = 13          # a list's rows (tests/references/listbox-selected.png)
-DROP_DOWN_ROWS = 8            # rows an open drop-down shows before it scrolls (tests/references/combo-open.png)
+LIST_ROW_HEIGHT = 13  # a list's rows (tests/references/listbox-selected.png)
+DROP_DOWN_ROWS = 8  # rows an open drop-down shows before it scrolls (tests/references/combo-open.png)
 
 
 class ListRowDelegate(QStyledItemDelegate):
@@ -585,7 +1100,7 @@ class ClassicDialog(QDialog):
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.style = style
         self.help_button = help_button
-        self.held = False   # the close button, pressed and the mouse still on it
+        self.held = False  # the close button, pressed and the mouse still on it
         width, height = body_size
         self.setFixedSize(width + 2 * body_inset, height + DIALOG_FRAME * 2 + DIALOG_TITLE)
         self.body = QWidget(self)
@@ -617,7 +1132,9 @@ class ClassicDialog(QDialog):
             painter.fillRect(w - 1 - depth, depth, 1, h - 2 * depth, bottom_right)
         title, close = self.title_rect(), self.close_rect()
         gradient = QLinearGradient(title.left(), 0, close.left() - 2, 0)
-        state = "active" if self.isActiveWindow() else "inactive"   # only the active window's title is in the active colours
+        state = (
+            "active" if self.isActiveWindow() else "inactive"
+        )  # only the active window's title is in the active colours
         gradient.setColorAt(0, scheme[f"title_{state}"])
         gradient.setColorAt(1, scheme[f"title_{state}_blend"])
         painter.fillRect(title, gradient)
@@ -625,14 +1142,23 @@ class ClassicDialog(QDialog):
         painter.setPen(scheme[f"title_{state}_text"])
         painter.drawText(title.left() + 2, title.top() + 13, self.windowTitle())
         from PySide6.QtSvg import QSvgRenderer
+
         # Each element covers its button's cell, the face a row down: the close cell is 18 wide with the
         # face at its right, the help cell 16 wide.
-        buttons = [("close.svg", close, 2, "pressed" if self.held else state)] + ([("help.svg", self.help_rect(), 0, state)] if self.help_button else [])
+        buttons = [("close.svg", close, 2, "pressed" if self.held else state)] + (
+            [("help.svg", self.help_rect(), 0, state)] if self.help_button else []
+        )
         for file, face, lead, button_state in buttons:
             button = QSvgRenderer(os.path.join(DECORATION, file))
-            element = {"active": "active-center", "inactive": "inactive-center", "pressed": "pressed-center"}[button_state]
+            element = {"active": "active-center", "inactive": "inactive-center", "pressed": "pressed-center"}[
+                button_state
+            ]
             if button.isValid():
-                button.render(painter, element if button.elementExists(element) else "active-center", QRectF(face.left() - lead, face.top() - 1, 16 + lead, 16))
+                button.render(
+                    painter,
+                    element if button.elementExists(element) else "active-center",
+                    QRectF(face.left() - lead, face.top() - 1, 16 + lead, 16),
+                )
         painter.end()
 
     def changeEvent(self, event):

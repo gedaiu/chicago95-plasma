@@ -23,16 +23,52 @@ Item {
         width: 7
         height: separator.lineHeight
 
-        Rectangle { x: 0; width: 1; height: parent.height; color: separator.shadow }
-        Rectangle { x: 1; width: 1; height: parent.height; color: separator.white }
+        Rectangle {
+            x: 0
+            width: 1
+            height: parent.height
+            color: separator.shadow
+        }
+        Rectangle {
+            x: 1
+            width: 1
+            height: parent.height
+            color: separator.white
+        }
 
         Item {
-            x: 4; y: 2
-            width: 3; height: separator.gripHeight
-            Rectangle { x: 0; y: 0; width: 1; height: parent.height - 1; color: separator.white }
-            Rectangle { x: 0; y: 0; width: 2; height: 1; color: separator.white }
-            Rectangle { x: 2; y: 0; width: 1; height: parent.height; color: separator.shadow }
-            Rectangle { x: 0; y: parent.height - 1; width: 3; height: 1; color: separator.shadow }
+            x: 4
+            y: 2
+            width: 3
+            height: separator.gripHeight
+            Rectangle {
+                x: 0
+                y: 0
+                width: 1
+                height: parent.height - 1
+                color: separator.white
+            }
+            Rectangle {
+                x: 0
+                y: 0
+                width: 2
+                height: 1
+                color: separator.white
+            }
+            Rectangle {
+                x: 2
+                y: 0
+                width: 1
+                height: parent.height
+                color: separator.shadow
+            }
+            Rectangle {
+                x: 0
+                y: parent.height - 1
+                width: 3
+                height: 1
+                color: separator.shadow
+            }
         }
     }
 }

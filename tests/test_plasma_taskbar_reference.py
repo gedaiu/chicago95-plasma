@@ -5,21 +5,24 @@ icons, so every icon's place is measured exactly; frames, separators, the tray b
 compared with the original's pixels at the original's positions. Positions are in the taskbar, which
 is the bottom 28 rows of the 640x480 screen.
 """
-import pytest
 
+import pytest
 from conftest import needs_ui_font
 from plasma_session import ICON_COLOUR, ICON_SIZE, SCREEN, missing_programs
 from reference import close
 from test_taskbar_reference import BUTTON_HEIGHT, BUTTON_TOP, BUTTONS, HEIGHT, TASKBARS, TRAYS, taskbar
 
-pytestmark = [needs_ui_font, pytest.mark.skipif(bool(missing_programs()), reason=f"needs {', '.join(missing_programs())}")]
+pytestmark = [
+    needs_ui_font,
+    pytest.mark.skipif(bool(missing_programs()), reason=f"needs {', '.join(missing_programs())}"),
+]
 
-ICON_TOP = 7                                    # every icon's top row in the originals
-TASK_ICON_LEFT = 4                              # from a task button's left edge; a row lower while pressed
-QUICK_LAUNCH = {"1998": [72, 95, 118, 141], "2000": [74, 97, 120]}   # the icons' left columns: 23px cells
-ETCHED_LINES = {"1998": [58, 165], "2000": [60, 144]}               # the separators' etched lines
+ICON_TOP = 7  # every icon's top row in the originals
+TASK_ICON_LEFT = 4  # from a task button's left edge; a row lower while pressed
+QUICK_LAUNCH = {"1998": [72, 95, 118, 141], "2000": [74, 97, 120]}  # the icons' left columns: 23px cells
+ETCHED_LINES = {"1998": [58, 165], "2000": [60, 144]}  # the separators' etched lines
 TRAY_ICONS = {"1995": [560], "1998": [543, 560], "2000": [548]}
-LABEL_FROM = 20                                 # labels start right of this, from the task button's left edge
+LABEL_FROM = 20  # labels start right of this, from the task button's left edge
 
 
 @pytest.fixture(scope="module")
@@ -65,7 +68,12 @@ def test_start_button_is_where_the_originals_is(ours, look):
     original, mine = taskbar(look), ours(look)
     (left, right), _ = BUTTONS[look]
     columns, rows = range(left - 1, right + 2), range(BUTTON_TOP - 1, BUTTON_TOP + BUTTON_HEIGHT + 1)
-    edges = [(x, y) for x in columns for y in rows if x in columns[:3] or x in columns[-3:] or y in rows[:3] or y in rows[-3:]]
+    edges = [
+        (x, y)
+        for x in columns
+        for y in rows
+        if x in columns[:3] or x in columns[-3:] or y in rows[:3] or y in rows[-3:]
+    ]
     assert [point for point in edges if not close(mine.getpixel(point), original.getpixel(point))] == []
 
 
@@ -92,8 +100,13 @@ def test_task_buttons_have_the_originals_edges_and_gaps(ours, look):
     """Every task button's outline and the 3px gaps between them, pixel for pixel."""
     original, mine = taskbar(look), ours(look)
     for left, right, _pressed in BUTTONS[look][1]:
-        outline = [(x, y) for x in range(left - 1, right + 2) for y in range(BUTTON_TOP - 1, BUTTON_TOP + BUTTON_HEIGHT + 1)
-                   if x in (left - 1, left, left + 1, right - 1, right, right + 1) or y in (BUTTON_TOP, BUTTON_TOP + BUTTON_HEIGHT - 1)]
+        outline = [
+            (x, y)
+            for x in range(left - 1, right + 2)
+            for y in range(BUTTON_TOP - 1, BUTTON_TOP + BUTTON_HEIGHT + 1)
+            if x in (left - 1, left, left + 1, right - 1, right, right + 1)
+            or y in (BUTTON_TOP, BUTTON_TOP + BUTTON_HEIGHT - 1)
+        ]
         differing = [point for point in outline if not close(mine.getpixel(point), original.getpixel(point))]
         assert differing == [], f"button at {left}"
 
@@ -107,7 +120,7 @@ def test_task_button_icons_sit_where_the_originals_do(ours, look):
 
 # The originals' font leaves a blank column before most capitals but not before W; ours starts every
 # glyph at its origin and the labels a pixel further in, so these titles start a pixel right of the original's.
-WITHOUT_LEADING_BLANK = {("1995", 256), ("1998", 176)}   # "Windows", "WinPopup"
+WITHOUT_LEADING_BLANK = {("1995", 256), ("1998", 176)}  # "Windows", "WinPopup"
 
 
 @pytest.mark.parametrize("look", TASKBARS)
@@ -129,8 +142,11 @@ def test_active_task_label_is_bold(ours, look):
 
     def ink_per_column(image, left, right):
         box = ink(image, left + LABEL_FROM, right - 2)
-        dark = sum(1 for x in range(box[0], box[2] + 1) for y in range(box[1], box[3] + 1) if sum(image.getpixel((x, y))) < 150)
+        dark = sum(
+            1 for x in range(box[0], box[2] + 1) for y in range(box[1], box[3] + 1) if sum(image.getpixel((x, y))) < 150
+        )
         return dark / (box[2] - box[0] + 1)
+
     for left, right, pressed in BUTTONS[look][1]:
         assert abs(ink_per_column(mine, left, right) - ink_per_column(original, left, right)) < 1.0, (left, pressed)
 
@@ -139,8 +155,13 @@ def test_active_task_label_is_bold(ours, look):
 def test_tray_box_has_the_originals_edges(ours, look):
     original, mine = taskbar(look), ours(look)
     left, right = TRAYS[look]
-    edges = [(x, y) for x in range(left - 1, right + 2) for y in range(BUTTON_TOP - 1, BUTTON_TOP + BUTTON_HEIGHT + 1)
-             if x in (left - 1, left, right, right + 1) or y in (BUTTON_TOP - 1, BUTTON_TOP, BUTTON_TOP + BUTTON_HEIGHT - 1, BUTTON_TOP + BUTTON_HEIGHT)]
+    edges = [
+        (x, y)
+        for x in range(left - 1, right + 2)
+        for y in range(BUTTON_TOP - 1, BUTTON_TOP + BUTTON_HEIGHT + 1)
+        if x in (left - 1, left, right, right + 1)
+        or y in (BUTTON_TOP - 1, BUTTON_TOP, BUTTON_TOP + BUTTON_HEIGHT - 1, BUTTON_TOP + BUTTON_HEIGHT)
+    ]
     differing = [point for point in edges if not close(mine.getpixel(point), original.getpixel(point))]
     assert differing == []
 
@@ -161,8 +182,13 @@ def test_clock_is_black_and_centred_on_the_originals_rows(ours, look):
     theirs, our = ink(original, start, right), ink(mine, start, right)
     rows = (lambda box: box[3]) if look == "2000" else (lambda box: (box[1], box[3]))
     assert our is not None and rows(our) == rows(theirs), (our, theirs)
-    assert abs((our[0] + our[2]) - (theirs[0] + theirs[2])) <= 2, (our, theirs)   # centres within a pixel
-    dark = {mine.getpixel((x, y)) for x in range(our[0], our[2] + 1) for y in range(our[1], our[3] + 1) if sum(mine.getpixel((x, y))) < 150}
+    assert abs((our[0] + our[2]) - (theirs[0] + theirs[2])) <= 2, (our, theirs)  # centres within a pixel
+    dark = {
+        mine.getpixel((x, y))
+        for x in range(our[0], our[2] + 1)
+        for y in range(our[1], our[3] + 1)
+        if sum(mine.getpixel((x, y))) < 150
+    }
     assert dark == {(0, 0, 0)}
 
 
@@ -195,8 +221,15 @@ def test_busy_tray_keeps_every_icon_16px_17px_apart_and_off_the_clock(desktops):
     face = bar.getpixel((TRAYS["1998"][0] + 2, 6))
     clock = ink(bar, TRAY_ICONS["1998"][-1] + ICON_SIZE + 1, TRAYS["1998"][1])
     shadow_row = [x for x in range(300, SCREEN[0]) if close(bar.getpixel((x, BUTTON_TOP)), (128, 128, 128))]
-    box_left = next(x for x in shadow_row if all(x + dx in shadow_row for dx in range(40)))   # the box's top line
-    drawn = [x for x in range(box_left + 2, clock[0]) if any(max(abs(a - b) for a, b in zip(bar.getpixel((x, y)), face)) > 30 for y in range(ICON_TOP, ICON_TOP + ICON_SIZE))]
+    box_left = next(x for x in shadow_row if all(x + dx in shadow_row for dx in range(40)))  # the box's top line
+    drawn = [
+        x
+        for x in range(box_left + 2, clock[0])
+        if any(
+            max(abs(a - b) for a, b in zip(bar.getpixel((x, y)), face)) > 30
+            for y in range(ICON_TOP, ICON_TOP + ICON_SIZE)
+        )
+    ]
     icons = []
     for x in drawn:
         if icons and x <= icons[-1][1] + 1:
@@ -213,7 +246,9 @@ def test_hidden_icons_chevron_leads_the_tray_box_and_the_icons_keep_their_places
     it in their usual places by the clock; nothing of it reaches the clock's cell, which would take its clicks."""
     plain = ours("1998")
     clock_left = ink(plain, TRAY_ICONS["1998"][-1] + ICON_SIZE, TRAYS["1998"][1])[0]
-    bar = desktops("1998", hidden_applets=["org.kde.plasma.notifications"]).crop((0, SCREEN[1] - HEIGHT, SCREEN[0], SCREEN[1]))
+    bar = desktops("1998", hidden_applets=["org.kde.plasma.notifications"]).crop(
+        (0, SCREEN[1] - HEIGHT, SCREEN[0], SCREEN[1])
+    )
     shadow_row = [x for x in range(300, SCREEN[0]) if close(bar.getpixel((x, BUTTON_TOP)), (128, 128, 128))]
     box_left = next(x for x in shadow_row if all(x + dx in shadow_row for dx in range(40)))
     rows = range(ICON_TOP, ICON_TOP + ICON_SIZE)
@@ -223,4 +258,6 @@ def test_hidden_icons_chevron_leads_the_tray_box_and_the_icons_keep_their_places
     assert black and black[-1] < green[0], (black, green[0])
     chevron_rows = [y for y in range(HEIGHT) if any(sum(bar.getpixel((x, y))) < 150 for x in black)]
     above, below = chevron_rows[0] - ICON_TOP, ICON_TOP + ICON_SIZE - 1 - chevron_rows[-1]
-    assert (len(chevron_rows), abs(above - below) <= 1) == (7, True), chevron_rows   # its own 7 rows, centred on the icons'
+    assert (len(chevron_rows), abs(above - below) <= 1) == (7, True), (
+        chevron_rows
+    )  # its own 7 rows, centred on the icons'

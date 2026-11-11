@@ -38,22 +38,22 @@ originals' wording for the comparison. The pictures are made by `tests/render_re
 
 ## Layout
 
-| Folder | Contents |
-| --- | --- |
-| `aurorae/` | `make_chicago95_aurorae.py`, `bevel.py`, Start button images, and the generated theme under `theme/` |
-| `plasma-style/` | `make_chicago95_plasmastyle.py` and the generated style under `theme/` |
-| `plasmoids/` | `org.chicago95.start`, `org.chicago95.tasks` (Quick Launch and task buttons), `org.chicago95.trayframe`, `org.chicago95.clock` |
-| `bin/` | `chicago95-startmenu`, `chicago95-notifyd`, `chicago95-clippy`, `chicago95-shutdown`, `chicago95-screensaver`, `chicago95-sysprops`, `chicago95-devmgr`, `chicago95-dialup`, `chicago95-deezer`, `chicago95-control-panel`, `chicago95-askpass` |
-| `lib/` | `chicago95ui.py`, the shared PySide6 look module |
-| `data/` | Menu stylesheet for plasmashell, tray arrow, Clippy sprites and sounds, KRunner QML override, fastfetch preset |
-| `data/sound-themes/` | Freedesktop sound themes for Windows 98, the 16 Plus! 98 schemes and Windows 2000, built by `setup/make_sound_themes.py` |
-| `data/toolbar-icons/` | Windows 95 and 2000 Explorer toolbar buttons (Back, Up, Cut, Copy...), installed as the `Chicago95-Toolbar` icon theme over the look's icon set; built by `setup/make_toolbar_icons.py` |
-| `config/` | Colour scheme, KWin rules, systemd drop-in and unit, environment.d, autostart entries, Thunar, xsettingsd, GTK CSS, Dolphin toolbar, Firefox `user.js` |
-| `kwin-effects/` | `chicago95notifications`, the slide-in effect |
-| `lockscreen/` | The `contents/lockscreen` override for the Plasma desktop shell |
-| `splash/` | `chicago95.splashscreen` KSplash package |
-| `install.sh`, `setup/` | Chicago95 Setup: detection, component and option screens, install steps |
-| `uninstall.sh` | Removes what Setup installed and restores backups |
+| Folder                 | Contents                                                                                                                                                                                                                                        |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `aurorae/`             | `make_chicago95_aurorae.py`, `bevel.py`, Start button images, and the generated theme under `theme/`                                                                                                                                            |
+| `plasma-style/`        | `make_chicago95_plasmastyle.py` and the generated style under `theme/`                                                                                                                                                                          |
+| `plasmoids/`           | `org.chicago95.start`, `org.chicago95.tasks` (Quick Launch and task buttons), `org.chicago95.trayframe`, `org.chicago95.clock`                                                                                                                  |
+| `bin/`                 | `chicago95-startmenu`, `chicago95-notifyd`, `chicago95-clippy`, `chicago95-shutdown`, `chicago95-screensaver`, `chicago95-sysprops`, `chicago95-devmgr`, `chicago95-dialup`, `chicago95-deezer`, `chicago95-control-panel`, `chicago95-askpass` |
+| `lib/`                 | `chicago95ui.py`, the shared PySide6 look module                                                                                                                                                                                                |
+| `data/`                | Menu stylesheet for plasmashell, tray arrow, Clippy sprites and sounds, KRunner QML override, fastfetch preset                                                                                                                                  |
+| `data/sound-themes/`   | Freedesktop sound themes for Windows 98, the 16 Plus! 98 schemes and Windows 2000, built by `setup/make_sound_themes.py`                                                                                                                        |
+| `data/toolbar-icons/`  | Windows 95 and 2000 Explorer toolbar buttons (Back, Up, Cut, Copy...), installed as the `Chicago95-Toolbar` icon theme over the look's icon set; built by `setup/make_toolbar_icons.py`                                                         |
+| `config/`              | Colour scheme, KWin rules, systemd drop-in and unit, environment.d, autostart entries, Thunar, xsettingsd, GTK CSS, Dolphin toolbar, Firefox `user.js`                                                                                          |
+| `kwin-effects/`        | `chicago95notifications`, the slide-in effect                                                                                                                                                                                                   |
+| `lockscreen/`          | The `contents/lockscreen` override for the Plasma desktop shell                                                                                                                                                                                 |
+| `splash/`              | `chicago95.splashscreen` KSplash package                                                                                                                                                                                                        |
+| `install.sh`, `setup/` | Chicago95 Setup: detection, component and option screens, install steps                                                                                                                                                                         |
+| `uninstall.sh`         | Removes what Setup installed and restores backups                                                                                                                                                                                               |
 
 ## Requirements
 
@@ -104,32 +104,35 @@ Dolphin), lock screen, splash screen, boot screen (Plymouth), login screen
 Options are pre-filled from detection and editable on the Setup Options
 screen or as flags:
 
-| Flag | Default | Effect |
-| --- | --- | --- |
-| `--screen=WxH@scale` | detected | Positions of Start menu, Clippy, notifications; X11 DPI |
-| `--panel=28` | 28 | Taskbar height used in the window rules |
-| `--explorer=thunar` or `dolphin` | Thunar if installed | Which file manager gets the Explorer setup |
-| `--saver=deepstars` | deepstars | Screensaver, also chosen and previewed on its own Setup screen |
-| `--idle=5` | 5 | Minutes before the screensaver starts |
-| `--cursor=48` | 48 at fractional scale, else 32 | Cursor size |
-| `--clippy=yes` or `no` | yes | Start the Office Assistant at login |
-| `--quick-launch=yes`, `no` or `auto` | auto | Show the Quick Launch (program shortcuts beside Start) on the taskbar; auto shows it from the 1998 look on, as the originals did. Right-click a task to add its program, right-click a shortcut to remove it, or drop programs on it |
-| `--task-button-width=160` | the look's own | Longest a window's button on the taskbar may be, in pixels |
-| `--settings=FILE` | none | Choices saved by the Control Panel (`KEY=value` lines, never executed), applied over the defaults; Setup saves its own choices to `~/.config/chicago95/setup.conf` |
-| `--font="MS W98 UI"` | MS W98 UI | UI font family, applied if installed |
-| `--font-scope=everywhere` | everywhere | Where the UI font goes: `everywhere` (all programs, also web pages that ask for the system font), `desktop` (window title bars only) or `none`; Setup asks when the flag is missing. The Start menu, notifications, Clippy, Shut Down and the login screen always use it |
+| Flag                                 | Default                         | Effect                                                                                                                                                                                                                                                                   |
+| ------------------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--screen=WxH@scale`                 | detected                        | Positions of Start menu, Clippy, notifications; X11 DPI                                                                                                                                                                                                                  |
+| `--panel=28`                         | 28                              | Taskbar height used in the window rules                                                                                                                                                                                                                                  |
+| `--explorer=thunar` or `dolphin`     | Thunar if installed             | Which file manager gets the Explorer setup                                                                                                                                                                                                                               |
+| `--saver=deepstars`                  | deepstars                       | Screensaver, also chosen and previewed on its own Setup screen                                                                                                                                                                                                           |
+| `--idle=5`                           | 5                               | Minutes before the screensaver starts                                                                                                                                                                                                                                    |
+| `--cursor=48`                        | 48 at fractional scale, else 32 | Cursor size                                                                                                                                                                                                                                                              |
+| `--clippy=yes` or `no`               | yes                             | Start the Office Assistant at login                                                                                                                                                                                                                                      |
+| `--quick-launch=yes`, `no` or `auto` | auto                            | Show the Quick Launch (program shortcuts beside Start) on the taskbar; auto shows it from the 1998 look on, as the originals did. Right-click a task to add its program, right-click a shortcut to remove it, or drop programs on it                                     |
+| `--task-button-width=160`            | the look's own                  | Longest a window's button on the taskbar may be, in pixels                                                                                                                                                                                                               |
+| `--settings=FILE`                    | none                            | Choices saved by the Control Panel (`KEY=value` lines, never executed), applied over the defaults; Setup saves its own choices to `~/.config/chicago95/setup.conf`                                                                                                       |
+| `--font="MS W98 UI"`                 | MS W98 UI                       | UI font family, applied if installed                                                                                                                                                                                                                                     |
+| `--font-scope=everywhere`            | everywhere                      | Where the UI font goes: `everywhere` (all programs, also web pages that ask for the system font), `desktop` (window title bars only) or `none`; Setup asks when the flag is missing. The Start menu, notifications, Clippy, Shut Down and the login screen always use it |
 
 ### Control Panel
 
 `chicago95-control-panel` (Start, Settings, Control Panel; or Properties in the
 right-click menu of the Start button and the taskbar) is one Windows 98
-Explorer-style window for every choice Setup asked and more: colours and
-icons, desktop background, screensaver with Preview, taskbar height and button
-width, auto hide, clock, Quick Launch (drag shortcuts onto it, drag them off to
-remove), Start button and menu banner, login and loading screen texts and
-pictures, sounds with Play, fonts, pointer size and the file manager. Back,
-Forward, Up and the clickable address bar move between pages. It saves
-`~/.config/chicago95/setup.conf` and runs Setup again for only what changed.
+Explorer-style window for every choice Setup asked and more: colours (swatches
+that open a colour picker; + adds a gradient's second colour or a banner stop)
+and icons, desktop background, screensaver with Preview, taskbar height and
+button width with a preview of the buttons, auto hide, clock, Quick Launch
+(drag shortcuts onto it, drag them off to remove), Start button and menu banner,
+login and loading screen texts and pictures with live previews of the log-on
+dialog, the 2000 banner and the loading screen, sounds with Play, fonts,
+pointer size and the file manager. Back, Forward, Up and the clickable address
+bar move between pages. It saves `~/.config/chicago95/setup.conf` and runs
+Setup again for only what changed.
 
 Other modes: `--yes` takes every default without questions,
 `--components base,look,taskbar` installs only those, `--dry-run` writes
@@ -161,8 +164,11 @@ mouse movement ends it.
 The "Boot screen" and "Login screen" components ask for the administrator
 password on the Setup screen and list the exact commands first. The boot
 screen copies `~/src/Chicago95/Plymouth/Chicago95` and rebuilds the boot
-image with `plymouth-set-default-theme -R`; uninstall switches back to the
-previous theme.
+image with `plymouth-set-default-theme -R`; with the 2000 log-on style it
+instead renders our 2000 loading screen at the monitor's size
+(`bin/chicago95-splash-image`) and installs it as `Chicago95-2000`, a
+Plymouth script theme (`plymouth/Chicago95-2000`) that fills in the progress
+blocks as the system boots. Uninstall switches back to the previous theme.
 
 The "Login screen" component asks for the administrator password on the
 Setup screen, installs the Chicago95 log on dialog from `sddm/Chicago95Plasma` (with the UI font, which the greeter cannot read from your home) and
@@ -209,10 +215,11 @@ Xwayland, xmessage and the MS W98 UI font, and are skipped without them; each lo
 - `showcase-<look>.jpg`, to show people: component by component (desktop, taskbar, windows, Start menu,
   Shut Down, System Properties, and on 2000 the loading and log-on screens), the original beside ours;
 - `showcase-controls-<look>.jpg`: every control, rendered by `tests/controls_gallery.py` in the look's
-  colours (push buttons in each state, check boxes, radio buttons, text fields, drop-downs, spin box,
-  sliders, scroll bars, progress bar, group box, tabs, list box, menu bar, tool bar buttons, status bar,
-  labels), each beside the same control cropped from an original screenshot where one shows it, then our
-  own controls (title bar buttons, tabs, menu rows, the taskbar's parts);
+  colours (push buttons in each state, check boxes, radio buttons, text fields, drop-downs, disabled
+  drop-down and spin box, spin box, sliders, scroll bars including disabled and empty ones, progress bar,
+  group box, tabs, list box, menu bar, tool bar buttons, the Explorer toolbar's buttons in each state,
+  status bar, labels), each beside the same control cropped from an original screenshot where one shows
+  it, then our own controls (title bar buttons, tabs, menu rows, the taskbar's parts);
 - `report-<look>-<part>.png`: every detail the tests compare, the original, ours and their difference
   in red, enlarged, with a `.txt` listing how many pixels differ in each. The programs' content in the
   windows, icons and the clock's time are hatched alike in both; our banners carry the original's wording.

@@ -8,6 +8,7 @@ The logo is not bundled with Chicago95 (it is a trademark); Setup fetches it on 
 when they pick it. The file is found by its Commons page id and checked against its SHA-1, so the
 cut-out coordinates below always match the picture.
 """
+
 import hashlib
 import json
 import sys
@@ -72,6 +73,7 @@ def flag_pixel(x, y, red, green, blue):
 def cut_flag(image):
     """The flag alone, cropped to its pixels, from a QImage of the whole logo."""
     from PySide6.QtGui import QColor, QImage
+
     left, top, right, bottom = INSIDE_FRAME[0], INSIDE_FRAME[1], FRAME_OVERLAP[2], INSIDE_FRAME[3]
     flag = QImage(right - left, bottom - top, QImage.Format_ARGB32)
     for y in range(top, bottom):
@@ -80,12 +82,16 @@ def cut_flag(image):
             red, green, blue, alpha = flag_pixel(x, y, colour.red(), colour.green(), colour.blue())
             flag.setPixelColor(x - left, y - top, QColor(red, green, blue, alpha))
     from PySide6.QtCore import Qt
+
     flag = flag.copy(opaque_bounds(flag))
-    return flag.scaled(flag.width(), round(flag.width() / ORIGINAL_ASPECT), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+    return flag.scaled(
+        flag.width(), round(flag.width() / ORIGINAL_ASPECT), Qt.IgnoreAspectRatio, Qt.SmoothTransformation
+    )
 
 
 def opaque_bounds(image):
     from PySide6.QtCore import QRect
+
     xs, ys = [], []
     for y in range(image.height()):
         for x in range(image.width()):
@@ -97,6 +103,7 @@ def opaque_bounds(image):
 
 def main(output):
     from PySide6.QtGui import QImage
+
     logo = QImage.fromData(download_logo())
     if not cut_flag(logo).save(output):
         raise SystemExit(f"Could not write {output}")

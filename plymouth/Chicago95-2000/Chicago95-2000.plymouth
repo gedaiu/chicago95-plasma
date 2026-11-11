@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Chicago95 2000 Boot Screen
+Description=The 2000 start-up screen: the loading screen's picture with a block progress bar
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/Chicago95-2000
+ScriptFile=/usr/share/plymouth/themes/Chicago95-2000/Chicago95-2000.script

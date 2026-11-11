@@ -96,12 +96,15 @@ def test_shut_down_dialog_defaults_to_shut_down_choice(shutdown, qt_app):
 
 def button(dialog, text):
     from PySide6.QtWidgets import QPushButton
+
     return next(push for push in dialog.findChildren(QPushButton) if push.text() == text)
 
 
 def test_os_name_is_the_banner_text_before_its_first_digit(shutdown):
-    names = [shutdown.os_name({"bannerText": text}) for text in
-             ("Windows2000", "Windows2026", "Windows 2000 Professional", "Fedora 44", "Linux", "95 Plus")]
+    names = [
+        shutdown.os_name({"bannerText": text})
+        for text in ("Windows2000", "Windows2026", "Windows 2000 Professional", "Fedora 44", "Linux", "95 Plus")
+    ]
     assert names == ["Windows", "Windows", "Windows", "Fedora", "Linux", "95 Plus"]
 
 

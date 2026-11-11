@@ -1,6 +1,7 @@
 """Runs a QML JavaScript library (.pragma library) in a bare JS engine, so its pure functions get unit tests.
 
 The engine needs a Qt application to exist; tests get it from the qt_app fixture."""
+
 from PySide6.QtQml import QJSEngine
 
 

@@ -1,7 +1,7 @@
 {
   "KPackageStructure": "Plasma/Applet",
   "KPlugin": {
-    "Authors": [{"Name": "Bending Unit 22"}],
+    "Authors": [{ "Name": "Bending Unit 22" }],
     "Category": "Windows and Tasks",
     "Description": "Chicago95 task list: one classic button per window",
     "Icon": "preferences-system-windows",

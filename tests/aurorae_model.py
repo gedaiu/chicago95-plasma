@@ -7,31 +7,61 @@ top, the right one TitleEdgeRight in from the right; each button draws its "<sta
 over its whole cell; the caption fills the space between the groups (TitleBorderLeft/Right in),
 TitleHeight tall from TitleEdgeTop, vertically centred.
 """
+
 import configparser
 import subprocess
 import sys
 from pathlib import Path
 
+from conftest import REPO
+from framesvg import paint_frame
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QImage, QPainter
 from PySide6.QtSvg import QSvgRenderer
-
-from conftest import REPO
-from framesvg import paint_frame
 from reference import qimage_to_pil
 
 GENERATOR = REPO / "aurorae/make_chicago95_aurorae.py"
-BUTTON_FILES = {"M": None, "I": "minimize", "A": "maximize", "X": "close", "H": "help", "S": "alldesktops", "L": "shade"}
+BUTTON_FILES = {
+    "M": None,
+    "I": "minimize",
+    "A": "maximize",
+    "X": "close",
+    "H": "help",
+    "S": "alldesktops",
+    "L": "shade",
+}
 WIDTH_KEYS = {"M": "ButtonWidthMenu", "X": "ButtonWidthClose"}
 
 # The colours each original's frame uses, as chicago95-sync-colors passes them for the looks.
 LOOKS = {
-    "1995": dict(active="#000080", inactive="#808080", inactive_text="#C0C0C0",
-                 face="#C0C0C0", light="#DFDFDF", shadow="#808080", dark="#000000"),
-    "1998": dict(active="#000080,#1084D0", inactive="#808080,#C0C0C0", inactive_text="#C0C0C0",
-                 face="#C0C0C0", light="#DFDFDF", shadow="#808080", dark="#000000"),
-    "2000": dict(active="#0A246A,#A6CAF0", inactive="#808080,#C0C0C0", inactive_text="#D4D0C8",
-                 face="#D4D0C8", light="#D4D0C8", shadow="#808080", dark="#404040", gradient_margins="18,52"),
+    "1995": dict(
+        active="#000080",
+        inactive="#808080",
+        inactive_text="#C0C0C0",
+        face="#C0C0C0",
+        light="#DFDFDF",
+        shadow="#808080",
+        dark="#000000",
+    ),
+    "1998": dict(
+        active="#000080,#1084D0",
+        inactive="#808080,#C0C0C0",
+        inactive_text="#C0C0C0",
+        face="#C0C0C0",
+        light="#DFDFDF",
+        shadow="#808080",
+        dark="#000000",
+    ),
+    "2000": dict(
+        active="#0A246A,#A6CAF0",
+        inactive="#808080,#C0C0C0",
+        inactive_text="#D4D0C8",
+        face="#D4D0C8",
+        light="#D4D0C8",
+        shadow="#808080",
+        dark="#404040",
+        gradient_margins="18,52",
+    ),
 }
 
 
@@ -85,22 +115,34 @@ class Window:
     def caption_rect(self):
         rects = self.button_rects()
         left_end = max((rects[kind].right() for kind in self.left), default=self.layout["TitleEdgeLeft"])
-        right_start = min((rects[kind].left() for kind in self.right), default=self.width - self.layout["TitleEdgeRight"])
+        right_start = min(
+            (rects[kind].left() for kind in self.right), default=self.width - self.layout["TitleEdgeRight"]
+        )
         top = self.layout["TitleEdgeTop"]
         height = max(self.layout["TitleHeight"], self.layout["ButtonHeight"])
-        return QRectF(left_end + self.layout["TitleBorderLeft"], top,
-                      right_start - self.layout["TitleBorderRight"] - left_end - self.layout["TitleBorderLeft"], height)
+        return QRectF(
+            left_end + self.layout["TitleBorderLeft"],
+            top,
+            right_start - self.layout["TitleBorderRight"] - left_end - self.layout["TitleBorderLeft"],
+            height,
+        )
 
     def paint_frame(self, painter):
         prefix = "decoration" if self.active else "decoration-inactive"
-        paint_frame(painter, QSvgRenderer(str(self.theme / "decoration.svg")), prefix, QRectF(0, 0, self.width, self.height))
+        paint_frame(
+            painter, QSvgRenderer(str(self.theme / "decoration.svg")), prefix, QRectF(0, 0, self.width, self.height)
+        )
 
     def paint_buttons(self, painter):
         for kind, rect in self.button_rects().items():
             if BUTTON_FILES.get(kind) is None:
                 continue
             state = "pressed" if kind in self.pressed else "deactivated" if kind in self.disabled else ""
-            element = "-".join(part for part in (state or ("active" if self.active else ""), "" if self.active else "inactive", "center") if part)
+            element = "-".join(
+                part
+                for part in (state or ("active" if self.active else ""), "" if self.active else "inactive", "center")
+                if part
+            )
             QSvgRenderer(str(self.theme / f"{BUTTON_FILES[kind]}.svg")).render(painter, element, rect)
 
     def paint_caption(self, painter):

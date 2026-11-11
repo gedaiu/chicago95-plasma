@@ -50,7 +50,9 @@ KSvg.FrameSvgItem {
             script: osd.layer.enabled = true
         }
         // prevent press and hold from flickering
-        PauseAnimation { duration: osd.timeout }
+        PauseAnimation {
+            duration: osd.timeout
+        }
         NumberAnimation {
             target: osd
             property: "opacity"

@@ -15,7 +15,7 @@ panel.lengthMode = "fill";
 
 panel.addWidget("org.chicago95.start");
 // Start, then the Quick Launch (from 1998 on) and the windows' buttons, all drawn by org.chicago95.tasks.
-const tasks = panel.addWidget("org.chicago95.tasks");   // its Quick Launch programs are its own defaults
+const tasks = panel.addWidget("org.chicago95.tasks"); // its Quick Launch programs are its own defaults
 tasks.currentConfigGroup = ["General"];
 tasks.writeConfig("look", look);
 

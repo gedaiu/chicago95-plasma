@@ -5,14 +5,22 @@ artwork, icon and lettering, plus the measured layout. 1995 and 1998 are half-si
 (win95shutdownsm.png, win98shutsm.png), so for those the client size and option spacing are measured
 at half scale and compared within a pixel of the thumbnail.
 """
-import pytest
 
+import pytest
 from conftest import needs_ui_font
-from reference import LOOK_2000_KDEGLOBALS, bounding_box, close, differing_pixels, installed_look, qimage_to_pil, screenshot
+from reference import (
+    LOOK_2000_KDEGLOBALS,
+    bounding_box,
+    close,
+    differing_pixels,
+    installed_look,
+    qimage_to_pil,
+    screenshot,
+)
 
 CLIENT_2000 = (115, 91, 524, 337)
-DIALOG_2000 = (111, 70, 528, 339)           # the whole dialog: its 3px frame, the 18px title, the client area
-BODY_2000 = (CLIENT_2000[0] - DIALOG_2000[0], CLIENT_2000[1] - DIALOG_2000[1])   # the client area in the dialog
+DIALOG_2000 = (111, 70, 528, 339)  # the whole dialog: its 3px frame, the 18px title, the client area
+BODY_2000 = (CLIENT_2000[0] - DIALOG_2000[0], CLIENT_2000[1] - DIALOG_2000[1])  # the client area in the dialog
 FRAME, TITLE = 3, 18
 # The dialogs with their frames, measured on the half-size thumbnails' frame edges (x 73.5-246 and
 # y 64-175 for 1995, x 78.5-240 and y 49.5-146 for 1998), doubled.
@@ -25,14 +33,31 @@ BANNER_MARK = (36, 4, 160, 68)
 BANNER_LOGO = (48, 12, 96, 52)
 BANNER_LETTERING = (100, 0, 409, 46)
 MARK_BLOCK, MARK_TOLERANCE = 4, 45
-BANNER_LINES = {"company": (98, 4, 175, 15), "name": (98, 18, 345, 46), "edition": (150, 46, 345, 70), "corner": (332, 2, 409, 22)}
+BANNER_LINES = {
+    "company": (98, 4, 175, 15),
+    "name": (98, 18, 345, 46),
+    "edition": (150, 46, 345, 70),
+    "corner": (332, 2, 409, 22),
+}
 LETTERING_SLACK = 2
-THUMBNAILS = {"1995": ("win95shutdownsm", (74, 60, 246, 180), (36, 78)), "1998": ("win98shutsm", (80, 46, 240, 152), (36, 74))}
+THUMBNAILS = {
+    "1995": ("win95shutdownsm", (74, 60, 246, 180), (36, 78)),
+    "1998": ("win98shutsm", (80, 46, 240, 152), (36, 74)),
+}
 
 
 def dialog_for(shutdown, qt_app, style, banner="Chicago95", company=""):
-    dialog = shutdown.ShutDownDialog({"style": style, "bannerText": banner, "osName": banner, "osCompany": company,
-                                      "edition": "Professional", "osLogo": "", "companyLogo": ""})
+    dialog = shutdown.ShutDownDialog(
+        {
+            "style": style,
+            "bannerText": banner,
+            "osName": banner,
+            "osCompany": company,
+            "edition": "Professional",
+            "osLogo": "",
+            "companyLogo": "",
+        }
+    )
     dialog.show()
     qt_app.processEvents()
     return dialog
@@ -43,6 +68,7 @@ def whole_2000(shutdown, qt_app, tmp_path_factory):
     """Our 2000 dialog with the frame and title it draws, its close button from our 2000 decoration."""
     import chicago95ui
     from aurorae_model import build_theme
+
     chicago95ui.DECORATION = build_theme(tmp_path_factory.mktemp("aurorae-2000"), "2000")
     with installed_look(qt_app, "[StartMenu]\nstyle=2000\n", LOOK_2000_KDEGLOBALS):
         dialog = dialog_for(shutdown, qt_app, "2000", banner="Windows 2000", company="Microsoft")
@@ -71,7 +97,9 @@ def test_2000_frame_and_close_button_match_the_original_pixel_for_pixel(whole_20
     w, h = original.size
     ring = [(x, y) for x in range(w) for y in range(h) if min(x, y, w - 1 - x, h - 1 - y) < FRAME]
     close_button = [(x, y) for x in range(w - FRAME - 2 - 16, w - FRAME - 2) for y in range(FRAME + 2, FRAME + 2 + 14)]
-    assert [point for point in ring + close_button if not close(whole_2000.getpixel(point), original.getpixel(point))] == []
+    assert [
+        point for point in ring + close_button if not close(whole_2000.getpixel(point), original.getpixel(point))
+    ] == []
 
 
 def test_2000_title_shades_like_the_original_and_holds_its_end_colour_behind_the_button(whole_2000):
@@ -81,8 +109,11 @@ def test_2000_title_shades_like_the_original_and_holds_its_end_colour_behind_the
     def column(image, x):
         pixels = [image.getpixel((x, y)) for y in range(FRAME + 14, FRAME + TITLE)]
         return tuple(sum(pixel[channel] for pixel in pixels) / len(pixels) for channel in range(3))
+
     xs = range(FRAME, original.width - FRAME, 12)
-    assert all(close(column(whole_2000, x), column(original, x), 12) for x in xs), [(x, column(whole_2000, x), column(original, x)) for x in xs]
+    assert all(close(column(whole_2000, x), column(original, x), 12) for x in xs), [
+        (x, column(whole_2000, x), column(original, x)) for x in xs
+    ]
 
 
 def test_2000_strip_glows_like_the_original(reference_2000, ours_2000):
@@ -102,10 +133,18 @@ def overlaps(box, x, y):
 
 
 def test_2000_banner_mark_matches_the_original_within_45_levels_per_4px_block(reference_2000, ours_2000):
-    blocks = [(x, y) for y in range(BANNER_MARK[1], BANNER_MARK[3], MARK_BLOCK) for x in range(BANNER_MARK[0], BANNER_MARK[2], MARK_BLOCK)
-              if not overlaps(BANNER_LOGO, x, y) and not overlaps(BANNER_LETTERING, x, y)]
-    differing = [(x, y) for x, y in blocks
-                 if max(abs(a - b) for a, b in zip(block_average(reference_2000, x, y), block_average(ours_2000, x, y))) > MARK_TOLERANCE]
+    blocks = [
+        (x, y)
+        for y in range(BANNER_MARK[1], BANNER_MARK[3], MARK_BLOCK)
+        for x in range(BANNER_MARK[0], BANNER_MARK[2], MARK_BLOCK)
+        if not overlaps(BANNER_LOGO, x, y) and not overlaps(BANNER_LETTERING, x, y)
+    ]
+    differing = [
+        (x, y)
+        for x, y in blocks
+        if max(abs(a - b) for a, b in zip(block_average(reference_2000, x, y), block_average(ours_2000, x, y)))
+        > MARK_TOLERANCE
+    ]
     assert differing == []
 
 
@@ -113,6 +152,7 @@ def test_2000_banner_mark_matches_the_original_within_45_levels_per_4px_block(re
 def test_2000_banner_lettering_covers_the_original_lines_within_2_pixels(reference_2000, ours_2000, line):
     def ink(image):
         return bounding_box(image, lambda c: sum(c) < 250, (line[0], line[2]), (line[1], line[3]))
+
     expected, actual = ink(reference_2000), ink(ours_2000)
     assert all(abs(a - e) <= LETTERING_SLACK for a, e in zip(actual, expected)), (actual, expected)
 
@@ -120,7 +160,7 @@ def test_2000_banner_lettering_covers_the_original_lines_within_2_pixels(referen
 def button_frames(image):
     """Each push button's black bottom edge, as (left, right, y), in the button row."""
     frames = []
-    dark = lambda c: sum(c) < 220   # black on 1995/1998, #404040 on 2000
+    dark = lambda c: sum(c) < 220  # black on 1995/1998, #404040 on 2000
     y = max(y for y in range(200, 240) if sum(1 for x in range(image.width) if dark(image.getpixel((x, y)))) > 60)
     run = None
     for x in range(image.width + 1):
@@ -140,20 +180,25 @@ def test_2000_buttons_sit_where_the_original_puts_them(reference_2000, ours_2000
 
 def test_2000_dropdown_frame_matches(reference_2000, ours_2000):
     def frame(image):
-        return bounding_box(image, lambda c: close(c, (132, 132, 132), 16) or close(c, (128, 128, 128), 16), (60, 340), (105, 135))
+        return bounding_box(
+            image, lambda c: close(c, (132, 132, 132), 16) or close(c, (128, 128, 128), 16), (60, 340), (105, 135)
+        )
+
     assert frame(ours_2000) == frame(reference_2000)
 
 
 @needs_ui_font
 def test_2000_everything_but_artwork_and_lettering_matches(reference_2000, ours_2000, tmp_path):
-    masks = [(0, 1, 409, 72),            # banner artwork and name
-             (0, 72, 409, 78),           # strip: dithered in the 256-colour original; its colours have their own test
-             (15, 82, 60, 125),          # icon
-             (60, 86, 400, 106),         # question
-             (314, 124, 334, 152),       # the original screenshot's mouse pointer
-             (67, 112, 330, 131),        # dropdown contents and focus highlight
-             (60, 133, 409, 175),        # description (same words with OS name "Windows"; letter shapes differ)
-             (163, 211, 409, 234)]       # button captions sit inside the compared button frames
+    masks = [
+        (0, 1, 409, 72),  # banner artwork and name
+        (0, 72, 409, 78),  # strip: dithered in the 256-colour original; its colours have their own test
+        (15, 82, 60, 125),  # icon
+        (60, 86, 400, 106),  # question
+        (314, 124, 334, 152),  # the original screenshot's mouse pointer
+        (67, 112, 330, 131),  # dropdown contents and focus highlight
+        (60, 133, 409, 175),  # description (same words with OS name "Windows"; letter shapes differ)
+        (163, 211, 409, 234),
+    ]  # button captions sit inside the compared button frames
     count = differing_pixels(reference_2000, ours_2000, masks, tmp_path / "shutdown-2000-diff.png", threshold=0.15)
     assert count == 0, f"{count} pixels differ; see {tmp_path}"
 
@@ -164,15 +209,27 @@ def thumbnail_dialog(style):
     name, box, _options = THUMBNAILS[style]
     inside = screenshot(name).crop(box)
     face = lambda c: all(abs(v - 192) < 14 for v in c)
-    rows = [y for y in range(inside.height) if sum(face(inside.getpixel((x, y))) for x in range(inside.width)) > inside.width * 0.6]
-    cols = [x for x in range(inside.width) if sum(face(inside.getpixel((x, y))) for y in range(inside.height)) > inside.height * 0.5]
-    return screenshot(name).crop((box[0] + cols[0] - 2, box[1] + rows[0] - 13, box[0] + cols[-1] + 3, box[1] + rows[-1] + 3))
+    rows = [
+        y
+        for y in range(inside.height)
+        if sum(face(inside.getpixel((x, y))) for x in range(inside.width)) > inside.width * 0.6
+    ]
+    cols = [
+        x
+        for x in range(inside.width)
+        if sum(face(inside.getpixel((x, y))) for y in range(inside.height)) > inside.height * 0.5
+    ]
+    return screenshot(name).crop(
+        (box[0] + cols[0] - 2, box[1] + rows[0] - 13, box[0] + cols[-1] + 3, box[1] + rows[-1] + 3)
+    )
 
 
 def text_rows(image):
     """The first row of each line of lettering and of the buttons in a half-size dialog, below the title
     and right of the icon: the question, the four options, then the buttons."""
-    dark = [sum(1 for x in range(36, image.width - 8) if sum(image.getpixel((x, y))) < 330) for y in range(image.height)]
+    dark = [
+        sum(1 for x in range(36, image.width - 8) if sum(image.getpixel((x, y))) < 330) for y in range(image.height)
+    ]
     return [y for y in range(14, image.height - 3) if dark[y] >= 2 and dark[y - 1] < 2]
 
 
@@ -206,7 +263,10 @@ def test_dialog_title_has_no_icon_and_its_caption_starts_where_the_icon_would(sh
     dialog.close()
 
     def caption_left(image):
-        return min(x for x in range(FRAME, 60) for y in range(FRAME, FRAME + TITLE) if min(image.getpixel((x, y))) > 230)
+        return min(
+            x for x in range(FRAME, 60) for y in range(FRAME, FRAME + TITLE) if min(image.getpixel((x, y))) > 230
+        )
+
     assert caption_left(ours) == caption_left(original) == 5
 
 
@@ -227,6 +287,7 @@ def test_radio_dialog_rows_sit_where_the_originals_do(shutdown, qt_app, style):
     """The question, the four options and the buttons, each on the original's row within one row of the
     half-size thumbnail: ours halved the way a thumbnail is made, each pixel the average of four."""
     from PIL import Image
+
     dialog = dialog_for(shutdown, qt_app, style)
     ours = qimage_to_pil(dialog.grab().toImage())
     dialog.close()

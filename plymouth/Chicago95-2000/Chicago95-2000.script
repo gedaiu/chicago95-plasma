@@ -1,0 +1,34 @@
+# The 2000 start-up screen: screen.png is the loading screen Setup rendered (splash/Splash.qml at stage 0),
+# laid out in the original's 640x480 and scaled to the screen height; the progress bar's 18 navy blocks
+# (8x8, 9 apart, from 274,437 in that layout) fill in with the boot progress.
+
+screen_width = Window.GetWidth();
+screen_height = Window.GetHeight();
+unit = screen_height / 480;
+layout_x = (screen_width - 640 * unit) / 2;
+
+background = Sprite(Image("screen.png").Scale(screen_width, screen_height));
+background.SetPosition(0, 0, 0);
+
+block_image = Image("block.png").Scale(Math.Int(8 * unit), Math.Int(8 * unit));
+for (i = 0; i < 18; i++)
+  {
+    blocks[i] = Sprite(block_image);
+    blocks[i].SetPosition(Math.Int(layout_x + (274 + 9 * i) * unit), Math.Int(437 * unit), 1);
+    blocks[i].SetOpacity(0);
+  }
+
+fun progress_callback(duration, progress)
+  {
+    shown = Math.Int(progress * 18);
+    for (i = 0; i < 18; i++)
+      blocks[i].SetOpacity(i < shown ? 1 : 0);
+  }
+Plymouth.SetBootProgressFunction(progress_callback);
+
+fun quit_callback()
+  {
+    for (i = 0; i < 18; i++)
+      blocks[i].SetOpacity(1);
+  }
+Plymouth.SetQuitFunction(quit_callback);

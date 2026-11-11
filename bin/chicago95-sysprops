@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
-import os, sys; sys.path[:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"), os.path.expanduser("~/.local/lib/chicago95")]; import chicago95ui  # noqa: E702
+import os
+import sys
 
+sys.path[:0] = [
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.expanduser("~/.local/lib/chicago95"),
+]
 import platform
 import pwd
 import re
@@ -9,6 +14,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+import chicago95ui  # noqa: E702
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFontMetrics, QIcon, QPainter
 from PySide6.QtWidgets import (
@@ -164,17 +170,27 @@ DIALOG_WIDTH = 410
 DIALOG_HEIGHT = {"1995": 448, "1998": 448, "2000": 461}
 BODY_ORIGIN = (3, 21)
 DIALOG_FRAME = 3
-TABS = {"1995": ["General", "Device Manager", "Hardware Profiles", "Performance"],
-        "1998": ["General", "Device Manager", "Hardware Profiles", "Performance"],
-        "2000": ["General", "Hardware", "User Profiles", "Advanced"]}
+TABS = {
+    "1995": ["General", "Device Manager", "Hardware Profiles", "Performance"],
+    "1998": ["General", "Device Manager", "Hardware Profiles", "Performance"],
+    "2000": ["General", "Hardware", "User Profiles", "Advanced"],
+}
 TAB_LEFT, TAB_PADDING, TAB_TOP, SELECTED_TAB_RISE = 11, 13, 31, 2
 PAGE_LEFT, PAGE_RIGHT, PAGE_TOP = 9, 400, 49
-PAGE_BOTTOM_FROM_END = 40                 # the page frame's black bottom row, from the dialog's bottom
+PAGE_BOTTOM_FROM_END = 40  # the page frame's black bottom row, from the dialog's bottom
 CAPTION_INSET, CAPTION_BASELINE = 6, 45
-ICON_POSITION, ICON_SIZE = (65, 100), 96    # centred on the original's picture, which is wider
+ICON_POSITION, ICON_SIZE = (65, 100), 96  # centred on the original's picture, which is wider
 # The General page's headings: (column, cap-height row) per group; values 18px further in, 18px apart.
-HEADINGS = {"1995": [(215, 71), (215, 151), (215, 253)], "1998": [(196, 71), (196, 160), (196, 246)], "2000": [(208, 71), (208, 151), (178, 256)]}
-BUTTON_LEFTS = {"1995": {"OK": 245, "Cancel": 326}, "1998": {"OK": 245, "Cancel": 326}, "2000": {"OK": 164, "Cancel": 245, "Apply": 326}}
+HEADINGS = {
+    "1995": [(215, 71), (215, 151), (215, 253)],
+    "1998": [(196, 71), (196, 160), (196, 246)],
+    "2000": [(208, 71), (208, 151), (178, 256)],
+}
+BUTTON_LEFTS = {
+    "1995": {"OK": 245, "Cancel": 326},
+    "1998": {"OK": 245, "Cancel": 326},
+    "2000": {"OK": 164, "Cancel": 245, "Apply": 326},
+}
 BUTTONS_TOP = {"1995": 415, "1998": 415, "2000": 428}
 CAP_HEIGHT = 9
 
@@ -229,7 +245,7 @@ class TabStrip(QWidget):
         face, bevel = scheme["face"], chicago95ui.bevel_colors(scheme["face"], self.style)
         white, shadow, dark = QColor("#ffffff"), bevel["shadow"], bevel["dark"]
         painter = QPainter(self)
-        painter.translate(-BODY_ORIGIN[0], -BODY_ORIGIN[1])   # paint in dialog coordinates
+        painter.translate(-BODY_ORIGIN[0], -BODY_ORIGIN[1])  # paint in dialog coordinates
         bottom = self.frame_bottom()
         selected_left, selected_right = self.boxes[self.current][0] - 2, self.boxes[self.current][1] + 2
         # The page frame: white top and left, shadow and black right and bottom; no top line under the selected tab.
@@ -248,7 +264,9 @@ class TabStrip(QWidget):
             top, rise = TAB_TOP, 0
             if index == self.current:
                 left, right, top, rise = selected_left, selected_right, TAB_TOP - SELECTED_TAB_RISE, SELECTED_TAB_RISE
-                painter.fillRect(left, top, right - left + 1, PAGE_TOP - top + 1, face)   # over the neighbours' edges and the frame's top line
+                painter.fillRect(
+                    left, top, right - left + 1, PAGE_TOP - top + 1, face
+                )  # over the neighbours' edges and the frame's top line
             height = PAGE_TOP - top
             painter.fillRect(left, top + 2, 1, height - 2, white)
             painter.fillRect(left + 2, top, right - left - 3, 1, white)
@@ -261,7 +279,7 @@ class TabStrip(QWidget):
         painter.end()
 
 
-VALUE_MARGIN = 6   # between a value's last letter and the page frame
+VALUE_MARGIN = 6  # between a value's last letter and the page frame
 ROW_PITCH = 18
 
 
@@ -276,7 +294,11 @@ def wrapped(text, metrics, width):
         if line:
             lines.append(line)
         while metrics.horizontalAdvance(word) > width:
-            cut = max(1, max(index for index in range(1, len(word) + 1) if metrics.horizontalAdvance(word[:index]) <= width or index == 1))
+            cut = max(
+                index
+                for index in range(1, len(word) + 1)
+                if metrics.horizontalAdvance(word[:index]) <= width or index == 1
+            )
             lines.append(word[:cut])
             word = word[cut:]
         line = word
@@ -289,20 +311,25 @@ class GeneralPage(QWidget):
     def __init__(self, facts, look, parent=None):
         super().__init__(parent)
         self.look = look
-        self.groups = [("System:", [facts.os_name, facts.kernel, facts.desktop]),
-                       ("Registered to:", [facts.owner, facts.hostname, facts.product_key]),
-                       ("Computer:", [value for value in (facts.cpu_model, facts.logical_processors, facts.memory, facts.display) if value])]
+        self.groups = [
+            ("System:", [facts.os_name, facts.kernel, facts.desktop]),
+            ("Registered to:", [facts.owner, facts.hostname, facts.product_key]),
+            (
+                "Computer:",
+                [value for value in (facts.cpu_model, facts.logical_processors, facts.memory, facts.display) if value],
+            ),
+        ]
         self.picture = QIcon.fromTheme("computer").pixmap(ICON_SIZE, ICON_SIZE)
 
     def paintEvent(self, _event):
         painter = QPainter(self)
         page_x, page_y = in_body(PAGE_LEFT + 1, PAGE_TOP + 1)
-        painter.translate(-page_x - BODY_ORIGIN[0], -page_y - BODY_ORIGIN[1])   # paint in dialog coordinates
+        painter.translate(-page_x - BODY_ORIGIN[0], -page_y - BODY_ORIGIN[1])  # paint in dialog coordinates
         painter.drawPixmap(ICON_POSITION[0], ICON_POSITION[1], self.picture)
         painter.setFont(chicago95ui.ui_font())
         painter.setPen(QColor("#000000"))
         metrics = painter.fontMetrics()
-        shift = 0   # rows a wrapped value pushed the groups below it down by
+        shift = 0  # rows a wrapped value pushed the groups below it down by
         for (column, row), (heading, values) in zip(HEADINGS[self.look], self.groups):
             row += shift
             painter.drawText(column, row + CAP_HEIGHT, heading)
@@ -355,13 +382,17 @@ def build_performance_tab(facts):
     status_box.setFont(chicago95ui.ui_font())
     status_layout = QVBoxLayout(status_box)
     status_layout.setContentsMargins(10, 8, 10, 10)
-    status_layout.addLayout(status_grid([
-        ("Memory:", facts.memory.replace(" RAM", " of RAM")),
-        ("System Resources:", facts.resources_free),
-        ("File System:", facts.filesystem),
-        ("Virtual Memory:", facts.virtual_memory),
-        ("Disk Compression:", "Not installed"),
-    ]))
+    status_layout.addLayout(
+        status_grid(
+            [
+                ("Memory:", facts.memory.replace(" RAM", " of RAM")),
+                ("System Resources:", facts.resources_free),
+                ("File System:", facts.filesystem),
+                ("Virtual Memory:", facts.virtual_memory),
+                ("Disk Compression:", "Not installed"),
+            ]
+        )
+    )
     status_layout.addSpacing(8)
     status_layout.addWidget(plain_label("Your system is configured for optimal performance."))
     layout.addWidget(status_box)
@@ -383,8 +414,13 @@ def build_performance_tab(facts):
 
 def build_pages(facts, look):
     """The pages behind the look's tabs: the originals' names, our contents."""
-    pages = {"General": GeneralPage(facts, look), "Device Manager": build_device_manager_tab(), "Hardware": build_device_manager_tab(),
-             "Performance": build_performance_tab(facts), "Advanced": build_performance_tab(facts)}
+    pages = {
+        "General": GeneralPage(facts, look),
+        "Device Manager": build_device_manager_tab(),
+        "Hardware": build_device_manager_tab(),
+        "Performance": build_performance_tab(facts),
+        "Advanced": build_performance_tab(facts),
+    }
     return [pages.get(caption) or placeholder_page(caption) for caption in TABS[look]]
 
 

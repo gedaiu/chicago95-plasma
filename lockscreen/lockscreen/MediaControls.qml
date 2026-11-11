@@ -19,7 +19,7 @@ Item {
 
     Repeater {
         id: instantiator
-        model: Mpris.MultiplexerModel { }
+        model: Mpris.MultiplexerModel {}
 
         RowLayout {
             id: controlsRow
@@ -53,11 +53,7 @@ Item {
                     elide: Text.ElideRight
                     font.pointSize: Kirigami.Theme.defaultFont.pointSize + 1
                     maximumLineCount: 1
-                    text: model.track.length > 0
-                            ? model.track
-                            : (model.playbackStatus > Mpris.PlaybackStatus.Stopped
-                                ? i18ndc("plasma_shell_org.kde.plasma.desktop", "@info:status", "No title")
-                                : i18ndc("plasma_shell_org.kde.plasma.desktop", "@info:status", "No media playing"))
+                    text: model.track.length > 0 ? model.track : (model.playbackStatus > Mpris.PlaybackStatus.Stopped ? i18ndc("plasma_shell_org.kde.plasma.desktop", "@info:status", "No title") : i18ndc("plasma_shell_org.kde.plasma.desktop", "@info:status", "No media playing"))
                     textFormat: Text.PlainText
                     wrapMode: Text.NoWrap
                 }
@@ -82,8 +78,8 @@ Item {
                 focusPolicy: Qt.TabFocus
                 icon.name: LayoutMirroring.enabled ? "media-skip-forward" : "media-skip-backward"
                 onClicked: {
-                    fadeoutTimer.running = false
-                    model.container.Previous()
+                    fadeoutTimer.running = false;
+                    model.container.Previous();
                 }
                 Accessible.name: i18ndc("plasma_shell_org.kde.plasma.desktop", "@action:button Accessible only", "Previous track")
             }
@@ -94,8 +90,8 @@ Item {
                 focusPolicy: Qt.TabFocus
                 icon.name: model.playbackStatus === Mpris.PlaybackStatus.Playing ? "media-playback-pause" : "media-playback-start"
                 onClicked: {
-                    fadeoutTimer.running = false
-                    model.container.PlayPause()
+                    fadeoutTimer.running = false;
+                    model.container.PlayPause();
                 }
                 Accessible.name: i18ndc("plasma_shell_org.kde.plasma.desktop", "@action:button Accessible only", "Play or Pause media")
             }
@@ -109,8 +105,8 @@ Item {
                 icon.name: LayoutMirroring.enabled ? "media-skip-backward" : "media-skip-forward"
                 Accessible.name: i18ndc("plasma_shell_org.kde.plasma.desktop", "@action:button Accessible only", "Next track")
                 onClicked: {
-                    fadeoutTimer.running = false
-                    model.container.Next()
+                    fadeoutTimer.running = false;
+                    model.container.Next();
                 }
             }
         }

@@ -1,9 +1,9 @@
 """Programs our plasmoids start run in their own systemd scope, not in plasmashell's service: Setup
 (started from the Control Panel) restarts plasmashell, and stopping its service stops every process in it."""
+
 import re
 
 import pytest
-
 from conftest import REPO
 
 PLASMOIDS = REPO / "plasmoids"

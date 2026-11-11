@@ -1,7 +1,7 @@
 {
   "KPackageStructure": "Plasma/Applet",
   "KPlugin": {
-    "Authors": [{"Name": "Bending Unit 22"}],
+    "Authors": [{ "Name": "Bending Unit 22" }],
     "Category": "Windows and Tasks",
     "Description": "Draws the Chicago95 sunken notification-area frame behind the widgets to its right",
     "Icon": "preferences-desktop-notification",

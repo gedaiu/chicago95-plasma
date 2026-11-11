@@ -8,10 +8,18 @@ Colors, or Setup). Both are fixed SVGs, so they cannot follow the scheme by them
     chicago95-sync-colors           redraw only when the title colours differ from the last run
     chicago95-sync-colors --force   redraw anyway
 """
-import os, sys; sys.path[:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"), os.path.expanduser("~/.local/lib/chicago95")]; import chicago95ui  # noqa: E401,E702
 
+import os
+import sys
+
+sys.path[:0] = [
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.expanduser("~/.local/lib/chicago95"),
+]
 import subprocess
 from pathlib import Path
+
+import chicago95ui  # noqa: E401,E702
 
 DECORATION = Path.home() / ".local/share/aurorae/themes/Chicago95"
 PLASMA_STYLE = Path.home() / ".local/share/plasma/desktoptheme/Chicago95"
@@ -30,16 +38,31 @@ GRADIENT_MARGINS = {"2000": "18,52"}
 def bevel_arguments(scheme, style):
     """Both generators' options for the face and the look's 3D lines."""
     bevel = chicago95ui.bevel_colors(scheme["face"], style)
-    return ["--face", scheme["face"].name(), "--light", bevel["light"].name(),
-            "--shadow", bevel["shadow"].name(), "--dark", bevel["dark"].name()]
+    return [
+        "--face",
+        scheme["face"].name(),
+        "--light",
+        bevel["light"].name(),
+        "--shadow",
+        bevel["shadow"].name(),
+        "--dark",
+        bevel["dark"].name(),
+    ]
 
 
 def decoration_arguments(scheme, style):
     """The decoration generator's options for the colour scheme's title colours and the look's bevel."""
-    return ["--active", title_argument(scheme["title_active"], scheme["title_active_blend"]),
-            "--inactive", title_argument(scheme["title_inactive"], scheme["title_inactive_blend"]),
-            "--inactive-text", scheme["title_inactive_text"].name(), *bevel_arguments(scheme, style),
-            "--gradient-margins", GRADIENT_MARGINS.get(style, "0,0")]
+    return [
+        "--active",
+        title_argument(scheme["title_active"], scheme["title_active_blend"]),
+        "--inactive",
+        title_argument(scheme["title_inactive"], scheme["title_inactive_blend"]),
+        "--inactive-text",
+        scheme["title_inactive_text"].name(),
+        *bevel_arguments(scheme, style),
+        "--gradient-margins",
+        GRADIENT_MARGINS.get(style, "0,0"),
+    ]
 
 
 def main():
@@ -49,13 +72,40 @@ def main():
     # kdeglobals is rewritten for any setting; only a title colour change is worth a redraw.
     if "--force" not in sys.argv and STAMP.exists() and STAMP.read_text() == stamp:
         return 0
-    subprocess.run([sys.executable, str(DECORATION / "make_chicago95_aurorae.py"), "--out", str(DECORATION), *arguments],
-                   check=True, stdout=subprocess.DEVNULL)
+    subprocess.run(
+        [sys.executable, str(DECORATION / "make_chicago95_aurorae.py"), "--out", str(DECORATION), *arguments],
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
     if PLASMA_STYLE.exists():
-        subprocess.run([sys.executable, str(DECORATION / "make_chicago95_plasmastyle.py"), "--out", str(PLASMA_STYLE),
-                        *bevel_arguments(scheme, style)], check=True, stdout=subprocess.DEVNULL)
-    subprocess.run(["gdbus", "call", "--session", "--dest", "org.kde.KWin", "--object-path", "/KWin",
-                    "--method", "org.kde.KWin.reconfigure"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            [
+                sys.executable,
+                str(DECORATION / "make_chicago95_plasmastyle.py"),
+                "--out",
+                str(PLASMA_STYLE),
+                *bevel_arguments(scheme, style),
+                "--selection",
+                scheme["selection"].name(),
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+    subprocess.run(
+        [
+            "gdbus",
+            "call",
+            "--session",
+            "--dest",
+            "org.kde.KWin",
+            "--object-path",
+            "/KWin",
+            "--method",
+            "org.kde.KWin.reconfigure",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     STAMP.parent.mkdir(parents=True, exist_ok=True)
     STAMP.write_text(stamp)
     print("title bars redrawn:", stamp)

@@ -32,9 +32,13 @@ def forget_screen_scale():
 
 def run_bash_with_steps(tmp_path, script):
     """The output lines of a script that has setup/steps.sh's functions, in a home of its own."""
-    return subprocess.run(["bash", "-c", f"REPO={REPO}; source {REPO}/setup/steps.sh; {script}"],
-                          capture_output=True, text=True, timeout=30,
-                          env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}).stdout.splitlines()
+    return subprocess.run(
+        ["bash", "-c", f"REPO={REPO}; source {REPO}/setup/steps.sh; {script}"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)},
+    ).stdout.splitlines()
 
 
 def load_script(name):
@@ -47,6 +51,7 @@ def load_script(name):
 
 def ui_font_installed():
     import subprocess
+
     families = subprocess.run(["fc-list", ":", "family"], capture_output=True, text=True).stdout
     return "MS W98 UI" in families
 
@@ -57,13 +62,17 @@ needs_ui_font = pytest.mark.skipif(not ui_font_installed(), reason="MS W98 UI fo
 
 
 def icon_set_installed(name):
-    return any((Path(base) / name / "index.theme").exists()
-               for base in (Path.home() / ".icons", Path.home() / ".local/share/icons", "/usr/share/icons"))
+    return any(
+        (Path(base) / name / "index.theme").exists()
+        for base in (Path.home() / ".icons", Path.home() / ".local/share/icons", "/usr/share/icons")
+    )
 
 
 # Icon sets come from other projects (Chicago95, SE98, ClassicOS-2000) and are installed by Setup, not
 # shipped here; tests that compare icons skip without them.
-needs_chicago95_icons = pytest.mark.skipif(not icon_set_installed("Chicago95"), reason="Chicago95 icon set is not installed")
+needs_chicago95_icons = pytest.mark.skipif(
+    not icon_set_installed("Chicago95"), reason="Chicago95 icon set is not installed"
+)
 
 
 @pytest.fixture(scope="session")
@@ -71,6 +80,7 @@ def qt_app():
     """The application as the tools make it (chicago95ui.make_app): style, palette and UI font."""
     import chicago95ui  # sets the platform and style, which only work before the application exists
     from PySide6.QtWidgets import QApplication
+
     return QApplication.instance() or chicago95ui.make_app("chicago95-tests")
 
 
@@ -92,7 +102,10 @@ def path_with(tmp_path, monkeypatch):
             executable.write_text("#!/bin/sh\n")
             executable.chmod(0o755)
         monkeypatch.setenv("PATH", str(tmp_path))
+
     return install
+
+
 needs_se98_icons = pytest.mark.skipif(not icon_set_installed("SE98"), reason="SE98 icon set is not installed")
 
 
@@ -101,15 +114,21 @@ def desktops():
     """The desktop of a look as Plasma and KWin draw it (plasma_session.py), run once per look."""
     import shutil
     import tempfile
+
     from plasma_session import desktop_session
+
     screens, folders = {}, []
 
     def desktop(look, **variant):
-        key = (look, *sorted((name, tuple(value) if isinstance(value, list) else value) for name, value in variant.items()))
+        key = (
+            look,
+            *sorted((name, tuple(value) if isinstance(value, list) else value) for name, value in variant.items()),
+        )
         if key not in screens:
-            folders.append(tempfile.mkdtemp(prefix=f"c95-{look}-", dir="/tmp"))   # short: Wayland's socket path limit
+            folders.append(tempfile.mkdtemp(prefix=f"c95-{look}-", dir="/tmp"))  # short: Wayland's socket path limit
             screens[key] = desktop_session(look, folders[-1], **variant)
         return screens[key]
+
     yield desktop
     for folder in folders:
         shutil.rmtree(folder, ignore_errors=True)

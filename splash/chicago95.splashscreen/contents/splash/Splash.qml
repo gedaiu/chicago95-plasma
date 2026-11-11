@@ -15,7 +15,9 @@ Rectangle {
     readonly property real layoutX: (width - 640 * unit) / 2  // the 640-wide layout, centred ("left" is taken by Item)
     readonly property int stages: 6
 
-    function px(value) { return Math.round(value * unit) }
+    function px(value) {
+        return Math.round(value * unit);
+    }
 
     color: "#f7f7f7"
 
@@ -106,8 +108,10 @@ Rectangle {
             id: companyLogo
             visible: status === Image.Ready
             source: Settings.companyLogo ? "file://" + Settings.companyLogo : ""
-            x: root.layoutX + root.px(617) - width; y: root.px(12)
-            width: root.px(120); height: root.px(24)
+            x: root.layoutX + root.px(617) - width
+            y: root.px(12)
+            width: root.px(120)
+            height: root.px(24)
             sourceSize.width: width * 2
             sourceSize.height: height * 2
             fillMode: Image.PreserveAspectFit
@@ -126,39 +130,93 @@ Rectangle {
 
         // The strip: a pale line, ten rows of bright blue shading to navy then slate, a light line.
         Rectangle {
-            x: 0; y: root.px(415); width: parent.width; height: root.px(1)
+            x: 0
+            y: root.px(415)
+            width: parent.width
+            height: root.px(1)
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0; color: "#deffff" }
-                GradientStop { position: 1; color: "#efffff" }
+                GradientStop {
+                    position: 0
+                    color: "#deffff"
+                }
+                GradientStop {
+                    position: 1
+                    color: "#efffff"
+                }
             }
         }
         Rectangle {
-            x: 0; y: root.px(416); width: parent.width; height: root.px(10)
+            x: 0
+            y: root.px(416)
+            width: parent.width
+            height: root.px(10)
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.00; color: "#0071d8" }
-                GradientStop { position: 0.23; color: "#0071d8" }
-                GradientStop { position: 0.39; color: "#0025a0" }
-                GradientStop { position: 0.723; color: "#0025a0" }
-                GradientStop { position: 0.725; color: "#133777" }
-                GradientStop { position: 1.00; color: "#133777" }
+                GradientStop {
+                    position: 0.00
+                    color: "#0071d8"
+                }
+                GradientStop {
+                    position: 0.23
+                    color: "#0071d8"
+                }
+                GradientStop {
+                    position: 0.39
+                    color: "#0025a0"
+                }
+                GradientStop {
+                    position: 0.723
+                    color: "#0025a0"
+                }
+                GradientStop {
+                    position: 0.725
+                    color: "#133777"
+                }
+                GradientStop {
+                    position: 1.00
+                    color: "#133777"
+                }
             }
         }
         // The strip's left end is capped by darker corner pixels on its first and last coloured rows.
-        Rectangle { x: 0; y: root.px(416); width: root.px(1); height: root.px(1); color: "#4d6596" }
-        Rectangle { x: 0; y: root.px(425); width: root.px(1); height: root.px(1); color: "#4d6596" }
         Rectangle {
-            x: 0; y: root.px(426); width: parent.width; height: root.px(1)
+            x: 0
+            y: root.px(416)
+            width: root.px(1)
+            height: root.px(1)
+            color: "#4d6596"
+        }
+        Rectangle {
+            x: 0
+            y: root.px(425)
+            width: root.px(1)
+            height: root.px(1)
+            color: "#4d6596"
+        }
+        Rectangle {
+            x: 0
+            y: root.px(426)
+            width: parent.width
+            height: root.px(1)
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0; color: "#a5cbec" }
-                GradientStop { position: 1; color: "#bac4ed" }
+                GradientStop {
+                    position: 0
+                    color: "#a5cbec"
+                }
+                GradientStop {
+                    position: 1
+                    color: "#bac4ed"
+                }
             }
         }
 
         Rectangle {
-            x: 0; y: root.px(427); width: parent.width; height: parent.height - y
+            x: 0
+            y: root.px(427)
+            width: parent.width
+            height: parent.height - y
             color: "#c1bfc3"
         }
 
@@ -175,19 +233,53 @@ Rectangle {
         // Sunken progress bar: grey shadow on top, darker on the left, white bottom-right, the bar's own grey
         // inside, 8px navy blocks 1px apart.
         Item {
-            x: root.layoutX + root.px(273); y: root.px(436)
-            width: root.px(165); height: root.px(10)
-            Rectangle { x: 0; y: 0; width: root.px(1); height: parent.height; color: "#7d8196" }
-            Rectangle { x: 0; y: 0; width: parent.width; height: root.px(1); color: "#898689" }
-            Rectangle { x: 0; y: parent.height - height; width: root.px(1); height: root.px(1); color: "#898689" }
+            x: root.layoutX + root.px(273)
+            y: root.px(436)
+            width: root.px(165)
+            height: root.px(10)
+            Rectangle {
+                x: 0
+                y: 0
+                width: root.px(1)
+                height: parent.height
+                color: "#7d8196"
+            }
+            Rectangle {
+                x: 0
+                y: 0
+                width: parent.width
+                height: root.px(1)
+                color: "#898689"
+            }
+            Rectangle {
+                x: 0
+                y: parent.height - height
+                width: root.px(1)
+                height: root.px(1)
+                color: "#898689"
+            }
             // The shadow owns the bottom-left and top-right corner pixels; the white edges start one pixel in.
-            Rectangle { x: root.px(1); y: parent.height - root.px(1); width: parent.width - root.px(1); height: root.px(1); color: "#f7f7f7" }
-            Rectangle { x: parent.width - root.px(1); y: root.px(1); width: root.px(1); height: parent.height - root.px(1); color: "#f7f7f7" }
+            Rectangle {
+                x: root.px(1)
+                y: parent.height - root.px(1)
+                width: parent.width - root.px(1)
+                height: root.px(1)
+                color: "#f7f7f7"
+            }
+            Rectangle {
+                x: parent.width - root.px(1)
+                y: root.px(1)
+                width: root.px(1)
+                height: parent.height - root.px(1)
+                color: "#f7f7f7"
+            }
             Repeater {
                 model: Math.round(Math.min(root.stage, root.stages) / root.stages * 18)
                 Rectangle {
-                    x: root.px(1 + 9 * index); y: root.px(1)
-                    width: root.px(8); height: root.px(8)
+                    x: root.px(1 + 9 * index)
+                    y: root.px(1)
+                    width: root.px(8)
+                    height: root.px(8)
                     color: "#0025a0"
                 }
             }

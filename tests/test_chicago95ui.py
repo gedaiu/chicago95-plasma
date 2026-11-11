@@ -52,6 +52,7 @@ def test_ui_font_is_drawn_unsmoothed_only_at_whole_scales(qt_app, monkeypatch, s
     fontconfig's smoothing (config/fontconfig/60-chicago95-pixel-font.conf)."""
     import chicago95ui
     from PySide6.QtGui import QFont
+
     monkeypatch.setattr(chicago95ui, "detect_scale", lambda: str(scale))
     chicago95ui.screen_scale.cache_clear()
     font = chicago95ui.ui_font()
@@ -61,16 +62,17 @@ def test_ui_font_is_drawn_unsmoothed_only_at_whole_scales(qt_app, monkeypatch, s
 def test_screen_scale_is_the_compositors_not_qts_rounded_one(qt_app, monkeypatch):
     """Qt rounds a 1.5x Wayland screen up to 2: the font would be drawn unsmoothed off its grid."""
     import chicago95ui
+
     monkeypatch.setattr(chicago95ui, "detect_scale", lambda: "1.5")
     chicago95ui.screen_scale.cache_clear()
     assert chicago95ui.screen_scale() == 1.5
-
 
 
 def test_ui_font_asks_for_smoothing_explicitly_off_whole_scales(qt_app, monkeypatch):
     """A font that leaves the choice open inherits the application font's, made at another scale."""
     import chicago95ui
     from PySide6.QtGui import QFont
+
     monkeypatch.setattr(chicago95ui, "detect_scale", lambda: "1.5")
     chicago95ui.screen_scale.cache_clear()
     assert bool(chicago95ui.ui_font().styleStrategy() & QFont.PreferAntialias)
@@ -82,6 +84,7 @@ def test_classic_dialog_paints_an_inactive_title_while_another_window_is_active(
     import chicago95ui
     from PySide6.QtWidgets import QWidget
     from reference import qimage_to_pil
+
     dialog = chicago95ui.ClassicDialog("Title", "1995", (200, 80))
     other = QWidget()
     scheme = chicago95ui.read_scheme()

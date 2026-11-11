@@ -1,14 +1,14 @@
 {
-    "KPackageStructure": "KWin/Effect",
-    "KPlugin": {
-        "Authors": [{ "Name": "Chicago95 setup" }],
-        "Category": "Appearance",
-        "Description": "Notifications slide in from the screen edge, restack smoothly and slide out when closed",
-        "EnabledByDefault": false,
-        "Id": "chicago95notifications",
-        "License": "GPL",
-        "Name": "Chicago95 Notification Motion"
-    },
-    "X-KDE-Ordering": 60,
-    "X-Plasma-API": "javascript"
+  "KPackageStructure": "KWin/Effect",
+  "KPlugin": {
+    "Authors": [{ "Name": "Chicago95 setup" }],
+    "Category": "Appearance",
+    "Description": "Notifications slide in from the screen edge, restack smoothly and slide out when closed",
+    "EnabledByDefault": false,
+    "Id": "chicago95notifications",
+    "License": "GPL",
+    "Name": "Chicago95 Notification Motion"
+  },
+  "X-KDE-Ordering": 60,
+  "X-Plasma-API": "javascript"
 }

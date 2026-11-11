@@ -56,3 +56,4 @@ System Properties, from other pages:
 | `win98mouse.png` | https://www.tech2u.com.au/training/tech2u/win98_2/mouse01.gif (Windows 98: Mouse Properties: radio buttons, a slider with Slow and Fast labels) |
 | `win98shutdown2.png` | https://www.tech2u.com.au/training/tech2u/win98_1/shutdown02.gif (Windows 98: Shut Down Windows: radio buttons and a Help button) |
 | `win98copying.png` | https://www.tech2u.com.au/training/tech2u/win98_1/copying03.gif (Windows 98: the Copying dialog: a progress bar with Cancel) |
+| `win98changeicon.png` | https://www.tech2u.com.au/training/tech2u/win98_2/desktop08.gif (Windows 98 Change Icon: a focused text field with selected text, an icon list with a horizontal scroll bar) |

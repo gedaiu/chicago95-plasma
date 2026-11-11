@@ -2,13 +2,24 @@ import subprocess
 import sys
 
 import pytest
+from conftest import REPO, load_script
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QComboBox
 
-from conftest import REPO, load_script
-
-APPLET_NAMES = ["Add New Hardware", "Display", "Explorer", "Fonts", "Modems", "Mouse", "Office Assistant", "Passwords", "Sounds", "System", "Taskbar"]
+APPLET_NAMES = [
+    "Add New Hardware",
+    "Display",
+    "Explorer",
+    "Fonts",
+    "Modems",
+    "Mouse",
+    "Office Assistant",
+    "Passwords",
+    "Sounds",
+    "System",
+    "Taskbar",
+]
 
 
 @pytest.fixture(scope="session")
@@ -23,7 +34,8 @@ def window(control_panel, qt_app, tmp_path):
         start_process=lambda program, arguments: started.append((program, arguments)),
         run_setup=lambda parent, command: ran.append(command),
         show_message=lambda parent, title, text: messages.append((title, text)),
-        ask_to_apply=lambda parent: answers["apply"])
+        ask_to_apply=lambda parent: answers["apply"],
+    )
     panel = control_panel.ControlPanel(settings_path=tmp_path / "setup.conf", actions=actions)
     panel.started, panel.ran, panel.messages, panel.answers = started, ran, messages, answers
     return panel
@@ -52,18 +64,34 @@ def test_status_bar_shows_the_selected_applets_description(window):
 
 
 def test_menu_bar_is_the_windows_98_explorers(window):
-    assert [action.text() for action in window.menu_bar.actions()] == ["&File", "&Edit", "&View", "&Go", "F&avorites", "&Help"]
+    assert [action.text() for action in window.menu_bar.actions()] == [
+        "&File",
+        "&Edit",
+        "&View",
+        "&Go",
+        "F&avorites",
+        "&Help",
+    ]
 
 
 def test_view_menu_offers_large_icons_small_icons_list_and_details(window):
     view_menu = next(action.menu() for action in window.menu_bar.actions() if action.text() == "&View")
 
-    assert [action.text() for action in view_menu.actions() if action.text()] == ["Lar&ge Icons", "S&mall Icons", "&List", "&Details"]
+    assert [action.text() for action in view_menu.actions() if action.text()] == [
+        "Lar&ge Icons",
+        "S&mall Icons",
+        "&List",
+        "&Details",
+    ]
 
 
 def test_standard_buttons_toolbar_has_back_forward_up_and_views_with_navigation_off_at_home(window):
-    assert (list(window.toolbar_buttons), window.back_action.isEnabled(), window.forward_action.isEnabled(), window.up_action.isEnabled()) == (
-        ["Back", "Forward", "Up", "Views"], False, False, False)
+    assert (
+        list(window.toolbar_buttons),
+        window.back_action.isEnabled(),
+        window.forward_action.isEnabled(),
+        window.up_action.isEnabled(),
+    ) == (["Back", "Forward", "Up", "Views"], False, False, False)
 
 
 def test_address_bar_shows_the_control_panel(window):
@@ -71,7 +99,11 @@ def test_address_bar_shows_the_control_panel(window):
 
 
 def test_large_icons_are_32_pixels_in_a_75_pixel_grid(window):
-    assert (window.icon_view.iconSize().width(), window.icon_view.gridSize().width(), window.icon_view.gridSize().height()) == (32, 75, 75)
+    assert (
+        window.icon_view.iconSize().width(),
+        window.icon_view.gridSize().width(),
+        window.icon_view.gridSize().height(),
+    ) == (32, 75, 75)
 
 
 def test_choosing_details_adds_each_applets_description_to_its_row_and_large_icons_takes_it_away(window):
@@ -79,7 +111,10 @@ def test_choosing_details_adds_each_applets_description_to_its_row_and_large_ico
     details = item_texts(window)[:1]
     window.set_view("Large Icons")
 
-    assert (details, item_texts(window)[:1]) == (["Add New Hardware  -  Opens the Device Manager to add or remove hardware."], ["Add New Hardware"])
+    assert (details, item_texts(window)[:1]) == (
+        ["Add New Hardware  -  Opens the Device Manager to add or remove hardware."],
+        ["Add New Hardware"],
+    )
 
 
 TASKBAR_PAGE = ("Control Panel", "Taskbar")
@@ -92,7 +127,11 @@ def open_applet_through_the_icon_view(window, name):
 def test_activating_taskbar_shows_its_page_in_the_same_window(window):
     open_applet_through_the_icon_view(window, "Taskbar")
 
-    assert (window.pages.count(), window.pages.currentWidget().title, window.history.current) == (2, "Taskbar", TASKBAR_PAGE)
+    assert (window.pages.count(), window.pages.currentWidget().title, window.history.current) == (
+        2,
+        "Taskbar",
+        TASKBAR_PAGE,
+    )
 
 
 def test_taskbar_page_has_the_options_start_menu_and_quick_launch_tabs(window):
@@ -119,7 +158,11 @@ def test_back_returns_to_the_icon_view_and_turns_forward_on(window):
     window.open_applet("Taskbar")
     window.back_action.trigger()
 
-    assert (window.pages.currentWidget() is window.icon_view, window.back_action.isEnabled(), window.forward_action.isEnabled()) == (True, False, True)
+    assert (
+        window.pages.currentWidget() is window.icon_view,
+        window.back_action.isEnabled(),
+        window.forward_action.isEnabled(),
+    ) == (True, False, True)
 
 
 def test_forward_returns_to_the_page_just_left(window):
@@ -148,7 +191,10 @@ def test_switching_to_the_quick_launch_tab_updates_the_address_bar(window):
     window.open_applet("Taskbar")
     window.pages.currentWidget().tabs.setCurrentIndex(2)
 
-    assert (window.address_bar.crumbs(), window.history.current) == (["Control Panel", "Taskbar", "Quick Launch"], ("Control Panel", "Taskbar", "Quick Launch"))
+    assert (window.address_bar.crumbs(), window.history.current) == (
+        ["Control Panel", "Taskbar", "Quick Launch"],
+        ("Control Panel", "Taskbar", "Quick Launch"),
+    )
 
 
 def test_up_from_the_quick_launch_tab_is_the_taskbar_page_on_its_first_tab(window):
@@ -164,7 +210,10 @@ def test_back_after_switching_tabs_returns_to_the_tab_before(window):
     window.pages.currentWidget().tabs.setCurrentIndex(1)
     window.back_action.trigger()
 
-    assert (window.pages.currentWidget().tabs.currentIndex(), window.address_bar.crumbs()) == (0, ["Control Panel", "Taskbar"])
+    assert (window.pages.currentWidget().tabs.currentIndex(), window.address_bar.crumbs()) == (
+        0,
+        ["Control Panel", "Taskbar"],
+    )
 
 
 def test_clicking_the_control_panel_crumb_goes_home(window):
@@ -184,14 +233,21 @@ def test_clicking_the_applet_crumb_goes_to_its_first_tab(window):
 
 
 def test_address_bar_drop_down_lists_the_control_panel_and_every_applet_page(window):
-    assert window.address_bar.known_pages()[:3] == ["Control Panel", "Control Panel > Display", "Control Panel > Explorer"]
+    assert window.address_bar.known_pages()[:3] == [
+        "Control Panel",
+        "Control Panel > Display",
+        "Control Panel > Explorer",
+    ]
 
 
 def test_back_drop_down_lists_the_pages_before_this_one_nearest_first(window):
     window.open_applet("Taskbar")
     window.open_applet("Sounds")
 
-    assert [action.text() for action in window.back_action.menu().actions()] == ["Control Panel > Taskbar", "Control Panel"]
+    assert [action.text() for action in window.back_action.menu().actions()] == [
+        "Control Panel > Taskbar",
+        "Control Panel",
+    ]
 
 
 def test_choosing_a_page_in_the_back_drop_down_jumps_straight_to_it(window):
@@ -199,18 +255,29 @@ def test_choosing_a_page_in_the_back_drop_down_jumps_straight_to_it(window):
     window.open_applet("Sounds")
     window.back_action.menu().actions()[1].trigger()
 
-    assert (window.pages.currentWidget() is window.icon_view, window.forward_action.menu().actions()[0].text()) == (True, "Control Panel > Taskbar")
+    assert (window.pages.currentWidget() is window.icon_view, window.forward_action.menu().actions()[0].text()) == (
+        True,
+        "Control Panel > Taskbar",
+    )
 
 
 def test_activating_system_starts_its_own_tool_and_stays_on_the_control_panel(window):
     open_applet_through_the_icon_view(window, "System")
 
-    assert ([program.rsplit("/", 1)[-1] for program, _ in window.started], window.pages.currentWidget() is window.icon_view) == (["chicago95-sysprops"], True)
+    assert (
+        [program.rsplit("/", 1)[-1] for program, _ in window.started],
+        window.pages.currentWidget() is window.icon_view,
+    ) == (["chicago95-sysprops"], True)
 
 
 def run_control_panel(tmp_path, *arguments):
-    return subprocess.run([sys.executable, str(REPO / "bin/chicago95-control-panel"), *arguments], capture_output=True, text=True, timeout=60,
-                          env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "QT_QPA_PLATFORM": "offscreen"})
+    return subprocess.run(
+        [sys.executable, str(REPO / "bin/chicago95-control-panel"), *arguments],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "QT_QPA_PLATFORM": "offscreen"},
+    )
 
 
 def test_screenshot_option_saves_a_png_of_the_main_window(tmp_path):
@@ -253,32 +320,42 @@ def saved_settings_with_a_setup_checkout(window, tmp_path, **settings):
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / "install.sh").touch()
-    window.settings_path.write_text("".join(f"{key}={value}\n" for key, value in {"REPO": str(repo), **settings}.items()))
+    window.settings_path.write_text(
+        "".join(f"{key}={value}\n" for key, value in {"REPO": str(repo), **settings}.items())
+    )
     return repo
 
 
 def change_the_pointer_size(window, index=2):
     window.open_applet("Mouse")
     from PySide6.QtWidgets import QRadioButton
+
     window.pages.currentWidget().tabs.widget(0).findChildren(QRadioButton)[index].setChecked(True)
     return window.pages.currentWidget()
 
 
-def test_applying_writes_the_changes_over_the_saved_settings_and_runs_setup_for_their_components(window, control_panel, tmp_path):
+def test_applying_writes_the_changes_over_the_saved_settings_and_runs_setup_for_their_components(
+    window, control_panel, tmp_path
+):
     repo = saved_settings_with_a_setup_checkout(window, tmp_path, SAVER="maze")
     change_the_pointer_size(window).apply_button.click()
 
     assert (control_panel.read_settings(window.settings_path), window.ran) == (
         {"REPO": str(repo), "SAVER": "maze", "CURSOR": "48"},
-        [control_panel.setup_command(repo, window.settings_path, ["base"])])
+        [control_panel.setup_command(repo, window.settings_path, ["base"])],
+    )
 
 
 def test_applying_without_the_setup_folder_saves_the_settings_and_says_what_to_do(window, control_panel):
     page = change_the_pointer_size(window)
     page.apply_button.click()
 
-    assert (control_panel.read_settings(window.settings_path), window.ran, [title for title, _text in window.messages], page.apply_button.isEnabled()) == (
-        {"CURSOR": "48"}, [], ["Setup files not found"], True)
+    assert (
+        control_panel.read_settings(window.settings_path),
+        window.ran,
+        [title for title, _text in window.messages],
+        page.apply_button.isEnabled(),
+    ) == ({"CURSOR": "48"}, [], ["Setup files not found"], True)
 
 
 def test_applying_with_a_setup_folder_that_lost_its_install_script_says_so(window, control_panel, tmp_path):
@@ -312,7 +389,11 @@ def test_leaving_a_changed_page_with_cancel_stays_on_it(window, tmp_path):
     window.answers["apply"] = "cancel"
     window.back_action.trigger()
 
-    assert (window.ran, window.pages.currentWidget() is page, window.history.current) == ([], True, ("Control Panel", "Mouse"))
+    assert (window.ran, window.pages.currentWidget() is page, window.history.current) == (
+        [],
+        True,
+        ("Control Panel", "Mouse"),
+    )
 
 
 def test_leaving_by_a_crumb_asks_too(window, tmp_path):
@@ -356,6 +437,7 @@ def test_closing_the_window_with_unapplied_changes_asks_and_cancel_keeps_it_open
 
 def test_no_control_on_any_page_is_squeezed_below_its_minimum_height(window, control_panel):
     from PySide6.QtWidgets import QAbstractSpinBox, QCheckBox, QLineEdit, QSlider
+
     window.show()
     squeezed = []
     for applet, tab_names in control_panel.PAGE_TABS.items():
@@ -364,14 +446,23 @@ def test_no_control_on_any_page_is_squeezed_below_its_minimum_height(window, con
         for index, tab_name in enumerate(tab_names):
             page.tabs.setCurrentIndex(index)
             window.repaint()
-            controls = [control for kind in (QComboBox, QLineEdit, QAbstractSpinBox, QCheckBox, QSlider) for control in page.tabs.widget(index).findChildren(kind)]
-            squeezed += [f"{applet}/{tab_name}: {type(control).__name__}" for control in controls if control.isVisible() and control.height() < control.minimumSizeHint().height()]
+            controls = [
+                control
+                for kind in (QComboBox, QLineEdit, QAbstractSpinBox, QCheckBox, QSlider)
+                for control in page.tabs.widget(index).findChildren(kind)
+            ]
+            squeezed += [
+                f"{applet}/{tab_name}: {type(control).__name__}"
+                for control in controls
+                if control.isVisible() and control.height() < control.minimumSizeHint().height()
+            ]
 
     assert squeezed == []
 
 
 def test_status_bar_has_three_panes_each_in_a_single_pixel_sunken_frame_and_a_size_grip(window, qt_app):
     from reference import qimage_to_pil
+
     window.show()
     qt_app.processEvents()
     bar = window.statusBar()
@@ -384,15 +475,24 @@ def test_status_bar_has_three_panes_each_in_a_single_pixel_sunken_frame_and_a_si
         left = pane.geometry().left()
         edges.append(tuple(image.getpixel((left - offset, y)) for offset in (3, 2, 1)))
 
-    assert (edges, window.status_message.text(), bar.isSizeGripEnabled(), window.status_place_icon.pixmap().isNull()) == (
-        [(face, shadow, face)] * 3, "11 object(s)", True, False)
+    assert (
+        edges,
+        window.status_message.text(),
+        bar.isSizeGripEnabled(),
+        window.status_place_icon.pixmap().isNull(),
+    ) == ([(face, shadow, face)] * 3, "11 object(s)", True, False)
 
 
 def test_address_bar_shows_only_the_current_pages_crumbs_after_moving_between_applets(window, qt_app):
     from PySide6.QtWidgets import QToolButton
+
     window.show()
     window.open_applet("Taskbar")
     window.open_applet("Display")
-    visible = [button.text() for button in window.address_bar.box.findChildren(QToolButton) if button.isVisible() and button.text()]
+    visible = [
+        button.text()
+        for button in window.address_bar.box.findChildren(QToolButton)
+        if button.isVisible() and button.text()
+    ]
 
     assert visible == ["Control Panel", "Display"]

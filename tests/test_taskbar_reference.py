@@ -7,13 +7,13 @@ each with the look's colours as chicago95-sync-colors writes them. Icons and lab
 programs' and are masked; the pressed button's checkerboard is compared in either phase (the originals
 align it to the screen, Plasma to the button).
 """
+
 import configparser
 import shutil
 import subprocess
 import sys
 
 import pytest
-
 from aurorae_model import LOOKS
 from conftest import REPO, needs_ui_font
 from framesvg import render_frame
@@ -27,11 +27,11 @@ BUTTONS = {
     "1998": ((2, 55), [(176, 335, False), (339, 498, True)]),
     "2000": ((2, 56), [(155, 314, True), (318, 477, False)]),
 }
-BUTTON_TOP, BUTTON_HEIGHT = 4, 22             # in the taskbar
-LOGO = (4, 4, 20, 18)                         # in the Start button
-TASK_ICON_AND_LABEL = (3, 3, -3, -3)          # inset from the task button's edges
-PRESSED_INSIDE = (2, 3, -2, -2)               # the pressed button's checkerboard, compared in either phase below
-TASK_LABEL_FROM = 22                          # right of the task button's icon
+BUTTON_TOP, BUTTON_HEIGHT = 4, 22  # in the taskbar
+LOGO = (4, 4, 20, 18)  # in the Start button
+TASK_ICON_AND_LABEL = (3, 3, -3, -3)  # inset from the task button's edges
+PRESSED_INSIDE = (2, 3, -2, -2)  # the pressed button's checkerboard, compared in either phase below
+TASK_LABEL_FROM = 22  # right of the task button's icon
 
 
 def taskbar(look):
@@ -45,10 +45,13 @@ def styles(tmp_path_factory):
     built = {}
     for look, colours in LOOKS.items():
         out = tmp_path_factory.mktemp(f"plasma-style-{look}")
-        shutil.copy(REPO / "plasma-style/theme/colors", out / "colors")   # as installed: the generator rewrites it
+        shutil.copy(REPO / "plasma-style/theme/colors", out / "colors")  # as installed: the generator rewrites it
         arguments = [f"--{key}={colours[key]}" for key in ("face", "light", "shadow", "dark")]
-        subprocess.run([sys.executable, str(REPO / "plasma-style/make_chicago95_plasmastyle.py"), "--out", str(out), *arguments],
-                       check=True, capture_output=True)
+        subprocess.run(
+            [sys.executable, str(REPO / "plasma-style/make_chicago95_plasmastyle.py"), "--out", str(out), *arguments],
+            check=True,
+            capture_output=True,
+        )
         built[look] = out
     return built
 
@@ -68,6 +71,7 @@ def render_on_strip(qt_app, folder, plasmoid, component, x, face, properties, wi
     returns the component's own width once laid out."""
     from PySide6.QtCore import QTimer, QUrl
     from PySide6.QtQuick import QQuickItem, QQuickView
+
     (folder / "strip.qml").write_text(STRIP % ((PLASMOIDS / plasmoid / "contents/ui").as_uri(), HEIGHT, component, x))
     view = QQuickView()
     view.setSource(QUrl.fromLocalFile(str(folder / "strip.qml")))
@@ -82,7 +86,7 @@ def render_on_strip(qt_app, folder, plasmoid, component, x, face, properties, wi
     QTimer.singleShot(200, qt_app.quit)
     qt_app.exec()
     image = qimage_to_pil(view.grabWindow())
-    natural = int(item.property("implicitWidth"))   # read once the layout has run
+    natural = int(item.property("implicitWidth"))  # read once the layout has run
     view.close()
     return image, natural
 
@@ -90,9 +94,14 @@ def render_on_strip(qt_app, folder, plasmoid, component, x, face, properties, wi
 def start_button(qt_app, look, folder, width=None):
     """StartButton.qml with "Start" and the flag, in the look's colours, at the originals' x."""
     from PySide6.QtCore import QUrl
+
     colours = LOOKS[look]
     properties = {key: colours[key] for key in ("face", "light", "shadow", "dark")}
-    properties.update(look=look, text="Start", logoSource=QUrl.fromLocalFile(str(PLASMOIDS / "org.chicago95.start/contents/images/logo-flag-16.png")))
+    properties.update(
+        look=look,
+        text="Start",
+        logoSource=QUrl.fromLocalFile(str(PLASMOIDS / "org.chicago95.start/contents/images/logo-flag-16.png")),
+    )
     return render_on_strip(qt_app, folder, "org.chicago95.start", "StartButton", 2, colours["face"], properties, width)
 
 
@@ -110,10 +119,11 @@ def test_plasma_style_colours_take_the_looks_face(styles, look):
     colours = configparser.ConfigParser(interpolation=None)
     colours.optionxform = str
     colours.read(styles[look] / "colors")
-    face = ",".join(str(int(LOOKS[look]["face"][i:i + 2], 16)) for i in (1, 3, 5))
+    face = ",".join(str(int(LOOKS[look]["face"][i : i + 2], 16)) for i in (1, 3, 5))
     groups = ("Colors:Window", "Colors:Button", "Colors:Complementary", "Colors:Header")
-    assert {(group, key): colours[group][key] for group in groups for key in ("BackgroundNormal", "BackgroundAlternate")} == \
-        {(group, key): face for group in groups for key in ("BackgroundNormal", "BackgroundAlternate")}
+    assert {
+        (group, key): colours[group][key] for group in groups for key in ("BackgroundNormal", "BackgroundAlternate")
+    } == {(group, key): face for group in groups for key in ("BackgroundNormal", "BackgroundAlternate")}
 
 
 def test_panel_layout_makes_the_taskbar_28_pixels_tall():
@@ -141,7 +151,13 @@ def test_start_logo_covers_the_originals_16_by_14_box(qt_app, look, tmp_path):
     ours, _ = start_button(qt_app, look, tmp_path, width=right - left + 1)
 
     def ink(image):
-        return bounding_box(image, lambda c: max(c) - min(c) > 60 or sum(c) < 100, (left + 3, left + LOGO[2] + 1), (BUTTON_TOP + 2, BUTTON_TOP + BUTTON_HEIGHT - 2))
+        return bounding_box(
+            image,
+            lambda c: max(c) - min(c) > 60 or sum(c) < 100,
+            (left + 3, left + LOGO[2] + 1),
+            (BUTTON_TOP + 2, BUTTON_TOP + BUTTON_HEIGHT - 2),
+        )
+
     assert ink(ours) == ink(original)
 
 
@@ -153,7 +169,10 @@ def test_start_lettering_covers_the_originals(qt_app, look, tmp_path):
     ours, _ = start_button(qt_app, look, tmp_path, width=right - left + 1)
 
     def ink(image):
-        return bounding_box(image, lambda c: sum(c) < 100, (left + LOGO[2], right - 2), (BUTTON_TOP + 2, BUTTON_TOP + BUTTON_HEIGHT - 2))
+        return bounding_box(
+            image, lambda c: sum(c) < 100, (left + LOGO[2], right - 2), (BUTTON_TOP + 2, BUTTON_TOP + BUTTON_HEIGHT - 2)
+        )
+
     assert ink(ours) == ink(original)
 
 
@@ -194,8 +213,11 @@ def test_pressed_task_button_has_a_white_row_then_a_checkerboard(styles, look):
     assert all(close(ours.getpixel((x, 2)), original.getpixel((left + x, BUTTON_TOP + 2))) for x in range(2, width - 2))
     rows = (BUTTON_HEIGHT - 4, BUTTON_HEIGHT - 3)
     for phase in (0, 1):
-        if all(close(ours.getpixel((x + phase, y)), original.getpixel((left + x, BUTTON_TOP + y)))
-               for x in range(TASK_LABEL_FROM, width - 3) for y in rows):
+        if all(
+            close(ours.getpixel((x + phase, y)), original.getpixel((left + x, BUTTON_TOP + y)))
+            for x in range(TASK_LABEL_FROM, width - 3)
+            for y in rows
+        ):
             return
     pytest.fail("the checkerboard differs in both phases")
 
@@ -214,7 +236,7 @@ def test_separators_match_the_originals_etched_line_and_grip(qt_app, look, tmp_p
     for etched, next_item in SEPARATORS[look]:
         assert etched + width - lead == next_item, "the separator should end where the next item starts"
         for dx in range(width - lead):
-            for y in range(2, HEIGHT):   # below the panel's own top lines
+            for y in range(2, HEIGHT):  # below the panel's own top lines
                 assert close(ours.getpixel((lead + dx, y)), original.getpixel((etched + dx, y))), (etched, dx, y)
 
 
@@ -225,13 +247,20 @@ TRAYS = {"1995": (557, 637), "1998": (540, 637), "2000": (544, 637)}
 def test_tray_box_matches_the_originals_edges(qt_app, look, tmp_path):
     original = taskbar(look)
     left, right = TRAYS[look]
-    ours, _ = render_on_strip(qt_app, tmp_path, "org.chicago95.trayframe", "TrayBox", left, LOOKS[look]["face"], {}, width=right - left + 1)
-    edges = [(x, y) for x in range(left - 1, right + 2) for y in range(2, HEIGHT)   # below the panel's own top lines
-             if x in (left - 1, left, right, right + 1) or y in (BUTTON_TOP - 1, BUTTON_TOP, BUTTON_TOP + BUTTON_HEIGHT - 1, BUTTON_TOP + BUTTON_HEIGHT)]
+    ours, _ = render_on_strip(
+        qt_app, tmp_path, "org.chicago95.trayframe", "TrayBox", left, LOOKS[look]["face"], {}, width=right - left + 1
+    )
+    edges = [
+        (x, y)
+        for x in range(left - 1, right + 2)
+        for y in range(2, HEIGHT)  # below the panel's own top lines
+        if x in (left - 1, left, right, right + 1)
+        or y in (BUTTON_TOP - 1, BUTTON_TOP, BUTTON_TOP + BUTTON_HEIGHT - 1, BUTTON_TOP + BUTTON_HEIGHT)
+    ]
     assert all(close(ours.getpixel(point), original.getpixel(point)) for point in edges)
 
 
-CLOCKS = {"1995": ("6:23 PM", 38), "1998": ("12:46 PM", 44), "2000": ("10:18 PM", None)}   # 2000's is Tahoma
+CLOCKS = {"1995": ("6:23 PM", 38), "1998": ("12:46 PM", 44), "2000": ("10:18 PM", None)}  # 2000's is Tahoma
 CLOCK_INK_HEIGHT = 9
 
 
@@ -240,7 +269,9 @@ CLOCK_INK_HEIGHT = 9
 def test_clock_lettering_is_the_originals_size(qt_app, look):
     """The clock plasmoid's font, measured on the original's time: 9px tall, as wide within 1px."""
     import re
+
     from PySide6.QtGui import QFont, QFontMetrics
+
     clock = (REPO / "plasmoids/org.chicago95.clock/contents/ui/main.qml").read_text()
     font = QFont(re.search(r'font.family: "([^"]+)"', clock).group(1))
     font.setPixelSize(int(re.search(r"font.pixelSize: (\d+)", clock).group(1)))

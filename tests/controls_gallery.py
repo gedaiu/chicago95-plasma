@@ -3,11 +3,29 @@ showcase (tests/render_report.py). Each is a Qt widget as the tools make it (chi
 palette), on a patch of the window colour; next to it the report shows the same control cropped from an
 original screenshot where one shows it (ORIGINALS), and says so where none does.
 """
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QMenuBar, QProgressBar,
-                               QPushButton, QRadioButton, QScrollBar, QSlider, QSpinBox, QStatusBar, QTabWidget, QToolButton, QVBoxLayout,
-                               QWidget)
 
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QMenuBar,
+    QProgressBar,
+    QPushButton,
+    QRadioButton,
+    QScrollBar,
+    QSlider,
+    QSpinBox,
+    QStatusBar,
+    QTabWidget,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 from reference import qimage_to_pil
 
 PADDING = 8
@@ -25,7 +43,10 @@ def row(*widgets, spacing=8):
 
 def push_buttons():
     import chicago95ui
-    plain, default, disabled, pressed = (chicago95ui.dialog_button(caption) for caption in ("Cancel", "OK", "Apply", "Pressed"))
+
+    plain, default, disabled, pressed = (
+        chicago95ui.dialog_button(caption) for caption in ("Cancel", "OK", "Apply", "Pressed")
+    )
     default.setDefault(True)
     disabled.setEnabled(False)
     pressed.setDown(True)
@@ -49,11 +70,12 @@ def radio_buttons():
 
 def text_fields():
     import chicago95ui
+
     field, disabled = QLineEdit("Some text"), chicago95ui.plain_disabled_text(QLineEdit("Disabled"))
     disabled.setEnabled(False)
     read_only = chicago95ui.read_only_field(QLineEdit("KWOM"))
     read_only.selectAll()
-    read_only.setProperty("keepsFocus", True)   # the wizard's field is focused: that is when a field shows its selection
+    read_only.setProperty("keepsFocus", True)  # the wizard's field is focused: that is when a field shows its selection
     read_only.setFocus()
     for widget in (field, disabled, read_only):
         widget.setFixedWidth(120)
@@ -62,6 +84,7 @@ def text_fields():
 
 def drop_down():
     import chicago95ui
+
     combo = chicago95ui.classic_combo(QComboBox())
     combo.addItems(["Shut down", "Restart", "Stand by"])
     combo.setFixedWidth(160)
@@ -74,6 +97,7 @@ def drop_down():
 
 def disabled_fields():
     import chicago95ui
+
     combo = chicago95ui.classic_combo(QComboBox())
     combo.addItem("Modified")
     combo.setFixedWidth(105)
@@ -94,21 +118,24 @@ def spin_box():
 
 
 def sliders():
-    horizontal, vertical = QSlider(Qt.Horizontal), QSlider(Qt.Vertical)
-    horizontal.setFixedWidth(160)
+    horizontal, disabled, vertical = QSlider(Qt.Horizontal), QSlider(Qt.Horizontal), QSlider(Qt.Vertical)
+    horizontal.setFixedWidth(120)
+    disabled.setFixedWidth(120)
+    disabled.setEnabled(False)
     vertical.setFixedHeight(60)
-    for slider in (horizontal, vertical):
+    for slider in (horizontal, disabled, vertical):
         slider.setRange(0, 10)
         slider.setValue(3)
         slider.setTickPosition(QSlider.TicksBelow)
-    return row(horizontal, vertical)
+    return row(horizontal, disabled, vertical)
 
 
-def scroll_bar(orientation, length):
+def scroll_bar(orientation, length, maximum=100, enabled=True):
     bar = QScrollBar(orientation)
-    bar.setRange(0, 100)
+    bar.setRange(0, maximum)
     bar.setPageStep(30)
     bar.setValue(20)
+    bar.setEnabled(enabled)
     if orientation == Qt.Horizontal:
         bar.setFixedWidth(length)
     else:
@@ -144,6 +171,7 @@ def tab_widget():
 
 def list_box():
     import chicago95ui
+
     box = QListWidget()
     box.addItems(["First item", "Second item", "Third item", "Fourth item"])
     box.setItemDelegate(chicago95ui.ListRowDelegate(box))
@@ -172,6 +200,29 @@ def tool_buttons():
     return row(*buttons, spacing=2)
 
 
+def explorer_tool_buttons():
+    """The Control Panel's Standard Buttons (Internet Explorer 4's): plain in greys, raised and in colour under
+    the pointer, sunken while held, and disabled."""
+    from conftest import load_script
+    from PySide6.QtGui import QAction, QIcon
+
+    control_panel = load_script("chicago95-control-panel")
+    buttons = []
+    for caption, icon, state in (
+        ("Back", "go-previous", "plain"),
+        ("Forward", "go-next", "hover"),
+        ("Up", "go-up", "pressed"),
+        ("Views", "view-list-icons", "disabled"),
+    ):
+        action = QAction(QIcon.fromTheme(icon), caption)
+        action.setEnabled(state != "disabled")
+        button = control_panel.ToolbarButton(action, has_menu=caption != "Up")
+        button.setAttribute(Qt.WA_UnderMouse, state in ("hover", "pressed"))
+        button.setDown(state == "pressed")
+        buttons.append(button)
+    return row(*buttons, spacing=0)
+
+
 def status_bar():
     bar = QStatusBar()
     bar.addWidget(QLabel("131 object(s)"), 1)
@@ -183,6 +234,7 @@ def status_bar():
 
 def labels():
     import chicago95ui
+
     plain, disabled = QLabel("A label"), QLabel("A disabled (engraved) label")
     disabled.setEnabled(False)
     for label in (plain, disabled):
@@ -199,15 +251,18 @@ CONTROLS = [
     ("Drop-down lists", drop_down),
     ("Spin box", spin_box),
     ("Disabled drop-down and spin box", disabled_fields),
-    ("Sliders", sliders),
+    ("Sliders (plain, disabled, vertical)", sliders),
     ("Scroll bar, horizontal", lambda: scroll_bar(Qt.Horizontal, 300)),
     ("Scroll bar, vertical", lambda: scroll_bar(Qt.Vertical, 120)),
+    ("Scroll bar, disabled", lambda: scroll_bar(Qt.Vertical, 120, enabled=False)),
+    ("Scroll bar, nothing to scroll", lambda: scroll_bar(Qt.Vertical, 120, maximum=0, enabled=False)),
     ("Progress bar", progress_bar),
     ("Group box", group_box),
     ("Tabs (Qt's own tab widget)", tab_widget),
     ("List box", list_box),
     ("Menu bar", menu_bar),
     ("Tool bar buttons (plain, disabled, pressed)", tool_buttons),
+    ("Explorer toolbar buttons (plain, under the pointer, held, disabled)", explorer_tool_buttons),
     ("Status bar", status_bar),
     ("Labels", labels),
 ]
@@ -215,7 +270,10 @@ CONTROLS = [
 # look: {control: (screenshot, box)} where an original screenshot shows the control.
 ORIGINALS = {
     "1995": {
-        "Push buttons (default, plain, disabled, pressed)": ("win95sysprops", (232 + 239, 60 + 409, 232 + 407, 60 + 444)),
+        "Push buttons (default, plain, disabled, pressed)": (
+            "win95sysprops",
+            (232 + 239, 60 + 409, 232 + 407, 60 + 444),
+        ),
         "Radio buttons": ("win95shutdownsm", (90, 84, 246, 136)),
         "Scroll bar, horizontal": ("win95desktop3", (216, 404, 637, 420)),
         "Status bar": ("win95desktop3", (216, 423, 637, 441)),
@@ -227,20 +285,22 @@ ORIGINALS = {
         "Text fields": ("win98newconnection", (148, 62, 431, 93)),
         "Drop-down lists": ("win98dialing", (32, 71, 166, 100)),
         "Group box": ("win98dialing", (20, 148, 374, 374)),
+        "Sliders (plain, disabled, vertical)": ("win98mouse", (28, 282, 250, 312)),
         "Disabled drop-down and spin box": ("win98finddate", (110, 100, 225, 182)),
         "Tabs (Qt's own tab widget)": ("win98dialing", (4, 26, 200, 60)),
+        "Explorer toolbar buttons (plain, under the pointer, held, disabled)": ("ie4", (10, 49, 320, 91)),
         "Scroll bar, horizontal": ("win98notepad", (7, 342, 392, 360)),
-        "Scroll bar, vertical": ("win98notepad", (389, 47, 406, 188)),   # down to the alert that covers the rest
+        "Scroll bar, vertical": ("win98notepad", (389, 47, 406, 188)),  # down to the alert that covers the rest
     },
     "2000": {
-        "Push buttons (default, plain, disabled, pressed)": ("w2ksysprops", (434 + 158, 205 + 422, 434 + 407, 205 + 457)),
+        "Push buttons (default, plain, disabled, pressed)": ("w2kshutdown", (272, 297, 520, 330)),
         "Check boxes": ("w2klogon", (194, 258, 330, 279)),
         "Text fields": ("w2klogon", (196, 202, 443, 226)),
         "Drop-down lists": ("w2kshutdown", (178, 200, 442, 225)),
         "Progress bar": ("w2kboot", (190, 425, 460, 455)),
     },
 }
-HALF_SIZE = {"win95shutdownsm", "win98shutsm"}   # thumbnails: shown doubled
+HALF_SIZE = {"win95shutdownsm", "win98shutsm"}  # thumbnails: shown doubled
 
 
 def render_control(app, make, inspect=None):
@@ -274,6 +334,7 @@ def controls(app, look):
     caller installs them, see reference.installed_look)."""
     from PIL import Image
     from reference import screenshot
+
     rows = []
     for name, make in CONTROLS:
         original = None

@@ -18,9 +18,7 @@ Kirigami.FormLayout {
     twinFormLayouts: parentLayout
 
     QQC2.RadioButton {
-        Kirigami.FormData.label: i18ndc("plasma_shell_org.kde.plasma.desktop",
-                                        "@title: group",
-                                        "Show clock:")
+        Kirigami.FormData.label: i18ndc("plasma_shell_org.kde.plasma.desktop", "@title: group", "Show clock:")
         text: i18ndc("plasma_shell_org.kde.plasma.desktop", "@option:radio Clock always shown", "Always")
         Accessible.name: i18nc("@option:radio", "Always show clock")
         checked: configForm.cfg_alwaysShowClock && !configForm.cfg_hideClockWhenIdle
@@ -31,8 +29,7 @@ Kirigami.FormLayout {
 
         KCM.SettingHighlighter {
             id: clockAlwaysHighlighter
-            highlight: configForm.cfg_alwaysShowClock != configForm.cfg_alwaysShowClockDefault
-                || configForm.cfg_hideClockWhenIdle != configForm.cfg_hideClockWhenIdleDefault
+            highlight: configForm.cfg_alwaysShowClock != configForm.cfg_alwaysShowClockDefault || configForm.cfg_hideClockWhenIdle != configForm.cfg_hideClockWhenIdleDefault
         }
     }
 
@@ -65,12 +62,8 @@ Kirigami.FormLayout {
 
     QQC2.CheckBox {
         id: showMediaControls
-        Kirigami.FormData.label: i18ndc("plasma_shell_org.kde.plasma.desktop",
-                                        "@title: group UI controls for playback of multimedia content",
-                                        "Media controls:")
-        text: i18ndc("plasma_shell_org.kde.plasma.desktop",
-                     "@option:check",
-                     "Show under unlocking prompt")
+        Kirigami.FormData.label: i18ndc("plasma_shell_org.kde.plasma.desktop", "@title: group UI controls for playback of multimedia content", "Media controls:")
+        text: i18ndc("plasma_shell_org.kde.plasma.desktop", "@option:check", "Show under unlocking prompt")
 
         KCM.SettingHighlighter {
             highlight: configForm.cfg_showMediaControlsDefault != configForm.cfg_showMediaControls

@@ -5,16 +5,15 @@ The header is a stack of bands: the menu bar, the toolbar and the Address box, e
 box are each 22 rows between etched lines 24 rows apart, and the Address box is a sunken white field with
 18 white rows inside its frame. Ours is rendered at 1x and measured the same way.
 """
+
 import pytest
-
 from conftest import load_script
-
 from reference import qimage_to_pil, screenshot
 
-PROBE_X = 300                     # clear of the menu text, the toolbar buttons and the grips
-TITLE_BAR_BOTTOM = 22             # the original's rows above this are its title bar
-BAND_PITCH = 24                   # 22 rows of band and the 2 of etched line above it
-ADDRESS_WHITE_ROWS = 18           # inside the Address box's 2px frame, which is 22 rows high
+PROBE_X = 300  # clear of the menu text, the toolbar buttons and the grips
+TITLE_BAR_BOTTOM = 22  # the original's rows above this are its title bar
+BAND_PITCH = 24  # 22 rows of band and the 2 of etched line above it
+ADDRESS_WHITE_ROWS = 18  # inside the Address box's 2px frame, which is 22 rows high
 
 
 def is_original_shadow(colour):
@@ -27,8 +26,11 @@ def is_white(colour, floor=250):
 
 def original_etched_rows(image, top, bottom):
     """Rows where a shadow row is followed by a white one, at PROBE_X."""
-    return [row for row in range(top, bottom)
-            if is_original_shadow(image.getpixel((PROBE_X, row))) and is_white(image.getpixel((PROBE_X, row + 1)), 240)]
+    return [
+        row
+        for row in range(top, bottom)
+        if is_original_shadow(image.getpixel((PROBE_X, row))) and is_white(image.getpixel((PROBE_X, row + 1)), 240)
+    ]
 
 
 def white_rows_from(image, row):
@@ -46,6 +48,7 @@ def original():
 @pytest.fixture(scope="module")
 def ours(qt_app, tmp_path_factory):
     import chicago95ui
+
     control_panel = load_script("chicago95-control-panel")
     window = control_panel.ControlPanel(settings_path=tmp_path_factory.mktemp("settings") / "setup.conf")
     window.show()
@@ -56,8 +59,11 @@ def ours(qt_app, tmp_path_factory):
 
 
 def our_etched_rows(image, shadow):
-    return [row for row in range(image.height - 1)
-            if image.getpixel((PROBE_X, row)) == shadow and image.getpixel((PROBE_X, row + 1)) == (255, 255, 255)]
+    return [
+        row
+        for row in range(image.height - 1)
+        if image.getpixel((PROBE_X, row)) == shadow and image.getpixel((PROBE_X, row + 1)) == (255, 255, 255)
+    ]
 
 
 def test_the_original_menu_bar_and_address_box_are_bands_of_22_rows_between_etched_lines(original):
@@ -99,7 +105,7 @@ def test_our_drop_down_button_is_16_by_18_in_the_address_box(ours):
 
 
 TOOLBAR_HEIGHT = 40
-TOOLBAR_PITCH = 42                # 40 rows of toolbar between etched lines, in Internet Explorer 4 (tests/references/ie4.png)
+TOOLBAR_PITCH = 42  # 40 rows of toolbar between etched lines, in Internet Explorer 4 (tests/references/ie4.png)
 
 
 def test_internet_explorer_4s_toolbar_band_is_40_rows_between_etched_lines():
@@ -115,7 +121,7 @@ def test_our_toolbar_band_is_40_rows_between_etched_lines(ours):
     assert (rows[2] - rows[1]) == TOOLBAR_PITCH
 
 
-LOGO_BOX_WIDTH = 38               # the black logo box at the right of the original's menu band
+LOGO_BOX_WIDTH = 38  # the black logo box at the right of the original's menu band
 
 
 def test_each_band_has_one_raised_grip_bar_white_then_face_then_shadow(ours):
@@ -137,7 +143,11 @@ def test_menu_band_ends_in_a_black_logo_box_as_wide_as_the_originals(ours):
     window, image, _colours = ours
     box = window.logo_box
     right_edge = image.getpixel((image.width - 3, box.y() + box.height() // 2))
-    inside = {image.getpixel((x, y)) for x in range(image.width - box.width() + 2, image.width - 2) for y in range(box.y() + 2, box.y() + box.height() - 2)}
+    inside = {
+        image.getpixel((x, y))
+        for x in range(image.width - box.width() + 2, image.width - 2)
+        for y in range(box.y() + 2, box.y() + box.height() - 2)
+    }
 
     assert (box.width(), right_edge, len(inside) > 1) == (LOGO_BOX_WIDTH, (0, 0, 0), True)
 
@@ -168,7 +178,9 @@ def test_toolbar_buttons_are_40_tall_at_least_48_wide_and_their_labels_are_not_c
         button = window.toolbar_buttons[name]
         picture = qimage_to_pil(button.grab().toImage())
         label_rows = ink_rows(picture, 2, button.main_width() - 2, 24, button.height(), face)
-        report.append((button.height(), button.main_width() >= 48, label_rows != [] and label_rows[-1] <= button.height() - 3))
+        report.append(
+            (button.height(), button.main_width() >= 48, label_rows != [] and label_rows[-1] <= button.height() - 3)
+        )
 
     assert report == [(TOOLBAR_HEIGHT, True, True)] * 4
 
@@ -176,7 +188,12 @@ def test_toolbar_buttons_are_40_tall_at_least_48_wide_and_their_labels_are_not_c
 def test_back_forward_and_views_carry_a_small_menu_arrow_and_up_does_not(ours):
     window, _image, _colours = ours
 
-    assert [window.toolbar_buttons[name].has_menu for name in ("Back", "Forward", "Up", "Views")] == [True, True, False, True]
+    assert [window.toolbar_buttons[name].has_menu for name in ("Back", "Forward", "Up", "Views")] == [
+        True,
+        True,
+        False,
+        True,
+    ]
 
 
 def test_toolbar_icons_sit_near_the_top_of_the_band_like_internet_explorers(ours):
@@ -208,12 +225,16 @@ def test_address_drop_down_arrow_is_a_centred_7_5_3_1_triangle_and_nothing_else(
     assert (widths, len(centres), sum(1 for run in inside if run)) == ([7, 5, 3, 1], 1, 4)
 
 
-MENU_TEXT_ROW = 8   # the menu captions' first ink row below the band's etched shadow row, in the original (23 -> 31)
+MENU_TEXT_ROW = 8  # the menu captions' first ink row below the band's etched shadow row, in the original (23 -> 31)
 
 
 def test_the_original_menu_captions_start_8_rows_below_the_bands_etched_line(original):
     etched = original_etched_rows(original, TITLE_BAR_BOTTOM, 60)[0]
-    file_rows = [y for y in range(etched, etched + BAND_PITCH) if any(sum(original.getpixel((x, y))) < 200 for x in range(23, 40))]
+    file_rows = [
+        y
+        for y in range(etched, etched + BAND_PITCH)
+        if any(sum(original.getpixel((x, y))) < 200 for x in range(23, 40))
+    ]
     assert file_rows[0] == etched + MENU_TEXT_ROW, (etched, file_rows)
 
 
@@ -222,12 +243,17 @@ def test_our_menu_captions_start_8_rows_below_the_bands_etched_line_like_the_ori
     window, image, (_face, shadow) = ours
     etched = our_etched_rows(image, shadow)[0]
     left = window.menu_bar.x() + window.menu_bar.actionGeometry(window.menu_bar.actions()[0]).left()
-    file_rows = [y for y in range(etched, etched + BAND_PITCH) if any(image.getpixel((x, y)) == (0, 0, 0) for x in range(left, left + 24))]
+    file_rows = [
+        y
+        for y in range(etched, etched + BAND_PITCH)
+        if any(image.getpixel((x, y)) == (0, 0, 0) for x in range(left, left + 24))
+    ]
     assert file_rows[0] == etched + MENU_TEXT_ROW, (etched, file_rows)
 
 
 def toolbar_picture(button, qt_app, **state):
     from PySide6.QtCore import Qt
+
     button.setAttribute(Qt.WA_UnderMouse, state.get("hover", False))
     button.setDown(state.get("down", False))
     qt_app.processEvents()
@@ -243,7 +269,7 @@ def icon_colours(picture, button, face):
 
 def test_toolbar_icons_are_grey_until_the_pointer_is_over_them_as_internet_explorer_4_drew_them(ours, qt_app):
     window, _image, (face, _shadow) = ours
-    button = window.toolbar_buttons["Up"]
+    button = window.toolbar_buttons["Views"]  # enabled at home, where Back, Forward and Up are not
     plain = icon_colours(toolbar_picture(button, qt_app), button, face)
     hovered = icon_colours(toolbar_picture(button, qt_app, hover=True), button, face)
     assert plain and all(r == g == b for r, g, b in plain), sorted(plain)[:5]
@@ -254,13 +280,17 @@ def test_pressed_toolbar_button_sinks_like_a_push_button_and_its_picture_moves_a
     """Held down: the raised frame turns sunken (shadow top-left, white bottom-right) and the icon and
     label move a pixel down and right, as the push buttons do."""
     window, _image, (face, shadow) = ours
-    button = window.toolbar_buttons["Up"]
+    button = window.toolbar_buttons["Views"]
     raised = toolbar_picture(button, qt_app, hover=True)
     pressed = toolbar_picture(button, qt_app, hover=True, down=True)
     right, bottom = button.main_width() - 1, button.height() - 1
-    assert (pressed.getpixel((0, 10))[:3], pressed.getpixel((right, 10))[:3], pressed.getpixel((10, 0))[:3], pressed.getpixel((10, bottom))[:3]) \
-        == (shadow, (255, 255, 255), shadow, (255, 255, 255))
+    assert (
+        pressed.getpixel((0, 10))[:3],
+        pressed.getpixel((right, 10))[:3],
+        pressed.getpixel((10, 0))[:3],
+        pressed.getpixel((10, bottom))[:3],
+    ) == (shadow, (255, 255, 255), shadow, (255, 255, 255))
     assert (raised.getpixel((0, 10))[:3], raised.getpixel((right, 10))[:3]) == ((255, 255, 255), shadow)
-    raised_rows = ink_rows(raised, 2, right - 1, 0, 24, face)
-    pressed_rows = ink_rows(pressed, 2, right - 1, 0, 24, face)
+    raised_rows = ink_rows(raised, 2, right - 1, 1, 24, face)  # below the frame's top row
+    pressed_rows = ink_rows(pressed, 2, right - 1, 1, 24, face)
     assert (pressed_rows[0], pressed_rows[-1]) == (raised_rows[0] + 1, raised_rows[-1] + 1), (raised_rows, pressed_rows)

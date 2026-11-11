@@ -35,10 +35,28 @@ Item {
         Item {
             anchors.fill: parent
             visible: cell.hovered || cell.held
-            Rectangle { width: parent.width; height: 1; color: cell.held ? cell.shadow : cell.white }
-            Rectangle { width: 1; height: parent.height; color: cell.held ? cell.shadow : cell.white }
-            Rectangle { y: parent.height - 1; width: parent.width; height: 1; color: cell.held ? cell.white : cell.shadow }
-            Rectangle { x: parent.width - 1; width: 1; height: parent.height; color: cell.held ? cell.white : cell.shadow }
+            Rectangle {
+                width: parent.width
+                height: 1
+                color: cell.held ? cell.shadow : cell.white
+            }
+            Rectangle {
+                width: 1
+                height: parent.height
+                color: cell.held ? cell.shadow : cell.white
+            }
+            Rectangle {
+                y: parent.height - 1
+                width: parent.width
+                height: 1
+                color: cell.held ? cell.white : cell.shadow
+            }
+            Rectangle {
+                x: parent.width - 1
+                width: 1
+                height: parent.height
+                color: cell.held ? cell.white : cell.shadow
+            }
         }
     }
 }

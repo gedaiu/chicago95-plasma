@@ -16,8 +16,10 @@ def rect(x, y, w, h, fill, extra=""):
 
 
 def svg(width, height, body):
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
-            f'viewBox="0 0 {width} {height}">\n{body}\n</svg>\n')
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+        f'viewBox="0 0 {width} {height}">\n{body}\n</svg>\n'
+    )
 
 
 def hidden(element_id, x, y, w, h):
@@ -85,9 +87,11 @@ def nine_slice(prefix, x0, y0, size, border, rings, interior, margin, tile_cente
         piece("bottomright", size - b, size - b, b, b),
     ]
     center_w = interior_size or inner
-    parts.append(f'<g id="{prefix}center">'
-                 + run_length_rows(x0 + b, y0 + b, center_w, center_w, lambda cx, cy: interior(b + cx, b + cy))
-                 + "</g>")
+    parts.append(
+        f'<g id="{prefix}center">'
+        + run_length_rows(x0 + b, y0 + b, center_w, center_w, lambda cx, cy: interior(b + cx, b + cy))
+        + "</g>"
+    )
     sides = margin if isinstance(margin, tuple) else (margin, margin, margin, margin)
     for side, value in zip(("top", "bottom", "left", "right"), sides):
         parts.append(hidden(f"{prefix}hint-{side}-margin", x0, y0 + size + 2, value, value))

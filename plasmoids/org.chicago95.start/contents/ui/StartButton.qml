@@ -35,17 +35,68 @@ Item {
         width: button.width
         height: button.buttonHeight
 
-        Rectangle { anchors.fill: parent; color: button.face }
+        Rectangle {
+            anchors.fill: parent
+            color: button.face
+        }
         // Outer ring: white and dark raised, dark and white held; inner ring: light and shadow, swapped
         // when held. The dark lines own the top-right and bottom-left corners.
-        Rectangle { x: 0; y: 0; width: parent.width - 1; height: 1; color: button.held ? button.dark : "#ffffff" }
-        Rectangle { x: 0; y: 0; width: 1; height: parent.height - 1; color: button.held ? button.dark : "#ffffff" }
-        Rectangle { x: 0; y: parent.height - 1; width: parent.width; height: 1; color: button.held ? "#ffffff" : button.dark }
-        Rectangle { x: parent.width - 1; y: 0; width: 1; height: parent.height; color: button.held ? "#ffffff" : button.dark }
-        Rectangle { x: 1; y: 1; width: parent.width - 3; height: 1; color: button.held ? button.shadow : button.light }
-        Rectangle { x: 1; y: 1; width: 1; height: parent.height - 3; color: button.held ? button.shadow : button.light }
-        Rectangle { x: 1; y: parent.height - 2; width: parent.width - 2; height: 1; color: button.held ? button.light : button.shadow }
-        Rectangle { x: parent.width - 2; y: 1; width: 1; height: parent.height - 2; color: button.held ? button.light : button.shadow }
+        Rectangle {
+            x: 0
+            y: 0
+            width: parent.width - 1
+            height: 1
+            color: button.held ? button.dark : "#ffffff"
+        }
+        Rectangle {
+            x: 0
+            y: 0
+            width: 1
+            height: parent.height - 1
+            color: button.held ? button.dark : "#ffffff"
+        }
+        Rectangle {
+            x: 0
+            y: parent.height - 1
+            width: parent.width
+            height: 1
+            color: button.held ? "#ffffff" : button.dark
+        }
+        Rectangle {
+            x: parent.width - 1
+            y: 0
+            width: 1
+            height: parent.height
+            color: button.held ? "#ffffff" : button.dark
+        }
+        Rectangle {
+            x: 1
+            y: 1
+            width: parent.width - 3
+            height: 1
+            color: button.held ? button.shadow : button.light
+        }
+        Rectangle {
+            x: 1
+            y: 1
+            width: 1
+            height: parent.height - 3
+            color: button.held ? button.shadow : button.light
+        }
+        Rectangle {
+            x: 1
+            y: parent.height - 2
+            width: parent.width - 2
+            height: 1
+            color: button.held ? button.light : button.shadow
+        }
+        Rectangle {
+            x: parent.width - 2
+            y: 1
+            width: 1
+            height: parent.height - 2
+            color: button.held ? button.light : button.shadow
+        }
 
         RowLayout {
             id: content

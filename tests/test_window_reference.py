@@ -8,8 +8,8 @@ colours, the 2000 ones to 16-bit colour); the caption must start where the origi
 in the originals have a 3px frame where KWin gives every window the same one, so of those only the
 title and buttons are compared.
 """
-import pytest
 
+import pytest
 from aurorae_model import Window, build_theme
 from conftest import needs_ui_font
 from reference import close, differing_pixels, screenshot
@@ -27,7 +27,7 @@ WINDOWS = {
 BORDER, TOP = 4, 22
 ICON = (6, 5, 22, 21)
 CAPTION_LEFT = 24
-BUTTONS_WIDTH = 6 + 16 + 16 + 18          # right inset, minimize, maximize, close
+BUTTONS_WIDTH = 6 + 16 + 16 + 18  # right inset, minimize, maximize, close
 COLUMN_STEP, COLUMN_TOLERANCE = 12, 24
 
 
@@ -56,9 +56,11 @@ def title_columns(image, left, right):
 def test_frame_corners_and_buttons_match_the_original(themes, window_id, tmp_path):
     original, ours = original_and_ours(themes, window_id)
     w, h = original.size
-    masks = [(BORDER, TOP, w - BORDER, h - BORDER),           # client area
-             ICON,                                            # the application's icon
-             (CAPTION_LEFT, BORDER, w - BUTTONS_WIDTH, TOP)]  # caption and the title behind it (compared by column)
+    masks = [
+        (BORDER, TOP, w - BORDER, h - BORDER),  # client area
+        ICON,  # the application's icon
+        (CAPTION_LEFT, BORDER, w - BUTTONS_WIDTH, TOP),
+    ]  # caption and the title behind it (compared by column)
     left, top, _right, _bottom = WINDOWS[window_id][2]
     covered = WINDOWS[window_id][5]
     if covered:
@@ -71,8 +73,14 @@ def test_frame_corners_and_buttons_match_the_original(themes, window_id, tmp_pat
 def test_title_colours_match_the_original_column_by_column(themes, window_id):
     original, ours = original_and_ours(themes, window_id)
     # Right of the caption, left of the buttons: plain title.
-    left = {"Windows": 300, "My Folder": 200, "Untitled - Notepad": 240, "Administrative Tools": 300,
-            "Computer Management": 300, "My Computer": 200}[WINDOWS[window_id][4]] - WINDOWS[window_id][2][0]
+    left = {
+        "Windows": 300,
+        "My Folder": 200,
+        "Untitled - Notepad": 240,
+        "Administrative Tools": 300,
+        "Computer Management": 300,
+        "My Computer": 200,
+    }[WINDOWS[window_id][4]] - WINDOWS[window_id][2][0]
     left = max(left, 160)
     right = original.width - BUTTONS_WIDTH
     expected, actual = title_columns(original, left, right), title_columns(ours, left, right)
@@ -88,22 +96,27 @@ def test_1998_active_title_shades_from_navy_to_light_blue_like_the_original(them
     assert all(close(a, e, COLUMN_TOLERANCE) for a, e in zip(actual, expected)), list(zip(actual, expected))
 
 
-@pytest.mark.parametrize("look, name, origin, disabled", [("1998", "win98notepad", (503, 194), "X"), ("1995", "win95helpbutton", (33, 8), "")],
-                         ids=["1998 alert close, disabled", "1995 dialog close"])
+@pytest.mark.parametrize(
+    "look, name, origin, disabled",
+    [("1998", "win98notepad", (503, 194), "X"), ("1995", "win95helpbutton", (33, 8), "")],
+    ids=["1998 alert close, disabled", "1995 dialog close"],
+)
 def test_dialog_close_button_matches_the_original(themes, look, name, origin, disabled):
     original = screenshot(name)
     ours = Window(themes[look], 200, 60, True, "", right="X", disabled=disabled).render()
-    face = (200 - 6 - 16, 4 + 2)   # the close button's face: 6px in from the right, 2px below the title's top
+    face = (200 - 6 - 16, 4 + 2)  # the close button's face: 6px in from the right, 2px below the title's top
     for dy in range(14):
         for dx in range(16):
-            assert close(ours.getpixel((face[0] + dx, face[1] + dy)), original.getpixel((origin[0] + dx, origin[1] + dy))), (dx, dy)
+            assert close(
+                ours.getpixel((face[0] + dx, face[1] + dy)), original.getpixel((origin[0] + dx, origin[1] + dy))
+            ), (dx, dy)
 
 
 def test_pressed_help_button_matches_the_original(themes):
     original = screenshot("win95helpbutton")
     ours = Window(themes["1995"], 200, 60, True, "", right="HX", pressed="H").render()
     help_left = 200 - 6 - 18 - 16
-    pointer = lambda dx, dy: dy == 13 and dx >= 7   # the screenshot's mouse pointer covers the bottom row from here
+    pointer = lambda dx, dy: dy == 13 and dx >= 7  # the screenshot's mouse pointer covers the bottom row from here
     for dy in range(14):
         for dx in range(16):
             if pointer(dx, dy):
@@ -125,5 +138,6 @@ def test_caption_starts_and_sits_where_the_original_puts_it(themes, window_id):
                     xs.append(x)
                     ys.append(y)
         return min(xs), min(ys), max(ys)
+
     expected, actual = ink(original), ink(ours)
     assert all(abs(a - e) <= 1 for a, e in zip(actual, expected)), (actual, expected)

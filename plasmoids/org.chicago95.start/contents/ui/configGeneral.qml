@@ -18,7 +18,10 @@ KCM.SimpleKCM {
             Kirigami.FormData.label: "Text:"
             model: ["Start", "Linux", "Custom"]
             currentIndex: buttonText.text === "Start" ? 0 : buttonText.text === "Linux" ? 1 : 2
-            onActivated: index => { if (index < 2) buttonText.text = model[index] }
+            onActivated: index => {
+                if (index < 2)
+                    buttonText.text = model[index];
+            }
         }
         QQC2.TextField {
             id: buttonText
@@ -30,7 +33,9 @@ KCM.SimpleKCM {
             Kirigami.FormData.label: "Logo:"
             model: ["Classic flag", "Penguin", "Custom image"]
             currentIndex: cfg_logo === "flag" ? 0 : cfg_logo === "penguin" ? 1 : 2
-            onActivated: index => { cfg_logo = index === 0 ? "flag" : index === 1 ? "penguin" : "" }
+            onActivated: index => {
+                cfg_logo = index === 0 ? "flag" : index === 1 ? "penguin" : "";
+            }
         }
         QQC2.TextField {
             visible: logoChoice.currentIndex === 2

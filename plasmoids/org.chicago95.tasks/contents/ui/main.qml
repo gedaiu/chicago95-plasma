@@ -36,8 +36,7 @@ PlasmoidItem {
     readonly property int quickLaunchX: contentX + leadingSeparator.width
     readonly property int quickLaunchEnd: quickLaunchX + launcherCount * 23
     readonly property int tasksX: launcherCount > 0 ? trailingSeparator.x + trailingSeparator.width : contentX + gapWithoutQuickLaunch
-    readonly property int buttonWidth: windowCount === 0 ? 0
-        : Math.min(maxButtonWidth, Math.floor((width - tasksX + gap) / windowCount) - gap)
+    readonly property int buttonWidth: windowCount === 0 ? 0 : Math.min(maxButtonWidth, Math.floor((width - tasksX + gap) / windowCount) - gap)
 
     Plasmoid.contextualActions: [
         PlasmaCore.Action {
@@ -57,8 +56,12 @@ PlasmoidItem {
         onNewData: (sourceName, data) => disconnectSource(sourceName)
     }
 
-    TaskManager.VirtualDesktopInfo { id: virtualDesktopInfo }
-    TaskManager.ActivityInfo { id: activityInfo }
+    TaskManager.VirtualDesktopInfo {
+        id: virtualDesktopInfo
+    }
+    TaskManager.ActivityInfo {
+        id: activityInfo
+    }
 
     TaskManager.TasksModel {
         id: tasksModel
@@ -74,18 +77,19 @@ PlasmoidItem {
         // Entries added or removed here are saved; the setting's changes come back in.
         onLauncherListChanged: {
             if (root.showQuickLaunch && launcherList.join() !== Plasmoid.configuration.launchers.join())
-                Plasmoid.configuration.launchers = launcherList
+                Plasmoid.configuration.launchers = launcherList;
         }
     }
     function loadLaunchers() {
-        tasksModel.launcherList = showQuickLaunch ? Plasmoid.configuration.launchers : []
+        tasksModel.launcherList = showQuickLaunch ? Plasmoid.configuration.launchers : [];
     }
     Component.onCompleted: loadLaunchers()
     onShowQuickLaunchChanged: loadLaunchers()
     Connections {
         target: Plasmoid.configuration
         function onLaunchersChanged() {
-            if (Plasmoid.configuration.launchers.join() !== tasksModel.launcherList.join()) root.loadLaunchers()
+            if (Plasmoid.configuration.launchers.join() !== tasksModel.launcherList.join())
+                root.loadLaunchers();
         }
     }
 
@@ -95,12 +99,13 @@ PlasmoidItem {
         width: Math.max(23, root.quickLaunchEnd - root.quickLaunchX)
         height: parent.height
         onDropped: drop => {
-            const insertAt = Launchers.insertionIndexAt(x + drop.x, root.quickLaunchX, root.launcherCount)
+            const insertAt = Launchers.insertionIndexAt(x + drop.x, root.quickLaunchX, root.launcherCount);
             drop.urls.forEach((url, offset) => {
-                const before = tasksModel.launcherCount
-                tasksModel.requestAddLauncher(url)
-                if (tasksModel.launcherCount > before) tasksModel.move(before, insertAt + offset)
-            })
+                const before = tasksModel.launcherCount;
+                tasksModel.requestAddLauncher(url);
+                if (tasksModel.launcherCount > before)
+                    tasksModel.move(before, insertAt + offset);
+            });
         }
     }
 
@@ -177,31 +182,39 @@ PlasmoidItem {
                             property bool dragEndedClick: false
                             onPressed: mouse => pressPoint = Qt.point(mouse.x, mouse.y)
                             onPositionChanged: mouse => {
-                                if (!(pressedButtons & Qt.LeftButton)) return
-                                const travelled = Math.abs(mouse.x - pressPoint.x) + Math.abs(mouse.y - pressPoint.y)
-                                if (!dragging && travelled < Qt.styleHints.startDragDistance) return
-                                dragging = true
-                                root.draggedIcon = entry.model.decoration
-                                root.draggedIndex = entry.index
-                                root.dragPoint = mapToItem(root, mouse.x, mouse.y)
+                                if (!(pressedButtons & Qt.LeftButton))
+                                    return;
+                                const travelled = Math.abs(mouse.x - pressPoint.x) + Math.abs(mouse.y - pressPoint.y);
+                                if (!dragging && travelled < Qt.styleHints.startDragDistance)
+                                    return;
+                                dragging = true;
+                                root.draggedIcon = entry.model.decoration;
+                                root.draggedIndex = entry.index;
+                                root.dragPoint = mapToItem(root, mouse.x, mouse.y);
                             }
                             onReleased: mouse => {
-                                if (!dragging) return
-                                dragging = false
-                                dragEndedClick = true
-                                const result = Launchers.dragResult(entry.index, root.dragPoint.x, root.dragPoint.y, root.width, root.height, root.quickLaunchX, root.launcherCount)
-                                root.draggedIndex = -1
-                                if (result.action === "remove") tasksModel.requestRemoveLauncher(entry.model.LauncherUrlWithoutIcon)
-                                else if (result.action === "move") tasksModel.move(entry.index, result.to)
+                                if (!dragging)
+                                    return;
+                                dragging = false;
+                                dragEndedClick = true;
+                                const result = Launchers.dragResult(entry.index, root.dragPoint.x, root.dragPoint.y, root.width, root.height, root.quickLaunchX, root.launcherCount);
+                                root.draggedIndex = -1;
+                                if (result.action === "remove")
+                                    tasksModel.requestRemoveLauncher(entry.model.LauncherUrlWithoutIcon);
+                                else if (result.action === "move")
+                                    tasksModel.move(entry.index, result.to);
                             }
                             onClicked: mouse => {
-                                if (dragEndedClick) { dragEndedClick = false; return }
+                                if (dragEndedClick) {
+                                    dragEndedClick = false;
+                                    return;
+                                }
                                 if (mouse.button === Qt.RightButton) {
-                                    launcherMenu.launcher = entry.model.LauncherUrlWithoutIcon
-                                    launcherMenu.visualParent = parent
-                                    launcherMenu.openRelative()
+                                    launcherMenu.launcher = entry.model.LauncherUrlWithoutIcon;
+                                    launcherMenu.visualParent = parent;
+                                    launcherMenu.openRelative();
                                 } else {
-                                    tasksModel.requestNewInstance(entry.modelIndex)
+                                    tasksModel.requestNewInstance(entry.modelIndex);
                                 }
                             }
                         }
@@ -221,14 +234,14 @@ PlasmoidItem {
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
                         onClicked: mouse => {
                             if (mouse.button === Qt.RightButton) {
-                                windowMenu.visualParent = button
-                                windowMenu.task = entry.modelIndex
-                                windowMenu.launcher = entry.model.LauncherUrlWithoutIcon
-                                windowMenu.openRelative()
+                                windowMenu.visualParent = button;
+                                windowMenu.task = entry.modelIndex;
+                                windowMenu.launcher = entry.model.LauncherUrlWithoutIcon;
+                                windowMenu.openRelative();
                             } else if (entry.model.IsActive) {
-                                tasksModel.requestToggleMinimized(entry.modelIndex)
+                                tasksModel.requestToggleMinimized(entry.modelIndex);
                             } else {
-                                tasksModel.requestActivate(entry.modelIndex)
+                                tasksModel.requestActivate(entry.modelIndex);
                             }
                         }
                     }
@@ -265,14 +278,17 @@ PlasmoidItem {
             text: i18n("Maximize")
             onClicked: tasksModel.requestToggleMaximized(windowMenu.task)
         }
-        PlasmaExtras.MenuItem { separator: true }
+        PlasmaExtras.MenuItem {
+            separator: true
+        }
         PlasmaExtras.MenuItem {
             text: i18n("Add to Quick Launch")
-            visible: root.showQuickLaunch && String(windowMenu.launcher || "") !== ""
-                && tasksModel.launcherPosition(windowMenu.launcher) === -1
+            visible: root.showQuickLaunch && String(windowMenu.launcher || "") !== "" && tasksModel.launcherPosition(windowMenu.launcher) === -1
             onClicked: tasksModel.requestAddLauncher(windowMenu.launcher)
         }
-        PlasmaExtras.MenuItem { separator: true }
+        PlasmaExtras.MenuItem {
+            separator: true
+        }
         PlasmaExtras.MenuItem {
             text: i18n("Close")
             onClicked: tasksModel.requestClose(windowMenu.task)

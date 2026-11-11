@@ -1,7 +1,16 @@
 /* >>> Chicago95 Thunar BEGIN */
-.thunar #location-toolbar { padding: 1px 0; }
-.thunar #location-toolbar toolbutton button { padding: 1px 6px 2px 6px; min-width: 44px; }
-.thunar #location-toolbar toolbutton button label { font-size: 9pt; }
-.thunar #location-toolbar separator { margin: 3px 3px; }
+.thunar #location-toolbar {
+  padding: 1px 0;
+}
+.thunar #location-toolbar toolbutton button {
+  padding: 1px 6px 2px 6px;
+  min-width: 44px;
+}
+.thunar #location-toolbar toolbutton button label {
+  font-size: 9pt;
+}
+.thunar #location-toolbar separator {
+  margin: 3px 3px;
+}
 /* <<< Chicago95 Thunar END */
-@import 'colors.css';
+@import "colors.css";

@@ -6,6 +6,7 @@ small classic window in the bottom-right corner, sliding in and out by itself.
 Plasma keeps the tray, the history bell and file-transfer progress. If this
 process exits, Plasma notices the name is free and takes it back.
 """
+
 import argparse
 import os
 import re
@@ -18,9 +19,11 @@ from pathlib import Path
 from urllib.parse import unquote
 
 # Scale now comes from the X server DPI; neither this daemon nor chicago95ui forces QT_SCALE_FACTOR.
-sys.path[:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"), os.path.expanduser("~/.local/lib/chicago95")]
+sys.path[:0] = [
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.expanduser("~/.local/lib/chicago95"),
+]
 import chicago95ui  # noqa: E402  must precede the other PySide6 imports
-
 import dbus  # noqa: E402
 import dbus.service  # noqa: E402
 from dbus.mainloop.glib import DBusGMainLoop  # noqa: E402
@@ -88,7 +91,9 @@ class Notification:
 
     @property
     def override(self):
-        return APP_OVERRIDES.get(self.app_name.lower()) or APP_OVERRIDES.get(str(self.hints.get("desktop-entry", "")).lower())
+        return APP_OVERRIDES.get(self.app_name.lower()) or APP_OVERRIDES.get(
+            str(self.hints.get("desktop-entry", "")).lower()
+        )
 
     @property
     def effective_timeout_ms(self):
@@ -123,8 +128,12 @@ def pair_actions(flat_actions):
 
 def application_dirs():
     data_dirs = os.environ.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":")
-    return [Path.home() / ".local/share", *map(Path, data_dirs),
-            Path.home() / ".local/share/flatpak/exports/share", Path("/var/lib/flatpak/exports/share")]
+    return [
+        Path.home() / ".local/share",
+        *map(Path, data_dirs),
+        Path.home() / ".local/share/flatpak/exports/share",
+        Path("/var/lib/flatpak/exports/share"),
+    ]
 
 
 @lru_cache(maxsize=128)
@@ -141,16 +150,19 @@ def desktop_entry(entry_id):
 
 
 def display_name(notification):
-    entry = desktop_entry(str(notification.hints.get("desktop-entry", ""))) if notification.hints.get("desktop-entry") else {}
+    entry = (
+        desktop_entry(str(notification.hints.get("desktop-entry", "")))
+        if notification.hints.get("desktop-entry")
+        else {}
+    )
     if notification.override:
         return notification.override.display_name
-    return (notification.hints.get("x-kde-display-appname") or notification.app_name
-            or entry.get("Name") or "Chicago95")
+    return notification.hints.get("x-kde-display-appname") or notification.app_name or entry.get("Name") or "Chicago95"
 
 
 def rewritten_summary(notification):
     summary = notification.summary
-    for pattern, replacement in (notification.override.summary_rewrites if notification.override else ()):
+    for pattern, replacement in notification.override.summary_rewrites if notification.override else ():
         summary = re.sub(pattern, replacement, summary)
     return summary
 
@@ -158,8 +170,9 @@ def rewritten_summary(notification):
 def body_html(text):
     if "<" not in text and "&" not in text:
         return escape(text).replace("\n", "<br>")
-    kept = re.sub(r"<(/?)(\w+)([^>]*)>",
-                  lambda match: match.group(0) if match.group(2).lower() in MARKUP_TAGS else "", text)
+    kept = re.sub(
+        r"<(/?)(\w+)([^>]*)>", lambda match: match.group(0) if match.group(2).lower() in MARKUP_TAGS else "", text
+    )
     return kept.replace("\n", "<br>")
 
 
@@ -196,11 +209,19 @@ def app_icon_spec(notification):
 
 
 def title_pixmap(notification, device_pixel_ratio):
-    image_icon_name = next((str(notification.hints[key]) for key in ("image-path", "image_path")
-                            if notification.hints.get(key) and not str(notification.hints[key]).startswith(("/", "file://"))), "")
-    return (pixmap_from_spec(app_icon_spec(notification), 16, device_pixel_ratio)
-            or pixmap_from_spec(image_icon_name, 16, device_pixel_ratio)
-            or pixmap_from_spec("dialog-information", 16, device_pixel_ratio))
+    image_icon_name = next(
+        (
+            str(notification.hints[key])
+            for key in ("image-path", "image_path")
+            if notification.hints.get(key) and not str(notification.hints[key]).startswith(("/", "file://"))
+        ),
+        "",
+    )
+    return (
+        pixmap_from_spec(app_icon_spec(notification), 16, device_pixel_ratio)
+        or pixmap_from_spec(image_icon_name, 16, device_pixel_ratio)
+        or pixmap_from_spec("dialog-information", 16, device_pixel_ratio)
+    )
 
 
 def content_pixmap(notification, device_pixel_ratio):
@@ -212,8 +233,9 @@ def content_pixmap(notification, device_pixel_ratio):
             if notification.hints.get(key):
                 return pixmap_from_spec(str(notification.hints[key]), IMAGE_SIZE, device_pixel_ratio)
     fallback = "dialog-warning" if notification.urgency == URGENCY_CRITICAL else "dialog-information"
-    return (pixmap_from_spec(app_icon_spec(notification), ICON_SIZE, device_pixel_ratio)
-            or pixmap_from_spec(fallback, ICON_SIZE, device_pixel_ratio))
+    return pixmap_from_spec(app_icon_spec(notification), ICON_SIZE, device_pixel_ratio) or pixmap_from_spec(
+        fallback, ICON_SIZE, device_pixel_ratio
+    )
 
 
 def paint_bevel(painter, size, device_pixel_ratio, rings, face):
@@ -240,8 +262,13 @@ class CloseButton(QAbstractButton):
         painter = QPainter(self)
         device_pixel_ratio = self.devicePixelRatioF()
         pressed = self.isDown()
-        paint_bevel(painter, self.size(), device_pixel_ratio,
-                    SUNKEN_BUTTON_RINGS if pressed else RAISED_BUTTON_RINGS, chicago95ui.FACE)
+        paint_bevel(
+            painter,
+            self.size(),
+            device_pixel_ratio,
+            SUNKEN_BUTTON_RINGS if pressed else RAISED_BUTTON_RINGS,
+            chicago95ui.FACE,
+        )
         painter.scale(1 / device_pixel_ratio, 1 / device_pixel_ratio)
         cell = max(1, round(device_pixel_ratio))
         press_shift = cell if pressed else 0
@@ -293,8 +320,14 @@ class NotificationPopup(QWidget):
 
     def __init__(self, notification, host=None):
         if host is None:
-            super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
-                             | Qt.WindowDoesNotAcceptFocus | Qt.BypassWindowManagerHint)
+            super().__init__(
+                None,
+                Qt.Tool
+                | Qt.FramelessWindowHint
+                | Qt.WindowStaysOnTopHint
+                | Qt.WindowDoesNotAcceptFocus
+                | Qt.BypassWindowManagerHint,
+            )
         else:
             # Wayland ignores client-side window moves, so popups live inside one host window
             # that KWin places by rule; stacking and sliding happen as child-widget moves.
@@ -430,8 +463,9 @@ class NotificationPopup(QWidget):
         for animation in (self.move_animation, self.fade_animation):
             if animation:
                 animation.stop()
-        self.move_animation = self.animate(b"pos", self.pos() + QPoint(POPUP_WIDTH + SCREEN_MARGIN, 0),
-                                           SLIDE_OUT_MS, QEasingCurve.InCubic)
+        self.move_animation = self.animate(
+            b"pos", self.pos() + QPoint(POPUP_WIDTH + SCREEN_MARGIN, 0), SLIDE_OUT_MS, QEasingCurve.InCubic
+        )
         self.fade_animation = self.animate(b"windowOpacity", 0.0, SLIDE_OUT_MS, QEasingCurve.InQuad)
         self.move_animation.finished.connect(self.deleteLater)
 
@@ -449,7 +483,9 @@ class PopupHost(QWidget):
 
     def __init__(self):
         # A plain managed top-level (not Qt.Tool) so KWin lists it and applies the placement rule on Wayland.
-        super().__init__(None, Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.WindowDoesNotAcceptFocus)
+        super().__init__(
+            None, Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.WindowDoesNotAcceptFocus
+        )
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setWindowTitle("chicago95-notifyd-host")
@@ -543,10 +579,18 @@ class NotificationService(dbus.service.Object):
         else:
             self.last_id += 1
             notification_id = self.last_id
-        self.stack.show(Notification(
-            notification_id=notification_id, app_name=str(app_name), app_icon=str(app_icon),
-            summary=str(summary), body=str(body), actions=pair_actions([str(item) for item in actions]),
-            hints={str(key): to_python(value) for key, value in hints.items()}, timeout_ms=int(expire_timeout)))
+        self.stack.show(
+            Notification(
+                notification_id=notification_id,
+                app_name=str(app_name),
+                app_icon=str(app_icon),
+                summary=str(summary),
+                body=str(body),
+                actions=pair_actions([str(item) for item in actions]),
+                hints={str(key): to_python(value) for key, value in hints.items()},
+                timeout_ms=int(expire_timeout),
+            )
+        )
         return dbus.UInt32(notification_id)
 
     @dbus.service.method(INTERFACE, in_signature="u", out_signature="")
@@ -568,12 +612,27 @@ class NotificationService(dbus.service.Object):
 
 def sample_notifications():
     return [
-        Notification(1, "Dial-Up Networking", "modem", "Connected to Tailscale",
-                     "Connected at 2.5 Gbps.\nYour tailnet address is <b>100.64.0.1</b>.", [], {}, -1),
+        Notification(
+            1,
+            "Dial-Up Networking",
+            "modem",
+            "Connected to Tailscale",
+            "Connected at 2.5 Gbps.\nYour tailnet address is <b>100.64.0.1</b>.",
+            [],
+            {},
+            -1,
+        ),
         Notification(2, "Qmmp", "", "Qmmp now playing:", "Vangelis - To the Unknown Man\n9:02", [], {}, -1),
-        Notification(3, "Thunderbird", "internet-mail", "3 new messages",
-                     "From: Mom\nSubject: Did you eat?", [("default", "Open"), ("read", "Mark as Read"), ("open", "Open")],
-                     {"urgency": 2}, -1),
+        Notification(
+            3,
+            "Thunderbird",
+            "internet-mail",
+            "3 new messages",
+            "From: Mom\nSubject: Did you eat?",
+            [("default", "Open"), ("read", "Mark as Read"), ("open", "Open")],
+            {"urgency": 2},
+            -1,
+        ),
     ]
 
 
@@ -603,8 +662,9 @@ def main():
     DBusGMainLoop(set_as_default=True)
     bus = dbus.SessionBus()
     try:
-        bus_name = dbus.service.BusName(SERVICE_NAME, bus, allow_replacement=False, replace_existing=False,
-                                        do_not_queue=True)
+        bus_name = dbus.service.BusName(
+            SERVICE_NAME, bus, allow_replacement=False, replace_existing=False, do_not_queue=True
+        )
     except dbus.exceptions.NameExistsException:
         print(f"{SERVICE_NAME} is already owned; stop Plasma's notification server first", file=sys.stderr)
         return 1

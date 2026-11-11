@@ -6,6 +6,7 @@
 The Windows 95 buttons carry their raised bevel inside the picture; it is cut off so the widget style
 draws the button. Every glyph is centred, unscaled, on a 22x22 canvas: the size of a Dolphin toolbar icon.
 """
+
 import shutil
 import subprocess
 import sys
@@ -40,14 +41,38 @@ WINDOWS_2000_ICONS = {
 }
 
 # The bevel is two pixels on each side; flood-filling the grey face from the corners keeps the glyph's own greys.
-BEVEL_CUT = ["-alpha", "set", "-crop", "19x18+2+2", "+repage", "-fill", "none", "-fuzz", "2%",
-             *[argument for corner in ("0,0", "18,0", "0,17", "18,17") for argument in ("-draw", f"color {corner} floodfill")],
-             "-trim", "+repage"]
+BEVEL_CUT = [
+    "-alpha",
+    "set",
+    "-crop",
+    "19x18+2+2",
+    "+repage",
+    "-fill",
+    "none",
+    "-fuzz",
+    "2%",
+    *[argument for corner in ("0,0", "18,0", "0,17", "18,17") for argument in ("-draw", f"color {corner} floodfill")],
+    "-trim",
+    "+repage",
+]
 
 
 def convert(source: str, glyph_options: list[str], destination: Path):
-    subprocess.run(["magick", source, *glyph_options, "-background", "none", "-gravity", "center",
-                    "-extent", ICON_SIZE, str(destination)], check=True)
+    subprocess.run(
+        [
+            "magick",
+            source,
+            *glyph_options,
+            "-background",
+            "none",
+            "-gravity",
+            "center",
+            "-extent",
+            ICON_SIZE,
+            str(destination),
+        ],
+        check=True,
+    )
 
 
 def build_set(name: str, folder: Path, icons: dict[str, list[str]], glyph_options: list[str]):

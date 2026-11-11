@@ -1,30 +1,66 @@
 #!/usr/bin/env python3
-import os, sys; sys.path[:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"), os.path.expanduser("~/.local/lib/chicago95")]; import chicago95ui  # noqa: E401,E702
+import os
+import sys
 
+sys.path[:0] = [
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.expanduser("~/.local/lib/chicago95"),
+]
 import argparse
+import re
 import shutil
 import subprocess
 
-import re
-
+import chicago95ui  # noqa: E401,E702
 from PySide6.QtCore import QPoint, QPointF, QRect, Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetrics, QFontMetricsF, QIcon, QImage, QLinearGradient, QPainter, QPalette, QPixmap
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QFontDatabase,
+    QFontMetrics,
+    QFontMetricsF,
+    QIcon,
+    QImage,
+    QLinearGradient,
+    QPainter,
+    QPalette,
+    QPixmap,
+)
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QHBoxLayout, QLabel, QPushButton, QRadioButton, QVBoxLayout, QWidget,
+    QComboBox,
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QRadioButton,
+    QVBoxLayout,
+    QWidget,
 )
 
 SHUT_DOWN, RESTART, DOS_MODE, LOG_OFF, STAND_BY = range(5)
 
 # Choices per style, in the order each original lists them; the first in DEFAULT_CHOICE is preselected.
 CHOICES = {
-    "1995": [(SHUT_DOWN, "&Shut down the computer?"), (RESTART, "&Restart the computer?"),
-             (DOS_MODE, "Restart the computer in &DOS mode?"), (LOG_OFF, "&Close all programs and log on as a different user?")],
-    "1998": [(STAND_BY, "S&tand by"), (SHUT_DOWN, "&Shut down"), (RESTART, "&Restart"), (DOS_MODE, "Restart in &DOS mode")],
+    "1995": [
+        (SHUT_DOWN, "&Shut down the computer?"),
+        (RESTART, "&Restart the computer?"),
+        (DOS_MODE, "Restart the computer in &DOS mode?"),
+        (LOG_OFF, "&Close all programs and log on as a different user?"),
+    ],
+    "1998": [
+        (STAND_BY, "S&tand by"),
+        (SHUT_DOWN, "&Shut down"),
+        (RESTART, "&Restart"),
+        (DOS_MODE, "Restart in &DOS mode"),
+    ],
     "2000": [(LOG_OFF, "Log off {user}"), (SHUT_DOWN, "Shut down"), (RESTART, "Restart"), (STAND_BY, "Stand by")],
 }  # labels and descriptions take chicago95ui.fill_placeholders: {os}, {user}, {company}...
 CHOICE_LABELS = tuple(label for _, label in CHOICES["1995"])
-QUESTIONS = {"1995": "Are you sure you want to:", "1998": "What do you want the computer to do?",
-             "2000": "What do you want the computer to do?"}
+QUESTIONS = {
+    "1995": "Are you sure you want to:",
+    "1998": "What do you want the computer to do?",
+    "2000": "What do you want the computer to do?",
+}
 # {os} is the OS name from the look ("Windows" gives the original wording, "Fedora" says Fedora).
 DESCRIPTIONS = {
     LOG_OFF: "Ends your session, leaving the computer running on full power.",
@@ -54,8 +90,12 @@ SYSTEMCTL_FALLBACKS = {
 SAFE_TEXT = "It's now safe to turn off\nyour computer."
 SAFE_ORANGE = QColor("#FFA500")
 SAFE_FONT_PREFERENCES = (
-    "Fixedsys Excelsior", "IBM VGA 8x16", "Px437 IBM VGA8",
-    "More Perfect DOS VGA", "Less Perfect DOS VGA", "Monospace",
+    "Fixedsys Excelsior",
+    "IBM VGA 8x16",
+    "Px437 IBM VGA8",
+    "More Perfect DOS VGA",
+    "Less Perfect DOS VGA",
+    "Monospace",
 )
 SAFE_SCREEN_DELAY_MS = 2500
 
@@ -235,11 +275,29 @@ class BrandBanner(QWidget):
     with the tagline under the edition."""
 
     # Sampled across the original's strip: dark teal at the ends, glowing light blue in the middle.
-    STRIP = ((0.0, "#003355"), (0.049, "#00436c"), (0.098, "#005889"), (0.147, "#005a8c"), (0.196, "#2f76a1"),
-             (0.245, "#5497c2"), (0.294, "#64abda"), (0.343, "#75b5de"), (0.392, "#89bede"), (0.441, "#98c4de"),
-             (0.49, "#9cc6de"), (0.539, "#98c4de"), (0.588, "#89bede"), (0.637, "#75b5de"), (0.686, "#64abda"),
-             (0.735, "#5497c2"), (0.784, "#2f76a1"), (0.833, "#005a8c"), (0.882, "#005788"), (0.931, "#00436c"),
-             (1.0, "#003355"))
+    STRIP = (
+        (0.0, "#003355"),
+        (0.049, "#00436c"),
+        (0.098, "#005889"),
+        (0.147, "#005a8c"),
+        (0.196, "#2f76a1"),
+        (0.245, "#5497c2"),
+        (0.294, "#64abda"),
+        (0.343, "#75b5de"),
+        (0.392, "#89bede"),
+        (0.441, "#98c4de"),
+        (0.49, "#9cc6de"),
+        (0.539, "#98c4de"),
+        (0.588, "#89bede"),
+        (0.637, "#75b5de"),
+        (0.686, "#64abda"),
+        (0.735, "#5497c2"),
+        (0.784, "#2f76a1"),
+        (0.833, "#005a8c"),
+        (0.882, "#005788"),
+        (0.931, "#00436c"),
+        (1.0, "#003355"),
+    )
     MARK = (40, 6)  # the banner sits 1px into the dialog, so this is the original's (40, 7)
     NAME_X, NAME_BASELINE, NUMBER_BASELINE, NAME_GAP = 111, 43, 44, 8
     WORD = dict(size=35, embolden=1.4, spacing=0)
@@ -265,7 +323,9 @@ class BrandBanner(QWidget):
             return QPixmap()
         sharp = path.endswith(".png")
         source = QPixmap(path) if sharp else QIcon(path).pixmap(size * 4, size * 4)
-        return source.scaled(size * 4, size, Qt.KeepAspectRatio, Qt.FastTransformation if sharp else Qt.SmoothTransformation)
+        return source.scaled(
+            size * 4, size, Qt.KeepAspectRatio, Qt.FastTransformation if sharp else Qt.SmoothTransformation
+        )
 
     @staticmethod
     def font(size, bold=False, italic=False, spacing=0):
@@ -273,7 +333,9 @@ class BrandBanner(QWidget):
         font.setPixelSize(size)
         font.setBold(bold)
         font.setItalic(italic)
-        font.setStyleStrategy(QFont.StyleStrategy(QFont.PreferAntialias | QFont.NoSubpixelAntialias))  # grey edges, no colour fringes
+        font.setStyleStrategy(
+            QFont.StyleStrategy(QFont.PreferAntialias | QFont.NoSubpixelAntialias)
+        )  # grey edges, no colour fringes
         font.setHintingPreference(QFont.PreferNoHinting)  # the same widths at 1x and in the 4x login banner
         if spacing:
             font.setLetterSpacing(QFont.AbsoluteSpacing, spacing)
@@ -292,7 +354,9 @@ class BrandBanner(QWidget):
                 painter.drawText(QPointF(x, self.NUMBER_BASELINE), part)
             else:
                 font = self.font(self.WORD["size"], bold=True, spacing=self.WORD["spacing"])
-                chicago95ui.draw_heavy_text(painter, x, self.NAME_BASELINE, font, part, QColor(Qt.black), self.WORD["embolden"])
+                chicago95ui.draw_heavy_text(
+                    painter, x, self.NAME_BASELINE, font, part, QColor(Qt.black), self.WORD["embolden"]
+                )
             x += QFontMetricsF(font).horizontalAdvance(part) + self.NAME_GAP
         return x - self.NAME_GAP
 
@@ -312,9 +376,18 @@ class BrandBanner(QWidget):
             painter.drawText(QPointF(self.COMPANY["x"], self.COMPANY["baseline"]), self.look["osCompany"])
         name_end = self.paint_name(painter)
         edition = self.font(self.EDITION["size"], bold=True, spacing=self.EDITION["spacing"])
-        edition_x = name_end - QFontMetricsF(edition).horizontalAdvance(self.look["edition"]) + self.EDITION["right_offset"]
-        chicago95ui.draw_heavy_text(painter, edition_x, self.EDITION["baseline"], edition, self.look["edition"],
-                                    QColor(Qt.black), self.EDITION["embolden"])
+        edition_x = (
+            name_end - QFontMetricsF(edition).horizontalAdvance(self.look["edition"]) + self.EDITION["right_offset"]
+        )
+        chicago95ui.draw_heavy_text(
+            painter,
+            edition_x,
+            self.EDITION["baseline"],
+            edition,
+            self.look["edition"],
+            QColor(Qt.black),
+            self.EDITION["embolden"],
+        )
         if self.login:
             painter.setFont(self.font(self.TAGLINE["size"]))
             painter.drawText(QPointF(edition_x, self.TAGLINE["baseline"]), self.look["tagline"])
@@ -324,8 +397,15 @@ class BrandBanner(QWidget):
             # No company logo: the company's name in heavy italics takes its place, like the original's wordmark.
             corner = self.font(self.CORNER["size"], bold=True, italic=True)
             x = self.CORNER["right"] - QFontMetricsF(corner).horizontalAdvance(self.look["osCompany"])
-            chicago95ui.draw_heavy_text(painter, x, self.CORNER["baseline"], corner, self.look["osCompany"],
-                                        QColor(Qt.black), self.CORNER["embolden"])
+            chicago95ui.draw_heavy_text(
+                painter,
+                x,
+                self.CORNER["baseline"],
+                corner,
+                self.look["osCompany"],
+                QColor(Qt.black),
+                self.CORNER["embolden"],
+            )
         painter.end()
 
 
@@ -374,7 +454,7 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         layout.setContentsMargins(12, top, 12, bottom)
         layout.addLayout(upper)
         layout.addLayout(buttons)
-        chosen.setFocus()   # the originals open with the chosen option focused
+        chosen.setFocus()  # the originals open with the chosen option focused
 
     def build_2000(self):
         # Positions measured on the original's client area (tests/test_shutdown_reference.py).

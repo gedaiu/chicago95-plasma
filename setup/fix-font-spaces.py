@@ -7,6 +7,7 @@ together there while ordinary text looked fine.
 
     fix-font-spaces.py FONT...   rewrites each font in place; prints what it changed
 """
+
 import os
 import sys
 

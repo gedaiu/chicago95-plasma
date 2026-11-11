@@ -7,10 +7,10 @@ length at their own size or, with a "<prefix>-hint-stretch-borders" element, str
 stretched or, with a "<prefix>-hint-tile-center" element, tiled from its top-left. A disabled border is
 not drawn: the centre and the remaining edges extend over its place.
 """
+
 from PySide6.QtCore import QRectF, QSizeF, Qt
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtSvg import QSvgRenderer
-
 from reference import qimage_to_pil
 
 ALL_BORDERS = frozenset({"top", "bottom", "left", "right"})
@@ -21,7 +21,11 @@ def element(prefix, name):
 
 
 def size_of(renderer, prefix, name):
-    return renderer.boundsOnElement(element(prefix, name)).size() if renderer.elementExists(element(prefix, name)) else QSizeF(0, 0)
+    return (
+        renderer.boundsOnElement(element(prefix, name)).size()
+        if renderer.elementExists(element(prefix, name))
+        else QSizeF(0, 0)
+    )
 
 
 def paint_frame(painter, renderer, prefix, rect, borders=ALL_BORDERS):
@@ -33,9 +37,13 @@ def paint_frame(painter, renderer, prefix, rect, borders=ALL_BORDERS):
     x, y, w, h = rect.x(), rect.y(), rect.width(), rect.height()
     inner_w, inner_h = w - left - right, h - top - bottom
     pieces = {
-        "topleft": (x, y, left, top), "top": (x + left, y, inner_w, top), "topright": (x + w - right, y, right, top),
-        "left": (x, y + top, left, inner_h), "right": (x + w - right, y + top, right, inner_h),
-        "bottomleft": (x, y + h - bottom, left, bottom), "bottom": (x + left, y + h - bottom, inner_w, bottom),
+        "topleft": (x, y, left, top),
+        "top": (x + left, y, inner_w, top),
+        "topright": (x + w - right, y, right, top),
+        "left": (x, y + top, left, inner_h),
+        "right": (x + w - right, y + top, right, inner_h),
+        "bottomleft": (x, y + h - bottom, left, bottom),
+        "bottom": (x + left, y + h - bottom, inner_w, bottom),
         "bottomright": (x + w - right, y + h - bottom, right, bottom),
     }
     stretch_borders = renderer.elementExists(element(prefix, "hint-stretch-borders"))
@@ -43,9 +51,21 @@ def paint_frame(painter, renderer, prefix, rect, borders=ALL_BORDERS):
         if pw <= 0 or ph <= 0:
             continue
         if name in ("top", "bottom") and not stretch_borders:
-            tile(painter, renderer, element(prefix, name), QRectF(px, py, pw, ph), QSizeF(size_of(renderer, prefix, name).width(), ph))
+            tile(
+                painter,
+                renderer,
+                element(prefix, name),
+                QRectF(px, py, pw, ph),
+                QSizeF(size_of(renderer, prefix, name).width(), ph),
+            )
         elif name in ("left", "right") and not stretch_borders:
-            tile(painter, renderer, element(prefix, name), QRectF(px, py, pw, ph), QSizeF(pw, size_of(renderer, prefix, name).height()))
+            tile(
+                painter,
+                renderer,
+                element(prefix, name),
+                QRectF(px, py, pw, ph),
+                QSizeF(pw, size_of(renderer, prefix, name).height()),
+            )
         else:
             renderer.render(painter, element(prefix, name), QRectF(px, py, pw, ph))
     centre = QRectF(x + left, y + top, inner_w, inner_h)

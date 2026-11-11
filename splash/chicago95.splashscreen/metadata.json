@@ -1,7 +1,7 @@
 {
   "KPackageStructure": "Plasma/LookAndFeel",
   "KPlugin": {
-    "Authors": [{"Name": "Grassmunk"}],
+    "Authors": [{ "Name": "Grassmunk" }],
     "Category": "KDE splashscreen",
     "Description": "Chicago95 splash screen",
     "Id": "chicago95.splashscreen",

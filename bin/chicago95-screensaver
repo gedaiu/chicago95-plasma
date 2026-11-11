@@ -10,13 +10,20 @@ input: any key, click or mouse movement closes both.
     chicago95-screensaver --hack pipes    run one now (also how Setup previews it)
     chicago95-screensaver --list          installed savers, one "name<TAB>label" per line
 """
-import os, sys; sys.path[:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"), os.path.expanduser("~/.local/lib/chicago95")]; import chicago95ui  # noqa: E401,E702
 
+import os
+import sys
+
+sys.path[:0] = [
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.expanduser("~/.local/lib/chicago95"),
+]
 import argparse
 import subprocess
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, Qt, QTimer
+import chicago95ui  # noqa: E401,E702
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QWidget
 
 # The classic savers and their closest XScreenSaver hack, in the order Setup lists them.
@@ -32,8 +39,12 @@ CATALOG = {
     "bsod": "Blue Screen",
 }
 DEFAULT_HACK = "deepstars"
-HACK_DIRS = ("/usr/libexec/xscreensaver", "/usr/lib/xscreensaver", "/usr/lib64/xscreensaver",
-             "/usr/lib/x86_64-linux-gnu/xscreensaver")
+HACK_DIRS = (
+    "/usr/libexec/xscreensaver",
+    "/usr/lib/xscreensaver",
+    "/usr/lib64/xscreensaver",
+    "/usr/lib/x86_64-linux-gnu/xscreensaver",
+)
 MOUSE_SLACK_PX = 4
 INPUT_GRACE_MS = 1000
 PID_FILE = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "chicago95-screensaver.pid"
@@ -78,7 +89,9 @@ def run_kwin_script(source):
     name = f"chicago95-screensaver-{os.getpid()}"
     kwin = ["gdbus", "call", "--session", "--dest", "org.kde.KWin", "--object-path"]
     subprocess.run(kwin + ["/Scripting", "--method", "org.kde.kwin.Scripting.unloadScript", name], capture_output=True)
-    subprocess.run(kwin + ["/Scripting", "--method", "org.kde.kwin.Scripting.loadScript", str(path), name], capture_output=True)
+    subprocess.run(
+        kwin + ["/Scripting", "--method", "org.kde.kwin.Scripting.loadScript", str(path), name], capture_output=True
+    )
     subprocess.run(kwin + ["/Scripting", "--method", "org.kde.kwin.Scripting.start"], capture_output=True)
 
 
@@ -123,8 +136,12 @@ class InputCatcher(QWidget):
 
 
 def run_saver(app, hack_path):
-    hack = subprocess.Popen([str(hack_path)], env=dict(os.environ, QT_QPA_PLATFORM="xcb", GDK_BACKEND="x11"),
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    hack = subprocess.Popen(
+        [str(hack_path)],
+        env=dict(os.environ, QT_QPA_PLATFORM="xcb", GDK_BACKEND="x11"),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
     def stop():
         hack.terminate()

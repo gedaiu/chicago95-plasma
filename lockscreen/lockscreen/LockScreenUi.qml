@@ -43,9 +43,9 @@ Item {
         } else if (root.notification.includes(msg)) {
             root.notificationRepeated();
         } else {
-            root.notification += "\n" + msg
+            root.notification += "\n" + msg;
         }
-        lockScreenRoot.uiVisible = true
+        lockScreenRoot.uiVisible = true;
     }
 
     property string pendingPassword
@@ -69,20 +69,17 @@ Item {
 
         function onSucceeded() {
             // This is important. It stops the all pending authentication processes, preventing timeouts etc.
-            authenticator.stopAuthenticating()
+            authenticator.stopAuthenticating();
 
             if (!lockScreenUi.expectingPrompt) {
-                Qt.quit()
+                Qt.quit();
             }
             if (authenticator.hadPrompt) {
                 Qt.quit();
             } else {
-                mainStack.replace(null, Qt.resolvedUrl("NoPasswordUnlock.qml"),
-                    {
-                        userListModel: users
-                    },
-                    StackView.Immediate,
-                );
+                mainStack.replace(null, Qt.resolvedUrl("NoPasswordUnlock.qml"), {
+                    userListModel: users
+                }, StackView.Immediate);
                 mainStack.forceActiveFocus();
             }
         }
@@ -146,7 +143,7 @@ Item {
         hoverEnabled: true
         cursorShape: uiVisible ? Qt.ArrowCursor : Qt.BlankCursor
         drag.filterChildren: true
-        onPressed: uiVisible = true;
+        onPressed: uiVisible = true
         onPositionChanged: {
             uiVisible = seenPositionChange;
             seenPositionChange = true;
@@ -184,7 +181,7 @@ Item {
             lockscreenState: ScreenLocker.LockscreenState
             window: lockScreenRoot.Window.window
             onActiveChanged: {
-                if(!active) {
+                if (!active) {
                     lockScreenRoot.uiVisible = false;
                 }
             }
@@ -229,7 +226,7 @@ Item {
             duration: Kirigami.Units.veryLongDuration * 2
         }
 
-        Component.onCompleted: launchAnimation.start();
+        Component.onCompleted: launchAnimation.start()
 
         WallpaperFader {
             anchors.fill: parent
@@ -255,21 +252,102 @@ Item {
             anchors.verticalCenterOffset: -30
             color: "#C0C0C0"
 
-            Rectangle { anchors { top: parent.top; left: parent.left; right: parent.right } height: 1; color: "#DFDFDF" }
-            Rectangle { anchors { top: parent.top; left: parent.left; bottom: parent.bottom } width: 1; color: "#DFDFDF" }
-            Rectangle { anchors { top: parent.top; left: parent.left; right: parent.right; topMargin: 1; leftMargin: 1 } height: 1; color: "#FFFFFF" }
-            Rectangle { anchors { top: parent.top; left: parent.left; bottom: parent.bottom; topMargin: 1; leftMargin: 1 } width: 1; color: "#FFFFFF" }
-            Rectangle { anchors { bottom: parent.bottom; left: parent.left; right: parent.right } height: 1; color: "#000000" }
-            Rectangle { anchors { top: parent.top; right: parent.right; bottom: parent.bottom } width: 1; color: "#000000" }
-            Rectangle { anchors { bottom: parent.bottom; left: parent.left; right: parent.right; bottomMargin: 1; rightMargin: 1 } height: 1; color: "#808080" }
-            Rectangle { anchors { top: parent.top; right: parent.right; bottom: parent.bottom; rightMargin: 1; bottomMargin: 1 } width: 1; color: "#808080" }
+            Rectangle {
+                anchors {
+                    top: parent.top
+                    left: parent.left
+                    right: parent.right
+                }
+                height: 1
+                color: "#DFDFDF"
+            }
+            Rectangle {
+                anchors {
+                    top: parent.top
+                    left: parent.left
+                    bottom: parent.bottom
+                }
+                width: 1
+                color: "#DFDFDF"
+            }
+            Rectangle {
+                anchors {
+                    top: parent.top
+                    left: parent.left
+                    right: parent.right
+                    topMargin: 1
+                    leftMargin: 1
+                }
+                height: 1
+                color: "#FFFFFF"
+            }
+            Rectangle {
+                anchors {
+                    top: parent.top
+                    left: parent.left
+                    bottom: parent.bottom
+                    topMargin: 1
+                    leftMargin: 1
+                }
+                width: 1
+                color: "#FFFFFF"
+            }
+            Rectangle {
+                anchors {
+                    bottom: parent.bottom
+                    left: parent.left
+                    right: parent.right
+                }
+                height: 1
+                color: "#000000"
+            }
+            Rectangle {
+                anchors {
+                    top: parent.top
+                    right: parent.right
+                    bottom: parent.bottom
+                }
+                width: 1
+                color: "#000000"
+            }
+            Rectangle {
+                anchors {
+                    bottom: parent.bottom
+                    left: parent.left
+                    right: parent.right
+                    bottomMargin: 1
+                    rightMargin: 1
+                }
+                height: 1
+                color: "#808080"
+            }
+            Rectangle {
+                anchors {
+                    top: parent.top
+                    right: parent.right
+                    bottom: parent.bottom
+                    rightMargin: 1
+                    bottomMargin: 1
+                }
+                width: 1
+                color: "#808080"
+            }
 
             Rectangle {
-                anchors { top: parent.top; left: parent.left; right: parent.right; margins: 4 }
+                anchors {
+                    top: parent.top
+                    left: parent.left
+                    right: parent.right
+                    margins: 4
+                }
                 height: 24
                 color: "#000080"
                 Text {
-                    anchors { left: parent.left; leftMargin: 6; verticalCenter: parent.verticalCenter }
+                    anchors {
+                        left: parent.left
+                        leftMargin: 6
+                        verticalCenter: parent.verticalCenter
+                    }
                     text: "Unlock Computer"
                     color: "#FFFFFF"
                     font.bold: true
@@ -287,7 +365,7 @@ Item {
             verticalOffset: 0.8
             samples: 15
             spread: 0.2
-            color : Qt.rgba(0, 0, 0, 0.7)
+            color: Qt.rgba(0, 0, 0, 0.7)
             opacity: lockScreenRoot.uiVisible ? 0 : 1
             Behavior on opacity {
                 OpacityAnimator {
@@ -302,7 +380,7 @@ Item {
             property Item shadow: clockShadow
             visible: false
             anchors.horizontalCenter: parent.horizontalCenter
-            y: (mainBlock.userList.y + mainStack.y)/2 - height/2
+            y: (mainBlock.userList.y + mainStack.y) / 2 - height / 2
             Layout.alignment: Qt.AlignBaseline
         }
 
@@ -313,10 +391,8 @@ Item {
                 users.append({
                     name: kscreenlocker_userName,
                     realName: kscreenlocker_userName,
-                    icon: kscreenlocker_userImage !== ""
-                          ? "file://" + kscreenlocker_userImage.split("/").map(encodeURIComponent).join("/")
-                          : "",
-                })
+                    icon: kscreenlocker_userImage !== "" ? "file://" + kscreenlocker_userImage.split("/").map(encodeURIComponent).join("/") : ""
+                });
             }
         }
 
@@ -379,14 +455,11 @@ Item {
 
                             onFunctionalChanged: {
                                 if (functional) {
-                                    return
+                                    return;
                                 }
-                                root.notification = ""
-                                mainBlock.passwordInputVisible = false
-                                lockScreenUi.handleMessage(KI18n.i18ndc(
-                                    "plasma_shell_org.kde.plasma.desktop",
-                                    "@info:status",
-                                    "This authentication method is not functioning correctly. Please try another method, and check your system configuration."))
+                                root.notification = "";
+                                mainBlock.passwordInputVisible = false;
+                                lockScreenUi.handleMessage(KI18n.i18ndc("plasma_shell_org.kde.plasma.desktop", "@info:status", "This authentication method is not functioning correctly. Please try another method, and check your system configuration."));
                             }
 
                             // Be careful if you remove this to ensure defunct handling is present in all scenarios (e.g. onClicked)
@@ -395,11 +468,11 @@ Item {
                             icon.color: functional ? undefined : Kirigami.Theme.negativeTextColor
                             checked: authenticator.authenticator === type
                             onClicked: {
-                                authenticator.authenticator = type
-                                root.notification = ""
-                                mainBlock.passwordInputVisible = passwordField
-                                lockScreenUi.expectingPrompt = expectingPrompt
-                                lockScreenUi.showPrompt = showPrompt
+                                authenticator.authenticator = type;
+                                root.notification = "";
+                                mainBlock.passwordInputVisible = passwordField;
+                                lockScreenUi.expectingPrompt = expectingPrompt;
+                                lockScreenUi.showPrompt = showPrompt;
                             }
 
                             PlasmaComponents3.ToolTip.text: tooltip
@@ -408,7 +481,7 @@ Item {
 
                             Component.onCompleted: {
                                 if (checked) {
-                                    clicked()
+                                    clicked();
                                 }
                             }
                         }
@@ -431,10 +504,10 @@ Item {
 
                 onPasswordResult: password => {
                     if (authenticator.pamTimeout) {
-                        lockScreenUi.pendingPassword = password
-                        mainBlock.enabled = false
+                        lockScreenUi.pendingPassword = password;
+                        mainBlock.enabled = false;
                     } else {
-                        authenticator.respond(password)
+                        authenticator.respond(password);
                     }
                 }
 

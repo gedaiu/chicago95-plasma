@@ -25,9 +25,7 @@ PlasmoidItem {
     readonly property string controlPanelCommand: "systemd-run --user --scope --quiet --collect @HOME@/.local/bin/chicago95-control-panel --page taskbar"
     readonly property string buttonText: Plasmoid.configuration.buttonText
     readonly property string logo: Plasmoid.configuration.logo
-    readonly property url logoSource: logo === "flag" ? Qt.resolvedUrl("../images/logo-flag-16.png")
-                                    : logo === "penguin" ? Qt.resolvedUrl("../images/logo-penguin.svg")
-                                    : logo !== "" ? "file://" + logo : ""
+    readonly property url logoSource: logo === "flag" ? Qt.resolvedUrl("../images/logo-flag-16.png") : logo === "penguin" ? Qt.resolvedUrl("../images/logo-penguin.svg") : logo !== "" ? "file://" + logo : ""
 
     // Colours from the colour scheme (System Settings > Colors); the bevel follows the look (Setup
     // writes it): 2000's light line is the face itself and its shadows are #808080 and #404040.
@@ -53,12 +51,14 @@ PlasmoidItem {
     }
 
     function toggleMenu() {
-        runner.connectSource(root.menuCommand)
+        runner.connectSource(root.menuCommand);
     }
 
     Connections {
         target: Plasmoid
-        function onActivated() { root.toggleMenu() }
+        function onActivated() {
+            root.toggleMenu();
+        }
     }
 
     StartButton {

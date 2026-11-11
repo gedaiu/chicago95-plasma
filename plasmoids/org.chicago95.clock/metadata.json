@@ -1,7 +1,7 @@
 {
   "KPackageStructure": "Plasma/Applet",
   "KPlugin": {
-    "Authors": [{"Name": "Bending Unit 22"}],
+    "Authors": [{ "Name": "Bending Unit 22" }],
     "Category": "Date and Time",
     "Description": "Chicago95 clock: the time in the tray, as the originals show it",
     "Icon": "preferences-system-time",

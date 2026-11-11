@@ -4,26 +4,30 @@ The originals list items ours doesn't have (Office entries, Favorites), so these
 images the same way and compare the measurements: row spacing, where text starts, the bevel's
 colours, the banner's background and the banner lettering's length, thickness and place.
 """
+
 from collections import Counter
 
 import pytest
-
 from conftest import needs_ui_font
-
 from reference import close, render_start_menu, screenshot
 
 STYLES = {
     "1998": dict(
-        screenshot="win98start", menu=(2, 0, 216, 456), extra_top=(),
+        screenshot="win98start",
+        menu=(2, 0, 216, 456),
+        extra_top=(),
         settings="[StartMenu]\nstyle=1998\nbannerText=Windows98\nbannerTextColor=#FFFFFF\nbannerNumberColor=#FFFFFF\n"
-                 "bannerBackground=#00007B,#00007B@95,#0000B0@70,#0000F8@45,#0000EE@20,#0000A9@0\n",
-        kdeglobals=""),
+        "bannerBackground=#00007B,#00007B@95,#0000B0@70,#0000F8@45,#0000EE@20,#0000A9@0\n",
+        kdeglobals="",
+    ),
     "2000": dict(
-        screenshot="w2kstartmenu", menu=(2, 113, 206, 456),
+        screenshot="w2kstartmenu",
+        menu=(2, 113, 206, 456),
         extra_top=("New Office Document", "Open Office Document", "Windows Update"),
         settings="[StartMenu]\nstyle=2000\nbannerText=Windows 2000 Professional\nbannerTextColor=#FFFFFF\nbannerNumberColor=#FFFFFF\n"
-                 "bannerBackground=#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0\n",
-        kdeglobals="[Colors:Window]\nBackgroundNormal=212,208,200\n\n[Colors:Selection]\nBackgroundNormal=10,36,106\n"),
+        "bannerBackground=#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0\n",
+        kdeglobals="[Colors:Window]\nBackgroundNormal=212,208,200\n\n[Colors:Selection]\nBackgroundNormal=10,36,106\n",
+    ),
 }
 BANNER = (3, 24)
 TEXT_COLUMNS = (70, 140)
@@ -33,8 +37,14 @@ TEXT_COLUMNS = (70, 140)
 def pair(request, startmenu, qt_app, tmp_path_factory):
     style = STYLES[request.param]
     reference = screenshot(style["screenshot"]).crop(style["menu"])
-    ours = render_start_menu(startmenu, qt_app, tmp_path_factory.mktemp(request.param), style["settings"], style["kdeglobals"],
-                             extra_top=style["extra_top"])
+    ours = render_start_menu(
+        startmenu,
+        qt_app,
+        tmp_path_factory.mktemp(request.param),
+        style["settings"],
+        style["kdeglobals"],
+        extra_top=style["extra_top"],
+    )
     ours.save(tmp_path_factory.getbasetemp() / f"ours-startmenu-{request.param}.png")
     return request.param, reference, ours
 
@@ -59,7 +69,12 @@ def text_left(image):
     """Where item text starts: the most common leftmost dark pixel per text row."""
     starts = []
     for top in text_row_tops(image):
-        xs = [x for x in range(66, TEXT_COLUMNS[1]) for y in range(top, top + 8) if y < image.height and sum(image.getpixel((x, y))) < 150]
+        xs = [
+            x
+            for x in range(66, TEXT_COLUMNS[1])
+            for y in range(top, top + 8)
+            if y < image.height and sum(image.getpixel((x, y))) < 150
+        ]
         if xs:
             starts.append(min(xs))
     return Counter(starts).most_common(1)[0][0]
@@ -76,7 +91,11 @@ def banner_lettering(image):
 def banner_blue(image, above_bottom):
     """Mean blue of the banner's text-free edge columns, ten rows starting this far above its bottom."""
     bottom = image.height - 4
-    pixels = [image.getpixel((x, y)) for x in (3, 4, 22, 23) for y in range(bottom - above_bottom - 9, bottom - above_bottom + 1)]
+    pixels = [
+        image.getpixel((x, y))
+        for x in (3, 4, 22, 23)
+        for y in range(bottom - above_bottom - 9, bottom - above_bottom + 1)
+    ]
     return sum(p[2] for p in pixels) / len(pixels)
 
 
@@ -94,9 +113,17 @@ def test_item_text_starts_where_the_original_starts_it(pair):
 
 def test_bevel_and_face_colours_match(pair):
     _, reference, ours = pair
+
     def bevel(image):
         h = image.height
-        return [image.getpixel((0, h - 30)), image.getpixel((1, h - 30)), face(image), image.getpixel((60, h - 2)), image.getpixel((60, h - 1))]
+        return [
+            image.getpixel((0, h - 30)),
+            image.getpixel((1, h - 30)),
+            face(image),
+            image.getpixel((60, h - 2)),
+            image.getpixel((60, h - 1)),
+        ]
+
     assert all(close(a, b, 16) for a, b in zip(bevel(ours), bevel(reference))), (bevel(ours), bevel(reference))
 
 
@@ -130,7 +157,12 @@ def banner_parts_lengths(image):
 def test_2000_banner_parts_match_the_originals_word_by_word(startmenu, qt_app, tmp_path):
     style = STYLES["2000"]
     reference = screenshot(style["screenshot"]).crop(style["menu"])
-    ours = render_start_menu(startmenu, qt_app, tmp_path, style["settings"], style["kdeglobals"], extra_top=style["extra_top"])
+    ours = render_start_menu(
+        startmenu, qt_app, tmp_path, style["settings"], style["kdeglobals"], extra_top=style["extra_top"]
+    )
     # Read bottom to top: "Windows", "2000", "Professional" (83, 30 and 104px long on the original).
     expected, actual = banner_parts_lengths(reference), banner_parts_lengths(ours)
-    assert len(actual) == len(expected) == 3 and all(abs(a - e) <= 5 for a, e in zip(actual, expected)), (actual, expected)
+    assert len(actual) == len(expected) == 3 and all(abs(a - e) <= 5 for a, e in zip(actual, expected)), (
+        actual,
+        expected,
+    )

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Draws one 8x8 tile of a desktop pattern: set bits black, the rest in the background colour.
 
-    python3 setup/background_pattern.py diagonal "#008080" pattern.png
+python3 setup/background_pattern.py diagonal "#008080" pattern.png
 """
+
 import sys
 
 from PySide6.QtGui import QColor, QImage

@@ -16,7 +16,7 @@ SessionManagementScreen {
         focus: true
         text: i18ndc("plasma_shell_org.kde.plasma.desktop", "@action:button no-password unlock", "Unlock")
         icon.name: "unlock"
-        onClicked: Qt.quit();
+        onClicked: Qt.quit()
         Keys.onEnterPressed: clicked()
         Keys.onReturnPressed: clicked()
     }

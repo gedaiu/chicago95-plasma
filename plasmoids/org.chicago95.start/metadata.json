@@ -1,7 +1,7 @@
 {
   "KPackageStructure": "Plasma/Applet",
   "KPlugin": {
-    "Authors": [{"Name": "Bending Unit 22"}],
+    "Authors": [{ "Name": "Bending Unit 22" }],
     "Category": "Application Launchers",
     "Description": "Chicago95 Start button that opens a cascading Start menu",
     "Icon": "start-here",

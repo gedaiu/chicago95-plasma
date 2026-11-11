@@ -12,6 +12,7 @@ Nothing touches the user's session: the home, the D-Bus session and the composit
 (systemctl and pkill are stubbed). The UI font, the icon themes and the Chicago95 checkout are linked
 in from the user's home and read only.
 """
+
 import json
 import os
 import shutil
@@ -22,7 +23,7 @@ from PIL import Image
 
 REPO = Path(__file__).resolve().parent.parent
 SCREEN = (640, 480)
-ICON_COLOUR = (0, 200, 0)   # in none of the originals: not the title bars, not the faces
+ICON_COLOUR = (0, 200, 0)  # in none of the originals: not the title bars, not the faces
 ICON_SIZE = 16
 TEST_ICON = "c95-test-square"
 TEST_ICON_SIZES = (16, 22, 24, 32, 48)
@@ -32,15 +33,43 @@ CHICAGO95_SRC = Path(os.environ.get("CHICAGO95_SRC", Path.home() / "src/Chicago9
 # (left, top, right, bottom) inclusive, or "minimized"), the active one, its Quick Launch entries and
 # its tray icons.
 CONTENT = {
-    "1995": dict(windows=[("Find: Files named", "gtk4", "minimized"), ("My Computer", "x11", "minimized"),
-                          ("Windows", "gtk3", (213, 207, 636, 444)), ("My Folder", "qt", (130, 94, 581, 284))],
-                 active="Windows", launchers=0, tray=1),
-    "1998": dict(windows=[("WinPopup", "gtk3", "minimized"), ("Untitled - Notepad", "qt", (6, 6, 410, 364))],
-                 active="Untitled - Notepad", launchers=4, tray=2),
-    "2000": dict(windows=[("Administrative Tools", "x11", (280, 155, 627, 433)), ("Computer Management", "gtk4", (2, 2, 534, 392))],
-                 active="Administrative Tools", launchers=3, tray=1),
+    "1995": dict(
+        windows=[
+            ("Find: Files named", "gtk4", "minimized"),
+            ("My Computer", "x11", "minimized"),
+            ("Windows", "gtk3", (213, 207, 636, 444)),
+            ("My Folder", "qt", (130, 94, 581, 284)),
+        ],
+        active="Windows",
+        launchers=0,
+        tray=1,
+    ),
+    "1998": dict(
+        windows=[("WinPopup", "gtk3", "minimized"), ("Untitled - Notepad", "qt", (6, 6, 410, 364))],
+        active="Untitled - Notepad",
+        launchers=4,
+        tray=2,
+    ),
+    "2000": dict(
+        windows=[
+            ("Administrative Tools", "x11", (280, 155, 627, 433)),
+            ("Computer Management", "gtk4", (2, 2, 534, 392)),
+        ],
+        active="Administrative Tools",
+        launchers=3,
+        tray=1,
+    ),
 }
-REQUIRED_PROGRAMS = ("kwin_wayland", "plasmashell", "spectacle", "dbus-run-session", "kbuildsycoca6", "gdbus", "Xwayland", "xmessage")
+REQUIRED_PROGRAMS = (
+    "kwin_wayland",
+    "plasmashell",
+    "spectacle",
+    "dbus-run-session",
+    "kbuildsycoca6",
+    "gdbus",
+    "Xwayland",
+    "xmessage",
+)
 
 PROGRAMS = {
     "qt": """
@@ -102,7 +131,9 @@ kwin_script() {{
 }}
 """
 
-SETUP = COMMON + """
+SETUP = (
+    COMMON
+    + """
 # The first session: Setup, as on a desktop that runs Plasma.
 kbuildsycoca6 >/dev/null 2>&1
 plasmashell --no-respawn >"$WORK/plasma-setup.log" 2>&1 &
@@ -120,8 +151,11 @@ evaluate 'panels().forEach(panel => {{
 }})' >>"$WORK/install.log" 2>&1
 kill %1; wait
 """
+)
 
-DESKTOP = COMMON + """
+DESKTOP = (
+    COMMON
+    + """
 # The second session, as after logging in again: everything Setup wrote is read from the start.
 plasmashell --no-respawn >"$WORK/plasma.log" 2>&1 &
 wait_for_plasma
@@ -141,6 +175,7 @@ kwin_script "$WORK/arrange.js" arrange
 sleep 4
 spectacle --background --nonotify --fullscreen --output "$WORK/screen.png" >"$WORK/spectacle.log" 2>&1
 """
+)
 
 
 def missing_programs():
@@ -190,16 +225,28 @@ def window_commands(work, applications, windows):
             program = f"xmessage -title {quote(title)} -geometry 200x100 {quote(title)}"
         else:
             desktop_file(applications, name, title, TEST_ICON)
-            program = f"python3 \"$WORK/{toolkit}.py\" {name} {quote(title)}"
-        commands.append(f"{program} >\"$WORK/window-{index}.log\" 2>&1 &\nsleep 1.5")
+            program = f'python3 "$WORK/{toolkit}.py" {name} {quote(title)}'
+        commands.append(f'{program} >"$WORK/window-{index}.log" 2>&1 &\nsleep 1.5')
     return "\n".join(commands)
 
 
 def run_session(work, script, environment, xwayland=False):
     (work / script.name).chmod(0o755)
-    command = ["timeout", "240", "dbus-run-session", "kwin_wayland", "--virtual", "--width", str(SCREEN[0]),
-               "--height", str(SCREEN[1]), "--no-lockscreen", *(["--xwayland"] if xwayland else []),
-               "--exit-with-session", str(script)]
+    command = [
+        "timeout",
+        "240",
+        "dbus-run-session",
+        "kwin_wayland",
+        "--virtual",
+        "--width",
+        str(SCREEN[0]),
+        "--height",
+        str(SCREEN[1]),
+        "--no-lockscreen",
+        *(["--xwayland"] if xwayland else []),
+        "--exit-with-session",
+        str(script),
+    ]
     with open(work / f"kwin-{script.stem}.log", "w") as log:
         subprocess.run(command, env=environment, cwd=work, stdout=log, stderr=subprocess.STDOUT, check=False)
 
@@ -228,19 +275,42 @@ def desktop_session(look, work, tray_applets=(), tray_icons=None, hidden_applets
     content = CONTENT[look]
     applications = home / ".local/share/applications"
     applications.mkdir(parents=True, exist_ok=True)
-    launchers = [desktop_file(applications, f"c95-launcher-{index}", f"Launcher {index}", TEST_ICON).as_uri()
-                 for index in range(content["launchers"])]
+    launchers = [
+        desktop_file(applications, f"c95-launcher-{index}", f"Launcher {index}", TEST_ICON).as_uri()
+        for index in range(content["launchers"])
+    ]
     places = {title: place for title, _toolkit, place in content["windows"]}
-    (work / "setup.sh").write_text(SETUP.format(look=look, launchers=json.dumps(launchers), tray_applets=json.dumps(list(tray_applets)),
-                                              hidden_applets=json.dumps(list(hidden_applets))))
-    (work / "desktop.sh").write_text(DESKTOP.format(
-        icon=TEST_ICON, tray=content["tray"] if tray_icons is None else tray_icons, windows=window_commands(work, applications, content["windows"]),
-        places=json.dumps(places), active=json.dumps(content["active"])))
+    (work / "setup.sh").write_text(
+        SETUP.format(
+            look=look,
+            launchers=json.dumps(launchers),
+            tray_applets=json.dumps(list(tray_applets)),
+            hidden_applets=json.dumps(list(hidden_applets)),
+        )
+    )
+    (work / "desktop.sh").write_text(
+        DESKTOP.format(
+            icon=TEST_ICON,
+            tray=content["tray"] if tray_icons is None else tray_icons,
+            windows=window_commands(work, applications, content["windows"]),
+            places=json.dumps(places),
+            active=json.dumps(content["active"]),
+        )
+    )
     environment = {
-        "HOME": str(home), "PATH": f"{work / 'stubs'}:{os.environ['PATH']}", "LANG": "en_US.UTF-8", "LC_ALL": "en_US.UTF-8",
-        "XDG_RUNTIME_DIR": str(runtime), "XDG_DATA_DIRS": f"{work / 'data'}:/usr/local/share:/usr/share",
-        "XDG_CURRENT_DESKTOP": "KDE", "XDG_SESSION_TYPE": "wayland", "CHICAGO95_SRC": str(CHICAGO95_SRC),
-        "WORK": str(work), "REPO": str(REPO), "QT_QPA_PLATFORMTHEME": "kde", "QT_FORCE_STDERR_LOGGING": "1",
+        "HOME": str(home),
+        "PATH": f"{work / 'stubs'}:{os.environ['PATH']}",
+        "LANG": "en_US.UTF-8",
+        "LC_ALL": "en_US.UTF-8",
+        "XDG_RUNTIME_DIR": str(runtime),
+        "XDG_DATA_DIRS": f"{work / 'data'}:/usr/local/share:/usr/share",
+        "XDG_CURRENT_DESKTOP": "KDE",
+        "XDG_SESSION_TYPE": "wayland",
+        "CHICAGO95_SRC": str(CHICAGO95_SRC),
+        "WORK": str(work),
+        "REPO": str(REPO),
+        "QT_QPA_PLATFORMTHEME": "kde",
+        "QT_FORCE_STDERR_LOGGING": "1",
     }
     run_session(work, work / "setup.sh", environment)
     run_session(work, work / "desktop.sh", environment, xwayland=True)

@@ -1,7 +1,6 @@
 import xml.etree.ElementTree as ElementTree
 
 import pytest
-
 from conftest import REPO
 from js_library import call, load_js_library
 
@@ -13,14 +12,21 @@ def sizing(qt_app):
     return load_js_library(TASKS_APPLET / "ui/sizing.js")
 
 
-@pytest.mark.parametrize("configured, look, expected", [(0, "1995", 95), (0, "1998", 160), (0, "2000", 160), (220, "1995", 220), (60, "2000", 60)])
+@pytest.mark.parametrize(
+    "configured, look, expected",
+    [(0, "1995", 95), (0, "1998", 160), (0, "2000", 160), (220, "1995", 220), (60, "2000", 60)],
+)
 def test_max_button_width_is_the_configured_width_or_the_looks_own(sizing, configured, look, expected):
     assert call(sizing, "maxButtonWidth", configured, look) == expected
 
 
 def test_tasks_applet_stores_the_max_button_width_with_zero_meaning_the_looks_own():
     kcfg = "{http://www.kde.org/standards/kcfg/1.0}"
-    entry = next(entry for entry in ElementTree.parse(TASKS_APPLET / "config/main.xml").iter(f"{kcfg}entry") if entry.get("name") == "maxButtonWidth")
+    entry = next(
+        entry
+        for entry in ElementTree.parse(TASKS_APPLET / "config/main.xml").iter(f"{kcfg}entry")
+        if entry.get("name") == "maxButtonWidth"
+    )
 
     assert (entry.get("type"), entry.findtext(f"{kcfg}default")) == ("Int", "0")
 

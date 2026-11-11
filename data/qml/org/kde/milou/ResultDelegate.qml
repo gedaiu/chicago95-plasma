@@ -26,8 +26,7 @@ PlasmaComponents3.ItemDelegate {
     property bool reversed: false
 
     readonly property bool isCurrent: ListView.isCurrentItem // cannot properly Connect {} to this
-    readonly property bool sectionHasChanged: (reversed && ListView.section != ListView.nextSection)
-                                           || (!reversed && ListView.section != ListView.previousSection)
+    readonly property bool sectionHasChanged: (reversed && ListView.section != ListView.nextSection) || (!reversed && ListView.section != ListView.previousSection)
 
     property int activeAction: -1
 
@@ -59,38 +58,38 @@ PlasmaComponents3.ItemDelegate {
 
     onIsCurrentChanged: {
         if (!isCurrent) {
-            activeAction = -1
+            activeAction = -1;
         }
     }
 
     function activateNextAction() {
         if (activeAction === actionsRepeater.count - 1) { // last action, do nothing
-            return false
+            return false;
         }
-        ++activeAction
-        return true
+        ++activeAction;
+        return true;
     }
 
     function activatePreviousAction() {
         if (activeAction < 0) { // no action, do nothing
-            return false
+            return false;
         }
-        --activeAction
-        return true
+        --activeAction;
+        return true;
     }
 
     function activateLastAction() {
-        activeAction = actionsRepeater.count - 1
+        activeAction = actionsRepeater.count - 1;
     }
 
     onClicked: {
-        resultDelegate.ListView.view.currentIndex = index
-        resultDelegate.ListView.view.runCurrentIndex()
+        resultDelegate.ListView.view.currentIndex = index;
+        resultDelegate.ListView.view.runCurrentIndex();
     }
 
     onHoveredChanged: {
         if (hovered) {
-            resultDelegate.ListView.view.currentIndex = index
+            resultDelegate.ListView.view.currentIndex = index;
         }
     }
 
@@ -100,7 +99,7 @@ PlasmaComponents3.ItemDelegate {
         target: labelLayout
         grabPermissions: PointerHandler.TakeOverForbidden
         onActiveChanged: if (active) {
-            typePixmap.grabToImage((result) => {
+            typePixmap.grabToImage(result => {
                 const mimeData = resultDelegate.ListView.view.model.getMimeData(resultDelegate.ListView.view.model.index(resultDelegate.index, 0));
                 if (!mimeData) {
                     return;
@@ -131,10 +130,7 @@ PlasmaComponents3.ItemDelegate {
             anchors.bottomMargin: Kirigami.Units.smallSpacing
             imagePath: "widgets/line"
             elementId: "horizontal-line"
-            visible: resultDelegate.sectionHasChanged
-                     && !resultDelegate.isCurrent
-                     && resultDelegate.index !== 0
-                     && resultDelegate.ListView.view.currentIndex !== (resultDelegate.index - indexModifier)
+            visible: resultDelegate.sectionHasChanged && !resultDelegate.isCurrent && resultDelegate.index !== 0 && resultDelegate.ListView.view.currentIndex !== (resultDelegate.index - indexModifier)
             opacity: 0.5
         }
 
@@ -265,11 +261,11 @@ PlasmaComponents3.ItemDelegate {
 
                     PlasmaComponents3.ToolTip {
                         text: {
-                            var text = modelData.text || ""
+                            var text = modelData.text || "";
                             if (index === 0) { // Shift+Return will invoke first action
-                                text = i18ndc("milou", "placeholder is action e.g. run in terminal, in parenthesis is shortcut", "%1 (Shift+Return)", text)
+                                text = i18ndc("milou", "placeholder is action e.g. run in terminal, in parenthesis is shortcut", "%1 (Shift+Return)", text);
                             }
-                            return text
+                            return text;
                         }
                     }
 

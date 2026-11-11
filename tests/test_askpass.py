@@ -2,9 +2,8 @@ import subprocess
 import sys
 
 import pytest
-from PySide6.QtWidgets import QDialog, QLineEdit
-
 from conftest import REPO, load_script
+from PySide6.QtWidgets import QDialog, QLineEdit
 
 
 @pytest.fixture(scope="session")
@@ -52,14 +51,22 @@ def test_main_prints_nothing_and_fails_when_cancelled(askpass, qt_app, capsys):
 
 def test_main_asks_a_plain_password_question_when_sudo_gives_none(askpass, qt_app):
     questions = []
-    askpass.main(["chicago95-askpass"], execute=lambda prompt: questions.append(prompt.question.text()) or prompt.cancel_button.click())
+    askpass.main(
+        ["chicago95-askpass"],
+        execute=lambda prompt: questions.append(prompt.question.text()) or prompt.cancel_button.click(),
+    )
 
     assert questions == ["Password:"]
 
 
 def test_screenshot_option_saves_a_picture_of_the_prompt(tmp_path):
     picture = tmp_path / "askpass.png"
-    result = subprocess.run([sys.executable, str(REPO / "bin/chicago95-askpass"), "--screenshot", str(picture)], capture_output=True, text=True, timeout=60,
-                            env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "QT_QPA_PLATFORM": "offscreen"})
+    result = subprocess.run(
+        [sys.executable, str(REPO / "bin/chicago95-askpass"), "--screenshot", str(picture)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "QT_QPA_PLATFORM": "offscreen"},
+    )
 
     assert (result.returncode, picture.stat().st_size > 0) == (0, True)

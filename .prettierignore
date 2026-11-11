@@ -1,0 +1,12 @@
+*.svg
+data/clippy/
+tests/references/
+docs/compare/
+test-output/
+report/
+# QML JavaScript libraries start with ".pragma library", which is not valid JavaScript
+plasmoids/org.chicago95.clock/contents/ui/clockFormat.js
+plasmoids/org.chicago95.tasks/contents/ui/launchers.js
+plasmoids/org.chicago95.tasks/contents/ui/quickLaunch.js
+plasmoids/org.chicago95.tasks/contents/ui/sizing.js
+splash/chicago95.splashscreen/contents/splash/settings.js

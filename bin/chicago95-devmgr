@@ -1,18 +1,36 @@
 #!/usr/bin/env python3
-import os, sys; sys.path[:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"), os.path.expanduser("~/.local/lib/chicago95")]; import chicago95ui  # noqa: E702
+import os
+import sys
 
+sys.path[:0] = [
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.expanduser("~/.local/lib/chicago95"),
+]
 import json
 import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
+import chicago95ui  # noqa: E702
 from PySide6.QtCore import QPoint, QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPolygon
 from PySide6.QtWidgets import (
-    QApplication, QButtonGroup, QDialog, QDialogButtonBox, QFormLayout, QGroupBox, QHBoxLayout,
-    QLabel, QPushButton, QRadioButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
+    QApplication,
+    QButtonGroup,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QRadioButton,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
 
 KUBECTL_TIMEOUT_SECONDS = 20
@@ -79,8 +97,8 @@ class ClusterSnapshot:
 def age_since(timestamp):
     if not timestamp:
         return "?"
-    created = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-    elapsed = datetime.now(timezone.utc) - created
+    created = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    elapsed = datetime.now(UTC) - created
     if elapsed.days >= 1:
         return f"{elapsed.days}d"
     hours, remainder = divmod(elapsed.seconds, 3600)
@@ -94,13 +112,15 @@ def parse_nodes(document):
         roles = sorted(key.split("/")[1] for key in labels if key.startswith("node-role.kubernetes.io/"))
         conditions = item["status"].get("conditions", [])
         ready = any(c["type"] == "Ready" and c["status"] == "True" for c in conditions)
-        nodes.append(Node(
-            name=item["metadata"]["name"],
-            roles=roles or ["worker"],
-            ready=ready,
-            kubelet_version=item["status"].get("nodeInfo", {}).get("kubeletVersion", "?"),
-            age=age_since(item["metadata"].get("creationTimestamp")),
-        ))
+        nodes.append(
+            Node(
+                name=item["metadata"]["name"],
+                roles=roles or ["worker"],
+                ready=ready,
+                kubelet_version=item["status"].get("nodeInfo", {}).get("kubeletVersion", "?"),
+                age=age_since(item["metadata"].get("creationTimestamp")),
+            )
+        )
     return nodes
 
 
@@ -121,18 +141,20 @@ def parse_pods(document):
         status = item["status"]
         container_statuses = status.get("containerStatuses", [])
         containers = item["spec"].get("containers", [])
-        pods.append(Pod(
-            name=item["metadata"]["name"],
-            namespace=item["metadata"]["namespace"],
-            node=item["spec"].get("nodeName", ""),
-            phase=status.get("phase", "Unknown"),
-            reason=status.get("reason") or waiting_reason(container_statuses),
-            restarts=sum(s.get("restartCount", 0) for s in container_statuses),
-            images=[c["image"] for c in containers],
-            containers_ready=sum(1 for s in container_statuses if s.get("ready")),
-            containers_total=len(containers),
-            age=age_since(item["metadata"].get("creationTimestamp")),
-        ))
+        pods.append(
+            Pod(
+                name=item["metadata"]["name"],
+                namespace=item["metadata"]["namespace"],
+                node=item["spec"].get("nodeName", ""),
+                phase=status.get("phase", "Unknown"),
+                reason=status.get("reason") or waiting_reason(container_statuses),
+                restarts=sum(s.get("restartCount", 0) for s in container_statuses),
+                images=[c["image"] for c in containers],
+                containers_ready=sum(1 for s in container_statuses if s.get("ready")),
+                containers_total=len(containers),
+                age=age_since(item["metadata"].get("creationTimestamp")),
+            )
+        )
     return pods
 
 
@@ -189,7 +211,10 @@ def pod_status_text(pod):
 def run_kubectl(*arguments):
     completed = subprocess.run(
         ["kubectl", "get", *arguments, "-o", "json"],
-        capture_output=True, text=True, timeout=KUBECTL_TIMEOUT_SECONDS, check=True,
+        capture_output=True,
+        text=True,
+        timeout=KUBECTL_TIMEOUT_SECONDS,
+        check=True,
     )
     return json.loads(completed.stdout)
 
@@ -266,7 +291,6 @@ def node_item(node):
     return make_item(label, "computer", badged=not node.ready, payload=node)
 
 
-
 def build_by_type(root, snapshot):
     nodes_category = make_item("Nodes", "computer")
     for node in snapshot.nodes:
@@ -278,7 +302,9 @@ def build_by_type(root, snapshot):
     namespaces = sorted({pod.namespace for pod in snapshot.pods})
     for namespace in namespaces:
         namespace_item = make_item(namespace, "folder")
-        pods_in_namespace = sorted((pod for pod in snapshot.pods if pod.namespace == namespace), key=lambda pod: pod.name)
+        pods_in_namespace = sorted(
+            (pod for pod in snapshot.pods if pod.namespace == namespace), key=lambda pod: pod.name
+        )
         for pod in pods_in_namespace:
             namespace_item.addChild(pod_item(pod))
         namespaces_category.addChild(namespace_item)
@@ -286,8 +312,12 @@ def build_by_type(root, snapshot):
     namespaces_category.setExpanded(any(not pod_is_healthy(pod) for pod in snapshot.pods))
     for index in range(namespaces_category.childCount()):
         namespace_item = namespaces_category.child(index)
-        namespace_item.setExpanded(any(not pod_is_healthy(namespace_item.child(pod_index).data(0, ITEM_ROLE))
-                                       for pod_index in range(namespace_item.childCount())))
+        namespace_item.setExpanded(
+            any(
+                not pod_is_healthy(namespace_item.child(pod_index).data(0, ITEM_ROLE))
+                for pod_index in range(namespace_item.childCount())
+            )
+        )
 
     services_category = make_item("Services", "network-wired")
     for service in sorted(snapshot.services, key=lambda s: (s.namespace, s.name))[:SERVICE_CAP]:
@@ -305,7 +335,9 @@ def build_by_type(root, snapshot):
 def build_by_connection(root, snapshot):
     for node in snapshot.nodes:
         item = node_item(node)
-        pods_on_node = sorted((pod for pod in snapshot.pods if pod.node == node.name), key=lambda pod: (pod.namespace, pod.name))
+        pods_on_node = sorted(
+            (pod for pod in snapshot.pods if pod.node == node.name), key=lambda pod: (pod.namespace, pod.name)
+        )
         for pod in pods_on_node:
             item.addChild(pod_item(pod))
         root.addChild(item)
@@ -398,7 +430,11 @@ class PropertiesDialog(QDialog):
 
         status_group = QGroupBox("Device status")
         status_layout = QVBoxLayout(status_group)
-        message = "This device is working properly." if healthy else f"This device is not working properly. (Code 10)\n{status_text}"
+        message = (
+            "This device is working properly."
+            if healthy
+            else f"This device is not working properly. (Code 10)\n{status_text}"
+        )
         status_label = QLabel(message)
         status_label.setWordWrap(True)
         status_layout.addWidget(status_label)

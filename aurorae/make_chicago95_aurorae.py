@@ -12,6 +12,7 @@ The sizes are the originals' (tests/test_window_reference.py): a 4px frame, an 1
 caption buttons 2px below its top, minimize and maximize side by side, close 2px further right and 2px
 in from the title's end, the window icon 16px square 1px below the title's top.
 """
+
 import argparse
 from pathlib import Path
 
@@ -26,8 +27,11 @@ parser.add_argument("--face", default="#C0C0C0")
 parser.add_argument("--light", default="#DFDFDF", help="the outer light line (the face itself on 2000)")
 parser.add_argument("--shadow", default="#808080")
 parser.add_argument("--dark", default="#000000", help="the outer shadow line (#404040 on 2000)")
-parser.add_argument("--gradient-margins", default="0,0",
-                    help="LEFT,RIGHT: pixels at each end of the title that keep the end colours (2000: 18,52, the icon and the buttons)")
+parser.add_argument(
+    "--gradient-margins",
+    default="0,0",
+    help="LEFT,RIGHT: pixels at each end of the title that keep the end colours (2000: 18,52, the icon and the buttons)",
+)
 args = parser.parse_args()
 
 OUT = args.out
@@ -57,10 +61,14 @@ def title_paint(prefix, colors):
         return "", colors[0]
     gradient_id = f"{prefix}title-gradient"
     start, end = MARGIN_LEFT / TYPICAL_TITLE, 1 - MARGIN_RIGHT / TYPICAL_TITLE
-    stops = "".join(f'<stop offset="{start + (end - start) * index / (len(colors) - 1):g}" stop-color="{color}"/>'
-                    for index, color in enumerate(colors))
-    return (f'<defs><linearGradient id="{gradient_id}" x1="0" y1="0" x2="1" y2="0">{stops}</linearGradient></defs>',
-            f"url(#{gradient_id})")
+    stops = "".join(
+        f'<stop offset="{start + (end - start) * index / (len(colors) - 1):g}" stop-color="{color}"/>'
+        for index, color in enumerate(colors)
+    )
+    return (
+        f'<defs><linearGradient id="{gradient_id}" x1="0" y1="0" x2="1" y2="0">{stops}</linearGradient></defs>',
+        f"url(#{gradient_id})",
+    )
 
 
 def frame_pieces(prefix, title_colors, x0):
@@ -69,6 +77,7 @@ def frame_pieces(prefix, title_colors, x0):
     def color(px, py):
         def interior(ix, iy):
             return TITLE_FILL if BORDER <= iy < TOP_H else FACE
+
         return ring_color(px, py, FRAME, RAISED_4, interior)
 
     def piece(name, fx, fy, w, h):
@@ -76,41 +85,66 @@ def frame_pieces(prefix, title_colors, x0):
         return f'<g id="{prefix}{name}">{body.replace(TITLE_FILL, title_fill)}</g>'
 
     b, s = BORDER, FRAME
-    return defs + "\n".join([
-        piece("topleft", 0, 0, b, TOP_H),
-        piece("top", b, 0, s - 2 * b, TOP_H),
-        piece("topright", s - b, 0, b, TOP_H),
-        piece("left", 0, TOP_H, b, s - TOP_H - b),
-        piece("right", s - b, TOP_H, b, s - TOP_H - b),
-        piece("bottomleft", 0, s - b, b, b),
-        piece("bottom", b, s - b, s - 2 * b, b),
-        piece("bottomright", s - b, s - b, b, b),
-        piece("center", b, TOP_H, s - 2 * b, s - TOP_H - b),
-        # KWin repeats the edges at their own size unless told to stretch them: the title's gradient
-        # must run once across the whole band.
-        f'<rect id="{prefix}hint-stretch-borders" x="{x0}" y="0" width="1" height="1" fill="none"/>',
-    ])
+    return defs + "\n".join(
+        [
+            piece("topleft", 0, 0, b, TOP_H),
+            piece("top", b, 0, s - 2 * b, TOP_H),
+            piece("topright", s - b, 0, b, TOP_H),
+            piece("left", 0, TOP_H, b, s - TOP_H - b),
+            piece("right", s - b, TOP_H, b, s - TOP_H - b),
+            piece("bottomleft", 0, s - b, b, b),
+            piece("bottom", b, s - b, s - 2 * b, b),
+            piece("bottomright", s - b, s - b, b, b),
+            piece("center", b, TOP_H, s - 2 * b, s - TOP_H - b),
+            # KWin repeats the edges at their own size unless told to stretch them: the title's gradient
+            # must run once across the whole band.
+            f'<rect id="{prefix}hint-stretch-borders" x="{x0}" y="0" width="1" height="1" fill="none"/>',
+        ]
+    )
 
 
-(OUT / "decoration.svg").write_text(svg(
-    2 * FRAME + 8, FRAME,
-    frame_pieces("decoration-", ACTIVE_TITLE, 0) + "\n" + frame_pieces("decoration-inactive-", INACTIVE_TITLE, FRAME + 8)))
+(OUT / "decoration.svg").write_text(
+    svg(
+        2 * FRAME + 8,
+        FRAME,
+        frame_pieces("decoration-", ACTIVE_TITLE, 0)
+        + "\n"
+        + frame_pieces("decoration-inactive-", INACTIVE_TITLE, FRAME + 8),
+    )
+)
 
 
 def button_face(pressed):
     tl1, br1, tl2, br2 = (DARK, HILIGHT, SHADOW, LIGHT) if pressed else (HILIGHT, DARK, LIGHT, SHADOW)
     w, h, y = BTN_W, FACE_H, BTN_H - FACE_H - 1
-    return (rect(0, y, w, h, FACE)
-            + rect(0, y, w, 1, tl1) + rect(0, y, 1, h, tl1)
-            + rect(0, y + h - 1, w, 1, br1) + rect(w - 1, y, 1, h, br1)
-            + rect(1, y + 1, w - 2, 1, tl2) + rect(1, y + 1, 1, h - 2, tl2)
-            + rect(1, y + h - 2, w - 2, 1, br2) + rect(w - 2, y + 1, 1, h - 2, br2))
+    return (
+        rect(0, y, w, h, FACE)
+        + rect(0, y, w, 1, tl1)
+        + rect(0, y, 1, h, tl1)
+        + rect(0, y + h - 1, w, 1, br1)
+        + rect(w - 1, y, 1, h, br1)
+        + rect(1, y + 1, w - 2, 1, tl2)
+        + rect(1, y + 1, 1, h - 2, tl2)
+        + rect(1, y + h - 2, w - 2, 1, br2)
+        + rect(w - 2, y + 1, 1, h - 2, br2)
+    )
 
 
 # Glyphs as (x, y, width, height) runs on the 16x14 face, measured from the originals' buttons.
 GLYPHS = {
-    "close": [(4, 3, 2, 1), (10, 3, 2, 1), (5, 4, 2, 1), (9, 4, 2, 1), (6, 5, 4, 1), (7, 6, 2, 1),
-              (6, 7, 4, 1), (5, 8, 2, 1), (9, 8, 2, 1), (4, 9, 2, 1), (10, 9, 2, 1)],
+    "close": [
+        (4, 3, 2, 1),
+        (10, 3, 2, 1),
+        (5, 4, 2, 1),
+        (9, 4, 2, 1),
+        (6, 5, 4, 1),
+        (7, 6, 2, 1),
+        (6, 7, 4, 1),
+        (5, 8, 2, 1),
+        (9, 8, 2, 1),
+        (4, 9, 2, 1),
+        (10, 9, 2, 1),
+    ],
     "minimize": [(4, 9, 6, 2)],
     "maximize": [(3, 2, 9, 2), (3, 2, 1, 9), (11, 2, 1, 9), (3, 10, 9, 1)],
     "restore": [(5, 1, 6, 2), (10, 1, 1, 6), (8, 6, 3, 1), (2, 4, 6, 2), (2, 4, 1, 6), (7, 4, 1, 6), (2, 9, 6, 1)],
@@ -149,8 +183,10 @@ def button_svg(kind):
             body += glyph(kind, HILIGHT, 1, 1)
         body += glyph(kind, color, shift, shift)
         cell = BTN_W + gap + 4
-        groups.append(f'<g id="{element_id}" transform="translate({idx * cell},0)">'
-                      f'{rect(0, 0, gap + BTN_W, BTN_H, "none")}<g transform="translate({gap},0)">{body}</g></g>')
+        groups.append(
+            f'<g id="{element_id}" transform="translate({idx * cell},0)">'
+            f'{rect(0, 0, gap + BTN_W, BTN_H, "none")}<g transform="translate({gap},0)">{body}</g></g>'
+        )
     return svg(len(states) * (BTN_W + gap + 4), BTN_H, "\n".join(groups))
 
 
@@ -163,7 +199,7 @@ for name in ["close", "minimize", "maximize", "restore", "help", "alldesktops", 
 # begins most capitals; tests/test_plasma_window_reference.py.
 (OUT / "Chicago95rc").write_text(f"""[General]
 ActiveTextColor=255,255,255,255
-InactiveTextColor={",".join(str(int(args.inactive_text.lstrip("#")[i:i + 2], 16)) for i in (0, 2, 4))},255
+InactiveTextColor={",".join(str(int(args.inactive_text.lstrip("#")[i : i + 2], 16)) for i in (0, 2, 4))},255
 TitleAlignment=Left
 TitleVerticalAlignment=Center
 Animation=0

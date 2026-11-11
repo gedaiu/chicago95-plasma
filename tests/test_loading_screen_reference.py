@@ -4,36 +4,33 @@ The OS logo and the product name are the user's and are masked; the page, the st
 progress bar and the two text lines must match pixel for pixel, and the mark's generated frames behind
 the logo must match in colour block by block (the original dithers them to 256 colours).
 """
+
 import shutil
-from pathlib import Path
 
 import pytest
-
-from conftest import needs_ui_font
-
-from conftest import REPO
+from conftest import REPO, needs_ui_font
 from reference import bounding_box, close, differing_pixels, qimage_to_pil, screenshot
 
 SPLASH = REPO / "splash/chicago95.splashscreen/contents/splash"
-LOGO_AND_NAME = (100, 20, 560, 365)        # masked: the original's logo, wordmark and edition
-MICROSOFT_MARK = (500, 0, 640, 50)         # masked: the original's corner wordmark
+LOGO_AND_NAME = (100, 20, 560, 365)  # masked: the original's logo, wordmark and edition
+MICROSOFT_MARK = (500, 0, 640, 50)  # masked: the original's corner wordmark
 TENTH_BLOCK = (273 + 1 + 9 * 9, 437, 273 + 1 + 9 * 10, 445)  # the original shows one block more than stage 3 draws
 LOADING_TEXT_BOX = (201, 437, 266, 446)
 FOOTER_BOX = (196, 458, 442, 468)
 # The screenshot has 256 colours: where the strip shades from bright blue to navy it is dithered.
 DITHERED_STRIP = (140, 414, 262, 428)
-LETTER_SHAPE_SLACK = 1                     # our pixel font against the original's Tahoma
-MARK = (264, 44, 476, 240)                 # the framed squares behind the logo
-FLAG = (296, 66, 446, 190)                 # the logo inside the frame, left out of the frames' comparison
+LETTER_SHAPE_SLACK = 1  # our pixel font against the original's Tahoma
+MARK = (264, 44, 476, 240)  # the framed squares behind the logo
+FLAG = (296, 66, 446, 190)  # the logo inside the frame, left out of the frames' comparison
 BLOCK = 6
-BLOCK_TOLERANCE = 40                       # per colour channel, between block averages
+BLOCK_TOLERANCE = 40  # per colour channel, between block averages
 # Where each line of lettering is searched for: (left, top, right, bottom).
 NAME_LINE = (130, 258, 560, 303)
 EDITION_LINE = (250, 304, 560, 341)
 TAGLINE_LINE = (300, 343, 560, 362)
 COMPANY_LINE = (110, 236, 250, 257)
 CORNER = (450, 5, 639, 40)
-LETTERING_SLACK = 3                        # Arial emboldened against the original's own typefaces
+LETTERING_SLACK = 3  # Arial emboldened against the original's own typefaces
 
 
 @pytest.fixture(scope="module")
@@ -45,11 +42,21 @@ def render_splash(qt_app, folder, **settings):
     """Our loading screen at stage 3 of 6, 640x480, with the given settings.js values."""
     from PySide6.QtCore import QTimer, QUrl
     from PySide6.QtQuick import QQuickView
+
     shutil.copytree(SPLASH, folder, dirs_exist_ok=True)
-    values = {"style": "2000", "brandText": "Chicago95", "brandLogo": "", "edition": "Professional",
-              "loadingText": "Starting up...", "footer": "Copyright © 1985-1999 Microsoft Corporation", "picture": "",
-              **settings}
-    (folder / "settings.js").write_text(".pragma library\n" + "".join(f'var {key} = "{value}"\n' for key, value in values.items()))
+    values = {
+        "style": "2000",
+        "brandText": "Chicago95",
+        "brandLogo": "",
+        "edition": "Professional",
+        "loadingText": "Starting up...",
+        "footer": "Copyright © 1985-1999 Microsoft Corporation",
+        "picture": "",
+        **settings,
+    }
+    (folder / "settings.js").write_text(
+        ".pragma library\n" + "".join(f'var {key} = "{value}"\n' for key, value in values.items())
+    )
     view = QQuickView()
     view.setResizeMode(QQuickView.SizeRootObjectToView)
     view.resize(640, 480)
@@ -72,8 +79,13 @@ def ours(qt_app, tmp_path_factory):
 @pytest.fixture(scope="module")
 def lettered(qt_app, tmp_path_factory):
     """Ours with the original's own texts, so the lettering can be measured against it."""
-    return render_splash(qt_app, tmp_path_factory.mktemp("lettered"), brandText="Windows 2000",
-                         company="Microsoft", tagline="Built on NT Technology")
+    return render_splash(
+        qt_app,
+        tmp_path_factory.mktemp("lettered"),
+        brandText="Windows 2000",
+        company="Microsoft",
+        tagline="Built on NT Technology",
+    )
 
 
 def block_average(image, x, y):
@@ -107,15 +119,21 @@ def test_page_strip_and_bar_match_the_original_outside_logo_and_name(reference, 
 
 
 def test_mark_frames_match_the_original_within_40_levels_per_6px_block(reference, ours):
-    blocks = [(x, y) for y in range(MARK[1], MARK[3], BLOCK) for x in range(MARK[0], MARK[2], BLOCK) if outside_flag(x, y)]
-    differing = [(x, y) for x, y in blocks
-                 if max(abs(a - b) for a, b in zip(block_average(reference, x, y), block_average(ours, x, y))) > BLOCK_TOLERANCE]
+    blocks = [
+        (x, y) for y in range(MARK[1], MARK[3], BLOCK) for x in range(MARK[0], MARK[2], BLOCK) if outside_flag(x, y)
+    ]
+    differing = [
+        (x, y)
+        for x, y in blocks
+        if max(abs(a - b) for a, b in zip(block_average(reference, x, y), block_average(ours, x, y))) > BLOCK_TOLERANCE
+    ]
     assert differing == []
 
 
 def test_progress_bar_is_165_by_10_at_273_436(reference, ours):
     def bar(image):
-        return bounding_box(image, lambda c: close(c, (0x7d, 0x81, 0x96), 20), (260, 450), (430, 450))
+        return bounding_box(image, lambda c: close(c, (0x7D, 0x81, 0x96), 20), (260, 450), (430, 450))
+
     assert bar(ours)[:2] == bar(reference)[:2] == (273, 436)
 
 

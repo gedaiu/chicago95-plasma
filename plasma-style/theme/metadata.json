@@ -1,7 +1,7 @@
 {
   "KPackageStructure": "Plasma/Theme",
   "KPlugin": {
-    "Authors": [{"Name": "Bending Unit 22"}],
+    "Authors": [{ "Name": "Bending Unit 22" }],
     "Category": "Plasma Theme",
     "Description": "Chicago95 taskbar and widgets, built on React Plus",
     "Id": "Chicago95",

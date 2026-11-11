@@ -11,30 +11,34 @@ Rectangle {
     readonly property bool modern: config.loginStyle === "2000"
     color: modern ? "#3A6EA5" : "#008080"
 
-    readonly property int pixelScale: config.scale > 0 ? config.scale
-                                      : Math.max(1, Math.floor(Math.min(width / 640, height / 720)))
+    readonly property int pixelScale: config.scale > 0 ? config.scale : Math.max(1, Math.floor(Math.min(width / 640, height / 720)))
     readonly property string uiFamily: uiFont.status === FontLoader.Ready ? uiFont.name : "sans-serif"
     property int sessionIndex: Math.max(0, sessionModel.lastIndex)
     property bool showOptions: false
 
-    FontLoader { id: uiFont; source: "MSW98UI-Regular.otf" }
-    TextConstants { id: textConstants }
+    FontLoader {
+        id: uiFont
+        source: "MSW98UI-Regular.otf"
+    }
+    TextConstants {
+        id: textConstants
+    }
 
     function logIn() {
         if (userField.text === "") {
-            userField.forceActiveFocus()
-            return
+            userField.forceActiveFocus();
+            return;
         }
-        failure.text = ""
-        sddm.login(userField.text, passwordField.text, sessionIndex)
+        failure.text = "";
+        sddm.login(userField.text, passwordField.text, sessionIndex);
     }
 
     Connections {
         target: sddm
         function onLoginFailed() {
-            failure.text = "The password is incorrect. Try again."
-            passwordField.text = ""
-            passwordField.forceActiveFocus()
+            failure.text = "The password is incorrect. Try again.";
+            passwordField.text = "";
+            passwordField.forceActiveFocus();
         }
     }
 
@@ -75,7 +79,7 @@ Rectangle {
         id: button
         property alias label: caption.text
         property bool held: mouse.pressed && mouse.containsMouse
-        signal clicked()
+        signal clicked
         width: 75
         height: 23
         style: held ? "pressed" : "raised"
@@ -96,7 +100,11 @@ Rectangle {
             border.color: "#000000"
             opacity: 0.6
         }
-        MouseArea { id: mouse; anchors.fill: parent; onClicked: button.clicked() }
+        MouseArea {
+            id: mouse
+            anchors.fill: parent
+            onClicked: button.clicked()
+        }
         Keys.onSpacePressed: button.clicked()
         Keys.onReturnPressed: button.clicked()
     }
@@ -112,7 +120,8 @@ Rectangle {
         style: "sunken"
         Column {
             id: column
-            x: 2; y: 2
+            x: 2
+            y: 2
             width: parent.width - 4
             Repeater {
                 model: popup.names
@@ -130,7 +139,10 @@ Rectangle {
                         id: pick
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: { popup.visible = false; popup.picked(index) }
+                        onClicked: {
+                            popup.visible = false;
+                            popup.picked(index);
+                        }
                     }
                 }
             }
@@ -140,8 +152,10 @@ Rectangle {
     // The arrow button inside a dropdown's right edge.
     component ArrowButton: Bevel {
         property bool open
-        x: parent.width - 2 - width; y: 2
-        width: 16; height: parent.height - 4
+        x: parent.width - 2 - width
+        y: 2
+        width: 16
+        height: parent.height - 4
         style: open ? "pressed" : "window"
         // A black arrow, rows 7, 5, 3 and 1 pixels wide.
         Item {
@@ -149,7 +163,13 @@ Rectangle {
             y: Math.floor((parent.height - 4) / 2) + (parent.open ? 1 : 0)
             Repeater {
                 model: 4
-                Rectangle { x: index; y: index; width: 7 - 2 * index; height: 1; color: "#000000" }
+                Rectangle {
+                    x: index
+                    y: index
+                    width: 7 - 2 * index
+                    height: 1
+                    color: "#000000"
+                }
             }
         }
     }
@@ -159,13 +179,14 @@ Rectangle {
         id: check
         property bool checked
         property alias label: caption.text
-        signal toggled()
+        signal toggled
         width: caption.x + caption.implicitWidth + 2
         height: 13
         activeFocusOnTab: true
         Keys.onSpacePressed: check.toggled()
         Bevel {
-            width: 13; height: 13
+            width: 13
+            height: 13
             style: "sunken"
             Repeater {
                 // The check mark, one run of pixels per row: [first column, last column].
@@ -175,19 +196,37 @@ Rectangle {
                     y: 3 + index
                     Repeater {
                         model: parent.runs.length / 2
-                        Rectangle { x: 3 + parent.runs[index * 2]; width: parent.runs[index * 2 + 1] - parent.runs[index * 2] + 1; height: 1; color: "#000000" }
+                        Rectangle {
+                            x: 3 + parent.runs[index * 2]
+                            width: parent.runs[index * 2 + 1] - parent.runs[index * 2] + 1
+                            height: 1
+                            color: "#000000"
+                        }
                     }
                 }
             }
         }
-        RetroLabel { id: caption; x: 17; anchors.verticalCenter: parent.verticalCenter }
+        RetroLabel {
+            id: caption
+            x: 17
+            anchors.verticalCenter: parent.verticalCenter
+        }
         // The classic dotted focus rectangle, around the label.
         Rectangle {
             visible: check.activeFocus
-            x: caption.x - 1; y: caption.y - 1; width: caption.implicitWidth + 2; height: caption.implicitHeight + 2
-            color: "transparent"; border.width: 1; border.color: "#000000"; opacity: 0.6
+            x: caption.x - 1
+            y: caption.y - 1
+            width: caption.implicitWidth + 2
+            height: caption.implicitHeight + 2
+            color: "transparent"
+            border.width: 1
+            border.color: "#000000"
+            opacity: 0.6
         }
-        MouseArea { anchors.fill: parent; onClicked: check.toggled() }
+        MouseArea {
+            anchors.fill: parent
+            onClicked: check.toggled()
+        }
     }
 
     // A dropdown drawn like the Shut Down dialog's: a sunken white field with the choice in it and an
@@ -201,8 +240,10 @@ Rectangle {
         activeFocusOnTab: true
         z: list.visible ? 2 : 0
         Keys.onSpacePressed: list.visible = !list.visible
-        Keys.onUpPressed: if (currentIndex > 0) activated(currentIndex - 1)
-        Keys.onDownPressed: if (currentIndex + 1 < names.length) activated(currentIndex + 1)
+        Keys.onUpPressed: if (currentIndex > 0)
+            activated(currentIndex - 1)
+        Keys.onDownPressed: if (currentIndex + 1 < names.length)
+            activated(currentIndex + 1)
         Keys.onEscapePressed: list.visible = false
         onVisibleChanged: list.visible = false
         RetroLabel {
@@ -212,30 +253,56 @@ Rectangle {
             elide: Text.ElideRight
             text: combo.names[combo.currentIndex] || ""
         }
-        ArrowButton { open: list.visible }
-        MouseArea { anchors.fill: parent; onClicked: list.visible = !list.visible }
-        PopupList { id: list; y: parent.height; width: parent.width; names: combo.names; onPicked: index => combo.activated(index) }
+        ArrowButton {
+            open: list.visible
+        }
+        MouseArea {
+            anchors.fill: parent
+            onClicked: list.visible = !list.visible
+        }
+        PopupList {
+            id: list
+            y: parent.height
+            width: parent.width
+            names: combo.names
+            onPicked: index => combo.activated(index)
+        }
     }
 
     // The session names, and the keyboard layouts when there is more than one to pick from.
-    Repeater { id: sessionRepeater; model: sessionModel; delegate: Item { property string name: model.name } }
+    Repeater {
+        id: sessionRepeater
+        model: sessionModel
+        delegate: Item {
+            property string name: model.name
+        }
+    }
     readonly property var sessionNames: {
-        const names = []
-        for (let index = 0; index < sessionRepeater.count; index++) names.push(sessionRepeater.itemAt(index).name)
-        return names
+        const names = [];
+        for (let index = 0; index < sessionRepeater.count; index++)
+            names.push(sessionRepeater.itemAt(index).name);
+        return names;
     }
     readonly property var layoutNames: {
-        const names = []
-        const layouts = typeof keyboard !== "undefined" && keyboard ? keyboard.layouts : []
-        for (let index = 0; index < layouts.length; index++) names.push(layouts[index].longName)
-        return names
+        const names = [];
+        const layouts = typeof keyboard !== "undefined" && keyboard ? keyboard.layouts : [];
+        for (let index = 0; index < layouts.length; index++)
+            names.push(layouts[index].longName);
+        return names;
     }
     readonly property bool canPickLayout: modern && layoutNames.length > 1
-    Repeater { id: userRepeater; model: userModel; delegate: Item { property string name: model.name } }
+    Repeater {
+        id: userRepeater
+        model: userModel
+        delegate: Item {
+            property string name: model.name
+        }
+    }
     readonly property var userNames: {
-        const names = []
-        for (let index = 0; index < userRepeater.count; index++) names.push(userRepeater.itemAt(index).name)
-        return names
+        const names = [];
+        for (let index = 0; index < userRepeater.count; index++)
+            names.push(userRepeater.itemAt(index).name);
+        return names;
     }
     readonly property bool hasKeyboard: typeof keyboard !== "undefined" && !!keyboard
     property bool showPassword: false
@@ -245,7 +312,11 @@ Rectangle {
     // Num Lock and Show password check boxes, which sit where the original's dial-up box does.
     readonly property int optionRows: showOptions ? 2 + (canPickLayout ? 1 : 0) : 0
     readonly property int checkRow: canPickLayout ? 4 : 3
-    Shortcut { sequence: "Alt+O"; enabled: root.modern; onActivated: root.showOptions = !root.showOptions }
+    Shortcut {
+        sequence: "Alt+O"
+        enabled: root.modern
+        onActivated: root.showOptions = !root.showOptions
+    }
 
     Bevel {
         id: dialog
@@ -269,23 +340,37 @@ Rectangle {
         readonly property int rowHeight: root.modern ? 20 : 21
         readonly property int firstRowY: root.modern ? 130 : 56
         readonly property int rowPitch: root.modern ? 27 : 28
-        function rowY(row) { return firstRowY + row * rowPitch }
-        function besideRow(row) { return rowY(row) + (rowHeight - 23) / 2 }
+        function rowY(row) {
+            return firstRowY + row * rowPitch;
+        }
+        function besideRow(row) {
+            return rowY(row) + (rowHeight - 23) / 2;
+        }
         readonly property int bottomButtonsY: height - 37
 
         Rectangle {
             id: titleBar
-            x: 3; y: 3
+            x: 3
+            y: 3
             width: parent.width - 6
             height: 18
             // The colour scheme's selection colour (navy in the classic schemes); theme.conf can pin
             // a colour, or start,end for a gradient, with titleActive.
-            SystemPalette { id: scheme; colorGroup: SystemPalette.Active }
+            SystemPalette {
+                id: scheme
+                colorGroup: SystemPalette.Active
+            }
             readonly property var colors: config.titleActive ? String(config.titleActive).split(",") : [scheme.highlight]
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0; color: titleBar.colors[0] }
-                GradientStop { position: 1; color: titleBar.colors[titleBar.colors.length - 1] }
+                GradientStop {
+                    position: 0
+                    color: titleBar.colors[0]
+                }
+                GradientStop {
+                    position: 1
+                    color: titleBar.colors[titleBar.colors.length - 1]
+                }
             }
             RetroLabel {
                 x: 4
@@ -296,16 +381,32 @@ Rectangle {
             }
         }
 
-        Image { visible: !root.modern; x: 14; y: 30; width: 48; height: 48; source: config.loginIcon || "key.svg"; sourceSize.width: 192; sourceSize.height: 192 }
+        Image {
+            visible: !root.modern
+            x: 14
+            y: 30
+            width: 48
+            height: 48
+            source: config.loginIcon || "key.svg"
+            sourceSize.width: 192
+            sourceSize.height: 192
+        }
 
-        RetroLabel { visible: !root.modern; x: dialog.labelX; y: 32; text: config.loginMessage || "Type a user name and password to log on." }
+        RetroLabel {
+            visible: !root.modern
+            x: dialog.labelX
+            y: 32
+            text: config.loginMessage || "Type a user name and password to log on."
+        }
 
         // 2000: the product banner under the title bar. Setup draws it (chicago95-shutdown --login-banner,
         // the Shut Down banner's code) with the user's logo and texts, 4 times the original's pixels.
         Image {
             visible: root.modern
-            x: 3; y: 22
-            width: 411; height: 93
+            x: 3
+            y: 22
+            width: 411
+            height: 93
             source: root.modern ? "brand-banner.png" : ""
             sourceSize.width: 411 * 4
             sourceSize.height: 93 * 4
@@ -313,11 +414,17 @@ Rectangle {
             mipmap: true
         }
 
-        RetroLabel { x: dialog.labelX; anchors.verticalCenter: userField.verticalCenter; text: "User name:" }
+        RetroLabel {
+            x: dialog.labelX
+            anchors.verticalCenter: userField.verticalCenter
+            text: "User name:"
+        }
         RetroField {
             id: userField
-            x: dialog.fieldX; y: dialog.rowY(0)
-            width: dialog.fieldWidth; height: dialog.rowHeight
+            x: dialog.fieldX
+            y: dialog.rowY(0)
+            width: dialog.fieldWidth
+            height: dialog.rowHeight
             text: userModel.lastUser
             KeyNavigation.tab: passwordField.input
             arrowSpace: root.userNames.length > 0 ? 18 : 0
@@ -325,24 +432,37 @@ Rectangle {
             ArrowButton {
                 visible: root.userNames.length > 0
                 open: userList.visible
-                MouseArea { anchors.fill: parent; onClicked: userList.visible = !userList.visible }
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: userList.visible = !userList.visible
+                }
             }
             PopupList {
                 id: userList
                 y: parent.height
                 width: parent.width
                 names: root.userNames
-                onPicked: index => { userField.text = root.userNames[index]; passwordField.input.forceActiveFocus() }
+                onPicked: index => {
+                    userField.text = root.userNames[index];
+                    passwordField.input.forceActiveFocus();
+                }
             }
-            Keys.onDownPressed: if (root.userNames.length > 0) userList.visible = true
+            Keys.onDownPressed: if (root.userNames.length > 0)
+                userList.visible = true
             Keys.onEscapePressed: userList.visible = false
         }
 
-        RetroLabel { x: dialog.labelX; anchors.verticalCenter: passwordField.verticalCenter; text: "Password:" }
+        RetroLabel {
+            x: dialog.labelX
+            anchors.verticalCenter: passwordField.verticalCenter
+            text: "Password:"
+        }
         RetroField {
             id: passwordField
-            x: dialog.fieldX; y: dialog.rowY(1)
-            width: dialog.fieldWidth; height: dialog.rowHeight
+            x: dialog.fieldX
+            y: dialog.rowY(1)
+            width: dialog.fieldWidth
+            height: dialog.rowHeight
             echoMode: root.showPassword ? TextInput.Normal : TextInput.Password
             KeyNavigation.tab: okButton
         }
@@ -350,30 +470,54 @@ Rectangle {
         Rectangle {
             visible: root.hasKeyboard && keyboard.capsLock && passwordField.input.activeFocus
             z: 3
-            x: passwordField.x + 10; y: passwordField.y + passwordField.height + 6
-            width: 230; height: capsText.y + capsText.implicitHeight + 6
+            x: passwordField.x + 10
+            y: passwordField.y + passwordField.height + 6
+            width: 230
+            height: capsText.y + capsText.implicitHeight + 6
             color: "#ffffe1"
             border.color: "#000000"
             radius: 6
             Canvas {  // the tail pointing at the password field
-                x: 14; y: -7; width: 12; height: 8
+                x: 14
+                y: -7
+                width: 12
+                height: 8
                 onPaint: {
-                    const context = getContext("2d")
-                    context.fillStyle = "#ffffe1"; context.strokeStyle = "#000000"; context.lineWidth = 1
-                    context.beginPath(); context.moveTo(0.5, 8); context.lineTo(0.5, 0.5); context.lineTo(11.5, 8); context.fill(); context.stroke()
+                    const context = getContext("2d");
+                    context.fillStyle = "#ffffe1";
+                    context.strokeStyle = "#000000";
+                    context.lineWidth = 1;
+                    context.beginPath();
+                    context.moveTo(0.5, 8);
+                    context.lineTo(0.5, 0.5);
+                    context.lineTo(11.5, 8);
+                    context.fill();
+                    context.stroke();
                 }
             }
-            RetroLabel { id: capsTitle; x: 8; y: 6; font.bold: true; text: "Caps Lock is On" }
+            RetroLabel {
+                id: capsTitle
+                x: 8
+                y: 6
+                font.bold: true
+                text: "Caps Lock is On"
+            }
             RetroLabel {
                 id: capsText
-                x: 8; y: capsTitle.y + capsTitle.implicitHeight + 4
+                x: 8
+                y: capsTitle.y + capsTitle.implicitHeight + 4
                 width: parent.width - 16
                 wrapMode: Text.WordWrap
                 text: "Having Caps Lock on may cause you to enter your password incorrectly."
             }
         }
 
-        RetroLabel { id: failure; x: dialog.labelX; y: root.modern ? dialog.bottomButtonsY + 5 : dialog.rowY(3) + 4; color: "#800000" }
+        RetroLabel {
+            id: failure
+            x: dialog.labelX
+            y: root.modern ? dialog.bottomButtonsY + 5 : dialog.rowY(3) + 4
+            color: "#800000"
+        }
 
         RetroButton {
             id: okButton
@@ -391,10 +535,10 @@ Rectangle {
             label: "Cancel"
             KeyNavigation.tab: root.modern ? shutDownButton : sessionCombo
             onClicked: {
-                passwordField.text = ""
-                failure.text = ""
-                userField.input.selectAll()
-                userField.input.forceActiveFocus()
+                passwordField.text = "";
+                failure.text = "";
+                userField.input.selectAll();
+                userField.input.forceActiveFocus();
             }
         }
 
@@ -402,7 +546,8 @@ Rectangle {
         RetroButton {
             id: shutDownButton
             visible: root.modern
-            x: 248; y: dialog.bottomButtonsY
+            x: 248
+            y: dialog.bottomButtonsY
             label: "Shutdown..."
             KeyNavigation.tab: optionsButton
             onClicked: powerList.visible = !powerList.visible
@@ -410,7 +555,8 @@ Rectangle {
         RetroButton {
             id: optionsButton
             visible: root.modern
-            x: 329; y: dialog.bottomButtonsY
+            x: 329
+            y: dialog.bottomButtonsY
             label: root.showOptions ? "Options <<" : "Options >>"
             KeyNavigation.tab: sessionCombo.visible ? sessionCombo : userField.input
             onClicked: root.showOptions = !root.showOptions
@@ -421,30 +567,61 @@ Rectangle {
             y: shutDownButton.y + shutDownButton.height
             width: 100
             // Stand by and Hibernate only where the machine can do them.
-            readonly property var choices: [{ name: "Shut down", run: () => sddm.powerOff() }, { name: "Restart", run: () => sddm.reboot() }]
-                .concat(sddm.canSuspend ? [{ name: "Stand by", run: () => sddm.suspend() }] : [])
-                .concat(sddm.canHibernate ? [{ name: "Hibernate", run: () => sddm.hibernate() }] : [])
+            readonly property var choices: [
+                {
+                    name: "Shut down",
+                    run: () => sddm.powerOff()
+                },
+                {
+                    name: "Restart",
+                    run: () => sddm.reboot()
+                }
+            ].concat(sddm.canSuspend ? [
+                {
+                    name: "Stand by",
+                    run: () => sddm.suspend()
+                }
+            ] : []).concat(sddm.canHibernate ? [
+                {
+                    name: "Hibernate",
+                    run: () => sddm.hibernate()
+                }
+            ] : [])
             names: choices.map(choice => choice.name)
             onPicked: index => choices[index].run()
         }
 
-        RetroLabel { visible: sessionCombo.visible; x: dialog.labelX; anchors.verticalCenter: sessionCombo.verticalCenter; text: "Session:" }
+        RetroLabel {
+            visible: sessionCombo.visible
+            x: dialog.labelX
+            anchors.verticalCenter: sessionCombo.verticalCenter
+            text: "Session:"
+        }
         RetroCombo {
             id: sessionCombo
             visible: !root.modern || root.showOptions
-            x: dialog.fieldX; y: dialog.rowY(2)
-            width: dialog.fieldWidth; height: dialog.rowHeight
+            x: dialog.fieldX
+            y: dialog.rowY(2)
+            width: dialog.fieldWidth
+            height: dialog.rowHeight
             names: root.sessionNames
             currentIndex: root.sessionIndex
             onActivated: index => root.sessionIndex = index
             KeyNavigation.tab: layoutCombo.visible ? layoutCombo : numLockCheck
         }
-        RetroLabel { visible: layoutCombo.visible; x: dialog.labelX; anchors.verticalCenter: layoutCombo.verticalCenter; text: "Keyboard:" }
+        RetroLabel {
+            visible: layoutCombo.visible
+            x: dialog.labelX
+            anchors.verticalCenter: layoutCombo.verticalCenter
+            text: "Keyboard:"
+        }
         RetroCombo {
             id: layoutCombo
             visible: root.canPickLayout && root.showOptions
-            x: dialog.fieldX; y: dialog.rowY(3)
-            width: dialog.fieldWidth; height: dialog.rowHeight
+            x: dialog.fieldX
+            y: dialog.rowY(3)
+            width: dialog.fieldWidth
+            height: dialog.rowHeight
             names: root.layoutNames
             currentIndex: visible ? keyboard.currentLayout : 0
             onActivated: index => keyboard.currentLayout = index
@@ -452,7 +629,8 @@ Rectangle {
         }
         Row {
             visible: root.modern && root.showOptions
-            x: dialog.fieldX; y: dialog.rowY(root.checkRow) + 4
+            x: dialog.fieldX
+            y: dialog.rowY(root.checkRow) + 4
             spacing: 16
             RetroCheck {
                 id: numLockCheck

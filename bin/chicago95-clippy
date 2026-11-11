@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """Office Assistant for Chicago95: a top-right paperclip that never shuts up."""
-import os, sys; sys.path[:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"), os.path.expanduser("~/.local/lib/chicago95")]; import chicago95ui  # noqa: E401,E702
 
+import os
+import sys
+
+sys.path[:0] = [
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.expanduser("~/.local/lib/chicago95"),
+]
 import argparse
 import base64
 import json
@@ -10,9 +16,10 @@ import re
 import shutil
 import signal
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
+import chicago95ui  # noqa: E401,E702
 from PySide6.QtCore import QPoint, QRect, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPixmap, QPolygon
 from PySide6.QtWidgets import QMenu, QPushButton, QWidget
@@ -150,7 +157,7 @@ class Playback:
 
 
 def extract_js_object(text: str) -> str:
-    return text[text.index("{"): text.rindex("}") + 1]
+    return text[text.index("{") : text.rindex("}") + 1]
 
 
 def parse_agent_js(text: str) -> dict[str, Animation]:
@@ -253,7 +260,9 @@ class Balloon(QWidget):
         width = BALLOON_TEXT_WIDTH + 2 * BALLOON_PADDING
         body_height = self.text_rect.height() + 3 * BALLOON_PADDING + self.ok_button.height()
         self.resize(width, body_height + TAIL_HEIGHT)
-        self.ok_button.move(width - BALLOON_PADDING - self.ok_button.width(), body_height - BALLOON_PADDING - self.ok_button.height())
+        self.ok_button.move(
+            width - BALLOON_PADDING - self.ok_button.width(), body_height - BALLOON_PADDING - self.ok_button.height()
+        )
         self.move(anchor_top_center.x() - width + 40, anchor_top_center.y() - self.height() - 4)
         if self.owner is not None and self.owner.windowHandle() is not None:
             self.winId()
@@ -273,11 +282,13 @@ class Balloon(QWidget):
         path.addRoundedRect(body, BALLOON_RADIUS, BALLOON_RADIUS)
         tail_base_x = body.right() - 50
         # Start the tail a few pixels inside the body so the union erases the body's bottom edge at the join.
-        tail = QPolygon([
-            QPoint(tail_base_x, body.bottom() - 3),
-            QPoint(tail_base_x + 22, body.bottom() - 3),
-            QPoint(tail_base_x + 22, body.bottom() + TAIL_HEIGHT),
-        ])
+        tail = QPolygon(
+            [
+                QPoint(tail_base_x, body.bottom() - 3),
+                QPoint(tail_base_x + 22, body.bottom() - 3),
+                QPoint(tail_base_x + 22, body.bottom() + TAIL_HEIGHT),
+            ]
+        )
         path.addPolygon(tail)
         path.closeSubpath()
         painter.setPen(QPen(Qt.black, 1))
@@ -483,7 +494,9 @@ def main():
         render_screenshot(animations, sprites, font, Path(args.screenshot))
         return 0
 
-    sounds = SoundPlayer({} if args.mute else write_sound_cache(parse_sounds_js((ASSET_DIR / "sounds-ogg.js").read_text())), args.mute)
+    sounds = SoundPlayer(
+        {} if args.mute else write_sound_cache(parse_sounds_js((ASSET_DIR / "sounds-ogg.js").read_text())), args.mute
+    )
     clippy = ClippyWindow(animations, sprites, sounds, font)
 
     if args.once:

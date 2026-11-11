@@ -3,6 +3,7 @@
 The screenshots live in tests/references (see SOURCES.md there); several are 256-colour, so colours
 are compared with a tolerance.
 """
+
 import io
 from pathlib import Path
 
@@ -35,6 +36,7 @@ def bounding_box(image, keep, x_range=None, y_range=None):
 
 def qimage_to_pil(qimage):
     from PySide6.QtCore import QBuffer, QIODevice
+
     buffer = QBuffer()
     buffer.open(QIODevice.WriteOnly)
     qimage.save(buffer, "PNG")
@@ -44,12 +46,15 @@ def qimage_to_pil(qimage):
 def differing_pixels(reference, ours, masks, diff_path, threshold=0.1):
     """pixelmatch count of differing pixels outside the masked boxes; the diff image is saved for failures."""
     from pixelmatch.contrib.PIL import pixelmatch
+
     masked_reference, masked_ours = reference.copy(), ours.copy()
     for image in (masked_reference, masked_ours):
         for box in masks:
             image.paste(MASK_COLOUR, box)
     diff = Image.new("RGBA", reference.size)
-    count = pixelmatch(masked_reference.convert("RGBA"), masked_ours.convert("RGBA"), diff, threshold=threshold, includeAA=True)
+    count = pixelmatch(
+        masked_reference.convert("RGBA"), masked_ours.convert("RGBA"), diff, threshold=threshold, includeAA=True
+    )
     diff.save(diff_path)
     side_by_side = Image.new("RGB", (reference.width * 3, reference.height), "white")
     side_by_side.paste(reference, (0, 0))
@@ -59,12 +64,15 @@ def differing_pixels(reference, ours, masks, diff_path, threshold=0.1):
     return count
 
 
-def render_start_menu(startmenu, app, settings_dir, chicago95rc, kdeglobals="", without=("&Log Off...",), active=None, extra_top=()):
+def render_start_menu(
+    startmenu, app, settings_dir, chicago95rc, kdeglobals="", without=("&Log Off...",), active=None, extra_top=()
+):
     """Our root Start menu at 1x with the given settings files, as a PIL image.
 
     extra_top adds plain items above the rest, then a separator: the originals' Office and Windows
     Update entries, so the menu reaches the same height."""
     import chicago95ui
+
     (settings_dir / "chicago95rc").write_text(chicago95rc)
     (settings_dir / "kdeglobals").write_text(kdeglobals)
     previous = startmenu.SETTINGS_FILE, chicago95ui.KDEGLOBALS
@@ -73,7 +81,7 @@ def render_start_menu(startmenu, app, settings_dir, chicago95rc, kdeglobals="", 
     startmenu.apply_retro_look(app)
     try:
         return grab_root_menu(startmenu, without, active, extra_top)
-    finally:   # the menu's colours and palette stay its own: the tests after this one see the defaults again
+    finally:  # the menu's colours and palette stay its own: the tests after this one see the defaults again
         startmenu.SETTINGS_FILE, chicago95ui.KDEGLOBALS = previous
         startmenu.apply_retro_look(app)
 
@@ -95,9 +103,11 @@ def grab_root_menu(startmenu, without, active, extra_top):
     return qimage_to_pil(menu.grab().toImage())
 
 
-LOOK_2000_KDEGLOBALS = ("[Colors:Window]\nBackgroundNormal=212,208,200\n\n[Colors:Button]\nBackgroundNormal=212,208,200\n\n"
-                        "[Colors:Selection]\nBackgroundNormal=10,36,106\n\n"
-                        "[WM]\nactiveBackground=10,36,106\nactiveBlend=166,202,240\nactiveForeground=255,255,255\n")   # as Setup writes them
+LOOK_2000_KDEGLOBALS = (
+    "[Colors:Window]\nBackgroundNormal=212,208,200\n\n[Colors:Button]\nBackgroundNormal=212,208,200\n\n"
+    "[Colors:Selection]\nBackgroundNormal=10,36,106\n\n"
+    "[WM]\nactiveBackground=10,36,106\nactiveBlend=166,202,240\nactiveForeground=255,255,255\n"
+)  # as Setup writes them
 
 
 class installed_look:
@@ -109,6 +119,7 @@ class installed_look:
 
     def __enter__(self):
         import chicago95ui
+
         Path(chicago95ui.CHICAGO95RC).write_text(self.chicago95rc)
         Path(chicago95ui.KDEGLOBALS).write_text(self.kdeglobals)
         self.app.setPalette(chicago95ui.retro_palette(chicago95ui.read_scheme()))
@@ -116,6 +127,7 @@ class installed_look:
 
     def __exit__(self, *_):
         import chicago95ui
+
         Path(chicago95ui.CHICAGO95RC).unlink(missing_ok=True)
         Path(chicago95ui.KDEGLOBALS).unlink(missing_ok=True)
         self.app.setPalette(chicago95ui.retro_palette(chicago95ui.read_scheme()))

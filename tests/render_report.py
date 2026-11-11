@@ -15,6 +15,7 @@ The taskbar and the windows come from the real desktop (tests/plasma_session.py:
 plasmashell in a headless session, the test's icons solid squares) when KWin and Plasma are installed;
 otherwise from the decoration and the taskbar parts drawn the way KWin and Plasma draw them.
 """
+
 import os
 import shutil
 import sys
@@ -27,9 +28,8 @@ os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="chicago95-report-config
 TESTS = Path(__file__).resolve().parent
 sys.path[:0] = [str(TESTS), str(TESTS.parent / "lib")]
 
-from PIL import Image, ImageDraw, ImageFont  # noqa: E402
-
 from conftest import REPO, load_script  # noqa: E402
+from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 from reference import LOOK_2000_KDEGLOBALS, close, installed_look, qimage_to_pil, render_start_menu, screenshot  # noqa: E402
 
 BACKGROUND, INK, DIFFERENT, GAP = (255, 255, 255), (0, 0, 0), (255, 0, 0), 12
@@ -39,10 +39,16 @@ DEFAULT_LOGO = REPO / "plasmoids/org.chicago95.start/contents/images/logo-flag-1
 WAVING_FLAG = Path.home() / ".local/share/chicago95/waving-flag.png"
 MENU_SETTINGS = {
     "1995": ("[StartMenu]\nbannerText=Windows95\n", ""),
-    "1998": ("[StartMenu]\nstyle=1998\nbannerText=Windows98\nbannerTextColor=#FFFFFF\nbannerNumberColor=#FFFFFF\n"
-             "bannerBackground=#00007B,#00007B@95,#0000B0@70,#0000F8@45,#0000EE@20,#0000A9@0\n", ""),
-    "2000": ("[StartMenu]\nstyle=2000\nbannerText=Windows 2000 Professional\nbannerTextColor=#FFFFFF\nbannerNumberColor=#FFFFFF\n"
-             "bannerBackground=#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0\n", LOOK_2000_KDEGLOBALS),
+    "1998": (
+        "[StartMenu]\nstyle=1998\nbannerText=Windows98\nbannerTextColor=#FFFFFF\nbannerNumberColor=#FFFFFF\n"
+        "bannerBackground=#00007B,#00007B@95,#0000B0@70,#0000F8@45,#0000EE@20,#0000A9@0\n",
+        "",
+    ),
+    "2000": (
+        "[StartMenu]\nstyle=2000\nbannerText=Windows 2000 Professional\nbannerTextColor=#FFFFFF\nbannerNumberColor=#FFFFFF\n"
+        "bannerBackground=#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0\n",
+        LOOK_2000_KDEGLOBALS,
+    ),
 }
 
 
@@ -74,11 +80,17 @@ def details(original, ours, boxes, prefix="", masks=()):
 
 # --- taskbar -------------------------------------------------------------------------------------
 
+
 def taskbar_boxes(look):
     from test_plasma_taskbar_reference import ETCHED_LINES, QUICK_LAUNCH, TRAY_ICONS
     from test_taskbar_reference import BUTTONS, HEIGHT, TRAYS
+
     (start_left, start_right), tasks = BUTTONS[look]
-    boxes = {"left half": (0, 0, 320, HEIGHT), "right half": (320, 0, 640, HEIGHT), "Start button": (0, 2, start_right + 4, HEIGHT)}
+    boxes = {
+        "left half": (0, 0, 320, HEIGHT),
+        "right half": (320, 0, 640, HEIGHT),
+        "Start button": (0, 2, start_right + 4, HEIGHT),
+    }
     for index, x in enumerate(ETCHED_LINES.get(look, []), 1):
         boxes[f"separator {index}"] = (x - 4, 2, x + 13, HEIGHT)
     for index, x in enumerate(QUICK_LAUNCH.get(look, []), 1):
@@ -100,31 +112,64 @@ def model_taskbar(look, app, scratch):
     """Ours without Plasma: the panel, Start button, separators, task buttons and tray box drawn by our
     files at the original's places (icons, labels and the clock are the programs' own, left out)."""
     import subprocess
+
     from aurorae_model import LOOKS
     from framesvg import render_frame
-    from test_taskbar_reference import BUTTONS, BUTTON_HEIGHT, BUTTON_TOP, SEPARATORS, TRAYS, render_on_strip, start_button
+    from test_taskbar_reference import (
+        BUTTON_HEIGHT,
+        BUTTON_TOP,
+        BUTTONS,
+        SEPARATORS,
+        TRAYS,
+        render_on_strip,
+        start_button,
+    )
     from test_taskbar_reference import taskbar as original_taskbar
+
     colours = LOOKS[look]
     plasma_style = scratch / f"plasma-style-{look}"
     shutil.copytree(REPO / "plasma-style/theme", plasma_style)
-    subprocess.run([sys.executable, str(REPO / "plasma-style/make_chicago95_plasmastyle.py"), "--out", str(plasma_style),
-                    *[f"--{key}={colours[key]}" for key in ("face", "light", "shadow", "dark")]], check=True, capture_output=True)
+    subprocess.run(
+        [
+            sys.executable,
+            str(REPO / "plasma-style/make_chicago95_plasmastyle.py"),
+            "--out",
+            str(plasma_style),
+            *[f"--{key}={colours[key]}" for key in ("face", "light", "shadow", "dark")],
+        ],
+        check=True,
+        capture_output=True,
+    )
     original = original_taskbar(look)
-    ours = render_frame(plasma_style / "widgets/panel-background.svg", "", original.width, original.height, borders={"top"})
+    ours = render_frame(
+        plasma_style / "widgets/panel-background.svg", "", original.width, original.height, borders={"top"}
+    )
     (_start_left, start_right), tasks = BUTTONS[look]
     strip = scratch / f"strip-{look}"
     strip.mkdir(exist_ok=True)
     button, _ = start_button(app, look, strip)
     ours.paste(button.crop((0, 2, start_right + 1, original.height)), (0, 2))
     for etched, _next in SEPARATORS.get(look, []):
-        separator, width = render_on_strip(app, strip, "org.chicago95.tasks", "Separator", etched - 2, colours["face"], {})
+        separator, width = render_on_strip(
+            app, strip, "org.chicago95.tasks", "Separator", etched - 2, colours["face"], {}
+        )
         ours.paste(separator.crop((etched - 2, 2, etched - 2 + width, original.height)), (etched - 2, 2))
     for left, right, pressed in tasks:
-        frame = render_frame(plasma_style / "widgets/tasks.svg", "focus" if pressed else "normal", right - left + 1, BUTTON_HEIGHT)
+        frame = render_frame(
+            plasma_style / "widgets/tasks.svg", "focus" if pressed else "normal", right - left + 1, BUTTON_HEIGHT
+        )
         ours.paste(frame, (left, BUTTON_TOP))
     tray_left, tray_right = TRAYS[look]
-    tray, _ = render_on_strip(app, strip, "org.chicago95.trayframe", "TrayBox", tray_left, colours["face"], {},
-                              width=tray_right - tray_left + 1)
+    tray, _ = render_on_strip(
+        app,
+        strip,
+        "org.chicago95.trayframe",
+        "TrayBox",
+        tray_left,
+        colours["face"],
+        {},
+        width=tray_right - tray_left + 1,
+    )
     ours.paste(tray.crop((tray_left, 2, tray_right + 1, original.height)), (tray_left, 2))
     return ours
 
@@ -134,6 +179,7 @@ def taskbar_masks(look):
     lettering (another time)."""
     from test_plasma_taskbar_reference import QUICK_LAUNCH, TRAY_ICONS
     from test_taskbar_reference import BUTTONS
+
     icon = lambda x, y=7: (x, y, x + 16, y + 16)
     masks = [icon(x) for x in QUICK_LAUNCH.get(look, [])] + [icon(x) for x in TRAY_ICONS[look]]
     masks += [icon(left + 4, 7 + pressed) for left, _right, pressed in BUTTONS[look][1]]
@@ -144,23 +190,40 @@ def taskbar_masks(look):
 def taskbar_details(look, desktop, app, scratch):
     from test_taskbar_reference import HEIGHT
     from test_taskbar_reference import taskbar as original_taskbar
-    ours = desktop.crop((0, desktop.height - HEIGHT, desktop.width, desktop.height)) if desktop else model_taskbar(look, app, scratch)
+
+    ours = (
+        desktop.crop((0, desktop.height - HEIGHT, desktop.width, desktop.height))
+        if desktop
+        else model_taskbar(look, app, scratch)
+    )
     return details(original_taskbar(look), ours, taskbar_boxes(look), masks=taskbar_masks(look))
 
 
 # --- windows -------------------------------------------------------------------------------------
 
+
 def window_boxes(width, height):
     from test_window_reference import BORDER, TOP
+
     w, h = width, height
-    boxes = {"whole": (0, 0, w, h), "title bar: icon and caption": (0, 0, min(w, 190), TOP + 4),
-             "title bar: buttons": (w - 70, 0, w, TOP + 4)}
+    boxes = {
+        "whole": (0, 0, w, h),
+        "title bar: icon and caption": (0, 0, min(w, 190), TOP + 4),
+        "title bar: buttons": (w - 70, 0, w, TOP + 4),
+    }
     for name, offset in (("close", 0), ("maximize", 18), ("minimize", 34)):
         left = w - 6 - 16 - offset
         boxes[f"{name} button"] = (left - 1, BORDER + 1, left + 17, BORDER + 17)
-    boxes.update({"top-left corner": (0, 0, 14, 14), "top-right corner": (w - 14, 0, w, 14),
-                  "bottom-left corner": (0, h - 14, 14, h), "bottom-right corner": (w - 14, h - 14, w, h),
-                  "left edge": (0, h // 2 - 8, 14, h // 2 + 8), "bottom edge": (w // 2 - 8, h - 14, w // 2 + 8, h)})
+    boxes.update(
+        {
+            "top-left corner": (0, 0, 14, 14),
+            "top-right corner": (w - 14, 0, w, 14),
+            "bottom-left corner": (0, h - 14, 14, h),
+            "bottom-right corner": (w - 14, h - 14, w, h),
+            "left edge": (0, h // 2 - 8, 14, h // 2 + 8),
+            "bottom edge": (w // 2 - 8, h - 14, w // 2 + 8, h),
+        }
+    )
     return boxes
 
 
@@ -170,10 +233,12 @@ def window_details(look, desktop, scratch):
     from aurorae_model import Window, build_theme
     from plasma_session import CONTENT
     from test_window_reference import WINDOWS
+
     theme = build_theme(scratch / f"aurorae-{look}", look)
     toolkits = {box: toolkit for _title, toolkit, box in CONTENT[look]["windows"]}
     rows = []
     from test_window_reference import BORDER, ICON, TOP
+
     for window_look, name, (left, top, right, bottom), active, caption, covered in WINDOWS.values():
         if window_look != look:
             continue
@@ -197,61 +262,115 @@ def dialog_button_details(look, theme):
     """The dialogs' caption buttons the window tests compare: 1995's help button pressed and its close
     button, 1998's disabled close button."""
     from aurorae_model import Window
+
     rows = []
     if look == "1995":
         original = screenshot("win95helpbutton")
         pressed = Window(theme, 200, 60, True, "", right="HX", pressed="H").render()
-        rows.append(("dialog: help button pressed", original.crop((14, 7, 32, 23)), pressed.crop((200 - 6 - 18 - 16 - 1, 5, 200 - 6 - 18 + 1, 21))))
+        rows.append(
+            (
+                "dialog: help button pressed",
+                original.crop((14, 7, 32, 23)),
+                pressed.crop((200 - 6 - 18 - 16 - 1, 5, 200 - 6 - 18 + 1, 21)),
+            )
+        )
         plain = Window(theme, 200, 60, True, "", right="X").render()
-        rows.append(("dialog: close button", original.crop((32, 7, 50, 23)), plain.crop((200 - 6 - 16 - 1, 5, 200 - 6 + 1, 21))))
+        rows.append(
+            ("dialog: close button", original.crop((32, 7, 50, 23)), plain.crop((200 - 6 - 16 - 1, 5, 200 - 6 + 1, 21)))
+        )
     if look == "1998":
         disabled = Window(theme, 200, 60, True, "", right="X", disabled="X").render()
-        rows.append(("alert: close button, disabled", screenshot("win98notepad").crop((502, 193, 520, 209)),
-                     disabled.crop((200 - 6 - 16 - 1, 5, 200 - 6 + 1, 21))))
+        rows.append(
+            (
+                "alert: close button, disabled",
+                screenshot("win98notepad").crop((502, 193, 520, 209)),
+                disabled.crop((200 - 6 - 16 - 1, 5, 200 - 6 + 1, 21)),
+            )
+        )
     return rows
 
 
 # --- Start menu ----------------------------------------------------------------------------------
 
+
 def start_menu_details(startmenu, app, look, scratch):
     from test_startmenu_icons_styles_reference import ROWS
     from test_startmenu_reference import ROW_TOPS
+
     settings, kdeglobals = MENU_SETTINGS[look]
     extra = ("New Office Document", "Open Office Document", "Windows Update") if look == "2000" else ()
-    name, box = {"1995": ("win95startmenu", (2, 217, 166, 456)), "1998": ("win98start", (2, 0, 216, 456)),
-                 "2000": ("w2kstartmenu", (2, 113, 206, 456))}[look]
+    name, box = {
+        "1995": ("win95startmenu", (2, 217, 166, 456)),
+        "1998": ("win98start", (2, 0, 216, 456)),
+        "2000": ("w2kstartmenu", (2, 113, 206, 456)),
+    }[look]
     (scratch / f"menu-{look}").mkdir(exist_ok=True)
-    ours = render_start_menu(startmenu, app, scratch / f"menu-{look}", settings, kdeglobals,
-                             active={"1995": 0, "1998": 4, "2000": None}[look], extra_top=extra)
+    ours = render_start_menu(
+        startmenu,
+        app,
+        scratch / f"menu-{look}",
+        settings,
+        kdeglobals,
+        active={"1995": 0, "1998": 4, "2000": None}[look],
+        extra_top=extra,
+    )
     original = screenshot(name).crop(box)
-    height = min(original.height, ours.height)   # 1998's original has more entries above Programs
-    boxes = {"whole": ((0, original.height - height, original.width, original.height), (0, ours.height - height, ours.width, ours.height)),
-             "banner": ((0, 0, 26, original.height), (0, 0, 26, ours.height)),
-             "bottom edge": ((0, original.height - 40, original.width, original.height), (0, ours.height - 40, ours.width, ours.height))}
+    height = min(original.height, ours.height)  # 1998's original has more entries above Programs
+    boxes = {
+        "whole": (
+            (0, original.height - height, original.width, original.height),
+            (0, ours.height - height, ours.width, ours.height),
+        ),
+        "banner": ((0, 0, 26, original.height), (0, 0, 26, ours.height)),
+        "bottom edge": (
+            (0, original.height - 40, original.width, original.height),
+            (0, ours.height - 40, ours.width, ours.height),
+        ),
+    }
     if look == "1995":
         names = ("Programs", "Documents", "Settings", "Find", "Help", "Run...", "Shut Down...")
         boxes.update({f"row: {label}": (0, top - 2, original.width, top + 34) for label, top in zip(names, ROW_TOPS)})
     else:
         rows, height, _active = ROWS[look]
-        boxes.update({f"row: {label}": ((0, mine_top, original.width, mine_top + height), (0, our_top, ours.width, our_top + height))
-                      for label, (mine_top, our_top) in rows.items()})
+        boxes.update(
+            {
+                f"row: {label}": (
+                    (0, mine_top, original.width, mine_top + height),
+                    (0, our_top, ours.width, our_top + height),
+                )
+                for label, (mine_top, our_top) in rows.items()
+            }
+        )
     return details(original, ours, boxes)
 
 
 # --- Shut Down, loading and log-on screens -------------------------------------------------------
 
-SHUT_DOWN_DIALOGS = {}   # look: our whole dialog, for the showcase
+SHUT_DOWN_DIALOGS = {}  # look: our whole dialog, for the showcase
 
 
 def shut_down_details(shutdown, app, look, scratch):
     from test_shutdown_reference import BANNER_LINES, BANNER_MARK
+
     logo = WAVING_FLAG if look == "2000" and WAVING_FLAG.exists() else DEFAULT_LOGO
-    settings = {"style": look, "bannerText": "Windows 2000", "osName": "Windows 2000", "osCompany": "Microsoft",
-                "edition": "Professional", "osLogo": str(logo), "companyLogo": ""}   # the original's wording
+    settings = {
+        "style": look,
+        "bannerText": "Windows 2000",
+        "osName": "Windows 2000",
+        "osCompany": "Microsoft",
+        "edition": "Professional",
+        "osLogo": str(logo),
+        "companyLogo": "",
+    }  # the original's wording
     import chicago95ui
     from aurorae_model import build_theme
-    chicago95ui.DECORATION = str(build_theme(scratch / f"shutdown-aurorae-{look}", look))   # the look's close button
-    kdeglobals = {"1995": "", "1998": "[WM]\nactiveBackground=0,0,128\nactiveBlend=16,132,208\n", "2000": LOOK_2000_KDEGLOBALS}[look]
+
+    chicago95ui.DECORATION = str(build_theme(scratch / f"shutdown-aurorae-{look}", look))  # the look's close button
+    kdeglobals = {
+        "1995": "",
+        "1998": "[WM]\nactiveBackground=0,0,128\nactiveBlend=16,132,208\n",
+        "2000": LOOK_2000_KDEGLOBALS,
+    }[look]
     with installed_look(app, f"[StartMenu]\nstyle={look}\n", kdeglobals):
         dialog = shutdown.ShutDownDialog(settings)
         dialog.show()
@@ -262,13 +381,23 @@ def shut_down_details(shutdown, app, look, scratch):
     if look != "2000":
         return thumbnail_shut_down_details(look, ours)
     from test_shutdown_reference import BODY_2000, CLIENT_2000, DIALOG_2000
-    whole = [("whole", screenshot("w2kshutdown").crop(DIALOG_2000), ours),
-             ("title bar", screenshot("w2kshutdown").crop((DIALOG_2000[0], DIALOG_2000[1], DIALOG_2000[2], DIALOG_2000[1] + 22)), ours.crop((0, 0, ours.width, 22)))]
+
+    whole = [
+        ("whole", screenshot("w2kshutdown").crop(DIALOG_2000), ours),
+        (
+            "title bar",
+            screenshot("w2kshutdown").crop((DIALOG_2000[0], DIALOG_2000[1], DIALOG_2000[2], DIALOG_2000[1] + 22)),
+            ours.crop((0, 0, ours.width, 22)),
+        ),
+    ]
     original = screenshot("w2kshutdown").crop(CLIENT_2000)
     ours = ours.crop((*BODY_2000, BODY_2000[0] + original.width, BODY_2000[1] + original.height))
-    boxes = {"banner mark": BANNER_MARK,
-             **{f"banner: {line}": box for line, box in BANNER_LINES.items()},
-             "question and dropdown": (0, 70, original.width, 180), "buttons": (0, 180, original.width, original.height)}
+    boxes = {
+        "banner mark": BANNER_MARK,
+        **{f"banner: {line}": box for line, box in BANNER_LINES.items()},
+        "question and dropdown": (0, 70, original.width, 180),
+        "buttons": (0, 180, original.width, original.height),
+    }
     return whole + details(original, ours, boxes)
 
 
@@ -277,17 +406,34 @@ def thumbnail_shut_down_details(look, dialog):
     ours (which draws its own frame and title) halved the way a thumbnail is made (each pixel the average
     of four)."""
     from test_shutdown_reference import thumbnail_dialog
+
     original = thumbnail_dialog(look)
     halved = dialog.resize((dialog.width // 2, dialog.height // 2), Image.BOX)
     w, h = original.size
-    boxes = {"whole, at the thumbnail's half size": ((0, 0, w, h), (0, 0, halved.width, halved.height)),
-             "title bar": (0, 0, w, 14), "question and options": (0, 13, w, h * 2 // 3), "buttons": (0, h * 2 // 3, w, h)}
+    boxes = {
+        "whole, at the thumbnail's half size": ((0, 0, w, h), (0, 0, halved.width, halved.height)),
+        "title bar": (0, 0, w, 14),
+        "question and options": (0, 13, w, h * 2 // 3),
+        "buttons": (0, h * 2 // 3, w, h),
+    }
     return details(original, halved, boxes)
 
 
-SYSPROPS_FACTS = dict(os_name="Microsoft Windows 98", kernel="Second Edition", desktop="4.10.2222 A", owner="Doctor", hostname="TARDIS",
-                      product_key="01902-OEM-0087094-44427", cpu_model="GenuineIntel", logical_processors="Pentium(r) II Processor",
-                      memory="256.0MB RAM", display="", resources_free="90% free", filesystem="32-bit", virtual_memory="32-bit")
+SYSPROPS_FACTS = dict(
+    os_name="Microsoft Windows 98",
+    kernel="Second Edition",
+    desktop="4.10.2222 A",
+    owner="Doctor",
+    hostname="TARDIS",
+    product_key="01902-OEM-0087094-44427",
+    cpu_model="GenuineIntel",
+    logical_processors="Pentium(r) II Processor",
+    memory="256.0MB RAM",
+    display="",
+    resources_free="90% free",
+    filesystem="32-bit",
+    virtual_memory="32-bit",
+)
 
 
 def sysprops_details(look, app, scratch):
@@ -297,6 +443,7 @@ def sysprops_details(look, app, scratch):
     from aurorae_model import build_theme
     from test_sysprops_reference import LOOKS, PAGE_TOP, SELECTED_TAB_TOP
     from test_sysprops_reference import original as original_dialog
+
     sysprops = load_script("chicago95-sysprops")
     chicago95ui.DECORATION = str(build_theme(scratch / f"sysprops-aurorae-{look}", look))
     window = sysprops.build_window(sysprops.SystemFacts(**SYSPROPS_FACTS), look)
@@ -308,13 +455,26 @@ def sysprops_details(look, app, scratch):
     settings = LOOKS[look]
     w, h = theirs.size
     buttons_top = settings["buttons_top"]
-    boxes = {"whole": (0, 0, w, h), "help and close buttons": (w - 3 - 2 - 34 - 2, 3, w - 3, 3 + 18),
-             "tabs": (3, SELECTED_TAB_TOP - 3, settings["tab_boxes"][-1][1] + 8, PAGE_TOP + 6),
-             "General page": (PAGE_LEFT_FOR_REPORT, PAGE_TOP, w - 9, buttons_top - 8),
-             "buttons (OK is the default)": (min(settings["buttons"].values()) - 6, buttons_top - 6, w - 3, buttons_top + 23 + 6)}
+    boxes = {
+        "whole": (0, 0, w, h),
+        "help and close buttons": (w - 3 - 2 - 34 - 2, 3, w - 3, 3 + 18),
+        "tabs": (3, SELECTED_TAB_TOP - 3, settings["tab_boxes"][-1][1] + 8, PAGE_TOP + 6),
+        "General page": (PAGE_LEFT_FOR_REPORT, PAGE_TOP, w - 9, buttons_top - 8),
+        "buttons (OK is the default)": (
+            min(settings["buttons"].values()) - 6,
+            buttons_top - 6,
+            w - 3,
+            buttons_top + 23 + 6,
+        ),
+    }
     if look == "2000":
-        boxes["disabled button (Apply)"] = (settings["buttons"]["Apply"] - 4, buttons_top - 4, settings["buttons"]["Apply"] + 79, buttons_top + 27)
-    return details(theirs, ours, boxes, masks=[(20, PAGE_TOP + 4, 190, 220)])   # the computer picture is the icon set's
+        boxes["disabled button (Apply)"] = (
+            settings["buttons"]["Apply"] - 4,
+            buttons_top - 4,
+            settings["buttons"]["Apply"] + 79,
+            buttons_top + 27,
+        )
+    return details(theirs, ours, boxes, masks=[(20, PAGE_TOP + 4, 190, 220)])  # the computer picture is the icon set's
 
 
 PAGE_LEFT_FOR_REPORT = 9
@@ -323,7 +483,16 @@ PAGE_LEFT_FOR_REPORT = 9
 def loading_details(app, scratch):
     from PySide6.QtCore import QTimer, QUrl
     from PySide6.QtQuick import QQuickView
-    from test_loading_screen_reference import COMPANY_LINE, CORNER, EDITION_LINE, LOADING_TEXT_BOX, MARK, NAME_LINE, TAGLINE_LINE
+    from test_loading_screen_reference import (
+        COMPANY_LINE,
+        CORNER,
+        EDITION_LINE,
+        LOADING_TEXT_BOX,
+        MARK,
+        NAME_LINE,
+        TAGLINE_LINE,
+    )
+
     splash = scratch / "splash"
     logo = WAVING_FLAG if WAVING_FLAG.exists() else DEFAULT_LOGO
     shutil.copytree(REPO / "splash/chicago95.splashscreen/contents/splash", splash, dirs_exist_ok=True)
@@ -331,7 +500,8 @@ def loading_details(app, scratch):
         f'.pragma library\nvar style = "2000"\nvar brandText = "Windows 2000"\nvar brandLogo = "{logo}"\n'
         'var edition = "Professional"\nvar tagline = "Built on NT Technology"\nvar company = "Microsoft"\n'
         'var companyLogo = ""\nvar loadingText = "Starting up..."\n'
-        'var footer = "Copyright © 1985-1999 Microsoft Corporation"\nvar picture = ""\n')   # the original's wording
+        'var footer = "Copyright © 1985-1999 Microsoft Corporation"\nvar picture = ""\n'
+    )  # the original's wording
     view = QQuickView()
     view.setResizeMode(QQuickView.SizeRootObjectToView)
     view.resize(640, 480)
@@ -342,32 +512,66 @@ def loading_details(app, scratch):
     app.exec()
     ours = qimage_to_pil(view.grabWindow())
     view.close()
-    boxes = {"whole": (0, 0, 640, 480), "mark": MARK, "company": COMPANY_LINE, "name": NAME_LINE, "edition": EDITION_LINE,
-             "tagline": TAGLINE_LINE, "corner": CORNER, "progress": (190, 425, 460, 455), "loading text": LOADING_TEXT_BOX}
+    boxes = {
+        "whole": (0, 0, 640, 480),
+        "mark": MARK,
+        "company": COMPANY_LINE,
+        "name": NAME_LINE,
+        "edition": EDITION_LINE,
+        "tagline": TAGLINE_LINE,
+        "corner": CORNER,
+        "progress": (190, 425, 460, 455),
+        "loading text": LOADING_TEXT_BOX,
+    }
     return details(screenshot("w2kboot"), ours, boxes)
 
 
 def login_details(shutdown, app, scratch):
     from login_theme import render_login
     from test_login_reference import BANNER_LINES, DIALOG
+
     logo = WAVING_FLAG if WAVING_FLAG.exists() else DEFAULT_LOGO
-    look = {"style": "2000", "bannerText": "Windows 2000", "osName": "Windows 2000", "osCompany": "Microsoft", "edition": "Professional",
-            "osLogo": str(logo), "companyLogo": "", "tagline": "Built on NT Technology"}   # the original's wording
+    look = {
+        "style": "2000",
+        "bannerText": "Windows 2000",
+        "osName": "Windows 2000",
+        "osCompany": "Microsoft",
+        "edition": "Professional",
+        "osLogo": str(logo),
+        "companyLogo": "",
+        "tagline": "Built on NT Technology",
+    }  # the original's wording
     shutdown.render_login_banner(look, scratch / "login-banner.png")
     with installed_look(app, "[StartMenu]\nstyle=2000\n", LOOK_2000_KDEGLOBALS):
-        ours = render_login(app, scratch / "login", banner=scratch / "login-banner.png", show_options=True, loginStyle="2000",
-                            titleActive="#0A246A,#A6CAF0", loginTitle="Log On to Windows")
+        ours = render_login(
+            app,
+            scratch / "login",
+            banner=scratch / "login-banner.png",
+            show_options=True,
+            loginStyle="2000",
+            titleActive="#0A246A,#A6CAF0",
+            loginTitle="Log On to Windows",
+        )
     left, top, right, bottom = DIALOG
-    boxes = {"whole": DIALOG, "title bar": (left, top, right, top + 22), "banner": (114, 96, 525, 189),
-             **{f"banner: {line}": box for line, box in BANNER_LINES.items()},
-             "fields": (left, 189, right, 282), "buttons": (left, 282, right, bottom)}
+    boxes = {
+        "whole": DIALOG,
+        "title bar": (left, top, right, top + 22),
+        "banner": (114, 96, 525, 189),
+        **{f"banner: {line}": box for line, box in BANNER_LINES.items()},
+        "fields": (left, 189, right, 282),
+        "buttons": (left, 282, right, bottom),
+    }
     return details(screenshot("w2klogon"), ours, boxes)
 
 
 # --- the sheets ----------------------------------------------------------------------------------
 
+
 def label_font(size=15):
-    for path in ("/usr/share/fonts/liberation-sans/LiberationSans-Bold.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"):
+    for path in (
+        "/usr/share/fonts/liberation-sans/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    ):
         if os.path.exists(path):
             return ImageFont.truetype(path, size)
     return ImageFont.load_default()
@@ -401,8 +605,12 @@ def compose(title, rows, path):
         diff = difference(original, ours)
         differing = sum(1 for pixel in diff.getdata() if pixel == DIFFERENT)
         share = 100 * differing / (diff.width * diff.height)
-        images = [image.resize((image.width * zoom, image.height * zoom), Image.NEAREST) for image in (original, ours, diff)]
-        prepared.append((f"{label}: {differing} pixels differ ({share:.1f}%)" + (f", x{zoom}" if zoom > 1 else ""), images))
+        images = [
+            image.resize((image.width * zoom, image.height * zoom), Image.NEAREST) for image in (original, ours, diff)
+        ]
+        prepared.append(
+            (f"{label}: {differing} pixels differ ({share:.1f}%)" + (f", x{zoom}" if zoom > 1 else ""), images)
+        )
         summary.append(f"{differing:7d} {share:5.1f}%  {title}: {label}")
     width = max(sum(image.width for image in images) for _, images in prepared) + GAP * 4
     height = 44 + sum(max(image.height for image in images) + 30 + GAP for _, images in prepared)
@@ -436,10 +644,15 @@ def showcase_panels(look, desktop, sections, app, scratch, startmenu):
     from test_taskbar_reference import HEIGHT, TASKBARS
     from test_taskbar_reference import taskbar as original_taskbar
     from test_window_reference import WINDOWS
+
     panels = []
     if desktop:
         panels.append(("Desktop (ours: the test's programs and icons)", screenshot(TASKBARS[look]), desktop))
-    bar = desktop.crop((0, desktop.height - HEIGHT, desktop.width, desktop.height)) if desktop else model_taskbar(look, app, scratch)
+    bar = (
+        desktop.crop((0, desktop.height - HEIGHT, desktop.width, desktop.height))
+        if desktop
+        else model_taskbar(look, app, scratch)
+    )
     panels.append(("Taskbar", original_taskbar(look), bar))
     theme = build_theme(scratch / f"showcase-aurorae-{look}", look)
     toolkits = {box: toolkit for _title, toolkit, box in CONTENT[look]["windows"]}
@@ -451,21 +664,34 @@ def showcase_panels(look, desktop, sections, app, scratch, startmenu):
         if desktop and toolkit:
             ours, note = desktop.crop((left, top, right + 1, bottom + 1)), f"ours: a {toolkit.upper()} window, empty"
         else:
-            ours, note = Window(theme, original.width, original.height, active, caption).render(), "ours: the frame alone"
+            ours, note = (
+                Window(theme, original.width, original.height, active, caption).render(),
+                "ours: the frame alone",
+            )
         panels.append((f"Window, {'active' if active else 'inactive'} ({note})", original, ours))
     settings, kdeglobals = MENU_SETTINGS[look]
-    menu_box = {"1995": ("win95startmenu", (2, 217, 166, 456)), "1998": ("win98start", (2, 0, 216, 456)),
-                "2000": ("w2kstartmenu", (2, 113, 206, 456))}[look]
+    menu_box = {
+        "1995": ("win95startmenu", (2, 217, 166, 456)),
+        "1998": ("win98start", (2, 0, 216, 456)),
+        "2000": ("w2kstartmenu", (2, 113, 206, 456)),
+    }[look]
     (scratch / f"showcase-menu-{look}").mkdir(exist_ok=True)
     # Each original's own entries: 1995 had no Log Off; 2000's shows Office and Windows Update above.
-    menu = render_start_menu(startmenu, app, scratch / f"showcase-menu-{look}", settings, kdeglobals,
-                             without=() if look == "1998" else ("&Log Off...",), active={"1995": 0, "1998": 4, "2000": 4}[look],
-                             extra_top=("New Office Document", "Open Office Document", "Windows Update") if look == "2000" else ())
+    menu = render_start_menu(
+        startmenu,
+        app,
+        scratch / f"showcase-menu-{look}",
+        settings,
+        kdeglobals,
+        without=() if look == "1998" else ("&Log Off...",),
+        active={"1995": 0, "1998": 4, "2000": 4}[look],
+        extra_top=("New Office Document", "Open Office Document", "Windows Update") if look == "2000" else (),
+    )
     panels.append(("Start menu", screenshot(menu_box[0]).crop(menu_box[1]), menu))
     panels.append(("Shut Down", *shut_down_whole(look, sections)))
     for key, component in (("sysprops", "System Properties"), ("loading", "Loading screen"), ("logon", "Log on")):
         if key in sections:
-            _label, original, ours = sections[key][1][0]   # each section's first row is the whole screen
+            _label, original, ours = sections[key][1][0]  # each section's first row is the whole screen
             panels.append((component, original, ours))
     return panels
 
@@ -487,14 +713,22 @@ CONTROLS = [
     ("sysprops", lambda label: label == "tabs", "Tabs (the first selected)"),
     ("sysprops", lambda label: label.startswith("buttons"), "Push buttons (OK is the default)"),
     ("sysprops", lambda label: label.startswith("disabled button"), "Disabled push button"),
-    ("shutdown", lambda label: label == "question and options", "Radio buttons (the original is a half-size thumbnail)"),
+    (
+        "shutdown",
+        lambda label: label == "question and options",
+        "Radio buttons (the original is a half-size thumbnail)",
+    ),
     ("shutdown", lambda label: label == "question and dropdown", "Dropdown list"),
     ("logon", lambda label: label == "fields", "Text fields, dropdown and check box"),
     ("loading", lambda label: label == "progress", "Progress bar"),
     ("startmenu", lambda label: label.lower() == "row: programs", "Menu row, highlighted"),
     ("startmenu", lambda label: label.lower() == "row: documents", "Menu row"),
     ("taskbar", lambda label: label == "Start button", "Start button"),
-    ("taskbar", lambda label: label.startswith("task button") and "(pressed)" not in label and ":" not in label, "Task button"),
+    (
+        "taskbar",
+        lambda label: label.startswith("task button") and "(pressed)" not in label and ":" not in label,
+        "Task button",
+    ),
     ("taskbar", lambda label: "(pressed)" in label and ":" not in label, "Task button, pressed"),
     ("taskbar", lambda label: label == "separator 1", "Toolbar separator and grip"),
     ("taskbar", lambda label: label == "tray box", "Tray box (its icons and clock are hatched)"),
@@ -505,6 +739,7 @@ def controls_panels(sections, look, app):
     """[(control, original or None, ours)]: every Qt control our theme draws (tests/controls_gallery.py),
     in the look's colours, then our own controls from the sections' detail rows, in CONTROLS' order."""
     import controls_gallery
+
     kdeglobals = {"1995": "", "1998": "", "2000": LOOK_2000_KDEGLOBALS}[look]
     with installed_look(app, f"[StartMenu]\nstyle={look}\n", kdeglobals):
         panels = controls_gallery.controls(app, look)
@@ -522,25 +757,38 @@ def compose_showcase(title, panels, path):
     inner = SHOWCASE_WIDTH - 4 * GAP
     laid_out = []
     for component, original, ours in panels:
-        if original is None:   # no original screenshot shows this control
+        if original is None:  # no original screenshot shows this control
             original = Image.new("RGB", ours.size, SHOWCASE_BACKGROUND)
-            ImageDraw.Draw(original).text((6, ours.height // 2 - 7), "no original screenshot shows this control", fill=(110, 110, 110), font=label_font(12))
+            ImageDraw.Draw(original).text(
+                (6, ours.height // 2 - 7),
+                "no original screenshot shows this control",
+                fill=(110, 110, 110),
+                font=label_font(12),
+            )
         width = max(original.width, ours.width)
         side_by_side = 2 * width + GAP <= inner
         zoom = max(1, min(3, (inner - GAP) // 2 // width)) if side_by_side else max(1, min(2, inner // width))
-        zoom = max(1, min(zoom, 400 // max(original.height, ours.height)))   # tall crops (a scroll bar) stay in view
+        zoom = max(1, min(zoom, 400 // max(original.height, ours.height)))  # tall crops (a scroll bar) stay in view
         images = [image.resize((image.width * zoom, image.height * zoom), Image.NEAREST) for image in (original, ours)]
         laid_out.append((component, side_by_side, zoom, images))
     height = 70
     for _component, side_by_side, _zoom, images in laid_out:
-        body = max(image.height for image in images) + 24 if side_by_side else sum(image.height + 24 for image in images) + GAP
+        body = (
+            max(image.height for image in images) + 24
+            if side_by_side
+            else sum(image.height + 24 for image in images) + GAP
+        )
         height += 40 + body + 3 * GAP
     sheet = Image.new("RGB", (SHOWCASE_WIDTH, height), SHOWCASE_BACKGROUND)
     draw = ImageDraw.Draw(sheet)
     draw.text((2 * GAP, 20), title, fill=INK, font=heading)
     y = 70
     for component, side_by_side, zoom, images in laid_out:
-        body = max(image.height for image in images) + 24 if side_by_side else sum(image.height + 24 for image in images) + GAP
+        body = (
+            max(image.height for image in images) + 24
+            if side_by_side
+            else sum(image.height + 24 for image in images) + GAP
+        )
         draw.rectangle((GAP, y, SHOWCASE_WIDTH - GAP, y + 40 + body + GAP), fill=CARD)
         draw.text((2 * GAP, y + 10), component + (f"  (enlarged x{zoom})" if zoom > 1 else ""), fill=INK, font=heading)
         x, top = 2 * GAP, y + 40
@@ -552,28 +800,34 @@ def compose_showcase(title, panels, path):
             else:
                 top += image.height + 24 + GAP // 2
         y += 40 + body + 3 * GAP
-    sheet.save(path, quality=95, subsampling=0)   # no colour subsampling: flat greys stay exact
+    sheet.save(path, quality=95, subsampling=0)  # no colour subsampling: flat greys stay exact
     print("wrote", path)
 
 
 def real_desktops():
     """{look: screenshot} of the real desktop, or {} without KWin and Plasma."""
     from plasma_session import desktop_session, missing_programs
+
     if missing_programs():
-        print("the real desktop needs", ", ".join(missing_programs()), "- the taskbar and windows are drawn from our files")
+        print(
+            "the real desktop needs",
+            ", ".join(missing_programs()),
+            "- the taskbar and windows are drawn from our files",
+        )
         return {}
     screens = {}
     for look in ("1995", "1998", "2000"):
-        work = tempfile.mkdtemp(prefix=f"c95-{look}-", dir="/tmp")   # short: Wayland's socket path limit
+        work = tempfile.mkdtemp(prefix=f"c95-{look}-", dir="/tmp")  # short: Wayland's socket path limit
         screens[look] = desktop_session(look, work)
         shutil.rmtree(work, ignore_errors=True)
     return screens
 
 
 def main(output):
-    from PySide6.QtWidgets import QApplication
     import chicago95ui  # noqa: F401  sets the platform before the application exists
-    app = QApplication.instance() or chicago95ui.make_app("chicago95-report")   # as the tools make it
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance() or chicago95ui.make_app("chicago95-report")  # as the tools make it
     startmenu, shutdown = load_script("chicago95-startmenu"), load_script("chicago95-shutdown")
     output.mkdir(parents=True, exist_ok=True)
     for stale in [*output.glob("report-*"), *output.glob("showcase-*")]:
@@ -582,21 +836,31 @@ def main(output):
     desktops = real_desktops()
     for look in ("1995", "1998", "2000"):
         desktop = desktops.get(look)
-        sections = {"taskbar": ("Taskbar" + (" (real desktop; icons are the test's squares)" if desktop else " (our parts, no icons)"),
-                                taskbar_details(look, desktop, app, scratch)),
-                    "windows": ("Windows", window_details(look, desktop, scratch)),
-                    "startmenu": ("Start menu", start_menu_details(startmenu, app, look, scratch)),
-                    "shutdown": ("Shut Down", shut_down_details(shutdown, app, look, scratch)),
-                    "sysprops": ("System Properties", sysprops_details(look, app, scratch))}
+        sections = {
+            "taskbar": (
+                "Taskbar" + (" (real desktop; icons are the test's squares)" if desktop else " (our parts, no icons)"),
+                taskbar_details(look, desktop, app, scratch),
+            ),
+            "windows": ("Windows", window_details(look, desktop, scratch)),
+            "startmenu": ("Start menu", start_menu_details(startmenu, app, look, scratch)),
+            "shutdown": ("Shut Down", shut_down_details(shutdown, app, look, scratch)),
+            "sysprops": ("System Properties", sysprops_details(look, app, scratch)),
+        }
         if look == "2000":
             sections["loading"] = ("Loading screen", loading_details(app, scratch))
             sections["logon"] = ("Log on", login_details(shutdown, app, scratch))
         for key, (title, rows) in sections.items():
             compose(f"{look} {title}", rows, output / f"report-{look}-{key}.png")
-        compose_showcase(f"Chicago95 for KDE Plasma, {LOOK_NAMES[look]}: the original beside ours",
-                         showcase_panels(look, desktop, sections, app, scratch, startmenu), output / f"showcase-{look}.jpg")
-        compose_showcase(f"Chicago95 for KDE Plasma, {LOOK_NAMES[look]}: the controls, the original's beside ours",
-                         controls_panels(sections, look, app), output / f"showcase-controls-{look}.jpg")
+        compose_showcase(
+            f"Chicago95 for KDE Plasma, {LOOK_NAMES[look]}: the original beside ours",
+            showcase_panels(look, desktop, sections, app, scratch, startmenu),
+            output / f"showcase-{look}.jpg",
+        )
+        compose_showcase(
+            f"Chicago95 for KDE Plasma, {LOOK_NAMES[look]}: the controls, the original's beside ours",
+            controls_panels(sections, look, app),
+            output / f"showcase-controls-{look}.jpg",
+        )
 
 
 if __name__ == "__main__":

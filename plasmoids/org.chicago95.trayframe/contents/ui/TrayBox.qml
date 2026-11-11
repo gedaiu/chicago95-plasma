@@ -14,9 +14,27 @@ Item {
         y: box.height - box.boxHeight
         width: box.width
         height: box.boxHeight
-        Rectangle { width: parent.width; height: 1; color: box.shadow }
-        Rectangle { width: 1; height: parent.height; color: box.shadow }
-        Rectangle { y: parent.height - 1; width: parent.width; height: 1; color: box.white }
-        Rectangle { x: parent.width - 1; width: 1; height: parent.height; color: box.white }
+        Rectangle {
+            width: parent.width
+            height: 1
+            color: box.shadow
+        }
+        Rectangle {
+            width: 1
+            height: parent.height
+            color: box.shadow
+        }
+        Rectangle {
+            y: parent.height - 1
+            width: parent.width
+            height: 1
+            color: box.white
+        }
+        Rectangle {
+            x: parent.width - 1
+            width: 1
+            height: parent.height
+            color: box.white
+        }
     }
 }

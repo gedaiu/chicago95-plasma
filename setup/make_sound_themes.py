@@ -6,6 +6,7 @@
 Each scheme folder becomes <Id>/index.theme plus stereo/<event>.ogg. Events a scheme lacks fall back
 to Chicago95 through Inherits=. The output is committed; this only runs again when the sources change.
 """
+
 import re
 import shutil
 import subprocess
@@ -71,8 +72,10 @@ def theme_id(scheme: str) -> str:
 
 
 def transcode(source: Path, destination: Path):
-    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(source), "-c:a", "libvorbis", "-q:a", "4",
-                    str(destination)], check=True)
+    subprocess.run(
+        ["ffmpeg", "-loglevel", "error", "-y", "-i", str(source), "-c:a", "libvorbis", "-q:a", "4", str(destination)],
+        check=True,
+    )
 
 
 def build_theme(scheme: str, wavs: list[Path], events: dict[str, list[str]]):
@@ -80,7 +83,8 @@ def build_theme(scheme: str, wavs: list[Path], events: dict[str, list[str]]):
     shutil.rmtree(target, ignore_errors=True)
     (target / "stereo").mkdir(parents=True)
     (target / "index.theme").write_text(
-        f"[Sound Theme]\nName={scheme}\nInherits=Chicago95\nDirectories=stereo\n\n[stereo]\nOutputProfile=stereo\n")
+        f"[Sound Theme]\nName={scheme}\nInherits=Chicago95\nDirectories=stereo\n\n[stereo]\nOutputProfile=stereo\n"
+    )
     by_event = {event_name(wav.name, scheme): wav for wav in sorted(wavs, key=lambda wav: len(wav.name))}
     for windows_event, wav in by_event.items():
         for freedesktop_event in events.get(windows_event, []):

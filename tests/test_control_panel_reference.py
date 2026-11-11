@@ -5,18 +5,17 @@ same way: icons sit 75px apart in both directions and the labels are centred in 
 and status bars have the original's heights. Icons and labels are drawn with other artwork and fonts on
 purpose, so only where things sit is compared.
 """
+
 import pytest
-
 from conftest import load_script
-
 from reference import qimage_to_pil, screenshot
 
-ICON_AREA = (8, 44, 438, 411)     # left, top, right, bottom of the icon view inside the original's window
-MENU_BAR_HEIGHT = 22              # Windows 98's: tests/test_control_panel_header_reference.py
-STATUS_BAR_HEIGHT = 19            # rows 413 to 431
+ICON_AREA = (8, 44, 438, 411)  # left, top, right, bottom of the icon view inside the original's window
+MENU_BAR_HEIGHT = 22  # Windows 98's: tests/test_control_panel_header_reference.py
+STATUS_BAR_HEIGHT = 19  # rows 413 to 431
 CELL = 75
-FRAME = 2                         # our icon view's sunken frame
-WORD_GAP = 8                      # darker pixels closer than this belong to one icon with its label
+FRAME = 2  # our icon view's sunken frame
+WORD_GAP = 8  # darker pixels closer than this belong to one icon with its label
 WHITE = (255, 255, 255)
 
 
@@ -25,7 +24,14 @@ def ink_runs(image, box, vertical):
     left, top, right, bottom = box
     lines = range(top, bottom) if vertical else range(left, right)
     across = range(left, right) if vertical else range(top, bottom)
-    inked = [line for line in lines if any(image.getpixel((across_position, line) if vertical else (line, across_position)) != WHITE for across_position in across)]
+    inked = [
+        line
+        for line in lines
+        if any(
+            image.getpixel((across_position, line) if vertical else (line, across_position)) != WHITE
+            for across_position in across
+        )
+    ]
     runs = []
     for line in inked:
         if runs and line - runs[-1][1] < WORD_GAP:
@@ -70,7 +76,10 @@ def within_a_pixel_of_the_cell(distance):
 
 
 def test_originals_icons_are_75px_apart_across_and_down(reference):
-    assert (within_a_pixel_of_the_cell(column_pitch(reference, ICON_AREA)), within_a_pixel_of_the_cell(row_pitch(reference, ICON_AREA))) == (True, True)
+    assert (
+        within_a_pixel_of_the_cell(column_pitch(reference, ICON_AREA)),
+        within_a_pixel_of_the_cell(row_pitch(reference, ICON_AREA)),
+    ) == (True, True)
 
 
 def test_our_icons_are_75px_apart_across_and_down(ours):
@@ -78,7 +87,10 @@ def test_our_icons_are_75px_apart_across_and_down(ours):
     box = (FRAME, FRAME, image.width - FRAME, image.height - FRAME)
     rows = [first for first, _ in ink_runs(image, box, vertical=True)]
 
-    assert (within_a_pixel_of_the_cell(column_pitch(image, box)), within_a_pixel_of_the_cell(average_pitch(rows[:2]))) == (True, True)
+    assert (
+        within_a_pixel_of_the_cell(column_pitch(image, box)),
+        within_a_pixel_of_the_cell(average_pitch(rows[:2])),
+    ) == (True, True)
 
 
 def test_our_menu_bar_and_status_bar_have_the_originals_heights(ours):

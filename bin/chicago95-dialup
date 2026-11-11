@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Chicago95 Dial-Up Networking, except the modem is Tailscale."""
+
 import argparse
 import json
 import os
@@ -7,14 +8,24 @@ import shutil
 import subprocess
 import sys
 
-sys.path[:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"), os.path.expanduser("~/.local/lib/chicago95")]
+sys.path[:0] = [
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.expanduser("~/.local/lib/chicago95"),
+]
 import chicago95ui  # noqa: E402  must precede the other PySide6 imports
-
-from PySide6.QtCore import QProcess, Qt, QTimer  # noqa: E402
+from PySide6.QtCore import QProcess, QTimer  # noqa: E402
 from PySide6.QtGui import QIcon  # noqa: E402
 from PySide6.QtWidgets import (  # noqa: E402
-    QCheckBox, QComboBox, QDialog, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QVBoxLayout,
-    QWidget,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
 )
 
 MODEM_SOUND = os.path.expanduser("~/.local/share/chicago95/sounds/modem.ogg")
@@ -176,7 +187,9 @@ class DialingDialog(QDialog):
         self.process.start("tailscale", ["up", "--timeout", "25s"])
 
     def read_process_output(self):
-        text = bytes(self.process.readAllStandardError()).decode() + bytes(self.process.readAllStandardOutput()).decode()
+        text = (
+            bytes(self.process.readAllStandardError()).decode() + bytes(self.process.readAllStandardOutput()).decode()
+        )
         for word in text.split():
             if word.startswith("https://login.tailscale.com/"):
                 self.login_url = word
@@ -206,9 +219,12 @@ def show_result(dry_run, dialing):
     status = tailscale_status()
     if is_connected(status) or dry_run:
         address = "100.64.0.1 (dry run)" if dry_run else tailscale_ipv4()
-        box = QMessageBox(QMessageBox.Information, f"Connected to {CONNECTION_NAME}",
-                          f"Connected at 2.5 Gbps\n\nIP address: {address}\nLogin: {tailscale_login_name(status)}\n\n"
-                          "Duration: 000:00:01")
+        box = QMessageBox(
+            QMessageBox.Information,
+            f"Connected to {CONNECTION_NAME}",
+            f"Connected at 2.5 Gbps\n\nIP address: {address}\nLogin: {tailscale_login_name(status)}\n\n"
+            "Duration: 000:00:01",
+        )
         box.setIconPixmap(QIcon.fromTheme("network-transmit-receive").pixmap(32, 32))
         details = box.addButton("Details...", QMessageBox.ActionRole)
         details.setEnabled(shutil.which("trayscale") is not None)
@@ -218,12 +234,17 @@ def show_result(dry_run, dialing):
             subprocess.Popen(["trayscale"])
         return
     reason = getattr(dialing, "error_text", "")
-    hint = ("Tailscale refused the connection.\n\nRun once as administrator:\n"
-            f"    sudo tailscale set --operator={os.environ.get('USER', 'user')}")
+    hint = (
+        "Tailscale refused the connection.\n\nRun once as administrator:\n"
+        f"    sudo tailscale set --operator={os.environ.get('USER', 'user')}"
+    )
     if dialing.login_url:
         hint = "A browser window was opened to log in.\nFinish the login there, then dial again."
-    box = QMessageBox(QMessageBox.Critical, "Error Connecting to Tailscale",
-                      f"Error 691: {reason or 'The computer you are dialing in to cannot establish a Dial-Up Networking connection.'}\n\n{hint}")
+    box = QMessageBox(
+        QMessageBox.Critical,
+        "Error Connecting to Tailscale",
+        f"Error 691: {reason or 'The computer you are dialing in to cannot establish a Dial-Up Networking connection.'}\n\n{hint}",
+    )
     box.setIconPixmap(QIcon.fromTheme("dialog-error").pixmap(32, 32))
     box.addButton("OK", QMessageBox.AcceptRole)
     box.exec()
@@ -234,7 +255,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="play the whole show without running tailscale")
     parser.add_argument("--screenshot", help="save the Connect To dialog as PNG and exit")
     args = parser.parse_args()
-    app = chicago95ui.make_app("Dial-Up Networking")
+    _app = chicago95ui.make_app("Dial-Up Networking")
     status = {} if args.screenshot else tailscale_status()
     connect_dialog = ConnectToDialog(status)
     if args.screenshot:
