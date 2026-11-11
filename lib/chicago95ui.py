@@ -254,6 +254,9 @@ class CrispIconEngine(QIconEngine):
     def isNull(self):  # noqa: N802
         return self.icon.isNull()
 
+    def iconName(self):  # noqa: N802
+        return self.icon.name()
+
     def clone(self):
         return CrispIconEngine(self.icon)
 

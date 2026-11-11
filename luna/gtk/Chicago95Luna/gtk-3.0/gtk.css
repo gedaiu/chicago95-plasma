@@ -712,11 +712,11 @@ scale.horizontal marks.top {
   padding-bottom: 2px;
 }
 
-scale.vertical marks.right {
+scale.vertical marks.bottom {
   padding-left: 2px;
 }
 
-scale.vertical marks.left {
+scale.vertical marks.top {
   padding-right: 2px;
 }
 
@@ -780,6 +780,10 @@ scale.horizontal slider {
   margin: -8px 0;
 }
 
+scale.horizontal.marks-before slider, scale.horizontal.marks-after slider {
+  margin: 0;
+}
+
 scale.horizontal slider {
   background-image: url("assets/slider-horizontal-normal.png");
 }
@@ -841,6 +845,10 @@ scale.vertical slider {
   min-width: 21px;
   min-height: 11px;
   margin: 0 -8px;
+}
+
+scale.vertical.marks-before slider, scale.vertical.marks-after slider {
+  margin: 0;
 }
 
 scale.vertical slider {
@@ -1052,6 +1060,14 @@ label:disabled, *:disabled {
 label.title, headerbar .title {
   font-weight: bold;
 }
+scale.horizontal marks.top {
+  padding-bottom: 3px;
+}
+
+scale.vertical marks.top {
+  padding-right: 3px;
+}
+
 scale.horizontal {
   padding: 0 5px;
 }

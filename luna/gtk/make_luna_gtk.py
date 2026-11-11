@@ -343,8 +343,8 @@ def scale_rules():
     yield block("scale marks", padding="0", margin="0", border="0")
     yield block("scale.horizontal marks.bottom", padding_top="2px")
     yield block("scale.horizontal marks.top", padding_bottom="2px")
-    yield block("scale.vertical marks.right", padding_left="2px")
-    yield block("scale.vertical marks.left", padding_right="2px")
+    yield block("scale.vertical marks.bottom", padding_left="2px")
+    yield block("scale.vertical marks.top", padding_right="2px")
     yield block("scale mark indicator", color="#ACA899", background_color="#ACA899", background_image="none",
                 border="0", padding="0", margin="0")
     yield block("scale.horizontal mark indicator", min_width="1px", min_height="3px")
@@ -366,6 +366,7 @@ def scale_rules():
         yield block(f"scale.{orientation} slider", min_width="11px" if horizontal else "21px",
                     min_height="21px" if horizontal else "11px",
                     margin="-8px 0" if horizontal else "0 -8px")
+        yield block(f"scale.{orientation}.marks-before slider, scale.{orientation}.marks-after slider", margin="0")
         for state, pseudo in (("normal", ""), ("hover", ":hover"), ("pressed", ":active"),
                               ("disabled", ":disabled")):
             yield block(f"scale.{orientation} slider{pseudo}",
@@ -381,6 +382,9 @@ def scale_backend_rules(version):
     # thumb inside its allocation. Reserve half a thumb at each end in GTK3,
     # and inset only the painted track in GTK4.
     rules = []
+    if version == "3.0":
+        rules.append(block("scale.horizontal marks.top", padding_bottom="3px"))
+        rules.append(block("scale.vertical marks.top", padding_right="3px"))
     for orientation in ("horizontal", "vertical"):
         horizontal = orientation == "horizontal"
         if version == "3.0":

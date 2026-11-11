@@ -433,8 +433,10 @@ def test_luna_slider_thumb_matches_qt_and_has_a_smooth_gradient(
 
 @pytest.mark.parametrize("orientation", ("horizontal", "vertical"))
 @pytest.mark.parametrize("state", ("normal", "start", "end", "disabled", "hovered", "pressed"))
-def test_luna_slider_gtk_geometry_and_track_match(gtk_images, orientation, state, tmp_path):
-    a, b = (gtk_images[v, "slider", f"{state}-{orientation}"] for v in ("3.0", "4.0"))
+@pytest.mark.parametrize("point", (None, "before", "after"))
+def test_luna_slider_gtk_geometry_and_track_match(gtk_images, orientation, state, point, tmp_path):
+    kind = "slider" if point is None else f"slider-{point}"
+    a, b = (gtk_images[v, kind, f"{state}-{orientation}"] for v in ("3.0", "4.0"))
     a.save(tmp_path / "gtk3.png")
     b.save(tmp_path / "gtk4.png")
     assert a.size == b.size
