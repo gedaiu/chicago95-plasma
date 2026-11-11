@@ -217,12 +217,17 @@ def test_recent_documents_is_empty_for_malformed_bookmark_file(startmenu, tmp_pa
     assert startmenu.recent_documents() == []
 
 
-def test_launch_starts_the_command_detached(startmenu, tmp_path):
+def test_launch_starts_the_command_detached(startmenu, tmp_path, monkeypatch):
     marker = tmp_path / "launched"
+    monkeypatch.setattr(startmenu, "detached", lambda command: command)
 
     startmenu.launch(["touch", str(marker)])
 
     assert wait_until(marker.exists)
+
+
+def test_detached_runs_the_command_as_its_own_transient_user_service(startmenu):
+    assert startmenu.detached(["kfind"]) == ["systemd-run", "--user", "--quiet", "--collect", "kfind"]
 
 
 def test_theme_icon_names_lists_png_and_svg_stems_of_installed_themes(startmenu, tmp_path, monkeypatch):

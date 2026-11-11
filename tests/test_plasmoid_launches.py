@@ -1,5 +1,6 @@
-"""Programs our plasmoids start run in their own systemd scope, not in plasmashell's service: Setup
-(started from the Control Panel) restarts plasmashell, and stopping its service stops every process in it."""
+"""Programs our plasmoids start run as their own transient systemd service, outside plasmashell's process tree:
+Setup (started from the Control Panel) restarts plasmashell, and its QProcess objects kill their children as it
+stops. A scope does not help there: systemd-run --scope execs the program, which stays plasmashell's child."""
 
 import re
 
@@ -33,5 +34,5 @@ def test_there_are_launches_to_check():
 
 
 @pytest.mark.parametrize("plasmoid, command", launched_commands())
-def test_plasmoid_starts_programs_in_their_own_scope(plasmoid, command):
-    assert command.startswith("systemd-run --user --scope --quiet --collect "), (plasmoid, command)
+def test_plasmoid_starts_programs_as_their_own_transient_service(plasmoid, command):
+    assert command.startswith("systemd-run --user --quiet --collect "), (plasmoid, command)

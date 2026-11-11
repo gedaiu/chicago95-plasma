@@ -34,8 +34,8 @@ PlasmoidItem {
         onTriggered: root.now = new Date()
     }
 
-    // Programs start in their own systemd scope: Setup restarts plasmashell, and stopping its service
-    // stops every process started inside it (tests/test_plasmoid_launches.py).
+    // Programs start as their own transient systemd service: Setup restarts plasmashell, and as it stops
+    // its QProcesses kill the programs they started (tests/test_plasmoid_launches.py).
     Plasma5Support.DataSource {
         id: runner
         engine: "executable"
@@ -57,6 +57,6 @@ PlasmoidItem {
 
     MouseArea {
         anchors.fill: parent
-        onDoubleClicked: runner.connectSource("systemd-run --user --scope --quiet --collect kcmshell6 kcm_clock")
+        onDoubleClicked: runner.connectSource("systemd-run --user --quiet --collect kcmshell6 kcm_clock")
     }
 }

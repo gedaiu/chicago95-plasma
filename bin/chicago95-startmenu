@@ -257,8 +257,13 @@ def recent_documents(limit=12):
     return documents
 
 
+def detached(command):
+    """The command as its own transient service: restarting the menu stops the menu's unit, and everything in it."""
+    return ["systemd-run", "--user", "--quiet", "--collect", *command]
+
+
 def launch(command):
-    subprocess.Popen(command, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.Popen(detached(command), start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 SHUTDOWN_TOOL = os.path.expanduser("~/.local/bin/chicago95-shutdown")

@@ -7,7 +7,7 @@ import "dragSort.js" as DragSort
 MouseArea {
     id: area
 
-    property Item layoutParent: parent.parent
+    property Item layoutParent: parent ? parent.parent : null
     property int origin
     property int pitch
     property int count

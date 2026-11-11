@@ -1128,3 +1128,36 @@ def test_reinstall_with_the_saved_start_logo_pointing_at_the_installed_logo_exit
     result = run_setup(tmp_path, "--components=startmenu", f"--settings={saved}")
 
     assert (result.returncode, installed_logo.read_bytes()) == (0, b"saved logo")
+
+
+def test_mouse_alone_reloads_kwin_without_clearing_plasma_caches(tmp_path):
+    log = dry_run_log(tmp_path, "--components=mouse")
+
+    assert ("org.kde.KWin.reconfigure" in log, "qmlcache" in log) == (True, False)
+
+
+def test_taskbar_clears_plasma_caches_for_the_new_applets(tmp_path):
+    assert "qmlcache" in dry_run_log(tmp_path, "--components=taskbar")
+
+
+def install_shell_files(home):
+    shared = home / ".local/share/chicago95"
+    shared.mkdir(parents=True)
+    shutil.copy(REPO / "data/plasmashell-menus.qss", shared / "plasmashell-menus.qss")
+    shutil.copytree(REPO / "data/qml", shared / "qml")
+    drop_in = home / ".config/systemd/user/plasma-plasmashell.service.d"
+    drop_in.mkdir(parents=True)
+    shutil.copy(REPO / "config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf", drop_in / "chicago95-menus.conf")
+
+
+def test_screensaver_with_the_shell_files_already_installed_leaves_plasma_caches(tmp_path):
+    install_shell_files(tmp_path)
+
+    assert "qmlcache" not in dry_run_log(tmp_path, "--components=screensaver")
+
+
+def test_screensaver_with_a_new_menu_style_sheet_clears_plasma_caches(tmp_path):
+    install_shell_files(tmp_path)
+    (tmp_path / ".local/share/chicago95/plasmashell-menus.qss").write_text("QMenu {}\n")
+
+    assert "qmlcache" in dry_run_log(tmp_path, "--components=screensaver")

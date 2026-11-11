@@ -125,3 +125,18 @@ def test_the_old_drag_overlay_is_gone():
     text = main_qml()
 
     assert ("draggedIndex" in text, "dragInsideTaskbar" in text, "draggedIcon" in text) == (False, False, False)
+
+
+def test_tap_handlers_name_the_mouse_button_so_the_task_button_id_stays_the_menus_parent():
+    """`onTapped: button =>` would shadow the TaskButton's id, and the window menu would be given a number."""
+    window_button = qml_block(main_qml(), "id: windowButton")
+
+    assert (
+        "onTapped: button =>" in window_button,
+        "onTapped: mouseButton =>" in window_button,
+        "windowMenu.visualParent = button" in window_button,
+    ) == (
+        False,
+        True,
+        True,
+    )

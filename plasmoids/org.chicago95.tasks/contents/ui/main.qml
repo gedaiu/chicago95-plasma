@@ -10,6 +10,7 @@ import "sizing.js" as Sizing
 import "launchers.js" as Launchers
 import "quickLaunch.js" as QuickLaunch
 import "quickLaunchBand.js" as Band
+import "windowMenu.js" as WindowMenu
 
 // The taskbar between the Start button and the tray, as the originals lay it out
 // (tests/test_plasma_taskbar_reference.py): with Quick Launch entries, a separator, their 23px cells
@@ -17,7 +18,7 @@ import "quickLaunchBand.js" as Band
 // the look allows and narrower when many share the taskbar. The originals have no gap before this
 // part, so it starts over the gap Plasma's panel leaves between applets.
 // A click on a window's button activates it, or minimizes it when it is already active; the right
-// button opens the classic window menu, with "Add to Quick Launch". A Quick Launch entry's menu removes
+// button opens the window's system menu (windowMenu.js), with "Add to Quick Launch". A Quick Launch entry's menu removes
 // it; programs dropped on the Quick Launch are added. Dragging a task button or a Quick Launch entry along
 // the taskbar sorts it (DragSortArea.qml); the Quick Launch order is saved. Whether it shows is Setup's option (quickLaunch.js).
 // It sits between its two separators: the one at its docked edge carries it to either end of the taskbar;
@@ -81,10 +82,10 @@ PlasmoidItem {
             onTriggered: runner.connectSource(root.controlPanelCommand)
         }
     ]
-    readonly property string controlPanelCommand: "systemd-run --user --scope --quiet --collect @HOME@/.local/bin/chicago95-control-panel --page taskbar"
+    readonly property string controlPanelCommand: "systemd-run --user --quiet --collect @HOME@/.local/bin/chicago95-control-panel --page taskbar"
 
-    // Programs start in their own systemd scope: Setup restarts plasmashell, and stopping its service
-    // stops every process started inside it (tests/test_plasmoid_launches.py).
+    // Programs start as their own transient systemd service: Setup restarts plasmashell, and as it stops
+    // its QProcesses kill the programs they started (tests/test_plasmoid_launches.py).
     Plasma5Support.DataSource {
         id: runner
         engine: "executable"
@@ -278,8 +279,8 @@ PlasmoidItem {
                                 if (Launchers.releasedOffTaskbar(pointerX, pointerY, root.width, root.height))
                                     tasksModel.requestRemoveLauncher(entry.model.LauncherUrlWithoutIcon);
                             }
-                            onTapped: button => {
-                                if (button === Qt.RightButton) {
+                            onTapped: mouseButton => {
+                                if (mouseButton === Qt.RightButton) {
                                     launcherMenu.launcher = entry.model.LauncherUrlWithoutIcon;
                                     launcherMenu.visualParent = parent;
                                     launcherMenu.openRelative();
@@ -324,10 +325,11 @@ PlasmoidItem {
                         onSlidesChanged: entry.slides = slides
                         onDragXChanged: entry.dragX = dragX
                         onMoved: (from, to) => tasksModel.move(root.launcherCount + from, root.launcherCount + to)
-                        onTapped: button => {
-                            if (button === Qt.RightButton) {
+                        onTapped: mouseButton => {
+                            if (mouseButton === Qt.RightButton) {
                                 windowMenu.visualParent = button;
                                 windowMenu.task = entry.modelIndex;
+                                windowMenu.window = WindowMenu.windowState(entry.model);
                                 windowMenu.launcher = entry.model.LauncherUrlWithoutIcon;
                                 windowMenu.openRelative();
                             } else if (entry.model.IsActive) {
@@ -356,18 +358,33 @@ PlasmoidItem {
         id: windowMenu
         property var task
         property var launcher
+        property var window: WindowMenu.windowState({})
+        readonly property var enabledItems: WindowMenu.enabledItems(window)
         placement: PlasmaExtras.Menu.TopPosedLeftAlignedPopup
 
         PlasmaExtras.MenuItem {
             text: i18n("Restore")
-            onClicked: tasksModel.requestActivate(windowMenu.task)
+            enabled: windowMenu.enabledItems.restore
+            onClicked: windowMenu.window.minimized ? tasksModel.requestActivate(windowMenu.task) : tasksModel.requestToggleMaximized(windowMenu.task)
+        }
+        PlasmaExtras.MenuItem {
+            text: i18n("Move")
+            enabled: windowMenu.enabledItems.move
+            onClicked: tasksModel.requestMove(windowMenu.task)
+        }
+        PlasmaExtras.MenuItem {
+            text: i18n("Size")
+            enabled: windowMenu.enabledItems.size
+            onClicked: tasksModel.requestResize(windowMenu.task)
         }
         PlasmaExtras.MenuItem {
             text: i18n("Minimize")
+            enabled: windowMenu.enabledItems.minimize
             onClicked: tasksModel.requestToggleMinimized(windowMenu.task)
         }
         PlasmaExtras.MenuItem {
             text: i18n("Maximize")
+            enabled: windowMenu.enabledItems.maximize
             onClicked: tasksModel.requestToggleMaximized(windowMenu.task)
         }
         PlasmaExtras.MenuItem {
@@ -383,6 +400,7 @@ PlasmoidItem {
         }
         PlasmaExtras.MenuItem {
             text: i18n("Close")
+            enabled: windowMenu.enabledItems.close
             onClicked: tasksModel.requestClose(windowMenu.task)
         }
     }

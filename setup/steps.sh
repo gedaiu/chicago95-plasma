@@ -70,6 +70,22 @@ put_tree() { # put_tree <source dir> <destination dir>
   while IFS= read -r file; do show_copy "$file" "$dest/${file#"$source"/}"; done < <(find "$source" -type f | sort)
 }
 
+# installed_differs <source> <destination>  true when a file of source is missing or different at destination
+installed_differs() {
+  local source="$1" dest="$2" file
+  if [ ! -d "$source" ]; then
+    ! cmp -s "$source" "$dest"
+    return
+  fi
+  while IFS= read -r file; do
+    cmp -s "$file" "$dest/${file#"$source"/}" || return 0
+  done < <(find "$source" -type f)
+  return 1
+}
+
+# Set by the steps that change what plasmashell loads; finish_session restarts it only then.
+SHELL_CHANGED=0
+
 substitute_home() { [ "${SETUP_DRY_RUN:-0}" = 1 ] || grep -rlI '@HOME@' "$@" 2>/dev/null | xargs -r sed -i "s|@HOME@|$HOME|g"; }
 
 kconf() {
@@ -409,6 +425,7 @@ step_animations() { # the saved animation choices into KWin, KDE's speed and our
 }
 
 step_look() { # decoration, Plasma style, colours, widget style, DPI
+  SHELL_CHANGED=1
   put_tree "$REPO/aurorae/theme" ~/.local/share/aurorae/themes/Chicago95
   for extra in bevel.py make_chicago95_aurorae.py start-button.png start-button-pressed.png; do put_file "$REPO/aurorae/$extra" ~/.local/share/aurorae/themes/Chicago95/$extra; done
   put_file "$REPO/plasma-style/make_chicago95_plasmastyle.py" ~/.local/share/aurorae/themes/Chicago95/make_chicago95_plasmastyle.py
@@ -449,6 +466,7 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
 }
 
 step_taskbar() {
+  SHELL_CHANGED=1
   for plasmoid in "$REPO"/plasmoids/org.chicago95.*; do put_tree "$plasmoid" ~/.local/share/plasma/plasmoids/"$(basename "$plasmoid")"; done
   put_file "$REPO/plasmoids/panel-layout.js" ~/.local/share/chicago95/panel-layout.js
   put_file "$REPO/config/applications/chicago95-showdesktop.desktop" ~/.local/share/applications/chicago95-showdesktop.desktop
@@ -483,13 +501,19 @@ qt_qml_dir() {
 step_tools_common() { # shared by every PySide6 component; idempotent
   [ "${TOOLS_COMMON_DONE:-0}" = 1 ] && return
   TOOLS_COMMON_DONE=1
+  local drop_in=~/.config/systemd/user/plasma-plasmashell.service.d/chicago95-menus.conf
+  if installed_differs "$REPO/data/plasmashell-menus.qss" ~/.local/share/chicago95/plasmashell-menus.qss ||
+    installed_differs "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" "$drop_in" ||
+    installed_differs "$REPO/data/qml" ~/.local/share/chicago95/qml; then
+    SHELL_CHANGED=1
+  fi
   put_file "$REPO/lib/chicago95ui.py" ~/.local/lib/chicago95/chicago95ui.py
   put_file "$REPO/lib/login_preview.py" ~/.local/lib/chicago95/login_preview.py
   put_file "$REPO/lib/chicago95update.py" ~/.local/lib/chicago95/chicago95update.py
   put_file "$REPO/lib/chicago95animations.py" ~/.local/lib/chicago95/chicago95animations.py
   put_file "$REPO/setup/animations.conf" ~/.local/lib/chicago95/animations.conf
   put_file "$REPO/data/plasmashell-menus.qss" ~/.local/share/chicago95/plasmashell-menus.qss
-  put_file "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" ~/.config/systemd/user/plasma-plasmashell.service.d/chicago95-menus.conf
+  put_file "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" "$drop_in"
   put_tree "$REPO/data/qml" ~/.local/share/chicago95/qml
   complete_qml_module "$(qt_qml_dir)/org/kde/plasma/components" ~/.local/share/chicago95/qml/org/kde/plasma/components
   put_file "$REPO/config/environment.d/chicago95.conf" ~/.config/environment.d/chicago95.conf
@@ -1208,18 +1232,14 @@ step_fonts() { # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bar
   return 0
 }
 
-finish_session() {
-  if [ "$COMPONENTS" = animations ]; then # KWin rereads its effects; Plasma has nothing new to load
-    kwin_reconfigure
-    return 0
-  fi
-  run rm -rf ~/.cache/plasmashell/qmlcache ~/.cache/ksvg-elements ~/.cache/plasma_theme_Chicago95.kcache
+finish_session() { # KWin always rereads its settings; plasmashell restarts only when something it loads changed
+  [ "$SHELL_CHANGED" = 1 ] && run rm -rf ~/.cache/plasmashell/qmlcache ~/.cache/ksvg-elements ~/.cache/plasma_theme_Chicago95.kcache
   run systemctl --user daemon-reload
   kwin_reconfigure
-  if [ "${SETUP_DRY_RUN:-0}" != 1 ] && [ "$SETUP_IN_PLASMA" = 1 ]; then
-    systemctl --user is-enabled chicago95-notifyd.service >/dev/null 2>&1 && systemctl --user restart chicago95-notifyd.service || true
-    # Last, and one queued job: Setup may run inside plasmashell's service (started from the Control
-    # Panel, opened from the taskbar), and stopping it stops Setup too; systemd finishes the job anyway.
-    systemctl --user restart --no-block plasma-plasmashell.service 2>/dev/null || true
-  fi
+  [ "${SETUP_DRY_RUN:-0}" != 1 ] && [ "$SETUP_IN_PLASMA" = 1 ] || return 0
+  systemctl --user is-enabled chicago95-notifyd.service >/dev/null 2>&1 && systemctl --user restart chicago95-notifyd.service || true
+  [ "$SHELL_CHANGED" = 1 ] || return 0
+  # Last, and one queued job: Setup may run inside plasmashell's service (started from the Control
+  # Panel, opened from the taskbar), and stopping it stops Setup too; systemd finishes the job anyway.
+  systemctl --user restart --no-block plasma-plasmashell.service 2>/dev/null || true
 }

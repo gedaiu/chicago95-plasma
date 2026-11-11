@@ -183,3 +183,19 @@ def test_the_drag_threshold_defaults_to_the_platforms_start_drag_distance(qt_app
     assert not component.isError(), [error.toString() for error in component.errors()]
 
     assert component.create().property("threshold") == QGuiApplication.styleHints().startDragDistance()
+
+
+def test_a_drag_sort_area_created_before_it_has_a_parent_raises_no_warning(qt_app):
+    """A Loader creates the button before parenting it: the default layoutParent must not touch a null parent."""
+    from PySide6.QtQml import QQmlEngine
+
+    engine = QQmlEngine()
+    engine.setOutputWarningsToStandardError(False)
+    warnings = []
+    engine.warnings.connect(lambda errors: warnings.extend(error.toString() for error in errors))
+    component = QQmlComponent(engine)
+    component.setData(b"import QtQuick\nDragSortArea {}\n", QUrl.fromLocalFile(str(UI / "harness.qml")))
+    area = component.create()
+    qt_app.processEvents()
+
+    assert (area is not None, warnings) == (True, [])
