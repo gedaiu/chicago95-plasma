@@ -69,7 +69,7 @@ def our_etched_rows(image, shadow):
 def test_the_original_menu_bar_and_address_box_are_bands_of_22_rows_between_etched_lines(original):
     rows = original_etched_rows(original, TITLE_BAR_BOTTOM, 76)
 
-    assert [after - before for before, after in zip(rows, rows[1:])] == [BAND_PITCH, BAND_PITCH]
+    assert [after - before for before, after in zip(rows, rows[1:], strict=False)] == [BAND_PITCH, BAND_PITCH]
 
 
 def test_the_originals_address_box_has_18_white_rows_inside_its_frame(original):
@@ -111,7 +111,11 @@ TOOLBAR_PITCH = 42  # 40 rows of toolbar between etched lines, in Internet Explo
 def test_internet_explorer_4s_toolbar_band_is_40_rows_between_etched_lines():
     rows = original_etched_rows(screenshot("ie4"), TITLE_BAR_BOTTOM, 120)
 
-    assert [after - before for before, after in zip(rows, rows[1:])] == [BAND_PITCH, TOOLBAR_PITCH, BAND_PITCH]
+    assert [after - before for before, after in zip(rows, rows[1:], strict=False)] == [
+        BAND_PITCH,
+        TOOLBAR_PITCH,
+        BAND_PITCH,
+    ]
 
 
 def test_our_toolbar_band_is_40_rows_between_etched_lines(ours):
@@ -127,7 +131,7 @@ LOGO_BOX_WIDTH = 38  # the black logo box at the right of the original's menu ba
 def test_each_band_has_one_raised_grip_bar_white_then_face_then_shadow(ours):
     _window, image, (face, shadow) = ours
     etched = our_etched_rows(image, shadow)
-    centres = [(top + bottom) // 2 for top, bottom in zip(etched, etched[1:])]
+    centres = [(top + bottom) // 2 for top, bottom in zip(etched, etched[1:], strict=False)]
     columns = [tuple(image.getpixel((x, row)) for x in range(2, 10)) for row in centres]
 
     assert columns == [((255, 255, 255), face, face, face, shadow, face, face, face)] * 3

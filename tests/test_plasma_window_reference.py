@@ -81,7 +81,9 @@ def test_title_colours_match_the_original_column_by_column(desktops, look, title
         pytest.skip("the original's window is in the other state; see the 1998 alert's title below")
     left, right = 160, original.width - BUTTONS_WIDTH  # right of the captions
     expected, actual = title_columns(original, left, right), title_columns(ours, left, right)
-    assert all(close(a, e, COLUMN_TOLERANCE) for a, e in zip(actual, expected)), list(zip(actual, expected))
+    assert all(close(a, e, COLUMN_TOLERANCE) for a, e in zip(actual, expected, strict=False)), list(
+        zip(actual, expected, strict=False)
+    )
 
 
 def test_1998_active_title_shades_like_the_originals_alert(desktops):
@@ -91,13 +93,15 @@ def test_1998_active_title_shades_like_the_originals_alert(desktops):
     ours = desktops("1998").crop((left, top, right + 1, top + 40))
     expected = title_columns(alert, 140, alert.width - BUTTONS_WIDTH)
     actual = title_columns(ours, 140, ours.width - BUTTONS_WIDTH)
-    assert all(close(a, e, COLUMN_TOLERANCE) for a, e in zip(actual, expected)), list(zip(actual, expected))
+    assert all(close(a, e, COLUMN_TOLERANCE) for a, e in zip(actual, expected, strict=False)), list(
+        zip(actual, expected, strict=False)
+    )
 
 
 @pytest.mark.parametrize(
     "look, title, toolkit, box",
     [window for window in PLACED if window[0] != "2000"],
-    ids=[id_ for id_, window in zip(IDS, PLACED) if window[0] != "2000"],
+    ids=[id_ for id_, window in zip(IDS, PLACED, strict=False) if window[0] != "2000"],
 )
 def test_caption_starts_and_sits_where_the_originals_does(desktops, look, title, toolkit, box):
     """2000's captions are Tahoma; ours are the UI font, so only 1995's and 1998's are compared. The
@@ -114,7 +118,9 @@ def test_caption_starts_and_sits_where_the_originals_does(desktops, look, title,
         ]
         return min(x for x, _ in points), min(y for _, y in points), max(y for _, y in points)
 
-    caption = lambda is_active: (255, 255, 255) if is_active else (192, 192, 192)
+    def caption(is_active):
+        return (255, 255, 255) if is_active else (192, 192, 192)
+
     expected, actual = ink(original, caption(original_active)), ink(ours, caption(active))
     assert actual == (expected[0] + title.startswith("W"), expected[1], expected[2])
 

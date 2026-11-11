@@ -4,6 +4,7 @@ import org.kde.kirigami as Kirigami
 import org.kde.kcmutils as KCM
 
 KCM.SimpleKCM {
+    id: page
     property alias cfg_buttonText: buttonText.text
     property string cfg_logo
     // Plasma also hands the page each setting's default; without these it logs a warning per setting.
@@ -32,17 +33,17 @@ KCM.SimpleKCM {
             id: logoChoice
             Kirigami.FormData.label: "Logo:"
             model: ["Classic flag", "Penguin", "Custom image"]
-            currentIndex: cfg_logo === "flag" ? 0 : cfg_logo === "penguin" ? 1 : 2
+            currentIndex: page.cfg_logo === "flag" ? 0 : page.cfg_logo === "penguin" ? 1 : 2
             onActivated: index => {
-                cfg_logo = index === 0 ? "flag" : index === 1 ? "penguin" : "";
+                page.cfg_logo = index === 0 ? "flag" : index === 1 ? "penguin" : "";
             }
         }
         QQC2.TextField {
             visible: logoChoice.currentIndex === 2
             Kirigami.FormData.label: "Image file:"
             placeholderText: "/home/you/Pictures/logo.png"
-            text: customLogo ? cfg_logo : ""
-            onTextEdited: cfg_logo = text
+            text: page.customLogo ? page.cfg_logo : ""
+            onTextEdited: page.cfg_logo = text
         }
     }
 }

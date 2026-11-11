@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick 2.15
 import SddmComponents 2.0
 
@@ -15,6 +16,15 @@ Rectangle {
     readonly property string uiFamily: uiFont.status === FontLoader.Ready ? uiFont.name : "sans-serif"
     property int sessionIndex: Math.max(0, sessionModel.lastIndex)
     property bool showOptions: false
+
+    // qmllint disable unqualified
+    // The SDDM greeter injects these as context properties, which qmllint cannot see; every other use goes through them.
+    readonly property var greeter: sddm
+    readonly property var theme: config
+    readonly property var sessions: sessionModel
+    readonly property var users: userModel
+    readonly property var keyboardState: typeof keyboard !== "undefined" ? keyboard : null
+    // qmllint enable unqualified
 
     FontLoader {
         id: uiFont
@@ -34,7 +44,7 @@ Rectangle {
     }
 
     Connections {
-        target: sddm
+        target: root.greeter
         function onLoginFailed() {
             failure.text = "The password is incorrect. Try again.";
             passwordField.text = "";
@@ -126,13 +136,16 @@ Rectangle {
             Repeater {
                 model: popup.names
                 delegate: Rectangle {
+                    id: row
+                    required property string modelData
+                    required property int index
                     width: column.width
                     height: 18
                     color: pick.containsMouse ? "#000080" : "#ffffff"
                     RetroLabel {
                         x: 4
                         anchors.verticalCenter: parent.verticalCenter
-                        text: modelData
+                        text: row.modelData
                         color: pick.containsMouse ? "#ffffff" : "#000000"
                     }
                     MouseArea {
@@ -141,7 +154,7 @@ Rectangle {
                         hoverEnabled: true
                         onClicked: {
                             popup.visible = false;
-                            popup.picked(index);
+                            popup.picked(row.index);
                         }
                     }
                 }
@@ -164,6 +177,7 @@ Rectangle {
             Repeater {
                 model: 4
                 Rectangle {
+                    required property int index
                     x: index
                     y: index
                     width: 7 - 2 * index
@@ -192,13 +206,17 @@ Rectangle {
                 // The check mark, one run of pixels per row: [first column, last column].
                 model: check.checked ? [[6, 6], [5, 6], [0, 0, 4, 6], [0, 1, 3, 5], [0, 4], [1, 3], [2, 2]] : []
                 Item {
+                    id: pixelRow
+                    required property var modelData
+                    required property int index
                     readonly property var runs: modelData
                     y: 3 + index
                     Repeater {
-                        model: parent.runs.length / 2
+                        model: pixelRow.runs.length / 2
                         Rectangle {
-                            x: 3 + parent.runs[index * 2]
-                            width: parent.runs[index * 2 + 1] - parent.runs[index * 2] + 1
+                            required property int index
+                            x: 3 + pixelRow.runs[index * 2]
+                            width: pixelRow.runs[index * 2 + 1] - pixelRow.runs[index * 2] + 1
                             height: 1
                             color: "#000000"
                         }
@@ -269,18 +287,21 @@ Rectangle {
         }
     }
 
+    // One invisible item per row of a model, carrying the row's name role.
+    component NamedItem: Item {
+        required property string name
+    }
+
     // The session names, and the keyboard layouts when there is more than one to pick from.
     Repeater {
         id: sessionRepeater
-        model: sessionModel
-        delegate: Item {
-            property string name: model.name
-        }
+        model: root.sessions
+        delegate: NamedItem {}
     }
     readonly property var sessionNames: {
         const names = [];
         for (let index = 0; index < sessionRepeater.count; index++)
-            names.push(sessionRepeater.itemAt(index).name);
+            names.push((sessionRepeater.itemAt(index) as NamedItem).name);
         return names;
     }
     readonly property var layoutNames: {
@@ -293,18 +314,16 @@ Rectangle {
     readonly property bool canPickLayout: modern && layoutNames.length > 1
     Repeater {
         id: userRepeater
-        model: userModel
-        delegate: Item {
-            property string name: model.name
-        }
+        model: root.users
+        delegate: NamedItem {}
     }
     readonly property var userNames: {
         const names = [];
         for (let index = 0; index < userRepeater.count; index++)
-            names.push(userRepeater.itemAt(index).name);
+            names.push((userRepeater.itemAt(index) as NamedItem).name);
         return names;
     }
-    readonly property bool hasKeyboard: typeof keyboard !== "undefined" && !!keyboard
+    readonly property bool hasKeyboard: !!keyboardState
     property bool showPassword: false
 
     // 2000's Options: collapsed shows only the user name and password; expanded grows the dialog
@@ -360,7 +379,7 @@ Rectangle {
                 id: scheme
                 colorGroup: SystemPalette.Active
             }
-            readonly property var colors: config.titleActive ? String(config.titleActive).split(",") : [scheme.highlight]
+            readonly property var colors: root.theme.titleActive ? String(root.theme.titleActive).split(",") : [scheme.highlight]
             gradient: Gradient {
                 orientation: Gradient.Horizontal
                 GradientStop {
@@ -375,7 +394,7 @@ Rectangle {
             RetroLabel {
                 x: 4
                 anchors.verticalCenter: parent.verticalCenter
-                text: String(config.loginTitle || "Log On to %h").replace("%h", sddm.hostName || "this computer")
+                text: String(root.theme.loginTitle || "Log On to %h").replace("%h", root.greeter.hostName || "this computer")
                 color: "#ffffff"
                 font.bold: true
             }
@@ -387,7 +406,7 @@ Rectangle {
             y: 30
             width: 48
             height: 48
-            source: config.loginIcon || "key.svg"
+            source: root.theme.loginIcon || "key.svg"
             sourceSize.width: 192
             sourceSize.height: 192
         }
@@ -396,7 +415,7 @@ Rectangle {
             visible: !root.modern
             x: dialog.labelX
             y: 32
-            text: config.loginMessage || "Type a user name and password to log on."
+            text: root.theme.loginMessage || "Type a user name and password to log on."
         }
 
         // 2000: the product banner under the title bar. Setup draws it (chicago95-shutdown --login-banner,
@@ -425,7 +444,7 @@ Rectangle {
             y: dialog.rowY(0)
             width: dialog.fieldWidth
             height: dialog.rowHeight
-            text: userModel.lastUser
+            text: root.users.lastUser
             KeyNavigation.tab: passwordField.input
             arrowSpace: root.userNames.length > 0 ? 18 : 0
             // The users of this computer, like an editable dropdown: type a name or pick one.
@@ -468,7 +487,7 @@ Rectangle {
         }
         // A balloon under the password while Caps Lock is on, as later versions of the dialog show.
         Rectangle {
-            visible: root.hasKeyboard && keyboard.capsLock && passwordField.input.activeFocus
+            visible: root.hasKeyboard && root.keyboardState.capsLock && passwordField.input.activeFocus
             z: 3
             x: passwordField.x + 10
             y: passwordField.y + passwordField.height + 6
@@ -570,21 +589,21 @@ Rectangle {
             readonly property var choices: [
                 {
                     name: "Shut down",
-                    run: () => sddm.powerOff()
+                    run: () => root.greeter.powerOff()
                 },
                 {
                     name: "Restart",
-                    run: () => sddm.reboot()
+                    run: () => root.greeter.reboot()
                 }
-            ].concat(sddm.canSuspend ? [
+            ].concat(root.greeter.canSuspend ? [
                 {
                     name: "Stand by",
-                    run: () => sddm.suspend()
+                    run: () => root.greeter.suspend()
                 }
-            ] : []).concat(sddm.canHibernate ? [
+            ] : []).concat(root.greeter.canHibernate ? [
                 {
                     name: "Hibernate",
-                    run: () => sddm.hibernate()
+                    run: () => root.greeter.hibernate()
                 }
             ] : [])
             names: choices.map(choice => choice.name)
@@ -623,8 +642,8 @@ Rectangle {
             width: dialog.fieldWidth
             height: dialog.rowHeight
             names: root.layoutNames
-            currentIndex: visible ? keyboard.currentLayout : 0
-            onActivated: index => keyboard.currentLayout = index
+            currentIndex: visible ? root.keyboardState.currentLayout : 0
+            onActivated: index => root.keyboardState.currentLayout = index
             KeyNavigation.tab: numLockCheck
         }
         Row {
@@ -636,8 +655,8 @@ Rectangle {
                 id: numLockCheck
                 visible: root.hasKeyboard
                 label: "Turn on Num Lock"
-                checked: root.hasKeyboard && keyboard.numLock
-                onToggled: keyboard.numLock = !keyboard.numLock
+                checked: root.hasKeyboard && root.keyboardState.numLock
+                onToggled: root.keyboardState.numLock = !root.keyboardState.numLock
                 KeyNavigation.tab: showPasswordCheck
             }
             RetroCheck {

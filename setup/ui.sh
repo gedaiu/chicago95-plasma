@@ -378,7 +378,7 @@ ui_pick_options() {
       case "$answer" in *[!0-9]*) continue ;; esac
       index=$((answer - 1))
       [ "$index" -ge 0 ] && [ "$index" -lt "${#names[@]}" ] || continue
-      values[$index]=$(ui_ask "${labels[$index]}" "${values[$index]}")
+      values[index]=$(ui_ask "${labels[$index]}" "${values[$index]}")
     done
     exec 1>&4
   fi
@@ -418,12 +418,12 @@ ui_pick_components() {
       [ "$UI_PLAIN" = 1 ] || tput civis
       [ -z "$answer" ] && break
       case "$answer" in
-      all) for index in "${!names[@]}"; do picked[$index]=1; done ;;
-      none) for index in "${!names[@]}"; do picked[$index]=0; done ;;
+      all) for index in "${!names[@]}"; do picked[index]=1; done ;;
+      none) for index in "${!names[@]}"; do picked[index]=0; done ;;
       *[!0-9]*) ;;
       *)
         index=$((answer - 1))
-        [ "$index" -ge 0 ] && [ "$index" -lt "${#names[@]}" ] && picked[$index]=$((1 - picked[$index]))
+        [ "$index" -ge 0 ] && [ "$index" -lt "${#names[@]}" ] && picked[index]=$((1 - picked[index]))
         ;;
       esac
     done

@@ -11,7 +11,7 @@ MANIFEST="$STATE_DIR/installed-files.txt"
 }
 
 # Newest first, so the oldest copy of a file (the one from before Chicago95 was ever installed) is restored last and wins.
-mapfile -t backups < <(ls -d "$STATE_DIR"/backup-* 2>/dev/null | sort -r)
+mapfile -t backups < <(find "$STATE_DIR" -maxdepth 1 -name 'backup-*' 2>/dev/null | sort -r)
 
 remove_kwin_rule() {
   python3 - "$HOME/.config/kwinrulesrc" "$1" <<'EOF'

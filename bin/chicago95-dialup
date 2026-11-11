@@ -12,10 +12,10 @@ sys.path[:0] = [
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
     os.path.expanduser("~/.local/lib/chicago95"),
 ]
-import chicago95ui  # noqa: E402  must precede the other PySide6 imports
-from PySide6.QtCore import QProcess, QTimer  # noqa: E402
-from PySide6.QtGui import QIcon  # noqa: E402
-from PySide6.QtWidgets import (  # noqa: E402
+import chicago95ui  # must precede the other PySide6 imports
+from PySide6.QtCore import QProcess, QTimer
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
@@ -36,7 +36,7 @@ BUTTON_SIZE = (75, 23)
 
 
 def tailscale_status():
-    result = subprocess.run(["tailscale", "status", "--json"], capture_output=True, text=True, timeout=10)
+    result = subprocess.run(["tailscale", "status", "--json"], capture_output=True, text=True, timeout=10, check=False)
     return json.loads(result.stdout) if result.returncode == 0 and result.stdout else {}
 
 
@@ -47,7 +47,7 @@ def tailscale_login_name(status):
 
 
 def tailscale_ipv4():
-    result = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True, timeout=10)
+    result = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True, timeout=10, check=False)
     return result.stdout.strip() or "no address"
 
 
@@ -243,7 +243,9 @@ def show_result(dry_run, dialing):
     box = QMessageBox(
         QMessageBox.Critical,
         "Error Connecting to Tailscale",
-        f"Error 691: {reason or 'The computer you are dialing in to cannot establish a Dial-Up Networking connection.'}\n\n{hint}",
+        f"Error 691: {
+            reason or 'The computer you are dialing in to cannot establish a Dial-Up Networking connection.'
+        }\n\n{hint}",
     )
     box.setIconPixmap(QIcon.fromTheme("dialog-error").pixmap(32, 32))
     box.addButton("OK", QMessageBox.AcceptRole)

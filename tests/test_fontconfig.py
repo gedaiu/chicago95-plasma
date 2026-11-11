@@ -29,8 +29,12 @@ def rendering(tmp_path, pixel_size):
         text=True,
         env=environment,
         timeout=30,
+        check=False,
     ).stdout
-    value = lambda name: (re.search(rf"\b{name}: (\S+)", output) or re.match("()", "")).group(1)
+
+    def value(name):
+        return (re.search(rf"\b{name}: (\S+)", output) or re.match("()", "")).group(1)
+
     return {
         "antialias": value("antialias"),
         "hintstyle": value("hintstyle"),
@@ -82,6 +86,7 @@ def test_smoothed_ui_font_draws_no_ink_left_of_where_the_text_starts(tmp_path, p
         text=True,
         env={**fontconfig_environment(tmp_path), "QT_QPA_PLATFORM": "offscreen"},
         timeout=60,
+        check=False,
     ).stdout
     darkest = eval(output.strip().splitlines()[-1])  # the four columns' darkest values, from column 3
     assert darkest[:2] == [255, 255] and darkest[2] < 128, darkest
@@ -113,6 +118,7 @@ def test_setup_installs_the_rule_that_smooths_winamps_18px_playlist(tmp_path):
         stdin=subprocess.DEVNULL,
         timeout=60,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
 

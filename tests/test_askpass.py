@@ -67,6 +67,7 @@ def test_screenshot_option_saves_a_picture_of_the_prompt(tmp_path):
         text=True,
         timeout=60,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "QT_QPA_PLATFORM": "offscreen"},
+        check=False,
     )
 
     assert (result.returncode, picture.stat().st_size > 0) == (0, True)

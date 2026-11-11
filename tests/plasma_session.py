@@ -119,33 +119,39 @@ for index in range(int(sys.argv[2])):
 app.exec()
 """
 
-COMMON = """#!/bin/bash
+COMMON = (
+    """#!/bin/bash
 set -u
 cd "$REPO"
-evaluate() {{ gdbus call --session --dest org.kde.plasmashell --object-path /PlasmaShell --method org.kde.PlasmaShell.evaluateScript "$1"; }}
+evaluate() {{ gdbus call --session --dest org.kde.plasmashell --object-path /PlasmaShell """
+    """--method org.kde.PlasmaShell.evaluateScript "$1"; }}
 wait_for_plasma() {{ for _ in $(seq 60); do evaluate 'print("ready")' >/dev/null 2>&1 && return; sleep 0.5; done; }}
 kwin_script() {{
     local id
-    id=$(gdbus call --session --dest org.kde.KWin --object-path /Scripting --method org.kde.kwin.Scripting.loadScript "$1" "$2" | grep -o '[0-9]\\+')
-    gdbus call --session --dest org.kde.KWin --object-path /Scripting/Script$id --method org.kde.kwin.Script.run >/dev/null
+    id=$(gdbus call --session --dest org.kde.KWin --object-path /Scripting """
+    """--method org.kde.kwin.Scripting.loadScript "$1" "$2" | grep -o '[0-9]\\+')
+    gdbus call --session --dest org.kde.KWin --object-path /Scripting/Script$id """
+    """--method org.kde.kwin.Script.run >/dev/null
 }}
 """
+)
 
 SETUP = (
-    COMMON
-    + """
+    COMMON + """
 # The first session: Setup, as on a desktop that runs Plasma.
 kbuildsycoca6 >/dev/null 2>&1
 plasmashell --no-respawn >"$WORK/plasma-setup.log" 2>&1 &
 wait_for_plasma
-TMPDIR="$WORK" ./install.sh --plain --yes --components=base,look,taskbar,fonts --look={look} --screen=640x480@1 >"$WORK/install.log" 2>&1 </dev/null
+TMPDIR="$WORK" ./install.sh --plain --yes --components=base,look,taskbar,fonts """
+    """--look={look} --screen=640x480@1 >"$WORK/install.log" 2>&1 </dev/null
 # The test's launchers; the tray with the given applets only (none: the test's icons only).
 evaluate 'panels().forEach(panel => {{
     panel.widgets("org.chicago95.tasks").forEach(widget => {{
         widget.currentConfigGroup = ["General"]; widget.writeConfig("launchers", {launchers});
     }});
     panel.widgets("org.kde.plasma.systemtray").forEach(widget => {{
-        widget.currentConfigGroup = ["General"]; widget.writeConfig("extraItems", {tray_applets}.concat({hidden_applets}));
+        widget.currentConfigGroup = ["General"]; widget.writeConfig("extraItems", """
+    """{tray_applets}.concat({hidden_applets}));
         widget.writeConfig("shownItems", {tray_applets}); widget.writeConfig("hiddenItems", {hidden_applets});
     }});
 }})' >>"$WORK/install.log" 2>&1
@@ -154,8 +160,7 @@ kill %1; wait
 )
 
 DESKTOP = (
-    COMMON
-    + """
+    COMMON + """
 # The second session, as after logging in again: everything Setup wrote is read from the start.
 plasmashell --no-respawn >"$WORK/plasma.log" 2>&1 &
 wait_for_plasma
@@ -167,7 +172,8 @@ const places = {places};
 for (const window of workspace.windowList()) {{
     const place = places[window.caption];
     if (place === "minimized") window.minimized = true;
-    else if (place) window.frameGeometry = {{x: place[0], y: place[1], width: place[2] - place[0] + 1, height: place[3] - place[1] + 1}};
+    else if (place) window.frameGeometry = """
+    """{{x: place[0], y: place[1], width: place[2] - place[0] + 1, height: place[3] - place[1] + 1}};
 }}
 for (const window of workspace.windowList()) {{ if (window.caption === {active}) workspace.activeWindow = window; }}
 SCRIPT

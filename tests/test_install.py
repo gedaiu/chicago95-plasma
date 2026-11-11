@@ -17,6 +17,7 @@ def test_dry_run_of_sddm_component_writes_the_zz_override_without_asking_for_a_p
         stdin=subprocess.DEVNULL,
         timeout=60,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
 
@@ -52,6 +53,7 @@ def run_setup(home, *arguments):
         stdin=subprocess.DEVNULL,
         timeout=120,
         env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(home), "TMPDIR": str(home)},
+        check=False,
     )
 
 
@@ -86,6 +88,7 @@ def test_dry_run_of_the_2000_look_downloads_the_waving_flag_for_the_loading_scre
         stdin=subprocess.DEVNULL,
         timeout=60,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
 
@@ -103,6 +106,7 @@ def test_login_theme_settings_carry_title_message_and_picture_without_banner_tex
         text=True,
         timeout=30,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)},
+        check=False,
     ).stdout.splitlines()
 
     assert (
@@ -119,6 +123,7 @@ def test_dry_run_of_the_2000_login_draws_the_banner_with_the_shut_down_code(tmp_
         stdin=subprocess.DEVNULL,
         timeout=60,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
 
@@ -138,6 +143,7 @@ def test_dry_run_of_the_2000_look_alone_writes_the_look_before_redrawing_the_bev
         stdin=subprocess.DEVNULL,
         timeout=60,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
     style = log.find("would: kwriteconfig6 --file chicago95rc --group StartMenu --key style 2000")
@@ -160,12 +166,13 @@ def test_dry_run_of_the_base_theme_selects_chicago95_for_gtk_3_and_4(tmp_path):
             "TMPDIR": str(tmp_path),
             "CHICAGO95_SRC": str(Path.home() / "src/Chicago95"),
         },
+        check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
 
     assert [
-        f"would: kwriteconfig6 --file {tmp_path}/.config/gtk-{version}/settings.ini --group Settings --key gtk-theme-name Chicago95"
-        in log
+        f"would: kwriteconfig6 --file {tmp_path}/.config/gtk-{version}/settings.ini "
+        "--group Settings --key gtk-theme-name Chicago95" in log
         for version in ("3.0", "4.0")
     ] == [True, True]
 
@@ -178,6 +185,7 @@ def test_dry_run_of_the_windows_2000_sounds_selects_that_theme_for_plasma(tmp_pa
         stdin=subprocess.DEVNULL,
         timeout=60,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
 
@@ -206,6 +214,7 @@ def test_dry_run_of_the_2000_look_puts_the_2000_toolbar_buttons_over_its_icon_se
         stdin=subprocess.DEVNULL,
         timeout=60,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
 
@@ -226,7 +235,9 @@ def test_every_run_writes_the_look_into_each_taskbar_applet(tmp_path):
         f'REPO={REPO}; source {REPO}/setup/steps.sh; plasma_script() {{ printf "%s\\n" "$1"; }}; '
         f"SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 SETUP_LOG={log} SETUP_MENU_STYLE=2000 apply_taskbar"
     )
-    subprocess.run(["bash", "-c", script], timeout=30, env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)})
+    subprocess.run(
+        ["bash", "-c", script], timeout=30, env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}, check=False
+    )
     written = log.read_text()
 
     assert [
@@ -244,7 +255,9 @@ def test_an_empty_quick_launch_gets_the_default_programs_on_a_look_that_shows_it
         f'REPO={REPO}; source {REPO}/setup/steps.sh; plasma_script() {{ printf "%s\\n" "$1"; }}; '
         f"SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 SETUP_LOG={log} SETUP_MENU_STYLE=1998 apply_taskbar"
     )
-    subprocess.run(["bash", "-c", script], timeout=30, env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)})
+    subprocess.run(
+        ["bash", "-c", script], timeout=30, env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}, check=False
+    )
     written = log.read_text()
 
     assert 'readConfig("launchers"' in written and '"applications:firefox.desktop"' in written
@@ -269,6 +282,7 @@ def test_dry_run_with_settings_file_applies_the_saved_sound_theme(tmp_path):
         stdin=subprocess.DEVNULL,
         timeout=60,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
 
@@ -298,6 +312,7 @@ def test_settings_with_look_2000_and_custom_active_title_keep_the_looks_inactive
         stdin=subprocess.DEVNULL,
         timeout=60,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
 
@@ -360,7 +375,9 @@ def taskbar_script_written(tmp_path, assignments=""):
         f'REPO={REPO}; source {REPO}/setup/steps.sh; plasma_script() {{ printf "%s\\n" "$1"; }}; '
         f"SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 SETUP_LOG={log} {assignments} apply_taskbar"
     )
-    subprocess.run(["bash", "-c", script], timeout=30, env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)})
+    subprocess.run(
+        ["bash", "-c", script], timeout=30, env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}, check=False
+    )
     return log.read_text()
 
 
@@ -368,8 +385,8 @@ def test_task_button_width_220_is_written_to_each_task_list(tmp_path):
     written = taskbar_script_written(tmp_path, "SETUP_TASK_BUTTON_WIDTH=220")
 
     assert (
-        "panel.widgets('org.chicago95.tasks').forEach(widget => { widget.currentConfigGroup = ['General']; widget.writeConfig('maxButtonWidth', 220); });"
-        in " ".join(written.split())
+        "panel.widgets('org.chicago95.tasks').forEach(widget => { widget.currentConfigGroup = ['General']; "
+        "widget.writeConfig('maxButtonWidth', 220); });" in " ".join(written.split())
     )
 
 
@@ -414,7 +431,8 @@ def test_empty_saved_launchers_clear_the_quick_launch_instead_of_restoring_the_d
 def test_panel_layout_for_a_new_taskbar_starts_with_the_saved_launchers(tmp_path):
     layout = run_bash_with_steps(
         tmp_path,
-        f"SETUP_LAUNCHERS=applications:firefox.desktop PANEL_HEIGHT=28 panel_layout_script {REPO}/plasmoids/panel-layout.js",
+        "SETUP_LAUNCHERS=applications:firefox.desktop PANEL_HEIGHT=28 "
+        f"panel_layout_script {REPO}/plasmoids/panel-layout.js",
     )
 
     assert 'tasks.writeConfig("launchers", ["applications:firefox.desktop"]);' in layout
@@ -428,7 +446,8 @@ def test_panel_layout_for_a_new_taskbar_starts_with_the_saved_launchers(tmp_path
     ],
 )
 def test_taskbar_script_parses_as_javascript(qt_app, tmp_path, assignments):
-    """plasmashell runs the script; the engine here stops at the first undefined name, panels(), once it has parsed it."""
+    """plasmashell runs the script; the engine here stops at the first undefined name,
+    panels(), once it has parsed it."""
     from PySide6.QtQml import QJSEngine, QJSValue
 
     engine = QJSEngine()
@@ -464,8 +483,8 @@ def test_clock_hour_format_24_is_written_to_each_clock(tmp_path):
     written = squeezed(taskbar_script_written(tmp_path, "SETUP_CLOCK_HOURS=24"))
 
     assert (
-        "panel.widgets('org.chicago95.clock').forEach(widget => { widget.currentConfigGroup = ['General']; widget.writeConfig('hourFormat', \"24\"); });"
-        in written
+        "panel.widgets('org.chicago95.clock').forEach(widget => { widget.currentConfigGroup = ['General']; "
+        "widget.writeConfig('hourFormat', \"24\"); });" in written
     )
 
 
@@ -492,7 +511,8 @@ def test_showing_the_clock_adds_one_to_a_taskbar_without_it(tmp_path):
 def test_panel_layout_for_a_new_taskbar_follows_hiding_clock_and_hour_format(tmp_path):
     layout = run_bash_with_steps(
         tmp_path,
-        f"SETUP_TASKBAR_AUTOHIDE=yes SETUP_CLOCK_HOURS=24 PANEL_HEIGHT=28 panel_layout_script {REPO}/plasmoids/panel-layout.js",
+        "SETUP_TASKBAR_AUTOHIDE=yes SETUP_CLOCK_HOURS=24 "
+        f"PANEL_HEIGHT=28 panel_layout_script {REPO}/plasmoids/panel-layout.js",
     )
 
     assert ('panel.hiding = "autohide";' in layout, 'clock.writeConfig("hourFormat", "24");' in layout) == (True, True)
@@ -501,7 +521,8 @@ def test_panel_layout_for_a_new_taskbar_follows_hiding_clock_and_hour_format(tmp
 def test_panel_layout_for_a_new_taskbar_leaves_the_clock_out_when_hidden(tmp_path):
     layout = run_bash_with_steps(
         tmp_path,
-        f"SETUP_CLOCK_SHOW=no SETUP_CLOCK_HOURS=24 PANEL_HEIGHT=28 panel_layout_script {REPO}/plasmoids/panel-layout.js",
+        "SETUP_CLOCK_SHOW=no SETUP_CLOCK_HOURS=24 PANEL_HEIGHT=28 "
+        f"panel_layout_script {REPO}/plasmoids/panel-layout.js",
     )
 
     assert [line for line in layout if "org.chicago95.clock" in line or line.startswith("clock.")] == []
@@ -540,6 +561,7 @@ def test_ui_sudo_with_sudo_askpass_asks_sudo_to_authenticate_through_it(tmp_path
         text=True,
         timeout=30,
         env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(tmp_path)},
+        check=False,
     ).stdout.split()[-1]
 
     assert ((tmp_path / "sudo-calls").read_text().strip(), status) == expected
@@ -553,6 +575,7 @@ def dry_run_log(tmp_path, *arguments):
         stdin=subprocess.DEVNULL,
         timeout=60,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        check=False,
     )
     return next(tmp_path.glob("chicago95-setup-*.log")).read_text()
 
@@ -611,6 +634,7 @@ def test_uninstall_deletes_the_animation_speed_and_effect_settings_setup_wrote(t
         timeout=30,
         stdin=subprocess.DEVNULL,
         env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(tmp_path)},
+        check=False,
     )
 
     assert sorted((tmp_path / "kwriteconfig6-calls").read_text().splitlines()) == [
@@ -640,7 +664,8 @@ def test_winamp_rule_drops_the_frame_of_the_skinned_player_only(tmp_path):
     import re
 
     script = (
-        f'REPO={REPO}; source {REPO}/setup/steps.sh; kwin_rule() {{ printf "%s\\n" "$@"; }}; put_file() {{ :; }}; run() {{ :; }}; '
+        f'REPO={REPO}; source {REPO}/setup/steps.sh; kwin_rule() {{ printf "%s\\n" "$@"; }}; '
+        f"put_file() {{ :; }}; run() {{ :; }}; "
         'SETUP_HAS_QMMP=1 SETUP_CHICAGO95_SRC="" step_winamp'
     )
     rule = subprocess.run(
@@ -649,6 +674,7 @@ def test_winamp_rule_drops_the_frame_of_the_skinned_player_only(tmp_path):
         text=True,
         timeout=30,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)},
+        check=False,
     ).stdout.splitlines()
     settings = dict(line.split("=", 1) for line in rule[1:])
     pattern = re.compile(settings["wmclass"], re.I)
@@ -665,7 +691,8 @@ def test_dry_run_of_the_control_panel_component_installs_the_tool_the_password_p
         for line in (
             f"would: cp {REPO}/bin/chicago95-control-panel {tmp_path}/.local/bin/chicago95-control-panel",
             f"would: cp {REPO}/bin/chicago95-askpass {tmp_path}/.local/bin/chicago95-askpass",
-            f"would: cp {REPO}/config/applications/chicago95-control-panel.desktop {tmp_path}/.local/share/applications/chicago95-control-panel.desktop",
+            f"would: cp {REPO}/config/applications/chicago95-control-panel.desktop "
+            f"{tmp_path}/.local/share/applications/chicago95-control-panel.desktop",
             f"would: chmod +x {tmp_path}/.local/bin/chicago95-control-panel",
         )
     ] == [True] * 4
@@ -726,7 +753,9 @@ def test_finishing_restarts_plasma_with_one_queued_job_after_everything_else(tmp
         f"REPO={REPO}; source {REPO}/setup/steps.sh; SETUP_LOG={tmp_path}/log; "
         "SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 finish_session"
     )
-    subprocess.run(["bash", "-c", script], timeout=30, env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(tmp_path)})
+    subprocess.run(
+        ["bash", "-c", script], timeout=30, env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(tmp_path)}, check=False
+    )
     plasma = [line for line in calls.read_text().splitlines() if "plasmashell" in line]
 
     assert plasma == ["systemctl --user restart --no-block plasma-plasmashell.service"]
@@ -751,6 +780,7 @@ def test_detecting_without_a_display_starts_no_graphical_program_that_would_cras
         text=True,
         timeout=30,
         env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(tmp_path)},
+        check=False,
     ).stdout
     started = calls.read_text().splitlines() if calls.exists() else []
 

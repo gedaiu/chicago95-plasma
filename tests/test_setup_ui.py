@@ -69,32 +69,39 @@ def run_with_typeahead(script, early, later, tmp_path):
 
 def test_password_prompt_ignores_enter_pressed_before_it_appeared(tmp_path):
     """An ENTER pressed while files were copying must not count as "skip" at the password prompt."""
-    script = f"""
+    script = (
+        f"""
 . {REPO}/setup/ui.sh
 UI_PLAIN=1
 sleep 0.3
-ui_sudo "To change the login screen, Setup must write to a system folder." "sudo cp theme /usr/share/sddm/themes/" && echo GRANTED || echo SKIPPED
+ui_sudo "To change the login screen, Setup must write to a system folder." """
+        """"sudo cp theme /usr/share/sddm/themes/" && echo GRANTED || echo SKIPPED
 """
+    )
     output = run_with_typeahead(script, b"\n\n", b"secret\n", tmp_path)
     assert "GRANTED" in output, output[-400:]
 
 
 def test_reporting_two_thousand_copied_files_on_the_setup_screen_takes_under_three_seconds(tmp_path):
     """The icon sets alone are thousands of files: each is logged and shown, without starting programs."""
-    script = f"""
+    script = (
+        f"""
 . {REPO}/setup/ui.sh
 REPO={REPO}; . {REPO}/setup/steps.sh
 UI_PLAIN=0 UI_ROWS=25 UI_COLS=80 UI_ON_STEPS=1 SETUP_LOG={tmp_path}/setup.log TO_COPY=2000 COPIED=0
 start=$EPOCHREALTIME
-for i in $(seq 2000); do show_copy "$HOME/src/icons/apps/16/icon$i.png" "$HOME/.local/share/icons/apps/16/icon$i.png"; done >/dev/null
+for i in $(seq 2000); do show_copy "$HOME/src/icons/apps/16/icon$i.png" """
+        f""""$HOME/.local/share/icons/apps/16/icon$i.png"; done >/dev/null
 echo "seconds $(( (${{EPOCHREALTIME/./}} - ${{start/./}}) / 1000000 ))"
 grep -c '^copied' {tmp_path}/setup.log
 """
+    )
     output = subprocess.run(
         ["bash", "-c", script],
         capture_output=True,
         text=True,
         timeout=120,
         env={"PATH": os.environ["PATH"], "HOME": str(tmp_path), "TERM": "xterm-256color"},
+        check=False,
     ).stdout.split()
     assert output[-1] == "2000" and int(output[-2]) < 3, output

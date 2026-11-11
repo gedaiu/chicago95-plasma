@@ -24,7 +24,8 @@ STYLES = {
         screenshot="w2kstartmenu",
         menu=(2, 113, 206, 456),
         extra_top=("New Office Document", "Open Office Document", "Windows Update"),
-        settings="[StartMenu]\nstyle=2000\nbannerText=Windows 2000 Professional\nbannerTextColor=#FFFFFF\nbannerNumberColor=#FFFFFF\n"
+        settings="[StartMenu]\nstyle=2000\nbannerText=Windows 2000 Professional\nbannerTextColor=#FFFFFF\n"
+        "bannerNumberColor=#FFFFFF\n"
         "bannerBackground=#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0\n",
         kdeglobals="[Colors:Window]\nBackgroundNormal=212,208,200\n\n[Colors:Selection]\nBackgroundNormal=10,36,106\n",
     ),
@@ -62,7 +63,7 @@ def text_row_tops(image):
 
 def row_pitch(image):
     tops = text_row_tops(image)
-    return Counter(b - a for a, b in zip(tops, tops[1:])).most_common(1)[0][0]
+    return Counter(b - a for a, b in zip(tops, tops[1:], strict=False)).most_common(1)[0][0]
 
 
 def text_left(image):
@@ -124,7 +125,10 @@ def test_bevel_and_face_colours_match(pair):
             image.getpixel((60, h - 1)),
         ]
 
-    assert all(close(a, b, 16) for a, b in zip(bevel(ours), bevel(reference))), (bevel(ours), bevel(reference))
+    assert all(close(a, b, 16) for a, b in zip(bevel(ours), bevel(reference), strict=False)), (
+        bevel(ours),
+        bevel(reference),
+    )
 
 
 def test_banner_background_shades_like_the_original(pair):
@@ -132,13 +136,15 @@ def test_banner_background_shades_like_the_original(pair):
     heights = (0, 20, 45, 70, 120, 200)
     expected = [round(banner_blue(reference, h)) for h in heights]
     actual = [round(banner_blue(ours, h)) for h in heights]
-    assert all(abs(a - e) <= 24 for a, e in zip(actual, expected)), list(zip(heights, actual, expected))
+    assert all(abs(a - e) <= 24 for a, e in zip(actual, expected, strict=False)), list(
+        zip(heights, actual, expected, strict=False)
+    )
 
 
 def test_banner_lettering_has_the_originals_length_thickness_and_place(pair):
     _, reference, ours = pair
     expected, actual = banner_lettering(reference), banner_lettering(ours)
-    assert all(abs(a - e) <= 2 for a, e in zip(actual, expected)), (actual, expected)
+    assert all(abs(a - e) <= 2 for a, e in zip(actual, expected, strict=False)), (actual, expected)
 
 
 def banner_parts_lengths(image):
@@ -146,7 +152,7 @@ def banner_parts_lengths(image):
     bottom = image.height - 4
     rows = [y for y in range(8, bottom + 1) if any(image.getpixel((x, y))[0] > 100 for x in range(*BANNER))]
     parts, start = [], rows[0]
-    for a, b in zip(rows, rows[1:]):
+    for a, b in zip(rows, rows[1:], strict=False):
         if b - a > 2:
             parts.append(a - start + 1)
             start = b
@@ -162,7 +168,7 @@ def test_2000_banner_parts_match_the_originals_word_by_word(startmenu, qt_app, t
     )
     # Read bottom to top: "Windows", "2000", "Professional" (83, 30 and 104px long on the original).
     expected, actual = banner_parts_lengths(reference), banner_parts_lengths(ours)
-    assert len(actual) == len(expected) == 3 and all(abs(a - e) <= 5 for a, e in zip(actual, expected)), (
+    assert len(actual) == len(expected) == 3 and all(abs(a - e) <= 5 for a, e in zip(actual, expected, strict=False)), (
         actual,
         expected,
     )

@@ -14,6 +14,7 @@ STATE_DIR="$HOME/.local/share/chicago95"
 MANIFEST="$STATE_DIR/installed-files.txt"
 BACKUP_DIR="$STATE_DIR/backup-$(date +%Y%m%d-%H%M%S)"
 
+# shellcheck disable=SC2153 # SETUP_LOG is set by install.sh, which sources this file
 run() { if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then printf '  would: %s\n' "$*" >>"$SETUP_LOG"; else "$@"; fi; }
 
 record() { [ "${SETUP_DRY_RUN:-0}" = 1 ] || installed_by_setup "$1" || {

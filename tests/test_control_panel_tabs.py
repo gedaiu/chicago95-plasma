@@ -419,7 +419,8 @@ def test_launcher_for_a_desktop_file_is_its_menu_id_or_its_file_url(control_pane
 
 def test_default_launchers_are_read_from_the_first_task_list_config_found(control_panel, tmp_path):
     kcfg = (
-        '<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"><group name="General"><entry name="launchers" type="StringList">'
+        '<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"><group name="General">'
+        '<entry name="launchers" type="StringList">'
         "<default>applications:a.desktop,applications:b.desktop</default></entry></group></kcfg>"
     )
     config = tmp_path / "main.xml"

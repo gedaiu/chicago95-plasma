@@ -20,7 +20,8 @@ WHITE = (255, 255, 255)
 
 
 def ink_runs(image, box, vertical):
-    """(first, last) of the runs of rows (vertical) or columns with any non-white pixel in box, bridging gaps under WORD_GAP."""
+    """(first, last) of the runs of rows (vertical) or columns with any non-white pixel in box,
+    bridging gaps under WORD_GAP."""
     left, top, right, bottom = box
     lines = range(top, bottom) if vertical else range(left, right)
     across = range(left, right) if vertical else range(top, bottom)
@@ -46,7 +47,8 @@ def average_pitch(positions):
 
 
 def column_pitch(image, box):
-    """Average distance between the centres of the first row's icon columns; artwork is not symmetric, so single pairs vary."""
+    """Average distance between the centres of the first row's icon columns; artwork is not symmetric,
+    so single pairs vary."""
     first_row = (box[0], box[1], box[2], box[1] + CELL)
     return average_pitch([(first + last) / 2 for first, last in ink_runs(image, first_row, vertical=False)][:5])
 

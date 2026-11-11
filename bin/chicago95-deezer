@@ -97,7 +97,8 @@ def fetch_loved_tracks(user_id):
         page = fetch_json(page_url)
         if "error" in page:
             raise SystemExit(
-                "Deezer says loved tracks are private; set 'Show my favourite tracks' to public in Deezer account settings"
+                "Deezer says loved tracks are private; "
+                "set 'Show my favourite tracks' to public in Deezer account settings"
             )
         track_ids.extend(item["id"] for item in page["data"])
         page_url = page.get("next")
@@ -112,6 +113,7 @@ def youtube_search(query):
         capture_output=True,
         text=True,
         timeout=60,
+        check=False,
     )
     video_id = result.stdout.strip().splitlines()[-1] if result.stdout.strip() else ""
     return f"ytb://{video_id}" if video_id else ""
@@ -126,12 +128,12 @@ def with_youtube_urls(tracks):
     queries = [f"{track.artist} - {track.title}" for track in tracks]
     missing = [query for query in dict.fromkeys(queries) if query not in cache]
     with ThreadPoolExecutor(max_workers=6) as pool:
-        cache.update(zip(missing, pool.map(youtube_search, missing)))
+        cache.update(zip(missing, pool.map(youtube_search, missing), strict=False))
     YOUTUBE_CACHE.parent.mkdir(parents=True, exist_ok=True)
     YOUTUBE_CACHE.write_text(json.dumps(cache, indent=1, ensure_ascii=False))
     return [
         Track(track.artist, track.title, track.duration_seconds, cache[query])
-        for track, query in zip(tracks, queries)
+        for track, query in zip(tracks, queries, strict=False)
         if cache[query]
     ]
 

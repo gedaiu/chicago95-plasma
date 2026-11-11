@@ -57,3 +57,4 @@ System Properties, from other pages:
 | `win98shutdown2.png` | https://www.tech2u.com.au/training/tech2u/win98_1/shutdown02.gif (Windows 98: Shut Down Windows: radio buttons and a Help button) |
 | `win98copying.png` | https://www.tech2u.com.au/training/tech2u/win98_1/copying03.gif (Windows 98: the Copying dialog: a progress bar with Cancel) |
 | `win98changeicon.png` | https://www.tech2u.com.au/training/tech2u/win98_2/desktop08.gif (Windows 98 Change Icon: a focused text field with selected text, an icon list with a horizontal scroll bar) |
+| `clippy-letter.png` | https://en.wikipedia.org/wiki/File:Clippy-letter.PNG (Office Assistant "It looks like you're writing a letter": the unsmoothed balloon with stepped corners, its tail and Clippy's Idle1_1 frame under it; exact pixels with transparency) |

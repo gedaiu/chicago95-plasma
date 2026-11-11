@@ -131,7 +131,8 @@ def test_our_slider_draws_its_tick_marks(control_panel, qt_app):
     assert below_groove.count("K") > 8
 
 
-# ---- the originals measured: tests/references/progressbar.png, listbox-selected.png, messagebox-yesnocancel.png, win98mycomputer.png
+# ---- the originals measured: tests/references/progressbar.png, listbox-selected.png,
+# messagebox-yesnocancel.png, win98mycomputer.png
 
 
 def navy(colour):
@@ -159,7 +160,7 @@ def test_the_original_progress_bar_has_14_pixel_chunks_2_apart_in_a_21_row_bar()
 
     assert (
         {right - left + 1 for left, right in chunks},
-        {after[0] - before[1] - 1 for before, after in zip(chunks, chunks[1:])},
+        {after[0] - before[1] - 1 for before, after in zip(chunks, chunks[1:], strict=False)},
         runs([navy(image.getpixel((330, y))) for y in range(100, 135)])[0],
     ) == ({14}, {2}, (6, 26))
 
@@ -175,7 +176,7 @@ def test_our_progress_bar_draws_14_pixel_chunks_2_apart_in_a_21_row_bar(control_
 
     assert (
         {right - left + 1 for left, right in chunks},
-        {after[0] - before[1] - 1 for before, after in zip(chunks, chunks[1:])},
+        {after[0] - before[1] - 1 for before, after in zip(chunks, chunks[1:], strict=False)},
         len(chunks),
         contains(column(image, 5, 0, 21), ["S", "K"]),
     ) == ({14}, {2}, 6, True)
@@ -254,7 +255,7 @@ def test_our_apply_question_centres_75_by_23_buttons_6_apart_18_rows_under_the_t
 
     assert (
         [rect.size().toTuple() for rect in rects],
-        [after.left() - before.right() - 1 for before, after in zip(rects, rects[1:])],
+        [after.left() - before.right() - 1 for before, after in zip(rects, rects[1:], strict=False)],
         abs(left - (question.width() - 1 - right)) <= 1,
         rects[0].top() - question.text.geometry().bottom() - 1,
     ) == ([(75, 23)] * 3, [6, 6], True, 18)

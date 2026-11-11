@@ -30,7 +30,9 @@ parser.add_argument("--dark", default="#000000", help="the outer shadow line (#4
 parser.add_argument(
     "--gradient-margins",
     default="0,0",
-    help="LEFT,RIGHT: pixels at each end of the title that keep the end colours (2000: 18,52, the icon and the buttons)",
+    help=(
+        "LEFT,RIGHT: pixels at each end of the title that keep the end colours (2000: 18,52, the icon and the buttons)"
+    ),
 )
 args = parser.parse_args()
 

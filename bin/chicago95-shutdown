@@ -344,8 +344,8 @@ class BrandBanner(QWidget):
     def paint_name(self, painter):
         """Words heavy, numbers thin, from NAME_X; returns where the name ends."""
         x = self.NAME_X
-        for part in re.findall(r"\d+|[^\d]+", self.look["osName"]):
-            part = part.strip()
+        for raw_part in re.findall(r"\d+|[^\d]+", self.look["osName"]):
+            part = raw_part.strip()
             if not part:
                 continue
             if part.isdigit():
@@ -477,7 +477,7 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         self.combo.setFocus()  # the original opens with the choice focused
         # The original's buttons are 75x23 at x 163, 244 and 325. Qt draws a button's bottom and right edges
         # 1px inside its rectangle, and a non-default button's left edge too, so the rectangles grow to match.
-        for x, label in zip((163, 244, 325), ("OK", "Cancel", "Help")):
+        for x, label in zip((163, 244, 325), ("OK", "Cancel", "Help"), strict=False):
             button = QPushButton(label, body)
             button.setGeometry(x if label == "OK" else x - 1, 211, 76 if label == "OK" else 77, 24)
             if label == "OK":

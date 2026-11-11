@@ -38,6 +38,7 @@ def run_bash_with_steps(tmp_path, script):
         text=True,
         timeout=30,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)},
+        check=False,
     ).stdout.splitlines()
 
 
@@ -52,7 +53,7 @@ def load_script(name):
 def ui_font_installed():
     import subprocess
 
-    families = subprocess.run(["fc-list", ":", "family"], capture_output=True, text=True).stdout
+    families = subprocess.run(["fc-list", ":", "family"], capture_output=True, text=True, check=False).stdout
     return "MS W98 UI" in families
 
 

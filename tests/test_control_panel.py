@@ -1,4 +1,4 @@
-import subprocess
+import re
 
 import pytest
 from conftest import REPO, load_script, run_bash_with_steps
@@ -50,15 +50,8 @@ def test_components_for_a_key_setup_does_not_know_is_empty(control_panel):
 
 def test_every_saved_key_maps_to_components_and_every_component_is_one_setup_runs(control_panel):
     setup_keys = run_bash_with_steps(REPO, "echo $SETTINGS_KEYS")[0].split()
-    dispatched = (
-        subprocess.run(
-            ["sed", "-n", r"s/^        \(base|look.*\)) \"step_.*/\1/p", str(REPO / "install.sh")],
-            capture_output=True,
-            text=True,
-        )
-        .stdout.strip()
-        .split("|")
-    )
+    dispatch_case = re.search(r"^\s*(base\s*\|[^)]*)\)\s*\"step_", (REPO / "install.sh").read_text(), re.MULTILINE)
+    dispatched = [component.strip() for component in dispatch_case.group(1).split("|")]
 
     assert (sorted(control_panel.COMPONENTS_BY_KEY), set(control_panel.INSTALL_ORDER) - set(dispatched)) == (
         sorted(setup_keys),
@@ -151,7 +144,8 @@ def test_tasks_launchers_are_unknown_when_the_applet_never_saved_any(control_pan
 def test_look_presets_match_what_setup_applies_for_that_look(control_panel, tmp_path, look):
     applied = run_bash_with_steps(
         tmp_path,
-        f'apply_look {look}; echo "$SETUP_TITLE_ACTIVE|$SETUP_TITLE_INACTIVE|$SETUP_BANNER_BG|$SETUP_BANNER_FG|$SETUP_ICONS"',
+        f'apply_look {look}; echo "$SETUP_TITLE_ACTIVE|$SETUP_TITLE_INACTIVE|'
+        '$SETUP_BANNER_BG|$SETUP_BANNER_FG|$SETUP_ICONS"',
     )[0].split("|")
     preset = control_panel.LOOK_PRESETS[look]
 

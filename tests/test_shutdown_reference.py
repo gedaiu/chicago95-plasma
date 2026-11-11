@@ -120,7 +120,9 @@ def test_2000_strip_glows_like_the_original(reference_2000, ours_2000):
     xs = range(5, 400, 40)
     expected = [reference_2000.getpixel((x, 75)) for x in xs]
     actual = [ours_2000.getpixel((x, 75)) for x in xs]
-    assert all(close(a, e, 40) for a, e in zip(actual, expected)), list(zip(xs, actual, expected))
+    assert all(close(a, e, 40) for a, e in zip(actual, expected, strict=False)), list(
+        zip(xs, actual, expected, strict=False)
+    )
 
 
 def block_average(image, x, y):
@@ -142,7 +144,10 @@ def test_2000_banner_mark_matches_the_original_within_45_levels_per_4px_block(re
     differing = [
         (x, y)
         for x, y in blocks
-        if max(abs(a - b) for a, b in zip(block_average(reference_2000, x, y), block_average(ours_2000, x, y)))
+        if max(
+            abs(a - b)
+            for a, b in zip(block_average(reference_2000, x, y), block_average(ours_2000, x, y), strict=False)
+        )
         > MARK_TOLERANCE
     ]
     assert differing == []
@@ -154,13 +159,16 @@ def test_2000_banner_lettering_covers_the_original_lines_within_2_pixels(referen
         return bounding_box(image, lambda c: sum(c) < 250, (line[0], line[2]), (line[1], line[3]))
 
     expected, actual = ink(reference_2000), ink(ours_2000)
-    assert all(abs(a - e) <= LETTERING_SLACK for a, e in zip(actual, expected)), (actual, expected)
+    assert all(abs(a - e) <= LETTERING_SLACK for a, e in zip(actual, expected, strict=False)), (actual, expected)
 
 
 def button_frames(image):
     """Each push button's black bottom edge, as (left, right, y), in the button row."""
     frames = []
-    dark = lambda c: sum(c) < 220  # black on 1995/1998, #404040 on 2000
+
+    def dark(c):
+        return sum(c) < 220  # black on 1995/1998, #404040 on 2000
+
     y = max(y for y in range(200, 240) if sum(1 for x in range(image.width) if dark(image.getpixel((x, y)))) > 60)
     run = None
     for x in range(image.width + 1):
@@ -208,7 +216,10 @@ def thumbnail_dialog(style):
     around it the frame (3px, a pixel and a half there) and the title (18px, 9)."""
     name, box, _options = THUMBNAILS[style]
     inside = screenshot(name).crop(box)
-    face = lambda c: all(abs(v - 192) < 14 for v in c)
+
+    def face(c):
+        return all(abs(v - 192) < 14 for v in c)
+
     rows = [
         y
         for y in range(inside.height)
@@ -236,7 +247,10 @@ def text_rows(image):
 def thumbnail_layout(name, box, option_rows):
     image = screenshot(name).crop(box)
     w, h = image.size
-    face = lambda c: all(abs(v - 192) < 14 for v in c)
+
+    def face(c):
+        return all(abs(v - 192) < 14 for v in c)
+
     rows = [y for y in range(h) if sum(1 for x in range(w) if face(image.getpixel((x, y)))) > w * 0.6]
     cols = [x for x in range(w) if sum(1 for y in range(h) if face(image.getpixel((x, y)))) > h * 0.5]
     radio_rows = [y for y in range(*option_rows) if any(sum(image.getpixel((x, y))) > 700 for x in range(20, 32))]
@@ -249,7 +263,7 @@ def test_radio_dialog_with_its_frame_has_the_originals_size(shutdown, qt_app, st
     dialog = dialog_for(shutdown, qt_app, style)
     size = (dialog.width(), dialog.height())
     dialog.close()
-    assert all(abs(a - e) <= 2 for a, e in zip(size, FRAMED_SIZES[style])), (size, FRAMED_SIZES[style])
+    assert all(abs(a - e) <= 2 for a, e in zip(size, FRAMED_SIZES[style], strict=False)), (size, FRAMED_SIZES[style])
 
 
 @needs_ui_font
@@ -293,7 +307,7 @@ def test_radio_dialog_rows_sit_where_the_originals_do(shutdown, qt_app, style):
     dialog.close()
     halved = ours.resize((ours.width // 2, ours.height // 2), Image.BOX)
     expected, actual = text_rows(thumbnail_dialog(style))[:6], text_rows(halved)[:6]
-    assert len(actual) == 6 and all(abs(a - e) <= 1 for a, e in zip(actual, expected)), (actual, expected)
+    assert len(actual) == 6 and all(abs(a - e) <= 1 for a, e in zip(actual, expected, strict=False)), (actual, expected)
 
 
 def test_2000_description_names_the_os_from_the_look(shutdown, qt_app):

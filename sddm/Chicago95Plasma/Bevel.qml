@@ -14,7 +14,10 @@ Rectangle {
         id: scheme
         colorGroup: SystemPalette.Active
     }
+    // qmllint disable unqualified
+    // "config" is the SDDM theme configuration, injected by the greeter.
     readonly property bool modern: config.loginStyle === "2000"
+    // qmllint enable unqualified
     readonly property color face: scheme.window
     readonly property color white: "#ffffff"
     readonly property color light: modern ? face : Qt.tint(face, "#80ffffff")  // halfway to white

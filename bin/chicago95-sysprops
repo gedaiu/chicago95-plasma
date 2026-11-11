@@ -37,7 +37,9 @@ KIB_PER_GIB = 1024 * 1024
 def run_output(command):
     native_environment = {key: value for key, value in os.environ.items() if key != "QT_QPA_PLATFORM"}
     try:
-        return subprocess.run(command, capture_output=True, text=True, timeout=3, env=native_environment).stdout
+        return subprocess.run(
+            command, capture_output=True, text=True, timeout=3, env=native_environment, check=False
+        ).stdout
     except (OSError, subprocess.TimeoutExpired):
         return ""
 
@@ -286,7 +288,8 @@ ROW_PITCH = 18
 def wrapped(text, metrics, width):
     """The lines a value takes in width: broken between words, a word longer than the line broken where it fits."""
     lines, line = [], ""
-    for word in text.split(" "):
+    for piece in text.split(" "):
+        word = piece
         candidate = f"{line} {word}" if line else word
         if metrics.horizontalAdvance(candidate) <= width:
             line = candidate
@@ -330,8 +333,8 @@ class GeneralPage(QWidget):
         painter.setPen(QColor("#000000"))
         metrics = painter.fontMetrics()
         shift = 0  # rows a wrapped value pushed the groups below it down by
-        for (column, row), (heading, values) in zip(HEADINGS[self.look], self.groups):
-            row += shift
+        for (column, group_row), (heading, values) in zip(HEADINGS[self.look], self.groups, strict=False):
+            row = group_row + shift
             painter.drawText(column, row + CAP_HEIGHT, heading)
             line = 0
             for value in values:

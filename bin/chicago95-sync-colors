@@ -105,6 +105,7 @@ def main():
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        check=False,
     )
     STAMP.parent.mkdir(parents=True, exist_ok=True)
     STAMP.write_text(stamp)

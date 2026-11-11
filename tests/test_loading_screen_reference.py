@@ -125,7 +125,8 @@ def test_mark_frames_match_the_original_within_40_levels_per_6px_block(reference
     differing = [
         (x, y)
         for x, y in blocks
-        if max(abs(a - b) for a, b in zip(block_average(reference, x, y), block_average(ours, x, y))) > BLOCK_TOLERANCE
+        if max(abs(a - b) for a, b in zip(block_average(reference, x, y), block_average(ours, x, y), strict=False))
+        > BLOCK_TOLERANCE
     ]
     assert differing == []
 
@@ -155,7 +156,7 @@ def ink(image, area):
 
 
 def within_slack(actual, expected):
-    return all(abs(a - e) <= LETTERING_SLACK for a, e in zip(actual, expected))
+    return all(abs(a - e) <= LETTERING_SLACK for a, e in zip(actual, expected, strict=False))
 
 
 @pytest.mark.parametrize("line", [NAME_LINE, EDITION_LINE, TAGLINE_LINE], ids=["name", "edition", "tagline"])

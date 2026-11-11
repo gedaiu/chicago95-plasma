@@ -17,7 +17,10 @@ PlasmoidItem {
 
     Plasmoid.contextualActions: [
         PlasmaCore.Action {
+            // qmllint disable unqualified
+            // i18n() is injected into the applet context by Plasma.
             text: i18n("Properties")
+            // qmllint enable unqualified
             icon.name: "preferences-system"
             onTriggered: runner.connectSource(root.controlPanelCommand)
         }

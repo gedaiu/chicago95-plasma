@@ -11,8 +11,16 @@ STRICT ?= 0
 
 SHELL_FILES := install.sh uninstall.sh $(wildcard setup/*.sh)
 QML_FILES := $(shell git ls-files '*.qml')
+# lockscreen/ and data/qml/ are KDE's own Breeze and Milou code with local patches: formatted, not linted.
+QML_LINT_FILES := $(filter-out lockscreen/% data/qml/%,$(QML_FILES))
+PLASMA_QML_DIR := $(firstword $(wildcard /usr/lib64/qt6/qml /usr/lib/qt6/qml /usr/lib/x86_64-linux-gnu/qt6/qml))
+# With the Plasma modules installed qmllint resolves every import, so any message fails the check.
+# Without them (CI) it can only vouch for syntax: unresolved Plasma types would flood it with false warnings.
+QMLLINT_FLAGS := $(if $(wildcard $(PLASMA_QML_DIR)/org/kde/plasma/core),-I $(PLASMA_QML_DIR) -I data/qml -W 0)
+# QML JavaScript libraries start with ".pragma library", which prettier cannot parse on its own.
+PRAGMA_JS_FILES := $(shell git ls-files '*.js' | xargs grep -l '^\.pragma' 2>/dev/null)
 XML_FILES := $(shell git ls-files '*.xml')
-DESKTOP_FILES := $(wildcard config/applications/*.desktop)
+DESKTOP_FILES := $(wildcard config/applications/*.desktop config/autostart/*.desktop splash/*/metadata.desktop)
 PRETTIER_GLOB := "**/*.{js,json,jsonc,yml,yaml,css,md}"
 
 # usable PROBE COMMAND: run COMMAND unless PROBE fails (tool missing); then skip, or fail under STRICT=1
@@ -42,22 +50,23 @@ format-qml:
 
 format-prettier:
 	$(PRETTIER) --write $(PRETTIER_GLOB)
+	python3 tests/tools_prettier_pragma.py write "$(PRETTIER)" $(PRAGMA_JS_FILES)
 
 format-check:
 	ruff format --check .
 	$(call usable,shfmt --version,shfmt -d $(SHELL_FILES))
 	$(call usable,$(QMLFORMAT) --version,for f in $(QML_FILES); do $(QMLFORMAT) "$$f" | diff -q - "$$f" >/dev/null || { echo "needs qmlformat: $$f"; exit 1; }; done)
 	$(PRETTIER) --check $(PRETTIER_GLOB)
+	python3 tests/tools_prettier_pragma.py check "$(PRETTIER)" $(PRAGMA_JS_FILES)
 
 lint-python:
 	ruff check .
 
 lint-shell:
-	$(call usable,shellcheck --version,shellcheck -S warning $(SHELL_FILES))
+	$(call usable,shellcheck --version,shellcheck -x $(SHELL_FILES))
 
-# qmllint warns about every Plasma import it cannot resolve; only its exit code (syntax errors) gates.
 lint-qml:
-	$(call usable,$(QMLLINT) --version,out=$$($(QMLLINT) $(QML_FILES) 2>&1) || { echo "$$out"; exit 1; })
+	$(call usable,$(QMLLINT) --version,out=$$($(QMLLINT) $(QMLLINT_FLAGS) $(QML_LINT_FILES) 2>&1) || { echo "$$out"; exit 1; })
 
 lint-xml:
 	xmllint --noout $(XML_FILES)

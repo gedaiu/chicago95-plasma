@@ -277,6 +277,7 @@ def run_control_panel(tmp_path, *arguments):
         text=True,
         timeout=60,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "QT_QPA_PLATFORM": "offscreen"},
+        check=False,
     )
 
 

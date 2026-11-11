@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick 2.15
 
 // Heavy lettering for the 2000 screen's name and edition, emboldened like the Start menu banner: Arial
@@ -33,9 +34,11 @@ Item {
     Repeater {
         model: heavy.copies
         Text {
+            id: copy
+            required property int index
             readonly property real angle: 2 * Math.PI * index / heavy.copies
-            x: letters.x + heavy.embolden * Math.cos(angle)
-            y: heavy.embolden * Math.sin(angle)
+            x: letters.x + heavy.embolden * Math.cos(copy.angle)
+            y: heavy.embolden * Math.sin(copy.angle)
             font: letters.font
             color: heavy.color
             text: heavy.text

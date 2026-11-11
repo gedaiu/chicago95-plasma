@@ -52,7 +52,7 @@ def test_sync_colors_gives_the_2000_decoration_its_greys_and_gradient_ends():
     scheme = chicago95ui.read_scheme("/nonexistent")
     scheme["face"] = QColor("#D4D0C8")
     arguments = sync.decoration_arguments(scheme, "2000")
-    options = dict(zip(arguments[::2], arguments[1::2]))
+    options = dict(zip(arguments[::2], arguments[1::2], strict=False))
 
     assert {key: options[key] for key in ("--face", "--light", "--shadow", "--dark", "--gradient-margins")} == {
         "--face": "#d4d0c8",
@@ -91,7 +91,8 @@ def test_branding_falls_back_to_the_start_menu_banner(tmp_path):
 def test_branding_values_come_from_the_branding_group(tmp_path):
     settings = tmp_path / "chicago95rc"
     settings.write_text(
-        "[StartMenu]\nbannerText=Chicago95\n\n[Branding]\nosCompany=Microsoft\nosName=Windows 2000\nosEdition=Professional\n"
+        "[StartMenu]\nbannerText=Chicago95\n\n[Branding]\nosCompany=Microsoft\n"
+        "osName=Windows 2000\nosEdition=Professional\n"
     )
 
     look = chicago95ui.look_settings(settings)

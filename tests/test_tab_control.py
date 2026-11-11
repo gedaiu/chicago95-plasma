@@ -131,7 +131,7 @@ def test_many_tabs_in_a_narrow_control_wrap_into_rows_2_pixels_inside_each_side(
 def test_tab_rows_are_18_pixels_apart(tabs):
     tops = sorted({rect.top() for index, rect in tabs.bar.tab_rects().items() if index != tabs.currentIndex()})
 
-    assert [after - before for before, after in zip(tops, tops[1:])] == [ROW_PITCH] * (len(tops) - 1)
+    assert [after - before for before, after in zip(tops, tops[1:], strict=False)] == [ROW_PITCH] * (len(tops) - 1)
 
 
 def test_choosing_a_tab_in_an_upper_row_brings_its_row_down_next_to_the_page(tabs):

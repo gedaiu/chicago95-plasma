@@ -21,7 +21,7 @@ from pathlib import Path
 
 import chicago95ui  # noqa: E401,E702
 from PySide6.QtCore import QPoint, QRect, QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPixmap, QPolygon
+from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
 from PySide6.QtWidgets import QMenu, QPushButton, QWidget
 
 ASSET_DIR = Path.home() / ".local/share/chicago95/clippy"
@@ -34,11 +34,33 @@ HIDE_MINUTES = 10
 IDLE_INTERVAL_SECONDS = (8, 20)
 TIP_INTERVAL_SECONDS = (90, 240)
 BALLOON_TIMEOUT_MS = 20_000
-BALLOON_TEXT_WIDTH = 260
-BALLOON_PADDING = 10
-BALLOON_RADIUS = 8
+BALLOON_WIDTH = 130
+BALLOON_TEXT_AT = QPoint(5, 8)
+BALLOON_BUTTON_GAP = 8
 BALLOON_FILL = QColor("#FFFFCC")
-TAIL_HEIGHT = 18
+# Office's balloon (tests/references/clippy-letter.png), drawn unsmoothed: K black, . the fill, a space untouched.
+BALLOON_CORNER = ("       K", "    KKKK", "   KK...", "  KK....", " KK.....", " K......", " K......", "KK......")
+BALLOON_TAIL = (
+    "K........KK",
+    "KK.......K ",
+    " KK......K ",
+    "  K......K ",
+    "  KK.....K ",
+    "   KK....K ",
+    "    K....K ",
+    "    KK...K ",
+    "     K...K ",
+    "     KK..K ",
+    "      KK.K ",
+    "       K.K ",
+    "       KKK ",
+    "        KK ",
+    "         K ",
+    "         K ",
+)
+BALLOON_TAIL_LEFT = 35
+BALLOON_TAIL_ROWS = len(BALLOON_TAIL) - 1
+ASSISTANT_UNDER_BALLOON = QPoint(7, 6)
 
 TIP_ANIMATIONS = ["GetAttention", "Explain", "Thinking", "Searching", "Writing", "Alert", "Congratulate", "LookRight"]
 
@@ -99,8 +121,12 @@ TIPS = [
     "Type 'cd -' to jump back to the folder you were just in.",
     "Type '!!' to repeat the last command. 'sudo !!' runs it again with feeling.",
     "Press Ctrl+L in the terminal to clear the screen without losing your place.",
-    # 1995 desktop and paperclip trivia; sources: Library of Congress, Mental Floss, Wikipedia (Office Assistant, Kevan Atteberry).
-    "Did you know? The desktop that inspired this one went on sale on August 24, 1995. People queued at midnight for it.",
+    # 1995 desktop and paperclip trivia; sources: Library of Congress,
+    # Mental Floss, Wikipedia (Office Assistant, Kevan Atteberry).
+    (
+        "Did you know? The desktop that inspired this one went on sale on August 24, 1995. "
+        "People queued at midnight for it."
+    ),
     "Did you know? Chicago was the code name of a 1995 operating system. That's where this theme gets its name.",
     "Did you know? Brian Eno composed the 1995 startup sound this desktop remembers. The brief asked for 3.25 seconds.",
     "Did you know? Eno wrote that famous startup sound on a Mac. He made 84 attempts before the final one.",
@@ -139,13 +165,13 @@ class Frame:
     images: tuple[tuple[int, int], ...]
     sound: str | None
     exit_branch: int | None
+    branches: tuple[tuple[int, int], ...] = ()
 
 
 @dataclass(frozen=True)
 class Animation:
     name: str
     frames: tuple[Frame, ...]
-    use_exit_branching: bool = False
 
 
 @dataclass
@@ -170,10 +196,14 @@ def parse_agent_js(text: str) -> dict[str, Animation]:
                 images=tuple((offset[0], offset[1]) for offset in raw_frame.get("images", [])),
                 sound=raw_frame.get("sound"),
                 exit_branch=raw_frame.get("exitBranch"),
+                branches=tuple(
+                    (branch["frameIndex"], branch["weight"])
+                    for branch in raw_frame.get("branching", {}).get("branches", [])
+                ),
             )
             for raw_frame in raw_animation["frames"]
         )
-        animations[name] = Animation(name, frames, bool(raw_animation.get("useExitBranching", False)))
+        animations[name] = Animation(name, frames)
     return animations
 
 
@@ -193,6 +223,18 @@ def write_sound_cache(sounds: dict[str, bytes]) -> dict[str, Path]:
             path.write_bytes(payload)
         paths[sound_id] = path
     return paths
+
+
+def next_frame_index(animation: Animation, index: int, stop_requested: bool, roll: int) -> int:
+    """Agent's frame order: the exit branch when stopping, else a branch picked by weight (roll 0-99), else the next."""
+    frame = animation.frames[index]
+    if stop_requested and frame.exit_branch is not None:
+        return frame.exit_branch
+    for target, weight in frame.branches:
+        if roll < weight:
+            return target
+        roll -= weight
+    return index + 1
 
 
 def last_frame_with_images(animation: Animation) -> Frame:
@@ -232,11 +274,43 @@ class SpriteSheet:
             painter.drawPixmap(0, 0, self.sheet, source.x(), source.y(), source.width(), source.height())
 
 
+def balloon_position(assistant_at: QPoint, body_height: int) -> QPoint:
+    return assistant_at - ASSISTANT_UNDER_BALLOON - QPoint(0, body_height - 1)
+
+
+def paint_pattern(painter: QPainter, pattern, left: int, top: int, mirrored: bool = False, flipped: bool = False):
+    colours = {"K": QColor(Qt.black), ".": BALLOON_FILL}
+    rows = pattern[::-1] if flipped else pattern
+    for row, line in enumerate(rows):
+        for column, mark in enumerate(line[::-1] if mirrored else line):
+            if mark in colours:
+                painter.fillRect(left + column, top + row, 1, 1, colours[mark])
+
+
+def paint_balloon(painter: QPainter, width: int, body_height: int):
+    corner = len(BALLOON_CORNER)
+    painter.fillRect(corner, 0, width - 2 * corner, body_height, Qt.black)
+    painter.fillRect(0, corner, width, body_height - 2 * corner, Qt.black)
+    painter.fillRect(corner, 1, width - 2 * corner, body_height - 2, BALLOON_FILL)
+    painter.fillRect(1, corner, width - 2, body_height - 2 * corner, BALLOON_FILL)
+    for mirrored, flipped in ((False, False), (True, False), (False, True), (True, True)):
+        paint_pattern(
+            painter,
+            BALLOON_CORNER,
+            width - corner if mirrored else 0,
+            body_height - corner if flipped else 0,
+            mirrored,
+            flipped,
+        )
+    paint_pattern(painter, BALLOON_TAIL, BALLOON_TAIL_LEFT, body_height - 1)
+
+
 class Balloon(QWidget):
     def __init__(self, font, owner=None):
         # A popup with Clippy as its parent: Wayland positions popups relative to the parent surface,
         # whereas a free-standing top-level can never be moved by the client.
-        # ToolTip maps as a grab-less popup on Wayland; Qt.Popup wants an input grab and is refused when Clippy is unfocused.
+        # ToolTip maps as a grab-less popup on Wayland;
+        # Qt.Popup wants an input grab and is refused when Clippy is unfocused.
         super().__init__(owner, Qt.ToolTip | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint)
         self.owner = owner
         self.setAttribute(Qt.WA_TranslucentBackground)
@@ -251,19 +325,19 @@ class Balloon(QWidget):
         self.close_timer.setSingleShot(True)
         self.close_timer.timeout.connect(self.hide)
 
-    def show_tip(self, text: str, anchor_top_center: QPoint):
+    def show_tip(self, text: str, assistant_at: QPoint):
         self.text = text
-        metrics = self.fontMetrics()
-        self.text_rect = metrics.boundingRect(
-            QRect(0, 0, BALLOON_TEXT_WIDTH, 1000), Qt.TextWordWrap | Qt.AlignLeft, text
+        text_width = BALLOON_WIDTH - 2 * BALLOON_TEXT_AT.x()
+        self.text_rect = self.fontMetrics().boundingRect(
+            QRect(BALLOON_TEXT_AT.x(), BALLOON_TEXT_AT.y(), text_width, 1000), Qt.TextWordWrap | Qt.AlignLeft, text
         )
-        width = BALLOON_TEXT_WIDTH + 2 * BALLOON_PADDING
-        body_height = self.text_rect.height() + 3 * BALLOON_PADDING + self.ok_button.height()
-        self.resize(width, body_height + TAIL_HEIGHT)
+        body_height = self.text_rect.bottom() + 1 + 2 * BALLOON_BUTTON_GAP + self.ok_button.height()
+        self.resize(BALLOON_WIDTH, body_height + BALLOON_TAIL_ROWS)
         self.ok_button.move(
-            width - BALLOON_PADDING - self.ok_button.width(), body_height - BALLOON_PADDING - self.ok_button.height()
+            BALLOON_WIDTH - BALLOON_BUTTON_GAP - self.ok_button.width(),
+            body_height - BALLOON_BUTTON_GAP - self.ok_button.height(),
         )
-        self.move(anchor_top_center.x() - width + 40, anchor_top_center.y() - self.height() - 4)
+        self.move(balloon_position(assistant_at, body_height))
         if self.owner is not None and self.owner.windowHandle() is not None:
             self.winId()
             self.windowHandle().setTransientParent(self.owner.windowHandle())
@@ -271,36 +345,12 @@ class Balloon(QWidget):
         self.raise_()
         self.close_timer.start(BALLOON_TIMEOUT_MS)
 
-    def body_rect(self) -> QRect:
-        return QRect(0, 0, self.width() - 1, self.height() - TAIL_HEIGHT - 1)
-
     def paintEvent(self, _event):
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing, True)
-        body = self.body_rect()
-        path = QPainterPath()
-        path.addRoundedRect(body, BALLOON_RADIUS, BALLOON_RADIUS)
-        tail_base_x = body.right() - 50
-        # Start the tail a few pixels inside the body so the union erases the body's bottom edge at the join.
-        tail = QPolygon(
-            [
-                QPoint(tail_base_x, body.bottom() - 3),
-                QPoint(tail_base_x + 22, body.bottom() - 3),
-                QPoint(tail_base_x + 22, body.bottom() + TAIL_HEIGHT),
-            ]
-        )
-        path.addPolygon(tail)
-        path.closeSubpath()
-        painter.setPen(QPen(Qt.black, 1))
-        painter.setBrush(BALLOON_FILL)
-        painter.drawPath(path.simplified())
+        paint_balloon(painter, self.width(), self.height() - BALLOON_TAIL_ROWS)
         painter.setPen(Qt.black)
         painter.setFont(self.font())
-        painter.drawText(
-            QRect(BALLOON_PADDING, BALLOON_PADDING, BALLOON_TEXT_WIDTH, self.text_rect.height()),
-            Qt.TextWordWrap | Qt.AlignLeft,
-            self.text,
-        )
+        painter.drawText(self.text_rect, Qt.TextWordWrap | Qt.AlignLeft, self.text)
 
     def mousePressEvent(self, _event):
         self.hide()
@@ -360,11 +410,9 @@ class ClippyWindow(QWidget):
         playback = self.playback
         if playback is None:
             return
-        frame = playback.animation.frames[playback.frame_index]
-        if playback.stop_requested and playback.animation.use_exit_branching and frame.exit_branch is not None:
-            playback.frame_index = frame.exit_branch
-        else:
-            playback.frame_index += 1
+        playback.frame_index = next_frame_index(
+            playback.animation, playback.frame_index, playback.stop_requested, random.randrange(100)
+        )
         self.show_frame()
 
     def finish_playback(self):
@@ -389,8 +437,7 @@ class ClippyWindow(QWidget):
     def show_random_tip(self):
         self.interrupt()
         self.play(random.choice(TIP_ANIMATIONS))
-        anchor = self.mapToGlobal(QPoint(self.width() // 2, 0))
-        self.balloon.show_tip(random.choice(TIPS), anchor)
+        self.balloon.show_tip(random.choice(TIPS), self.mapToGlobal(QPoint(0, 0)))
         self.tip_timer.start(random_seconds(TIP_INTERVAL_SECONDS))
 
     def hide_for_a_while(self):
@@ -428,15 +475,19 @@ class ClippyWindow(QWidget):
         if event.button() == Qt.LeftButton:
             self.show_random_tip()
 
-    def contextMenuEvent(self, event):
+    def assistant_menu(self) -> QMenu:
         menu = QMenu(self)
         menu.setFont(self.font())
-        menu.addAction("Animate", self.play_random_action)
         menu.addAction("Hide", self.hide_for_a_while)
         menu.addAction("Options...").setEnabled(False)
+        menu.addAction("Choose Assistant...").setEnabled(False)
+        menu.addAction("Animate!", self.play_random_action)
         menu.addSeparator()
         menu.addAction("Exit", self.exit_application)
-        menu.exec(event.globalPos())
+        return menu
+
+    def contextMenuEvent(self, event):
+        self.assistant_menu().exec(event.globalPos())
 
     def exit_application(self):
         self.balloon.hide()
@@ -446,14 +497,17 @@ class ClippyWindow(QWidget):
 def render_screenshot(animations: dict[str, Animation], sprites: SpriteSheet, font, output_path: Path):
     balloon = Balloon(font)
     balloon.show_tip(TIPS[0], QPoint(0, 0))
-    balloon_image = balloon.grab().toImage()
-    sprite_width, sprite_height = sprites.frame_size.width() * SCALE, sprites.frame_size.height() * SCALE
-    sprite_left = balloon_image.width() - 40
-    composed = QImage(sprite_left + sprite_width, balloon_image.height() + 4 + sprite_height, QImage.Format_ARGB32)
+    sprite_at = -balloon.pos()
+    sprite_size = sprites.frame_size * SCALE
+    composed = QImage(
+        max(balloon.width(), sprite_at.x() + sprite_size.width()),
+        sprite_at.y() + sprite_size.height(),
+        QImage.Format_ARGB32,
+    )
     composed.fill(QColor("#008080"))
     painter = QPainter(composed)
-    painter.drawImage(0, 0, balloon_image)
-    painter.translate(sprite_left, balloon_image.height() + 4)
+    painter.drawImage(0, 0, balloon.grab().toImage())
+    painter.translate(sprite_at)
     sprites.paint_frame(painter, last_frame_with_images(animations["Greeting"]))
     painter.end()
     composed.save(str(output_path))

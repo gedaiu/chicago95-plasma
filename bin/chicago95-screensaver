@@ -88,11 +88,15 @@ def run_kwin_script(source):
     path.write_text(source)
     name = f"chicago95-screensaver-{os.getpid()}"
     kwin = ["gdbus", "call", "--session", "--dest", "org.kde.KWin", "--object-path"]
-    subprocess.run(kwin + ["/Scripting", "--method", "org.kde.kwin.Scripting.unloadScript", name], capture_output=True)
     subprocess.run(
-        kwin + ["/Scripting", "--method", "org.kde.kwin.Scripting.loadScript", str(path), name], capture_output=True
+        kwin + ["/Scripting", "--method", "org.kde.kwin.Scripting.unloadScript", name], capture_output=True, check=False
     )
-    subprocess.run(kwin + ["/Scripting", "--method", "org.kde.kwin.Scripting.start"], capture_output=True)
+    subprocess.run(
+        kwin + ["/Scripting", "--method", "org.kde.kwin.Scripting.loadScript", str(path), name],
+        capture_output=True,
+        check=False,
+    )
+    subprocess.run(kwin + ["/Scripting", "--method", "org.kde.kwin.Scripting.start"], capture_output=True, check=False)
 
 
 class InputCatcher(QWidget):

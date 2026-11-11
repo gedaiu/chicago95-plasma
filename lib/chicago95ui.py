@@ -20,7 +20,7 @@ def detect_scale():
     try:
         child_env = {key: value for key, value in os.environ.items() if key != "QT_QPA_PLATFORM"}
         output = subprocess.run(
-            ["kscreen-doctor", "-o"], capture_output=True, text=True, timeout=3, env=child_env
+            ["kscreen-doctor", "-o"], capture_output=True, text=True, timeout=3, env=child_env, check=False
         ).stdout
     except (OSError, subprocess.TimeoutExpired):
         return "1"
@@ -43,7 +43,7 @@ if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
     os.environ.setdefault("QT_SCALE_FACTOR", detect_scale())
 os.environ.pop("QT_QPA_PLATFORMTHEME", None)
 
-from PySide6.QtCore import QEvent, QRect, QRectF, QSize, Qt, QTimer  # noqa: E402
+from PySide6.QtCore import QEvent, QRect, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -59,7 +59,7 @@ from PySide6.QtGui import (
     QPixmap,
     QRadialGradient,
     QRegion,
-)  # noqa: E402
+)
 from PySide6.QtWidgets import (
     QAbstractSpinBox,
     QApplication,
@@ -72,7 +72,7 @@ from PySide6.QtWidgets import (
     QStyleOptionFrame,
     QTabBar,
     QWidget,
-)  # noqa: E402
+)
 
 KDEGLOBALS = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "kdeglobals")
 
@@ -115,8 +115,13 @@ def look_settings(path=None):
     banner text and logo, so a look without branding still has a name and a logo."""
     settings = configparser.ConfigParser(interpolation=None, strict=False)
     settings.read(path or CHICAGO95RC)
-    start_menu = lambda key, default: settings.get("StartMenu", key, fallback=default)
-    branding = lambda key, default: settings.get("Branding", key, fallback=default)
+
+    def start_menu(key, default):
+        return settings.get("StartMenu", key, fallback=default)
+
+    def branding(key, default):
+        return settings.get("Branding", key, fallback=default)
+
     logos = sorted(glob.glob(os.path.expanduser("~/.local/share/chicago95/start-logo.*")))
     banner_text = start_menu("bannerText", "Chicago95")
     return {
@@ -172,7 +177,8 @@ def sound_file(theme, event, roots):
 
 
 def bevel_shades(face):
-    """(light, shadow) for a face colour: halfway to white and two thirds of the face, as #DFDFDF and #808080 are for #C0C0C0."""
+    """(light, shadow) for a face colour: halfway to white and two thirds of the face,
+    as #DFDFDF and #808080 are for #C0C0C0."""
     light = QColor((face.red() + 255) // 2, (face.green() + 255) // 2, (face.blue() + 255) // 2)
     shadow = QColor(face.red() * 2 // 3, face.green() * 2 // 3, face.blue() * 2 // 3)
     return light, shadow
@@ -247,7 +253,8 @@ def retro_palette(scheme=None):
 
 # The 2000 dialogs' small mark (Shut Down, Log On banners), in the original's pixels, measured from
 # tests/references/w2kshutdown.png (tests/test_shutdown_reference.py): an orange frame (55x55, 4px
-# edges) whose top-left fades into the paper, a darker frame behind it (2px lower, 2px further right), a pale blue glow to its right
+# edges) whose top-left fades into the paper, a darker frame behind it (2px lower, 2px further right),
+# a pale blue glow to its right
 # and a green bar under it that fade into the paper. The OS logo goes in front (BANNER_MARK_LOGO).
 BANNER_MARK_SIZE = (116, 60)
 BANNER_MARK_LOGO = QRectF(10, 8, 44, 36)
@@ -339,7 +346,7 @@ def screen_scale():
     return float(detect_scale())
 
 
-import functools  # noqa: E402
+import functools
 
 screen_scale = functools.lru_cache(maxsize=None)(screen_scale)  # kscreen-doctor is asked once per process
 
@@ -423,7 +430,8 @@ _GREY_PIXMAPS = {}
 
 
 def grey_pixmap(pixmap):
-    """The pixmap in greys, its transparency kept: Internet Explorer 4's toolbar icons until the pointer is over them."""
+    """The pixmap in greys, its transparency kept: Internet Explorer 4's toolbar icons until the pointer is
+    over them."""
     key = (pixmap.cacheKey(), pixmap.devicePixelRatio())
     if key not in _GREY_PIXMAPS:
         image = pixmap.toImage().convertToFormat(QImage.Format_ARGB32)
@@ -517,7 +525,8 @@ SLIDER_THUMB = (
     "     K     ",
 )
 SLIDER_GROOVE_TOP, SLIDER_TICK_GAP, SLIDER_TICK_ROWS = 7, 1, 2
-# A group box's title, from three originals: its ink starts 10 pixels in, a row lower than Qt puts it; the top line stops
+# A group box's title, from three originals: its ink starts 10 pixels in, a row lower than Qt puts it;
+# the top line stops
 # 3 pixels before the ink and starts again 2 after the text (tests/test_control_panel_components_reference.py).
 GROUP_TITLE_INK, GROUP_TITLE_DROP, GROUP_LINE_BEFORE, GROUP_LINE_AFTER = 10, 1, 3, 2
 # A spin box as Windows 98 built it, 1:1 from tests/references/win98datetime01.png: a 21-row sunken edit field with a
@@ -689,7 +698,8 @@ class ClassicStyle(QProxyStyle):
 
     def drawControl(self, element, option, painter, widget=None):
         if element == QStyle.CE_PushButtonLabel and option.text and option.icon.isNull():
-            # Centred on the caption's ink, as the originals' captions are (tests/test_control_panel_components_reference.py).
+            # Centred on the caption's ink, as the originals' captions are
+            # (tests/test_control_panel_components_reference.py).
             font = widget.font() if widget else painter.font()
             ink = caption_ink_width(
                 option.text.replace("&&", "\0").replace("&", "").replace("\0", "&"), font.toString()
@@ -915,7 +925,8 @@ class ClassicStyle(QProxyStyle):
 
     def paint_drop_down_focus(self, option, painter, focus):
         """The focused drop-down's field, as the originals drew it (tests/references/win98datetime04.png): the highlight
-        a pixel inside the white, and on its edge the dotted focus rectangle, every other dot inverted, the rest black."""
+        a pixel inside the white, and on its edge the dotted focus rectangle, every other dot inverted, the rest
+        black."""
         highlight = option.palette.highlight().color()
         painter.fillRect(focus, highlight)
         inverted = QColor(255 - highlight.red(), 255 - highlight.green(), 255 - highlight.blue())
@@ -1006,13 +1017,17 @@ _CLASSIC_STYLE = []
 
 
 def classic_style():
-    if not _CLASSIC_STYLE:
-        _CLASSIC_STYLE.append(ClassicStyle("Windows"))
+    """One shared style; made again when the application has replaced and deleted the previous one."""
+    import shiboken6
+
+    if not _CLASSIC_STYLE or not shiboken6.isValid(_CLASSIC_STYLE[0]):
+        _CLASSIC_STYLE[:] = [ClassicStyle("Windows")]
     return _CLASSIC_STYLE[0]
 
 
 class PlainDisabledTextStyle(ClassicStyle):
-    """Fields (combo boxes, edits, spin boxes) show disabled text plain grey; the originals engrave only captions and labels."""
+    """Fields (combo boxes, edits, spin boxes) show disabled text plain grey;
+    the originals engrave only captions and labels."""
 
     def styleHint(self, hint, option=None, widget=None, return_data=None):
         if hint == QStyle.SH_EtchDisabledText:

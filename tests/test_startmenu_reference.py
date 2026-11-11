@@ -97,7 +97,10 @@ def test_banner_text_fills_the_same_box(reference, ours):
         return bounding_box(image, lambda c: not close(c, (128, 128, 128)), BANNER, (3, image.height - 3))
 
     expected, actual = banner_text(reference), banner_text(ours)
-    assert all(abs(a - e) <= LETTER_SHAPE_SLACK for a, e in zip(actual, expected)) and (actual[1], actual[3]) == (
+    assert all(abs(a - e) <= LETTER_SHAPE_SLACK for a, e in zip(actual, expected, strict=False)) and (
+        actual[1],
+        actual[3],
+    ) == (
         expected[1],
         expected[3],
     ), (actual, expected)

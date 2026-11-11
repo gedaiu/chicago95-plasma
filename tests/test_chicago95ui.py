@@ -4,6 +4,7 @@ import sys
 import textwrap
 import time
 
+import pytest
 from conftest import REPO
 
 IDLE_APP = textwrap.dedent("""
@@ -41,9 +42,6 @@ def test_idle_app_ignores_sigterm_with_a_handler_but_no_wakeup_slot():
     setup = "import signal; signal.signal(signal.SIGTERM, lambda *_: app.quit()); idle = QTimer(); idle.start(250)"
 
     assert run_idle_app_and_send_sigterm(setup) == "still running 3 s after SIGTERM"
-
-
-import pytest
 
 
 @pytest.mark.parametrize("scale, sharp", [(1.0, True), (2.0, True), (1.5, False), (1.25, False)])
@@ -88,7 +86,9 @@ def test_classic_dialog_paints_an_inactive_title_while_another_window_is_active(
     dialog = chicago95ui.ClassicDialog("Title", "1995", (200, 80))
     other = QWidget()
     scheme = chicago95ui.read_scheme()
-    title_colour = lambda: qimage_to_pil(dialog.grab().toImage()).getpixel((150, 10))
+
+    def title_colour():
+        return qimage_to_pil(dialog.grab().toImage()).getpixel((150, 10))
 
     dialog.show()
     dialog.activateWindow()
@@ -100,5 +100,8 @@ def test_classic_dialog_paints_an_inactive_title_while_another_window_is_active(
     inactive = title_colour()
     dialog.close()
     other.close()
-    as_rgb = lambda colour: (colour.red(), colour.green(), colour.blue())
+
+    def as_rgb(colour):
+        return (colour.red(), colour.green(), colour.blue())
+
     assert (active, inactive) == (as_rgb(scheme["title_active"]), as_rgb(scheme["title_inactive"]))

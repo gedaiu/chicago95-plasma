@@ -224,7 +224,7 @@ def coloured_box(image, region):
 
 
 def within(actual, expected, slack):
-    return actual is not None and all(abs(a - e) <= slack for a, e in zip(actual, expected))
+    return actual is not None and all(abs(a - e) <= slack for a, e in zip(actual, expected, strict=False))
 
 
 # --- the originals are where the table says (the crops' alignment) -----------------------------------
@@ -296,14 +296,22 @@ def test_tab_strip_has_the_originals_tabs_with_the_selected_one_standing_out(our
     expected_white = [(1, 1), (selected[0], selected[0])] + [(left, left) for left, _right in boxes[2:]]
     expected_dark = [(right, right) for _left, right in [selected] + boxes[1:]] + [(mine.width - 1, mine.width - 1)]
     assert tab_edges(theirs) == (expected_white, expected_dark)
+
     # Ours within 2px: our font's captions are a pixel or two narrower or wider than the originals'.
-    near = lambda ours_runs, expected_runs: (
-        len(ours_runs) == len(expected_runs) and all(within(o, e, 2) for o, e in zip(ours_runs, expected_runs))
-    )
+    def near(ours_runs, expected_runs):
+        return len(ours_runs) == len(expected_runs) and all(
+            within(o, e, 2) for o, e in zip(ours_runs, expected_runs, strict=False)
+        )
+
     assert near(tab_edges(mine)[0], expected_white) and near(tab_edges(mine)[1], expected_dark), tab_edges(mine)
-    top_line = lambda image, y: [
-        run for run in runs([x for x in range(image.width) if is_white(image.getpixel((x, y)))]) if run[1] - run[0] > 20
-    ]
+
+    def top_line(image, y):
+        return [
+            run
+            for run in runs([x for x in range(image.width) if is_white(image.getpixel((x, y)))])
+            if run[1] - run[0] > 20
+        ]
+
     assert near(top_line(mine, SELECTED_TAB_TOP), [(selected[0] + 2, selected[1] - 2)])  # rounded corners
     assert near(top_line(mine, TAB_TOP), [(left + 2, right - 2) for left, right in boxes[1:]])
     assert near(top_line(mine, PAGE_TOP), [(selected[1] + 1, PAGE_RIGHT - 1)])
@@ -336,10 +344,13 @@ def test_page_frame_runs_from_the_tabs_to_above_the_buttons(ours, look):
         True,
         True,
     ), white_rows
-    below_title = lambda lines: (
-        lines[0],
-        [row for row in lines[1] if row > FRAME + TITLE],
-    )  # the originals' title gradients are not dark all along
+
+    def below_title(lines):
+        return (
+            lines[0],
+            [row for row in lines[1] if row > FRAME + TITLE],
+        )  # the originals' title gradients are not dark all along
+
     assert below_title(long_lines(mine, is_dark)) == below_title(long_lines(theirs, is_dark))
 
 
@@ -371,7 +382,7 @@ def picture_box(image, region, face):
         (x, y)
         for x in range(left, right)
         for y in range(top, bottom)
-        if max(abs(a - b) for a, b in zip(image.getpixel((x, y)), face)) > 24
+        if max(abs(a - b) for a, b in zip(image.getpixel((x, y)), face, strict=False)) > 24
     ]
     return (
         (min(p[0] for p in points), min(p[1] for p in points), max(p[0] for p in points), max(p[1] for p in points))

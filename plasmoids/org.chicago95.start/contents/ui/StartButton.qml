@@ -106,7 +106,7 @@ Item {
             y: Math.round((parent.height - height) / 2) + (button.held ? 1 : 0)
 
             Image {
-                visible: button.logoSource != ""
+                visible: button.logoSource.toString() !== ""
                 source: button.logoSource
                 Layout.preferredWidth: button.logoSize
                 Layout.preferredHeight: button.logoSize

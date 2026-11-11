@@ -91,17 +91,18 @@ def test_banner_lettering_covers_the_original_lines_within_2_pixels(reference, o
         return bounding_box(image, lambda c: sum(c) < 250, (line[0], line[2]), (line[1], line[3]))
 
     expected, actual = ink(reference), ink(ours)
-    assert all(abs(a - e) <= LETTERING_SLACK for a, e in zip(actual, expected)), (actual, expected)
+    assert all(abs(a - e) <= LETTERING_SLACK for a, e in zip(actual, expected, strict=False)), (actual, expected)
 
 
 def test_session_dropdown_is_drawn_like_the_shut_down_dropdown(ours):
     """Across the arrow button, three rows below its top, out to the field's outer edge: the same colours
-    as the original Shut Down dialog's dropdown (w2kshutdown.png, client row 116, columns 306-324, right of its highlighted choice)."""
+    as the original Shut Down dialog's dropdown (w2kshutdown.png, client row 116,
+    columns 306-324, right of its highlighted choice)."""
     original = screenshot("w2kshutdown").crop((115, 91, 524, 337))
     expected = [original.getpixel((x, 116)) for x in range(306, 325)]
     field_right, button_top = 111 + 87 + 243 - 1, 74 + 184 + 2
     actual = [ours.getpixel((x, button_top + 3)) for x in range(field_right - 18, field_right + 1)]
-    assert all(close(a, e) for a, e in zip(actual, expected)), list(zip(actual, expected))
+    assert all(close(a, e) for a, e in zip(actual, expected, strict=False)), list(zip(actual, expected, strict=False))
 
 
 @pytest.mark.parametrize(

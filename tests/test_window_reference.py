@@ -84,7 +84,9 @@ def test_title_colours_match_the_original_column_by_column(themes, window_id):
     left = max(left, 160)
     right = original.width - BUTTONS_WIDTH
     expected, actual = title_columns(original, left, right), title_columns(ours, left, right)
-    assert all(close(a, e, COLUMN_TOLERANCE) for a, e in zip(actual, expected)), list(zip(actual, expected))
+    assert all(close(a, e, COLUMN_TOLERANCE) for a, e in zip(actual, expected, strict=False)), list(
+        zip(actual, expected, strict=False)
+    )
 
 
 def test_1998_active_title_shades_from_navy_to_light_blue_like_the_original(themes):
@@ -93,7 +95,9 @@ def test_1998_active_title_shades_from_navy_to_light_blue_like_the_original(them
     ours = Window(themes["1998"], original.width, original.height, True, "Notepad").render()
     left, right = 140, original.width - BUTTONS_WIDTH
     expected, actual = title_columns(original, left, right), title_columns(ours, left, right)
-    assert all(close(a, e, COLUMN_TOLERANCE) for a, e in zip(actual, expected)), list(zip(actual, expected))
+    assert all(close(a, e, COLUMN_TOLERANCE) for a, e in zip(actual, expected, strict=False)), list(
+        zip(actual, expected, strict=False)
+    )
 
 
 @pytest.mark.parametrize(
@@ -116,7 +120,10 @@ def test_pressed_help_button_matches_the_original(themes):
     original = screenshot("win95helpbutton")
     ours = Window(themes["1995"], 200, 60, True, "", right="HX", pressed="H").render()
     help_left = 200 - 6 - 18 - 16
-    pointer = lambda dx, dy: dy == 13 and dx >= 7  # the screenshot's mouse pointer covers the bottom row from here
+
+    def pointer(dx, dy):
+        return dy == 13 and dx >= 7  # the screenshot's mouse pointer covers the bottom row from here
+
     for dy in range(14):
         for dx in range(16):
             if pointer(dx, dy):
@@ -140,4 +147,4 @@ def test_caption_starts_and_sits_where_the_original_puts_it(themes, window_id):
         return min(xs), min(ys), max(ys)
 
     expected, actual = ink(original), ink(ours)
-    assert all(abs(a - e) <= 1 for a, e in zip(actual, expected)), (actual, expected)
+    assert all(abs(a - e) <= 1 for a, e in zip(actual, expected, strict=False)), (actual, expected)

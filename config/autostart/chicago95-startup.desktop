@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Chicago95 startup sound
-Exec=sh -c 'pw-play @HOME@/.local/share/sounds/@SOUND_THEME@/stereo/desktop-login.*'
+Exec=sh -c "pw-play @HOME@/.local/share/sounds/@SOUND_THEME@/stereo/desktop-login.*"
 NoDisplay=true
 Terminal=false
 X-KDE-autostart-phase=2

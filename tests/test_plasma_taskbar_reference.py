@@ -226,7 +226,7 @@ def test_busy_tray_keeps_every_icon_16px_17px_apart_and_off_the_clock(desktops):
         x
         for x in range(box_left + 2, clock[0])
         if any(
-            max(abs(a - b) for a, b in zip(bar.getpixel((x, y)), face)) > 30
+            max(abs(a - b) for a, b in zip(bar.getpixel((x, y)), face, strict=False)) > 30
             for y in range(ICON_TOP, ICON_TOP + ICON_SIZE)
         )
     ]

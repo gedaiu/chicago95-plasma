@@ -65,7 +65,10 @@ def row_parts(image, top, height):
     """(icon box (left, top, right, bottom), text left, text bottom) in a row. The icon is whatever differs
     from the row's background left of the text; the text is what differs strongly right of the icon."""
     background = image.getpixel((image.width - 8, top + height // 2))
-    difference = lambda x, y: sum(abs(a - b) for a, b in zip(image.getpixel((x, y)), background))
+
+    def difference(x, y):
+        return sum(abs(a - b) for a, b in zip(image.getpixel((x, y)), background, strict=False))
+
     icon = [(x, y) for x in range(*ICON_COLUMNS) for y in range(top, top + height) if difference(x, y) > 40]
     text = [
         (x, y) for x in range(TEXT_FROM, TEXT_COLUMNS[1]) for y in range(top, top + height) if difference(x, y) > 200

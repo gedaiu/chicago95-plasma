@@ -57,13 +57,16 @@ def styles(tmp_path_factory):
 
 
 PLASMOIDS = REPO / "plasmoids"
-STRIP = """import QtQuick
+STRIP = (
+    """import QtQuick
 import "%s"
 Rectangle {
     width: 640; height: %d
-    %s { objectName: "item"; x: %d; y: 2; width: implicitWidth; height: parent.height - 4 }   // Plasma's applet rows: 2 to 25
+    %s { objectName: "item"; x: %d; y: 2; width: implicitWidth; height: parent.height - 4 }"""
+    """   // Plasma's applet rows: 2 to 25
 }
 """
+)
 
 
 def render_on_strip(qt_app, folder, plasmoid, component, x, face, properties, width=None):

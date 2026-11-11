@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2034
+# shellcheck disable=SC2034,SC2030,SC2031 # the dry run that counts the steps runs in a subshell on purpose
 # Chicago95 for Plasma: Setup.
 #
 #   ./install.sh                 interactive, Chicago95 Setup look

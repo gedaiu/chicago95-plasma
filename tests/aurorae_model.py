@@ -2,7 +2,8 @@
 our title bars, borders, corners and caption buttons with the originals' screenshots.
 
 It follows KWin's aurorae.qml, AuroraeButtonGroup.qml and AuroraeButton.qml (/usr/share/kwin/aurorae):
-the frame is a nine-piece FrameSvg ("decoration" or "decoration-inactive" prefix, see framesvg.py); the button groups sit TitleEdgeTop + ButtonMarginTop from the
+the frame is a nine-piece FrameSvg ("decoration" or "decoration-inactive" prefix, see framesvg.py);
+the button groups sit TitleEdgeTop + ButtonMarginTop from the
 top, the right one TitleEdgeRight in from the right; each button draws its "<state>-center" element
 over its whole cell; the caption fills the space between the groups (TitleBorderLeft/Right in),
 TitleHeight tall from TitleEdgeTop, vertically centred.

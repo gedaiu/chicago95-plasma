@@ -20,7 +20,7 @@ def screenshot(name):
 
 
 def close(a, b, tolerance=TOLERANCE):
-    return all(abs(x - y) <= tolerance for x, y in zip(a, b))
+    return all(abs(x - y) <= tolerance for x, y in zip(a, b, strict=False))
 
 
 def bounding_box(image, keep, x_range=None, y_range=None):

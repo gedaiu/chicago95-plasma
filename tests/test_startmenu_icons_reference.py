@@ -35,7 +35,9 @@ def icon_box(image, top):
         (x, y)
         for x in range(ICON_X - 4, ICON_X + ICON_SIZE + 4)
         for y in range(top, top + 32)
-        if all(sum(abs(a - b) for a, b in zip(image.getpixel((x, y)), colour)) > 24 for colour in background)
+        if all(
+            sum(abs(a - b) for a, b in zip(image.getpixel((x, y)), colour, strict=False)) > 24 for colour in background
+        )
     ]
     xs, ys = [p[0] for p in pts], [p[1] for p in pts]
     return min(xs), min(ys) - top, max(xs) - min(xs) + 1, max(ys) - min(ys) + 1
@@ -46,7 +48,7 @@ def icon_box(image, top):
 def test_icon_sits_where_the_original_puts_it(menus, item):
     reference, ours = menus
     expected, actual = icon_box(reference, ROWS[item]), icon_box(ours, ROWS[item])
-    assert all(abs(a - e) <= 1 for a, e in zip(actual, expected)), (actual, expected)
+    assert all(abs(a - e) <= 1 for a, e in zip(actual, expected, strict=False)), (actual, expected)
 
 
 @needs_chicago95_icons

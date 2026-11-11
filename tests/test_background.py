@@ -79,6 +79,7 @@ def test_dry_run_of_the_background_component_sets_the_saved_colour(tmp_path):
         stdin=subprocess.DEVNULL,
         timeout=60,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
 
@@ -95,12 +96,13 @@ def test_dry_run_of_a_pattern_background_draws_the_pattern_first(tmp_path):
         stdin=subprocess.DEVNULL,
         timeout=60,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
 
     assert (
-        f"would: python3 {REPO}/setup/background_pattern.py diagonal #102030 {tmp_path}/.local/share/chicago95/pattern.png"
-        in log
+        f"would: python3 {REPO}/setup/background_pattern.py diagonal #102030 "
+        f"{tmp_path}/.local/share/chicago95/pattern.png" in log
     )
 
 

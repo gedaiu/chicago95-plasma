@@ -460,7 +460,7 @@ def live_launchers():
 def installed_screensavers():
     try:
         listing = subprocess.run(
-            [tool_path("chicago95-screensaver"), "--list"], capture_output=True, text=True, timeout=10
+            [tool_path("chicago95-screensaver"), "--list"], capture_output=True, text=True, timeout=10, check=False
         ).stdout
     except (OSError, subprocess.TimeoutExpired):
         return []
@@ -475,6 +475,7 @@ def lock_timeout_minutes():
             capture_output=True,
             text=True,
             timeout=5,
+            check=False,
         ).stdout.strip()
     except (OSError, subprocess.TimeoutExpired):
         return 5
@@ -482,7 +483,8 @@ def lock_timeout_minutes():
 
 
 def clear_layout(layout):
-    """Removes and hides every widget at once; deleteLater alone leaves the old ones painted until the event loop runs."""
+    """Removes and hides every widget at once; deleteLater alone leaves the old ones painted until the event
+    loop runs."""
     while layout.count():
         widget = layout.takeAt(0).widget()
         if widget is not None:
@@ -546,7 +548,8 @@ class ClassicProgressBar(QProgressBar):
 
 
 class ApplyQuestion(QDialog):
-    """Do you want to apply your changes? Yes, No or Cancel, centred under the question as the classic message box has them."""
+    """Do you want to apply your changes? Yes, No or Cancel, centred under the question
+    as the classic message box has them."""
 
     BUTTON_GAP, TEXT_TO_BUTTONS, MARGIN = 6, 18, 11  # tests/references/messagebox-yesnocancel.png
 
@@ -691,7 +694,8 @@ class Actions:
 
 
 class HeaderBand(QWidget):
-    """One band of Explorer's header: an etched line above it (shadow over white), a raised grip at its left, then its content."""
+    """One band of Explorer's header: an etched line above it (shadow over white), a raised grip at
+    its left, then its content."""
 
     def __init__(self, content=None, content_height=MENU_BAR_HEIGHT, grip=True, trailing=None):
         super().__init__()
@@ -1169,9 +1173,7 @@ class SettingsTab(QWidget):
         return self.register(key, label, combo, combo.currentText, select, default, combo.currentIndexChanged)
 
     def picture(self, key, label, presets, default):
-        field = PictureField(
-            presets, lambda parent, title, name_filter: self.actions.choose_file(parent, title, name_filter)
-        )
+        field = PictureField(presets, self.actions.choose_file)
         return self.register(key, label, field, field.value, field.set_value, default, field.changed)
 
     def color(self, key, label, default, most=2, stops=False):
@@ -1606,7 +1608,7 @@ PAGE_INSETS = (
     12,
     9,
 )  # left, top, right, bottom inside the page frame (tests/test_control_panel_components_reference.py)
-from chicago95ui import (  # noqa: E402
+from chicago95ui import (
     TAB_INSET,
     TAB_RISE,
     TAB_ROW_HEIGHT,
@@ -1862,7 +1864,7 @@ def quick_launch_tab(settings, actions):
     tab = SettingsTab(settings, actions)
     live = actions.current_launchers()
     initial = ",".join(live if live is not None else default_launchers(DEFAULT_LAUNCHER_FILES))
-    field = LauncherList(lambda parent, title, name_filter: actions.choose_file(parent, title, name_filter))
+    field = LauncherList(actions.choose_file)
     tab.register("LAUNCHERS", "", field, field.value, field.set_value, initial, field.changed)
     return tab
 
@@ -2160,7 +2162,8 @@ def screen_saver_tab(settings, actions):
         lambda: actions.start_process(tool_path("chicago95-screensaver"), ["--hack", saver.currentData()])
     )
     tab.lock_warning = QLabel(
-        f"Your screen locks after {actions.lock_timeout_minutes()} minutes, before the screen saver starts, so you will not see it."
+        f"Your screen locks after {actions.lock_timeout_minutes()} minutes, "
+        "before the screen saver starts, so you will not see it."
     )
     tab.lock_warning.setWordWrap(True)
     tab.form.addRow("", tab.lock_warning)
@@ -2304,7 +2307,7 @@ class ControlPanel(QMainWindow):
         place_layout.addWidget(self.status_place_icon)
         place_layout.addWidget(QLabel("My Computer"), 1)
         self.status_panes = (self.status_message, QLabel(), place)
-        for pane, stretch in zip(self.status_panes, (5, 2, 3)):
+        for pane, stretch in zip(self.status_panes, (5, 2, 3), strict=False):
             bar.addPermanentWidget(pane, stretch)
 
     def build_header(self):

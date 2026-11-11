@@ -17,8 +17,8 @@ def launched_commands():
         if 'engine: "executable"' not in text:
             continue
         constants = dict(re.findall(r'property string (\w+): "([^"]*)"', text))
-        for argument in re.findall(r"connectSource\(([^)]*)\)", text):
-            argument = argument.strip()
+        for raw_argument in re.findall(r"connectSource\(([^)]*)\)", text):
+            argument = raw_argument.strip()
             if argument.startswith('"'):
                 found.append((qml.parent.parent.parent.name, argument.strip('"')))
             elif argument.startswith("root."):

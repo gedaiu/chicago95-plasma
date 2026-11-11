@@ -93,7 +93,7 @@ def nine_slice(prefix, x0, y0, size, border, rings, interior, margin, tile_cente
         + "</g>"
     )
     sides = margin if isinstance(margin, tuple) else (margin, margin, margin, margin)
-    for side, value in zip(("top", "bottom", "left", "right"), sides):
+    for side, value in zip(("top", "bottom", "left", "right"), sides, strict=False):
         parts.append(hidden(f"{prefix}hint-{side}-margin", x0, y0 + size + 2, value, value))
     if tile_center:
         parts.append(hidden(f"{prefix}hint-tile-center", x0, y0 + size + 8, 1, 1))

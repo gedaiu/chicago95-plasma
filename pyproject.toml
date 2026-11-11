@@ -9,7 +9,11 @@ extend-exclude = ["data/clippy"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "PLW"]
-ignore = ["E501", "E402", "E731", "B905", "PLW2901", "PLW1510", "PLW0108", "PLW0603"]
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.ruff.lint.per-file-ignores]
+# These programs extend sys.path (or set Qt's environment) before importing chicago95ui and Qt.
+"bin/*" = ["E402"]
+"lib/chicago95ui.py" = ["E402"]

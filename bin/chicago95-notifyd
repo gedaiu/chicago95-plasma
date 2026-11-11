@@ -23,13 +23,13 @@ sys.path[:0] = [
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
     os.path.expanduser("~/.local/lib/chicago95"),
 ]
-import chicago95ui  # noqa: E402  must precede the other PySide6 imports
-import dbus  # noqa: E402
-import dbus.service  # noqa: E402
-from dbus.mainloop.glib import DBusGMainLoop  # noqa: E402
-from PySide6.QtCore import QEasingCurve, QObject, QPoint, QPropertyAnimation, QSize, Qt, QTimer, Signal  # noqa: E402
-from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QLinearGradient, QPainter, QPalette, QPixmap  # noqa: E402
-from PySide6.QtWidgets import QAbstractButton, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget  # noqa: E402
+import chicago95ui  # must precede the other PySide6 imports
+import dbus
+import dbus.service
+from dbus.mainloop.glib import DBusGMainLoop
+from PySide6.QtCore import QEasingCurve, QObject, QPoint, QPropertyAnimation, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QLinearGradient, QPainter, QPalette, QPixmap
+from PySide6.QtWidgets import QAbstractButton, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 SERVICE_NAME = "org.freedesktop.Notifications"
 OBJECT_PATH = "/org/freedesktop/Notifications"
@@ -565,8 +565,8 @@ class NotificationService(dbus.service.Object):
         super().__init__(bus, OBJECT_PATH)
         self.stack = stack
         self.last_id = 0
-        stack.closed.connect(lambda notification_id, reason: self.NotificationClosed(notification_id, reason))
-        stack.action_invoked.connect(lambda notification_id, key: self.ActionInvoked(notification_id, key))
+        stack.closed.connect(self.NotificationClosed)
+        stack.action_invoked.connect(self.ActionInvoked)
 
     @dbus.service.method(INTERFACE, in_signature="", out_signature="as")
     def GetCapabilities(self):

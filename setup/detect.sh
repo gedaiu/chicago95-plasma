@@ -77,7 +77,7 @@ detect_paths() {
   SETUP_FIREFOX_PROFILE=""
   # The profile in daily use is the one whose prefs.js changed last.
   local newest
-  newest=$(ls -t "$HOME"/.mozilla/firefox/*/prefs.js 2>/dev/null | head -1 || true)
+  newest=$(find "$HOME/.mozilla/firefox" -mindepth 2 -maxdepth 2 -name prefs.js -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2- || true)
   [ -n "$newest" ] && SETUP_FIREFOX_PROFILE=$(dirname "$newest")
   SETUP_HAS_THUNAR=0
   command -v thunar >/dev/null 2>&1 && SETUP_HAS_THUNAR=1
@@ -176,7 +176,7 @@ Screen (logical):  ${SETUP_WIDTH}x${SETUP_HEIGHT} at ${SETUP_SCALE}x  (${SETUP_S
 Chicago95 source:  ${SETUP_CHICAGO95_SRC:-not found (will clone)}
 XScreenSaver:      ${SETUP_HACK_DIR:-hacks not installed}
 Firefox profile:   ${SETUP_FIREFOX_PROFILE:-none}
-Thunar / qmmp:     $([ $SETUP_HAS_THUNAR = 1 ] && echo yes || echo no) / $([ $SETUP_HAS_QMMP = 1 ] && echo yes || echo no)
+Thunar / qmmp:     $([ "$SETUP_HAS_THUNAR" = 1 ] && echo yes || echo no) / $([ "$SETUP_HAS_QMMP" = 1 ] && echo yes || echo no)
 Python modules:    ${SETUP_PY_MISSING:+missing:$SETUP_PY_MISSING}${SETUP_PY_MISSING:-all present}
 EOF
 }

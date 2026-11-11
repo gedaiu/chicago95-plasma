@@ -56,7 +56,8 @@ def gallery(qt_app):
 
 
 def test_check_box_indicators_are_the_originals_13px_boxes_with_its_tick(gallery, qt_app):
-    """Off and on: shadow and black top-left lines, light and white bottom-right, a 9x9 white inside, the tick's seven rows."""
+    """Off and on: shadow and black top-left lines, light and white bottom-right, a 9x9 white inside,
+    the tick's seven rows."""
     image = gallery.render_control(qt_app, gallery.check_boxes)
     off, on = indicator_crops(image, (0, 0, image.width, image.height), image.getpixel((2, 2)), 2)
     original = screenshot("win98dialing")
@@ -121,7 +122,7 @@ def test_drop_down_field_is_white_inside_its_frame_when_enabled_and_the_window_c
         image = gallery.render_control(qt_app, gallery.drop_down, inspect=note_combos)
         face = image.getpixel((2, 2))
         for (is_enabled, x, y, width, height), allowed in zip(
-            boxes, ({(255, 255, 255), (0, 0, 0)}, {face, (128, 128, 128)})
+            boxes, ({(255, 255, 255), (0, 0, 0)}, {face, (128, 128, 128)}), strict=False
         ):
             left, top = x + 2, y + 2
             right, bottom = left + width - 4 - 16, top + height - 4
@@ -156,15 +157,18 @@ def test_read_only_field_shows_its_selected_text_on_the_window_colour(gallery, q
     face = gallery_image.getpixel((2, 2))
     theirs = screenshot("win98newconnection").crop(READ_ONLY_FIELD)
     ours = gallery_image.crop((x, y, x + width, y + height))
-    structure = lambda image: (
-        image.getpixel((5, 0)),
-        image.getpixel((5, 1)),
-        image.getpixel((image.width - 2, 5)),
-        image.getpixel((image.width - 1, 5)),
-        image.getpixel((5, image.height - 2)),
-        image.getpixel((5, image.height - 1)),
-    )
-    assert all(close(a, b, TOLERANCE) for a, b in zip(structure(ours), structure(theirs))), (
+
+    def structure(image):
+        return (
+            image.getpixel((5, 0)),
+            image.getpixel((5, 1)),
+            image.getpixel((image.width - 2, 5)),
+            image.getpixel((image.width - 1, 5)),
+            image.getpixel((5, image.height - 2)),
+            image.getpixel((5, image.height - 1)),
+        )
+
+    assert all(close(a, b, TOLERANCE) for a, b in zip(structure(ours), structure(theirs), strict=False)), (
         structure(ours),
         structure(theirs),
     )
@@ -270,7 +274,8 @@ def in_sixteen_colours(image):
 
 
 def test_disabled_drop_down_ends_in_the_originals_arrow_button_with_an_engraved_arrow(qt_app):
-    """The Find window's disabled list: 21px tall, its button's 7-5-3-1 arrow grey with a white copy a pixel down and right."""
+    """The Find window's disabled list: 21px tall, its button's 7-5-3-1 arrow grey with a white copy
+    a pixel down and right."""
     ours = in_sixteen_colours(drop_down_image(qt_app, enabled=False))
     theirs = screenshot("win98finddate").crop(DISABLED_DROP_DOWN_BUTTON)
     assert same_pixels(ours.crop((ours.width - theirs.width, 0, ours.width, ours.height)), theirs), ours.size
@@ -373,4 +378,4 @@ def test_2000_push_button_edges_are_the_2000_originals_white_face_shadow_and_dar
     middle = y + height // 2
     ours = [image.getpixel((x + offset, middle)) for offset in (0, 1, width - 2, width - 1)]
     theirs = [screenshot("w2kshutdown").getpixel((column, 313)) for column in (359, 360, 432, 433)]
-    assert all(close(mine, original, TOLERANCE) for mine, original in zip(ours, theirs)), (ours, theirs)
+    assert all(close(mine, original, TOLERANCE) for mine, original in zip(ours, theirs, strict=False)), (ours, theirs)

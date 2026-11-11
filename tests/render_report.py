@@ -45,7 +45,8 @@ MENU_SETTINGS = {
         "",
     ),
     "2000": (
-        "[StartMenu]\nstyle=2000\nbannerText=Windows 2000 Professional\nbannerTextColor=#FFFFFF\nbannerNumberColor=#FFFFFF\n"
+        "[StartMenu]\nstyle=2000\nbannerText=Windows 2000 Professional\nbannerTextColor=#FFFFFF\n"
+        "bannerNumberColor=#FFFFFF\n"
         "bannerBackground=#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0\n",
         LOOK_2000_KDEGLOBALS,
     ),
@@ -98,7 +99,7 @@ def taskbar_boxes(look):
     for index, (left, right, pressed) in enumerate(tasks, 1):
         boxes[f"task button {index}{' (pressed)' if pressed else ''}"] = (left - 3, 2, right + 4, HEIGHT)
         boxes[f"task button {index}: icon and label"] = (left - 2, 2, left + 56, HEIGHT)
-    for index, ((_l, right, _p), (left, _r, _q)) in enumerate(zip(tasks, tasks[1:]), 1):
+    for index, ((_l, right, _p), (left, _r, _q)) in enumerate(zip(tasks, tasks[1:], strict=False), 1):
         boxes[f"gap between task buttons {index} and {index + 1}"] = (right - 8, 2, left + 9, HEIGHT)
     tray_left, _tray_right = TRAYS[look]
     boxes["tray box"] = (tray_left - 3, 2, 640, HEIGHT)
@@ -180,7 +181,9 @@ def taskbar_masks(look):
     from test_plasma_taskbar_reference import QUICK_LAUNCH, TRAY_ICONS
     from test_taskbar_reference import BUTTONS
 
-    icon = lambda x, y=7: (x, y, x + 16, y + 16)
+    def icon(x, y=7):
+        return (x, y, x + 16, y + 16)
+
     masks = [icon(x) for x in QUICK_LAUNCH.get(look, [])] + [icon(x) for x in TRAY_ICONS[look]]
     masks += [icon(left + 4, 7 + pressed) for left, _right, pressed in BUTTONS[look][1]]
     masks.append((TRAY_ICONS[look][-1] + 18, 6, 636, 24))
@@ -329,7 +332,12 @@ def start_menu_details(startmenu, app, look, scratch):
     }
     if look == "1995":
         names = ("Programs", "Documents", "Settings", "Find", "Help", "Run...", "Shut Down...")
-        boxes.update({f"row: {label}": (0, top - 2, original.width, top + 34) for label, top in zip(names, ROW_TOPS)})
+        boxes.update(
+            {
+                f"row: {label}": (0, top - 2, original.width, top + 34)
+                for label, top in zip(names, ROW_TOPS, strict=False)
+            }
+        )
     else:
         rows, height, _active = ROWS[look]
         boxes.update(
@@ -756,7 +764,8 @@ def compose_showcase(title, panels, path):
     heading, caption = label_font(24), label_font(15)
     inner = SHOWCASE_WIDTH - 4 * GAP
     laid_out = []
-    for component, original, ours in panels:
+    for component, original_shot, ours in panels:
+        original = original_shot
         if original is None:  # no original screenshot shows this control
             original = Image.new("RGB", ours.size, SHOWCASE_BACKGROUND)
             ImageDraw.Draw(original).text(
@@ -792,7 +801,7 @@ def compose_showcase(title, panels, path):
         draw.rectangle((GAP, y, SHOWCASE_WIDTH - GAP, y + 40 + body + GAP), fill=CARD)
         draw.text((2 * GAP, y + 10), component + (f"  (enlarged x{zoom})" if zoom > 1 else ""), fill=INK, font=heading)
         x, top = 2 * GAP, y + 40
-        for name, image in zip(("Original", "Chicago95 for Plasma"), images):
+        for name, image in zip(("Original", "Chicago95 for Plasma"), images, strict=False):
             draw.text((x, top), name, fill=(90, 90, 90), font=caption)
             sheet.paste(image, (x, top + 20))
             if side_by_side:

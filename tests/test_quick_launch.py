@@ -49,7 +49,9 @@ def written_by_apply_taskbar(tmp_path, **settings):
         f'REPO={REPO}; source {REPO}/setup/steps.sh; plasma_script() {{ printf "%s\\n" "$1"; }}; '
         f"SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 SETUP_LOG={log} {assignments} apply_taskbar"
     )
-    subprocess.run(["bash", "-c", script], timeout=30, env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)})
+    subprocess.run(
+        ["bash", "-c", script], timeout=30, env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}, check=False
+    )
     return log.read_text()
 
 
@@ -78,6 +80,7 @@ def test_install_takes_the_quick_launch_option_from_its_flag(tmp_path):
         stdin=subprocess.DEVNULL,
         timeout=60,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
 

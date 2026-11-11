@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick 2.15
 import "settings.js" as Settings
 
@@ -44,9 +45,10 @@ Rectangle {
         // in plain letters, the edition and the tagline right-aligned under it. Sizes and baselines
         // are the original's (tests/test_loading_screen_reference.py).
         Text {
+            id: companyName
             visible: !!Settings.company
             x: root.layoutX + root.px(116)
-            y: root.unit * 255 - baselineOffset
+            y: root.unit * 255 - companyName.baselineOffset
             font.family: "Arial"
             font.pixelSize: root.unit * 22
             color: "#000000"
@@ -59,13 +61,15 @@ Rectangle {
             Repeater {
                 model: (String(Settings.brandText).match(/\d+|[^\d]+/g) || []).map(part => part.trim()).filter(part => part)
                 Item {
+                    id: part
+                    required property string modelData
                     readonly property bool isNumber: /^\d+$/.test(modelData)
                     width: isNumber ? thin.width : heavy.width
                     height: 1  // the parts place themselves on the baseline; Row skips empty items
                     HeavyText {
                         id: heavy
-                        visible: !parent.isNumber
-                        text: modelData
+                        visible: !part.isNumber
+                        text: part.modelData
                         pixelSize: root.unit * 58
                         embolden: root.unit * 1.2
                         letterSpacing: root.unit * 1.1
@@ -73,19 +77,20 @@ Rectangle {
                     }
                     Text {
                         id: thin
-                        visible: parent.isNumber
-                        y: root.unit * 302 - baselineOffset
+                        visible: part.isNumber
+                        y: root.unit * 302 - thin.baselineOffset
                         font.family: "Arial"
                         font.pixelSize: root.unit * 50
                         font.letterSpacing: root.unit * -3
                         color: "#000000"
-                        text: modelData
+                        text: part.modelData
                     }
                 }
             }
         }
         HeavyText {
-            x: nameRow.x + nameRow.width - width + root.px(3)
+            id: edition
+            x: nameRow.x + nameRow.width - edition.width + root.px(3)
             text: Settings.edition
             pixelSize: root.unit * 40
             embolden: root.unit
@@ -93,8 +98,9 @@ Rectangle {
             baselineY: root.unit * 337
         }
         Text {
-            x: nameRow.x + nameRow.width - width
-            y: root.unit * 354 - baselineOffset
+            id: tagline
+            x: nameRow.x + nameRow.width - tagline.width
+            y: root.unit * 354 - tagline.baselineOffset
             font.family: "Arial"
             font.bold: true
             font.pixelSize: root.unit * 13
@@ -106,14 +112,14 @@ Rectangle {
         // Top right: the company's logo, or its name in bold italics when there is no logo.
         Image {
             id: companyLogo
-            visible: status === Image.Ready
+            visible: companyLogo.status === Image.Ready
             source: Settings.companyLogo ? "file://" + Settings.companyLogo : ""
-            x: root.layoutX + root.px(617) - width
+            x: root.layoutX + root.px(617) - companyLogo.width
             y: root.px(12)
             width: root.px(120)
             height: root.px(24)
-            sourceSize.width: width * 2
-            sourceSize.height: height * 2
+            sourceSize.width: companyLogo.width * 2
+            sourceSize.height: companyLogo.height * 2
             fillMode: Image.PreserveAspectFit
             horizontalAlignment: Image.AlignRight
         }
@@ -276,6 +282,7 @@ Rectangle {
             Repeater {
                 model: Math.round(Math.min(root.stage, root.stages) / root.stages * 18)
                 Rectangle {
+                    required property int index
                     x: root.px(1 + 9 * index)
                     y: root.px(1)
                     width: root.px(8)
