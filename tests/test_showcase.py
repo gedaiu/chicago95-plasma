@@ -38,7 +38,12 @@ for look in report.LOOK_NAMES:
         styles.append((look, type(app.style()).__name__, app.palette().window().color().name()))
 assert styles[-1][1] == "LunaStyle", styles
 assert styles[0][2] != styles[-1][2], styles
-assert group("Popup menu: checked, disabled") == "Navigation"
+assert group("Popup menu: checked, disabled") == "Menus"
+assert group("Scroll bar, horizontal") == group("Scroll bars: vertical, disabled") == "Scrollbars"
+assert group("Push buttons (default, plain)") == group("Push buttons: normal, hovered") == "Buttons"
+assert group("Text fields") == group("Drop-down and spin box") == "Inputs"
+assert group("Table view and headers") == "Tables"
+assert group("Tabs (Qt's own tab widget)") == "Tabs"
 
 # A missing original must never call the placeholder renderer or allocate a second column.
 def forbidden(*args):
@@ -47,6 +52,9 @@ report.no_reference = forbidden
 ours = Image.new("RGB", (100, 20), "red")
 report.compose_showcase("Only ours", [("Control", None, ours)], out / "ours.png")
 report.compose_showcase("Pair", [("Control", Image.new("RGB", (100, 20), "blue"), ours)], out / "pair.png")
+report.compose_showcase("Grouped", [("Buttons · Qt Widgets · Push buttons", None, ours)],
+                        out / "grouped.png", grouped=True)
+assert Image.open(out / "grouped.png").height == Image.open(out / "ours.png").height + 50
 single = Image.open(out / "ours.png")
 assert single.getpixel((24, 130)) == (255, 0, 0)
 assert single.getpixel((400, 130)) == report.CARD

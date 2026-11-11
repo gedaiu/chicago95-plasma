@@ -114,10 +114,10 @@ def test_scroll_bar_trough_paints_a_stepper_arrow_at_each_end_and_keeps_the_slid
     )
 
     assert (
-        vertical.count("data:image/svg+xml"),
+        vertical.count("assets/stepper-"),
         "padding: 17px 0;" in vertical,
         "background-position: center top, center bottom, center;" in vertical,
-        horizontal.count("data:image/svg+xml"),
+        horizontal.count("assets/stepper-"),
         "padding: 0 17px;" in horizontal,
     ) == (2, True, True, 2, True)
 
@@ -126,7 +126,7 @@ def test_scroll_bar_is_17_pixels_through_bar_range_and_trough_with_nothing_paint
     text = css("4.0")
     bar, parts = (
         rule_bodies(text, "scrollbar")[0],
-        rule_bodies(text, "scrollbar > range, scrollbar > range > trough")[0],
+        rule_bodies(text, "scrollbar > range, scrollbar > range > trough, scrollbar contents, scrollbar trough")[0],
     )
 
     assert (
@@ -161,11 +161,15 @@ def test_popover_contents_and_arrow_are_white_inside_the_menu_border_and_the_pop
 
 
 def test_gtk_three_and_four_share_the_widget_rules():
-    assert css("3.0").replace("GTK 3.0", "GTK").replace(generator.indicator_backend_rules("3.0"), "") == css(
-        "4.0"
-    ).replace("GTK 4.0", "GTK").replace(generator.indicator_backend_rules("4.0"), "").replace(
-        generator.libadwaita_block(), ""
-    )
+    def shared(version):
+        return (
+            css(version).replace(f"GTK {version}", "GTK")
+            .replace(generator.indicator_backend_rules(version), "")
+            .replace(generator.scrollbar_backend_rules(version), "")
+            .replace(generator.libadwaita_block(), "")
+        )
+
+    assert shared("3.0") == shared("4.0")
 
 
 def test_gtk_four_feeds_libadwaita_the_luna_face_view_accent_and_corner_as_custom_properties():
@@ -231,6 +235,30 @@ def test_inactive_titlebar_uses_the_inactive_palette_column():
 
     assert "linear-gradient(to bottom, #688DE0 0%" in block.split("\nheaderbar.titlebar:backdrop")[1]
 
+
+
+def test_titlebar_block_paints_the_message_dialog_title_box_active_and_backdrop():
+    block = subprocess.run(
+        [sys.executable, str(GENERATOR), "--titlebar"], capture_output=True, text=True, check=True
+    ).stdout
+    selector_lines = [line for line in block.splitlines() if line.endswith("{")]
+
+    assert [
+        ("messagedialog .titlebar, " in line, "messagedialog .titlebar .title" in line) for line in selector_lines
+    ] + [
+        ("messagedialog .titlebar:backdrop, " in line, "messagedialog .titlebar:backdrop .title" in line)
+        for line in selector_lines
+    ] == [(True, True), (False, False), (False, False), (True, True)]
+
+
+@pytest.mark.parametrize("version", ["3.0", "4.0"])
+def test_message_dialog_buttons_stand_six_pixels_apart_inside_an_eleven_pixel_margin(version):
+    text = css(version)
+
+    assert (
+        rule_bodies(text, "messagedialog .dialog-action-area > button:not(:first-child)"),
+        rule_bodies(text, "messagedialog .dialog-action-box"),
+    ) == (["  margin-left: 6px;"], ["  padding: 0 11px 11px 11px;"])
 
 PARSE_SCRIPT = """
 import sys

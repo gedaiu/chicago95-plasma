@@ -321,6 +321,8 @@ Plymouth screens, and `test_flat_looks_unchanged.py`, which pins the flat looks'
 
 - `showcase-<look>.jpg`: boot, login, a populated desktop preview, and seven taskbar variants, including overflow and chevron states.
 - `showcase-controls-<look>.jpg`: controls grouped by type and labelled by toolkit and state.
+  Each type has its own section with Qt, GTK3 and GTK4 examples together; scrollbars,
+  sliders and progress bars have separate sections.
   Coverage includes buttons, checkboxes, radios, text and numeric fields, date/time editors,
   sliders, scrollbars, progress bars, tabs, lists, trees, tables, menus, toolbars, splitters,
   labels, window decorations and taskbars. Every look uses the same Qt catalogue in
@@ -355,6 +357,11 @@ Visual consistency checks:
   horizontally and vertically. Checks require visible, increasing fill as well as
   matching pixels. Both classic GTK versions share the installed progress CSS;
   Luna explicitly sizes and segments the fill in both orientations.
+  Scrollbars compare bar/thumb geometry and end-arrow artwork, including disabled,
+  hover and pressed thumbs. **GTK4 removed native stepper buttons:** its end arrows
+  are decorative CSS artwork, not clickable controls, and cannot individually disable
+  at the adjustment limits. GTK3 retains working steppers. The showcase labels this
+  distinction; restoring functional GTK4 steppers requires application/toolkit changes.
 - `tests/test_showcase.py` checks asset loading and taskbar geometry, including the
   narrower tray without a chevron and the 2001 login banner and boot logo.
 

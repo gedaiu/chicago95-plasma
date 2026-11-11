@@ -111,14 +111,17 @@ def widgets():
     yield "Ranges", "Progress bars: reversed, vertical, vertical reversed", directions
     for orientation, name in ((Gtk.Orientation.HORIZONTAL, "horizontal"), (Gtk.Orientation.VERTICAL, "vertical")):
         bars = []
-        for enabled in (True, False):
+        for state in ("normal", "disabled", "hovered", "pressed"):
             bar = Gtk.Scrollbar(
                 orientation=orientation, adjustment=Gtk.Adjustment(value=25, lower=0, upper=100, page_size=20)
             )
             bar.set_size_request(220 if name == "horizontal" else -1, 100 if name == "vertical" else -1)
-            bar.set_sensitive(enabled)
+            bar.set_sensitive(state != "disabled")
+            if state in ("hovered", "pressed"):
+                bar._audit_interaction = state
             bars.append(bar)
-        yield "Ranges", f"Scroll bars: {name}, enabled and disabled", bars
+        label = f"Scroll bars: {name}, normal / disabled / thumb hover / thumb pressed"
+        yield "Ranges", label + (" (GTK4 end arrows are decorative)" if V4 else ""), bars
     tabs = Gtk.Notebook()
     for name in ("General", "Details", "Advanced"):
         tabs.append_page(Gtk.Label(label=f"{name} settings"), Gtk.Label(label=name))
@@ -199,6 +202,19 @@ def consistency_widgets():
                 progress.set_direction(Gtk.TextDirection.RTL)
             yield "Ranges", f"progress {state}-{orientation}", [progress]
 
+    for orientation in ("horizontal", "vertical"):
+        for state, value in (("normal", 25), ("start", 0), ("end", 80), ("disabled", 25),
+                             ("hovered", 25), ("pressed", 25)):
+            bar = Gtk.Scrollbar(
+                orientation=getattr(Gtk.Orientation, orientation.upper()),
+                adjustment=Gtk.Adjustment(value=value, lower=0, upper=100, page_size=20),
+            )
+            bar.set_size_request(220, -1) if orientation == "horizontal" else bar.set_size_request(-1, 180)
+            bar.set_sensitive(state != "disabled")
+            if state in ("hovered", "pressed"):
+                bar._audit_interaction = state
+            yield "Ranges", f"scrollbar {state}-{orientation}", [bar]
+
 
 def main():
     Gtk.init() if V4 else Gtk.init([])
@@ -232,6 +248,52 @@ def main():
             if isinstance(child, Gtk.Notebook):
                 child.set_current_page(getattr(child, "_audit_page", 0))
         window.set_focus(None)
+        for child in children:
+            state = getattr(child, "_audit_interaction", None)
+            if state:
+                if V4:
+                    def flag_slider(widget, state=state):
+                        if widget.get_css_name() == "slider":
+                            widget.set_state_flags(
+                                Gtk.StateFlags.PRELIGHT if state == "hovered" else Gtk.StateFlags.ACTIVE, False
+                            )
+                        node = widget.get_first_child()
+                        while node is not None:
+                            flag_slider(node)
+                            node = node.get_next_sibling()
+                    flag_slider(child)
+                else:
+                    from gi.repository import Gdk
+
+                    start, end = child.get_slider_range()
+                    allocation = child.get_allocation()
+                    horizontal = child.get_orientation() == Gtk.Orientation.HORIZONTAL
+                    event = Gdk.Event.new(Gdk.EventType.MOTION_NOTIFY)
+                    event.window = child.get_window()
+                    # GtkRange owns an input-only child window; events use its local coordinates.
+                    for candidate in event.window.get_children():
+                        geometry = candidate.get_geometry()
+                        if (geometry.x, geometry.y, geometry.width, geometry.height) == (
+                            allocation.x, allocation.y, allocation.width, allocation.height
+                        ):
+                            event.window = candidate
+                            break
+                    event.x = (start + end) / 2 if horizontal else allocation.width / 2
+                    event.y = allocation.height / 2 if horizontal else (start + end) / 2
+                    event.set_device(window.get_display().get_default_seat().get_pointer())
+                    crossing = Gdk.Event.new(Gdk.EventType.ENTER_NOTIFY)
+                    crossing.window, crossing.x, crossing.y = event.window, event.x, event.y
+                    crossing.mode = Gdk.CrossingMode.NORMAL
+                    crossing.detail = Gdk.NotifyType.NONLINEAR
+                    crossing.set_device(window.get_display().get_default_seat().get_pointer())
+                    child.event(crossing)
+                    child.event(event)
+                    if state == "pressed":
+                        press = Gdk.Event.new(Gdk.EventType.BUTTON_PRESS)
+                        press.window, press.x, press.y = event.window, event.x, event.y
+                        press.button = 1
+                        press.set_device(window.get_display().get_default_seat().get_pointer())
+                        child.event(press)
         GLib.timeout_add(200, capture)
         return False
 

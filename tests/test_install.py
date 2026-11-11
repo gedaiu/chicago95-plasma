@@ -1656,10 +1656,14 @@ def test_classic_tab_override_is_removed_when_switching_to_luna(tmp_path):
     run_bash_with_steps(tmp_path, "import_gtk4_theme Chicago95; import_gtk4_theme Chicago95")
     css = tmp_path / ".config/gtk-4.0/gtk.css"
     assert css.read_text().count('@import url("chicago95-notebooks.css");') == 1
+    assert css.read_text().count('@import url("chicago95-scrollbars.css");') == 1
+    scrollbars = css.with_name("chicago95-scrollbars.css").read_text()
+    assert (source.parent / "scrollbar/stepper-up.png").as_uri() in scrollbars
     override = css.with_name("chicago95-notebooks.css").read_text()
     assert (source.parent / "assets/notebook_top.png").as_uri() in override
     run_bash_with_steps(tmp_path, "import_gtk4_theme Chicago95Luna")
     assert "chicago95-notebooks.css" not in css.read_text()
+    assert "chicago95-scrollbars.css" not in css.read_text()
 
 
 def test_progress_override_is_shared_idempotent_and_removed_for_luna(tmp_path):

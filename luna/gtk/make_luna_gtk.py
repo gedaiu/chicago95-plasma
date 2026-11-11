@@ -88,22 +88,24 @@ STEPPER_ARROWS = {
 TROUGH_ACROSS = "linear-gradient(to %s, #EEEDE5 0%%, #F4F3EE 50%%, #FEFEFB 100%%)"
 
 
-def stepper_svg(direction):
+def stepper_svg(direction, disabled=False):
     stops_markup = "".join(
         f'<stop offset="{offset}" stop-color="{colour}"/>'
         for offset, colour in zip((0, 0.5, 1), STEPPER_FACE, strict=True)
     )
-    return (
+    svg = (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{STEPPER_SIZE}" height="{STEPPER_SIZE}">'
         f'<defs><linearGradient id="f" x1="0" y1="0" x2="0" y2="1">{stops_markup}</linearGradient></defs>'
         f'<rect x="1.5" y="1.5" width="{STEPPER_SIZE - 3}" height="{STEPPER_SIZE - 3}" rx="2.5" fill="url(#f)"'
         f' stroke="{STEPPER_BORDER}"/>'
         f'<polygon points="{STEPPER_ARROWS[direction]}" fill="{STEPPER_ARROW}"/></svg>'
     )
+    return svg.replace(STEPPER_ARROW, stops.DISABLED_TEXT) if disabled else svg
 
 
-def stepper_image(direction):
-    return data_uri(stepper_svg(direction))
+def stepper_image(direction, disabled=False):
+    suffix = "-disabled" if disabled else ""
+    return f'url("assets/stepper-{direction}{suffix}.svg")' 
 
 
 def data_uri(svg):
@@ -160,13 +162,16 @@ def titlebar_block(active, inactive, caption):
         border_radius=corners, text_shadow=f"1px 1px 0 {CAPTION_SHADOW}", font_family=CAPTION_FONT, font_weight="bold"
     )
     return block(
-        "headerbar.titlebar, .titlebar.default-decoration, headerbar.titlebar .title, .titlebar.default-decoration .title",
+        "headerbar.titlebar, .titlebar.default-decoration, messagedialog .titlebar, "
+        "headerbar.titlebar .title, .titlebar.default-decoration .title, messagedialog .titlebar .title",
         background_image=vertical(active),
         background_color=GRADIENTS[active][0][1],
         color="#FFFFFF",
         **shared,
     ) + block(
-        "headerbar.titlebar:backdrop, .titlebar.default-decoration:backdrop, headerbar.titlebar:backdrop .title, .titlebar.default-decoration:backdrop .title",
+        "headerbar.titlebar:backdrop, .titlebar.default-decoration:backdrop, messagedialog .titlebar:backdrop, "
+        "headerbar.titlebar:backdrop .title, .titlebar.default-decoration:backdrop .title, "
+        "messagedialog .titlebar:backdrop .title",
         background_image=vertical(inactive),
         background_color=GRADIENTS[inactive][0][1],
         color=caption,
@@ -195,6 +200,13 @@ def widget_rules():
             color="#000000",
         ),
         block("button:hover", box_shadow=HOVER_SHADOW),
+        # GTK links a message box's buttons into one strip; XP spaced them 4 dialog units apart, 7 from the edges.
+        block(
+            "messagedialog .dialog-action-area > button:not(:first-child), "
+            ".messagedialog .dialog-action-area > button:not(:first-child)",
+            margin_left="6px",
+        ),
+        block("messagedialog .dialog-action-box, .messagedialog .dialog-action-box", padding="0 11px 11px 11px"),
         block("button:active, button:checked", background_image=vertical("button-pressed"), box_shadow="none"),
         block("button:focus, button.default", box_shadow=DEFAULT_SHADOW),
         block("button.default:hover, button:focus:hover", box_shadow=HOVER_SHADOW),
@@ -377,7 +389,7 @@ def widget_rules():
             min_height=f"{stops.SIZES['scrollbar']}px",
         ),
         block(
-            "scrollbar > range, scrollbar > range > trough",
+            "scrollbar > range, scrollbar > range > trough, scrollbar contents, scrollbar trough",
             min_width=f"{stops.SIZES['scrollbar']}px",
             min_height=f"{stops.SIZES['scrollbar']}px",
             margin="0",
@@ -590,6 +602,35 @@ def indicator_backend_rules(version):
     return block("check, radio", **({"_gtk_icon_source": "none"} if version == "3.0" else {"_gtk_icon_size": "11px"}))
 
 
+def scrollbar_backend_rules(version):
+    rules = []
+    if version == "3.0":
+        rules.append(block("scrollbar", **{
+            "_GtkScrollbar_has_backward_stepper": "true",
+            "_GtkScrollbar_has_forward_stepper": "true",
+        }))
+        rules.append(block("scrollbar button, scrollbar button:disabled", min_width="17px", min_height="17px",
+                           padding="0", margin="0", border="none", box_shadow="none",
+                           background_color="transparent", background_repeat="no-repeat",
+                           background_position="center", _gtk_icon_source="none"))
+    for orientation, first, last, across in (
+        ("horizontal", "left", "right", "bottom"), ("vertical", "up", "down", "right")
+    ):
+        rules.append(block(f"scrollbar.{orientation}", background_image=TROUGH_ACROSS % across))
+        if version == "3.0":
+            rules.append(block(f"scrollbar.{orientation} trough", padding="0",
+                               background_image=TROUGH_ACROSS % across))
+            for node, direction in (("up", first), ("down", last)):
+                for state, disabled in (("", False), (":disabled", True)):
+                    rules.append(block(f"scrollbar.{orientation} button.{node}{state}",
+                                       background_image=stepper_image(direction, disabled)))
+        else:
+            rules.append(block(f"scrollbar.{orientation}:disabled trough",
+                               background_image=f"{stepper_image(first, True)}, {stepper_image(last, True)}, "
+                                                + TROUGH_ACROSS % across))
+    return "\n".join(rules) + "\n"
+
+
 def build_css(version):
     header = f"/* Chicago95Luna GTK {version}: generated by luna/gtk/make_luna_gtk.py */\n"
     adwaita = libadwaita_block() if version == "4.0" else ""
@@ -598,6 +639,7 @@ def build_css(version):
         + adwaita
         + indicator_backend_rules(version)
         + "\n".join(widget_rules())
+        + scrollbar_backend_rules(version)
         + "\n"
         + titlebar_block("title-active", "title-inactive", INACTIVE_CAPTION)
     )
@@ -614,6 +656,10 @@ def write_theme(out):
     for version in VERSIONS:
         assets = out / f"gtk-{version}" / "assets"
         assets.mkdir(parents=True, exist_ok=True)
+        for direction in STEPPER_ARROWS:
+            for disabled in (False, True):
+                suffix = "-disabled" if disabled else ""
+                (assets / f"stepper-{direction}{suffix}.svg").write_text(stepper_svg(direction, disabled))
         for kind in ("tick", "mixed", "dot"):
             for colour in (stops.CHECK_MARK, stops.CHECK_MARK_DISABLED):
                 (assets / f"{kind}-{colour.lstrip('#')}.png").write_bytes(indicator_png(kind, colour))

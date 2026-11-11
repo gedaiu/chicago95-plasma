@@ -261,6 +261,21 @@ edit_xsettings() {
   [ "${SETUP_DRY_RUN:-0}" = 1 ] || pkill -HUP xsettingsd 2>/dev/null || true
 }
 
+# set_gtk_interface <key> <value>   GTK programs on Wayland (Electron's dialogs among them) ignore XSETTINGS and
+# settings.ini: they read the theme and font from GSettings.
+set_gtk_interface() {
+  command -v gsettings >/dev/null 2>&1 || [ "${SETUP_DRY_RUN:-0}" = 1 ] || return 0
+  run gsettings set org.gnome.desktop.interface "$1" "$2"
+  record "gsettings:$1"
+}
+
+set_gtk_font() { # set_gtk_font <Pango font description>   X11, Wayland and settings.ini GTK programs
+  edit_xsettings Gtk/FontName "\"$1\""
+  set_gtk_interface font-name "$1"
+  backup ~/.config/gtk-3.0/settings.ini
+  run kwriteconfig6 --file ~/.config/gtk-3.0/settings.ini --group Settings --key gtk-font-name "$1"
+}
+
 set_gtk_theme() { # set_gtk_theme <theme name>   GTK 3 and GTK 4 settings
   local version
   for version in 3.0 4.0; do
@@ -270,6 +285,7 @@ set_gtk_theme() { # set_gtk_theme <theme name>   GTK 3 and GTK 4 settings
     run kwriteconfig6 --file ~/.config/gtk-$version/settings.ini --group Settings --key gtk-overlay-scrolling false # the originals' scroll bars never hid
     record ~/.config/gtk-$version/settings.ini
   done
+  set_gtk_interface gtk-theme "$1"
   import_gtk4_theme "$1"
   import_gtk_progress "$1"
 }
@@ -333,11 +349,14 @@ import sys
 from pathlib import Path
 sys.path.insert(0, sys.argv[1])
 from gtk_notebooks import notebook_css
+from gtk_scrollbars import scrollbar_css
 Path(sys.argv[3]).write_text(notebook_css(Path(sys.argv[2])))
+Path(sys.argv[3]).with_name("chicago95-scrollbars.css").write_text(scrollbar_css(Path(sys.argv[2])))
 PYTABS
     # Keep this import inside the managed block so switching to Luna removes it.
-    sed -i '\|/\* <<< Chicago95 GTK4 END \*/|i @import url("chicago95-notebooks.css");' "$target"
+    sed -i '\|/\* <<< Chicago95 GTK4 END \*/|i @import url("chicago95-notebooks.css");\n@import url("chicago95-scrollbars.css");' "$target"
     record ~/.config/gtk-4.0/chicago95-notebooks.css
+    record ~/.config/gtk-4.0/chicago95-scrollbars.css
   fi
   record "$target"
 }
@@ -1597,14 +1616,14 @@ PIXEL_FONT_RULE=~/.config/fontconfig/conf.d/60-chicago95-pixel-font.conf
 
 # Tahoma is smoothed text: the pixel font's no-smoothing rule would spoil it.
 apply_luna_gtk_font() {
-  edit_xsettings Gtk/FontName '"Tahoma 8"'
+  set_gtk_font "Tahoma 8"
   backup "$PIXEL_FONT_RULE"
   run rm -f "$PIXEL_FONT_RULE"
 }
 
 restore_classic_gtk_font() {
   [ -d ~/.themes/Chicago95Luna ] || return 0
-  edit_xsettings Gtk/FontName "$(sed -n 's|^Gtk/FontName ||p' "$REPO/config/xsettingsd/xsettingsd.conf")"
+  set_gtk_font "$(sed -n 's|^Gtk/FontName "\(.*\)"$|\1|p' "$REPO/config/xsettingsd/xsettingsd.conf")"
 }
 
 # Luna's text is Tahoma, which no free font matches; without it fontconfig falls back to DejaVu Sans Condensed.

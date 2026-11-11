@@ -30,6 +30,14 @@ button:hover {
   box-shadow: inset 0 1px #FFF0CF, inset 0 -1px #E59700, inset 1px 0 #FFF0CF, inset -1px 0 #E59700, inset 0 2px #FDD889, inset 0 -2px #F8B330, inset 2px 0 #FDD889, inset -2px 0 #F8B330;
 }
 
+messagedialog .dialog-action-area > button:not(:first-child), .messagedialog .dialog-action-area > button:not(:first-child) {
+  margin-left: 6px;
+}
+
+messagedialog .dialog-action-box, .messagedialog .dialog-action-box {
+  padding: 0 11px 11px 11px;
+}
+
 button:active, button:checked {
   background-image: linear-gradient(to bottom, #D0CBBF 0%, #E2E0D8 33%, #DFDFD6 67%, #F0F0EC 100%);
   box-shadow: none;
@@ -254,7 +262,7 @@ scrollbar {
   min-height: 17px;
 }
 
-scrollbar > range, scrollbar > range > trough {
+scrollbar > range, scrollbar > range > trough, scrollbar contents, scrollbar trough {
   min-width: 17px;
   min-height: 17px;
   margin: 0;
@@ -264,14 +272,14 @@ scrollbar > range, scrollbar > range > trough {
 }
 
 scrollbar.vertical trough {
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNyIgaGVpZ2h0PSIxNyI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJmIiB4MT0iMCIgeTE9IjAiIHgyPSIwIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjRTFFQkY4Ii8+PHN0b3Agb2Zmc2V0PSIwLjUiIHN0b3AtY29sb3I9IiNDQURCRjMiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNCNkNFRUYiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB4PSIxLjUiIHk9IjEuNSIgd2lkdGg9IjE0IiBoZWlnaHQ9IjE0IiByeD0iMi41IiBmaWxsPSJ1cmwoI2YpIiBzdHJva2U9IiM4OUIwRTYiLz48cG9seWdvbiBwb2ludHM9IjUsMTAuNSA4LjUsNi41IDEyLDEwLjUiIGZpbGw9IiMyNDVDQUIiLz48L3N2Zz4="), url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNyIgaGVpZ2h0PSIxNyI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJmIiB4MT0iMCIgeTE9IjAiIHgyPSIwIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjRTFFQkY4Ii8+PHN0b3Agb2Zmc2V0PSIwLjUiIHN0b3AtY29sb3I9IiNDQURCRjMiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNCNkNFRUYiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB4PSIxLjUiIHk9IjEuNSIgd2lkdGg9IjE0IiBoZWlnaHQ9IjE0IiByeD0iMi41IiBmaWxsPSJ1cmwoI2YpIiBzdHJva2U9IiM4OUIwRTYiLz48cG9seWdvbiBwb2ludHM9IjUsNi41IDEyLDYuNSA4LjUsMTAuNSIgZmlsbD0iIzI0NUNBQiIvPjwvc3ZnPg=="), linear-gradient(to right, #EEEDE5 0%, #F4F3EE 50%, #FEFEFB 100%);
+  background-image: url("assets/stepper-up.svg"), url("assets/stepper-down.svg"), linear-gradient(to right, #EEEDE5 0%, #F4F3EE 50%, #FEFEFB 100%);
   background-repeat: no-repeat, no-repeat, repeat;
   background-position: center top, center bottom, center;
   padding: 17px 0;
 }
 
 scrollbar.horizontal trough {
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNyIgaGVpZ2h0PSIxNyI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJmIiB4MT0iMCIgeTE9IjAiIHgyPSIwIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjRTFFQkY4Ii8+PHN0b3Agb2Zmc2V0PSIwLjUiIHN0b3AtY29sb3I9IiNDQURCRjMiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNCNkNFRUYiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB4PSIxLjUiIHk9IjEuNSIgd2lkdGg9IjE0IiBoZWlnaHQ9IjE0IiByeD0iMi41IiBmaWxsPSJ1cmwoI2YpIiBzdHJva2U9IiM4OUIwRTYiLz48cG9seWdvbiBwb2ludHM9IjEwLjUsNSA2LjUsOC41IDEwLjUsMTIiIGZpbGw9IiMyNDVDQUIiLz48L3N2Zz4="), url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNyIgaGVpZ2h0PSIxNyI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJmIiB4MT0iMCIgeTE9IjAiIHgyPSIwIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjRTFFQkY4Ii8+PHN0b3Agb2Zmc2V0PSIwLjUiIHN0b3AtY29sb3I9IiNDQURCRjMiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNCNkNFRUYiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB4PSIxLjUiIHk9IjEuNSIgd2lkdGg9IjE0IiBoZWlnaHQ9IjE0IiByeD0iMi41IiBmaWxsPSJ1cmwoI2YpIiBzdHJva2U9IiM4OUIwRTYiLz48cG9seWdvbiBwb2ludHM9IjYuNSw1IDEwLjUsOC41IDYuNSwxMiIgZmlsbD0iIzI0NUNBQiIvPjwvc3ZnPg=="), linear-gradient(to bottom, #EEEDE5 0%, #F4F3EE 50%, #FEFEFB 100%);
+  background-image: url("assets/stepper-left.svg"), url("assets/stepper-right.svg"), linear-gradient(to bottom, #EEEDE5 0%, #F4F3EE 50%, #FEFEFB 100%);
   background-repeat: no-repeat, no-repeat, repeat;
   background-position: left center, right center, center;
   padding: 0 17px;
@@ -445,8 +453,76 @@ label:disabled, *:disabled {
 label.title, headerbar .title {
   font-weight: bold;
 }
+scrollbar {
+  -GtkScrollbar-has-backward-stepper: true;
+  -GtkScrollbar-has-forward-stepper: true;
+}
 
-headerbar.titlebar, .titlebar.default-decoration, headerbar.titlebar .title, .titlebar.default-decoration .title {
+scrollbar button, scrollbar button:disabled {
+  min-width: 17px;
+  min-height: 17px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  box-shadow: none;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
+  -gtk-icon-source: none;
+}
+
+scrollbar.horizontal {
+  background-image: linear-gradient(to bottom, #EEEDE5 0%, #F4F3EE 50%, #FEFEFB 100%);
+}
+
+scrollbar.horizontal trough {
+  padding: 0;
+  background-image: linear-gradient(to bottom, #EEEDE5 0%, #F4F3EE 50%, #FEFEFB 100%);
+}
+
+scrollbar.horizontal button.up {
+  background-image: url("assets/stepper-left.svg");
+}
+
+scrollbar.horizontal button.up:disabled {
+  background-image: url("assets/stepper-left-disabled.svg");
+}
+
+scrollbar.horizontal button.down {
+  background-image: url("assets/stepper-right.svg");
+}
+
+scrollbar.horizontal button.down:disabled {
+  background-image: url("assets/stepper-right-disabled.svg");
+}
+
+scrollbar.vertical {
+  background-image: linear-gradient(to right, #EEEDE5 0%, #F4F3EE 50%, #FEFEFB 100%);
+}
+
+scrollbar.vertical trough {
+  padding: 0;
+  background-image: linear-gradient(to right, #EEEDE5 0%, #F4F3EE 50%, #FEFEFB 100%);
+}
+
+scrollbar.vertical button.up {
+  background-image: url("assets/stepper-up.svg");
+}
+
+scrollbar.vertical button.up:disabled {
+  background-image: url("assets/stepper-up-disabled.svg");
+}
+
+scrollbar.vertical button.down {
+  background-image: url("assets/stepper-down.svg");
+}
+
+scrollbar.vertical button.down:disabled {
+  background-image: url("assets/stepper-down-disabled.svg");
+}
+
+
+headerbar.titlebar, .titlebar.default-decoration, messagedialog .titlebar, headerbar.titlebar .title, .titlebar.default-decoration .title, messagedialog .titlebar .title {
   background-image: linear-gradient(to bottom, #0058EE 0%, #3F97FF 3%, #2B90FF 7%, #0372FF 10%, #0365F1 14%, #005CE9 17%, #0058E6 21%, #0054E3 24%, #0054E3 31%, #0055E5 34%, #0055E5 48%, #0055EA 52%, #0055EA 55%, #0058EE 59%, #005BF2 62%, #005AF5 66%, #0060F9 69%, #0164F9 72%, #026AFE 76%, #026AFE 86%, #0065FD 90%, #0060FC 93%, #004DE3 97%, #0043CF 100%);
   background-color: #0058EE;
   color: #FFFFFF;
@@ -455,7 +531,7 @@ headerbar.titlebar, .titlebar.default-decoration, headerbar.titlebar .title, .ti
   font-family: "Trebuchet MS", "Fira Sans", sans-serif;
   font-weight: bold;
 }
-headerbar.titlebar:backdrop, .titlebar.default-decoration:backdrop, headerbar.titlebar:backdrop .title, .titlebar.default-decoration:backdrop .title {
+headerbar.titlebar:backdrop, .titlebar.default-decoration:backdrop, messagedialog .titlebar:backdrop, headerbar.titlebar:backdrop .title, .titlebar.default-decoration:backdrop .title, messagedialog .titlebar:backdrop .title {
   background-image: linear-gradient(to bottom, #688DE0 0%, #98B2E8 3%, #9DB9EB 7%, #8AACE7 10%, #7EA2E4 14%, #7B9DE1 17%, #7A99E0 21%, #7996DE 24%, #7996DE 31%, #7A96DF 34%, #7A96DF 41%, #7A96E0 45%, #7B97E0 48%, #7B99E1 52%, #7B99E1 55%, #7D9BE3 59%, #7D9BE3 62%, #7F9FE6 66%, #7FA2E6 69%, #80A5E7 72%, #81A7E8 76%, #82A9E9 79%, #82A9E9 83%, #81A7E8 86%, #80A5E7 90%, #7E9DE5 93%, #7A93DF 97%, #7A93DF 100%);
   background-color: #688DE0;
   color: #D8E4F8;

@@ -41,6 +41,7 @@ while IFS= read -r entry; do
       ;;
     esac
     ;;
+  gsettings:*) gsettings reset org.gnome.desktop.interface "${entry#gsettings:}" ;;
   kwinrule:*) remove_kwin_rule "${entry#kwinrule:}" ;;
   shortcut:*) kwriteconfig6 --file kglobalshortcutsrc --group services --group "${entry#shortcut:}" --key _launch --delete ;;
   root:*) sudo rm -f "${entry#root:}" ;;

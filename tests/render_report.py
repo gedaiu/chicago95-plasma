@@ -1031,7 +1031,7 @@ def controls_panels(sections, look, app):
     return panels
 
 
-def compose_showcase(title, panels, path):
+def compose_showcase(title, panels, path, grouped=False):
     heading, caption = label_font(24), label_font(15)
     inner = SHOWCASE_WIDTH - 4 * GAP
     laid_out = []
@@ -1047,7 +1047,12 @@ def compose_showcase(title, panels, path):
         names = [name for name, _ in sources]
         laid_out.append((component, side_by_side, zoom, images, names))
     height = 70
+    previous_group = None
     for _component, side_by_side, _zoom, images, _names in laid_out:
+        current_group = _component.split(" · ", 1)[0]
+        if grouped and current_group != previous_group:
+            height += 50
+            previous_group = current_group
         body = (
             max(image.height for image in images) + 24
             if side_by_side
@@ -1058,14 +1063,22 @@ def compose_showcase(title, panels, path):
     draw = ImageDraw.Draw(sheet)
     draw.text((2 * GAP, 20), title, fill=INK, font=heading)
     y = 70
+    previous_group = None
     for component, side_by_side, zoom, images, names in laid_out:
+        card_title = component
+        if grouped:
+            current_group, card_title = component.split(" · ", 1)
+            if current_group != previous_group:
+                draw.text((2 * GAP, y + 10), current_group, fill=INK, font=heading)
+                y += 50
+                previous_group = current_group
         body = (
             max(image.height for image in images) + 24
             if side_by_side
             else sum(image.height + 24 for image in images) + GAP
         )
         draw.rectangle((GAP, y, SHOWCASE_WIDTH - GAP, y + 40 + body + GAP), fill=CARD)
-        draw.text((2 * GAP, y + 10), component + (f"  (enlarged x{zoom})" if zoom > 1 else ""), fill=INK, font=caption)
+        draw.text((2 * GAP, y + 10), card_title + (f"  (enlarged x{zoom})" if zoom > 1 else ""), fill=INK, font=caption)
         x, top = 2 * GAP, y + 40
         for name, image in zip(names, images, strict=True):
             draw.text((x, top), name, fill=(90, 90, 90), font=caption)
@@ -1164,6 +1177,7 @@ def main(output, looks):
                     f"{LOOK_NAMES[look]} · Controls by type and toolkit",
                     controls(app, look, scratch),
                     output / f"showcase-controls-{look}.jpg",
+                    grouped=True,
                 )
 
 

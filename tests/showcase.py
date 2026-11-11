@@ -421,17 +421,35 @@ def controls(app, look, scratch):
             )
         )
     rows.extend(gtk_controls(look, scratch))
-    return sorted(rows, key=lambda row: row[0].split(" · ")[0])
+    return sorted(rows, key=lambda row: CONTROL_GROUPS.index(row[0].split(" · ")[0]))
+
+
+CONTROL_GROUPS = (
+    "Buttons", "Checkboxes", "Radio buttons", "Inputs", "Scrollbars", "Sliders", "Progress bars",
+    "Tabs", "Menus", "Toolbars", "Status bars", "Lists", "Trees", "Tables", "Headers",
+    "Containers and text", "Windows", "Shell",
+)
 
 
 def group(name):
-    name = name.lower()
+    # Classify the control name, not state descriptions such as a menu's "checked" items.
+    name = name.lower().split(":", 1)[0].split("(", 1)[0]
     for group_name, words in (
-        ("Navigation", ("tab", "menu", "tool", "status")),
-        ("Buttons", ("button", "check", "radio")),
+        ("Checkboxes", ("check box", "checkbox")),
+        ("Radio buttons", ("radio",)),
+        ("Toolbars", ("tool",)),
+        ("Buttons", ("button",)),
         ("Inputs", ("field", "drop-down", "spin", "date", "text edit")),
-        ("Ranges", ("slider", "scroll", "progress", "dial")),
-        ("Views", ("list", "tree", "table", "header")),
+        ("Scrollbars", ("scroll",)),
+        ("Sliders", ("slider", "dial")),
+        ("Progress bars", ("progress",)),
+        ("Tables", ("table",)),
+        ("Tabs", ("tab",)),
+        ("Menus", ("menu",)),
+        ("Status bars", ("status",)),
+        ("Lists", ("list",)),
+        ("Trees", ("tree",)),
+        ("Headers", ("header",)),
     ):
         if any(word in name for word in words):
             return group_name
@@ -467,10 +485,13 @@ def gtk_controls(look, scratch, audit=False):
             return rows
         if look != "luna":
             from gtk_notebooks import notebook_css
+            from gtk_scrollbars import scrollbar_css
 
             config = home / ".config/gtk-4.0"
             config.mkdir(parents=True, exist_ok=True)
-            (config / "gtk.css").write_text(notebook_css(CHICAGO95_SRC / "Theme/Chicago95"))
+            (config / "gtk.css").write_text(
+                notebook_css(CHICAGO95_SRC / "Theme/Chicago95") + scrollbar_css(CHICAGO95_SRC / "Theme/Chicago95")
+            )
             progress_css = (REPO / "config/gtk-progress-classic.css").read_text()
             for version in ("3.0", "4.0"):
                 config = home / f".config/gtk-{version}"
@@ -523,7 +544,7 @@ def gtk_controls(look, scratch, audit=False):
                 if log.exists():
                     raise RuntimeError(f"GTK {version} renderer failed:\n{log.read_text()}")
                 continue
-            for category, label, filename in json.loads(manifest.read_text()):
+            for _category, label, filename in json.loads(manifest.read_text()):
                 image = Image.open(output / filename).convert("RGBA")
                 background = Image.new("RGBA", image.size, "#ece9d8" if look == "luna" else "#c0c0c0")
                 background.alpha_composite(image)
@@ -539,5 +560,5 @@ def gtk_controls(look, scratch, audit=False):
                     "Tabs": "Tabs (Qt's own tab widget)",
                 }.get(label.split(":")[0])
                 counterpart = original_control(look, reference_name)
-                rows.append((f"{category} · GTK {version} · {label}", counterpart, background.convert("RGB")))
+                rows.append((f"{group(label)} · GTK {version} · {label}", counterpart, background.convert("RGB")))
     return rows

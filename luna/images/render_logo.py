@@ -160,7 +160,8 @@ def render_wordmark(width):
     return render_fitted(LIGHT_SVG, (width, round(width * source_height / source_width)))
 
 
-# The Start button's flag shadow: the flag's outline, moved a quarter pixel right and 2 down, blurred and darkened, on a canvas
+# The Start button's flag shadow: the flag's outline, moved a quarter pixel right and 2 down, blurred and
+# darkened, on a canvas
 # FLAG_SHADOW_PADDING larger on every side than the 20x18 flag, drawn at FLAG_SHADOW_SCALE for the 2x screens.
 FLAG_SHADOW_PNG = START_IMAGES / "logo-flag-xp-shadow.png"
 FLAG_SHADOW_SIZE = (20, 18)

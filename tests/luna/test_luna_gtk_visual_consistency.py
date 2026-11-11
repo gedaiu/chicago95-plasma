@@ -207,3 +207,51 @@ def test_progress_fill_is_visible_and_increases(gtk_images, classic_gtk_images, 
             ]
             assert counts[0] == 0
             assert counts[0] < counts[1] < counts[2] < counts[3]
+
+
+@pytest.mark.parametrize("look", ("classic", "luna"))
+@pytest.mark.parametrize("orientation", ("horizontal", "vertical"))
+@pytest.mark.parametrize("state", ("normal", "start", "end", "disabled", "hovered", "pressed"))
+def test_gtk_scrollbar_artwork_matches(gtk_images, classic_gtk_images, look, orientation, state, tmp_path):
+    images = gtk_images if look == "luna" else classic_gtk_images
+    a, b = (images[version, "scrollbar", f"{state}-{orientation}"] for version in ("3.0", "4.0"))
+    a.save(tmp_path / "gtk3.png")
+    b.save(tmp_path / "gtk4.png")
+    width = 17 if look == "luna" else 16
+    assert a.size == b.size == ((220, width) if orientation == "horizontal" else (width, 180))
+    # GTK4 has no real steppers and cannot disable an individual end cap at range limits.
+    # Compare the trough/thumb at limits; all other states also compare both arrow images.
+    if state in ("start", "end"):
+        region = (width, 0, a.width - width, a.height) if orientation == "horizontal" else (
+            0, width, a.width, a.height - width
+        )
+        a, b = a.crop(region), b.crop(region)
+    diff = ImageChops.difference(a, b)
+    diff.save(tmp_path / "difference.png")
+    if look == "classic":
+        # Cairo's bitmap border slicing differs at a single thumb corner.
+        assert sum(max(pixel) > 2 for pixel in diff.get_flattened_data()) <= 2, str(tmp_path)
+    else:
+        assert max(high for _, high in diff.getextrema()) <= 2, str(tmp_path)
+
+
+@pytest.mark.parametrize("look", ("classic", "luna"))
+@pytest.mark.parametrize("version", ("3.0", "4.0"))
+def test_scrollbar_arrows_are_visible_at_both_ends(gtk_images, classic_gtk_images, look, version):
+    images = gtk_images if look == "luna" else classic_gtk_images
+    ink = (36, 92, 171) if look == "luna" else (0, 0, 0)
+    size = 17 if look == "luna" else 16
+    for orientation in ("horizontal", "vertical"):
+        bar = images[version, "scrollbar", f"normal-{orientation}"]
+        for x, y in ((0, 0), (bar.width - size, bar.height - size)):
+            glyph = bar.crop((x + 4, y + 4, x + size - 4, y + size - 4))
+            assert sum(pixel == ink for pixel in glyph.get_flattened_data()) >= 4
+
+
+@pytest.mark.parametrize("version", ("3.0", "4.0"))
+def test_luna_thumb_hover_and_press_change_pixels(gtk_images, version):
+    for orientation in ("horizontal", "vertical"):
+        normal = gtk_images[version, "scrollbar", f"normal-{orientation}"].tobytes()
+        hovered = gtk_images[version, "scrollbar", f"hovered-{orientation}"].tobytes()
+        pressed = gtk_images[version, "scrollbar", f"pressed-{orientation}"].tobytes()
+        assert len({normal, hovered, pressed}) == 3

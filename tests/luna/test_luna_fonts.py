@@ -37,7 +37,7 @@ def test_luna_font_alias_resolves_to_an_installed_family(tmp_path, requested):
 
 
 def test_franklin_gothic_medium_prefers_libre_franklin_then_fira_sans_medium_noto_sans_and_dejavu_sans():
-    """Libre Franklin is the open Franklin Gothic; Setup fetches it for the Luna look (steps.sh, fetch_libre_franklin)."""
+    """Libre Franklin is the open Franklin Gothic; Setup fetches it for the Luna look (fetch_libre_franklin)."""
     families = [
         line.strip()
         for line in RULE.read_text().split("Franklin Gothic Medium")[1].split("</prefer>")[0].split("<family>")[1:]
