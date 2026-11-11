@@ -29,6 +29,7 @@ def commands_on_path(tmp_path, monkeypatch):
     bin_directory = tmp_path / "bin"
     bin_directory.mkdir()
     monkeypatch.setenv("PATH", str(bin_directory))
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-test")  # a compositor to ask; without one nothing is run
 
     def install(name, output):
         script = bin_directory / name
@@ -159,6 +160,16 @@ def test_display_assumes_scale_one_when_none_is_reported(sysprops, commands_on_p
     commands_on_path("kscreen-doctor", "Geometry: 0,0 1280x720\n")
 
     assert sysprops.read_display() == "1280x720 at 1x"
+
+
+def test_display_is_unknown_without_a_compositor_and_kscreen_doctor_is_never_run(
+    sysprops, commands_on_path, monkeypatch
+):
+    commands_on_path("kscreen-doctor", KSCREEN_OUTPUT)
+    monkeypatch.delenv("WAYLAND_DISPLAY")
+    monkeypatch.delenv("DISPLAY", raising=False)
+
+    assert sysprops.read_display() == "Unknown display"
 
 
 def test_display_is_unknown_when_kscreen_doctor_reports_no_geometry(sysprops, commands_on_path):

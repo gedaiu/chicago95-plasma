@@ -60,16 +60,6 @@ def banner_parts(text):
     return [(part, not part.strip().isdigit()) for part in re.findall(r"\s*\d+|\s*[^\d]+", text)]
 
 
-def detect_scale():
-    try:
-        output = subprocess.run(["kscreen-doctor", "-o"], capture_output=True, text=True, timeout=3, check=False).stdout
-    except (OSError, subprocess.TimeoutExpired):
-        return "1"
-    plain = re.sub(r"\x1b\[[0-9;]*m", "", output)
-    match = re.search(r"Scale:\s*([0-9.]+)", plain)
-    return match.group(1) if match else "1"
-
-
 # XWayland: Qt on Wayland rounds the 1.5x compositor scale up to 2 and misreports the screen size,
 # so the menu stays on xcb where Xft.dpi 144 gives an exact 1.5x. Integer glyph placement keeps the
 # outline font crisp at that fractional ratio.

@@ -15,9 +15,14 @@ import sys
 from pathlib import Path
 
 
+def compositor_reachable():
+    """Whether a display server is there to ask: kscreen-doctor aborts without one, and each abort is a crash report."""
+    return bool(os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY"))
+
+
 def detect_scale():
-    if not (os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY")):
-        return "1"  # no compositor to ask: kscreen-doctor would abort, and each abort is a crash report
+    if not compositor_reachable():
+        return "1"
     try:
         child_env = {key: value for key, value in os.environ.items() if key != "QT_QPA_PLATFORM"}
         output = subprocess.run(

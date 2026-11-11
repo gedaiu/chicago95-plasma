@@ -99,7 +99,9 @@ Components, each optional: Chicago95 base theme, decoration and Plasma
 style, animations, taskbar plasmoids, Start menu and Shut Down dialog, notifications,
 Office Assistant, extra tools, Control Panel, sound scheme, desktop background, screensaver, Winamp, Explorer (Thunar or
 Dolphin), lock screen, splash screen, boot screen (Plymouth), login screen
-(SDDM), Firefox colours.
+(SDDM), Firefox colours. GTK programs on Wayland, Firefox among them, draw their own title
+bars: the look writes its title bar colours, active and inactive, into GTK's `gtk.css` so
+they match the window manager's.
 
 Selections are the selection colour under white text everywhere: drop-down
 rows, selected desktop icons and KRunner's current result (its results view is

@@ -527,16 +527,31 @@ def screen_from_doctor(report):
     return Screen(output["name"], current, sizes, {size: fastest[size] for size in sizes})
 
 
+def native_environment():
+    """The environment for KDE's own tools: this program's Qt platform is not theirs."""
+    return {key: value for key, value in os.environ.items() if key != "QT_QPA_PLATFORM"}
+
+
 def live_screen():
+    if not chicago95ui.compositor_reachable():
+        return None
     try:
-        report = subprocess.run(["kscreen-doctor", "-j"], capture_output=True, text=True, timeout=5, check=False)
+        report = subprocess.run(
+            ["kscreen-doctor", "-j"], capture_output=True, text=True, timeout=5, env=native_environment(), check=False
+        )
         return screen_from_doctor(json.loads(report.stdout))
     except (OSError, ValueError, subprocess.TimeoutExpired):
         return None
 
 
 def set_screen_mode(output, mode):
-    subprocess.run(["kscreen-doctor", f"output.{output}.mode.{mode}"], capture_output=True, timeout=15, check=False)
+    subprocess.run(
+        ["kscreen-doctor", f"output.{output}.mode.{mode}"],
+        capture_output=True,
+        timeout=15,
+        env=native_environment(),
+        check=False,
+    )
 
 
 KEEP_SCREEN_SECONDS = 15

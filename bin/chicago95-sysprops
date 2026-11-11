@@ -98,7 +98,7 @@ def kib_to_gb(kib):
 
 
 def read_display():
-    screen_output = strip_ansi(run_output(["kscreen-doctor", "-o"]))
+    screen_output = strip_ansi(run_output(["kscreen-doctor", "-o"])) if chicago95ui.compositor_reachable() else ""
     geometry_match = re.search(r"Geometry:\s*\S+\s+(\d+)x(\d+)", screen_output)
     scale_match = re.search(r"Scale:\s*([0-9.]+)", screen_output)
     if not geometry_match:

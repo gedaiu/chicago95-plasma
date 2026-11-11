@@ -185,3 +185,17 @@ def test_every_display_tab_fits_the_originals_window_without_scrolling(window, q
     scroller = page.tabs.widget(index)
 
     assert (scroller.verticalScrollBar().maximum(), scroller.horizontalScrollBar().maximum()) == (0, 0)
+
+
+def test_without_a_compositor_the_screen_is_unknown_and_kscreen_doctor_is_never_run(
+    control_panel, tmp_path, monkeypatch
+):
+    called = tmp_path / "called"
+    fake = tmp_path / "kscreen-doctor"
+    fake.write_text(f"#!/bin/sh\ntouch {called}\n")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    monkeypatch.delenv("DISPLAY", raising=False)
+
+    assert (control_panel.live_screen(), called.exists()) == (None, False)

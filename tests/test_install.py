@@ -1076,3 +1076,55 @@ def test_dry_run_of_the_mouse_component_sets_the_double_click_time_and_each_poin
         f"{POINTER} --key LeftHanded true" in log,
         f"{POINTER} --key PointerAcceleration 0.4" in log,
     ] == [True, True, True]
+
+
+def test_the_session_environment_makes_firefox_take_the_window_managers_title_bar():
+    environment = (REPO / "config/environment.d/chicago95.conf").read_text()
+
+    assert "MOZ_GTK_TITLEBAR_DECORATION=system" in environment.splitlines()
+
+
+def test_a_dry_run_of_any_tool_installs_the_session_environment(tmp_path):
+    log = dry_run_log(tmp_path, "--components=controlpanel")
+
+    assert "config/environment.d/chicago95.conf" in log and ".config/environment.d/chicago95.conf" in log
+
+
+def test_the_look_paints_gtk_drawn_title_bars_in_its_active_and_inactive_colours(tmp_path):
+    (tmp_path / ".config/gtk-3.0").mkdir(parents=True)
+    (tmp_path / ".config/gtk-3.0/gtk.css").write_text("@import 'colors.css';\n")
+    for _ in range(2):
+        run_bash_with_steps(
+            tmp_path,
+            f"SETUP_DRY_RUN=0; MANIFEST={tmp_path}/manifest; STATE_DIR={tmp_path}; "
+            'write_gtk_titlebar_css "#0A246A,#A6CAF0" "#808080,#C0C0C0" "rgb(212,208,200)"',
+        )
+    gtk3 = (tmp_path / ".config/gtk-3.0/gtk.css").read_text()
+    gtk4 = (tmp_path / ".config/gtk-4.0/gtk.css").read_text()
+
+    assert (
+        gtk3.count("Chicago95 title bars BEGIN"),
+        gtk3.startswith("@import 'colors.css';\n"),
+        "linear-gradient(to right, #0A246A, #A6CAF0); background-color: #0A246A; color: #FFFFFF; font-weight: bold"
+        in gtk3,
+        "linear-gradient(to right, #808080, #C0C0C0); background-color: #808080; color: rgb(212,208,200)" in gtk3,
+        "headerbar.titlebar:backdrop" in gtk4,
+    ) == (1, True, True, True, True)
+
+
+def test_a_dry_run_of_the_look_announces_the_gtk_title_bar_colours(tmp_path):
+    log = dry_run_log(tmp_path, "--components=look", "--look=1995")
+
+    assert "would: write the title bar colours into" in log
+
+
+def test_reinstall_with_the_saved_start_logo_pointing_at_the_installed_logo_exits_0_and_keeps_the_logo(tmp_path):
+    installed_logo = tmp_path / ".local/share/chicago95/start-logo.png"
+    installed_logo.parent.mkdir(parents=True)
+    installed_logo.write_bytes(b"saved logo")
+    saved = tmp_path / "setup.conf"
+    saved.write_text(f"START_LOGO={installed_logo}\n")
+
+    result = run_setup(tmp_path, "--components=startmenu", f"--settings={saved}")
+
+    assert (result.returncode, installed_logo.read_bytes()) == (0, b"saved logo")

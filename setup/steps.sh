@@ -55,7 +55,7 @@ put_file() { # put_file <source> <destination>
   local source="$1" dest="$2"
   backup "$dest"
   run mkdir -p "$(dirname "$dest")"
-  run cp "$source" "$dest"
+  [ "$source" -ef "$dest" ] || run cp "$source" "$dest" # a saved choice can point at the file already installed
   record "$dest"
   show_copy "$source" "$dest"
 }
@@ -255,6 +255,7 @@ apply_title_colors() {
   kconf kdeglobals WM activeBlend "$(rgb "${active##*,}")"
   kconf kdeglobals WM inactiveBackground "$(rgb "${inactive%%,*}")"
   kconf kdeglobals WM inactiveBlend "$(rgb "${inactive##*,}")"
+  write_gtk_titlebar_css "$active" "$inactive" "$([ -n "$SETUP_FACE" ] && echo "rgb($SETUP_FACE)" || echo "#C0C0C0")"
   step_tools_common
   put_file "$REPO/bin/chicago95-sync-colors" ~/.local/bin/chicago95-sync-colors
   run chmod +x ~/.local/bin/chicago95-sync-colors
@@ -647,6 +648,39 @@ step_winamp() {
     "noborder=true" "noborderrule=2" "types=1"
   run mkdir -p ~/.qmmp/skins
   [ -n "$SETUP_CHICAGO95_SRC" ] && [ -d "$SETUP_CHICAGO95_SRC/Extras/qmmp" ] && put_tree "$SETUP_CHICAGO95_SRC/Extras/qmmp" ~/.qmmp/skins/chicago95 || true
+}
+
+gtk_gradient() { # gtk_gradient <colour[,colour]>   a CSS background for a title bar colour or left-to-right pair
+  case "$1" in
+  *,*) printf 'linear-gradient(to right, %s, %s)' "${1%%,*}" "${1##*,}" ;;
+  *) printf 'linear-gradient(to right, %s, %s)' "$1" "$1" ;;
+  esac
+}
+
+# write_gtk_titlebar_css <active> <inactive> <inactive text>   GTK programs on Wayland (Firefox among them) draw their
+# own title bars; this block in gtk.css paints them with the window manager's colours, active and inactive.
+write_gtk_titlebar_css() {
+  local begin="/* >>> Chicago95 title bars BEGIN */" end="/* <<< Chicago95 title bars END */" version target block
+  block="$begin
+window.background headerbar.titlebar, window.background .titlebar.default-decoration, window.background .titlebar:not(headerbar), window.background headerbar.titlebar .title {
+  background-image: $(gtk_gradient "$1"); background-color: ${1%%,*}; color: #FFFFFF; font-weight: bold; text-shadow: none; }
+window.background headerbar.titlebar:backdrop, window.background .titlebar.default-decoration:backdrop, window.background .titlebar:not(headerbar):backdrop, window.background headerbar.titlebar:backdrop .title {
+  background-image: $(gtk_gradient "$2"); background-color: ${2%%,*}; color: $3; }
+$end"
+  for version in 3.0 4.0; do
+    target=~/.config/gtk-$version/gtk.css
+    backup "$target"
+    if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then
+      printf '  would: write the title bar colours into %s\n' "$target" >>"$SETUP_LOG"
+      continue
+    fi
+    mkdir -p "$(dirname "$target")"
+    {
+      [ -f "$target" ] && sed "/^\/\* >>> Chicago95 title bars BEGIN \*\/$/,/^\/\* <<< Chicago95 title bars END \*\/$/d" "$target"
+      printf '%s\n' "$block"
+    } >"$target.chicago95" && mv "$target.chicago95" "$target"
+    record "$target"
+  done
 }
 
 append_gtk_css() { # append_gtk_css <css file> <gtk version>...   once per file: its first line marks it

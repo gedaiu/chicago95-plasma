@@ -69,31 +69,6 @@ def test_banner_parts_split_words_and_numbers_with_numbers_thin(startmenu):
     ]
 
 
-def write_fake_kscreen(directory, monkeypatch, output):
-    script = directory / "kscreen-doctor"
-    script.write_text(f"#!/bin/sh\nprintf '%s' '{output}'\n")
-    script.chmod(0o755)
-    monkeypatch.setenv("PATH", str(directory))
-
-
-def test_detect_scale_reads_scale_from_kscreen_doctor_output(startmenu, tmp_path, monkeypatch):
-    write_fake_kscreen(tmp_path, monkeypatch, "Output: 1 eDP-1\n\x1b[1mScale: 1.5\x1b[0m")
-
-    assert startmenu.detect_scale() == "1.5"
-
-
-def test_detect_scale_is_1_when_output_has_no_scale_line(startmenu, tmp_path, monkeypatch):
-    write_fake_kscreen(tmp_path, monkeypatch, "Output: 1 eDP-1")
-
-    assert startmenu.detect_scale() == "1"
-
-
-def test_detect_scale_is_1_when_kscreen_doctor_is_not_installed(startmenu, tmp_path, monkeypatch):
-    monkeypatch.setenv("PATH", str(tmp_path))
-
-    assert startmenu.detect_scale() == "1"
-
-
 def test_style_of_falls_back_to_1995_for_unknown_style(startmenu):
     widget = type("Widget", (), {"banner": {"style": "3000"}})()
 
