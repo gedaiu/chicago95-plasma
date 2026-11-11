@@ -43,10 +43,6 @@ function dockAfterDrag(gripX, width) {
   return gripX < width / 2 ? "left" : "right";
 }
 
-function outerSeparator(dock) {
-  return dock === "right" ? "rightSeparatorX" : "leftSeparatorX";
-}
-
 // The inner separator's band reaches it; the band never gets narrower than its chevron nor wider than half the taskbar.
 // eslint-disable-next-line max-params -- as layout()
 function sizeAfterDrag(gripX, width, contentX, lead, dock) {
@@ -64,6 +60,10 @@ function carriedShift(gripX, shape, dock, width, contentX) {
   const rightmost = width - shape.rightSeparatorX - separatorWidth(METRICS.separatorLead);
 
   return Math.max(leftmost, Math.min(rightmost, gripX - shape[outerSeparator(dock)]));
+}
+
+function outerSeparator(dock) {
+  return dock === "right" ? "rightSeparatorX" : "leftSeparatorX";
 }
 
 // The chevron sits at the band's far end from its dock, so docked right it holds the first launchers.

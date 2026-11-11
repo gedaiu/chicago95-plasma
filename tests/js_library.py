@@ -34,4 +34,9 @@ def load_js_library(path):
 
 
 def call(engine, function_name, *arguments):
-    return engine.globalObject().property(function_name).call(list(arguments)).toVariant()
+    return (
+        engine.globalObject()
+        .property(function_name)
+        .call([engine.toScriptValue(value) for value in arguments])
+        .toVariant()
+    )
