@@ -4,6 +4,7 @@ import sys
 
 sys.path[:0] = [
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "luna", "lib"),
     os.path.expanduser("~/.local/lib/chicago95"),
 ]
 import platform
@@ -171,7 +172,7 @@ def plain_label(text, indent=0):
 # strip at the top of a page frame from x 9 to 400, the computer picture at the left of the General
 # page, the facts in two columns at the right, and 75x23 buttons at the bottom right.
 DIALOG_WIDTH = 410
-DIALOG_HEIGHT = {"1995": 448, "1998": 448, "2000": 461}
+DIALOG_HEIGHT = {"1995": 448, "1998": 448, "2000": 461, "2001": 461}
 BODY_ORIGIN = (3, 21)
 DIALOG_FRAME = 3
 TABS = {
@@ -179,6 +180,15 @@ TABS = {
     "1998": ["General", "Device Manager", "Hardware Profiles", "Performance"],
     "2000": ["General", "Hardware", "User Profiles", "Advanced"],
 }
+TABS["luna"] = TABS["2001"] = [
+    "General",
+    "Computer Name",
+    "Hardware",
+    "Advanced",
+    "System Restore",
+    "Automatic Updates",
+    "Remote",
+]
 TAB_LEFT, TAB_PADDING, TAB_TOP, SELECTED_TAB_RISE = 11, 13, 31, 2
 PAGE_LEFT, PAGE_RIGHT, PAGE_TOP = 9, 400, 49
 PAGE_BOTTOM_FROM_END = 40  # the page frame's black bottom row, from the dialog's bottom
@@ -190,12 +200,14 @@ HEADINGS = {
     "1998": [(196, 71), (196, 160), (196, 246)],
     "2000": [(208, 71), (208, 151), (178, 256)],
 }
+HEADINGS["2001"] = HEADINGS["2000"]
 BUTTON_LEFTS = {
     "1995": {"OK": 245, "Cancel": 326},
     "1998": {"OK": 245, "Cancel": 326},
     "2000": {"OK": 164, "Cancel": 245, "Apply": 326},
 }
-BUTTONS_TOP = {"1995": 415, "1998": 415, "2000": 428}
+BUTTON_LEFTS["2001"] = BUTTON_LEFTS["2000"]
+BUTTONS_TOP = {"1995": 415, "1998": 415, "2000": 428, "2001": 428}
 CAP_HEIGHT = 9
 
 
@@ -219,6 +231,8 @@ class TabStrip(QWidget):
         left, self.boxes = TAB_LEFT, []
         for caption in captions:
             width = metrics.horizontalAdvance(caption) + TAB_PADDING
+            if left + width > PAGE_RIGHT:
+                break
             self.boxes.append((left, left + width - 1))
             left += width
 
@@ -310,20 +324,24 @@ def wrapped(text, metrics, width):
     return lines + [line] if line else lines or [""]
 
 
+def general_groups(facts):
+    return [
+        ("System:", [facts.os_name, facts.kernel, facts.desktop]),
+        ("Registered to:", [facts.owner, facts.hostname, facts.product_key]),
+        (
+            "Computer:",
+            [value for value in (facts.cpu_model, facts.logical_processors, facts.memory, facts.display) if value],
+        ),
+    ]
+
+
 class GeneralPage(QWidget):
     """The computer picture and the facts, each on the original's row and column."""
 
     def __init__(self, facts, look, parent=None):
         super().__init__(parent)
         self.look = look
-        self.groups = [
-            ("System:", [facts.os_name, facts.kernel, facts.desktop]),
-            ("Registered to:", [facts.owner, facts.hostname, facts.product_key]),
-            (
-                "Computer:",
-                [value for value in (facts.cpu_model, facts.logical_processors, facts.memory, facts.display) if value],
-            ),
-        ]
+        self.groups = general_groups(facts)
         self.picture = QIcon.fromTheme("computer").pixmap(ICON_SIZE, ICON_SIZE)
 
     def paintEvent(self, _event):
@@ -420,13 +438,19 @@ def build_performance_tab(facts):
 def build_pages(facts, look):
     """The pages behind the look's tabs: the originals' names, our contents."""
     pages = {
-        "General": GeneralPage(facts, look),
+        "General": luna_general_page(facts) if look == "luna" else GeneralPage(facts, look),
         "Device Manager": build_device_manager_tab(),
         "Hardware": build_device_manager_tab(),
         "Performance": build_performance_tab(facts),
         "Advanced": build_performance_tab(facts),
     }
     return [pages.get(caption) or placeholder_page(caption) for caption in TABS[look]]
+
+
+def luna_general_page(facts):
+    import chicago95lunasysprops
+
+    return chicago95lunasysprops.general_page(general_groups(facts), QIcon.fromTheme("computer"))
 
 
 def placeholder_page(caption):
@@ -443,10 +467,22 @@ def register_icon_directories():
     QIcon.setThemeSearchPaths(icon_directories + QIcon.themeSearchPaths())
 
 
+def build_luna_window(facts):
+    import chicago95lunasysprops
+
+    window = chicago95lunasysprops.build_dialog("System Properties", TABS["luna"], build_pages(facts, "luna"))
+    window.setWindowIcon(QIcon.fromTheme("computer"))
+    return window
+
+
 def build_window(facts, look=None):
     register_icon_directories()
-    look = look if look in TABS else chicago95ui.look_settings()["style"]
+    settings = chicago95ui.look_settings()
+    classic_style = "2001" if settings["style"] == "luna" else settings["style"]
+    look = look if look in TABS else "luna" if settings["widgetStyle"] == "luna" else classic_style
     look = look if look in TABS else "1995"
+    if look == "luna":
+        return build_luna_window(facts)
     body = (DIALOG_WIDTH - 6, DIALOG_HEIGHT[look] - 24)
     window = chicago95ui.ClassicDialog("System Properties", look, body, help_button=True)
     window.setWindowIcon(QIcon.fromTheme("computer"))

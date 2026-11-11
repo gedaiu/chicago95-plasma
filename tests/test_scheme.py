@@ -109,3 +109,54 @@ def test_placeholders_fill_from_the_branding(tmp_path):
         chicago95ui.fill_placeholders("Log On to {os} {edition} by {company}; {osname}", look)
         == "Log On to Windows Home Edition by Contoso; Windows2026"
     )
+
+
+def test_sync_colors_runs_the_luna_aurorae_generator_into_the_luna_theme_when_decoration_is_luna():
+    from conftest import load_script
+
+    sync = load_script("chicago95-sync-colors")
+    command = sync.decoration_command("luna", ["--active", "#000080"])
+
+    assert command[1:] == [
+        str(sync.LUNA_GENERATORS / "aurorae/make_luna_aurorae.py"),
+        "--out",
+        str(sync.LUNA_DECORATION),
+    ]
+
+
+def test_sync_colors_runs_the_flat_aurorae_generator_with_the_title_colours_when_decoration_is_classic():
+    from conftest import load_script
+
+    sync = load_script("chicago95-sync-colors")
+    command = sync.decoration_command("classic", ["--active", "#000080"])
+
+    assert command[1:] == [
+        str(sync.DECORATION / "make_chicago95_aurorae.py"),
+        "--out",
+        str(sync.DECORATION),
+        "--active",
+        "#000080",
+    ]
+
+
+def test_sync_colors_builds_the_luna_plasma_style_on_the_flat_theme_when_taskbar_style_is_luna():
+    from conftest import load_script
+
+    sync = load_script("chicago95-sync-colors")
+    scheme = chicago95ui.read_scheme("/nonexistent")
+
+    assert sync.plasma_style_command("luna", scheme, "2000")[1:] == [
+        str(sync.LUNA_GENERATORS / "plasma-style/make_luna_plasmastyle.py"),
+        "--out",
+        str(sync.LUNA_PLASMA_STYLE),
+        "--base",
+        str(sync.PLASMA_STYLE),
+    ]
+
+
+def test_look_settings_reads_the_taskbar_style_from_chicago95rc(tmp_path, monkeypatch):
+    config = tmp_path / "chicago95rc"
+    config.write_text("[Look]\ntaskbarStyle=luna\n")
+    monkeypatch.setattr(chicago95ui, "CHICAGO95RC", str(config))
+
+    assert chicago95ui.look_settings()["taskbarStyle"] == "luna"

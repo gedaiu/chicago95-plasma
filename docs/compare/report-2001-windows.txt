@@ -1,0 +1,36 @@
+   4444   3.9%  2001 Windows: Program Files (inactive; ours: qt window on the desktop): whole
+   2128  43.1%  2001 Windows: Program Files (inactive; ours: qt window on the desktop): title bar: icon and caption
+    516  28.4%  2001 Windows: Program Files (inactive; ours: qt window on the desktop): title bar: buttons
+     64  22.2%  2001 Windows: Program Files (inactive; ours: qt window on the desktop): close button
+     50  17.4%  2001 Windows: Program Files (inactive; ours: qt window on the desktop): maximize button
+     50  17.4%  2001 Windows: Program Files (inactive; ours: qt window on the desktop): minimize button
+      0   0.0%  2001 Windows: Program Files (inactive; ours: qt window on the desktop): top-left corner
+     36  18.4%  2001 Windows: Program Files (inactive; ours: qt window on the desktop): top-right corner
+      0   0.0%  2001 Windows: Program Files (inactive; ours: qt window on the desktop): bottom-left corner
+      0   0.0%  2001 Windows: Program Files (inactive; ours: qt window on the desktop): bottom-right corner
+      0   0.0%  2001 Windows: Program Files (inactive; ours: qt window on the desktop): left edge
+      0   0.0%  2001 Windows: Program Files (inactive; ours: qt window on the desktop): bottom edge
+   4140   4.3%  2001 Windows: Local Disk (C:) (inactive; ours: gtk4 window on the desktop): whole
+   2238  45.3%  2001 Windows: Local Disk (C:) (inactive; ours: gtk4 window on the desktop): title bar: icon and caption
+    516  28.4%  2001 Windows: Local Disk (C:) (inactive; ours: gtk4 window on the desktop): title bar: buttons
+     64  22.2%  2001 Windows: Local Disk (C:) (inactive; ours: gtk4 window on the desktop): close button
+     50  17.4%  2001 Windows: Local Disk (C:) (inactive; ours: gtk4 window on the desktop): maximize button
+     50  17.4%  2001 Windows: Local Disk (C:) (inactive; ours: gtk4 window on the desktop): minimize button
+      0   0.0%  2001 Windows: Local Disk (C:) (inactive; ours: gtk4 window on the desktop): top-left corner
+     36  18.4%  2001 Windows: Local Disk (C:) (inactive; ours: gtk4 window on the desktop): top-right corner
+      0   0.0%  2001 Windows: Local Disk (C:) (inactive; ours: gtk4 window on the desktop): bottom-left corner
+      0   0.0%  2001 Windows: Local Disk (C:) (inactive; ours: gtk4 window on the desktop): bottom-right corner
+      0   0.0%  2001 Windows: Local Disk (C:) (inactive; ours: gtk4 window on the desktop): left edge
+      0   0.0%  2001 Windows: Local Disk (C:) (inactive; ours: gtk4 window on the desktop): bottom edge
+   5942   5.4%  2001 Windows: My Computer (inactive; ours: x11 window on the desktop): whole
+   1862  37.7%  2001 Windows: My Computer (inactive; ours: x11 window on the desktop): title bar: icon and caption
+    516  28.4%  2001 Windows: My Computer (inactive; ours: x11 window on the desktop): title bar: buttons
+     64  22.2%  2001 Windows: My Computer (inactive; ours: x11 window on the desktop): close button
+     50  17.4%  2001 Windows: My Computer (inactive; ours: x11 window on the desktop): maximize button
+     50  17.4%  2001 Windows: My Computer (inactive; ours: x11 window on the desktop): minimize button
+      0   0.0%  2001 Windows: My Computer (inactive; ours: x11 window on the desktop): top-left corner
+     36  18.4%  2001 Windows: My Computer (inactive; ours: x11 window on the desktop): top-right corner
+      0   0.0%  2001 Windows: My Computer (inactive; ours: x11 window on the desktop): bottom-left corner
+      0   0.0%  2001 Windows: My Computer (inactive; ours: x11 window on the desktop): bottom-right corner
+      0   0.0%  2001 Windows: My Computer (inactive; ours: x11 window on the desktop): left edge
+      0   0.0%  2001 Windows: My Computer (inactive; ours: x11 window on the desktop): bottom edge

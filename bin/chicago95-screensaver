@@ -16,6 +16,7 @@ import sys
 
 sys.path[:0] = [
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "luna", "lib"),
     os.path.expanduser("~/.local/lib/chicago95"),
 ]
 import argparse

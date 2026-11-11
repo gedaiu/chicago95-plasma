@@ -11,35 +11,25 @@ from PySide6.QtCore import QUrl
 from PySide6.QtQuick import QQuickView
 from PySide6.QtTest import QTest
 from reference import qimage_to_pil
+from screencast_stubs import PICTURE, write_stubs
 from test_install import taskbar_script_written
 from test_quick_launch_drop import qml_block
 
 UI = REPO / "plasmoids/org.chicago95.tasks/contents/ui"
-YELLOW, BLACK, SHADOW, WHITE, PICTURE = (255, 255, 225), (0, 0, 0), (128, 128, 128), (255, 255, 255), (64, 128, 192)
+LUNA_UI = REPO / "luna/plasmoids/org.chicago95.tasks/contents/ui/luna"
+YELLOW, BLACK, SHADOW, WHITE = (255, 255, 225), (0, 0, 0), (128, 128, 128), (255, 255, 255)
 FACE, LIGHT = (192, 192, 192), (223, 223, 223)
-STUBS = {
-    "org/kde/pipewire/qmldir": "module org.kde.pipewire\nPipeWireSourceItem 1.0 PipeWireSourceItem.qml\n",
-    "org/kde/pipewire/PipeWireSourceItem.qml": "import QtQuick\nRectangle { property var nodeId; color: '#4080c0' }\n",
-    "org/kde/taskmanager/qmldir": "module org.kde.taskmanager\nScreencastingRequest 1.0 ScreencastingRequest.qml\n",
-    "org/kde/taskmanager/ScreencastingRequest.qml": (
-        "import QtQuick\nQtObject { property string uuid; property int nodeId: 1 }\n"
-    ),
-}
 
 
 @pytest.fixture(scope="module")
 def imports(tmp_path_factory):
-    folder = tmp_path_factory.mktemp("qml-stubs")
-    for name, text in STUBS.items():
-        (folder / name).parent.mkdir(parents=True, exist_ok=True)
-        (folder / name).write_text(text)
-    return folder
+    return write_stubs(tmp_path_factory.mktemp("qml-stubs"))
 
 
-def render(qt_app, imports, preview_size):
+def render(qt_app, imports, preview_size, source=UI / "TaskToolTip.qml"):
     view = QQuickView()
     view.engine().addImportPath(str(imports))
-    view.setSource(QUrl.fromLocalFile(str(UI / "TaskToolTip.qml")))
+    view.setSource(QUrl.fromLocalFile(str(source)))
     tip = view.rootObject()
     assert tip is not None, [error.toString() for error in view.errors()]
     tip.setProperty("title", "Untitled - Notepad")
@@ -91,7 +81,37 @@ def test_with_a_preview_size_the_panel_is_raised_grey_with_the_title_above_the_p
         image.getpixel((9 + 159, picture_top + 119)),
         image.getpixel((8 + 161, picture_top + 120)),
         bottom - (picture_top + 120),
-    ) == ([LIGHT, WHITE, BLACK, SHADOW, BLACK, SHADOW, FACE], 2 * 8 + 162, True, SHADOW, SHADOW, PICTURE, PICTURE, WHITE, 8)
+    ) == (
+        [LIGHT, WHITE, BLACK, SHADOW, BLACK, SHADOW, FACE],
+        2 * 8 + 162,
+        True,
+        SHADOW,
+        SHADOW,
+        PICTURE,
+        PICTURE,
+        WHITE,
+        8,
+    )
+
+
+def test_the_luna_tooltip_with_a_preview_size_keeps_its_yellow_box_and_shows_the_picture_under_the_title(
+    qt_app, imports
+):
+    image = render(qt_app, imports, 160, LUNA_UI / "TaskToolTip.qml")
+    picture_top = next(y for y in range(4, image.height) if image.getpixel((5, y)) == PICTURE)
+    title_rows = [y for y in range(2, picture_top - 1) if any(image.getpixel((x, y)) == BLACK for x in range(6, 60))]
+
+    assert (
+        image.getpixel((0, 0)),
+        image.getpixel((1, 1)),
+        image.width,
+        title_rows[0] >= 4 and title_rows[-1] < picture_top - 2,
+        image.getpixel((5, picture_top - 1)),
+        image.getpixel((4, picture_top)),
+        image.getpixel((5 + 159, picture_top + 119)),
+        image.getpixel((5 + 160, picture_top + 120)),
+        image.height - (picture_top + 120),
+    ) == (BLACK, YELLOW, 2 * 4 + 162, True, BLACK, BLACK, PICTURE, BLACK, 5)
 
 
 def test_the_task_button_shows_the_tooltip_over_its_drag_area_with_the_windows_id_and_the_preview_size():

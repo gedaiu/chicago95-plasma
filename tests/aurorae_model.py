@@ -64,11 +64,12 @@ LOOKS = {
         gradient_margins="18,52",
     ),
 }
+LOOKS["2001"] = LOOKS["2000"]
 
 
-def build_theme(out, look):
-    """Runs the decoration generator with a look's colours into out; returns out."""
-    colours = LOOKS[look]
+def build_theme(out, look, **changes):
+    """Runs the decoration generator with a look's colours (with any changed) into out; returns out."""
+    colours = {**LOOKS[look], **changes}
     arguments = [f"--{key.replace('_', '-')}={value}" for key, value in colours.items()]
     subprocess.run([sys.executable, str(GENERATOR), "--out", str(out), *arguments], check=True, capture_output=True)
     return Path(out)

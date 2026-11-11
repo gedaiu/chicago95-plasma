@@ -23,6 +23,7 @@ from PIL import Image
 
 REPO = Path(__file__).resolve().parent.parent
 SCREEN = (640, 480)
+SCREENS = {"2001": (800, 600), "luna": (800, 600)}  # the originals' sizes, where they are not 640x480
 ICON_COLOUR = (0, 200, 0)  # in none of the originals: not the title bars, not the faces
 ICON_SIZE = 16
 TEST_ICON = "c95-test-square"
@@ -57,6 +58,26 @@ CONTENT = {
         ],
         active="Administrative Tools",
         launchers=3,
+        tray=1,
+    ),
+    "2001": dict(  # XP Classic: three inactive windows (the Start menu was open), no Quick Launch, the clock alone
+        windows=[
+            ("My Computer", "x11", (105, 30, 562, 269)),
+            ("Local Disk (C:)", "gtk4", (259, 142, 595, 429)),
+            ("Program Files", "qt", (349, 235, 708, 552)),
+        ],
+        active="",
+        launchers=0,
+        tray=0,
+    ),
+    "luna": dict(  # xprunning.png: three task buttons, the last (Windows XP Tour) active
+        windows=[
+            ("Control Panel", "gtk4", "minimized"),
+            ("My Computer", "x11", "minimized"),
+            ("Windows XP Tour", "qt", (100, 50, 699, 453)),  # xpnotepad.png's size
+        ],
+        active="Windows XP Tour",
+        launchers=0,
         tray=1,
     ),
 }
@@ -133,6 +154,11 @@ kwin_script() {{
     gdbus call --session --dest org.kde.KWin --object-path /Scripting/Script$id """
     """--method org.kde.kwin.Script.run >/dev/null
 }}
+start_plasmashell() {{
+    local command
+    command=$(grep -m1 '^ExecStart=/' "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" | cut -d= -f2-)
+    ${{command//%h/$HOME}} >"$1" 2>&1 &
+}}
 # Screenshots until two in a row match: Plasma settles its widgets on timers, later when the machine is busy.
 screenshot_settled() {{
     local shots="${{1%.png}}-shot"
@@ -153,7 +179,7 @@ kbuildsycoca6 >/dev/null 2>&1
 plasmashell --no-respawn >"$WORK/plasma-setup.log" 2>&1 &
 wait_for_plasma
 TMPDIR="$WORK" ./install.sh --plain --yes --components=base,look,taskbar,fonts{components} """
-    """--look={look} --screen=640x480@1{settings} >"$WORK/install.log" 2>&1 </dev/null
+    """--look={look} --screen={screen}@1{taskbar_style}{settings} >"$WORK/install.log" 2>&1 </dev/null
 # The test's launchers; the tray with the given applets only (none: the test's icons only).
 evaluate 'panels().forEach(panel => {{
     panel.widgets("org.chicago95.tasks").forEach(widget => {{
@@ -177,7 +203,7 @@ DESKTOP = (
     COMMON + """
 # The second session, as after logging in again: everything Setup wrote is read from the start.
 {windows_before_plasma}
-plasmashell --no-respawn >"$WORK/plasma.log" 2>&1 &
+start_plasmashell "$WORK/plasma.log"
 wait_for_plasma
 python3 "$WORK/tray.py" {icon} {tray} >"$WORK/tray.log" 2>&1 &
 {windows_after_plasma}
@@ -191,14 +217,43 @@ for (const window of workspace.windowList()) {{
     """{{x: place[0], y: place[1], width: place[2] - place[0] + 1, height: place[3] - place[1] + 1}};
 }}
 for (const window of workspace.windowList()) {{ if (window.caption === {active}) workspace.activeWindow = window; }}
+if ({active} === "") workspace.activeWindow = null;
 SCRIPT
 kwin_script "$WORK/arrange.js" arrange
 sleep 4
+{pointer_command}
 screenshot_settled "$WORK/screen.png"
 gdbus call --session --dest org.kde.KWin --object-path /Effects --method org.freedesktop.DBus.Properties.Get \
     org.kde.kwin.Effects loadedEffects >"$WORK/effects.txt" 2>&1
 """
 )
+
+
+def right_click_at(x, y):
+    return (f"move:{x},{y}", "wait:0.5", "click:right", "wait:1.5")
+
+
+CLICK = (300, 120)
+MENU_OPENERS = {
+    "desktop": lambda look: right_click_at(CLICK[0], CLICK[1]),
+    "task": lambda look: right_click_at(150, screen_of(look)[1] - 12),
+    "start": lambda look: right_click_at(30, screen_of(look)[1] - 12),
+}
+
+
+def hover_steps(point):
+    x, y = point
+    return (f"move:{x - 12},{y - 6}", "wait:0.3", f"move:{x - 4},{y - 2}", "wait:0.3", f"move:{x},{y}", "wait:1")
+
+
+def menu_steps(look, kind, hover=None):
+    """pointer_steps that open the desktop's, a task button's or the Start button's context menu in look, and
+    then move the pointer to hover (x, y) when given."""
+    return (*MENU_OPENERS[kind](look), *(hover_steps(hover) if hover else ()))
+
+
+def screen_of(look):
+    return SCREENS.get(look, SCREEN)
 
 
 def missing_programs():
@@ -253,7 +308,7 @@ def window_commands(work, applications, windows):
     return "\n".join(commands)
 
 
-def run_session(work, script, environment, xwayland=False, screen=SCREEN):
+def run_session(work, script, environment, screen, xwayland=False):
     (work / script.name).chmod(0o755)
     command = [
         "timeout",
@@ -281,19 +336,23 @@ def desktop_session(
     tray_icons=None,
     hidden_applets=(),
     tasks_config=(),
+    taskbar_style=None,
     settings=(),
     components=(),
     windows=None,
     windows_first=False,
+    launchers=None,
+    pointer_steps=(),
 ):
     """Runs both sessions for a look in work (a short path: Wayland's socket path is limited to 108
-    bytes); returns the 640x480 screenshot. tray_applets are Plasma applets shown in the tray (such
+    bytes); returns the screenshot, 640x480 or the look's own size (SCREENS). tray_applets are Plasma applets shown in the tray (such
     as org.kde.plasma.notifications), hidden_applets ones behind its "show hidden icons" arrow, and
     tray_icons the number of the test's icons there, beside the original's; tasks_config (key, value) pairs
-    for the taskbar widget's settings; settings (key, value) pairs Setup applies with its animations step too;
+    for the taskbar widget's settings; taskbar_style the taskbar Setup installs whatever the look (classic or luna); settings (key, value) pairs Setup applies with its animations step too;
     components further Setup components to install (such as desktop); windows replaces the look's own windows
-    (an empty list: none, for the desktop behind them); windows_first opens them before Plasma starts, as a login
-    that restores the last session does.
+    (an empty list: none, for the desktop behind them); launchers replaces the number of Quick Launch entries; windows_first opens them before Plasma starts, as a login
+    that restores the last session does; pointer_steps (see eis_pointer.py) drive the pointer before the screenshot,
+    to open a context menu (see MENU_OPENERS) and hover one of its rows.
     The screenshot's info holds KWin's loaded effects, its log, and Setup's own session's screenshot
     ("setup_screen": the taskbar right after Setup restarted Plasma, before anyone touched it)."""
     work = Path(work)
@@ -311,10 +370,13 @@ def desktop_session(
     for toolkit, program in PROGRAMS.items():
         (work / f"{toolkit}.py").write_text(program)
     (work / "tray.py").write_text(TRAY_PROGRAM)
+    shutil.copy(REPO / "tests/eis_pointer.py", work / "eis_pointer.py")
 
     content = CONTENT[look]
     if windows is not None:
         content = {**content, "windows": list(windows), "active": windows[0][0] if windows else ""}
+    if launchers is not None:
+        content = {**content, "launchers": launchers}
     applications = home / ".local/share/applications"
     applications.mkdir(parents=True, exist_ok=True)
     launchers = [
@@ -326,6 +388,8 @@ def desktop_session(
     (work / "setup.sh").write_text(
         SETUP.format(
             look=look,
+            screen="x".join(map(str, screen_of(look))),
+            taskbar_style=f" --taskbar-style={taskbar_style}" if taskbar_style else "",
             launchers=json.dumps(launchers),
             tray_applets=json.dumps(list(tray_applets)),
             hidden_applets=json.dumps(list(hidden_applets)),
@@ -342,6 +406,11 @@ def desktop_session(
             windows_after_plasma="" if windows_first else window_script,
             places=json.dumps(places),
             active=json.dumps(content["active"]),
+            pointer_command=(
+                f'python3 "$WORK/eis_pointer.py" {" ".join(quote(step) for step in pointer_steps)} >"$WORK/pointer.log" 2>&1; sleep 1'
+                if pointer_steps
+                else ""
+            ),
         )
     )
     environment = {
@@ -360,8 +429,8 @@ def desktop_session(
         "QT_FORCE_STDERR_LOGGING": "1",
     }
     (work / "chosen.conf").write_text("".join(f"{key}={value}\n" for key, value in settings))
-    run_session(work, work / "setup.sh", environment)
-    run_session(work, work / "desktop.sh", environment, xwayland=True)
+    run_session(work, work / "setup.sh", environment, screen_of(look))
+    run_session(work, work / "desktop.sh", environment, screen_of(look), xwayland=True)
     screen = work / "screen.png"
     if not screen.exists():
         raise RuntimeError(f"the Plasma session took no screenshot; see the logs in {work}")

@@ -89,6 +89,8 @@ detect_paths() {
   command -v git >/dev/null 2>&1 && SETUP_HAS_GIT=1
   SETUP_HAS_XSETTINGSD=0
   command -v xsettingsd >/dev/null 2>&1 && SETUP_HAS_XSETTINGSD=1
+  SETUP_HAS_KVANTUM=0
+  detect_kvantum
   SETUP_HAS_KWINRULES=0
   [ -f "$HOME/.config/kwinrulesrc" ] && SETUP_HAS_KWINRULES=1
   SETUP_SHELL_SRC=""
@@ -137,6 +139,15 @@ detect_install_hint() {
   fi
 }
 
+# Kvantum is a Qt style plugin; SETUP_QT_STYLE_DIRS (default: the usual Qt 6 plugin folders) says where to look.
+detect_kvantum() {
+  local plugin
+  for plugin in ${SETUP_QT_STYLE_DIRS:-/usr/lib*/qt6/plugins/styles /usr/lib/*/qt6/plugins/styles}; do
+    [ -e "$plugin/libkvantum.so" ] && SETUP_HAS_KVANTUM=1
+  done
+  return 0
+}
+
 font_installed() { fc-list : family 2>/dev/null | grep -iF "$1" >/dev/null; }
 
 # Nonzero when something the package command provides is absent.
@@ -163,6 +174,13 @@ detect_prerequisites() {
   if font_installed "More Perfect DOS VGA"; then
     row "DOS VGA font" "OK" "terminal and Clippy text"
   else row "DOS VGA font" "will copy" "from the Chicago95 checkout"; fi
+  if [[ "${SETUP_DECORATION:-}${SETUP_WIDGET_STYLE:-}${SETUP_TASKBAR_STYLE:-}" == *luna* ]]; then
+    if font_installed "Tahoma"; then row "Tahoma font" "OK" "Windows XP look"; else row "Tahoma font" "optional" "install wine-tahoma-fonts for the Windows XP look"; fi
+    if font_installed "Fira Sans"; then row "Fira Sans font" "OK" "Windows XP titles"; else row "Fira Sans font" "optional" "install fira-sans-fonts for the Windows XP titles"; fi
+  fi
+  if [ "${SETUP_WIDGET_STYLE:-}" = luna ]; then
+    if [ "$SETUP_HAS_KVANTUM" = 1 ]; then row "Kvantum" "OK" "Windows XP widgets"; else row "Kvantum" "optional" "install kvantum (kvantum-qt6 on Fedora and openSUSE) for the Windows XP widgets; Fusion is used without it"; fi
+  fi
   if font_installed "$font"; then
     row "$font font" "OK" "UI text"
   else row "$font font" "missing" "copy the OTF to ~/.local/share/fonts"; fi

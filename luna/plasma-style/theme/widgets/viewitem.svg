@@ -1,0 +1,72 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="114" height="22" viewBox="0 0 114 22">
+<rect id="normal-topleft" x="0" y="0" width="1" height="1" fill="none"/>
+<rect id="normal-top" x="1" y="0" width="8" height="1" fill="none"/>
+<rect id="normal-topright" x="9" y="0" width="1" height="1" fill="none"/>
+<rect id="normal-left" x="0" y="1" width="1" height="8" fill="none"/>
+<rect id="normal-center" x="1" y="1" width="8" height="8" fill="none"/>
+<rect id="normal-right" x="9" y="1" width="1" height="8" fill="none"/>
+<rect id="normal-bottomleft" x="0" y="9" width="1" height="1" fill="none"/>
+<rect id="normal-bottom" x="1" y="9" width="8" height="1" fill="none"/>
+<rect id="normal-bottomright" x="9" y="9" width="1" height="1" fill="none"/>
+<rect id="normal-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="normal-hint-top-margin" width="0" height="0" fill="none"/>
+<rect id="normal-hint-bottom-margin" width="0" height="0" fill="none"/>
+<rect id="normal-hint-left-margin" width="0" height="0" fill="none"/>
+<rect id="normal-hint-right-margin" width="0" height="0" fill="none"/>
+<path id="hover-topleft" d="M26,0 L27,0 L27,1 L26,1 Z" fill="#316AC5"/>
+<path id="hover-top" d="M27,0 L35,0 L35,1 L27,1 Z" fill="#316AC5"/>
+<path id="hover-topright" d="M35,0 L36,0 L36,1 L35,1 Z" fill="#316AC5"/>
+<path id="hover-left" d="M26,1 L27,1 L27,9 L26,9 Z" fill="#316AC5"/>
+<rect id="hover-center" x="27" y="1" width="8" height="8" fill="none"/>
+<path id="hover-right" d="M35,1 L36,1 L36,9 L35,9 Z" fill="#316AC5"/>
+<path id="hover-bottomleft" d="M26,9 L27,9 L27,10 L26,10 Z" fill="#316AC5"/>
+<path id="hover-bottom" d="M27,9 L35,9 L35,10 L27,10 Z" fill="#316AC5"/>
+<path id="hover-bottomright" d="M35,9 L36,9 L36,10 L35,10 Z" fill="#316AC5"/>
+<rect id="hover-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="hover-hint-top-margin" width="0" height="0" fill="none"/>
+<rect id="hover-hint-bottom-margin" width="0" height="0" fill="none"/>
+<rect id="hover-hint-left-margin" width="0" height="0" fill="none"/>
+<rect id="hover-hint-right-margin" width="0" height="0" fill="none"/>
+<use id="focus-topleft" xlink:href="#hover-topleft" x="26"/>
+<use id="focus-top" xlink:href="#hover-top" x="26"/>
+<use id="focus-topright" xlink:href="#hover-topright" x="26"/>
+<use id="focus-left" xlink:href="#hover-left" x="26"/>
+<use id="focus-center" xlink:href="#hover-center" x="26"/>
+<use id="focus-right" xlink:href="#hover-right" x="26"/>
+<use id="focus-bottomleft" xlink:href="#hover-bottomleft" x="26"/>
+<use id="focus-bottom" xlink:href="#hover-bottom" x="26"/>
+<use id="focus-bottomright" xlink:href="#hover-bottomright" x="26"/>
+<rect id="focus-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="focus-hint-top-margin" width="0" height="0" fill="none"/>
+<rect id="focus-hint-bottom-margin" width="0" height="0" fill="none"/>
+<rect id="focus-hint-left-margin" width="0" height="0" fill="none"/>
+<rect id="focus-hint-right-margin" width="0" height="0" fill="none"/>
+<path id="selected-topleft" d="M78,0 L79,0 L79,1 L78,1 Z" fill="#316AC5"/>
+<path id="selected-top" d="M79,0 L87,0 L87,1 L79,1 Z" fill="#316AC5"/>
+<path id="selected-topright" d="M87,0 L88,0 L88,1 L87,1 Z" fill="#316AC5"/>
+<path id="selected-left" d="M78,1 L79,1 L79,9 L78,9 Z" fill="#316AC5"/>
+<path id="selected-center" d="M79,1 L87,1 L87,9 L79,9 Z" fill="#316AC5"/>
+<path id="selected-right" d="M87,1 L88,1 L88,9 L87,9 Z" fill="#316AC5"/>
+<path id="selected-bottomleft" d="M78,9 L79,9 L79,10 L78,10 Z" fill="#316AC5"/>
+<path id="selected-bottom" d="M79,9 L87,9 L87,10 L79,10 Z" fill="#316AC5"/>
+<path id="selected-bottomright" d="M87,9 L88,9 L88,10 L87,10 Z" fill="#316AC5"/>
+<rect id="selected-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="selected-hint-top-margin" width="0" height="0" fill="none"/>
+<rect id="selected-hint-bottom-margin" width="0" height="0" fill="none"/>
+<rect id="selected-hint-left-margin" width="0" height="0" fill="none"/>
+<rect id="selected-hint-right-margin" width="0" height="0" fill="none"/>
+<use id="selected+hover-topleft" xlink:href="#selected-topleft" x="26"/>
+<use id="selected+hover-top" xlink:href="#selected-top" x="26"/>
+<use id="selected+hover-topright" xlink:href="#selected-topright" x="26"/>
+<use id="selected+hover-left" xlink:href="#selected-left" x="26"/>
+<use id="selected+hover-center" xlink:href="#selected-center" x="26"/>
+<use id="selected+hover-right" xlink:href="#selected-right" x="26"/>
+<use id="selected+hover-bottomleft" xlink:href="#selected-bottomleft" x="26"/>
+<use id="selected+hover-bottom" xlink:href="#selected-bottom" x="26"/>
+<use id="selected+hover-bottomright" xlink:href="#selected-bottomright" x="26"/>
+<rect id="selected+hover-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="selected+hover-hint-top-margin" width="0" height="0" fill="none"/>
+<rect id="selected+hover-hint-bottom-margin" width="0" height="0" fill="none"/>
+<rect id="selected+hover-hint-left-margin" width="0" height="0" fill="none"/>
+<rect id="selected+hover-hint-right-margin" width="0" height="0" fill="none"/>
+</svg>

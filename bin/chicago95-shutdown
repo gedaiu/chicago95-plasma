@@ -4,6 +4,7 @@ import sys
 
 sys.path[:0] = [
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "luna", "lib"),
     os.path.expanduser("~/.local/lib/chicago95"),
 ]
 import argparse
@@ -37,7 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-SHUT_DOWN, RESTART, DOS_MODE, LOG_OFF, STAND_BY = range(5)
+SHUT_DOWN, RESTART, DOS_MODE, LOG_OFF, STAND_BY, HIBERNATE = range(6)
 
 # Choices per style, in the order each original lists them; the first in DEFAULT_CHOICE is preselected.
 CHOICES = {
@@ -55,12 +56,14 @@ CHOICES = {
     ],
     "2000": [(LOG_OFF, "Log off {user}"), (SHUT_DOWN, "Shut down"), (RESTART, "Restart"), (STAND_BY, "Stand by")],
 }  # labels and descriptions take chicago95ui.fill_placeholders: {os}, {user}, {company}...
+CHOICES["2001"] = CHOICES["2000"] + [(HIBERNATE, "Hibernate")]
 CHOICE_LABELS = tuple(label for _, label in CHOICES["1995"])
 QUESTIONS = {
     "1995": "Are you sure you want to:",
     "1998": "What do you want the computer to do?",
     "2000": "What do you want the computer to do?",
 }
+QUESTIONS["2001"] = QUESTIONS["2000"]
 # {os} is the OS name from the look ("Windows" gives the original wording, "Fedora" says Fedora).
 DESCRIPTIONS = {
     LOG_OFF: "Ends your session, leaving the computer running on full power.",
@@ -68,6 +71,14 @@ DESCRIPTIONS = {
     RESTART: "Ends your session, shuts down {os}, and starts {os} again.",
     STAND_BY: "Maintains your session, keeping the computer running on low power with data still in memory.",
 }
+DESCRIPTIONS_BY_STYLE = {
+    "2001": {
+        **DESCRIPTIONS,
+        STAND_BY: "Keeps your session in memory and puts the computer in a low-power state so that you can quickly resume working.",
+        HIBERNATE: "Saves your session to disk and turns off the computer. When you turn it on again, Windows restores your session.",
+    }
+}
+LAYOUT = {"1995": "radio", "1998": "radio", "2000": "combo", "2001": "combo"}
 
 
 def os_name(look):
@@ -125,6 +136,8 @@ def shutdown_command(choice, dbus_prefix=None):
         return ["konsole"]
     if choice == STAND_BY:
         return ["systemctl", "suspend"]
+    if choice == HIBERNATE:
+        return ["systemctl", "hibernate"]
     if dbus_prefix:
         return dbus_prefix + [KDE_SHUTDOWN_METHODS[choice]]
     return SYSTEMCTL_FALLBACKS[choice]
@@ -414,7 +427,7 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
     The client sizes, with the 3px frame and 18px title around them, are the originals' dialogs'
     (tests/test_shutdown_reference.py); 2000's client area starts a pixel further in."""
 
-    BODIES = {"1995": ((340, 200), 3), "1998": ((318, 172), 3), "2000": ((409, 245), 4)}
+    BODIES = {"1995": ((340, 200), 3), "1998": ((318, 172), 3), "2000": ((409, 245), 4), "2001": ((409, 245), 4)}
 
     def __init__(self, look=None):
         self.look = {**chicago95ui.look_settings(), **(look or {})}
@@ -423,10 +436,7 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         super().__init__(f"Shut Down {chicago95ui.short_os_name(self.look['osName'])}", self.style, body, inset)
         self.choices = CHOICES[self.style]
         self.choice = None
-        if self.style == "2000":
-            self.build_2000()
-        else:
-            self.build_radio_list()
+        {"combo": self.build_combo_list, "radio": self.build_radio_list}[LAYOUT[self.style]]()
 
     def build_radio_list(self):
         # Measured on the originals (tests/test_shutdown_reference.py): the question's top margin, the gap
@@ -456,14 +466,14 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         layout.addLayout(buttons)
         chosen.setFocus()  # the originals open with the chosen option focused
 
-    def build_2000(self):
+    def build_combo_list(self):
         # Positions measured on the original's client area (tests/test_shutdown_reference.py).
         body = self.body
         BrandBanner(self.look, body).setGeometry(0, 1, 409, 77)
         icon = dialog_icon("system-shutdown")
         icon.setParent(body)
         icon.move(22, 89)
-        QLabel(QUESTIONS["2000"], body).move(65, 91)
+        QLabel(QUESTIONS[self.style], body).move(65, 91)
         self.combo = QComboBox(body)
         self.combo.setGeometry(65, 111, 260, 21)
         for choice, label in self.choices:
@@ -489,10 +499,11 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
                 button.setEnabled(False)
 
     def describe(self):
-        self.description.setText(chicago95ui.fill_placeholders(DESCRIPTIONS[self.combo.currentData()], self.look))
+        descriptions = DESCRIPTIONS_BY_STYLE.get(self.style, DESCRIPTIONS)
+        self.description.setText(chicago95ui.fill_placeholders(descriptions[self.combo.currentData()], self.look))
 
     def accept(self):
-        if self.style == "2000":
+        if LAYOUT[self.style] == "combo":
             self.choice = self.combo.currentData()
         else:
             self.choice = self.choices[next(index for index, radio in enumerate(self.radios) if radio.isChecked())][0]
@@ -510,6 +521,64 @@ def ask(dialog):
     dialog.show()
     centre_on_screen(dialog)
     return dialog.exec() == QDialog.Accepted
+
+
+def ask_luna_choice(dialog_class, choices_by_command):
+    """The choice a Luna dialog's button stands for, or None when it was cancelled."""
+    chosen = []
+    commands = {name: (lambda choice=choice: chosen.append(choice)) for name, choice in choices_by_command.items()}
+    commands["cancel"] = lambda: None
+    return chosen[0] if ask(dialog_class(commands)) else None
+
+
+def luna_turn_off_choice():
+    import chicago95lunadialogs
+
+    return ask_luna_choice(
+        chicago95lunadialogs.TurnOffDialog, {"turn_off": SHUT_DOWN, "restart": RESTART, "stand_by": STAND_BY}
+    )
+
+
+def luna_log_off_choice():
+    import chicago95lunadialogs
+
+    return ask_luna_choice(chicago95lunadialogs.LogOffDialog, {"log_off": LOG_OFF, "switch_user": LOG_OFF})
+
+
+def luna_dialogs_wanted():
+    return chicago95ui.look_settings()["widgetStyle"] == "luna"
+
+
+def screenshot_dialog(log_off):
+    if luna_dialogs_wanted():
+        import chicago95lunadialogs
+
+        names = ("turn_off", "restart", "stand_by", "hibernate", "cancel", "log_off", "switch_user")
+        dialog_class = chicago95lunadialogs.LogOffDialog if log_off else chicago95lunadialogs.TurnOffDialog
+        return dialog_class({name: (lambda: None) for name in names})
+    return LogOffDialog() if log_off else ShutDownDialog()
+
+
+def shutting_down_screen(geometry, hold_until_input):
+    if not luna_dialogs_wanted():
+        return SafeScreen(geometry, hold_until_input)
+    import chicago95lunashutdown
+
+    return chicago95lunashutdown.ShuttingDownScreen(geometry, hold_until_input)
+
+
+def turn_off_choice():
+    """What the user picked in the Shut Down dialog of the look, or None when it was cancelled."""
+    if luna_dialogs_wanted():
+        return luna_turn_off_choice()
+    dialog = ShutDownDialog()
+    return dialog.choice if ask(dialog) else None
+
+
+def log_off_confirmed():
+    if luna_dialogs_wanted():
+        return luna_log_off_choice() == LOG_OFF
+    return ask(LogOffDialog())
 
 
 def log_off(confirmed, dry_run, dbus_prefix):
@@ -560,28 +629,28 @@ def main():
     QIcon.setThemeSearchPaths(list(ICON_DIRS) + QIcon.themeSearchPaths())
 
     if args.screenshot:
-        grab_widget(LogOffDialog() if args.log_off else ShutDownDialog(), args.screenshot)
+        grab_widget(screenshot_dialog(args.log_off), args.screenshot)
         return 0
     if args.login_banner:
         return 0 if render_login_banner(chicago95ui.look_settings(), args.login_banner) else 1
     if args.screenshot_safe:
-        grab_widget(SafeScreen(QRect(0, 0, 1280, 720), hold_until_input=False), args.screenshot_safe)
+        grab_widget(shutting_down_screen(QRect(0, 0, 1280, 720), hold_until_input=False), args.screenshot_safe)
         return 0
 
     if args.log_off:
-        log_off(ask(LogOffDialog()), args.dry_run, dbus_caller())
+        log_off(log_off_confirmed(), args.dry_run, dbus_caller())
         return 0
 
-    dialog = ShutDownDialog()
-    if not ask(dialog):
+    choice = turn_off_choice()
+    if choice is None:
         return 0
 
-    command = shutdown_command(dialog.choice, dbus_caller())
-    if dialog.choice in (DOS_MODE, LOG_OFF, STAND_BY):
+    command = shutdown_command(choice, dbus_caller())
+    if choice in (DOS_MODE, LOG_OFF, STAND_BY, HIBERNATE):
         run_command(command, args.dry_run)
         return 0
 
-    safe_screen = SafeScreen(virtual_screen_geometry(app), hold_until_input=args.dry_run)
+    safe_screen = shutting_down_screen(virtual_screen_geometry(app), hold_until_input=args.dry_run)
     safe_screen.showFullScreen()
     play_shutdown_sound(args.dry_run)
 

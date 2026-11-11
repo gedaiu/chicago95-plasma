@@ -1,0 +1,6 @@
+  20411  10.8%  2001 System Properties (against 2000's original: no XP Classic shot exists): whole
+    532  77.8%  2001 System Properties (against 2000's original: no XP Classic shot exists): help and close buttons
+    924  12.5%  2001 System Properties (against 2000's original: no XP Classic shot exists): tabs
+  10219   7.0%  2001 System Properties (against 2000's original: no XP Classic shot exists): General page
+    518   5.9%  2001 System Properties (against 2000's original: no XP Classic shot exists): buttons (OK is the default)
+     94   3.7%  2001 System Properties (against 2000's original: no XP Classic shot exists): disabled button (Apply)

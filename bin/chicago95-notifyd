@@ -11,6 +11,7 @@ import argparse
 import os
 import re
 import sys
+from collections import namedtuple
 from configparser import ConfigParser
 from dataclasses import dataclass
 from functools import lru_cache
@@ -21,6 +22,7 @@ from urllib.parse import unquote
 # Scale now comes from the X server DPI; neither this daemon nor chicago95ui forces QT_SCALE_FACTOR.
 sys.path[:0] = [
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "luna", "lib"),
     os.path.expanduser("~/.local/lib/chicago95"),
 ]
 import chicago95animations
@@ -315,6 +317,24 @@ class TitleBar(QWidget):
         QPainter(self).fillRect(self.rect(), fill)
 
 
+def paint_classic_frame(painter, size, device_pixel_ratio, palette):
+    paint_bevel(painter, size, device_pixel_ratio, WINDOW_RINGS, chicago95ui.FACE)
+
+
+Chrome = namedtuple(
+    "Chrome", "title_bar_class frame_margins content_margins paint content_icon text_pixel_size summary_in_title"
+)
+CLASSIC_CHROME = Chrome(TitleBar, (3, 3, 3, 3), (10, 10, 10, 10), paint_classic_frame, True, 12, False)
+
+
+def popup_chrome():
+    if chicago95ui.look_settings()["widgetStyle"] != "luna":
+        return CLASSIC_CHROME
+    import chicago95lunanotify
+
+    return Chrome(*chicago95lunanotify.CHROME_FIELDS)
+
+
 class NotificationPopup(QWidget):
     dismissed = Signal(int)
     action_invoked = Signal(str)
@@ -334,11 +354,12 @@ class NotificationPopup(QWidget):
             # that KWin places by rule; stacking and sliding happen as child-widget moves.
             super().__init__(host)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
-        self.title_bar = TitleBar()
+        self.chrome = popup_chrome()
+        self.title_bar = self.chrome.title_bar_class()
         self.icon_label = QLabel()
         self.icon_label.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
         self.summary_label = QLabel()
-        self.summary_label.setFont(chicago95ui.ui_font(12, bold=True))
+        self.summary_label.setFont(chicago95ui.ui_font(self.chrome.text_pixel_size, bold=True))
         self.summary_label.setWordWrap(True)
         self.summary_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.body_label = QLabel()
@@ -357,7 +378,7 @@ class NotificationPopup(QWidget):
         text_column.addWidget(self.body_label)
         text_column.addLayout(self.action_row)
         content = QHBoxLayout()
-        content.setContentsMargins(10, 10, 10, 10)
+        content.setContentsMargins(*self.chrome.content_margins)
         content.setSpacing(12)
         icon_column = QVBoxLayout()
         icon_column.addWidget(self.icon_label)
@@ -365,7 +386,7 @@ class NotificationPopup(QWidget):
         content.addLayout(icon_column)
         content.addLayout(text_column, 1)
         frame = QVBoxLayout(self)
-        frame.setContentsMargins(3, 3, 3, 3)
+        frame.setContentsMargins(*self.chrome.frame_margins)
         frame.setSpacing(0)
         frame.addWidget(self.title_bar)
         frame.addLayout(content)
@@ -393,15 +414,16 @@ class NotificationPopup(QWidget):
 
     def update_content(self, notification):
         device_pixel_ratio = self.devicePixelRatioF()
-        self.title_bar.set_content(title_pixmap(notification, device_pixel_ratio), display_name(notification))
+        summary = rewritten_summary(notification)
+        title = summary if self.chrome.summary_in_title else display_name(notification)
+        self.title_bar.set_content(title_pixmap(notification, device_pixel_ratio), title)
         image = content_pixmap(notification, device_pixel_ratio)
         self.icon_label.setPixmap(image or QPixmap())
-        self.icon_label.setVisible(image is not None)
+        self.icon_label.setVisible(image is not None and self.chrome.content_icon)
         if image is not None:
             self.icon_label.setFixedSize(image.deviceIndependentSize().toSize())
-        summary = rewritten_summary(notification)
         self.summary_label.setText(summary)
-        self.summary_label.setVisible(bool(summary))
+        self.summary_label.setVisible(bool(summary) and not self.chrome.summary_in_title)
         self.body_label.setText(body_html(notification.body))
         self.body_label.setVisible(bool(notification.body))
         self.rebuild_actions(notification.actions)
@@ -455,7 +477,7 @@ class NotificationPopup(QWidget):
             self.dismissed.emit(CLOSED_DISMISSED)
 
     def paintEvent(self, _event):
-        paint_bevel(QPainter(self), self.size(), self.devicePixelRatioF(), WINDOW_RINGS, chicago95ui.FACE)
+        self.chrome.paint(QPainter(self), self.size(), self.devicePixelRatioF(), self.palette())
 
     def slide_in(self, target):
         motion, slide_ms = motion_for(SLIDE_IN_MS)

@@ -4,36 +4,64 @@ import sys
 
 sys.path[:0] = [
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "luna", "lib"),
     os.path.expanduser("~/.local/lib/chicago95"),
 ]
 import argparse
+import functools
 import importlib.machinery
 import importlib.util
 import shlex
 import subprocess
+from collections import namedtuple
 from pathlib import Path
 
 import chicago95ui  # noqa: E401,E702
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter
-from PySide6.QtWidgets import QComboBox, QFileDialog, QLabel, QListWidget, QListWidgetItem, QPushButton, QWidget
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QFileDialog,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QWidget,
+)
 
 INSTANCE_NAME = "chicago95-run"
 HISTORY_FILE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "chicago95/run-history"
 HISTORY_LENGTH = 26
 MATCH_LIMIT = 8
 MATCH_ROW_HEIGHT = 18
+RunLayout = namedtuple(
+    "RunLayout",
+    "body icon_at text_at label_at field_at field_width field_height button_top button_lefts ok_inset prompt_height",
+)
 # The dialog as the 1995 original (tests/references/win95run.png, tests/test_run_reference.py): a 341x139 client
 # area, the icon at 13,15, the text from 56,17, "Open:" at 11,66, the field at 54,61 (275x21) and three 75x23
-# buttons painted from 93, 174 and 255, 103 rows down.
-BODY = (341, 139)
-ICON_AT, TEXT_AT, LABEL_AT, FIELD_AT, FIELD_WIDTH = (13, 15), (56, 17), (11, 66), (54, 61), 275
-BUTTON_TOP, BUTTON_LEFTS = 103, (93, 174, 255)
+# buttons painted from 93, 174 and 255, 103 rows down. The XP one (tests/references/xprun.png, 347x186 less its
+# 3px frame and 29px title) is 341x154 with the icon at 11,19, the text from 54,20, "Open:" at 11,66, the field at 54,60
+# and the buttons 114 rows down.
+LAYOUTS = {
+    "classic": RunLayout((341, 139), (13, 15), (56, 17), (11, 66), (54, 61), 275, 21, 103, (93, 174, 255), 1, 30),
+    "luna": RunLayout((341, 154), (11, 19), (54, 20), (11, 66), (54, 60), 275, 21, 114, (93, 174, 255), 0, 40),
+}
 PROMPTS = {
     "1995": "Type the name of a program, folder, or document, and {os} will open it for you.",
     "1998": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
     "2000": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
+    "luna": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
 }
+
+
+def layout_key(look):
+    return "luna" if look["widgetStyle"] == "luna" else "classic"
+
+
+def prompt_key(look):
+    return "luna" if look["widgetStyle"] == "luna" else look["style"] if look["style"] in PROMPTS else "1995"
 
 
 def read_history(path=None):
@@ -172,42 +200,47 @@ class DefaultOutline(QWidget):
         painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
 
 
-class RunDialog(chicago95ui.ClassicDialog):
+class RunBehaviour:
     """The Run dialog of the look, with a list of matching programs, files and commands under the field as the
     text is typed: the dialog grows to hold the list and shrinks back when it empties."""
 
-    def __init__(self, look=None, applications=None, path_dirs=None, history=None):
-        self.look = {**chicago95ui.look_settings(), **(look or {})}
-        self.style = self.look["style"] if self.look["style"] in PROMPTS else "1995"
-        super().__init__("Run", self.style, BODY, help_button=True)
+    def __init__(self, look, applications, path_dirs, history):
+        self.look = look
+        self.layout = LAYOUTS[layout_key(look)]
+        self.style = prompt_key(look)
+        super().__init__("Run", self.style, self.layout.body, help_button=True)
         self.applications = applications
-        self.path_dirs = path_dirs if path_dirs is not None else os.environ.get("PATH", "").split(os.pathsep)
-        self.history = read_history() if history is None else history
+        self.path_dirs = path_dirs
+        self.history = history
         self.command = None
         self.build()
 
     def build(self):
-        body = self.body
+        body, layout = self.body, self.layout
         icon = QLabel(body)
         icon.setPixmap(QIcon.fromTheme("system-run").pixmap(32, 32))
         icon.setFixedSize(32, 32)
-        icon.move(*ICON_AT)
+        icon.move(*layout.icon_at)
         prompt = QLabel(chicago95ui.fill_placeholders(PROMPTS[self.style], self.look), body)
         prompt.setWordWrap(True)
-        prompt.setGeometry(TEXT_AT[0], TEXT_AT[1], BODY[0] - TEXT_AT[0] - 12, 30)
+        prompt.setGeometry(
+            layout.text_at[0], layout.text_at[1], layout.body[0] - layout.text_at[0] - 12, layout.prompt_height
+        )
         open_label = QLabel("&Open:", body)
-        open_label.move(*LABEL_AT)
+        open_label.move(*layout.label_at)
         self.field = chicago95ui.classic_combo(QComboBox(body))
         open_label.setBuddy(self.field)
         self.field.setEditable(True)
         self.field.setInsertPolicy(QComboBox.NoInsert)
         self.field.addItems(self.history)
-        self.field.setGeometry(FIELD_AT[0], FIELD_AT[1], FIELD_WIDTH, 21)
+        self.field.setGeometry(*layout.field_at, layout.field_width, layout.field_height)
         self.field.setEditText("")
         self.field.lineEdit().textEdited.connect(self.search)
         self.field.lineEdit().installEventFilter(self)
         self.results = QListWidget(body)
-        self.results.setGeometry(FIELD_AT[0], FIELD_AT[1] + 21 + 4, FIELD_WIDTH, 0)
+        self.results.setGeometry(
+            layout.field_at[0], layout.field_at[1] + layout.field_height + 4, layout.field_width, 0
+        )
         self.results.hide()
         self.results.itemActivated.connect(lambda _item: self.accept())
         self.results.itemClicked.connect(lambda _item: self.accept())
@@ -215,13 +248,15 @@ class RunDialog(chicago95ui.ClassicDialog):
         # The original's default button: a 1px black outline around a whole 75x23 button; Qt would draw the
         # outline a pixel inside, so OK sits in an outline of its own and Enter is handled by the dialog.
         self.outline = DefaultOutline(body)
-        self.outline.setGeometry(BUTTON_LEFTS[0], BUTTON_TOP, *chicago95ui.DIALOG_BUTTON_SIZE)
-        for left, label in zip(BUTTON_LEFTS, ("OK", "Cancel", "&Browse..."), strict=False):
+        self.outline.setGeometry(layout.button_lefts[0], layout.button_top, *chicago95ui.DIALOG_BUTTON_SIZE)
+        self.outline.setVisible(layout.ok_inset > 0)
+        for left, label in zip(layout.button_lefts, ("OK", "Cancel", "&Browse..."), strict=False):
             button = QPushButton(label, body)
             button.setAutoDefault(False)
-            button.setGeometry(left, BUTTON_TOP, *chicago95ui.DIALOG_BUTTON_SIZE)
+            button.setGeometry(left, layout.button_top, *chicago95ui.DIALOG_BUTTON_SIZE)
             self.buttons[label] = button
-        self.buttons["OK"].setGeometry(BUTTON_LEFTS[0] + 1, BUTTON_TOP + 1, 73, 21)
+        self.place_ok_button(0)
+        self.buttons["OK"].setDefault(layout.ok_inset == 0)
         self.buttons["OK"].setEnabled(False)
         self.buttons["OK"].clicked.connect(self.accept)
         self.buttons["Cancel"].clicked.connect(self.reject)
@@ -253,16 +288,29 @@ class RunDialog(chicago95ui.ClassicDialog):
             self.results.setCurrentRow(0)
         self.show_results(len(found))
 
+    def place_ok_button(self, extra):
+        inset, (width, height) = self.layout.ok_inset, chicago95ui.DIALOG_BUTTON_SIZE
+        self.buttons["OK"].setGeometry(
+            self.layout.button_lefts[0] + inset,
+            self.layout.button_top + inset + extra,
+            width - 2 * inset,
+            height - 2 * inset,
+        )
+
     def show_results(self, count):
         """The list under the field, as tall as its rows; the buttons move down with the dialog's bottom."""
+        layout = self.layout
         list_height = count * MATCH_ROW_HEIGHT + 2 if count else 0
         extra = list_height + 4 if count else 0
-        self.results.setGeometry(FIELD_AT[0], FIELD_AT[1] + 21 + 4, FIELD_WIDTH, list_height)
+        self.results.setGeometry(
+            layout.field_at[0], layout.field_at[1] + layout.field_height + 4, layout.field_width, list_height
+        )
         self.results.setVisible(count > 0)
-        self.setFixedSize(self.width(), BODY[1] + chicago95ui.DIALOG_FRAME * 2 + chicago95ui.DIALOG_TITLE + extra)
-        self.body.resize(BODY[0], BODY[1] + extra)
-        for widget in (*self.buttons.values(), self.outline):
-            widget.move(widget.x(), BUTTON_TOP + extra + (1 if widget is self.buttons["OK"] else 0))
+        self.resize_body(layout.body[0], layout.body[1] + extra)
+        for button in (self.buttons["Cancel"], self.buttons["&Browse..."]):
+            button.move(button.x(), layout.button_top + extra)
+        self.outline.move(self.outline.x(), layout.button_top + extra)
+        self.place_ok_button(extra)
 
     def browse(self):
         path, _filter = QFileDialog.getOpenFileName(self, "Browse", str(Path.home()))
@@ -281,6 +329,21 @@ class RunDialog(chicago95ui.ClassicDialog):
         super().accept()
 
 
+@functools.cache
+def run_dialog_class(frame):
+    return type("RunDialog", (RunBehaviour, frame), {})
+
+
+def RunDialog(look=None, applications=None, path_dirs=None, history=None):  # noqa: N802
+    look = {**chicago95ui.look_settings(), **(look or {})}
+    return run_dialog_class(chicago95ui.dialog_frame_class(look["widgetStyle"] == "luna"))(
+        look,
+        applications,
+        path_dirs if path_dirs is not None else os.environ.get("PATH", "").split(os.pathsep),
+        read_history() if history is None else history,
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description="Chicago95 Run dialog for KDE")
     parser.add_argument("--dry-run", action="store_true", help="print the command instead of running it")
@@ -297,9 +360,9 @@ def main():
     instance = chicago95ui.SingleInstance(INSTANCE_NAME, lambda _message: (dialog.raise_(), dialog.activateWindow()))  # noqa: F841
 
     def finished(result):
-        if result == RunDialog.Accepted and arguments.dry_run:
+        if result == QDialog.Accepted and arguments.dry_run:
             print("dry-run, would run:", " ".join(dialog.command))
-        elif result == RunDialog.Accepted:
+        elif result == QDialog.Accepted:
             launch(dialog.command)
         application.quit()
 

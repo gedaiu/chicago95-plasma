@@ -1,0 +1,33 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="26" height="98" viewBox="0 0 26 98">
+<path id="groove-topleft" d="M0,0 L1,0 L1,1 L0,1 Z" fill="#ACA899"/>
+<path id="groove-top" d="M1,0 L4,0 L4,1 L1,1 Z" fill="#ACA899"/>
+<path id="groove-topright" d="M4,0 L5,0 L5,1 L4,1 Z" fill="#FFFFFF"/>
+<path id="groove-left" d="M0,1 L1,1 L1,3 L0,3 Z" fill="#ACA899"/>
+<path id="groove-center" d="M1,1 L4,1 L4,3 L1,3 Z" fill="#ECE9D8"/>
+<path id="groove-right" d="M4,1 L5,1 L5,3 L4,3 Z" fill="#FFFFFF"/>
+<path id="groove-bottomleft" d="M0,3 L1,3 L1,4 L0,4 Z" fill="#ACA899"/>
+<path id="groove-bottom" d="M1,3 L4,3 L4,4 L1,4 Z" fill="#FFFFFF"/>
+<path id="groove-bottomright" d="M4,3 L5,3 L5,4 L4,4 Z" fill="#FFFFFF"/>
+<rect id="groove-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="groove-hint-top-margin" width="0" height="0" fill="none"/>
+<rect id="groove-hint-bottom-margin" width="0" height="0" fill="none"/>
+<rect id="groove-hint-left-margin" width="0" height="0" fill="none"/>
+<rect id="groove-hint-right-margin" width="0" height="0" fill="none"/>
+<path id="groove-highlight-topleft" d="M21,0 L22,0 L22,1 L21,1 Z" fill="#ACA899"/>
+<path id="groove-highlight-top" d="M22,0 L25,0 L25,1 L22,1 Z" fill="#ACA899"/>
+<path id="groove-highlight-topright" d="M25,0 L26,0 L26,1 L25,1 Z" fill="#FFFFFF"/>
+<path id="groove-highlight-left" d="M21,1 L22,1 L22,3 L21,3 Z" fill="#ACA899"/>
+<path id="groove-highlight-center" d="M22,1 L25,1 L25,3 L22,3 Z" fill="#C6D9F3"/>
+<path id="groove-highlight-right" d="M25,1 L26,1 L26,3 L25,3 Z" fill="#FFFFFF"/>
+<path id="groove-highlight-bottomleft" d="M21,3 L22,3 L22,4 L21,4 Z" fill="#ACA899"/>
+<path id="groove-highlight-bottom" d="M22,3 L25,3 L25,4 L22,4 Z" fill="#FFFFFF"/>
+<path id="groove-highlight-bottomright" d="M25,3 L26,3 L26,4 L25,4 Z" fill="#FFFFFF"/>
+<rect id="groove-highlight-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="groove-highlight-hint-top-margin" width="0" height="0" fill="none"/>
+<rect id="groove-highlight-hint-bottom-margin" width="0" height="0" fill="none"/>
+<rect id="groove-highlight-hint-left-margin" width="0" height="0" fill="none"/>
+<rect id="groove-highlight-hint-right-margin" width="0" height="0" fill="none"/><defs><linearGradient id="horizontal-slider-handle-body" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#D6D0C5"/></linearGradient><linearGradient id="horizontal-slider-hover-body" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#C6D9F3"/></linearGradient></defs>
+<g id="horizontal-slider-handle"><rect y="16" width="12" height="22" rx="2" fill="#919B9C"/><rect x="1" y="17" width="10" height="20" rx="1" fill="url(#horizontal-slider-handle-body)"/></g>
+<g id="horizontal-slider-hover"><rect y="44" width="12" height="22" rx="2" fill="#316AC5"/><rect x="1" y="45" width="10" height="20" rx="1" fill="url(#horizontal-slider-hover-body)"/></g>
+<rect id="hint-handle-size" x="0" y="72" width="12" height="22" fill="none"/>
+</svg>

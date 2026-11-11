@@ -16,13 +16,17 @@ territory.
 
 Built and tested on Fedora 44, Plasma 6.8.2 (Wayland), 3840x2160 at 1.5x.
 
-## The three looks beside the originals
+## The five looks beside the originals
 
-Setup offers three looks. Each picture shows an original screenshot (left) beside ours (right),
+Setup offers five looks: 1995, 1998, 2000, 2001 (Windows XP Classic, the grey theme XP shipped) and Luna
+(Windows XP's blue theme). Each picture shows an original screenshot (left) beside ours (right),
 component by component: the desktop, the taskbar, the windows, the Start menu, the Shut Down dialog, and
-for the 2000 look the loading and log-on screens. Ours is the real desktop, run headless by the tests:
-its windows are empty test programs and its icons green test squares. The texts are set to the
+for the 2000, 2001 and Luna looks the loading and log-on screens. Ours is the real desktop, run headless by
+the tests: its windows are empty test programs and its icons green test squares. The texts are set to the
 originals' wording for the comparison. The pictures are made by `tests/render_report.py` (see Tests).
+
+XP Classic has no screenshot of its own Shut Down dialog or System Properties, so those are compared with
+2000's. Luna has no System Properties original: its layout is not written yet, so the report leaves it out.
 
 ### 1995 look
 
@@ -36,12 +40,38 @@ originals' wording for the comparison. The pictures are made by `tests/render_re
 
 ![The 2000 look beside the original](docs/compare/showcase-2000.jpg)
 
+### 2001 look (Windows XP Classic)
+
+![The 2001 look beside the original](docs/compare/showcase-2001.jpg)
+
+### Luna look (Windows XP)
+
+![The Luna look beside the original](docs/compare/showcase-luna.jpg)
+
+The controls of each look, beside the originals' where a screenshot shows them, are in
+`docs/compare/showcase-controls-<look>.jpg`.
+
+### Looks are presets of components
+
+A look is a preset. It fills in the window decoration, the controls (widget style), the taskbar, the Start
+menu and the login screen, and each of those can be chosen on its own in the Control Panel or with a flag, so
+a 1995 desktop can have the Luna taskbar:
+
+```
+./install.sh --look=1995 --taskbar-style=luna
+./install.sh --look=luna --start-menu-style=2001
+```
+
+The flags are `--decoration`, `--widget-style`, `--taskbar-style`, `--start-menu-style` and `--login-style`.
+A Luna taskbar is 30 pixels high and switches Plasma's desktop theme, so tooltips and popups follow it.
+
 ## Layout
 
 | Folder                 | Contents                                                                                                                                                                                                                                                                                                                                                                                |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `aurorae/`             | `make_chicago95_aurorae.py`, `bevel.py`, Start button images, and the generated theme under `theme/`                                                                                                                                                                                                                                                                                    |
 | `plasma-style/`        | `make_chicago95_plasmastyle.py` and the generated style under `theme/`                                                                                                                                                                                                                                                                                                                  |
+| `luna/`                | The Windows XP Luna components: `aurorae/` decoration, `plasma-style/`, `plasmoids/` overlays (Start button, task buttons, tray box), `lib/` (widget style, Start menu, Turn Off dialog), `sddm/`, `splash/`, `plymouth/`, `palette.py`; nothing in it is shared with the flat looks (see `luna/README.md`) |
 | `plasmoids/`           | `org.chicago95.start`, `org.chicago95.tasks` (Quick Launch and task buttons), `org.chicago95.trayframe`, `org.chicago95.clock`                                                                                                                                                                                                                                                          |
 | `bin/`                 | `chicago95-startmenu`, `chicago95-notifyd`, `chicago95-clippy`, `chicago95-shutdown`, `chicago95-screensaver`, `chicago95-sysprops`, `chicago95-devmgr` (Device Manager, read-only, from lshw), `chicago95-k8sview` (the Kubernetes cluster as a device tree), `chicago95-dialup`, `chicago95-deezer`, `chicago95-control-panel`, `chicago95-askpass`, `chicago95-run` (the Run dialog) |
 | `lib/`                 | `chicago95ui.py`, the shared PySide6 look module                                                                                                                                                                                                                                                                                                                                        |
@@ -275,15 +305,19 @@ size, bevel, separator, highlight, arrows and text positions must match; outside
 the letter shapes, not a pixel may differ. The screenshots are in `tests/references` (sources in `SOURCES.md` there).
 
 `tests/test_plasma_taskbar_reference.py`, `tests/test_plasma_window_reference.py` and `tests/test_plasma_desktop_reference.py` run the real
-desktop: Setup installs into a throwaway home, then KWin and plasmashell run headless at 640x480 with
+desktop: Setup installs into a throwaway home, then KWin and plasmashell run headless at 640x480 (800x600 for 2001 and Luna) with
 each original's windows (Qt, GTK 3, GTK 4 and X11), Quick Launch entries and tray icons, and the
 screenshot is compared with the original's taskbar and windows. They need KWin, plasmashell, spectacle,
 Xwayland, xmessage and the MS W98 UI font, and are skipped without them; each look takes about 25 seconds.
 
-`python3 tests/render_report.py docs/compare` writes, per OS:
+`tests/luna/` tests the Luna components against the `xp*.png` references: the palette, the decoration, the
+Plasma style and taskbar QML, the widget style, the Start menu, the Turn Off dialog, the log-on, splash and
+Plymouth screens, and `test_flat_looks_unchanged.py`, which pins the flat looks' files byte for byte.
+
+`python3 tests/render_report.py docs/compare [LOOK ...]` writes, per OS (1995, 1998, 2000, 2001, luna):
 
 - `showcase-<look>.jpg`, to show people: component by component (desktop, taskbar, windows, Start menu,
-  Shut Down, System Properties, and on 2000 the loading and log-on screens), the original beside ours;
+  Shut Down, System Properties, and on 2000, 2001 and Luna the loading and log-on screens), the original beside ours;
 - `showcase-controls-<look>.jpg`: every control, rendered by `tests/controls_gallery.py` in the look's
   colours (push buttons in each state, check boxes, radio buttons, text fields, drop-downs, disabled
   drop-down and spin box, spin box, sliders, scroll bars including disabled and empty ones, progress bar,

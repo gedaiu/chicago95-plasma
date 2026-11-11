@@ -1,0 +1,4 @@
+  11530   2.4%  luna Log on: whole
+      0   0.0%  luna Log on: top band
+    425   0.5%  luna Log on: bottom band
+    422   6.2%  luna Log on: fields

@@ -1,0 +1,17 @@
+    316   0.1%  luna Windows: Notepad (active; ours: a Qt window on the real desktop): whole
+     34   0.5%  luna Windows: Notepad (active; ours: a Qt window on the real desktop): title bar: icon and caption
+    270   9.9%  luna Windows: Notepad (active; ours: a Qt window on the real desktop): title bar: buttons
+     24  12.2%  luna Windows: Notepad (active; ours: a Qt window on the real desktop): top-left corner
+      0   0.0%  luna Windows: Notepad (active; ours: a Qt window on the real desktop): left edge
+     97  18.3%  luna Windows: Notepad (active; ours: a Qt window on the real desktop): close button
+     46   8.7%  luna Windows: Notepad (active; ours: a Qt window on the real desktop): maximize button
+     43   8.1%  luna Windows: Notepad (active; ours: a Qt window on the real desktop): minimize button
+     63  32.1%  luna Windows: Notepad (active; ours: a Qt window on the real desktop): top-right corner
+      8   4.1%  luna Windows: Notepad (active; ours: a Qt window on the real desktop): bottom-left corner
+      4   2.0%  luna Windows: Notepad (active; ours: a Qt window on the real desktop): bottom-right corner
+      0   0.0%  luna Windows: Notepad (active; ours: a Qt window on the real desktop): bottom edge
+    169   0.8%  luna Windows: Help and Support Center (inactive; ours: our decoration): whole visible part
+      7   0.1%  luna Windows: Help and Support Center (inactive; ours: our decoration): title bar: icon and caption
+     12   0.4%  luna Windows: Help and Support Center (inactive; ours: our decoration): title bar: buttons
+      4   2.0%  luna Windows: Help and Support Center (inactive; ours: our decoration): top-left corner
+      0   0.0%  luna Windows: Help and Support Center (inactive; ours: our decoration): left edge

@@ -14,6 +14,7 @@ import sys
 
 sys.path[:0] = [
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "luna", "lib"),
     os.path.expanduser("~/.local/lib/chicago95"),
 ]
 import subprocess
@@ -23,6 +24,17 @@ import chicago95ui  # noqa: E401,E702
 
 DECORATION = Path.home() / ".local/share/aurorae/themes/Chicago95"
 PLASMA_STYLE = Path.home() / ".local/share/plasma/desktoptheme/Chicago95"
+LUNA_GENERATORS = Path.home() / ".local/share/chicago95/luna-generators/luna"
+LUNA_DECORATION = Path.home() / ".local/share/aurorae/themes/Chicago95Luna"
+LUNA_PLASMA_STYLE = Path.home() / ".local/share/plasma/desktoptheme/Chicago95Luna"
+DECORATION_THEMES = {
+    "classic": (DECORATION / "make_chicago95_aurorae.py", DECORATION),
+    "luna": (LUNA_GENERATORS / "aurorae/make_luna_aurorae.py", LUNA_DECORATION),
+}
+PLASMA_STYLE_THEMES = {
+    "classic": (DECORATION / "make_chicago95_plasmastyle.py", PLASMA_STYLE),
+    "luna": (LUNA_GENERATORS / "plasma-style/make_luna_plasmastyle.py", LUNA_PLASMA_STYLE),
+}
 STAMP = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "chicago95-title-colors"
 
 
@@ -65,32 +77,40 @@ def decoration_arguments(scheme, bevel):
     ]
 
 
+def decoration_command(style, arguments):
+    generator, out = DECORATION_THEMES[style]
+    options = arguments if style == "classic" else []
+    return [sys.executable, str(generator), "--out", str(out), *options]
+
+
+def plasma_style_command(style, scheme, bevel):
+    generator, out = PLASMA_STYLE_THEMES[style]
+    if style == "luna":
+        return [sys.executable, str(generator), "--out", str(out), "--base", str(PLASMA_STYLE)]
+    return [
+        sys.executable,
+        str(generator),
+        "--out",
+        str(out),
+        *bevel_arguments(scheme, bevel),
+        "--selection",
+        scheme["selection"].name(),
+    ]
+
+
 def main():
-    scheme, bevel = chicago95ui.read_scheme(), chicago95ui.look_settings()["bevel"]
+    settings = chicago95ui.look_settings()
+    scheme, bevel = chicago95ui.read_scheme(), settings["bevel"]
+    decoration, plasma_style = settings["decoration"], settings["taskbarStyle"]
     arguments = decoration_arguments(scheme, bevel)
-    stamp = " ".join(arguments)
+    styles = [] if (decoration, plasma_style) == ("classic", "classic") else [decoration, plasma_style]
+    stamp = " ".join([*styles, *arguments])
     # kdeglobals is rewritten for any setting; only a title colour change is worth a redraw.
     if "--force" not in sys.argv and STAMP.exists() and STAMP.read_text() == stamp:
         return 0
-    subprocess.run(
-        [sys.executable, str(DECORATION / "make_chicago95_aurorae.py"), "--out", str(DECORATION), *arguments],
-        check=True,
-        stdout=subprocess.DEVNULL,
-    )
-    if PLASMA_STYLE.exists():
-        subprocess.run(
-            [
-                sys.executable,
-                str(DECORATION / "make_chicago95_plasmastyle.py"),
-                "--out",
-                str(PLASMA_STYLE),
-                *bevel_arguments(scheme, bevel),
-                "--selection",
-                scheme["selection"].name(),
-            ],
-            check=True,
-            stdout=subprocess.DEVNULL,
-        )
+    subprocess.run(decoration_command(decoration, arguments), check=True, stdout=subprocess.DEVNULL)
+    if PLASMA_STYLE_THEMES[plasma_style][1].exists():
+        subprocess.run(plasma_style_command(plasma_style, scheme, bevel), check=True, stdout=subprocess.DEVNULL)
     subprocess.run(
         [
             "gdbus",

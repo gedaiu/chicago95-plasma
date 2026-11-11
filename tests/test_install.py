@@ -1201,3 +1201,334 @@ def test_screensaver_with_a_new_menu_style_sheet_clears_plasma_caches(tmp_path):
     (tmp_path / ".local/share/chicago95/plasmashell-menus.qss").write_text("QMenu {}\n")
 
     assert "qmlcache" in dry_run_log(tmp_path, "--components=screensaver")
+
+
+def dry_run_log(tmp_path, *arguments):
+    subprocess.run(
+        [str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", "--components=look,taskbar,fonts", *arguments],
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        timeout=120,
+        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        check=False,
+    )
+    return next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+
+
+def test_look_luna_installs_the_luna_themes_and_selects_them(tmp_path):
+    log = dry_run_log(tmp_path, "--look=luna")
+    home = str(tmp_path)
+
+    assert (
+        f"cp -r {REPO}/luna/aurorae/theme {home}/.local/share/aurorae/themes/Chicago95Luna" in log,
+        f"cp -r {REPO}/luna/plasma-style/theme {home}/.local/share/plasma/desktoptheme/Chicago95Luna" in log,
+        "kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme __aurorae__svg__Chicago95Luna" in log,
+        "plasma-apply-desktoptheme Chicago95Luna" in log,
+        "plasma-apply-colorscheme Chicago95Luna" in log,
+        " panel=30 " in log,
+        f"cp {REPO}/luna/fontconfig/61-chicago95-luna-fonts.conf {home}/.config/fontconfig/conf.d/61-chicago95-luna-fonts.conf"
+        in log,
+        "--key activeFont Trebuchet MS,10,-1,5,75,0,0,0,0,0" in log,
+    ) == (True,) * 8
+
+
+def test_look_luna_writes_the_component_keys_to_chicago95rc(tmp_path):
+    log = dry_run_log(tmp_path, "--look=luna")
+
+    assert [
+        line.split("--file chicago95rc ", 1)[1]
+        for line in log.splitlines()
+        if "would: kwriteconfig6 --file chicago95rc" in line
+    ] == [
+        "--group Look --key decoration luna",
+        "--group Look --key widgetStyle luna",
+        "--group Look --key bevel 2000",
+        "--group Look --key taskbarStyle luna",
+        "--group StartMenu --key style luna",
+    ]
+
+
+def test_look_1995_with_taskbar_style_luna_selects_the_luna_plasma_theme_and_the_flat_decoration(tmp_path):
+    log = dry_run_log(tmp_path, "--look=1995", "--taskbar-style=luna")
+
+    assert (
+        "plasma-apply-desktoptheme Chicago95Luna" in log,
+        "--key theme __aurorae__svg__Chicago95\n" in log,
+        "plasma-apply-colorscheme Chicago95\n" in log,
+        " panel=30 " in log,
+    ) == (True, True, True, True)
+
+
+def test_look_1995_installs_only_the_flat_themes(tmp_path):
+    log = dry_run_log(tmp_path, "--look=1995")
+
+    assert (
+        "--key theme __aurorae__svg__Chicago95\n" in log,
+        "plasma-apply-desktoptheme Chicago95\n" in log,
+        "Chicago95Luna" in log,
+        "61-chicago95-luna-fonts.conf" in log,
+        " panel=28 " in log,
+    ) == (True, True, False, False, True)
+
+
+def test_decoration_flag_overrides_the_preset_decoration(tmp_path):
+    log = dry_run_log(tmp_path, "--look=2000", "--decoration=luna")
+
+    assert (
+        "--key theme __aurorae__svg__Chicago95Luna" in log,
+        "plasma-apply-desktoptheme Chicago95\n" in log,
+        "--file chicago95rc --group Look --key decoration luna" in log,
+    ) == (True, True, True)
+
+
+def component_dry_run_log(tmp_path, *flags):
+    subprocess.run(
+        [str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", *flags],
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        timeout=120,
+        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        check=False,
+    )
+    return next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+
+
+def test_dry_run_of_the_luna_look_copies_the_luna_trees_into_the_login_theme(tmp_path):
+    log = component_dry_run_log(tmp_path, "--look=luna", "--components=sddm")
+
+    assert [
+        f"would: sudo cp -r {REPO}/luna/{tree} /usr/share/sddm/themes/Chicago95Plasma/luna/{tree}" in log
+        for tree in ("qml", "sddm", "images")
+    ] == [True, True, True]
+
+
+def test_dry_run_of_the_luna_look_copies_the_luna_trees_into_the_loading_screen(tmp_path):
+    log = component_dry_run_log(tmp_path, "--look=luna", "--components=splash")
+    splash = f"{tmp_path}/.local/share/plasma/look-and-feel/chicago95.splashscreen/contents/splash/luna"
+
+    assert [f"would: cp -r {REPO}/luna/{tree} {splash}/{tree}" in log for tree in ("qml", "splash", "images")] == [
+        True,
+        True,
+        True,
+    ]
+
+
+def test_dry_run_of_the_luna_look_installs_the_xp_boot_theme(tmp_path):
+    log = component_dry_run_log(tmp_path, "--look=luna", "--components=plymouth")
+
+    assert f"would: sudo cp -r {REPO}/luna/plymouth/Chicago95-XP /usr/share/plymouth/themes/Chicago95-XP" in log
+
+
+def test_dry_run_of_the_luna_look_installs_the_dialog_flag_pictures_with_the_tools(tmp_path):
+    log = component_dry_run_log(tmp_path, "--look=luna", "--components=controlpanel")
+
+    assert f"would: cp -r {REPO}/luna/lib/images {tmp_path}/.local/lib/chicago95/images" in log
+
+
+def test_dry_run_of_the_2001_look_uses_the_xp_flag_and_the_xp_professional_banner(tmp_path):
+    log = component_dry_run_log(tmp_path, "--look=2001", "--components=startmenu")
+
+    assert [
+        f"-> {tmp_path}/.local/share/chicago95/start-logo.png" in log and "logo-xp-16.png" in log,
+        "Start menu banner: Windows XP Professional" in log,
+    ] == [True, True]
+
+
+def widget_look_log(tmp_path, *arguments, qt_style_dirs=None, prepare=None):
+    if prepare:
+        prepare(tmp_path)
+    environment = {"PATH": f"{tmp_path}/stubs:/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)}
+    if qt_style_dirs:
+        environment["SETUP_QT_STYLE_DIRS"] = str(qt_style_dirs)
+    subprocess.run(
+        [str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", "--components=look,fonts", *arguments],
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        timeout=120,
+        env=environment,
+        check=False,
+    )
+    return next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+
+
+def kvantum_plugin_folder(tmp_path):
+    folder = tmp_path / "qt6-styles"
+    folder.mkdir()
+    (folder / "libkvantum.so").write_text("")
+    return folder
+
+
+def test_look_luna_with_kvantum_installs_the_kvantum_theme_and_selects_it(tmp_path):
+    log = widget_look_log(tmp_path, "--look=luna", qt_style_dirs=kvantum_plugin_folder(tmp_path))
+    home = str(tmp_path)
+
+    assert (
+        f"would: cp -r {REPO}/luna/kvantum/Chicago95Luna {home}/.config/Kvantum/Chicago95Luna" in log,
+        f"would: kwriteconfig6 --file {home}/.config/Kvantum/kvantum.kvconfig --group General --key theme Chicago95Luna"
+        in log,
+        "would: kwriteconfig6 --file kdeglobals --group KDE --key widgetStyle kvantum\n" in log,
+        "widgetStyle Fusion" in log,
+    ) == (True, True, True, False)
+
+
+def test_look_luna_without_kvantum_falls_back_to_fusion_and_logs_a_note(tmp_path):
+    log = widget_look_log(tmp_path, "--look=luna", qt_style_dirs=tmp_path / "no-styles")
+
+    assert (
+        "would: kwriteconfig6 --file kdeglobals --group KDE --key widgetStyle Fusion\n" in log,
+        "note: Kvantum is not installed, so the Windows XP widgets use the Fusion style" in log,
+        "Kvantum/Chicago95Luna" in log,
+        "widgetStyle kvantum" in log,
+    ) == (True, True, False, False)
+
+
+def test_look_luna_installs_the_gtk_theme_and_selects_it_for_gtk_three_four_and_x11(tmp_path):
+    log = widget_look_log(tmp_path, "--look=luna", qt_style_dirs=tmp_path / "no-styles")
+
+    assert (
+        f"would: cp -r {REPO}/luna/gtk/Chicago95Luna {tmp_path}/.themes/Chicago95Luna" in log,
+        f"--file {tmp_path}/.config/gtk-3.0/settings.ini --group Settings --key gtk-theme-name Chicago95Luna" in log,
+        f"--file {tmp_path}/.config/gtk-4.0/settings.ini --group Settings --key gtk-theme-name Chicago95Luna" in log,
+        f'Net/ThemeName "Chicago95Luna"| {tmp_path}/.config/xsettingsd/xsettingsd.conf' in log,
+    ) == (True,) * 4
+
+
+@pytest.mark.parametrize("version", ["3.0", "4.0"])
+def test_the_look_turns_gtk_overlay_scrolling_off_so_scroll_bars_stay_on_screen(tmp_path, version):
+    log = widget_look_log(tmp_path, "--look=luna", qt_style_dirs=tmp_path / "no-styles")
+
+    settings = f"{tmp_path}/.config/gtk-{version}/settings.ini"
+
+    assert kwriteconfig(settings, "Settings", "gtk-overlay-scrolling", "false") in log
+
+
+def test_look_luna_imports_its_gtk_four_sheet_for_libadwaita_programs(tmp_path):
+    log = widget_look_log(tmp_path, "--look=luna", qt_style_dirs=tmp_path / "no-styles")
+
+    assert (
+        f"would: import {tmp_path}/.themes/Chicago95Luna/gtk-4.0/gtk.css into {tmp_path}/.config/gtk-4.0/gtk.css" in log
+    )
+
+
+GTK4_IMPORT_MARKERS = (
+    "/* >>> Chicago95 GTK4 BEGIN - managed by the Chicago95 installer, do not edit */",
+    "/* <<< Chicago95 GTK4 END */",
+)
+
+
+def test_the_look_replaces_the_base_installers_gtk_four_import_with_its_own_theme(tmp_path):
+    """libadwaita programs (GNOME Files among them) ignore gtk-theme-name: the user's gtk.css is all they read."""
+    begin, end = GTK4_IMPORT_MARKERS
+    css = tmp_path / ".config/gtk-4.0/gtk.css"
+    css.parent.mkdir(parents=True)
+    classic = "file:///x/.themes/Chicago95/gtk-4.0/gtk.css"
+    css.write_text(f'@import "colors.css";\n{begin}\n@import url("{classic}");\n{end}\nmine {{}}\n')
+
+    run_setup(tmp_path, "--components=look", "--look=luna")
+    written = css.read_text()
+
+    sheet = f"{tmp_path}/.themes/Chicago95Luna/gtk-4.0/gtk.css"
+
+    assert (
+        written.startswith(f'@import "colors.css";\n{begin}\n@import url("file://{sheet}");\n{end}\nmine {{}}\n'),
+        written.count(begin),
+        "Chicago95/gtk-4.0" in written,
+    ) == (True, 1, False)
+
+
+def test_the_look_writes_the_gtk_four_import_into_a_css_the_base_installer_never_touched(tmp_path):
+    begin, end = GTK4_IMPORT_MARKERS
+    run_setup(tmp_path, "--components=look", "--look=luna")
+    sheet = f"{tmp_path}/.themes/Chicago95Luna/gtk-4.0/gtk.css"
+
+    assert (
+        (tmp_path / ".config/gtk-4.0/gtk.css")
+        .read_text()
+        .startswith(f'{begin}\n@import url("file://{sheet}");\n{end}\n')
+    )
+
+
+def test_look_luna_switches_gtk_font_to_tahoma_and_drops_the_pixel_font_rule(tmp_path):
+    log = widget_look_log(tmp_path, "--look=luna", qt_style_dirs=tmp_path / "no-styles")
+
+    assert (
+        f'Gtk/FontName "Tahoma 8"| {tmp_path}/.config/xsettingsd/xsettingsd.conf' in log,
+        f"would: rm -f {tmp_path}/.config/fontconfig/conf.d/60-chicago95-pixel-font.conf" in log,
+        "--key font Tahoma,8,-1,5,50,0,0,0,0,0" in log,
+    ) == (True,) * 3
+
+
+def test_look_luna_with_font_scope_desktop_leaves_the_gtk_font_and_pixel_rule_alone(tmp_path):
+    log = widget_look_log(tmp_path, "--look=luna", "--font-scope=desktop", qt_style_dirs=tmp_path / "no-styles")
+
+    assert ("Gtk/FontName" in log, "60-chicago95-pixel-font.conf" in log) == (False, False)
+
+
+def test_look_1995_writes_no_luna_widget_lines(tmp_path):
+    log = widget_look_log(tmp_path, "--look=1995", qt_style_dirs=tmp_path / "no-styles")
+
+    assert (
+        "would: kwriteconfig6 --file kdeglobals --group KDE --key widgetStyle Windows\n" in log,
+        "Kvantum" in log,
+        "Fusion" in log,
+        ".themes/Chicago95Luna" in log,
+        "Tahoma" in log,
+        "xsettingsd" in log,
+    ) == (True, False, False, False, False, False)
+
+
+def test_look_1995_after_luna_restores_the_classic_gtk_theme_font_and_pixel_rule(tmp_path):
+    def luna_was_installed(home):
+        (home / ".themes/Chicago95Luna").mkdir(parents=True)
+        (home / ".themes/Chicago95").mkdir()
+        (home / "stubs").mkdir()
+        (home / "stubs/fc-list").write_text("#!/bin/sh\necho 'MS W98 UI'\n")
+        (home / "stubs/fc-list").chmod(0o755)
+
+    log = widget_look_log(tmp_path, "--look=1995", prepare=luna_was_installed)
+
+    assert (
+        f"--file {tmp_path}/.config/gtk-3.0/settings.ini --group Settings --key gtk-theme-name Chicago95\n" in log,
+        'Net/ThemeName "Chicago95"| ' in log,
+        'Gtk/FontName "MS W98 UI,  9"| ' in log,
+        f"would: cp {REPO}/config/fontconfig/60-chicago95-pixel-font.conf {tmp_path}/.config/fontconfig/conf.d/60-chicago95-pixel-font.conf"
+        in log,
+    ) == (True,) * 4
+
+
+def test_luna_decoration_writes_the_vertical_title_gradient_into_the_gtk_css(tmp_path):
+    lines = run_bash_with_steps(
+        tmp_path,
+        'SETUP_DECORATION=luna; write_gtk_titlebar_css "#000080" "#808080" "#C0C0C0"; cat ~/.config/gtk-3.0/gtk.css',
+    )
+    css = "\n".join(lines)
+
+    assert (
+        "linear-gradient(to bottom, #0058EE 0%" in css,
+        "border-radius: 6px 6px 0 0;" in css,
+        "Trebuchet MS" in css,
+        "to right" in css,
+    ) == (True, True, True, False)
+
+
+def test_classic_decoration_keeps_the_horizontal_title_gradient_in_the_gtk_css(tmp_path):
+    lines = run_bash_with_steps(
+        tmp_path,
+        'SETUP_DECORATION=classic; write_gtk_titlebar_css "#000080,#1084D0" "#808080" "#C0C0C0"; cat ~/.config/gtk-3.0/gtk.css',
+    )
+
+    assert "linear-gradient(to right, #000080, #1084D0)" in "\n".join(lines) and "to bottom" not in "\n".join(lines)
+
+
+def test_xsettingsd_luna_variant_differs_from_the_classic_file_only_in_theme_and_font():
+    classic = (REPO / "config/xsettingsd/xsettingsd.conf").read_text().splitlines()
+    luna = (REPO / "config/xsettingsd/xsettingsd-luna.conf").read_text().splitlines()
+    changed = [(before, after) for before, after in zip(classic, luna) if before != after]
+
+    assert changed == [
+        ('Net/ThemeName "Chicago95"', 'Net/ThemeName "Chicago95Luna"'),
+        ('Gtk/FontName "MS W98 UI,  9"', 'Gtk/FontName "Tahoma 8"'),
+    ]

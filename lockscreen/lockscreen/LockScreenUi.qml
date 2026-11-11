@@ -25,6 +25,8 @@ import org.kde.ki18n
 import org.kde.plasma.private.sessions
 import org.kde.breeze.components
 
+import "settings.js" as Settings
+
 Item {
     id: lockScreenUi
 
@@ -49,6 +51,7 @@ Item {
     }
 
     property string pendingPassword
+    readonly property bool luna: Settings.look === "luna"
 
     Kirigami.Theme.inherit: false
     Kirigami.Theme.colorSet: Kirigami.Theme.Window
@@ -242,10 +245,29 @@ Item {
         Rectangle {
             anchors.fill: parent
             color: "#008080"
+            visible: !lockScreenUi.luna
+        }
+
+        Loader {
+            id: lunaLoader
+            anchors.fill: parent
+            active: lockScreenUi.luna
+            source: "luna/lockscreen/LunaLockScreen.qml"
+            onLoaded: {
+                item.authenticator = authenticator;
+                item.userName = Qt.binding(() => users.count > 0 ? users.get(0).realName : "");
+                item.userPicture = Qt.binding(() => users.count > 0 ? users.get(0).icon : "");
+            }
+        }
+        Connections {
+            target: lunaLoader.item
+            function onPasswordEntered(password) { mainBlock.passwordResult(password); }
+            function onSuspendRequested() { sessionManagement.suspend(); }
         }
 
         Rectangle {
             id: retroDialog
+            visible: !lockScreenUi.luna
             width: Math.min(parent.width - 40, 520)
             height: 350
             anchors.centerIn: parent
@@ -417,7 +439,7 @@ Item {
             focus: true //StackView is an implicit focus scope, so we need to give this focus so the item inside will have it
 
             // this isn't implicit, otherwise items still get processed for the scenegraph
-            visible: opacity > 0
+            visible: opacity > 0 && !lockScreenUi.luna
 
             initialItem: MainBlock {
                 id: mainBlock

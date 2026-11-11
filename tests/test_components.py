@@ -32,13 +32,20 @@ def ui():
     return chicago95ui
 
 
+FLAT_MENU_STYLES = {"1995", "1998", "2000", "2001"}
+
+
+def flat_menu_styles(control_panel):
+    return {preset["START_MENU_STYLE"] for preset in control_panel.LOOK_PRESETS.values()} & FLAT_MENU_STYLES
+
+
 def applied_components(tmp_path, look):
     variables = " ".join(f'"${{SETUP_{key}}}"' for key in COMPONENT_KEYS)
     line = run_bash_with_steps(tmp_path, f"apply_look {look}; echo {variables}")[0]
     return dict(zip(COMPONENT_KEYS, line.split(), strict=True))
 
 
-@pytest.mark.parametrize("look", ["1995", "1998", "2000"])
+@pytest.mark.parametrize("look", ["1995", "1998", "2000", "2001", "luna"])
 def test_apply_look_sets_the_components_the_preset_lists_for_that_look(control_panel, tmp_path, look):
     preset = control_panel.LOOK_PRESETS[look]
 
@@ -52,7 +59,7 @@ def test_every_look_preset_lists_every_component(control_panel):
 
 
 def test_every_start_menu_style_has_a_banner_style_and_a_root_icon_set(control_panel, startmenu):
-    styles = {preset["START_MENU_STYLE"] for preset in control_panel.LOOK_PRESETS.values()}
+    styles = flat_menu_styles(control_panel)
 
     assert (styles - set(startmenu.STYLES), styles - set(startmenu.ROOT_ICON_SETS)) == (set(), set())
 
@@ -60,7 +67,7 @@ def test_every_start_menu_style_has_a_banner_style_and_a_root_icon_set(control_p
 def test_every_start_menu_style_has_a_system_properties_tab_set_and_shutdown_dialogs(
     control_panel, sysprops, shutdown
 ):
-    styles = {preset["START_MENU_STYLE"] for preset in control_panel.LOOK_PRESETS.values()}
+    styles = flat_menu_styles(control_panel)
 
     assert (
         styles - set(sysprops.TABS),
@@ -92,4 +99,26 @@ def test_look_settings_derives_the_bevel_from_the_start_menu_style_in_an_old_con
         "decoration": "classic",
         "widgetStyle": "classic",
         "bevel": bevel,
+    }
+
+
+def test_luna_theme_folders_exist_for_the_aurorae_decoration_and_the_plasma_style():
+    from conftest import REPO
+
+    assert (
+        (REPO / "luna/aurorae/theme/decoration.svg").is_file(),
+        (REPO / "luna/plasma-style/theme/metadata.json").is_file(),
+    ) == (True, True)
+
+
+def test_luna_preset_sets_every_component_to_luna_with_the_xp_title_colours(control_panel):
+    assert {
+        key: control_panel.LOOK_PRESETS["luna"][key]
+        for key in ("DECORATION", "WIDGET_STYLE", "TASKBAR_STYLE", "START_MENU_STYLE", "TITLE_ACTIVE")
+    } == {
+        "DECORATION": "luna",
+        "WIDGET_STYLE": "luna",
+        "TASKBAR_STYLE": "luna",
+        "START_MENU_STYLE": "luna",
+        "TITLE_ACTIVE": "#0054E3,#3F97FF",
     }

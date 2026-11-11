@@ -29,6 +29,15 @@ STYLES = {
         "bannerBackground=#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0\n",
         kdeglobals="[Colors:Window]\nBackgroundNormal=212,208,200\n\n[Colors:Selection]\nBackgroundNormal=10,36,106\n",
     ),
+    "2001": dict(
+        screenshot="xpclassic",
+        menu=(2, 233, 193, 576),
+        extra_top=(),
+        settings="[StartMenu]\nstyle=2001\nbannerText=Windows XP Professional\nbannerTextColor=#FFFFFF\n"
+        "bannerNumberColor=#FFFFFF\n"
+        "bannerBackground=#000000@225,#000080@195,#0000FF@125,#0000FF@60,#000080@0\n",
+        kdeglobals="[Colors:Window]\nBackgroundNormal=212,208,200\n\n[Colors:Selection]\nBackgroundNormal=10,36,106\n",
+    ),
 }
 BANNER = (3, 24)
 TEXT_COLUMNS = (70, 140)

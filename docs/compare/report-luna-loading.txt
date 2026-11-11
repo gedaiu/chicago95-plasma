@@ -1,0 +1,4 @@
+  16168   5.3%  luna Loading screen: whole
+  14488  18.0%  luna Loading screen: logo
+     56   1.0%  luna Loading screen: progress
+    936   7.5%  luna Loading screen: footer

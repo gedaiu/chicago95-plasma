@@ -15,6 +15,7 @@ from test_window_reference import (
     CAPTION_LEFT,
     COLUMN_TOLERANCE,
     ICON,
+    TITLE_COLUMN_WINDOWS,
     TOP,
     WINDOWS,
     title_columns,
@@ -25,12 +26,15 @@ pytestmark = [
     pytest.mark.skipif(bool(missing_programs()), reason=f"needs {', '.join(missing_programs())}"),
 ]
 
+ORIGINALS = {(window[0], window[2]) for window in WINDOWS.values()}  # (look, box): Luna's window has none here
 PLACED = [
     (look, title, toolkit, box)
     for look, content in CONTENT.items()
     for title, toolkit, box in content["windows"]
-    if box != "minimized"
+    if (look, box) in ORIGINALS
 ]
+TITLE_COLUMN_LOOKS = {WINDOWS[window_id][0] for window_id in TITLE_COLUMN_WINDOWS}
+TAHOMA_LOOKS = ("2000", "2001")
 IDS = [f"{look} {toolkit} {title}" for look, title, toolkit, _box in PLACED]
 
 
@@ -56,13 +60,17 @@ def test_frame_corners_and_buttons_match_the_original(desktops, look, title, too
     original, ours, original_active, active, covered = crops(desktops, look, title, box)
     w, h = original.size
     same_state = active == original_active
+    quantised = look not in TITLE_COLUMN_LOOKS  # a 16-colour screenshot: its title gradient is one grey
     title = (CAPTION_LEFT, BORDER, w - BUTTONS_WIDTH, TOP) if same_state else (BORDER, BORDER, w - BORDER, TOP)
+    if quantised:
+        title = (BORDER, BORDER, w - BORDER, TOP)
     masks = [(BORDER, TOP, w - BORDER, h - BORDER), ICON, title]
-    if covered:
-        masks.append((covered[0] - box[0], covered[1] - box[1], covered[2] - box[0] + 1, covered[3] - box[1] + 1))
+    masks += [
+        (window[0] - box[0], window[1] - box[1], window[2] - box[0] + 1, window[3] - box[1] + 1) for window in covered
+    ]
     count = differing_pixels(original, ours, masks, tmp_path / "window-diff.png", threshold=0.12)
     assert count == 0, f"{count} pixels differ; see {tmp_path}"
-    if not same_state:  # the buttons' faces are the same in either state
+    if not same_state or quantised:  # the buttons' faces are the same in either state, and on any title colour
         faces = [(w - 6 - 16 - offset, BORDER + 2) for offset in (0, 18, 34)]  # close, maximize, minimize
         differing = [
             (x + dx, y + dy)
@@ -77,6 +85,8 @@ def test_frame_corners_and_buttons_match_the_original(desktops, look, title, too
 @pytest.mark.parametrize("look, title, toolkit, box", PLACED, ids=IDS)
 def test_title_colours_match_the_original_column_by_column(desktops, look, title, toolkit, box):
     original, ours, original_active, active, _covered = crops(desktops, look, title, box)
+    if look not in TITLE_COLUMN_LOOKS:
+        pytest.skip("the screenshot is 16-colour: its title gradient is one grey; see test_window_reference.py")
     if active != original_active:
         pytest.skip("the original's window is in the other state; see the 1998 alert's title below")
     left, right = 160, original.width - BUTTONS_WIDTH  # right of the captions
@@ -100,11 +110,11 @@ def test_1998_active_title_shades_like_the_originals_alert(desktops):
 
 @pytest.mark.parametrize(
     "look, title, toolkit, box",
-    [window for window in PLACED if window[0] != "2000"],
-    ids=[id_ for id_, window in zip(IDS, PLACED, strict=False) if window[0] != "2000"],
+    [window for window in PLACED if window[0] not in TAHOMA_LOOKS],
+    ids=[id_ for id_, window in zip(IDS, PLACED, strict=False) if window[0] not in TAHOMA_LOOKS],
 )
 def test_caption_starts_and_sits_where_the_originals_does(desktops, look, title, toolkit, box):
-    """2000's captions are Tahoma; ours are the UI font, so only 1995's and 1998's are compared. The
+    """2000's and 2001's captions are Tahoma; ours are the UI font, so only 1995's and 1998's are compared. The
     originals' font leaves a blank column before most capitals but not before W; ours starts every glyph
     at its origin and the caption a pixel further in, so a caption starting with W starts a pixel right."""
     original, ours, original_active, active, _covered = crops(desktops, look, title, box)

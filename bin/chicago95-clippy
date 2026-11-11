@@ -6,6 +6,7 @@ import sys
 
 sys.path[:0] = [
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "luna", "lib"),
     os.path.expanduser("~/.local/lib/chicago95"),
 ]
 import argparse
@@ -358,6 +359,15 @@ class Balloon(QWidget):
         self.hide()
 
 
+def make_balloon(font, owner=None):
+    if chicago95ui.look_settings()["widgetStyle"] != "luna":
+        return Balloon(font, owner)
+    import chicago95lunaclippy
+    from chicago95luna import luna_font
+
+    return chicago95lunaclippy.LunaBalloon(luna_font(), owner)
+
+
 class ClippyWindow(QWidget):
     def __init__(self, animations: dict[str, Animation], sprites: SpriteSheet, sounds: SoundPlayer, font):
         super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
@@ -369,7 +379,7 @@ class ClippyWindow(QWidget):
         self.current_frame: Frame | None = None
         self.playback: Playback | None = None
         self.drag_offset: QPoint | None = None
-        self.balloon = Balloon(font, self)
+        self.balloon = make_balloon(font, self)
 
         self.frame_timer = QTimer(self)
         self.frame_timer.setSingleShot(True)
@@ -503,7 +513,7 @@ class ClippyWindow(QWidget):
 
 
 def render_screenshot(animations: dict[str, Animation], sprites: SpriteSheet, font, output_path: Path):
-    balloon = Balloon(font)
+    balloon = make_balloon(font)
     balloon.show_tip(TIPS[0], QPoint(0, 0))
     sprite_at = -balloon.pos()
     sprite_size = sprites.frame_size * SCALE

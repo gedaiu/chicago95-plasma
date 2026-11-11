@@ -1,0 +1,48 @@
+/* Chicago95 Windows XP: plasmashell paints its desktop/applet context menus as translucent QMenus
+   (ContainmentItem sets WA_TranslucentBackground), so the panel needs a fill. Loaded through the
+   plasma-plasmashell.service drop-in (-stylesheet) when the look's widget style is Luna.
+   @HOME@ is replaced by Setup with the home folder the arrows are installed in. */
+QMenu {
+    background-color: #FFFFFF;
+    color: #000000;
+    font: 11px "Tahoma", "Wine Tahoma", "DejaVu Sans Condensed", sans-serif;
+    border: 1px solid #ACA899;
+    padding: 2px 0px;
+    menu-scrollable: 0;
+    icon-size: 16px;
+}
+QMenu::item {
+    padding: 0px 22px 0px 10px;
+    height: 21px;
+    border: none;
+    background: transparent;
+}
+QMenu::icon {
+    left: 4px;
+}
+QMenu::indicator {
+    left: 7px;
+    width: 13px;
+    height: 13px;
+}
+QMenu::item:selected {
+    background-color: #316AC5;
+    color: #FFFFFF;
+}
+QMenu::item:disabled {
+    color: #ACA899;
+}
+QMenu::separator {
+    height: 2px;
+    margin: 2px 2px 2px 28px;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ACA899, stop:0.5 #ACA899, stop:0.51 #FFFFFF, stop:1 #FFFFFF);
+}
+QMenu::right-arrow {
+    image: url(@HOME@/.local/share/chicago95/images/menu-arrow.svg);
+    width: 4px;
+    height: 7px;
+    margin-right: 6px;
+}
+QMenu::right-arrow:selected {
+    image: url(@HOME@/.local/share/chicago95/images/menu-arrow-selected.svg);
+}

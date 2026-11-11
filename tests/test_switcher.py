@@ -57,7 +57,7 @@ def imports(tmp_path_factory):
     return folder
 
 
-def render(qt_app, imports, current_index, preview_size=0, look="1995", windows=3):
+def render(qt_app, imports, current_index, preview_size=0, look="1995", windows=3, ui=UI):
     view = QQuickView()
     view.engine().addImportPath(str(imports))
     model = QQmlComponent(view.engine())
@@ -68,7 +68,7 @@ def render(qt_app, imports, current_index, preview_size=0, look="1995", windows=
     model.setData((WINDOWS % elements).encode(), QUrl())
     windows = model.create()
     assert windows is not None, model.errorString()
-    view.setSource(QUrl.fromLocalFile(str(UI / "SwitcherBox.qml")))
+    view.setSource(QUrl.fromLocalFile(str(ui / "SwitcherBox.qml")))
     box = view.rootObject()
     assert box is not None, [error.toString() for error in view.errors()]
     box.setProperty("model", windows)

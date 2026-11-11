@@ -109,3 +109,12 @@ def test_a_window_without_a_taskbar_button_is_left_to_minimize_without_zooming(z
     choose(zoom, True)
 
     assert minimize_window(zoom, {"x": 0, "y": 0, "width": 0, "height": 0}) == []
+
+
+LUNA_TITLE_BAR = 29
+
+
+def test_minimizing_folds_the_window_into_the_decorations_own_title_bar_height(zoom):
+    keyframes = call(zoom, "minimizeKeyframes", FRAME, ICON, LUNA_TITLE_BAR)
+    folded = call(zoom, "segments", keyframes, FRAME, 260)[0]["to"]["size"]
+    assert folded == {"value1": 400, "value2": LUNA_TITLE_BAR}

@@ -2,7 +2,8 @@ pragma ComponentBehavior: Bound
 import QtQuick 2.15
 import "settings.js" as Settings
 
-// Plasma loading screen. "classic": a picture filling the screen. "2000": the 2000 start-up screen,
+// Plasma loading screen. "luna": the Windows XP start-up screen (luna/splash/LunaSplash.qml), loaded
+// in place of the two below. "classic": a picture filling the screen. "2000": the 2000 start-up screen,
 // laid out in the original's 640x480 pixels (measured by tests/test_loading_screen_reference.py) and scaled to the
 // screen height: logo and name on a near-white page, a three-tone blue strip, a grey bar with a
 // block progress bar that follows Plasma's start-up stages, and a footer line.
@@ -12,6 +13,7 @@ Rectangle {
     property int stage
 
     readonly property bool modern: Settings.style === "2000"
+    readonly property bool luna: Settings.style === "luna"
     readonly property real unit: height / 480
     readonly property real layoutX: (width - 640 * unit) / 2  // the 640-wide layout, centred ("left" is taken by Item)
     readonly property int stages: 6
@@ -23,10 +25,21 @@ Rectangle {
     color: "#f7f7f7"
 
     Image {
-        visible: !root.modern
+        visible: !root.modern && !root.luna
         anchors.fill: parent
         source: Settings.picture.startsWith("/") ? "file://" + Settings.picture : Settings.picture
         fillMode: Image.PreserveAspectCrop
+    }
+
+    Loader {
+        anchors.fill: parent
+        active: root.luna
+        source: "luna/splash/LunaSplash.qml"
+        onLoaded: {
+            item.edition = Settings.edition;
+            item.footer = Settings.footer;
+            item.stage = Qt.binding(() => root.stage);
+        }
     }
 
     Item {

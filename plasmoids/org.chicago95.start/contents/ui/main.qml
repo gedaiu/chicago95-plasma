@@ -28,7 +28,7 @@ PlasmoidItem {
     readonly property string controlPanelCommand: "systemd-run --user --quiet --collect @HOME@/.local/bin/chicago95-control-panel --page taskbar"
     readonly property string buttonText: Plasmoid.configuration.buttonText
     readonly property string logo: Plasmoid.configuration.logo
-    readonly property url logoSource: logo === "flag" ? Qt.resolvedUrl("../images/logo-flag-16.png") : logo === "penguin" ? Qt.resolvedUrl("../images/logo-penguin.svg") : logo !== "" ? "file://" + logo : ""
+    readonly property url logoSource: logo === "flag" ? Qt.resolvedUrl("../images/logo-flag-16.png") : logo === "xp" ? Qt.resolvedUrl("../images/logo-xp-16.png") : logo === "penguin" ? Qt.resolvedUrl("../images/logo-penguin.svg") : logo !== "" ? "file://" + logo : ""
 
     // Colours from the colour scheme (System Settings > Colors); the bevel follows the look (Setup
     // writes it): 2000's light line is the face itself and its shadows are #808080 and #404040.
@@ -37,10 +37,14 @@ PlasmoidItem {
 
     // Plasma's panel starts its first applet 3px in; the originals' Start button is 2px from the
     // screen's edge, so the button reaches a pixel left of the applet (tests/test_plasma_taskbar_reference.py).
-    readonly property int panelMarginOverlap: 1
-    Layout.minimumWidth: button.implicitWidth - panelMarginOverlap
-    Layout.preferredWidth: button.implicitWidth - panelMarginOverlap
-    Layout.maximumWidth: button.implicitWidth - panelMarginOverlap
+    readonly property bool isLuna: Plasmoid.configuration.taskbarStyle === "luna"
+    readonly property int panelMarginOverlap: isLuna ? 4 : 1
+    readonly property int buttonWidth: button.item ? button.item.implicitWidth : 0
+    readonly property int gapAfterButton: Plasmoid.configuration.look === "2001" ? 1 : 0
+    readonly property int appletWidth: buttonWidth - (isLuna ? 0 : panelMarginOverlap) + gapAfterButton
+    Layout.minimumWidth: appletWidth
+    Layout.preferredWidth: appletWidth
+    Layout.maximumWidth: appletWidth
     Layout.fillHeight: true
 
     // Programs start as their own transient systemd service: Setup restarts plasmashell, and as it stops
@@ -63,17 +67,48 @@ PlasmoidItem {
         }
     }
 
-    StartButton {
+    Loader {
         id: button
         x: -root.panelMarginOverlap
-        width: implicitWidth
+        width: root.buttonWidth
         height: parent.height
-        text: root.buttonText
-        logoSource: root.logoSource
-        held: clickArea.pressed && clickArea.containsMouse
-        bevel: Plasmoid.configuration.bevel
-        face: Kirigami.Theme.backgroundColor
-        textColor: Kirigami.Theme.textColor
+        source: Qt.resolvedUrl(root.isLuna ? "luna/StartButton.qml" : "StartButton.qml")
+    }
+    Binding {
+        target: button.item
+        property: "text"
+        value: root.buttonText
+    }
+    Binding {
+        target: button.item
+        property: "logoSource"
+        value: root.logoSource
+    }
+    Binding {
+        target: button.item
+        property: "held"
+        value: clickArea.pressed && clickArea.containsMouse
+    }
+    Binding {
+        target: button.item
+        property: "look"
+        when: !root.isLuna
+        value: Plasmoid.configuration.look
+    }
+    Binding {
+        target: button.item
+        property: "bevel"
+        value: Plasmoid.configuration.bevel
+    }
+    Binding {
+        target: button.item
+        property: "face"
+        value: Kirigami.Theme.backgroundColor
+    }
+    Binding {
+        target: button.item
+        property: "textColor"
+        value: Kirigami.Theme.textColor
     }
 
     MouseArea {

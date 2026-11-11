@@ -1,0 +1,35 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="112" height="37" viewBox="0 0 112 37">
+<defs><linearGradient id="north-active-tab-fill" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="25"><stop offset="0" stop-color="#1C62D2"/><stop offset=".04" stop-color="#1C62D2"/><stop offset=".04" stop-color="#123D94"/><stop offset=".08" stop-color="#123D94"/><stop offset=".08" stop-color="#14429D"/><stop offset=".14" stop-color="#1951B9"/><stop offset=".54" stop-color="#1A50B8"/><stop offset=".92" stop-color="#2156B7"/><stop offset=".92" stop-color="#2156B7"/><stop offset=".96" stop-color="#2156B7"/><stop offset=".96" stop-color="#0C3CAE"/><stop offset="1" stop-color="#0C3CAE"/></linearGradient><linearGradient id="north-active-tab-ring" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="16" y2="0"><stop offset="0" stop-color="#082A70"/><stop offset=".0625" stop-color="#082A70"/><stop offset=".0625" stop-color="#143E95"/><stop offset=".125" stop-color="#143E95"/><stop offset=".875" stop-color="#2156B7"/><stop offset=".9375" stop-color="#2156B7"/><stop offset=".9375" stop-color="#0E3B9F"/><stop offset="1" stop-color="#0E3B9F"/></linearGradient></defs>
+<g id="north-active-tab-left"><path d="M0,3 A3,3 0 0 1 3,0 L4,0 L4,25 L3,25 A3,3 0 0 1 0,22 Z" fill="url(#north-active-tab-fill)"/><path d="M0,3 A3,3 0 0 1 2,0.17157 L2,24.828 A3,3 0 0 1 0,22 Z" fill="url(#north-active-tab-ring)"/></g>
+<path id="north-active-tab-center" d="M4,0 L12,0 L12,25 L4,25 Z" fill="url(#north-active-tab-fill)"/>
+<g id="north-active-tab-right"><path d="M12,0 L13,0 A3,3 0 0 1 16,3 L16,22 A3,3 0 0 1 13,25 L12,25 Z" fill="url(#north-active-tab-fill)"/><path d="M14,0.17157 A3,3 0 0 1 16,3 L16,22 A3,3 0 0 1 14,24.828 Z" fill="url(#north-active-tab-ring)"/></g>
+<rect id="north-active-tab-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="north-active-tab-hint-top-margin" width="2" height="2" fill="none"/>
+<rect id="north-active-tab-hint-bottom-margin" width="2" height="2" fill="none"/>
+<rect id="north-active-tab-hint-left-margin" width="2" height="2" fill="none"/>
+<rect id="north-active-tab-hint-right-margin" width="2" height="2" fill="none"/>
+<use id="south-active-tab-left" xlink:href="#north-active-tab-left" x="32"/>
+<use id="south-active-tab-center" xlink:href="#north-active-tab-center" x="32"/>
+<use id="south-active-tab-right" xlink:href="#north-active-tab-right" x="32"/>
+<rect id="south-active-tab-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="south-active-tab-hint-top-margin" width="2" height="2" fill="none"/>
+<rect id="south-active-tab-hint-bottom-margin" width="2" height="2" fill="none"/>
+<rect id="south-active-tab-hint-left-margin" width="2" height="2" fill="none"/>
+<rect id="south-active-tab-hint-right-margin" width="2" height="2" fill="none"/>
+<use id="west-active-tab-left" xlink:href="#north-active-tab-left" x="64"/>
+<use id="west-active-tab-center" xlink:href="#north-active-tab-center" x="64"/>
+<use id="west-active-tab-right" xlink:href="#north-active-tab-right" x="64"/>
+<rect id="west-active-tab-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="west-active-tab-hint-top-margin" width="2" height="2" fill="none"/>
+<rect id="west-active-tab-hint-bottom-margin" width="2" height="2" fill="none"/>
+<rect id="west-active-tab-hint-left-margin" width="2" height="2" fill="none"/>
+<rect id="west-active-tab-hint-right-margin" width="2" height="2" fill="none"/>
+<use id="east-active-tab-left" xlink:href="#north-active-tab-left" x="96"/>
+<use id="east-active-tab-center" xlink:href="#north-active-tab-center" x="96"/>
+<use id="east-active-tab-right" xlink:href="#north-active-tab-right" x="96"/>
+<rect id="east-active-tab-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="east-active-tab-hint-top-margin" width="2" height="2" fill="none"/>
+<rect id="east-active-tab-hint-bottom-margin" width="2" height="2" fill="none"/>
+<rect id="east-active-tab-hint-left-margin" width="2" height="2" fill="none"/>
+<rect id="east-active-tab-hint-right-margin" width="2" height="2" fill="none"/>
+</svg>

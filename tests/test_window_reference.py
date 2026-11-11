@@ -15,15 +15,34 @@ from conftest import needs_ui_font
 from reference import close, differing_pixels, screenshot
 
 # id: (look, screenshot, frame box (left, top, right, bottom) inclusive, active, caption, the box of the
-# window covering part of it in the screenshot)
+# windows covering parts of it in the screenshot)
 WINDOWS = {
-    "1995 active": ("1995", "win95desktop3", (213, 207, 636, 444), True, "Windows", None),
-    "1995 inactive": ("1995", "win95desktop3", (130, 94, 581, 284), False, "My Folder", (213, 207, 636, 444)),
-    "1998 inactive": ("1998", "win98notepad", (6, 6, 410, 364), False, "Untitled - Notepad", (123, 189, 523, 307)),
-    "2000 active": ("2000", "w2kadmin", (280, 155, 627, 433), True, "Administrative Tools", None),
-    "2000 inactive": ("2000", "w2kadmin", (2, 2, 534, 392), False, "Computer Management", (280, 155, 627, 433)),
-    "2000 active, file browser": ("2000", "w2kfilebrowser", (85, 15, 636, 430), True, "My Computer", None),
+    "1995 active": ("1995", "win95desktop3", (213, 207, 636, 444), True, "Windows", ()),
+    "1995 inactive": ("1995", "win95desktop3", (130, 94, 581, 284), False, "My Folder", ((213, 207, 636, 444),)),
+    "1998 inactive": ("1998", "win98notepad", (6, 6, 410, 364), False, "Untitled - Notepad", ((123, 189, 523, 307),)),
+    "2000 active": ("2000", "w2kadmin", (280, 155, 627, 433), True, "Administrative Tools", ()),
+    "2000 inactive": ("2000", "w2kadmin", (2, 2, 534, 392), False, "Computer Management", ((280, 155, 627, 433),)),
+    "2000 active, file browser": ("2000", "w2kfilebrowser", (85, 15, 636, 430), True, "My Computer", ()),
+    "2001 inactive": ("2001", "xpclassic", (349, 235, 708, 552), False, "Program Files", ()),
+    "2001 inactive, covered by a window": (
+        "2001",
+        "xpclassic",
+        (259, 142, 595, 429),
+        False,
+        "Local Disk (C:)",
+        ((349, 235, 708, 552),),
+    ),
+    "2001 inactive, covered by windows and the Start menu": (
+        "2001",
+        "xpclassic",
+        (105, 30, 562, 269),
+        False,
+        "My Computer",
+        ((259, 142, 595, 429), (0, 233, 192, 572)),
+    ),
 }
+TITLE_COLUMN_WINDOWS = [window_id for window_id in WINDOWS if not window_id.startswith("2001")]
+SIXTEEN_COLOUR_SCREENSHOT_COLOURS = {"2001": {"inactive": "#808080"}}
 BORDER, TOP = 4, 22
 ICON = (6, 5, 22, 21)
 CAPTION_LEFT = 24
@@ -33,7 +52,12 @@ COLUMN_STEP, COLUMN_TOLERANCE = 12, 24
 
 @pytest.fixture(scope="module")
 def themes(qt_app, tmp_path_factory):
-    return {look: build_theme(tmp_path_factory.mktemp(f"aurorae-{look}"), look) for look in ("1995", "1998", "2000")}
+    return {
+        look: build_theme(
+            tmp_path_factory.mktemp(f"aurorae-{look}"), look, **SIXTEEN_COLOUR_SCREENSHOT_COLOURS.get(look, {})
+        )
+        for look in ("1995", "1998", "2000", "2001")
+    }
 
 
 def original_and_ours(themes, window_id):
@@ -62,14 +86,12 @@ def test_frame_corners_and_buttons_match_the_original(themes, window_id, tmp_pat
         (CAPTION_LEFT, BORDER, w - BUTTONS_WIDTH, TOP),
     ]  # caption and the title behind it (compared by column)
     left, top, _right, _bottom = WINDOWS[window_id][2]
-    covered = WINDOWS[window_id][5]
-    if covered:
-        masks.append((covered[0] - left, covered[1] - top, covered[2] - left + 1, covered[3] - top + 1))
+    masks += [(box[0] - left, box[1] - top, box[2] - left + 1, box[3] - top + 1) for box in WINDOWS[window_id][5]]
     count = differing_pixels(original, ours, masks, tmp_path / "window-diff.png", threshold=0.12)
     assert count == 0, f"{count} pixels differ; see {tmp_path}"
 
 
-@pytest.mark.parametrize("window_id", WINDOWS)
+@pytest.mark.parametrize("window_id", TITLE_COLUMN_WINDOWS)
 def test_title_colours_match_the_original_column_by_column(themes, window_id):
     original, ours = original_and_ours(themes, window_id)
     # Right of the caption, left of the buttons: plain title.

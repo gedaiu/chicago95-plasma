@@ -1,0 +1,13 @@
+   1107   9.9%  2001 Taskbar (real desktop; icons are the test's squares): left half
+    200   1.8%  2001 Taskbar (real desktop; icons are the test's squares): right half
+    303  20.8%  2001 Taskbar (real desktop; icons are the test's squares): Start button
+    465  10.8%  2001 Taskbar (real desktop; icons are the test's squares): task button 1
+    191  12.7%  2001 Taskbar (real desktop; icons are the test's squares): task button 1: icon and label
+    126   2.9%  2001 Taskbar (real desktop; icons are the test's squares): task button 2
+      0   0.0%  2001 Taskbar (real desktop; icons are the test's squares): task button 2: icon and label
+    200   4.6%  2001 Taskbar (real desktop; icons are the test's squares): task button 3
+     90   6.0%  2001 Taskbar (real desktop; icons are the test's squares): task button 3: icon and label
+      0   0.0%  2001 Taskbar (real desktop; icons are the test's squares): gap between task buttons 1 and 2
+      0   0.0%  2001 Taskbar (real desktop; icons are the test's squares): gap between task buttons 2 and 3
+      0   0.0%  2001 Taskbar (real desktop; icons are the test's squares): tray box
+      0   0.0%  2001 Taskbar (real desktop; icons are the test's squares): clock

@@ -60,6 +60,12 @@ LOOKS = {
         buttons_top=428,
     ),
 }
+# 2001 (XP Classic) has no original of its own: it is compared against 2000's, tab strip aside.
+LOOKS["2001"] = {
+    **LOOKS["2000"],
+    "tabs": ["General", "Computer Name", "Hardware", "Advanced", "System Restore", "Automatic Updates", "Remote"],
+}
+STRIP_LOOKS = [look for look in LOOKS if look != "2001"]
 FRAME, TITLE = 3, 18
 SELECTED_TAB_TOP, TAB_TOP, PAGE_TOP = 29, 31, 49  # white rows: the selected tab, the others, the page frame
 PAGE_LEFT, PAGE_RIGHT = 9, 400  # the page frame's white left column, black right column
@@ -69,9 +75,10 @@ TOLERANCE = {
     "1995": 12,
     "1998": 70,
     "2000": 70,
+    "2001": 70,
 }  # 1998: JPEG ringing beside its white lines; 2000: the original's classic greys against the look's #404040 lines
 WATERMARK = {"1998": (355, 440, 410, 448)}  # the site's copyright, printed over the 1998 screenshot's corner
-SLACK = {"1995": 1, "1998": 2, "2000": 1}  # JPEG noise moves an edge or a glyph's first column
+SLACK = {"1995": 1, "1998": 2, "2000": 1, "2001": 1}  # JPEG noise moves an edge or a glyph's first column
 
 
 def is_dark(colour):
@@ -285,7 +292,7 @@ def test_frame_title_buttons_match_the_original(ours, look):
     assert differing == [], differing[:12]
 
 
-@pytest.mark.parametrize("look", LOOKS)
+@pytest.mark.parametrize("look", STRIP_LOOKS)
 def test_tab_strip_has_the_originals_tabs_with_the_selected_one_standing_out(ours, look):
     """Each tab: a white left edge and a black right edge (a shadow inside it); the selected first tab 2px
     taller and 2px wider each side, covering its neighbour's left edge; the page frame's white top line
@@ -317,7 +324,7 @@ def test_tab_strip_has_the_originals_tabs_with_the_selected_one_standing_out(our
     assert near(top_line(mine, PAGE_TOP), [(selected[1] + 1, PAGE_RIGHT - 1)])
 
 
-@pytest.mark.parametrize("look", LOOKS)
+@pytest.mark.parametrize("look", STRIP_LOOKS)
 def test_tab_captions_are_the_originals_words_where_the_original_puts_them(ours, look):
     """The caption's ink inside each tab, within a column or two (the selected one's rises with its tab;
     its focus rectangle is left out)."""
@@ -422,6 +429,17 @@ def test_buttons_are_75_by_23_where_the_original_puts_them(ours, look):
         for caption, left in settings["buttons"].items()
     }
     assert tops == {caption: ("dark" if caption == "OK" else "white", False) for caption in settings["buttons"]}
+
+
+def test_2001_tabs_are_the_xp_list(sysprops):
+    assert sysprops.TABS["2001"] == LOOKS["2001"]["tabs"]
+
+
+def test_2001_tab_strip_shows_the_tabs_that_fit_the_page_in_one_row(sysprops, facts, qt_app):
+    window = sysprops.build_window(facts, "2001")
+    boxes = window.tabs.boxes
+    window.close()
+    assert (len(boxes), boxes[-1][1] < PAGE_RIGHT) == (5, True)
 
 
 def test_2000_apply_button_is_disabled_and_the_others_carry_the_originals_captions(sysprops, facts, qt_app):

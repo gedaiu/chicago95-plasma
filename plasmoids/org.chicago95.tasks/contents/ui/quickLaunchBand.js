@@ -12,10 +12,15 @@ const METRICS = {
   gapWithoutQuickLaunch: 4,
   taskButtonGap: 3,
 };
+const LUNA_METRICS = Object.assign({}, METRICS, {
+  chevronWidth: 13,
+  separatorLead: 4,
+  separatorBody: 10,
+});
 const FIT = -1;
 
-function metrics() {
-  return METRICS;
+function metrics(taskbarStyle) {
+  return taskbarStyle === "luna" ? LUNA_METRICS : METRICS;
 }
 
 // The band's size when it fits every launcher, for QML: a library's constants are not visible there.
@@ -25,7 +30,7 @@ function fitAll() {
 
 // `size` is the band's width in pixels between its separators, or FIT for as wide as all its launchers.
 // eslint-disable-next-line max-params -- QML and its tests pass the taskbar's geometry positionally
-function layout(width, contentX, lead, count, size, dock) {
+function layout(width, contentX, lead, count, size, dock, metrics = METRICS) {
   if (count === 0) {
     return {
       leftSeparatorX: -1,
@@ -34,14 +39,14 @@ function layout(width, contentX, lead, count, size, dock) {
       firstShown: 0,
       chevronX: -1,
       rightSeparatorX: -1,
-      tasksX: contentX + METRICS.gapWithoutQuickLaunch,
+      tasksX: contentX + metrics.gapWithoutQuickLaunch,
       tasksEnd: width,
     };
   }
 
   const taskbar = { width: width, contentX: contentX, lead: lead, count: count, size: size };
 
-  return dock === "right" ? rightDockedLayout(taskbar) : leftDockedLayout(taskbar);
+  return dock === "right" ? rightDockedLayout(taskbar, metrics) : leftDockedLayout(taskbar, metrics);
 }
 
 function dockAfterDrag(gripX, width) {
@@ -50,19 +55,19 @@ function dockAfterDrag(gripX, width) {
 
 // The inner separator's band reaches it; the band never gets narrower than its chevron nor wider than half the taskbar.
 // eslint-disable-next-line max-params -- as layout()
-function sizeAfterDrag(gripX, width, contentX, lead, dock) {
+function sizeAfterDrag(gripX, width, contentX, lead, dock, metrics = METRICS) {
   const reached =
     dock === "right"
-      ? restingBandEnd(width) - gripX - separatorWidth(METRICS.separatorLead)
-      : gripX - METRICS.gapBeforeRightSeparator - contentX - separatorWidth(lead);
+      ? restingBandEnd(width, metrics) - gripX - separatorWidth(metrics.separatorLead, metrics)
+      : gripX - metrics.gapBeforeRightSeparator - contentX - separatorWidth(lead, metrics);
 
-  return Math.max(METRICS.chevronWidth, Math.min(Math.floor(width / 2), reached));
+  return Math.max(metrics.chevronWidth, Math.min(Math.floor(width / 2), reached));
 }
 
 // eslint-disable-next-line max-params -- as layout()
-function carriedShift(gripX, shape, dock, width, contentX) {
+function carriedShift(gripX, shape, dock, width, contentX, metrics = METRICS) {
   const leftmost = contentX - shape.leftSeparatorX;
-  const rightmost = width - shape.rightSeparatorX - separatorWidth(METRICS.separatorLead);
+  const rightmost = width - shape.rightSeparatorX - separatorWidth(metrics.separatorLead, metrics);
 
   return Math.max(leftmost, Math.min(rightmost, gripX - shape[outerSeparator(dock)]));
 }
@@ -72,8 +77,8 @@ function outerSeparator(dock) {
 }
 
 // The chevron sits at the band's far end from its dock, so docked right it holds the first launchers.
-function chevronLaunchers(count, size, dock) {
-  const chevronCount = count - shownCount(count, size);
+function chevronLaunchers(count, size, dock, metrics = METRICS) {
+  const chevronCount = count - shownCount(count, size, metrics);
   const first = dock === "right" ? 0 : count - chevronCount;
   const launchers = [];
 
@@ -82,63 +87,63 @@ function chevronLaunchers(count, size, dock) {
   return launchers;
 }
 
-function leftDockedLayout(taskbar) {
-  const shown = shownCount(taskbar.count, taskbar.size);
-  const bandX = taskbar.contentX + separatorWidth(taskbar.lead);
-  const bandEnd = bandX + bandWidth(taskbar.count, taskbar.size);
-  const rightSeparatorX = bandEnd + METRICS.gapBeforeRightSeparator;
+function leftDockedLayout(taskbar, metrics) {
+  const shown = shownCount(taskbar.count, taskbar.size, metrics);
+  const bandX = taskbar.contentX + separatorWidth(taskbar.lead, metrics);
+  const bandEnd = bandX + bandWidth(taskbar.count, taskbar.size, metrics);
+  const rightSeparatorX = bandEnd + metrics.gapBeforeRightSeparator;
 
   return {
     leftSeparatorX: taskbar.contentX,
     cellsX: bandX,
     shown: shown,
     firstShown: 0,
-    chevronX: shown < taskbar.count ? bandEnd - METRICS.chevronWidth : -1,
+    chevronX: shown < taskbar.count ? bandEnd - metrics.chevronWidth : -1,
     rightSeparatorX: rightSeparatorX,
-    tasksX: rightSeparatorX + separatorWidth(METRICS.separatorLead),
+    tasksX: rightSeparatorX + separatorWidth(metrics.separatorLead, metrics),
     tasksEnd: taskbar.width,
   };
 }
 
-function rightDockedLayout(taskbar) {
-  const shown = shownCount(taskbar.count, taskbar.size);
+function rightDockedLayout(taskbar, metrics) {
+  const shown = shownCount(taskbar.count, taskbar.size, metrics);
   const chevron = shown < taskbar.count;
-  const bandX = restingBandEnd(taskbar.width) - bandWidth(taskbar.count, taskbar.size);
-  const leftSeparatorX = bandX - separatorWidth(METRICS.separatorLead);
+  const bandX = restingBandEnd(taskbar.width, metrics) - bandWidth(taskbar.count, taskbar.size, metrics);
+  const leftSeparatorX = bandX - separatorWidth(metrics.separatorLead, metrics);
 
   return {
     leftSeparatorX: leftSeparatorX,
-    cellsX: bandX + (chevron ? METRICS.chevronWidth : 0),
+    cellsX: bandX + (chevron ? metrics.chevronWidth : 0),
     shown: shown,
     firstShown: taskbar.count - shown,
     chevronX: chevron ? bandX : -1,
-    rightSeparatorX: taskbar.width - separatorWidth(METRICS.separatorLead),
-    tasksX: taskbar.contentX + METRICS.gapWithoutQuickLaunch,
+    rightSeparatorX: taskbar.width - separatorWidth(metrics.separatorLead, metrics),
+    tasksX: taskbar.contentX + metrics.gapWithoutQuickLaunch,
     tasksEnd: leftSeparatorX,
   };
 }
 
-function restingBandEnd(width) {
-  return width - separatorWidth(METRICS.separatorLead) - METRICS.gapBeforeRightSeparator;
+function restingBandEnd(width, metrics) {
+  return width - separatorWidth(metrics.separatorLead, metrics) - metrics.gapBeforeRightSeparator;
 }
 
-function bandWidth(count, size) {
-  return knownSize(size) === FIT ? cellsWidth(count) : size;
+function bandWidth(count, size, metrics) {
+  return knownSize(size) === FIT ? cellsWidth(count, metrics) : size;
 }
 
 // All the launchers when the band holds them, else as many as fit beside the chevron.
-function shownCount(count, size) {
-  if (knownSize(size) === FIT || size >= cellsWidth(count)) return count;
+function shownCount(count, size, metrics = METRICS) {
+  if (knownSize(size) === FIT || size >= cellsWidth(count, metrics)) return count;
 
-  return Math.max(0, Math.floor((size - METRICS.chevronWidth) / METRICS.cellWidth));
+  return Math.max(0, Math.floor((size - metrics.chevronWidth) / metrics.cellWidth));
 }
 
-function separatorWidth(lead) {
-  return lead + METRICS.separatorBody;
+function separatorWidth(lead, metrics = METRICS) {
+  return lead + metrics.separatorBody;
 }
 
-function cellsWidth(count) {
-  return count * METRICS.cellWidth;
+function cellsWidth(count, metrics = METRICS) {
+  return count * metrics.cellWidth;
 }
 
 // Right after Setup, Plasma can hand over a setting it has not loaded yet: anything but a number fits every launcher.

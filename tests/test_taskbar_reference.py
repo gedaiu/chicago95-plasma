@@ -1,4 +1,4 @@
-"""Our taskbar's pieces against the originals' taskbars (win95desktop3.png, win98notepad.png, w2kadmin.png).
+"""Our taskbar's pieces against the originals' taskbars (win95desktop3, win98notepad, w2kadmin and xpclassic.png).
 
 Plasma lays the taskbar out at run time, so the pieces Chicago95 draws are compared one by one at the
 originals' sizes: the panel's top edge and face (plasma-style panel-background.svg), the Start button
@@ -19,16 +19,22 @@ from conftest import REPO, needs_ui_font
 from framesvg import render_frame
 from reference import bounding_box, close, differing_pixels, qimage_to_pil, screenshot
 
-TASKBARS = {"1995": "win95desktop3", "1998": "win98notepad", "2000": "w2kadmin"}
-TOP, HEIGHT = 452, 28
+TASKBARS = {"1995": "win95desktop3", "1998": "win98notepad", "2000": "w2kadmin", "2001": "xpclassic"}
+HEIGHT = 28
+BEVELS = {"1995": "1995", "1998": "1995", "2000": "2000", "2001": "2000"}
+HELD_START_BUTTON = {"2001"}
 # look: (Start button's left, right), [(task button left, right, pressed)], inclusive, from each screenshot.
 BUTTONS = {
     "1995": ((2, 55), [(60, 154, False), (158, 252, False), (256, 350, True), (354, 448, False)]),
     "1998": ((2, 55), [(176, 335, False), (339, 498, True)]),
     "2000": ((2, 56), [(155, 314, True), (318, 477, False)]),
+    "2001": ((2, 52), [(58, 217, False), (221, 380, False), (384, 543, False)]),
 }
 BUTTON_TOP, BUTTON_HEIGHT = 4, 22  # in the taskbar
 LOGO = (4, 4, 20, 18)  # in the Start button
+XP_FLAG_AND_FOCUS_RECTANGLE_MASKS = {"2001": [(3, 4, 20, 19), (19, 3, 50, 19)]}
+START_MENU_RIGHT_EDGE = {"2001": 193}
+LOGO_AND_WIDTH_LOOKS = ["1995", "1998", "2000"]
 TASK_ICON_AND_LABEL = (3, 3, -3, -3)  # inset from the task button's edges
 PRESSED_INSIDE = (2, 3, -2, -2)  # the pressed button's checkerboard, compared in either phase below
 TASK_LABEL_FROM = 22  # right of the task button's icon
@@ -36,7 +42,8 @@ TASK_LABEL_FROM = 22  # right of the task button's icon
 
 def taskbar(look):
     image = screenshot(TASKBARS[look])
-    return image.crop((0, TOP, image.width, TOP + HEIGHT))
+    top = image.height - HEIGHT
+    return image.crop((0, top, image.width, image.height))
 
 
 @pytest.fixture(scope="module")
@@ -61,7 +68,7 @@ STRIP = (
     """import QtQuick
 import "%s"
 Rectangle {
-    width: 640; height: %d
+    width: 800; height: %d
     %s { objectName: "item"; x: %d; y: 2; width: implicitWidth; height: parent.height - 4 }"""
     """   // Plasma's applet rows: 2 to 25
 }
@@ -101,7 +108,8 @@ def start_button(qt_app, look, folder, width=None):
     colours = LOOKS[look]
     properties = {key: colours[key] for key in ("face", "light", "shadow", "dark")}
     properties.update(
-        bevel="2000" if look == "2000" else "1995",
+        bevel=BEVELS[look],
+        held=look in HELD_START_BUTTON,
         text="Start",
         logoSource=QUrl.fromLocalFile(str(PLASMOIDS / "org.chicago95.start/contents/images/logo-flag-16.png")),
     )
@@ -113,7 +121,12 @@ def test_taskbar_is_28_pixels_tall_with_a_light_and_a_white_line_on_top(styles, 
     original = taskbar(look)
     ours = render_frame(styles[look] / "widgets/panel-background.svg", "", original.width, HEIGHT, borders={"top"})
     rows = (0, 1, 2, 3, HEIGHT - 2, HEIGHT - 1)
-    assert all(close(ours.getpixel((x, y)), original.getpixel((x, y))) for x in range(original.width) for y in rows)
+    first_column = START_MENU_RIGHT_EDGE.get(look, -1) + 1
+    assert all(
+        close(ours.getpixel((x, y)), original.getpixel((x, y)))
+        for x in range(first_column, original.width)
+        for y in rows
+    )
 
 
 @pytest.mark.parametrize("look", TASKBARS)
@@ -141,12 +154,16 @@ def test_start_button_matches_the_original(qt_app, look, tmp_path):
     ours, _ = start_button(qt_app, look, tmp_path, width=right - left + 1)
     box = (left, BUTTON_TOP, right + 1, BUTTON_TOP + BUTTON_HEIGHT)
     # The lettering is compared by its box below: the original's letters are spaced unevenly.
-    masks = [LOGO, (LOGO[2], 3, right - left - 2, BUTTON_HEIGHT - 3)]
+    masks = [
+        LOGO,
+        (LOGO[2], 3, right - left - 2, BUTTON_HEIGHT - 3),
+        *XP_FLAG_AND_FOCUS_RECTANGLE_MASKS.get(look, []),
+    ]
     count = differing_pixels(original.crop(box), ours.crop(box), masks, tmp_path / "start-diff.png", threshold=0.1)
     assert count == 0, f"{count} pixels differ; see {tmp_path}"
 
 
-@pytest.mark.parametrize("look", TASKBARS)
+@pytest.mark.parametrize("look", LOGO_AND_WIDTH_LOOKS)
 def test_start_logo_covers_the_originals_16_by_14_box(qt_app, look, tmp_path):
     """The flag's own art differs from the original's; its ink must fill the same box."""
     original = taskbar(look)
@@ -180,7 +197,7 @@ def test_start_lettering_covers_the_originals(qt_app, look, tmp_path):
 
 
 @needs_ui_font
-@pytest.mark.parametrize("look", TASKBARS)
+@pytest.mark.parametrize("look", LOGO_AND_WIDTH_LOOKS)
 def test_start_button_is_as_wide_as_the_original(qt_app, look, tmp_path):
     """2000's lettering is wider: its button has a pixel more face after the text."""
     (left, right), _ = BUTTONS[look]
@@ -205,7 +222,7 @@ def test_task_button_bevels_match_the_original(styles, look, tmp_path):
         assert count == 0, f"button at {left}: {count} pixels differ; see {tmp_path}"
 
 
-@pytest.mark.parametrize("look", TASKBARS)
+@pytest.mark.parametrize("look", [look for look in TASKBARS if any(button[2] for button in task_buttons(look))])
 def test_pressed_task_button_has_a_white_row_then_a_checkerboard(styles, look):
     """Inside the sunken edge: a white row along the top, then white and face alternating, compared on
     the rows between the label and the bottom edge, right of the icon, in whichever phase the original's falls."""
@@ -243,7 +260,7 @@ def test_separators_match_the_originals_etched_line_and_grip(qt_app, look, tmp_p
                 assert close(ours.getpixel((lead + dx, y)), original.getpixel((etched + dx, y))), (etched, dx, y)
 
 
-TRAYS = {"1995": (557, 637), "1998": (540, 637), "2000": (544, 637)}
+TRAYS = {"1995": (557, 637), "1998": (540, 637), "2000": (544, 637), "2001": (736, 797)}
 
 
 @pytest.mark.parametrize("look", TRAYS)
@@ -263,7 +280,12 @@ def test_tray_box_matches_the_originals_edges(qt_app, look, tmp_path):
     assert all(close(ours.getpixel(point), original.getpixel(point)) for point in edges)
 
 
-CLOCKS = {"1995": ("6:23 PM", 38), "1998": ("12:46 PM", 44), "2000": ("10:18 PM", None)}  # 2000's is Tahoma
+CLOCKS = {
+    "1995": ("6:23 PM", 38),
+    "1998": ("12:46 PM", 44),
+    "2000": ("10:18 PM", None),
+    "2001": ("8:42 PM", None),
+}  # 2000's is Tahoma
 CLOCK_INK_HEIGHT = 9
 
 

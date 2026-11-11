@@ -1,0 +1,44 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="62" height="22" viewBox="0 0 62 22">
+<path id="base-topleft" d="M0,0 L1,0 L1,1 L0,1 Z" fill="#7F9DB9"/>
+<path id="base-top" d="M1,0 L9,0 L9,1 L1,1 Z" fill="#7F9DB9"/>
+<path id="base-topright" d="M9,0 L10,0 L10,1 L9,1 Z" fill="#7F9DB9"/>
+<path id="base-left" d="M0,1 L1,1 L1,9 L0,9 Z" fill="#7F9DB9"/>
+<path id="base-center" d="M1,1 L9,1 L9,9 L1,9 Z" fill="#FFFFFF"/>
+<path id="base-right" d="M9,1 L10,1 L10,9 L9,9 Z" fill="#7F9DB9"/>
+<path id="base-bottomleft" d="M0,9 L1,9 L1,10 L0,10 Z" fill="#7F9DB9"/>
+<path id="base-bottom" d="M1,9 L9,9 L9,10 L1,10 Z" fill="#7F9DB9"/>
+<path id="base-bottomright" d="M9,9 L10,9 L10,10 L9,10 Z" fill="#7F9DB9"/>
+<rect id="base-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="base-hint-top-margin" width="3" height="3" fill="none"/>
+<rect id="base-hint-bottom-margin" width="3" height="3" fill="none"/>
+<rect id="base-hint-left-margin" width="3" height="3" fill="none"/>
+<rect id="base-hint-right-margin" width="3" height="3" fill="none"/>
+<path id="focus-topleft" d="M26,0 L27,0 L27,1 L26,1 Z" fill="#316AC5"/>
+<path id="focus-top" d="M27,0 L35,0 L35,1 L27,1 Z" fill="#316AC5"/>
+<path id="focus-topright" d="M35,0 L36,0 L36,1 L35,1 Z" fill="#316AC5"/>
+<path id="focus-left" d="M26,1 L27,1 L27,9 L26,9 Z" fill="#316AC5"/>
+<rect id="focus-center" x="27" y="1" width="8" height="8" fill="none"/>
+<path id="focus-right" d="M35,1 L36,1 L36,9 L35,9 Z" fill="#316AC5"/>
+<path id="focus-bottomleft" d="M26,9 L27,9 L27,10 L26,10 Z" fill="#316AC5"/>
+<path id="focus-bottom" d="M27,9 L35,9 L35,10 L27,10 Z" fill="#316AC5"/>
+<path id="focus-bottomright" d="M35,9 L36,9 L36,10 L35,10 Z" fill="#316AC5"/>
+<rect id="focus-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="focus-hint-top-margin" width="3" height="3" fill="none"/>
+<rect id="focus-hint-bottom-margin" width="3" height="3" fill="none"/>
+<rect id="focus-hint-left-margin" width="3" height="3" fill="none"/>
+<rect id="focus-hint-right-margin" width="3" height="3" fill="none"/>
+<path id="hover-topleft" d="M52,0 L53,0 L53,1 L52,1 Z" fill="#7F9DB9"/>
+<path id="hover-top" d="M53,0 L61,0 L61,1 L53,1 Z" fill="#7F9DB9"/>
+<path id="hover-topright" d="M61,0 L62,0 L62,1 L61,1 Z" fill="#7F9DB9"/>
+<path id="hover-left" d="M52,1 L53,1 L53,9 L52,9 Z" fill="#7F9DB9"/>
+<rect id="hover-center" x="53" y="1" width="8" height="8" fill="none"/>
+<path id="hover-right" d="M61,1 L62,1 L62,9 L61,9 Z" fill="#7F9DB9"/>
+<path id="hover-bottomleft" d="M52,9 L53,9 L53,10 L52,10 Z" fill="#7F9DB9"/>
+<path id="hover-bottom" d="M53,9 L61,9 L61,10 L53,10 Z" fill="#7F9DB9"/>
+<path id="hover-bottomright" d="M61,9 L62,9 L62,10 L61,10 Z" fill="#7F9DB9"/>
+<rect id="hover-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="hover-hint-top-margin" width="3" height="3" fill="none"/>
+<rect id="hover-hint-bottom-margin" width="3" height="3" fill="none"/>
+<rect id="hover-hint-left-margin" width="3" height="3" fill="none"/>
+<rect id="hover-hint-right-margin" width="3" height="3" fill="none"/>
+</svg>

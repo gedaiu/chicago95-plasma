@@ -8,6 +8,7 @@ can be pinned to the screen corner.
 
 import configparser
 import functools
+import getpass
 import json
 import os
 import re
@@ -68,16 +69,16 @@ def banner_parts(text):
 os.environ.setdefault("QT_QPA_PLATFORM", "wayland")
 os.environ.setdefault("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1")
 UI_SCALE = 1.0
-os.environ.setdefault("QT_STYLE_OVERRIDE", "Windows")
 # Scale comes from the X server DPI (Xft.dpi 144); a QT_SCALE_FACTOR here would stack on it.
 os.environ.pop("QT_QPA_PLATFORMTHEME", None)
 sys.path[:0] = [
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "luna", "lib"),
     os.path.expanduser("~/.local/lib/chicago95"),
 ]
 import chicago95animations
 import chicago95ui  # after the environment above, so its defaults do not override it
-from PySide6.QtCore import QEasingCurve, QEvent, QPoint, QPropertyAnimation, QRect, Qt, QTimer
+from PySide6.QtCore import QEasingCurve, QEvent, QPoint, QPropertyAnimation, QRect, QStandardPaths, Qt, QTimer
 from PySide6.QtGui import (
     QAction,
     QColor,
@@ -148,6 +149,22 @@ STYLES = {
         dark="#404040",
     ),
 }
+
+
+def inherit(base, **changes):
+    return {**base, **changes}
+
+
+STYLES["2001"] = inherit(
+    STYLES["2000"],
+    banner_font=15,
+    banner_stretch=100,
+    banner_spacing=0,
+    banner_start=10,
+    banner_embolden=0,
+    text_drop=1,
+    separator_offset=3,
+)
 
 
 def style_of(widget):
@@ -311,7 +328,8 @@ class RetroMenuStyle(chicago95ui.ClassicStyle):
         ):
             # As on the original: shadow then white, 2px into the item,
             # from the banner's edge to 4px short of the frame.
-            left, right, y = BANNER_WIDTH + 3, widget.width() - 3, option.rect.top() + 2
+            left, right = BANNER_WIDTH + 3, widget.width() - 3
+            y = option.rect.top() + style_of(widget).get("separator_offset", 2)
             painter.fillRect(left, y, right - left, 1, option.palette.color(QPalette.Mid))
             painter.fillRect(left, y + 1, right - left, 1, option.palette.color(QPalette.Light))
             return
@@ -553,7 +571,7 @@ def themed_icon(name, *fallbacks):
 # by comparing every icon in Chicago95, SE98 and ClassicOS-2000 with them (tests/test_startmenu_icons_reference.py).
 # SE98 matches both 98 and 2000. When that set isn't installed the names go to the desktop's icon theme,
 # with the last name of each tuple as the generic fallback.
-ROOT_ICON_SETS = {"1995": "Chicago95", "1998": "SE98", "2000": "SE98"}
+ROOT_ICON_SETS = {"1995": "Chicago95", "1998": "SE98", "2000": "SE98", "2001": "SE98"}
 ROOT_ICONS = {
     "1995": {
         "programs": ("applications-all", "folder-open"),
@@ -586,6 +604,11 @@ ROOT_ICONS = {
         "shut_down": ("gnome-shutdown", "system-shutdown"),
     },
 }
+ROOT_ICONS["2001"] = {
+    **ROOT_ICONS["2000"],
+    "catalog": ("system-software-install",),
+    "update": ("software-update-available", "system-software-update"),
+}
 ICON_SET_DIRS = [Path.home() / ".local/share/icons", Path.home() / ".icons", Path("/usr/share/icons")]
 
 
@@ -602,6 +625,38 @@ def root_icon(item, style):
                     icon.addFile(str(path))
                 return icon
     return themed_icon(*names)
+
+
+CLASSIC_ROOT_LABELS = {
+    "programs": "&Programs",
+    "documents": "&Documents",
+    "settings": "&Settings",
+    "find": "&Find",
+    "help": "&Help",
+    "run": "&Run...",
+    "log_off": "&Log Off...",
+    "shut_down": "Sh&ut Down...",
+}
+ROOT_LABELS = {
+    "1995": CLASSIC_ROOT_LABELS,
+    "1998": CLASSIC_ROOT_LABELS,
+    "2000": CLASSIC_ROOT_LABELS,
+    "2001": {
+        **CLASSIC_ROOT_LABELS,
+        "catalog": "Windows Catalog",
+        "update": "Windows Update",
+        "find": "S&earch",
+        "help": "&Help and Support",
+        "log_off": "&Log Off {user}...",
+        "shut_down": "Turn O&ff Computer...",
+    },
+}
+TOP_ROOT_ITEMS = {"2001": ("catalog", "update")}
+SOFTWARE_CENTRE_COMMANDS = {"catalog": ["plasma-discover"], "update": ["plasma-discover", "--mode", "update"]}
+
+
+def root_label(item, style, user):
+    return ROOT_LABELS.get(style, ROOT_LABELS["1995"])[item].format(user=user)
 
 
 def control_panel_command(which=shutil.which):
@@ -700,16 +755,26 @@ def fill_documents_menu(documents):
 
 def build_root_menu():
     root = RetroMenu(banner=True)
-    programs = RetroMenu("&Programs", root)
     style = banner_settings()["style"]
+    user = getpass.getuser()
+
+    def label(item):
+        return root_label(item, style, user)
+
+    top_items = TOP_ROOT_ITEMS.get(style, ())
+    for item in top_items:
+        add_entry(root, label(item), root_icon(item, style), lambda item=item: launch(SOFTWARE_CENTRE_COMMANDS[item]))
+    if top_items:
+        root.addSeparator()
+    programs = RetroMenu(label("programs"), root)
     programs.setIcon(root_icon("programs", style))
     programs.aboutToShow.connect(lambda: fill_programs_menu(programs))
     root.addMenu(programs)
-    documents = RetroMenu("&Documents", root)
+    documents = RetroMenu(label("documents"), root)
     documents.setIcon(root_icon("documents", style))
     documents.aboutToShow.connect(lambda: fill_documents_menu(documents))
     root.addMenu(documents)
-    settings = RetroMenu("&Settings", root)
+    settings = RetroMenu(label("settings"), root)
     settings.setIcon(root_icon("settings", style))
     add_entry(settings, "Control Panel", "preferences-system", lambda: launch(control_panel_command()))
     if taskbar_properties_command():
@@ -717,25 +782,76 @@ def build_root_menu():
     add_entry(settings, "Printers", "printer", lambda: launch(["kcmshell6", "kcm_printer_manager"]))
     add_entry(settings, "Display", "preferences-desktop-display", lambda: launch(["kcmshell6", "kcm_kscreen"]))
     root.addMenu(settings)
-    find = RetroMenu("&Find", root)
+    find = RetroMenu(label("find"), root)
     find.setIcon(root_icon("find", style))
     add_entry(find, "Files or Folders...", "system-search", lambda: launch(["kfind"]))
     add_entry(find, "Computer...", "network-workgroup", lambda: launch(["dolphin", "remote:/"]))
     root.addMenu(find)
-    add_entry(root, "&Help", root_icon("help", style), lambda: launch(["khelpcenter"]))
-    add_entry(root, "&Run...", root_icon("run", style), lambda: launch(run_command()))
+    add_entry(root, label("help"), root_icon("help", style), lambda: launch(["khelpcenter"]))
+    add_entry(root, label("run"), root_icon("run", style), lambda: launch(run_command()))
     root.addSeparator()
-    add_entry(root, "&Log Off...", root_icon("log_off", style), lambda: launch(LOG_OFF_COMMAND))
-    add_entry(root, "Sh&ut Down...", root_icon("shut_down", style), lambda: launch(SHUT_DOWN_COMMAND))
+    add_entry(root, label("log_off"), root_icon("log_off", style), lambda: launch(LOG_OFF_COMMAND))
+    add_entry(root, label("shut_down"), root_icon("shut_down", style), lambda: launch(SHUT_DOWN_COMMAND))
     return root
 
 
-def apply_retro_look(app):
+def is_luna_menu():
+    return banner_settings()["style"] == "luna"
+
+
+def user_directory(location):
+    return QStandardPaths.writableLocation(location)
+
+
+def luna_commands():
+    return {
+        "control_panel": control_panel_command(),
+        "log_off": LOG_OFF_COMMAND,
+        "shut_down": SHUT_DOWN_COMMAND,
+        "help": ["khelpcenter"],
+        "search": ["kfind"],
+        "run": run_command(),
+        "my_computer": ["dolphin", "computer:/"],
+        "my_documents": ["xdg-open", user_directory(QStandardPaths.DocumentsLocation)],
+        "my_pictures": ["xdg-open", user_directory(QStandardPaths.PicturesLocation)],
+        "my_music": ["xdg-open", user_directory(QStandardPaths.MusicLocation)],
+        "printers": ["kcmshell6", "kcm_printer_manager"],
+    }
+
+
+def launch_luna_item(item):
+    launch(["gio", "launch", item["path"]] if isinstance(item, dict) else item)
+
+
+def luna_icon(item):
+    return themed_icon(item["icon"] if isinstance(item, dict) else item)
+
+
+def build_luna_menu():
+    import chicago95lunamenu
+
+    return chicago95lunamenu.LunaMenu(
+        collect_applications(),
+        recent_documents(),
+        launch_luna_item,
+        luna_icon,
+        RetroMenu,
+        ClickShield,
+        user_name=getpass.getuser(),
+        user_picture=Path.home() / ".face",
+        commands=luna_commands(),
+        recent_path=CACHE_FILE.with_name("chicago95-startmenu-usage.json"),
+    )
+
+
+def build_menu():
+    return build_luna_menu() if is_luna_menu() else build_root_menu()
+
+
+def apply_classic_menu_look(app):
     style = RetroMenuStyle("Windows")
     style.underline_shortcuts = banner_settings()["style"] != "2000"
     app.setStyle(style)
-    # The KDE platform theme can switch menu icons off session-wide; classic menus always show them.
-    app.setAttribute(Qt.AA_DontShowIconsInMenus, False)
     app.setPalette(chicago95ui.retro_palette(chicago95ui.read_scheme()))
     family = "MS W98 UI" if "MS W98 UI" in QFontDatabase.families() else "Noto Sans"
     # classic menus use an 11px face regardless of DPI; a point size would grow with Xft.dpi 144.
@@ -743,6 +859,20 @@ def apply_retro_look(app):
     menu_font.setPixelSize(round(11 * UI_SCALE))
     menu_font.setStyleStrategy(QFont.NoAntialias)  # a pixel font, drawn with hard edges like the original
     app.setFont(menu_font)
+
+
+def apply_luna_menu_look(app):
+    import chicago95luna
+
+    app.setStyle(chicago95luna.LunaStyle())
+    app.setPalette(chicago95luna.luna_palette())
+    app.setFont(chicago95luna.luna_font())
+
+
+def apply_retro_look(app):
+    {True: apply_luna_menu_look, False: apply_classic_menu_look}[is_luna_menu()](app)
+    # The KDE platform theme can switch menu icons off session-wide; classic menus always show them.
+    app.setAttribute(Qt.AA_DontShowIconsInMenus, False)
     # Autostart runs before the platform theme plugin can add user icon dirs; add them ourselves.
     home = str(Path.home())
     extra = [f"{home}/.local/share/icons", f"{home}/.icons", "/usr/share/icons", "/usr/share/pixmaps"]
@@ -773,10 +903,12 @@ class StartMenu:
     def show(self):
         if self.menu is not None:
             self.menu.deleteLater()
-        self.menu = build_root_menu()
-        self.menu.aboutToHide.connect(lambda: QTimer.singleShot(0, self.shield.hide))
+        self.menu = build_menu()
+        luna = is_luna_menu()
+        if not luna:
+            self.menu.aboutToHide.connect(lambda: QTimer.singleShot(0, self.shield.hide))
         screen = self.app.primaryScreen()
-        if os.environ.get("QT_QPA_PLATFORM") != "wayland":
+        if os.environ.get("QT_QPA_PLATFORM") != "wayland" and not luna:
             # X11 only: Wayland delivers activation changes reliably, so focus-out closes the menu.
             self.shield.setGeometry(screen.geometry())
             self.shield.show()
@@ -824,7 +956,7 @@ def drawn_root_menu():
     """The root menu with the current settings, laid out but not shown."""
     app = QApplication(sys.argv)
     apply_retro_look(app)
-    menu = build_root_menu()
+    menu = build_menu()
     menu.adjustSize()
     return app, menu
 

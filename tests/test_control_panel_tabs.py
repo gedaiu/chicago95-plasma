@@ -1097,7 +1097,7 @@ def test_two_and_three_way_choices_are_radio_buttons_as_in_the_originals(control
         tab = built(control_panel, applet, tab_name, None, program_installed=lambda name: f"/usr/bin/{name}")
         counts[key] = len(tab.findChildren(QRadioButton))
 
-    assert counts == {"LOGIN_STYLE": 2, "BOOT_STYLE": 2, "CURSOR": 3, "EXPLORER": 2, "FONT_SCOPE": 3}
+    assert counts == {"LOGIN_STYLE": 3, "BOOT_STYLE": 3, "CURSOR": 3, "EXPLORER": 2, "FONT_SCOPE": 3}
 
 
 def preview_image(control_panel, qt_app, look="1998"):
@@ -1269,3 +1269,38 @@ def test_the_appearance_preview_paints_the_desktop_and_title_bars_in_the_chosen_
     active = image.pixelColor(tab.preview.active_title.center()).name()
 
     assert (desktop, active) == ("#102030", "#ff0000")
+
+
+def combo_choices(tab, key):
+    combo = tab.fields[key][0].__self__
+    return [combo.itemData(index) for index in range(combo.count())]
+
+
+def test_choosing_the_windows_xp_scheme_fills_in_every_setting_of_the_luna_look(control_panel, qt_app):
+    tab = appearance(control_panel)
+    tab.scheme.setCurrentIndex(tab.scheme.findData("luna"))
+
+    assert tab.values() == preset_values(control_panel, "luna")
+
+
+def test_every_component_combo_offers_classic_and_windows_xp(control_panel, qt_app):
+    appearance_tab = appearance(control_panel)
+    taskbar_tab = built(control_panel, "Taskbar", "Taskbar Options")
+
+    assert (
+        combo_choices(appearance_tab, "DECORATION"),
+        combo_choices(appearance_tab, "WIDGET_STYLE"),
+        combo_choices(taskbar_tab, "TASKBAR_STYLE"),
+        combo_choices(built(control_panel, "Taskbar", "Start Menu"), "START_MENU_STYLE"),
+    ) == (
+        ["classic", "luna"],
+        ["classic", "luna"],
+        ["classic", "luna"],
+        ["1995", "1998", "2000", "2001", "luna"],
+    )
+
+
+def test_taskbar_style_combo_explains_that_the_xp_taskbar_restyles_tooltips_and_popups(control_panel, qt_app):
+    combo = built(control_panel, "Taskbar", "Taskbar Options").fields["TASKBAR_STYLE"][0].__self__
+
+    assert combo.whatsThis() == "The Windows XP taskbar also switches tooltips and popups to the XP style."

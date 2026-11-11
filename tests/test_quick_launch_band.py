@@ -222,3 +222,15 @@ def test_a_band_size_the_widget_has_not_read_yet_fits_every_launcher(band, lead,
 
 def test_qml_gets_the_fit_every_launcher_size_from_the_library(band):
     assert call(band, "fitAll") == FIT
+
+
+def test_luna_band_puts_the_grip_10px_before_the_cells_and_the_next_grip_6px_after_them(band):
+    luna = call(band, "metrics", "luna")
+    shape = call(band, "layout", TASKBAR_WIDTH, CONTENT_X, luna["separatorLead"], 3, FIT, "left", luna)
+    first_grip, cells, second_grip, window_buttons = (
+        shape["leftSeparatorX"] + luna["separatorLead"],
+        shape["cellsX"],
+        shape["rightSeparatorX"] + luna["separatorLead"],
+        shape["tasksX"],
+    )
+    assert (first_grip, cells, second_grip, window_buttons) == (0, 10, 10 + 3 * 23 + 6, 10 + 3 * 23 + 6 + 10)

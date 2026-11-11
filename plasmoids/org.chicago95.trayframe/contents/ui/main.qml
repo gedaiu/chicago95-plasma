@@ -21,12 +21,16 @@ PlasmoidItem {
     Layout.maximumWidth: 1
     Layout.fillHeight: true
 
+    readonly property bool isLuna: Plasmoid.configuration.taskbarStyle === "luna"
     readonly property bool bevel2000: Plasmoid.configuration.bevel === "2000"
     readonly property int iconSize: 16
     readonly property int iconPitch: 17
-    readonly property int iconTop: 7
+    readonly property int iconTop: isLuna ? Math.floor((root.height + 2 * panelMargin - iconSize) / 2) : 7
+    readonly property int lunaChevronDiameter: 16
     readonly property int clockGap: bevel2000 ? 4 : 1
-    readonly property int boxPadding: bevel2000 ? 4 : 3
+    readonly property int boxPadding: isLuna ? 11 : bevel2000 ? 4 : 3
+    readonly property int iconShift: isLuna ? 10 : 0
+    readonly property int panelEndInset: isLuna ? 3 : 0
 
     // The panel layout holds one container per applet: ours, the tray's and the clock's.
     property Item container: null
@@ -35,6 +39,7 @@ PlasmoidItem {
     property Item clockItem: null
     property real boxLeft: 0
     property real boxRight: 0
+    property real panelMargin: 0
 
     function locate() {
         let child = root;
@@ -76,7 +81,20 @@ PlasmoidItem {
     }
 
     readonly property string arrowIcon: "@HOME@/.local/share/chicago95/icons/tray-chevron.png"
+    function restyleLunaArrow(arrow) {   // Luna's small blue button, drawn here, over the icons' row
+        for (let i = 0; i < arrow.children.length; i++) {
+            if (arrow.children[i].toString().indexOf("Icon") === 0)
+                arrow.children[i].visible = false;
+        }
+        const existing = arrow.children.find(child => child.objectName === "lunaChevron");
+        const button = existing ?? Qt.createComponent(Qt.resolvedUrl("luna/TrayChevron.qml")).createObject(arrow);
+        arrow.width = lunaChevronDiameter;
+        button.x = 0;
+        button.y = Math.round(arrow.mapFromItem(null, 0, iconTop).y);
+    }
     function restyleArrow(arrow) {   // the chevron at its own size, on the icons' row
+        if (isLuna)
+            return restyleLunaArrow(arrow);
         for (let i = 0; i < arrow.children.length; i++) {
             const icon = arrow.children[i];
             if (icon.toString().indexOf("Icon") !== 0)
@@ -101,7 +119,15 @@ PlasmoidItem {
             item.transform[0].x = by;
     }
 
+    function boxAroundClockAlone(clock) {
+        const origin = root.mapToItem(null, 0, 0).x;
+        const clockX = clock.mapToItem(null, 0, 0).x;
+        boxLeft = clockX - 1 - origin;
+        boxRight = clockX + clock.width - origin;
+    }
+
     function placeIcons() {
+        panelMargin = root.mapToItem(null, 0, 0).y;
         if (!row)
             locate();
         if (!row || !container)
@@ -114,16 +140,22 @@ PlasmoidItem {
         // lays it out after the icons; the tray grows by its width (else it lies over the clock, which takes
         // its clicks) and it trades places with the icons, by transforms, which move their clicks too.
         const arrow = find(trayItem, 0, "ExpanderArrow");
-        const arrowWidth = arrow ? arrow.width : 0;
+        // Plasma lights the tray up with the style's active tab while the hidden-icons popup is open: not in the originals.
+        const highlight = find(trayItem, 0, "CurrentItemHighLight");
+        if (highlight)
+            highlight.visible = false;
+        const arrowWidth = arrow && !isLuna ? arrow.width : 0;
         const grid = find(trayItem, 0, "QQuickGridView");
-        if (!grid || !grid.contentItem)
+        if (!grid)
+            return boxAroundClockAlone(clockItem ?? trayItem);
+        if (!grid.contentItem)
             return;
         if (grid.cellWidth !== iconPitch)
             grid.cellWidth = iconPitch;
         shift(grid, arrowWidth);
         if (arrow) {
             restyleArrow(arrow);
-            shift(arrow, -(arrow.x - grid.x));
+            shift(arrow, -(arrow.x - grid.x) - (isLuna ? lunaChevronDiameter / 2 : 0));
         }
         // Each tray entry holds its icon area in a focus scope; the grid's own helper items have none.
         const icons = [];
@@ -139,7 +171,7 @@ PlasmoidItem {
         }
         icons.sort((a, b) => a.delegate.x - b.delegate.x);
         const clockX = clockItem ? clockItem.mapToItem(null, 0, 0).x : trayItem.mapToItem(null, trayItem.width, 0).x;
-        const firstX = clockX - clockGap - iconSize - (icons.length - 1) * iconPitch;
+        const firstX = clockX - clockGap - iconSize - (icons.length - 1) * iconPitch + iconShift;
         icons.forEach(({
                 area,
                 icon
@@ -170,7 +202,7 @@ PlasmoidItem {
         }
         const origin = root.mapToItem(null, 0, 0).x;
         boxLeft = firstX - arrowWidth - boxPadding - origin;
-        boxRight = (clockItem ? clockX + clockItem.width : clockX) - origin;
+        boxRight = (clockItem ? clockX + clockItem.width : clockX) - origin + panelEndInset;
     }
 
     Timer {
@@ -180,10 +212,12 @@ PlasmoidItem {
         onTriggered: root.placeIcons()
     }
 
-    TrayBox {
+    Loader {
         z: -1
         x: root.boxLeft
+        y: root.isLuna ? -root.panelMargin : 0
         width: root.boxRight - root.boxLeft + 1
-        height: root.height
+        height: root.isLuna ? root.height + 2 * root.panelMargin : root.height
+        source: Qt.resolvedUrl(root.isLuna ? "luna/TrayBox.qml" : "TrayBox.qml")
     }
 }

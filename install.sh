@@ -11,8 +11,10 @@
 #     --screen=2560x1440@1.5  --panel=28  --explorer=thunar|dolphin  --saver=maze
 #     --idle=5  --cursor=48  --clippy=yes|no  --quick-launch=yes|no|auto  --font="MS W98 UI"  --font-scope=everywhere|desktop|none
 #     --start-text=Start  --start-logo=flag|penguin|/path/to/image  --banner-text=Chicago95
-#     --look=1995|1998|2000|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
-#     --login-style=classic|2000  --boot-style=classic|2000  --icons=chicago95|se98|classicos2000
+#     --look=1995|1998|2000|2001|luna|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
+#     --decoration=classic|luna  --widget-style=classic|luna  --taskbar-style=classic|luna  (each overrides the look's choice)
+#     --start-menu-style=1995|1998|2000|2001|luna
+#     --login-style=classic|2000|luna  --boot-style=classic|2000|luna  --icons=chicago95|se98|classicos2000
 #     --sounds=Chicago95|Windows98|Windows2000|Plus98-Jungle|...  (data/sound-themes/)
 #     --settings=FILE  choices saved by the Control Panel (KEY=value lines), applied over the defaults
 #     --task-button-width=160  longest a task button on the taskbar may be, in pixels
@@ -47,13 +49,17 @@ for arg in "$@"; do
   --banner-text=*) OPT_BANNER_TEXT="${arg#*=}" ;;
   --look=*) OPT_LOOK="${arg#*=}" ;;
   --icons=*) OPT_ICONS="${arg#*=}" ;;
+  --decoration=*) OPT_DECORATION="${arg#*=}" ;;
+  --widget-style=*) OPT_WIDGET_STYLE="${arg#*=}" ;;
+  --taskbar-style=*) OPT_TASKBAR_STYLE="${arg#*=}" ;;
+  --start-menu-style=*) OPT_START_MENU_STYLE="${arg#*=}" ;;
   --login-style=*) OPT_LOGIN_STYLE="${arg#*=}" ;;
   --boot-style=*) OPT_BOOT_STYLE="${arg#*=}" ;;
   --sounds=*) OPT_SOUNDS="${arg#*=}" ;;
   --settings=*) OPT_SETTINGS="${arg#*=}" ;;
   --task-button-width=*) OPT_TASK_BUTTON_WIDTH="${arg#*=}" ;;
   --help | -h)
-    sed -n '2,15p' "$0"
+    sed -n '2,17p' "$0"
     exit 0
     ;;
   *) [ -z "$WANTED" ] && [[ "$arg" != --* ]] && WANTED="$arg" ;;
@@ -139,7 +145,7 @@ choose_start_menu() {
     "$SETUP_START_TEXT" "Start" "Linux")
   [ -n "${OPT_START_LOGO:-}" ] || SETUP_START_LOGO=$(choose_image "Start button logo" \
     "Which logo should the Start button show?\nIt is copied to ~/.local/share/chicago95/start-logo (keeping its extension);\nreplace that file and log out to change the logo later." \
-    "$SETUP_START_LOGO" "flag|Classic flag" "penguin|Penguin")
+    "$SETUP_START_LOGO" "flag|Classic flag" "xp|Windows XP flag" "penguin|Penguin")
   [ -n "${OPT_BANNER_TEXT:-}" ] || SETUP_BANNER_TEXT=$(choose_text "Start menu banner" "What should the strip along the Start menu say?" \
     "$SETUP_BANNER_TEXT" "Chicago95" "Linux")
   return 0
@@ -161,7 +167,7 @@ choose_branding() {
   else
     SETUP_LOGIN_LOGO=$(choose_image "Login and loading logo" "Which logo should the login and loading screens show?" "$SETUP_LOGIN_LOGO" \
       "start|Same as the Start button" "waving-flag|Waving flag (downloaded from Wikimedia Commons)" \
-      "flag|Classic flag" "penguin|Penguin")
+      "flag|Classic flag" "xp|Windows XP flag" "penguin|Penguin")
     SETUP_EDITION=$(choose_text "Edition" "Which edition should follow the name?" "$SETUP_EDITION" \
       "Professional" "Home Edition" "Workstation")
     SETUP_COMPANY=$(choose_text "Company" "Which company should stand above the name (and top right, without a logo)?" \
@@ -208,18 +214,22 @@ choose_sounds() {
 
 choose_look() {
   local choice marked=1
-  case "${SETUP_LOOK:-}" in 1998) marked=2 ;; 2000) marked=3 ;; custom) marked=4 ;; esac
+  case "${SETUP_LOOK:-}" in 1998) marked=2 ;; 2000) marked=3 ;; 2001) marked=4 ;; luna) marked=5 ;; custom) marked=6 ;; esac
   choice=$(ui_choose "Look" "How should title bars and the Start menu banner look?" "$marked" \
     "1995: solid navy title bars, grey banner" \
     "1998: navy-to-blue title bars, navy banner with a blue glow, taller menu rows" \
     "2000: warm grey windows, navy-to-light-blue title bars, black-to-blue banner" \
+    "Windows XP Classic: the 2000 windows with the Windows XP Start menu" \
+    "Windows XP: Luna window frames, controls, taskbar and Start menu" \
     "Your own colours")
   [ "$choice" = "$marked" ] && [ -n "${SETUP_LOOK:-}" ] && return 0 # the remembered look keeps its saved colours
   case "$choice" in
   1) apply_look 1995 ;;
   2) apply_look 1998 ;;
   3) apply_look 2000 ;;
-  4)
+  4) apply_look 2001 ;;
+  5) apply_look luna ;;
+  6)
     SETUP_LOOK=custom
     ui_card "Your own colours" "Type a colour as #RRGGBB, or two separated by a comma for a gradient" \
       "(left to right on title bars, top to bottom on the banner). ENTER keeps the shown value." >/dev/tty
@@ -232,15 +242,23 @@ choose_look() {
   return 0
 }
 
-# "P1"/"P2" open the real login screen in test mode with that style; close it with Alt+F4.
+login_style_description() {
+  case "$1" in
+  classic) echo "Classic (1995/1998): key dialog on teal, picture while loading" ;;
+  2000) echo "2000: your logo and banner text on white, progress bar while loading" ;;
+  luna) echo "Windows XP: blue welcome screen with user tiles, scrolling bar while loading" ;;
+  esac
+}
+
+# "P1"/"P2"/"P3" open the real login screen in test mode with that style; close it with Alt+F4.
 choose_login_style() {
-  local styles=(classic 2000) answer index greeter
+  local styles=(classic 2000 luna) answer index greeter
   greeter=$(command -v sddm-greeter-qt6 || command -v sddm-greeter || true)
   while :; do
     local lines=("How should the login and loading screens look?" "")
     for index in "${!styles[@]}"; do
       lines+=("$(printf '  %d. [%s] %s' $((index + 1)) "$([ "${styles[$index]}" = "$SETUP_LOGIN_STYLE" ] && echo X || echo ' ')" \
-        "$([ "${styles[$index]}" = classic ] && echo "Classic (1995/1998): key dialog on teal, picture while loading" || echo "2000: your logo and banner text on white, progress bar while loading")")")
+        "$(login_style_description "${styles[$index]}")")")
     done
     lines+=("")
     [ -n "$greeter" ] && lines+=("Type P and a number (P2) to preview it full screen; close the preview with Alt+F4.")
@@ -249,8 +267,8 @@ choose_login_style() {
     answer=$(ui_ask "Choice" "")
     case "$answer" in
     "") break ;;
-    [Pp][12]) [ -n "$greeter" ] && preview_login "$greeter" "${styles[$((${answer#?} - 1))]}" ;;
-    [12]) SETUP_LOGIN_STYLE=${styles[$((answer - 1))]} ;;
+    [Pp][123]) [ -n "$greeter" ] && preview_login "$greeter" "${styles[$((${answer#?} - 1))]}" ;;
+    [123]) SETUP_LOGIN_STYLE=${styles[$((answer - 1))]} ;;
     esac
   done
   return 0
@@ -420,6 +438,7 @@ fi
 printf 'Components: %s\n' "$COMPONENTS" >>"$SETUP_LOG"
 
 # Values that differ between machines. Flags pre-fill them; the screen lets the user edit.
+PANEL_CHOSEN="${OPT_PANEL:-${SETUP_PANEL:-}}"
 while IFS='=' read -r name value; do
   case $name in
   screen) [[ "$value" =~ ^([0-9]+)x([0-9]+)@([0-9.]+)$ ]] && {
@@ -449,9 +468,15 @@ SETUP_FONT_SCOPE=${OPT_FONT_SCOPE:-${SETUP_FONT_SCOPE:-everywhere}}
 # A remembered look keeps its saved colours (a custom one has nothing else); a flag or a first run applies the look.
 if [ -n "${OPT_LOOK:-}" ] || [ -z "${SETUP_LOOK:-}" ]; then apply_look "${OPT_LOOK:-1995}"; fi
 [ -n "${OPT_LOOK:-}" ] || choose_look
+SETUP_DECORATION=${OPT_DECORATION:-${SETUP_DECORATION:-classic}}
+SETUP_WIDGET_STYLE=${OPT_WIDGET_STYLE:-${SETUP_WIDGET_STYLE:-classic}}
+SETUP_TASKBAR_STYLE=${OPT_TASKBAR_STYLE:-${SETUP_TASKBAR_STYLE:-classic}}
+SETUP_START_MENU_STYLE=${OPT_START_MENU_STYLE:-${SETUP_START_MENU_STYLE:-1995}}
+[ -n "$PANEL_CHOSEN" ] || [ "$SETUP_PANEL" != 28 ] || SETUP_PANEL=$(default_panel_height)
+[ -z "${OPT_DECORATION:-}${OPT_WIDGET_STYLE:-}${OPT_TASKBAR_STYLE:-}${OPT_START_MENU_STYLE:-}" ] || SETUP_LOOK=custom
 SETUP_START_TEXT=${OPT_START_TEXT:-${SETUP_START_TEXT:-Start}}
-SETUP_START_LOGO=${OPT_START_LOGO:-${SETUP_START_LOGO:-flag}}
-SETUP_BANNER_TEXT=${OPT_BANNER_TEXT:-${SETUP_BANNER_TEXT:-Chicago95}}
+SETUP_START_LOGO=${OPT_START_LOGO:-${SETUP_START_LOGO:-$(default_start_logo)}}
+SETUP_BANNER_TEXT=${OPT_BANNER_TEXT:-${SETUP_BANNER_TEXT:-$(default_banner_text)}}
 [[ " $COMPONENTS " == *" startmenu "* || " $COMPONENTS " == *" taskbar "* ]] && choose_start_menu
 SETUP_LOGIN_STYLE=${OPT_LOGIN_STYLE:-${SETUP_LOGIN_STYLE:-classic}}
 [[ " $COMPONENTS " == *" sddm "* || " $COMPONENTS " == *" splash "* ]] && [ -z "${OPT_LOGIN_STYLE:-}" ] && choose_login_style
@@ -476,7 +501,7 @@ SETUP_SOUND_THEME=${OPT_SOUNDS:-${SETUP_SOUND_THEME:-Chicago95}}
 [ -n "${OPT_SETTINGS:-}" ] && load_settings "$OPT_SETTINGS"
 [ -n "${OPT_TASK_BUTTON_WIDTH:-}" ] && SETUP_TASK_BUTTON_WIDTH=$OPT_TASK_BUTTON_WIDTH
 SETUP_DPI=$(awk -v s="$SETUP_SCALE" 'BEGIN{printf "%d", 96*s + 0.5}')
-PANEL_HEIGHT=${SETUP_PANEL:-28}
+PANEL_HEIGHT=${SETUP_PANEL:-$(default_panel_height)}
 printf 'Options: screen=%sx%s@%s panel=%s explorer=%s saver=%s idle=%s cursor=%s clippy=%s quicklaunch=%s font=%s sounds=%s\n' \
   "$SETUP_WIDTH" "$SETUP_HEIGHT" "$SETUP_SCALE" "$PANEL_HEIGHT" "$SETUP_EXPLORER" "$SETUP_SAVER" "$SETUP_IDLE_MIN" "$SETUP_CURSOR" "$SETUP_CLIPPY_AUTOSTART" "${SETUP_QUICK_LAUNCH:-auto}" "$SETUP_FONT" "$SETUP_SOUND_THEME" >>"$SETUP_LOG"
 ui_step_done 1

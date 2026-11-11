@@ -5,19 +5,20 @@ import org.kde.kirigami as Kirigami
 // One task button as the originals draw it (tests/test_plasma_taskbar_reference.py): the Plasma
 // style's task frame ("normal" raised, "focus" sunken with the checkerboard), 22px tall at the bottom
 // of its applet; the window's icon 16px at 4,3 and its title from 23px (22px on 2000, where Tahoma has no blank
-// column before its capitals), both a pixel lower while pressed (not further right); the active window's title bold.
+// column before its capitals; 25px on XP Classic), both a pixel lower while pressed (not further right); the active window's title bold.
 Item {
     id: task
     property alias text: label.text
     property var icon
     property bool pressed
     property string bevel: "1995"
+    property string look: "1995"
     property color textColor: Kirigami.Theme.textColor
 
     readonly property int buttonHeight: 22
     readonly property int iconLeft: 4
     readonly property int iconTop: 3
-    readonly property int labelLeft: bevel === "2000" ? 22 : 23
+    readonly property int labelLeft: look === "2001" ? 25 : bevel === "2000" ? 22 : 23
     readonly property int labelTop: 6
     readonly property int labelRight: 4
     readonly property int shift: pressed ? 1 : 0

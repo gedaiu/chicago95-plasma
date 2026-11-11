@@ -1,0 +1,58 @@
+screen_width = Window.GetWidth();
+screen_height = Window.GetHeight();
+unit = screen_height / 480;
+layout_x = (screen_width - 640 * unit) / 2;
+asset_scale = screen_height >= 960 ? 2 : 1;
+fit = unit / asset_scale;
+
+Window.SetBackgroundTopColor(0, 0, 0);
+Window.SetBackgroundBottomColor(0, 0, 0);
+
+if (asset_scale == 2)
+  {
+    logo_image = Image("logo@2x.png");
+    trough_image = Image("trough@2x.png");
+    block_image = Image("block@2x.png");
+  }
+else
+  {
+    logo_image = Image("logo.png");
+    trough_image = Image("trough.png");
+    block_image = Image("block.png");
+  }
+
+logo = Sprite(logo_image.Scale(Math.Int(logo_image.GetWidth() * fit), Math.Int(logo_image.GetHeight() * fit)));
+logo.SetPosition(Math.Int(layout_x + 209 * unit), Math.Int(123 * unit), 1);
+
+trough = Sprite(trough_image.Scale(Math.Int(trough_image.GetWidth() * fit), Math.Int(trough_image.GetHeight() * fit)));
+trough.SetPosition(Math.Int(layout_x + 255 * unit), Math.Int(351 * unit), 1);
+
+block_count = 3;
+block_pitch = 8;
+inner_left = 257;
+inner_width = 122;
+group_width = block_pitch * block_count - 2;
+frames_per_sweep = 50;
+frame = 0;
+
+scaled_block = block_image.Scale(Math.Int(block_image.GetWidth() * fit), Math.Int(block_image.GetHeight() * fit));
+for (i = 0; i < block_count; i++)
+  {
+    blocks[i] = Sprite(scaled_block);
+    blocks[i].SetOpacity(0);
+  }
+
+fun refresh_callback()
+  {
+    phase = (frame % frames_per_sweep) / frames_per_sweep;
+    group_left = inner_left - group_width + phase * (inner_width + group_width);
+    for (i = 0; i < block_count; i++)
+      {
+        block_left = group_left + i * block_pitch;
+        fits = block_left >= inner_left && block_left + 6 <= inner_left + inner_width;
+        blocks[i].SetPosition(Math.Int(layout_x + block_left * unit), Math.Int(354 * unit), 2);
+        blocks[i].SetOpacity(fits ? 1 : 0);
+      }
+    frame++;
+  }
+Plymouth.SetRefreshFunction(refresh_callback);

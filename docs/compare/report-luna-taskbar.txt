@@ -1,0 +1,8 @@
+    220   0.9%  luna Taskbar (real desktop; icons are the test's squares): whole
+     84   2.8%  luna Taskbar (real desktop; icons are the test's squares): Start button
+     55   1.1%  luna Taskbar (real desktop; icons are the test's squares): task button 1
+     46   0.9%  luna Taskbar (real desktop; icons are the test's squares): task button 2
+     42   0.9%  luna Taskbar (real desktop; icons are the test's squares): task button 3 (pressed)
+     12   0.4%  luna Taskbar (real desktop; icons are the test's squares): tray box
+     85   2.8%  luna Taskbar (real desktop; icons are the test's squares): Start button (3000px shot)
+     13   0.3%  luna Taskbar (real desktop; icons are the test's squares): tray box (3000px shot)

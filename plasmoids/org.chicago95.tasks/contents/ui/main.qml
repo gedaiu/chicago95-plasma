@@ -5,6 +5,7 @@ import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.extras as PlasmaExtras
 import org.kde.plasma.plasma5support as Plasma5Support
 import org.kde.kirigami as Kirigami
+import org.kde.ksvg as KSvg
 import org.kde.taskmanager as TaskManager
 import "sizing.js" as Sizing
 import "launchers.js" as Launchers
@@ -32,14 +33,16 @@ PlasmoidItem {
     Layout.fillWidth: true
     Layout.fillHeight: true
 
+    readonly property bool isLuna: Plasmoid.configuration.taskbarStyle === "luna"
     readonly property int contentX: -Kirigami.Units.smallSpacing   // the panel's gap between applets
     readonly property bool showQuickLaunch: QuickLaunch.shown(Plasmoid.configuration.quickLaunch, Plasmoid.configuration.look)
     readonly property int maxButtonWidth: Sizing.maxButtonWidth(Plasmoid.configuration.maxButtonWidth, Plasmoid.configuration.look)
-    readonly property var metrics: Band.metrics()
-    readonly property int gap: metrics.taskButtonGap
+    readonly property int styledMaxButtonWidth: Sizing.styledButtonWidth(maxButtonWidth, Plasmoid.configuration.maxButtonWidth, Plasmoid.configuration.taskbarStyle)
+    readonly property var metrics: Band.metrics(Plasmoid.configuration.taskbarStyle)
+    readonly property int gap: isLuna ? 0 : metrics.taskButtonGap
     readonly property int launcherCount: tasksModel.launcherCount
     readonly property int windowCount: tasksModel.count - launcherCount
-    readonly property int lead: Plasmoid.configuration.bevel === "2000" ? metrics.separatorLeadAfterStart2000 : metrics.separatorLead
+    readonly property int lead: Plasmoid.configuration.bevel === "2000" && !isLuna ? metrics.separatorLeadAfterStart2000 : metrics.separatorLead
     readonly property string dock: Plasmoid.configuration.quickLaunchDock === "right" ? "right" : "left"
     // While a separator is dragged: the band's width as the inner one sizes it, or where the outer one carries it.
     readonly property int notDragged: -2
@@ -50,25 +53,25 @@ PlasmoidItem {
     // turns into 0 (no launchers at all). Until they arrive, the band fits every launcher.
     readonly property int savedSize: Plasmoid.configuration.quickLaunchWidth ?? Band.fitAll()
     readonly property int size: liveSize !== notDragged ? liveSize : savedSize
-    readonly property var band: Band.layout(width, contentX, lead, launcherCount, size, dock)
-    readonly property int bandShift: bandCarried ? Band.carriedShift(carriedGripX, band, dock, width, contentX) : 0
+    readonly property var band: Band.layout(width, contentX, lead, launcherCount, size, dock, metrics)
+    readonly property int bandShift: bandCarried ? Band.carriedShift(carriedGripX, band, dock, width, contentX, metrics) : 0
     readonly property int shownLaunchers: band.shown
     readonly property int firstShown: band.firstShown   // the launchers before it are behind the chevron
     readonly property int quickLaunchX: band.cellsX + bandShift
-    readonly property int quickLaunchEnd: quickLaunchX + Band.cellsWidth(shownLaunchers)
+    readonly property int quickLaunchEnd: quickLaunchX + Band.cellsWidth(shownLaunchers, metrics)
     readonly property int tasksX: band.tasksX
-    readonly property int buttonWidth: windowCount === 0 ? 0 : Math.min(maxButtonWidth, Math.floor((band.tasksEnd - tasksX + gap) / windowCount) - gap)
+    readonly property int buttonWidth: windowCount === 0 ? 0 : Math.min(styledMaxButtonWidth, Math.floor((band.tasksEnd - tasksX + gap) / windowCount) - gap)
 
     function separatorDragged(separator, gripX) {
         if (Band.outerSeparator(dock) === separator)
             carriedGripX = gripX;
         else
-            liveSize = Band.sizeAfterDrag(gripX, width, contentX, lead, dock);
+            liveSize = Band.sizeAfterDrag(gripX, width, contentX, lead, dock, metrics);
     }
     function separatorReleased(separator, gripX) {
         const outer = Band.outerSeparator(dock) === separator;
         const newDock = outer ? Band.dockAfterDrag(gripX, width) : dock;
-        const newSize = outer ? savedSize : Band.sizeAfterDrag(gripX, width, contentX, lead, dock);
+        const newSize = outer ? savedSize : Band.sizeAfterDrag(gripX, width, contentX, lead, dock, metrics);
         liveSize = notDragged;
         carriedGripX = notDragged;
         Plasmoid.configuration.quickLaunchDock = newDock;
@@ -190,50 +193,77 @@ PlasmoidItem {
 
 
     // While carried, the band is drawn over the window buttons on the taskbar's face.
-    Rectangle {
+    component CarriedBackdrop: Item {
         visible: root.bandCarried
         x: root.band.leftSeparatorX + root.bandShift
-        width: root.band.rightSeparatorX + Band.separatorWidth(root.metrics.separatorLead) - root.band.leftSeparatorX
+        width: root.band.rightSeparatorX + Band.separatorWidth(root.metrics.separatorLead, root.metrics) - root.band.leftSeparatorX
         height: parent.height
         z: 4
-        color: Kirigami.Theme.backgroundColor
     }
-    Separator {
+    CarriedBackdrop {
+        visible: root.bandCarried && !root.isLuna
+        Rectangle {
+            anchors.fill: parent
+            color: Kirigami.Theme.backgroundColor
+        }
+    }
+    CarriedBackdrop {
+        visible: root.bandCarried && root.isLuna
+        KSvg.FrameSvgItem {
+            anchors.fill: parent
+            imagePath: "widgets/panel-background"
+        }
+    }
+    SeparatorSeam {
         id: leftSeparator
+        luna: root.isLuna
         visible: root.launcherCount > 0
         x: root.band.leftSeparatorX + root.bandShift
         z: 5
         height: parent.height
         lead: root.dock === "left" ? root.lead : root.metrics.separatorLead
-        draggable: true
         onDragged: gripX => root.separatorDragged("leftSeparatorX", gripX)
         onReleased: gripX => root.separatorReleased("leftSeparatorX", gripX)
     }
-    Separator {
+    SeparatorSeam {
         id: rightSeparator
+        luna: root.isLuna
+        lead: root.metrics.separatorLead
         visible: root.launcherCount > 0
         x: root.band.rightSeparatorX + root.bandShift
         z: 5
         height: parent.height
-        draggable: true
         onDragged: gripX => root.separatorDragged("rightSeparatorX", gripX)
         onReleased: gripX => root.separatorReleased("rightSeparatorX", gripX)
     }
-    Chevron {
+    Loader {
         id: chevron
         visible: root.band.chevronX >= 0
         x: root.band.chevronX + root.bandShift
         z: 5
         height: parent.height
-        pointsRight: root.dock === "left"
-        hovered: chevronArea.containsMouse
-        held: chevronArea.pressed && chevronArea.containsMouse
+        source: Qt.resolvedUrl(root.isLuna ? "luna/Chevron.qml" : "Chevron.qml")
         MouseArea {
             id: chevronArea
             anchors.fill: parent
             hoverEnabled: true
             onClicked: root.openChevronMenu()
         }
+    }
+    Binding {
+        target: chevron.item
+        property: "pointsRight"
+        value: root.dock === "left"
+    }
+    Binding {
+        target: chevron.item
+        property: "hovered"
+        value: chevronArea.containsMouse
+    }
+    Binding {
+        target: chevron.item
+        property: "held"
+        value: chevronArea.pressed && chevronArea.containsMouse
     }
     PlasmaExtras.Menu {
         id: chevronMenu
@@ -249,7 +279,7 @@ PlasmoidItem {
     }
     function openChevronMenu() {
         chevronMenu.clearMenuItems();
-        Band.chevronLaunchers(launcherCount, size, dock).forEach(index => {
+        Band.chevronLaunchers(launcherCount, size, dock, metrics).forEach(index => {
             const modelIndex = tasksModel.makeModelIndex(index);
             chevronMenu.addMenuItem(chevronEntry.createObject(chevronMenu, {
                 launcher: index,
@@ -269,7 +299,7 @@ PlasmoidItem {
             required property int index
             readonly property bool launcher: index < root.launcherCount
             readonly property var modelIndex: tasksModel.makeModelIndex(index)
-            readonly property int laidOutX: launcher ? root.quickLaunchX + Band.cellsWidth(index - root.firstShown) : root.tasksX + (index - root.launcherCount) * (root.buttonWidth + root.gap)
+            readonly property int laidOutX: launcher ? root.quickLaunchX + Band.cellsWidth(index - root.firstShown, root.metrics) : root.tasksX + (index - root.launcherCount) * (root.buttonWidth + root.gap)
             // Dragged: the button follows the pointer; the others slide into their new places.
             property bool dragging: false
             property bool slides: true
@@ -294,11 +324,26 @@ PlasmoidItem {
 
             Component {
                 id: launcherCell
-                QuickLaunchButton {
-                    icon: entry.model.decoration
+                Loader {
+                    id: cell
+                    anchors.fill: parent
+                    source: Qt.resolvedUrl(root.isLuna ? "luna/QuickLaunchButton.qml" : "QuickLaunchButton.qml")
                     opacity: launcherArea.dragging && Launchers.releasedOffTaskbar(launcherArea.pointer.x, launcherArea.pointer.y, root.width, root.height) ? 0.5 : 1
-                    hovered: launcherArea.containsMouse
-                    held: launcherArea.pressed && launcherArea.containsMouse
+                    Binding {
+                        target: cell.item
+                        property: "icon"
+                        value: entry.model.decoration
+                    }
+                    Binding {
+                        target: cell.item
+                        property: "hovered"
+                        value: launcherArea.containsMouse
+                    }
+                    Binding {
+                        target: cell.item
+                        property: "held"
+                        value: launcherArea.pressed && launcherArea.containsMouse
+                    }
                     PlasmaCore.ToolTipArea {
                         anchors.fill: parent
                         mainText: entry.model.display
@@ -336,7 +381,7 @@ PlasmoidItem {
             }
             Component {
                 id: windowButton
-                TaskButton {
+                Item {
                     id: button
                     // Where the button is on screen: minimize effects (Title bar zoom, Squash, Magic Lamp) aim at it.
                     function publishGeometry() {
@@ -351,10 +396,37 @@ PlasmoidItem {
                             button.publishGeometry();
                         }
                     }
-                    text: entry.model.display
-                    icon: entry.model.decoration
-                    pressed: entry.model.IsActive === true
-                    bevel: Plasmoid.configuration.bevel
+                    Loader {
+                        id: face
+                        anchors.fill: parent
+                        source: Qt.resolvedUrl(root.isLuna ? "luna/TaskButton.qml" : "TaskButton.qml")
+                    }
+                    Binding {
+                        target: face.item
+                        property: "text"
+                        value: entry.model.display
+                    }
+                    Binding {
+                        target: face.item
+                        property: "icon"
+                        value: entry.model.decoration
+                    }
+                    Binding {
+                        target: face.item
+                        property: "pressed"
+                        value: entry.model.IsActive === true
+                    }
+                    Binding {
+                        target: face.item
+                        property: "bevel"
+                        value: Plasmoid.configuration.bevel
+                    }
+                    Binding {
+                        target: face.item
+                        property: "look"
+                        when: !root.isLuna
+                        value: Plasmoid.configuration.look
+                    }
                     // The pointer resting on the button: the window's title in the classic flat tooltip and, with a
                     // preview size chosen in the Control Panel, a live picture of the window above it (TaskToolTip.qml).
                     // The drag area sits inside the tooltip area, as the Quick Launch cell's does: a hover-enabled
@@ -362,12 +434,39 @@ PlasmoidItem {
                     PlasmaCore.ToolTipArea {
                         anchors.fill: parent
                         interactive: false
-                        mainItem: TaskToolTip {
-                            title: entry.model.display
-                            windowId: entry.model.WinIdList ? entry.model.WinIdList[0] : null
-                            previewSize: Plasmoid.configuration.previewSize ?? 0
-                            bevel: Plasmoid.configuration.bevel
-                            face: Kirigami.Theme.backgroundColor
+                        mainItem: Loader {
+                            id: tip
+                            property string title: entry.model.display
+                            property var windowId: entry.model.WinIdList ? entry.model.WinIdList[0] : null
+                            property int previewSize: Plasmoid.configuration.previewSize ?? 0
+                            property string bevel: Plasmoid.configuration.bevel
+                            property color face: Kirigami.Theme.backgroundColor
+                            source: Qt.resolvedUrl(root.isLuna ? "luna/TaskToolTip.qml" : "TaskToolTip.qml")
+                            Binding {
+                                target: tip.item
+                                property: "title"
+                                value: tip.title
+                            }
+                            Binding {
+                                target: tip.item
+                                property: "windowId"
+                                value: tip.windowId
+                            }
+                            Binding {
+                                target: tip.item
+                                property: "previewSize"
+                                value: tip.previewSize
+                            }
+                            Binding {
+                                target: tip.item
+                                property: "bevel"
+                                value: tip.bevel
+                            }
+                            Binding {
+                                target: tip.item
+                                property: "face"
+                                value: tip.face
+                            }
                         }
                         DragSortArea {
                             anchors.fill: parent

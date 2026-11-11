@@ -1,0 +1,6 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="72" height="24" viewBox="0 0 72 24">
+<path id="up-arrow" d="M0 4L3.5 0L7 4Z" fill="#4D6185" transform="translate(8 8)"/>
+<path id="down-arrow" d="M0 0L7 0L3.5 4Z" fill="#4D6185" transform="translate(24 8)"/>
+<path id="left-arrow" d="M4 0L4 7L0 3.5Z" fill="#4D6185" transform="translate(40 8)"/>
+<path id="right-arrow" d="M0 0L4 3.5L0 7Z" fill="#4D6185" transform="translate(56 8)"/>
+</svg>

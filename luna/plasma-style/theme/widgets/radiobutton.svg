@@ -1,0 +1,7 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="32" height="48" viewBox="0 0 32 48">
+<defs><radialGradient id="normal-body" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#D6D0C5"/></radialGradient><radialGradient id="hover-body" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#D6D0C5"/></radialGradient><radialGradient id="symbol-body" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#5CE05C"/><stop offset="1" stop-color="#21A121"/></radialGradient></defs>
+<rect id="hint-size" x="0" y="32" width="15" height="15" fill="none"/>
+<g id="normal" transform="translate(1 1)"><circle cx="6.5" cy="6.5" r="6.5" fill="#1C5180"/><circle cx="6.5" cy="6.5" r="5.5" fill="url(#normal-body)"/></g>
+<g id="hover" transform="translate(17 1)"><circle cx="6.5" cy="6.5" r="6.5" fill="#F5B700"/><circle cx="6.5" cy="6.5" r="5.5" fill="url(#hover-body)"/></g>
+<circle id="symbol" cx="6.5" cy="22" r="2.5" fill="url(#symbol-body)"/>
+</svg>

@@ -1,0 +1,44 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="62" height="22" viewBox="0 0 62 22">
+<path id="topleft" d="M0,0 L1,0 L1,1 L0,1 Z" fill="#ACA899"/>
+<path id="top" d="M1,0 L9,0 L9,1 L1,1 Z" fill="#ACA899"/>
+<path id="topright" d="M9,0 L10,0 L10,1 L9,1 Z" fill="#ACA899"/>
+<path id="left" d="M0,1 L1,1 L1,9 L0,9 Z" fill="#ACA899"/>
+<path id="center" d="M1,1 L9,1 L9,9 L1,9 Z" fill="#FFFFFF"/>
+<path id="right" d="M9,1 L10,1 L10,9 L9,9 Z" fill="#ACA899"/>
+<path id="bottomleft" d="M0,9 L1,9 L1,10 L0,10 Z" fill="#ACA899"/>
+<path id="bottom" d="M1,9 L9,9 L9,10 L1,10 Z" fill="#ACA899"/>
+<path id="bottomright" d="M9,9 L10,9 L10,10 L9,10 Z" fill="#ACA899"/>
+<rect id="hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="hint-top-margin" width="2" height="2" fill="none"/>
+<rect id="hint-bottom-margin" width="2" height="2" fill="none"/>
+<rect id="hint-left-margin" width="2" height="2" fill="none"/>
+<rect id="hint-right-margin" width="2" height="2" fill="none"/>
+<path id="mask-topleft" d="M26,0 L27,0 L27,1 L26,1 Z" fill="#000000"/>
+<path id="mask-top" d="M27,0 L35,0 L35,1 L27,1 Z" fill="#000000"/>
+<path id="mask-topright" d="M35,0 L36,0 L36,1 L35,1 Z" fill="#000000"/>
+<path id="mask-left" d="M26,1 L27,1 L27,9 L26,9 Z" fill="#000000"/>
+<path id="mask-center" d="M27,1 L35,1 L35,9 L27,9 Z" fill="#000000"/>
+<path id="mask-right" d="M35,1 L36,1 L36,9 L35,9 Z" fill="#000000"/>
+<path id="mask-bottomleft" d="M26,9 L27,9 L27,10 L26,10 Z" fill="#000000"/>
+<path id="mask-bottom" d="M27,9 L35,9 L35,10 L27,10 Z" fill="#000000"/>
+<path id="mask-bottomright" d="M35,9 L36,9 L36,10 L35,10 Z" fill="#000000"/>
+<rect id="mask-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="mask-hint-top-margin" width="2" height="2" fill="none"/>
+<rect id="mask-hint-bottom-margin" width="2" height="2" fill="none"/>
+<rect id="mask-hint-left-margin" width="2" height="2" fill="none"/>
+<rect id="mask-hint-right-margin" width="2" height="2" fill="none"/>
+<rect id="shadow-topleft" x="52" y="0" width="1" height="1" fill="none"/>
+<rect id="shadow-top" x="53" y="0" width="8" height="1" fill="none"/>
+<rect id="shadow-topright" x="61" y="0" width="1" height="1" fill="none"/>
+<rect id="shadow-left" x="52" y="1" width="1" height="8" fill="none"/>
+<rect id="shadow-center" x="53" y="1" width="8" height="8" fill="none"/>
+<rect id="shadow-right" x="61" y="1" width="1" height="8" fill="none"/>
+<rect id="shadow-bottomleft" x="52" y="9" width="1" height="1" fill="none"/>
+<rect id="shadow-bottom" x="53" y="9" width="8" height="1" fill="none"/>
+<rect id="shadow-bottomright" x="61" y="9" width="1" height="1" fill="none"/>
+<rect id="shadow-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="shadow-hint-top-margin" width="0" height="0" fill="none"/>
+<rect id="shadow-hint-bottom-margin" width="0" height="0" fill="none"/>
+<rect id="shadow-hint-left-margin" width="0" height="0" fill="none"/>
+<rect id="shadow-hint-right-margin" width="0" height="0" fill="none"/>
+</svg>

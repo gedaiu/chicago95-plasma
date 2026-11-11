@@ -1,0 +1,5 @@
+  24815  13.7%  luna Start menu: whole
+    865   3.4%  luna Start menu: header
+  11451  15.6%  luna Start menu: left column
+   9902  14.8%  luna Start menu: right column
+   2597  16.7%  luna Start menu: footer

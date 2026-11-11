@@ -15,6 +15,7 @@ os.environ["QT_SCALE_FACTOR"] = "1"
 # scheme, look or icon set of whoever runs them (CI and every machine get the same results).
 os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="chicago95-tests-config-")
 sys.path.insert(0, str(REPO / "lib"))
+sys.path.insert(0, str(REPO / "luna/lib"))
 # The originals are 1x screenshots: the tools' font choice follows a 1x screen, whatever this machine's is,
 # from the first application any test creates.
 import chicago95ui  # noqa: E402

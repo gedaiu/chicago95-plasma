@@ -1,0 +1,50 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="296" height="50" viewBox="0 0 296 50">
+<defs><linearGradient id="at" x2="0" y2="1"><stop offset="0.017" stop-color="#0058EE"/><stop offset="0.05" stop-color="#3F97FF"/><stop offset="0.083" stop-color="#2B90FF"/><stop offset="0.12" stop-color="#0372FF"/><stop offset="0.22" stop-color="#0058E6"/><stop offset="0.55" stop-color="#0055EA"/><stop offset="0.75" stop-color="#026AFE"/><stop offset="0.92" stop-color="#0060FC"/><stop offset="0.98" stop-color="#0043CF"/></linearGradient><linearGradient id="aol"><stop offset="0" stop-color="#0005B1" stop-opacity="0.78"/><stop offset="0.11" stop-color="#004ADA" stop-opacity="0.7"/><stop offset="0.25" stop-color="#0053E1" stop-opacity="0.48"/><stop offset="0.57" stop-color="#1687FA" stop-opacity="0.12"/></linearGradient><linearGradient id="aor" x1="1" x2="0"><stop offset="0" stop-color="#00005D" stop-opacity="0.83"/><stop offset="0.11" stop-color="#000ECE" stop-opacity="0.49"/><stop offset="0.29" stop-color="#0000B1" stop-opacity="0.21"/><stop offset="1" stop-color="#0000A3" stop-opacity="0.05"/></linearGradient><linearGradient id="abl"><stop offset="0.12" stop-color="#0019CF"/><stop offset="0.38" stop-color="#0831D9"/><stop offset="0.62" stop-color="#166AEE"/><stop offset="0.88" stop-color="#0855DD"/></linearGradient><linearGradient id="abb" x2="0" y2="1"><stop offset="0.12" stop-color="#0048F1"/><stop offset="0.38" stop-color="#003DDD"/><stop offset="0.62" stop-color="#001EA0"/><stop offset="0.88" stop-color="#00138C"/></linearGradient><linearGradient id="abr" xlink:href="#abb" x2="1" y2="0"/><linearGradient id="it" x2="0" y2="1"><stop offset="0.017" stop-color="#688DE0"/><stop offset="0.05" stop-color="#98B2E8"/><stop offset="0.083" stop-color="#9DB9EB"/><stop offset="0.15" stop-color="#7EA2E4"/><stop offset="0.35" stop-color="#7A96DF"/><stop offset="0.82" stop-color="#82A9E9"/><stop offset="0.98" stop-color="#7A93DF"/></linearGradient><linearGradient id="iol"><stop offset="0" stop-color="#6064C9"/><stop offset="0.14" stop-color="#758FDA" stop-opacity="0.76"/><stop offset="0.57" stop-color="#7CB3E6" stop-opacity="0.06"/></linearGradient><linearGradient id="ior" x1="1" x2="0"><stop offset="0" stop-color="#5D55BF"/><stop offset="0.11" stop-color="#6F81D4" stop-opacity="0.87"/><stop offset="0.29" stop-color="#6366CD" stop-opacity="0.22"/><stop offset="1" stop-color="#6C1DC6" stop-opacity="0"/></linearGradient><linearGradient id="ibl"><stop offset="0.12" stop-color="#5B68CD"/><stop offset="0.38" stop-color="#7480DC"/><stop offset="0.62" stop-color="#758CDD"/><stop offset="0.88" stop-color="#758CDC"/></linearGradient><linearGradient id="ibb" x2="0" y2="1"><stop offset="0.12" stop-color="#7586DC"/><stop offset="0.38" stop-color="#7587DD"/><stop offset="0.62" stop-color="#6D74CD"/><stop offset="0.88" stop-color="#4F53BC"/></linearGradient><linearGradient id="ibr" xlink:href="#ibb" x2="1" y2="0"/><linearGradient id="mt" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="26"><stop offset="0.019" stop-color="#3E96FF"/><stop offset="0.058" stop-color="#2C8AFF"/><stop offset="0.096" stop-color="#0370FF"/><stop offset="0.17" stop-color="#015CE9"/><stop offset="0.44" stop-color="#0056E8"/><stop offset="0.79" stop-color="#036CFE"/><stop offset="0.9" stop-color="#0162FA"/><stop offset="0.98" stop-color="#0043CF"/></linearGradient><linearGradient id="nt" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="26"><stop offset="0.019" stop-color="#98B2E8"/><stop offset="0.054" stop-color="#9DB9EB"/><stop offset="0.12" stop-color="#7EA2E4"/><stop offset="0.33" stop-color="#7A96DF"/><stop offset="0.81" stop-color="#82A9E9"/><stop offset="0.98" stop-color="#7A93DF"/></linearGradient></defs>
+<g id="decoration-topleft"><path d="M0,30V5H1V3H2V2H3V1H5V0H28V30z" fill="url(#at)"/><path d="M0,30V5H1V3H2V2H3V1H5V0H28V30z" fill="url(#aol)"/></g>
+<path id="decoration-top" d="M28 0h16v30h-16z" fill="url(#at)"/>
+<g id="decoration-topright"><path d="M72,30V5H71V3H70V2H69V1H67V0H44V30z" fill="url(#at)"/><path d="M72,30V5H71V3H70V2H69V1H67V0H44V30z" fill="url(#aor)"/></g>
+<g id="decoration-left"><path id="decoration-left-bounds" d="M0 30h28v16h-28z" fill="none"/><path d="M0 30h4v16h-4z" fill="url(#abl)"/></g>
+<g id="decoration-right"><path id="decoration-right-bounds" d="M44 30h28v16h-28z" fill="none"/><path d="M68 30h4v16h-4z" fill="url(#abr)"/></g>
+<g id="decoration-bottomleft"><path d="M0 46h28v4h-28z" fill="url(#abb)"/><path d="M0,46 H4 L0,50 Z" fill="url(#abl)"/></g>
+<path id="decoration-bottom" d="M28 46h16v4h-16z" fill="url(#abb)"/>
+<g id="decoration-bottomright"><path d="M44 46h28v4h-28z" fill="url(#abb)"/><path d="M72,46 H68 L72,50 Z" fill="url(#abr)"/></g>
+<path id="decoration-center" d="M28 30h16v16h-16z" fill="none"/>
+<path id="decoration-hint-stretch-borders" d="M0 0h1v1h-1z" fill="none"/>
+<g id="decoration-inactive-topleft"><path d="M80,30V5H81V3H82V2H83V1H85V0H108V30z" fill="url(#it)"/><path d="M80,30V5H81V3H82V2H83V1H85V0H108V30z" fill="url(#iol)"/></g>
+<path id="decoration-inactive-top" d="M108 0h16v30h-16z" fill="url(#it)"/>
+<g id="decoration-inactive-topright"><path d="M152,30V5H151V3H150V2H149V1H147V0H124V30z" fill="url(#it)"/><path d="M152,30V5H151V3H150V2H149V1H147V0H124V30z" fill="url(#ior)"/></g>
+<g id="decoration-inactive-left"><path id="decoration-inactive-left-bounds" d="M80 30h28v16h-28z" fill="none"/><path d="M80 30h4v16h-4z" fill="url(#ibl)"/></g>
+<g id="decoration-inactive-right"><path id="decoration-inactive-right-bounds" d="M124 30h28v16h-28z" fill="none"/><path d="M148 30h4v16h-4z" fill="url(#ibr)"/></g>
+<g id="decoration-inactive-bottomleft"><path d="M80 46h28v4h-28z" fill="url(#ibb)"/><path d="M80,46 H84 L80,50 Z" fill="url(#ibl)"/></g>
+<path id="decoration-inactive-bottom" d="M108 46h16v4h-16z" fill="url(#ibb)"/>
+<g id="decoration-inactive-bottomright"><path d="M124 46h28v4h-28z" fill="url(#ibb)"/><path d="M152,46 H148 L152,50 Z" fill="url(#ibr)"/></g>
+<path id="decoration-inactive-center" d="M108 30h16v16h-16z" fill="none"/>
+<path id="decoration-inactive-hint-stretch-borders" d="M80 0h1v1h-1z" fill="none"/>
+<path id="decoration-maximized-topleft" d="M160 0h4v4h-4z" fill="url(#mt)"/>
+<path id="decoration-maximized-top" d="M164 0h16v4h-16z" fill="url(#mt)"/>
+<path id="decoration-maximized-topright" d="M180 0h4v4h-4z" fill="url(#mt)"/>
+<path id="decoration-maximized-left" d="M160 4h4v18h-4z" fill="url(#mt)"/>
+<path id="decoration-maximized-right" d="M180 4h4v18h-4z" fill="url(#mt)"/>
+<path id="decoration-maximized-bottomleft" d="M160 22h4v4h-4z" fill="url(#mt)"/>
+<path id="decoration-maximized-bottom" d="M164 22h16v4h-16z" fill="url(#mt)"/>
+<path id="decoration-maximized-bottomright" d="M180 22h4v4h-4z" fill="url(#mt)"/>
+<path id="decoration-maximized-center" d="M164 0h16v26h-16z" fill="url(#mt)"/>
+<path id="decoration-maximized-inactive-topleft" d="M192 0h4v4h-4z" fill="url(#nt)"/>
+<path id="decoration-maximized-inactive-top" d="M196 0h16v4h-16z" fill="url(#nt)"/>
+<path id="decoration-maximized-inactive-topright" d="M212 0h4v4h-4z" fill="url(#nt)"/>
+<path id="decoration-maximized-inactive-left" d="M192 4h4v18h-4z" fill="url(#nt)"/>
+<path id="decoration-maximized-inactive-right" d="M212 4h4v18h-4z" fill="url(#nt)"/>
+<path id="decoration-maximized-inactive-bottomleft" d="M192 22h4v4h-4z" fill="url(#nt)"/>
+<path id="decoration-maximized-inactive-bottom" d="M196 22h16v4h-16z" fill="url(#nt)"/>
+<path id="decoration-maximized-inactive-bottomright" d="M212 22h4v4h-4z" fill="url(#nt)"/>
+<path id="decoration-maximized-inactive-center" d="M196 0h16v26h-16z" fill="url(#nt)"/>
+<path id="mask-topleft" d="M224,30V5H225V3H226V2H227V1H229V0H252V30z"/>
+<path id="mask-top" d="M252 0h16v30h-16z"/>
+<path id="mask-topright" d="M296,30V5H295V3H294V2H293V1H291V0H268V30z"/>
+<path id="mask-left" d="M224 30h28v16h-28z"/>
+<path id="mask-right" d="M268 30h28v16h-28z"/>
+<path id="mask-bottomleft" d="M224 46h28v4h-28z"/>
+<path id="mask-bottom" d="M252 46h16v4h-16z"/>
+<path id="mask-bottomright" d="M268 46h28v4h-28z"/>
+<path id="mask-center" d="M252 30h16v16h-16z"/>
+</svg>

@@ -1,0 +1,53 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="176" height="37" viewBox="0 0 176 37">
+<defs><linearGradient id="normal-fill" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="25"><stop offset="0" stop-color="#306FD9"/><stop offset=".04" stop-color="#306FD9"/><stop offset=".04" stop-color="#4892F7"/><stop offset=".08" stop-color="#4892F7"/><stop offset=".08" stop-color="#4690F6"/><stop offset=".22" stop-color="#3A80F3"/><stop offset=".9" stop-color="#3980F4"/><stop offset=".92" stop-color="#3577EE"/><stop offset=".92" stop-color="#316FE8"/><stop offset=".96" stop-color="#316FE8"/><stop offset=".96" stop-color="#2652BC"/><stop offset="1" stop-color="#2652BC"/></linearGradient><linearGradient id="normal-ring" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="16" y2="0"><stop offset="0" stop-color="#3068DE"/><stop offset=".0625" stop-color="#3068DE"/><stop offset=".0625" stop-color="#619DF5"/><stop offset=".125" stop-color="#619DF5"/><stop offset=".875" stop-color="#3674EA"/><stop offset=".9375" stop-color="#3674EA"/><stop offset=".9375" stop-color="#2651AE"/><stop offset="1" stop-color="#2651AE"/></linearGradient></defs>
+<g id="normal-left"><path d="M0,3 A3,3 0 0 1 3,0 L4,0 L4,25 L3,25 A3,3 0 0 1 0,22 Z" fill="url(#normal-fill)"/><path d="M0,3 A3,3 0 0 1 2,0.17157 L2,24.828 A3,3 0 0 1 0,22 Z" fill="url(#normal-ring)"/></g>
+<path id="normal-center" d="M4,0 L12,0 L12,25 L4,25 Z" fill="url(#normal-fill)"/>
+<g id="normal-right"><path d="M12,0 L13,0 A3,3 0 0 1 16,3 L16,22 A3,3 0 0 1 13,25 L12,25 Z" fill="url(#normal-fill)"/><path d="M14,0.17157 A3,3 0 0 1 16,3 L16,22 A3,3 0 0 1 14,24.828 Z" fill="url(#normal-ring)"/></g>
+<rect id="normal-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="normal-hint-top-margin" width="3" height="3" fill="none"/>
+<rect id="normal-hint-bottom-margin" width="3" height="3" fill="none"/>
+<rect id="normal-hint-left-margin" width="25" height="25" fill="none"/>
+<rect id="normal-hint-right-margin" width="6" height="6" fill="none"/>
+<g id="hover-left"><use xlink:href="#normal-left" x="32"/><path d="M32,3 A3,3 0 0 1 35,0 L36,0 L36,25 L35,25 A3,3 0 0 1 32,22 Z" fill="#FFFFFF" fill-opacity="0.12"/></g>
+<g id="hover-center"><use xlink:href="#normal-center" x="32"/><path d="M36,0 L44,0 L44,25 L36,25 Z" fill="#FFFFFF" fill-opacity="0.12"/></g>
+<g id="hover-right"><use xlink:href="#normal-right" x="32"/><path d="M44,0 L45,0 A3,3 0 0 1 48,3 L48,22 A3,3 0 0 1 45,25 L44,25 Z" fill="#FFFFFF" fill-opacity="0.12"/></g>
+<rect id="hover-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="hover-hint-top-margin" width="3" height="3" fill="none"/>
+<rect id="hover-hint-bottom-margin" width="3" height="3" fill="none"/>
+<rect id="hover-hint-left-margin" width="25" height="25" fill="none"/>
+<rect id="hover-hint-right-margin" width="6" height="6" fill="none"/>
+<defs><linearGradient id="focus-fill" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="25"><stop offset="0" stop-color="#1C62D2"/><stop offset=".04" stop-color="#1C62D2"/><stop offset=".04" stop-color="#123D94"/><stop offset=".08" stop-color="#123D94"/><stop offset=".08" stop-color="#14429D"/><stop offset=".14" stop-color="#1951B9"/><stop offset=".54" stop-color="#1A50B8"/><stop offset=".92" stop-color="#2156B7"/><stop offset=".92" stop-color="#2156B7"/><stop offset=".96" stop-color="#2156B7"/><stop offset=".96" stop-color="#0C3CAE"/><stop offset="1" stop-color="#0C3CAE"/></linearGradient><linearGradient id="focus-ring" gradientUnits="userSpaceOnUse" x1="64" y1="0" x2="80" y2="0"><stop offset="0" stop-color="#082A70"/><stop offset=".0625" stop-color="#082A70"/><stop offset=".0625" stop-color="#143E95"/><stop offset=".125" stop-color="#143E95"/><stop offset=".875" stop-color="#2156B7"/><stop offset=".9375" stop-color="#2156B7"/><stop offset=".9375" stop-color="#0E3B9F"/><stop offset="1" stop-color="#0E3B9F"/></linearGradient></defs>
+<g id="focus-left"><path d="M64,3 A3,3 0 0 1 67,0 L68,0 L68,25 L67,25 A3,3 0 0 1 64,22 Z" fill="url(#focus-fill)"/><path d="M64,3 A3,3 0 0 1 66,0.17157 L66,24.828 A3,3 0 0 1 64,22 Z" fill="url(#focus-ring)"/></g>
+<path id="focus-center" d="M68,0 L76,0 L76,25 L68,25 Z" fill="url(#focus-fill)"/>
+<g id="focus-right"><path d="M76,0 L77,0 A3,3 0 0 1 80,3 L80,22 A3,3 0 0 1 77,25 L76,25 Z" fill="url(#focus-fill)"/><path d="M78,0.17157 A3,3 0 0 1 80,3 L80,22 A3,3 0 0 1 78,24.828 Z" fill="url(#focus-ring)"/></g>
+<rect id="focus-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="focus-hint-top-margin" width="3" height="3" fill="none"/>
+<rect id="focus-hint-bottom-margin" width="3" height="3" fill="none"/>
+<rect id="focus-hint-left-margin" width="25" height="25" fill="none"/>
+<rect id="focus-hint-right-margin" width="6" height="6" fill="none"/>
+<use id="minimized-left" xlink:href="#normal-left" x="96"/>
+<use id="minimized-center" xlink:href="#normal-center" x="96"/>
+<use id="minimized-right" xlink:href="#normal-right" x="96"/>
+<rect id="minimized-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="minimized-hint-top-margin" width="3" height="3" fill="none"/>
+<rect id="minimized-hint-bottom-margin" width="3" height="3" fill="none"/>
+<rect id="minimized-hint-left-margin" width="25" height="25" fill="none"/>
+<rect id="minimized-hint-right-margin" width="6" height="6" fill="none"/>
+<defs><linearGradient id="attention-fill" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="25"><stop offset="0" stop-color="#AE7B32"/><stop offset=".04" stop-color="#AE7B32"/><stop offset=".04" stop-color="#4892F7"/><stop offset=".08" stop-color="#4892F7"/><stop offset=".08" stop-color="#F6AE46"/><stop offset=".92" stop-color="#E29222"/><stop offset=".92" stop-color="#316FE8"/><stop offset=".96" stop-color="#316FE8"/><stop offset=".96" stop-color="#9D6516"/><stop offset="1" stop-color="#9D6516"/></linearGradient><linearGradient id="attention-ring" gradientUnits="userSpaceOnUse" x1="128" y1="0" x2="144" y2="0"><stop offset="0" stop-color="#A67024"/><stop offset=".0625" stop-color="#A67024"/><stop offset=".0625" stop-color="#619DF5"/><stop offset=".125" stop-color="#619DF5"/><stop offset=".875" stop-color="#3674EA"/><stop offset=".9375" stop-color="#3674EA"/><stop offset=".9375" stop-color="#A67024"/><stop offset="1" stop-color="#A67024"/></linearGradient></defs>
+<g id="attention-left"><path d="M128,3 A3,3 0 0 1 131,0 L132,0 L132,25 L131,25 A3,3 0 0 1 128,22 Z" fill="url(#attention-fill)"/><path d="M128,3 A3,3 0 0 1 130,0.17157 L130,24.828 A3,3 0 0 1 128,22 Z" fill="url(#attention-ring)"/></g>
+<path id="attention-center" d="M132,0 L140,0 L140,25 L132,25 Z" fill="url(#attention-fill)"/>
+<g id="attention-right"><path d="M140,0 L141,0 A3,3 0 0 1 144,3 L144,22 A3,3 0 0 1 141,25 L140,25 Z" fill="url(#attention-fill)"/><path d="M142,0.17157 A3,3 0 0 1 144,3 L144,22 A3,3 0 0 1 142,24.828 Z" fill="url(#attention-ring)"/></g>
+<rect id="attention-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="attention-hint-top-margin" width="3" height="3" fill="none"/>
+<rect id="attention-hint-bottom-margin" width="3" height="3" fill="none"/>
+<rect id="attention-hint-left-margin" width="25" height="25" fill="none"/>
+<rect id="attention-hint-right-margin" width="6" height="6" fill="none"/>
+<use id="progress-left" xlink:href="#normal-left" x="160"/>
+<use id="progress-center" xlink:href="#normal-center" x="160"/>
+<use id="progress-right" xlink:href="#normal-right" x="160"/>
+<rect id="progress-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="progress-hint-top-margin" width="3" height="3" fill="none"/>
+<rect id="progress-hint-bottom-margin" width="3" height="3" fill="none"/>
+<rect id="progress-hint-left-margin" width="25" height="25" fill="none"/>
+<rect id="progress-hint-right-margin" width="6" height="6" fill="none"/>
+</svg>

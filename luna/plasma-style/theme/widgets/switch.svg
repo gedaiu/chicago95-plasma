@@ -1,0 +1,31 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="64" height="72" viewBox="0 0 64 72">
+<defs><radialGradient id="inactive-top-corners" ><stop offset=".875" stop-color="#ECE9D8"/><stop offset=".875" stop-color="#7F9DB9"/></radialGradient><radialGradient id="inactive-topleft-fill" gradientUnits="userSpaceOnUse" cx="8" cy="8" r="8" xlink:href="#inactive-top-corners"></radialGradient><radialGradient id="inactive-topright-fill" gradientUnits="userSpaceOnUse" cx="16" cy="8" r="8" xlink:href="#inactive-top-corners"></radialGradient><radialGradient id="inactive-bottom-corners" ><stop offset=".875" stop-color="#ECE9D8"/><stop offset=".875" stop-color="#7F9DB9"/></radialGradient><radialGradient id="inactive-bottomleft-fill" gradientUnits="userSpaceOnUse" cx="8" cy="8" r="8" xlink:href="#inactive-bottom-corners"></radialGradient><radialGradient id="inactive-bottomright-fill" gradientUnits="userSpaceOnUse" cx="16" cy="8" r="8" xlink:href="#inactive-bottom-corners"></radialGradient><linearGradient id="inactive-fill" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="16"><stop offset="0" stop-color="#7F9DB9"/><stop offset=".0625" stop-color="#7F9DB9"/><stop offset=".0625" stop-color="#ECE9D8"/><stop offset=".9375" stop-color="#ECE9D8"/><stop offset=".9375" stop-color="#7F9DB9"/><stop offset="1" stop-color="#7F9DB9"/></linearGradient></defs>
+<path id="inactive-topleft" d="M0,8 A8,8 0 0 1 8,0 L8,8 Z" fill="url(#inactive-topleft-fill)"/>
+<path id="inactive-top" d="M8,0 L16,0 L16,8 L8,8 Z" fill="url(#inactive-fill)"/>
+<path id="inactive-topright" d="M16,0 A8,8 0 0 1 24,8 L16,8 Z" fill="url(#inactive-topright-fill)"/>
+<path id="inactive-bottomleft" d="M0,8 L8,8 L8,16 Z" fill="url(#inactive-bottomleft-fill)"/>
+<path id="inactive-bottom" d="M8,8 L16,8 L16,16 L8,16 Z" fill="url(#inactive-fill)"/>
+<path id="inactive-bottomright" d="M16,8 L24,8 A8,8 0 0 1 16,16 Z" fill="url(#inactive-bottomright-fill)"/>
+<rect id="inactive-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="inactive-hint-top-margin" width="0" height="0" fill="none"/>
+<rect id="inactive-hint-bottom-margin" width="0" height="0" fill="none"/>
+<rect id="inactive-hint-left-margin" width="0" height="0" fill="none"/>
+<rect id="inactive-hint-right-margin" width="0" height="0" fill="none"/>
+<defs><radialGradient id="active-top-corners" ><stop offset=".875" stop-color="#3C81F3"/><stop offset=".875" stop-color="#0C2E85"/></radialGradient><radialGradient id="active-topleft-fill" gradientUnits="userSpaceOnUse" cx="48" cy="8" r="8" xlink:href="#active-top-corners"></radialGradient><radialGradient id="active-topright-fill" gradientUnits="userSpaceOnUse" cx="56" cy="8" r="8" xlink:href="#active-top-corners"></radialGradient><radialGradient id="active-bottom-corners" ><stop offset=".875" stop-color="#3C81F3"/><stop offset=".875" stop-color="#0C2E85"/></radialGradient><radialGradient id="active-bottomleft-fill" gradientUnits="userSpaceOnUse" cx="48" cy="8" r="8" xlink:href="#active-bottom-corners"></radialGradient><radialGradient id="active-bottomright-fill" gradientUnits="userSpaceOnUse" cx="56" cy="8" r="8" xlink:href="#active-bottom-corners"></radialGradient><linearGradient id="active-fill" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="16"><stop offset="0" stop-color="#0C2E85"/><stop offset=".0625" stop-color="#0C2E85"/><stop offset=".0625" stop-color="#3C81F3"/><stop offset=".9375" stop-color="#3C81F3"/><stop offset=".9375" stop-color="#0C2E85"/><stop offset="1" stop-color="#0C2E85"/></linearGradient></defs>
+<path id="active-topleft" d="M40,8 A8,8 0 0 1 48,0 L48,8 Z" fill="url(#active-topleft-fill)"/>
+<path id="active-top" d="M48,0 L56,0 L56,8 L48,8 Z" fill="url(#active-fill)"/>
+<path id="active-topright" d="M56,0 A8,8 0 0 1 64,8 L56,8 Z" fill="url(#active-topright-fill)"/>
+<path id="active-bottomleft" d="M40,8 L48,8 L48,16 Z" fill="url(#active-bottomleft-fill)"/>
+<path id="active-bottom" d="M48,8 L56,8 L56,16 L48,16 Z" fill="url(#active-fill)"/>
+<path id="active-bottomright" d="M56,8 L64,8 A8,8 0 0 1 56,16 Z" fill="url(#active-bottomright-fill)"/>
+<rect id="active-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="active-hint-top-margin" width="0" height="0" fill="none"/>
+<rect id="active-hint-bottom-margin" width="0" height="0" fill="none"/>
+<rect id="active-hint-left-margin" width="0" height="0" fill="none"/>
+<rect id="active-hint-right-margin" width="0" height="0" fill="none"/><defs><linearGradient id="handle-body" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#D6D0C5"/></linearGradient><linearGradient id="handle-hover-body" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#C6D9F3"/></linearGradient><linearGradient id="handle-pressed-body" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#ACA899"/></linearGradient></defs>
+<g transform="translate(0 28)" id="handle"><circle cx="9" cy="9" r="9" fill="#7F9DB9"/><circle cx="9" cy="9" r="8" fill="url(#handle-body)"/></g>
+<g transform="translate(0 28)" id="handle-hover"><circle cx="29" cy="9" r="9" fill="#7F9DB9"/><circle cx="29" cy="9" r="8" fill="url(#handle-hover-body)"/></g>
+<g transform="translate(0 28)" id="handle-pressed"><circle cx="49" cy="9" r="9" fill="#7F9DB9"/><circle cx="49" cy="9" r="8" fill="url(#handle-pressed-body)"/></g>
+<circle id="handle-shadow" cx="70" cy="38" r="10" fill="#000000" fill-opacity=".2"/>
+<rect id="hint-bar-size" x="0" y="52" width="36" height="16" fill="none"/>
+</svg>

@@ -113,3 +113,5 @@ Windows XP (Luna and XP Classic), from Toasty Technology, GUIdebook, Wikipedia a
 | `xpdisplayprop.png` | http://toastytech.com/guis/wxpdisplayprop.png (Toasty Technology, Windows XP: Display Properties) |
 | `xpsilver.png` | http://toastytech.com/guis/wxpsilver.png (Toasty Technology, Windows XP: the Silver variant) |
 | `xpcrash.png` | http://toastytech.com/guis/wxpcrash.png (Toasty Technology, Windows XP: an error dialog) |
+| `xpquicklaunch.png` | http://hitanykey.x10host.com/images/quick-launch-bar-win-xp.png (a Windows XP Quick Launch bar screenshot, 492x241 true colour at 2x: every pixel doubled, so the 30px taskbar is rows 181..240; downscale by 2 for 1x. Used for the grip, icon pitch and band gaps) |
+| `xpquicklaunchchevron.png` | https://avatars.dzeninfra.ru (a Windows XP Quick Launch overflow chevron and menu, 334x233, from a palette-quantised GIF: geometry only, not for colours) |

@@ -1,6 +1,7 @@
 "use strict";
 
-// Setup turns each event on through kwinrc [Effect-chicago95zoom] Minimize and Maximize (setup/animations.conf).
+// Setup turns each event on through kwinrc [Effect-chicago95zoom] Minimize and Maximize (setup/animations.conf), and the
+// title bar's height (TitleBarHeight) when the window decoration's is not the classic 18 (Luna's is 29).
 const METRICS = { titleBarHeight: 18, durationMs: 260 };
 const UNCHOSEN = false;
 
@@ -17,6 +18,7 @@ class ZoomEffect {
     this.duration = animationTime(METRICS.durationMs);
     this.zoomsMinimize = effect.readConfig("Minimize", UNCHOSEN);
     this.zoomsMaximize = effect.readConfig("Maximize", UNCHOSEN);
+    this.titleBarHeight = effect.readConfig("TitleBarHeight", METRICS.titleBarHeight);
   }
 
   manage(window) {
@@ -29,17 +31,17 @@ class ZoomEffect {
 
   zoomToButton(window) {
     if (!this.zoomsMinimize || !hasButton(window) || effects.hasActiveFullScreenEffect) return;
-    this.play(window, minimizeKeyframes(window.geometry, window.iconGeometry), QEasingCurve.InCubic);
+    this.play(window, minimizeKeyframes(window.geometry, window.iconGeometry, this.titleBarHeight), QEasingCurve.InCubic);
   }
 
   zoomFromButton(window) {
     if (!this.zoomsMinimize || !hasButton(window) || effects.hasActiveFullScreenEffect) return;
-    this.play(window, restoreKeyframes(window.geometry, window.iconGeometry), QEasingCurve.OutCubic);
+    this.play(window, restoreKeyframes(window.geometry, window.iconGeometry, this.titleBarHeight), QEasingCurve.OutCubic);
   }
 
   zoomBetweenFrames(window) {
     if (!this.zoomsMaximize || !window.visible || !window.zoomFrom) return;
-    this.play(window, maximizeKeyframes(window.zoomFrom, window.geometry), QEasingCurve.OutCubic);
+    this.play(window, maximizeKeyframes(window.zoomFrom, window.geometry, this.titleBarHeight), QEasingCurve.OutCubic);
   }
 
   play(window, keyframes, curve) {
@@ -88,16 +90,16 @@ function hasButton(window) {
   return window.iconGeometry.width > 0 && window.iconGeometry.height > 0;
 }
 
-function minimizeKeyframes(frame, button) {
-  return [frame, titleBar(frame), button];
+function minimizeKeyframes(frame, button, titleBarHeight = METRICS.titleBarHeight) {
+  return [frame, titleBar(frame, titleBarHeight), button];
 }
 
-function restoreKeyframes(frame, button) {
-  return [button, titleBar(frame), frame];
+function restoreKeyframes(frame, button, titleBarHeight = METRICS.titleBarHeight) {
+  return [button, titleBar(frame, titleBarHeight), frame];
 }
 
-function maximizeKeyframes(oldFrame, newFrame) {
-  return [oldFrame, titleBar(oldFrame), titleBar(newFrame), newFrame];
+function maximizeKeyframes(oldFrame, newFrame, titleBarHeight = METRICS.titleBarHeight) {
+  return [oldFrame, titleBar(oldFrame, titleBarHeight), titleBar(newFrame, titleBarHeight), newFrame];
 }
 
 // Equal steps between keyframes, each as the Size and Translation KWin draws the window's frame with.
@@ -115,8 +117,8 @@ function firstAnimation(animation) {
   return Array.isArray(animation) ? animation[0] : animation;
 }
 
-function titleBar(rect) {
-  return Object.assign({}, rect, { height: Math.min(METRICS.titleBarHeight, rect.height) });
+function titleBar(rect, titleBarHeight) {
+  return Object.assign({}, rect, { height: Math.min(titleBarHeight, rect.height) });
 }
 
 // KWin scales a window about its centre, so the translation moves that centre onto the rect's.

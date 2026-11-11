@@ -140,7 +140,7 @@ def test_tasks_launchers_are_unknown_when_the_applet_never_saved_any(control_pan
     assert control_panel.read_launchers(appletsrc) is None
 
 
-@pytest.mark.parametrize("look", ["1995", "1998", "2000"])
+@pytest.mark.parametrize("look", ["1995", "1998", "2000", "luna"])
 def test_look_presets_match_what_setup_applies_for_that_look(control_panel, tmp_path, look):
     applied = run_bash_with_steps(
         tmp_path,
@@ -264,3 +264,11 @@ def test_a_second_launch_hands_its_page_to_the_running_window(qt_app, monkeypatc
     instance.server.close()
 
     assert (before, sent, received) == (False, True, ["taskbar"])
+
+
+def test_taskbar_style_change_reinstalls_the_look_step_that_selects_the_plasma_theme(control_panel):
+    assert control_panel.COMPONENTS_BY_KEY["TASKBAR_STYLE"] == ("taskbar", "look")
+
+
+def test_luna_look_face_is_the_xp_beige(control_panel):
+    assert control_panel.LOOK_FACES["luna"] == "#ECE9D8"

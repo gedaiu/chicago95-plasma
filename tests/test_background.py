@@ -129,3 +129,21 @@ def test_named_patterns_are_eight_rows_of_eight_bits():
         "grid": 8,
         "dots": 8,
     }
+
+
+@pytest.mark.parametrize(
+    "start_menu_style, red_green_blue",
+    [("1995", "0,128,128"), ("1998", "0,128,128"), ("2000", "58,110,165"), ("2001", "58,110,165"), ("luna", "0,78,152")],
+)
+def test_background_color_is_the_desktop_of_that_looks_windows_when_none_is_saved(
+    tmp_path, start_menu_style, red_green_blue
+):
+    script = background_script(tmp_path, f"SETUP_START_MENU_STYLE={start_menu_style}")
+
+    assert f'desktop.writeConfig("Color", "{red_green_blue}");' in script
+
+
+def test_saved_background_color_wins_over_the_looks_desktop_colour(tmp_path):
+    script = background_script(tmp_path, "SETUP_START_MENU_STYLE=luna SETUP_BACKGROUND_COLOR=#FF0010")
+
+    assert 'desktop.writeConfig("Color", "255,0,16");' in script

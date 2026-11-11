@@ -1,0 +1,15 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="36" height="42" viewBox="0 0 36 42">
+<defs><linearGradient id="fill" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="30"><stop offset="0" stop-color="#3168D5"/><stop offset=".01667" stop-color="#3168D5"/><stop offset=".05" stop-color="#3888E9"/><stop offset=".08333" stop-color="#4993E6"/><stop offset=".1167" stop-color="#307BE5"/><stop offset=".15" stop-color="#286ADD"/><stop offset=".2167" stop-color="#2359D6"/><stop offset=".7167" stop-color="#2661DD"/><stop offset=".9167" stop-color="#235BD9"/><stop offset=".9833" stop-color="#1941A5"/><stop offset="1" stop-color="#1941A5"/></linearGradient></defs>
+<path id="center" d="M0,0 L10,0 L10,30 L0,30 Z" fill="url(#fill)"/>
+<rect id="hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="hint-top-margin" width="0" height="0" fill="none"/>
+<rect id="hint-bottom-margin" width="0" height="0" fill="none"/>
+<rect id="hint-left-margin" width="0" height="0" fill="none"/>
+<rect id="hint-right-margin" width="0" height="0" fill="none"/>
+<path id="mask-center" d="M26,0 L36,0 L36,30 L26,30 Z" fill="#000000"/>
+<rect id="mask-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="mask-hint-top-margin" width="0" height="0" fill="none"/>
+<rect id="mask-hint-bottom-margin" width="0" height="0" fill="none"/>
+<rect id="mask-hint-left-margin" width="0" height="0" fill="none"/>
+<rect id="mask-hint-right-margin" width="0" height="0" fill="none"/>
+</svg>

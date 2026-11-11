@@ -110,7 +110,7 @@ def test_window_buttons_sort_by_dragging_inside_their_own_section():
 
 
 def test_a_dragged_button_follows_the_pointer_and_the_others_slide_aside_in_120_ms():
-    entry = qml_block(main_qml(), "Loader {")
+    entry = qml_block(main_qml(), "Loader {\n            id: entry")
 
     assert (
         "x: entry.dragging ? entry.dragX : entry.laidOutX" in entry,

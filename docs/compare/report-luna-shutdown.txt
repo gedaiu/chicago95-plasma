@@ -1,0 +1,4 @@
+    125   0.2%  luna Turn Off Computer: whole
+      1   0.0%  luna Turn Off Computer: title band
+     47   0.1%  luna Turn Off Computer: options
+     77   0.6%  luna Turn Off Computer: bottom band

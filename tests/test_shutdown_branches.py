@@ -54,6 +54,10 @@ def test_stand_by_command_suspends_through_systemctl(shutdown):
     assert shutdown.shutdown_command(shutdown.STAND_BY, ["gdbus"]) == ["systemctl", "suspend"]
 
 
+def test_hibernate_command_hibernates_through_systemctl(shutdown):
+    assert shutdown.shutdown_command(shutdown.HIBERNATE, ["gdbus"]) == ["systemctl", "hibernate"]
+
+
 def test_dos_mode_command_opens_konsole(shutdown):
     assert shutdown.shutdown_command(shutdown.DOS_MODE) == ["konsole"]
 

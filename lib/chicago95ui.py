@@ -14,6 +14,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+CHICAGO95RC = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "chicago95rc")
+
+
+def luna_widgets():
+    settings = configparser.ConfigParser(interpolation=None, strict=False)
+    settings.read(CHICAGO95RC)
+    return settings.get("Look", "widgetStyle", fallback="classic") == "luna"
+
 
 def compositor_reachable():
     """Whether a display server is there to ask: kscreen-doctor aborts without one, and each abort is a crash report."""
@@ -40,7 +48,8 @@ def detect_scale():
 # X11 sets CHICAGO95_PLATFORM=xcb before importing this module.
 os.environ.setdefault("QT_QPA_PLATFORM", os.environ.get("CHICAGO95_PLATFORM", "wayland"))
 os.environ.setdefault("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1")
-os.environ.setdefault("QT_STYLE_OVERRIDE", "Windows")
+if not luna_widgets():
+    os.environ.setdefault("QT_STYLE_OVERRIDE", "Windows")
 # On XWayland the X server advertises the real DPI (Xft.dpi 144 via ~/.Xresources) and KWin's
 # "apps scale themselves" mode leaves it at that, so Qt already lands at the right scale.
 # Forcing QT_SCALE_FACTOR here stacked on top of that and rendered every tool at 2.25x.
@@ -108,19 +117,19 @@ def read_scheme(path=None):
     }
 
 
-CHICAGO95RC = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "chicago95rc")
+WARM_GREY_STYLES = ("2000", "2001", "luna")
 
 
 def bevel_for_style(style):
     """The bevel palette a Start menu style implies when [Look] bevel is not set: 2000 or 1995."""
-    return "2000" if style == "2000" else "1995"
+    return "2000" if style in WARM_GREY_STYLES else "1995"
 
 
 def look_settings(path=None):
     """The look chosen in Setup, from ~/.config/chicago95rc.
 
-    [StartMenu] style is 1995, 1998 or 2000. [Look] decoration, widgetStyle and bevel name the window
-    frames, the controls and the bevel palette (1995 or 2000); a config without them is classic, with
+    [StartMenu] style is 1995, 1998, 2000, 2001 or luna. [Look] decoration, widgetStyle, taskbarStyle and
+    bevel name the window frames, the controls, the taskbar and the bevel palette (1995 or 2000); a config without them is classic, with
     the bevel the Start menu style implies. [Branding] describes the "operating system" the screens
     show: osCompany (the small word above the name), osName ("Windows 2000", "Fedora 44"; its number
     is drawn thin), osEdition, tagline (the login banner's line under the edition), osLogo and
@@ -142,6 +151,7 @@ def look_settings(path=None):
         "style": style,
         "decoration": settings.get("Look", "decoration", fallback="classic"),
         "widgetStyle": settings.get("Look", "widgetStyle", fallback="classic"),
+        "taskbarStyle": settings.get("Look", "taskbarStyle", fallback="classic"),
         "bevel": settings.get("Look", "bevel", fallback=bevel_for_style(style)),
         "bannerText": banner_text,
         "osCompany": branding("osCompany", ""),
@@ -154,8 +164,8 @@ def look_settings(path=None):
 
 
 def short_os_name(name):
-    """The name before its first digit ("Windows2026" -> "Windows"); the whole name when there is none."""
-    return re.split(r"\d", name, maxsplit=1)[0].strip() or name
+    """The name before its first digit or edition tag ("Windows2026", "Windows XP" -> "Windows"); the whole name when there is none."""
+    return re.split(r"\d| XP\b", name, maxsplit=1)[0].strip() or name
 
 
 def fill_placeholders(text, look):
@@ -411,6 +421,12 @@ def ui_font(pixel_size=11, bold=False):
     11px grid; at any other size its letters land on fractional pixels and space unevenly. On a whole
     scale (1x, 2x) the grid lands on screen pixels and it is drawn unsmoothed, with hard edges; on 1.5x
     it is left to fontconfig, which smooths it (config/fontconfig/60-chicago95-pixel-font.conf)."""
+    if luna_widgets():
+        font = QFont("Tahoma")
+        font.setPixelSize(pixel_size)
+        font.setBold(bold)
+        font.setStyleStrategy(QFont.PreferAntialias)
+        return font
     family = UI_FONT_FAMILY if UI_FONT_FAMILY in QFontDatabase.families() else "Noto Sans"
     font = QFont(family)
     font.setPixelSize(pixel_size)
@@ -420,15 +436,27 @@ def ui_font(pixel_size=11, bold=False):
     return font
 
 
+def apply_style(app):
+    """The controls, palette and font of the look's widget style: Luna's, else the classic ones."""
+    if not luna_widgets():
+        app.setStyle(classic_style())
+        app.setPalette(retro_palette())
+        app.setFont(ui_font())
+        return
+    import chicago95luna
+
+    app.setStyle(chicago95luna.LunaStyle())
+    app.setPalette(chicago95luna.luna_palette())
+    app.setFont(chicago95luna.luna_font())
+
+
 def make_app(app_name):
     # Pass the fractional compositor scale through instead of rounding 1.5 up to 2.
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     app = QApplication(sys.argv)
     app.setDesktopFileName(app_name)
     app.setApplicationName(app_name)
-    app.setStyle(classic_style())
-    app.setPalette(retro_palette())
-    app.setFont(ui_font())
+    apply_style(app)
     QIcon.setThemeSearchPaths(ICON_SEARCH_PATHS + QIcon.themeSearchPaths())
     QIcon.setThemeName(icon_theme())
     return app
@@ -1153,6 +1181,8 @@ _FIELD_STYLE = []
 
 
 def field_style():
+    if luna_widgets():
+        return QApplication.style()
     if not _FIELD_STYLE:
         _FIELD_STYLE.append(PlainDisabledTextStyle("Windows"))
     return _FIELD_STYLE[0]
@@ -1169,7 +1199,10 @@ def read_only_field(edit):
 
 
 def plain_disabled_text(widget):
-    """Gives a field the originals' disabled look: grey text, no engraving, on the window colour."""
+    """Gives a field the originals' disabled look: grey text, no engraving, on the window colour.
+    Under Luna the application style already draws fields and is left on them."""
+    if luna_widgets():
+        return widget
     widget.setStyle(field_style())
     return widget
 
@@ -1188,6 +1221,8 @@ class ListRowDelegate(QStyledItemDelegate):
 def classic_combo(combo):
     """A drop-down as the originals had it: plain grey when disabled, and a list with a 1px black border,
     13px rows and eight rows before it scrolls."""
+    if luna_widgets():
+        return combo
     plain_disabled_text(combo)
     combo.setMaxVisibleItems(DROP_DOWN_ROWS)
     combo.view().setItemDelegate(ListRowDelegate(combo.view()))
@@ -1227,11 +1262,16 @@ class ClassicDialog(QDialog):
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.style = style
         self.help_button = help_button
+        self.body_inset = body_inset
         self.held = False  # the close button, pressed and the mouse still on it
         width, height = body_size
         self.setFixedSize(width + 2 * body_inset, height + DIALOG_FRAME * 2 + DIALOG_TITLE)
         self.body = QWidget(self)
         self.body.setGeometry(body_inset, DIALOG_FRAME + DIALOG_TITLE, width, height)
+
+    def resize_body(self, width, height):
+        self.setFixedSize(width + 2 * self.body_inset, height + DIALOG_FRAME * 2 + DIALOG_TITLE)
+        self.body.resize(width, height)
 
     def title_rect(self):
         return QRect(DIALOG_FRAME, DIALOG_FRAME, self.width() - 2 * DIALOG_FRAME, DIALOG_TITLE)
@@ -1312,3 +1352,16 @@ class ClassicDialog(QDialog):
             self.update()
             if self.close_rect().contains(event.position().toPoint()):
                 self.reject()
+
+
+def dialog_frame_class(luna=None):
+    """The class of the look's dialogs: one that draws its own classic frame, or under Luna a plain window KWin decorates."""
+    if not (luna_widgets() if luna is None else luna):
+        return ClassicDialog
+    import chicago95lunaframe
+
+    return chicago95lunaframe.LunaDialogFrame
+
+
+def dialog_frame(title, style, body_size, body_inset=DIALOG_FRAME, help_button=False):
+    return dialog_frame_class()(title, style, body_size, body_inset, help_button)

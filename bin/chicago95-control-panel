@@ -4,6 +4,7 @@ import sys
 
 sys.path[:0] = [
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"),
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "luna", "lib"),
     os.path.expanduser("~/.local/lib/chicago95"),
 ]
 import argparse
@@ -19,6 +20,7 @@ import subprocess
 import tempfile
 import time
 import xml.etree.ElementTree as ElementTree
+from collections import namedtuple
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -78,6 +80,7 @@ from PySide6.QtWidgets import (
     QStyleOptionButton,
     QStyleOptionFrame,
     QStyleOptionMenuItem,
+    QTabWidget,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -120,7 +123,7 @@ COMPONENTS_BY_KEY = {
     "DECORATION": ("look",),
     "WIDGET_STYLE": ("look",),
     "BEVEL": ("look",),
-    "TASKBAR_STYLE": ("taskbar",),
+    "TASKBAR_STYLE": ("taskbar", "look"),
     "START_MENU_STYLE": ("startmenu",),
     "TITLE_ACTIVE": ("look",),
     "TITLE_INACTIVE": ("look",),
@@ -223,6 +226,32 @@ LOOK_PRESETS = {
         "BACKGROUND_COLOR": "#3A6EA5",  # Windows 2000's desktop blue
     },
 }
+LOOK_PRESETS["2001"] = {
+    **LOOK_PRESETS["2000"],
+    "START_MENU_STYLE": "2001",
+    "START_LOGO": "xp",
+    "BANNER_TEXT": "Windows XP Professional",
+}
+LOOK_PRESETS["luna"] = {
+    **LOOK_PRESETS["2000"],
+    "DECORATION": "luna",
+    "WIDGET_STYLE": "luna",
+    "TASKBAR_STYLE": "luna",
+    "START_MENU_STYLE": "luna",
+    "TITLE_ACTIVE": "#0054E3,#3F97FF",
+    "TITLE_INACTIVE": "#7A96DF,#9DB9EB",
+    "BACKGROUND_COLOR": "#004E98",
+}
+
+COMPONENT_STYLES = [("Classic", "classic"), ("Windows XP", "luna")]
+START_MENU_STYLES = [
+    ("Windows 95", "1995"),
+    ("Windows 98", "1998"),
+    ("Windows 2000", "2000"),
+    ("Windows XP Classic", "2001"),
+    ("Windows XP", "luna"),
+]
+TASKBAR_STYLE_HELP = "The Windows XP taskbar also switches tooltips and popups to the XP style."
 
 HOME_PAGE = ("Control Panel",)
 DETAILS_SEPARATOR = "  -  "
@@ -568,7 +597,8 @@ def screen_from_doctor(report):
 
 def native_environment():
     """The environment for KDE's own tools: this program's Qt platform is not theirs."""
-    return {key: value for key, value in os.environ.items() if key != "QT_QPA_PLATFORM"}
+    dropped = ("QT_QPA_PLATFORM", "QT_STYLE_OVERRIDE") if chicago95ui.luna_widgets() else ("QT_QPA_PLATFORM",)
+    return {key: value for key, value in os.environ.items() if key not in dropped}
 
 
 def live_screen():
@@ -765,7 +795,7 @@ class ApplyProgress(QDialog):
             lambda error: self.fail(f"Setup could not be started ({self.command[0]}): {error.name}")
         )
         self.label = QLabel("Please wait while the changes are applied...")
-        self.bar = ClassicProgressBar()
+        self.bar = window_chrome().progress_bar()
         self.bar.setRange(0, 100)
         self.bar.setTextVisible(False)
         self.pulse = QTimer(self)
@@ -1597,12 +1627,29 @@ def splash_of(values):
     return splash if splash.exists() else INSTALLED_SPLASH
 
 
+def luna_previews():
+    import chicago95lunapreviews
+
+    return chicago95lunapreviews
+
+
+def luna_root_of(values):
+    return repo_of(values) / "luna"
+
+
+def add_luna_screen(values, destination, screen, style):
+    """The Luna QML trees beside a screen that loads them, when the screen's style is luna."""
+    if style == "luna":
+        luna_previews().copy_screen_trees(luna_root_of(values), destination / "luna", screen)
+
+
 def picture_file(choice, repo=REPO_DIR):
     """The file behind a picture choice, as Setup resolves it (setup/steps.sh image_source and login_logo):
     a bundled name, the Start button's logo, or the user's own file."""
     flag = repo / "plasmoids/org.chicago95.start/contents/images/logo-flag.png"
     named = {
         "flag": flag,
+        "xp": repo / "plasmoids/org.chicago95.start/contents/images/logo-xp-16.png",
         "penguin": repo / "plasmoids/org.chicago95.start/contents/images/logo-penguin.svg",
         "waving-flag": CHICAGO95_DATA / "waving-flag.png",
         "keys": repo / "sddm/Chicago95Plasma/key.svg",
@@ -1679,6 +1726,10 @@ Item {{
         self.setResizeMode(QQuickWidget.SizeRootObjectToView)
         self.setFixedSize(round(size[0] * scale), round(size[1] * scale))
 
+    def fit(self, size, scale):
+        self.full_size, self.scale = size, scale
+        self.setFixedSize(round(size[0] * scale), round(size[1] * scale))
+
     def load(self, main_qml, context=None):
         """The screen at its own size, shrunk by `scale` to fit a property sheet (a wrapper beside the file)."""
         self.context = context or {}
@@ -1705,6 +1756,7 @@ class LogOnPreview(QmlPreview):
     """The log-on dialog as the theme draws it, with the texts, pictures and style chosen."""
 
     SIZE, SCALE = (440, 250), 0.6  # the dialog's own size, shrunk to fit the property sheet
+    LUNA_SIZE, LUNA_SCALE = (800, 600), 0.33  # the XP welcome screen fills the screen
 
     def __init__(self):
         super().__init__(self.SIZE, self.SCALE)
@@ -1716,6 +1768,8 @@ class LogOnPreview(QmlPreview):
         banner = render_banner(values, folder / "login-banner.png") if style == "2000" else None
         icon = picture_file(values.get("LOGIN_ICON", "keys"), repo_of(values))
         main_qml = login_preview.prepare_login_theme(theme, folder, banner=banner, icon=icon)
+        add_luna_screen(values, folder / "theme", "sddm", style)
+        self.fit(*{"luna": (self.LUNA_SIZE, self.LUNA_SCALE)}.get(style, (self.SIZE, self.SCALE)))
         self.engine().addImportPath(str(folder / "imports"))
         settings = {
             "loginStyle": style,
@@ -1728,8 +1782,13 @@ class LogOnPreview(QmlPreview):
         self.load(main_qml, login_preview.login_context(theme, host_name=socket.gethostname(), **settings))
 
 
-MENU_STYLES = ("1995", "1998", "2000")
-LOOK_FACES = {"2000": "#D4D0C8"}  # the button face of a look; the others are the classic grey
+MENU_STYLES = ("1995", "1998", "2000", "2001", "luna")
+LUNA_MENU_PREVIEW_WIDTH = 250
+LOOK_FACES = {
+    "2000": "#D4D0C8",
+    "2001": "#D4D0C8",
+    "luna": "#ECE9D8",
+}  # the button face of a look; the others are the classic grey
 CLASSIC_FACE = "#C0C0C0"
 TASKBAR_STRIP = QSize(120, 28)  # the taskbar's height; widened to the menu once it is drawn
 START_BUTTON_SCENE = """import QtQuick
@@ -1765,6 +1824,11 @@ Rectangle {{
 INSTALLED_START_PLASMOID = Path.home() / ".local/share/plasma/plasmoids/org.chicago95.start/contents/ui"
 
 
+def menu_style_of(values):
+    chosen = values.get("START_MENU_STYLE") or values.get("LOOK")
+    return chosen if chosen in MENU_STYLES else "1998"
+
+
 def start_button_ui(installed=INSTALLED_START_PLASMOID, repo=REPO_DIR):
     """The folder with StartButton.qml: the plasmoid Setup installed, or the checkout's when running from it."""
     checkout = repo / "plasmoids/org.chicago95.start/contents/ui"
@@ -1779,6 +1843,7 @@ class StartMenuPreview(QWidget):
         super().__init__()
         self.scratch = None
         self.shot = None
+        self.menu_style = "1998"
         self.menu_label = QLabel()
         self.button = QQuickWidget()  # a strip of taskbar with the Start button, as wide as the menu above it
         self.button.setResizeMode(QQuickWidget.SizeRootObjectToView)
@@ -1793,8 +1858,22 @@ class StartMenuPreview(QWidget):
 
     def refresh(self, values):
         folder = fresh_scratch(self)
-        look = values.get("LOOK") if values.get("LOOK") in MENU_STYLES else "1998"
-        self.draw_menu(folder, values, look)
+        self.menu_style = menu_style_of(values)
+        self.draw_menu(folder, values, self.menu_style)
+        show_button = {"luna": self.show_luna_button}.get(
+            values.get("TASKBAR_STYLE", self.menu_style), self.show_classic_button
+        )
+        show_button(folder, values)
+
+    def show_scene(self, scene, context, height):
+        for name, value in context.items():
+            self.button.rootContext().setContextProperty(name, value)
+        self.button.setFixedHeight(height)
+        self.button.engine().clearComponentCache()
+        self.button.setSource(QUrl.fromLocalFile(str(scene)))
+
+    def show_classic_button(self, folder, values):
+        look = self.menu_style
         scene = folder / "StartButtonPreview.qml"
         scene.write_text(START_BUTTON_SCENE.format(ui=start_button_ui(repo=repo_of(values)).as_uri()))
         context = {
@@ -1803,10 +1882,16 @@ class StartMenuPreview(QWidget):
             "startBevel": chicago95ui.bevel_for_style(look),
             "face": QColor(LOOK_FACES.get(look, CLASSIC_FACE)),
         }
-        for name, value in context.items():
-            self.button.rootContext().setContextProperty(name, value)
-        self.button.engine().clearComponentCache()
-        self.button.setSource(QUrl.fromLocalFile(str(scene)))
+        self.show_scene(scene, context, TASKBAR_STRIP.height())
+
+    def show_luna_button(self, folder, values):
+        parts = folder / "luna-panel"
+        luna_previews().copy_panel_parts(luna_root_of(values), parts)
+        self.button.engine().addImportPath(str(luna_previews().qml_import_root()))
+        scene = folder / "LunaStartButtonPreview.qml"
+        scene.write_text(luna_previews().panel_scene(luna_previews().START_SCENE, parts))
+        context = {"panelRows": luna_previews().panel_rows(), "startText": values.get("START_TEXT", "Start")}
+        self.show_scene(scene, context, luna_previews().PANEL_HEIGHT)
 
     def draw_menu(self, folder, values, look):
         config = folder / "config"
@@ -1835,12 +1920,15 @@ class StartMenuPreview(QWidget):
 
     def show_menu(self):
         menu = QPixmap(str(self.shot))
+        if self.menu_style == "luna":
+            menu = menu.scaledToWidth(LUNA_MENU_PREVIEW_WIDTH, Qt.SmoothTransformation)
         self.menu_label.setPixmap(menu)
         self.button.setFixedWidth(max(menu.width(), TASKBAR_STRIP.width()))
 
 
 class BrandingPreview(QLabel):
-    """The 2000 log-on banner, drawn with the branding chosen."""
+    """The 2000 log-on banner, drawn with the branding chosen; under the Windows XP log-on, the XP wordmark with
+    the edition."""
 
     WIDTH = 350  # the 411-wide banner shrunk to fit the property sheet
 
@@ -1848,10 +1936,28 @@ class BrandingPreview(QLabel):
         super().__init__()
         self.scratch = None
         self.setFixedSize(self.WIDTH, round(93 * self.WIDTH / 411))
+        self.wordmark = QQuickWidget(self)
+        self.wordmark.setResizeMode(QQuickWidget.SizeRootObjectToView)
+        self.wordmark.resize(self.size())
+        self.wordmark.hide()
 
     def refresh(self, values):
+        show_style = {"luna": self.show_wordmark}.get(values.get("LOGIN_STYLE", "classic"), self.show_banner)
+        show_style(values)
+
+    def show_banner(self, values):
+        self.wordmark.hide()
         banner = render_banner({**values, "LOGIN_STYLE": "2000"}, fresh_scratch(self) / "banner.png")
         self.setPixmap(QPixmap(str(banner)).scaledToWidth(self.WIDTH, Qt.SmoothTransformation))
+
+    def show_wordmark(self, values):
+        folder = fresh_scratch(self)
+        luna_previews().copy_screen_trees(luna_root_of(values), folder / "luna")
+        (folder / "WordmarkPreview.qml").write_text(luna_previews().WORDMARK_SCENE)
+        self.wordmark.rootContext().setContextProperty("wordmarkEdition", values.get("EDITION", "Professional"))
+        self.wordmark.engine().clearComponentCache()
+        self.wordmark.setSource(QUrl.fromLocalFile(str(folder / "WordmarkPreview.qml")))
+        self.wordmark.show()
 
 
 class LoadingPreview(QmlPreview):
@@ -1882,6 +1988,7 @@ class LoadingPreview(QmlPreview):
     def refresh(self, values):
         folder = fresh_scratch(self) / "splash"
         shutil.copytree(splash_of(values), folder)
+        add_luna_screen(values, folder, "splash", boot_style(values))
         (folder / "settings.js").write_text(self.settings_js(values))
         self.load(folder / "Splash.qml")
         if self.dialog() is not None:
@@ -1905,19 +2012,49 @@ class TaskButtonPreview(QWidget):
     def __init__(self, look):
         super().__init__()
         self.look = look
+        self.scratch = None
         self.button_width = LOOK_BUTTON_WIDTH
         self.icon = QIcon.fromTheme("text-x-generic")
+        self.luna_view = QQuickWidget(self)
+        self.luna_view.setResizeMode(QQuickWidget.SizeRootObjectToView)
+        self.luna_view.hide()
         self.setFixedHeight(chicago95ui.TASK_BUTTON_HEIGHT)
+
+    def refresh(self, values):
+        show_style = {"luna": self.show_luna}.get(values.get("TASKBAR_STYLE", "classic"), self.show_classic)
+        show_style(values)
+        self.show_width(self.button_width)
+
+    def show_classic(self, _values):
+        self.luna_view.hide()
+        self.setFixedHeight(chicago95ui.TASK_BUTTON_HEIGHT)
+
+    def show_luna(self, values):
+        parts = fresh_scratch(self) / "luna-panel"
+        luna_previews().copy_panel_parts(luna_root_of(values), parts)
+        scene = parts.parent / "LunaTaskButtonPreview.qml"
+        scene.write_text(luna_previews().panel_scene(luna_previews().TASKS_SCENE, parts))
+        self.luna_view.engine().addImportPath(str(luna_previews().qml_import_root()))
+        self.luna_view.rootContext().setContextProperty("panelRows", luna_previews().panel_rows())
+        self.luna_view.rootContext().setContextProperty("taskWidth", self.button_width)
+        self.luna_view.engine().clearComponentCache()
+        self.luna_view.setSource(QUrl.fromLocalFile(str(scene)))
+        self.setFixedHeight(luna_previews().PANEL_HEIGHT)
+        self.luna_view.show()
 
     def show_width(self, width):
         self.button_width = width
+        self.luna_view.rootContext().setContextProperty("taskWidth", width)
+        self.luna_view.setFixedSize(self.sizeHint())
         self.updateGeometry()
         self.update()
 
     def sizeHint(self):
-        return QSize(2 * self.button_width + 3, chicago95ui.TASK_BUTTON_HEIGHT)
+        return QSize(2 * self.button_width + 3, self.height())
 
     def paintEvent(self, _event):
+        if self.luna_view.isVisibleTo(self):
+            return
         painter = QPainter(self)
         for position, (caption, pressed) in enumerate((("Document - Notepad", False), ("My Computer", True))):
             rect = QRect(position * (self.button_width + 3), 0, self.button_width, self.height())
@@ -2016,6 +2153,9 @@ class ButtonWidthField(QWidget):
         self.spin.valueChanged.connect(self.width_changed)
         self.checkbox.toggled.connect(self.width_changed)
         self.show_state()
+
+    def refresh(self, values):
+        self.preview.refresh(values)
 
     def width_changed(self):
         self.show_state()
@@ -2245,6 +2385,33 @@ from chicago95ui import (
 )
 
 
+class AppearanceSwitch(QStackedWidget):
+    """The Appearance sample in the widget style chosen: the classic mock, or the Windows XP one, swapped live."""
+
+    def __init__(self):
+        super().__init__()
+        import chicago95lunacontrolpanel
+
+        self.mocks = {"classic": AppearancePreview(), "luna": chicago95lunacontrolpanel.LunaAppearancePreview()}
+        for mock in self.mocks.values():
+            self.addWidget(mock)
+        self.setFixedSize(AppearancePreview.SIZE)
+        self.show_style("luna" if chicago95ui.luna_widgets() else "classic")
+
+    def show_style(self, widget_style):
+        self.setCurrentWidget(self.mocks.get(widget_style, self.mocks["classic"]))
+
+    def show_colors(self, active, inactive, desktop, look):
+        for mock in self.mocks.values():
+            mock.show_colors(active, inactive, desktop, look)
+
+    def refresh(self, values):
+        self.show_style(values.get("WIDGET_STYLE", "classic"))
+
+    def __getattr__(self, name):
+        return getattr(self.currentWidget(), name)
+
+
 class TabRows(QWidget):
     """The tabs of a TabControl, wrapped into rows as the classic control does when they do not fit on a line."""
 
@@ -2369,6 +2536,46 @@ class TabControl(QWidget):
         self.currentChanged.emit(index)
 
 
+WindowChrome = namedtuple(
+    "WindowChrome",
+    "header_band toolbar_button status_bar status_pane logo_box menu_style tab_control progress_bar appearance_preview",
+)
+CLASSIC_WINDOW_CHROME = WindowChrome(
+    HeaderBand,
+    ToolbarButton,
+    ClassicStatusBar,
+    StatusPane,
+    LogoBox,
+    lambda: MenuBandStyle("Windows"),
+    TabControl,
+    ClassicProgressBar,
+    AppearancePreview,
+)
+
+
+def window_chrome():
+    """The Control Panel's window parts of the look's widget style: the classic ones, or Windows XP's."""
+    if not chicago95ui.luna_widgets():
+        return CLASSIC_WINDOW_CHROME
+    import chicago95luna
+    import chicago95lunacontrolpanel
+
+    header_band, toolbar_button, status_bar, status_pane, logo_box, progress_bar, preview = (
+        chicago95lunacontrolpanel.CHROME_FIELDS
+    )
+    return WindowChrome(
+        header_band,
+        toolbar_button,
+        status_bar,
+        status_pane,
+        logo_box,
+        chicago95luna.LunaStyle,
+        QTabWidget,
+        progress_bar,
+        preview,
+    )
+
+
 def scrolling(tab):
     """The tab in a frameless scroll area: a sheet keeps the standard size, and a tab too big for it scrolls."""
     area = QScrollArea()
@@ -2394,7 +2601,7 @@ class PropertiesPage(QWidget):
         super().__init__()
         self.title = title
         self.apply_changes = apply_changes
-        self.tabs = TabControl()
+        self.tabs = window_chrome().tab_control()
         self.settings_tabs = [tab for _name, tab in tabs]
         for name, tab in tabs:
             self.tabs.addTab(scrolling(tab), name)
@@ -2760,18 +2967,21 @@ def taskbar_options_tab(settings, actions):
     tab.number("PANEL", "Taskbar height:", 22, 64, default=28, suffix=" pixels")
     width = ButtonWidthField(settings.get("LOOK", "1995"))
     tab.register("TASK_BUTTON_WIDTH", "Taskbar button width:", width, width.value, width.set_value, "0", width.changed)
+    tab.previews.append(width)
     tab.choice(
         "QUICK_LAUNCH",
         "Quick Launch:",
         [("From the look (1998 on)", "auto"), ("Always", "yes"), ("Never", "no")],
         default="auto",
     )
-    tab.choice(
+    taskbar_style = tab.choice(
         "TASKBAR_STYLE",
         "Taskbar style:",
-        [("Classic", "classic")],
+        COMPONENT_STYLES,
         default=LOOK_PRESETS.get(settings.get("LOOK"), LOOK_PRESETS["1995"])["TASKBAR_STYLE"],
     )
+    taskbar_style.setToolTip(TASKBAR_STYLE_HELP)
+    taskbar_style.setWhatsThis(TASKBAR_STYLE_HELP)
     tab.flag("TASKBAR_AUTOHIDE", "Auto hide", default="no")
     tab.flag("TASKBAR_ON_TOP", "Always on top", default="yes")
     tab.choice(
@@ -2915,12 +3125,21 @@ def start_menu_tab(settings, actions):
     tab.choice(
         "START_MENU_STYLE",
         "Start menu style:",
-        [("Windows 95", "1995"), ("Windows 98", "1998"), ("Windows 2000", "2000")],
+        START_MENU_STYLES,
         default=LOOK_PRESETS.get(settings.get("LOOK"), LOOK_PRESETS["1995"])["START_MENU_STYLE"],
     )
     tab.text("START_TEXT", "Button text:", default="Start")
-    tab.picture("START_LOGO", "Button logo:", [("Classic flag", "flag"), ("Penguin", "penguin")], default="flag")
-    tab.text("BANNER_TEXT", "Menu banner text:", default="Chicago95")
+    tab.picture(
+        "START_LOGO",
+        "Button logo:",
+        [("Classic flag", "flag"), ("Windows XP flag", "xp"), ("Penguin", "penguin")],
+        default=LOOK_PRESETS.get(settings.get("LOOK"), LOOK_PRESETS["1995"]).get("START_LOGO", "flag"),
+    )
+    tab.text(
+        "BANNER_TEXT",
+        "Menu banner text:",
+        default=LOOK_PRESETS.get(settings.get("LOOK"), LOOK_PRESETS["1995"]).get("BANNER_TEXT", "Chicago95"),
+    )
     tab.group("Preview")
     tab.preview(StartMenuPreview())
     return tab
@@ -2931,7 +3150,10 @@ def log_on_tab(settings, actions):
     tab = SettingsTab(settings, actions)
     tab.group("Log on window")
     tab.radios(
-        "LOGIN_STYLE", "Style", [("Classic (1995 and 1998)", "classic"), ("Windows 2000", "2000")], default="classic"
+        "LOGIN_STYLE",
+        "Style",
+        [("Classic (1995 and 1998)", "classic"), ("Windows 2000", "2000"), ("Windows XP", "luna")],
+        default="classic",
     )
     tab.text("LOGIN_TITLE", "Title bar:", default="Log On to %h")
     tab.text("LOGIN_MESSAGE", "Message:", default="Type a user name and password to log on.")
@@ -2944,6 +3166,7 @@ def log_on_tab(settings, actions):
             ("Same as the Start button", "start"),
             ("Waving flag", "waving-flag"),
             ("Classic flag", "flag"),
+            ("Windows XP flag", "xp"),
             ("Penguin", "penguin"),
         ],
         default="start",
@@ -2960,7 +3183,7 @@ def branding_tab(settings, actions):
     tab.text("TAGLINE", "Tagline:", default="Built on Linux Technology")
     tab.text("COMPANY", "Company:", default="KDE")
     tab.picture("COMPANY_LOGO", "Company logo:", [("The company's name in heavy italics", "text")], default="text")
-    tab.group("Preview (the 2000 log-on banner)")
+    tab.group("Preview (the log-on banner)")
     tab.preview(BrandingPreview())
     return tab
 
@@ -2978,7 +3201,11 @@ def boot_screen_tab(settings, actions):
     tab.radios(
         "BOOT_STYLE",
         "Style",
-        [("Classic (1995 and 1998): a picture", "classic"), ("Windows 2000: the page with its progress bar", "2000")],
+        [
+            ("Classic (1995 and 1998): a picture", "classic"),
+            ("Windows 2000: the page with its progress bar", "2000"),
+            ("Windows XP: the black screen with its sliding bar", "luna"),
+        ],
         default=boot_style(settings),
     )
     tab.group("Classic picture")
@@ -3004,7 +3231,6 @@ APPEARANCE_ITEMS = (
     ("Start Menu Banner Text", "BANNER_FG", 1, False),
     ("Window Frames", "DECORATION", 0, False),
 )
-COMPONENT_STYLES = [("Classic", "classic")]
 
 
 @tab_builder("Display", "Appearance")
@@ -3014,13 +3240,16 @@ def appearance_tab(settings, actions):
     tab = SettingsTab(settings, actions)
     tab.outer.setContentsMargins(12, PAGE_INSETS[1], 12, PAGE_INSETS[3])  # the 358px preview fits the sheet's 386
     start = LOOK_PRESETS["1995"]
-    tab.preview = AppearancePreview()
+    tab.preview = AppearanceSwitch()
+    tab.previews.append(tab.preview)
     tab.outer.insertWidget(0, tab.preview)
     tab.scheme = chicago95ui.classic_combo(QComboBox())
     for label, value in (
         ("Windows 95", "1995"),
         ("Windows 98", "1998"),
         ("Windows 2000", "2000"),
+        ("Windows XP Classic", "2001"),
+        ("Windows XP", "luna"),
         ("Custom", "custom"),
     ):
         tab.scheme.addItem(label, value)
@@ -3706,20 +3935,23 @@ class ControlPanel(QMainWindow):
             if not icon.isNull()
             else start_logo_pixmap().scaled(16, 16, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         )
+        chrome = window_chrome()
         self.status_panes = (
-            StatusPane(self.status_message),
-            StatusPane(QLabel()),
-            StatusPane(self.status_place_icon, QLabel("My Computer")),
+            chrome.status_pane(self.status_message),
+            chrome.status_pane(QLabel()),
+            chrome.status_pane(self.status_place_icon, QLabel("My Computer")),
         )
-        self.setStatusBar(ClassicStatusBar(self.status_panes))
+        self.setStatusBar(chrome.status_bar(self.status_panes))
 
     def build_header(self):
+        chrome = window_chrome()
         self.menu_bar = QMenuBar()
-        self.menu_bar.setStyle(MenuBandStyle("Windows"))
+        self.menu_style = chrome.menu_style()
+        self.menu_bar.setStyle(self.menu_style)
         self.menu_bar.setFixedHeight(MENU_BAR_HEIGHT)
         self.build_menus()
         self.toolbar = self.build_standard_toolbar()
-        self.logo_box = LogoBox()
+        self.logo_box = chrome.logo_box()
         known_pages = [HOME_PAGE] + [HOME_PAGE + (applet.name,) for applet in APPLETS if not applet.external_tool]
         self.address_bar = AddressBar(known_pages)
         self.address_bar.navigate.connect(self.navigate)
@@ -3728,10 +3960,10 @@ class ControlPanel(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         for band in (
-            HeaderBand(self.menu_bar, trailing=self.logo_box),
-            HeaderBand(self.toolbar, TOOLBAR_HEIGHT),
-            HeaderBand(self.address_bar),
-            HeaderBand(None, 0, grip=False),
+            chrome.header_band(self.menu_bar, trailing=self.logo_box),
+            chrome.header_band(self.toolbar, TOOLBAR_HEIGHT),
+            chrome.header_band(self.address_bar),
+            chrome.header_band(None, 0, grip=False),
         ):
             layout.addWidget(band)
         self.setMenuWidget(self.header)
@@ -3767,13 +3999,13 @@ class ControlPanel(QMainWindow):
         self.up_action.triggered.connect(lambda: self.navigate(parent_location(self.history.current)))
         self.toolbar_buttons = {}
         for action, has_menu in ((self.back_action, True), (self.forward_action, True), (self.up_action, False)):
-            self.toolbar_buttons[action.text()] = ToolbarButton(action, has_menu)
+            self.toolbar_buttons[action.text()] = window_chrome().toolbar_button(action, has_menu)
             layout.addWidget(self.toolbar_buttons[action.text()])
         separator = QFrame()
         separator.setFrameStyle(QFrame.VLine | QFrame.Sunken)
         separator.setFixedWidth(6)
         layout.addWidget(separator)
-        self.toolbar_buttons["Views"] = ToolbarButton(views_action, has_menu=True)
+        self.toolbar_buttons["Views"] = window_chrome().toolbar_button(views_action, has_menu=True)
         layout.addWidget(self.toolbar_buttons["Views"])
         layout.addStretch(1)
         return toolbar

@@ -4,6 +4,8 @@
 # in the manifest that uninstall.sh reads.
 
 PANEL_HEIGHT=28
+LUNA_PANEL_HEIGHT=30
+LUNA_GENERATORS=~/.local/share/chicago95/luna-generators
 MENU_HEIGHT=239 # fallback only; place_start_menu measures the real height
 RUN_HEIGHT=163  # the Run dialog with its frame and title (bin/chicago95-run)
 CLIPPY_W=124
@@ -106,6 +108,9 @@ SETTINGS_KEYS="LOOK DECORATION WIDGET_STYLE TASKBAR_STYLE START_MENU_STYLE BEVEL
 # A look: menu style, title bars, Start menu banner and, for 2000, the warm grey face. Colours are
 # #RRGGBB, two separated by a comma for a gradient; banner stops with @N sit N pixels above its bottom.
 # The 1998 and 2000 banners are measured from the originals (tests/test_startmenu_styles_reference.py).
+default_start_logo() { [ "${SETUP_START_MENU_STYLE:-1995}" = 2001 ] && printf xp || printf flag; }
+default_banner_text() { [ "${SETUP_START_MENU_STYLE:-1995}" = 2001 ] && printf 'Windows XP Professional' || printf Chicago95; }
+
 apply_look() {
   SETUP_LOOK=$1
   SETUP_DECORATION=classic
@@ -123,13 +128,29 @@ apply_look() {
     SETUP_ICONS=${OPT_ICONS:-se98}
     set -- "#000080,#1084D0;#808080,#C0C0C0;#00007B,#00007B@95,#0000B0@70,#0000F8@45,#0000EE@20,#0000A9@0;#FFFFFF"
     ;;
-  2000)
-    SETUP_START_MENU_STYLE=2000
+  2000 | 2001)
+    SETUP_START_MENU_STYLE=$1
     SETUP_BEVEL=2000
     SETUP_FACE="212,208,200"
     SETUP_SELECTION="10,36,106"
     SETUP_ICONS=${OPT_ICONS:-classicos2000}
+    SETUP_START_LOGO=$(default_start_logo)
+    SETUP_BANNER_TEXT=$(default_banner_text)
+    [ "$1" = 2001 ] && SETUP_LOGIN_STYLE=2000 SETUP_BOOT_STYLE=2000
     set -- "#0A246A,#A6CAF0;#808080,#C0C0C0;#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0;#FFFFFF"
+    ;;
+  luna)
+    SETUP_DECORATION=luna
+    SETUP_WIDGET_STYLE=luna
+    SETUP_TASKBAR_STYLE=luna
+    SETUP_START_MENU_STYLE=luna
+    SETUP_LOGIN_STYLE=luna
+    SETUP_BOOT_STYLE=luna
+    SETUP_BEVEL=2000
+    SETUP_FACE="236,233,216"
+    SETUP_SELECTION="49,106,197"
+    SETUP_ICONS=${OPT_ICONS:-classicos2000}
+    set -- "#0054E3,#3F97FF;#7A96DF,#9DB9EB;#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0;#FFFFFF"
     ;;
   esac
   IFS=';' read -r SETUP_TITLE_ACTIVE SETUP_TITLE_INACTIVE SETUP_BANNER_BG SETUP_BANNER_FG <<<"$1"
@@ -167,7 +188,7 @@ remembered_components() { # remembered_components <previous setup.conf text>   e
 load_settings() { # load_settings <file>   values are data: the file is read, never executed
   local key value look
   look=$(sed -n 's/^LOOK=//p' "$1" | tail -1)
-  case "$look" in 1995 | 1998 | 2000) apply_look "$look" ;; esac
+  case "$look" in 1995 | 1998 | 2000 | 2001 | luna) apply_look "$look" ;; esac
   while IFS='=' read -r key value; do
     case " ${SETTINGS_KEYS//$'\n'/ } COMPONENTS CLASSIC_EFFECTS " in *" $key "*) printf -v "SETUP_$key" '%s' "$value" ;; esac
   done <"$1"
@@ -227,6 +248,61 @@ kwin_reconfigure() { run gdbus call --session --dest org.kde.KWin --object-path 
 
 # --- components ---
 
+widget_style_is_luna() { [ "${SETUP_WIDGET_STYLE:-classic}" = luna ]; }
+
+gtk_theme_name() { widget_style_is_luna && echo Chicago95Luna || echo Chicago95; }
+
+xsettingsd_source() { widget_style_is_luna && echo "$REPO/config/xsettingsd/xsettingsd-luna.conf" || echo "$REPO/config/xsettingsd/xsettingsd.conf"; }
+
+# edit_xsettings <key> <value as written in the file>   a key of the installed xsettingsd.conf
+edit_xsettings() {
+  [ -f ~/.config/xsettingsd/xsettingsd.conf ] || [ "${SETUP_DRY_RUN:-0}" = 1 ] || return 0
+  run sed -i "s|^$1 .*|$1 $2|" ~/.config/xsettingsd/xsettingsd.conf
+  [ "${SETUP_DRY_RUN:-0}" = 1 ] || pkill -HUP xsettingsd 2>/dev/null || true
+}
+
+set_gtk_theme() { # set_gtk_theme <theme name>   GTK 3 and GTK 4 settings
+  local version
+  for version in 3.0 4.0; do
+    backup ~/.config/gtk-$version/settings.ini
+    run mkdir -p ~/.config/gtk-$version
+    run kwriteconfig6 --file ~/.config/gtk-$version/settings.ini --group Settings --key gtk-theme-name "$1"
+    run kwriteconfig6 --file ~/.config/gtk-$version/settings.ini --group Settings --key gtk-overlay-scrolling false # the originals' scroll bars never hid
+    record ~/.config/gtk-$version/settings.ini
+  done
+  import_gtk4_theme "$1"
+}
+
+# import_gtk4_theme <theme name>   libadwaita programs (GNOME Files among them) ignore gtk-theme-name: the user's
+# gtk.css is all they read. The theme's GTK 4 sheet is imported there, between the markers the Chicago95 installer
+# uses for the same import, so the two never stack; whatever the user wrote around the block stays.
+import_gtk4_theme() {
+  local target=~/.config/gtk-4.0/gtk.css sheet=~/.themes/$1/gtk-4.0/gtk.css
+  local begin='/* >>> Chicago95 GTK4 BEGIN - managed by the Chicago95 installer, do not edit */' end='/* <<< Chicago95 GTK4 END */'
+  if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then
+    printf '  would: import %s into %s\n' "$sheet" "$target" >>"$SETUP_LOG"
+    return
+  fi
+  backup "$target"
+  mkdir -p "$(dirname "$target")"
+  python3 - "$target" "$sheet" "$begin" "$end" <<'PY'
+import sys
+from pathlib import Path
+
+target, sheet, begin, end = Path(sys.argv[1]), *sys.argv[2:]
+block = f'{begin}\n@import url("file://{sheet}");\n{end}\n'
+text = target.read_text() if target.exists() else ""
+if begin in text and end in text:
+    head, rest = text.split(begin, 1)
+    tail = rest.split(end, 1)[1].lstrip("\n")
+    text = head + block + tail
+else:
+    text = block + text
+target.write_text(text)
+PY
+  record "$target"
+}
+
 step_base() {
   if [ -z "$SETUP_CHICAGO95_SRC" ]; then
     ui_status "Downloading Chicago95 (about 100 MB)..."
@@ -246,14 +322,8 @@ step_base() {
   record ~/.local/share/icons/Chicago95
   append_gtk_css "$REPO/config/gtk-toolbar-icons-gtk3.css" 3.0 # GTK 3 has no icon filters: its icons dim instead
   append_gtk_css "$REPO/config/gtk-toolbar-icons.css" 4.0
-  # GTK programs draw their own widgets, and GTK 4 its own title bars: both take the classic theme.
-  local version
-  for version in 3.0 4.0; do
-    backup ~/.config/gtk-$version/settings.ini
-    run mkdir -p ~/.config/gtk-$version
-    run kwriteconfig6 --file ~/.config/gtk-$version/settings.ini --group Settings --key gtk-theme-name Chicago95
-    record ~/.config/gtk-$version/settings.ini
-  done
+  # GTK programs draw their own widgets, and GTK 4 its own title bars: both take the look's widget theme.
+  set_gtk_theme "$(gtk_theme_name)"
   show_copy ~/.icons/Chicago95 ~/.local/share/icons/Chicago95
   if [ "${SETUP_DRY_RUN:-0}" != 1 ] && ! grep -q '^Inherits=' ~/.icons/Chicago95/index.theme; then
     sed -i '/^\[Icon Theme\]/a Inherits=hicolor,breeze' ~/.icons/Chicago95/index.theme
@@ -263,7 +333,7 @@ step_base() {
     [ -e "$font" ] && put_file "$font" ~/.local/share/fonts/Chicago95/"$(basename "$font")"
   done
   run fc-cache -f ~/.local/share/fonts >/dev/null 2>&1 || true
-  put_file "$REPO/config/xsettingsd/xsettingsd.conf" ~/.config/xsettingsd/xsettingsd.conf
+  put_file "$(xsettingsd_source)" ~/.config/xsettingsd/xsettingsd.conf
   run plasma-apply-cursortheme Chicago95_Animated_Hourglass_Cursors_HiDPI --size "${SETUP_CURSOR:-32}" >>"$SETUP_LOG" 2>&1 || true
   pkill -HUP xsettingsd 2>/dev/null || true
 }
@@ -430,6 +500,56 @@ step_animations() { # the saved animation choices into KWin, KDE's speed and our
   done
 }
 
+default_panel_height() { [ "${SETUP_TASKBAR_STYLE:-classic}" = luna ] && echo "$LUNA_PANEL_HEIGHT" || echo 28; }
+
+wants_luna() { [ "${SETUP_DECORATION:-classic}" = luna ] || [ "${SETUP_TASKBAR_STYLE:-classic}" = luna ] || [ "${SETUP_WIDGET_STYLE:-classic}" = luna ]; }
+
+install_luna_theme_files() {
+  local luna_file
+  put_tree "$REPO/luna/aurorae/theme" ~/.local/share/aurorae/themes/Chicago95Luna
+  put_tree "$REPO/luna/plasma-style/theme" ~/.local/share/plasma/desktoptheme/Chicago95Luna
+  put_file "$REPO/luna/Luna.colors" ~/.local/share/color-schemes/Chicago95Luna.colors
+  put_file "$REPO/aurorae/bevel.py" "$LUNA_GENERATORS/aurorae/bevel.py"
+  put_file "$REPO/luna/palette.py" "$LUNA_GENERATORS/luna/palette.py"
+  for luna_file in "$REPO"/luna/aurorae/*.py "$REPO"/luna/plasma-style/*.py; do
+    put_file "$luna_file" "$LUNA_GENERATORS/luna/${luna_file#"$REPO"/luna/}"
+  done
+}
+
+apply_luna_qt_style() {
+  if [ "${SETUP_HAS_KVANTUM:-0}" != 1 ]; then
+    printf 'note: Kvantum is not installed, so the Windows XP widgets use the Fusion style; install kvantum and run Setup again\n' >>"$SETUP_LOG"
+    ui_status "Kvantum not installed; Windows XP widgets use the Fusion style"
+    kconf kdeglobals KDE widgetStyle Fusion
+    return
+  fi
+  put_tree "$REPO/luna/kvantum/Chicago95Luna" ~/.config/Kvantum/Chicago95Luna
+  kconf ~/.config/Kvantum/kvantum.kvconfig General theme Chicago95Luna
+  kconf kdeglobals KDE widgetStyle kvantum
+}
+
+apply_luna_gtk_theme() {
+  put_tree "$REPO/luna/gtk/Chicago95Luna" ~/.themes/Chicago95Luna
+  set_gtk_theme Chicago95Luna
+  edit_xsettings Net/ThemeName '"Chicago95Luna"'
+}
+
+apply_classic_widget_themes() {
+  kconf kdeglobals KDE widgetStyle Windows
+  [ -d ~/.themes/Chicago95Luna ] && [ -d ~/.themes/Chicago95 ] || return 0
+  set_gtk_theme Chicago95
+  edit_xsettings Net/ThemeName '"Chicago95"'
+}
+
+apply_widget_themes() { # Qt applications (Kvantum, or Fusion without it) and GTK applications
+  widget_style_is_luna || {
+    apply_classic_widget_themes
+    return
+  }
+  apply_luna_qt_style
+  apply_luna_gtk_theme
+}
+
 step_look() { # decoration, Plasma style, colours, widget style, DPI
   SHELL_CHANGED=1
   put_tree "$REPO/aurorae/theme" ~/.local/share/aurorae/themes/Chicago95
@@ -437,12 +557,13 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   put_file "$REPO/plasma-style/make_chicago95_plasmastyle.py" ~/.local/share/aurorae/themes/Chicago95/make_chicago95_plasmastyle.py
   put_tree "$REPO/plasma-style/theme" ~/.local/share/plasma/desktoptheme/Chicago95
   put_file "$REPO/config/Chicago95.colors" ~/.local/share/color-schemes/Chicago95.colors
-  kconf kdeglobals KDE widgetStyle Windows
+  apply_widget_themes
   kconf kdeglobals General AccentColor --delete
   kconf kwinrc org.kde.kdecoration2 library org.kde.kwin.aurorae
-  kconf kwinrc org.kde.kdecoration2 theme __aurorae__svg__Chicago95
+  wants_luna && install_luna_theme_files
+  kconf kwinrc org.kde.kdecoration2 theme "$([ "${SETUP_DECORATION:-classic}" = luna ] && echo __aurorae__svg__Chicago95Luna || echo __aurorae__svg__Chicago95)"
   kconf kwinrc org.kde.kdecoration2 BorderSize Normal
-  run plasma-apply-colorscheme Chicago95 >>"$SETUP_LOG" 2>&1 || true
+  run plasma-apply-colorscheme "$([ "${SETUP_WIDGET_STYLE:-classic}" = luna ] && echo Chicago95Luna || echo Chicago95)" >>"$SETUP_LOG" 2>&1 || true
   apply_icon_set
   if [ -n "${SETUP_FACE:-}" ]; then # the 2000 look: warm grey face and its selection colour
     local group
@@ -457,9 +578,10 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   run kwriteconfig6 --file chicago95rc --group Look --key decoration "${SETUP_DECORATION:-classic}"
   run kwriteconfig6 --file chicago95rc --group Look --key widgetStyle "${SETUP_WIDGET_STYLE:-classic}"
   run kwriteconfig6 --file chicago95rc --group Look --key bevel "${SETUP_BEVEL:-1995}"
+  run kwriteconfig6 --file chicago95rc --group Look --key taskbarStyle "${SETUP_TASKBAR_STYLE:-classic}"
   run kwriteconfig6 --file chicago95rc --group StartMenu --key style "${SETUP_START_MENU_STYLE:-1995}"
   apply_title_colors
-  run plasma-apply-desktoptheme Chicago95 >>"$SETUP_LOG" 2>&1 || true
+  run plasma-apply-desktoptheme "$([ "${SETUP_TASKBAR_STYLE:-classic}" = luna ] && echo Chicago95Luna || echo Chicago95)" >>"$SETUP_LOG" 2>&1 || true
   if [ "$SETUP_SCALE" != 1 ]; then
     backup ~/.Xresources
     if [ "${SETUP_DRY_RUN:-0}" != 1 ]; then
@@ -474,9 +596,26 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   fi
 }
 
+install_luna_plasmoid_files() {
+  local plasmoid installed image
+  [ -d "$REPO/luna/plasmoids" ] || return 0
+  for plasmoid in "$REPO"/luna/plasmoids/org.chicago95.*; do
+    installed=~/.local/share/plasma/plasmoids/"$(basename "$plasmoid")"
+    [ -d "$plasmoid/contents/ui/luna" ] && put_tree "$plasmoid/contents/ui/luna" "$installed/contents/ui/luna"
+    [ -f "$REPO/luna/plasmoids/family.js" ] && put_file "$REPO/luna/plasmoids/family.js" "$installed/contents/ui/luna/family.js"
+  done
+  for image in "$REPO"/luna/plasmoids/org.chicago95.start/contents/images/*; do
+    [ -f "$image" ] && put_file "$image" ~/.local/share/plasma/plasmoids/org.chicago95.start/contents/images/"$(basename "$image")"
+  done
+  [ -f "$REPO/luna/plasmoids/images/tray-chevron-xp.png" ] &&
+    put_file "$REPO/luna/plasmoids/images/tray-chevron-xp.png" ~/.local/share/chicago95/icons/tray-chevron-xp.png
+  return 0
+}
+
 step_taskbar() {
   SHELL_CHANGED=1
   for plasmoid in "$REPO"/plasmoids/org.chicago95.*; do put_tree "$plasmoid" ~/.local/share/plasma/plasmoids/"$(basename "$plasmoid")"; done
+  install_luna_plasmoid_files
   put_file "$REPO/plasmoids/panel-layout.js" ~/.local/share/chicago95/panel-layout.js
   put_file "$REPO/config/applications/chicago95-showdesktop.desktop" ~/.local/share/applications/chicago95-showdesktop.desktop
   put_file "$REPO/data/icons/tray-chevron.png" ~/.local/share/chicago95/icons/tray-chevron.png
@@ -511,11 +650,20 @@ qt_qml_dir() {
   qtpaths6 --query QT_INSTALL_QML 2>/dev/null || echo /usr/lib64/qt6/qml
 }
 
+# menus_qss_differs <source> <installed>   the installed stylesheet has @HOME@ substituted, so compare after substituting
+menus_qss_differs() {
+  [ -f "$2" ] || return 0
+  ! sed "s|@HOME@|$HOME|g" "$1" | cmp -s - "$2"
+}
+
 step_tools_common() { # shared by every PySide6 component; idempotent
+  local luna_module
   [ "${TOOLS_COMMON_DONE:-0}" = 1 ] && return
   TOOLS_COMMON_DONE=1
   local drop_in=~/.config/systemd/user/plasma-plasmashell.service.d/chicago95-menus.conf
-  if installed_differs "$REPO/data/plasmashell-menus.qss" ~/.local/share/chicago95/plasmashell-menus.qss ||
+  local menus_qss="$REPO/data/plasmashell-menus.qss"
+  if [ "${SETUP_WIDGET_STYLE:-classic}" = luna ]; then menus_qss="$REPO/data/plasmashell-menus-luna.qss"; fi
+  if menus_qss_differs "$menus_qss" ~/.local/share/chicago95/plasmashell-menus.qss ||
     installed_differs "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" "$drop_in" ||
     installed_differs "$REPO/data/qml" ~/.local/share/chicago95/qml; then
     SHELL_CHANGED=1
@@ -524,8 +672,17 @@ step_tools_common() { # shared by every PySide6 component; idempotent
   put_file "$REPO/lib/login_preview.py" ~/.local/lib/chicago95/login_preview.py
   put_file "$REPO/lib/chicago95update.py" ~/.local/lib/chicago95/chicago95update.py
   put_file "$REPO/lib/chicago95animations.py" ~/.local/lib/chicago95/chicago95animations.py
+  if wants_luna || [ "${SETUP_START_MENU_STYLE:-}" = luna ]; then
+    for luna_module in "$REPO"/luna/lib/*.py; do put_file "$luna_module" ~/.local/lib/chicago95/"$(basename "$luna_module")"; done
+    put_tree "$REPO/luna/lib/images" ~/.local/lib/chicago95/images
+    put_file "$REPO/luna/palette.py" ~/.local/lib/chicago95/chicago95lunapalette.py
+    put_file "$REPO/luna/images/windows-xp-flag.svg" ~/.local/lib/chicago95/images/windows-xp-flag.svg
+  fi
   put_file "$REPO/setup/animations.conf" ~/.local/lib/chicago95/animations.conf
-  put_file "$REPO/data/plasmashell-menus.qss" ~/.local/share/chicago95/plasmashell-menus.qss
+  put_file "$menus_qss" ~/.local/share/chicago95/plasmashell-menus.qss
+  put_file "$REPO/luna/images/menu-arrow.svg" ~/.local/share/chicago95/images/menu-arrow.svg
+  put_file "$REPO/luna/images/menu-arrow-selected.svg" ~/.local/share/chicago95/images/menu-arrow-selected.svg
+  substitute_home ~/.local/share/chicago95/plasmashell-menus.qss
   put_file "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" "$drop_in"
   put_tree "$REPO/data/qml" ~/.local/share/chicago95/qml
   complete_qml_module "$(qt_qml_dir)/org/kde/plasma/components" ~/.local/share/chicago95/qml/org/kde/plasma/components
@@ -726,14 +883,25 @@ gtk_gradient() { # gtk_gradient <colour[,colour]>   a CSS background for a title
 }
 
 # write_gtk_titlebar_css <active> <inactive> <inactive text>   GTK programs on Wayland (Firefox among them) draw their
-# own title bars; this block in gtk.css paints them with the window manager's colours, active and inactive.
-write_gtk_titlebar_css() {
-  local begin="/* >>> Chicago95 title bars BEGIN */" end="/* <<< Chicago95 title bars END */" version target block
-  block="$begin
+# own title bars; this block in gtk.css paints them with the window manager's colours, active and inactive. The Luna
+# decoration gets the XP gradient, rounded top corners and caption instead.
+gtk_titlebar_rules() {
+  if [ "${SETUP_DECORATION:-classic}" = luna ]; then
+    python3 "$REPO/luna/gtk/make_luna_gtk.py" --titlebar
+    return
+  fi
+  cat <<RULES
 headerbar.titlebar, .titlebar.default-decoration, headerbar.titlebar .title, .titlebar.default-decoration .title {
   background-image: $(gtk_gradient "$1"); background-color: ${1%%,*}; color: #FFFFFF; font-weight: bold; text-shadow: none; }
 headerbar.titlebar:backdrop, .titlebar.default-decoration:backdrop, headerbar.titlebar:backdrop .title, .titlebar.default-decoration:backdrop .title {
   background-image: $(gtk_gradient "$2"); background-color: ${2%%,*}; color: $3; }
+RULES
+}
+
+write_gtk_titlebar_css() {
+  local begin="/* >>> Chicago95 title bars BEGIN */" end="/* <<< Chicago95 title bars END */" version target block
+  block="$begin
+$(gtk_titlebar_rules "$@")
 $end"
   for version in 3.0 4.0; do
     target=~/.config/gtk-$version/gtk.css
@@ -797,6 +965,14 @@ step_explorer() {
   run xdg-mime default thunar.desktop inode/directory
 }
 
+write_lockscreen_settings() { # <dir>  settings.js: the look the lock screen is drawn in
+  local dir="$1"
+  if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run tee "$dir/settings.js"; else
+    printf '.pragma library\nvar look = %s;\n' "$(js_string "${SETUP_START_MENU_STYLE:-1995}")" >"$dir/settings.js"
+  fi
+  show_copy "(lock screen look ${SETUP_START_MENU_STYLE:-1995})" "$dir/settings.js"
+}
+
 step_lockscreen() {
   [ -n "$SETUP_SHELL_SRC" ] || {
     ui_status "Plasma desktop shell package not found; skipping lock screen"
@@ -815,6 +991,8 @@ step_lockscreen() {
     show_copy "$entry" "$dst/contents/$(basename "$entry")"
   }; done
   put_tree "$REPO/lockscreen/lockscreen" "$dst/contents/lockscreen"
+  [ "${SETUP_START_MENU_STYLE:-1995}" = luna ] && for luna_tree in qml sddm images lockscreen; do put_tree "$REPO/luna/$luna_tree" "$dst/contents/lockscreen/luna/$luna_tree"; done
+  write_lockscreen_settings "$dst/contents/lockscreen"
   record "$dst"
 }
 
@@ -848,6 +1026,11 @@ write_splash_settings() { # <dir>  settings.js: the loading screen's style, text
 step_splash() { # the loading screen in the boot style; its texts and pictures go into settings.js
   local dir=~/.local/share/plasma/look-and-feel/chicago95.splashscreen/contents/splash
   put_tree "$REPO/splash/chicago95.splashscreen" ~/.local/share/plasma/look-and-feel/chicago95.splashscreen
+  if [ "$(boot_style)" = luna ]; then
+    put_tree "$REPO/luna/qml" "$dir/luna/qml"
+    put_tree "$REPO/luna/images" "$dir/luna/images"
+    put_tree "$REPO/luna/splash" "$dir/luna/splash"
+  fi
   write_splash_settings "$dir"
   kconf ksplashrc KSplash Theme chicago95.splashscreen
   kconf ksplashrc KSplash Engine KSplashQML
@@ -909,6 +1092,7 @@ write_branding() { # [Branding] in chicago95rc: what the 2000 banners show (Shut
 start_logo_source() { # the image behind the Start logo choice: a bundled logo name, or the user's file
   case "${SETUP_START_LOGO:-flag}" in
   flag) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-flag-16.png" ;; # pixel art at the button's size
+  xp) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-xp-16.png" ;;
   penguin) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-penguin.svg" ;;
   *) printf '%s' "$SETUP_START_LOGO" ;;
   esac
@@ -967,6 +1151,9 @@ step_sddm() { # login screen; system files, so it asks for the administrator pas
     record "$banner"
     commands+=("sudo cp $banner $SDDM_THEME_DIR/brand-banner.png")
   fi
+  if [ "${SETUP_LOGIN_STYLE:-classic}" = luna ]; then
+    commands+=("sudo cp -r $REPO/luna/qml $SDDM_THEME_DIR/luna/qml" "sudo cp -r $REPO/luna/sddm $SDDM_THEME_DIR/luna/sddm" "sudo cp -r $REPO/luna/images $SDDM_THEME_DIR/luna/images")
+  fi
   commands+=("sudo tee $SDDM_THEME_DIR/theme.conf   (writes: login style ${SETUP_LOGIN_STYLE:-classic})")
   commands+=("sudo tee $SDDM_OVERRIDE   (writes: [Theme] Current=Chicago95Plasma)")
   if ! ui_sudo "To change the login screen, Setup must write to a system folder." "${commands[@]}"; then
@@ -976,7 +1163,7 @@ step_sddm() { # login screen; system files, so it asks for the administrator pas
   fi
   run sudo mkdir -p "$SDDM_THEME_DIR"
   run sudo cp -r "$SDDM_THEME_SRC/." "$SDDM_THEME_DIR/"
-  local file
+  local file luna_tree
   while IFS= read -r file; do show_copy "$file" "$SDDM_THEME_DIR/${file#"$SDDM_THEME_SRC"/}"; done < <(find "$SDDM_THEME_SRC" -type f | sort)
   if [ -f "$SDDM_FONT" ]; then
     run sudo cp "$SDDM_FONT" "$SDDM_THEME_DIR/"
@@ -987,6 +1174,14 @@ step_sddm() { # login screen; system files, so it asks for the administrator pas
   if [ "${SETUP_LOGIN_STYLE:-classic}" = 2000 ]; then
     run sudo cp "$banner" "$SDDM_THEME_DIR/brand-banner.png"
     show_copy "$banner" "$SDDM_THEME_DIR/brand-banner.png"
+  fi
+  if [ "${SETUP_LOGIN_STYLE:-classic}" = luna ]; then
+    run sudo rm -rf "$SDDM_THEME_DIR/luna"
+    run sudo mkdir -p "$SDDM_THEME_DIR/luna"
+    for luna_tree in qml sddm images; do
+      run sudo cp -r "$REPO/luna/$luna_tree" "$SDDM_THEME_DIR/luna/$luna_tree"
+      while IFS= read -r file; do show_copy "$file" "$SDDM_THEME_DIR/luna/${file#"$REPO"/luna/}"; done < <(find "$REPO/luna/$luna_tree" -type f | sort)
+    done
   fi
   if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run sudo tee "$SDDM_THEME_DIR/theme.conf"; else sddm_theme_conf | sudo tee "$SDDM_THEME_DIR/theme.conf" >/dev/null; fi
   show_copy "(login style: ${SETUP_LOGIN_STYLE:-classic})" "$SDDM_THEME_DIR/theme.conf"
@@ -1002,7 +1197,10 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
     ui_status "Plymouth is not installed; skipping the boot screen"
     return
   }
-  if [ "$(boot_style)" = 2000 ]; then
+  if [ "$(boot_style)" = luna ]; then
+    name=Chicago95-XP
+    theme_src="$REPO/luna/plymouth/Chicago95-XP"
+  elif [ "$(boot_style)" = 2000 ]; then
     # The 2000 start-up screen: our loading screen, rendered at the monitor's size, under the Plymouth
     # script's progress blocks (plymouth/Chicago95-2000); the classic look keeps Chicago95's own theme.
     name=Chicago95-2000
@@ -1165,7 +1363,14 @@ quick_launch_defaults() { # the task list's default Quick Launch programs, from 
 # The desktop picture: a colour, one tile of a pattern, or an image, written into every desktop's wallpaper.
 pattern_picture() { printf '%s' ~/.local/share/chicago95/pattern.png; }
 
-background_color() { [[ "${SETUP_BACKGROUND_COLOR:-}" =~ ^#[0-9A-Fa-f]{6}$ ]] && printf '%s' "$SETUP_BACKGROUND_COLOR" || printf '#008080'; }
+look_background_color() { # the desktop colour of each look's Windows
+  case "${SETUP_START_MENU_STYLE:-1995}" in
+  2000 | 2001) printf '#3A6EA5' ;;
+  luna) printf '#004E98' ;;
+  *) printf '#008080' ;;
+  esac
+}
+background_color() { [[ "${SETUP_BACKGROUND_COLOR:-}" =~ ^#[0-9A-Fa-f]{6}$ ]] && printf '%s' "$SETUP_BACKGROUND_COLOR" || look_background_color; }
 
 background_pattern() { case "${SETUP_BACKGROUND_PATTERN:-}" in checks | diagonal | grid | dots) printf '%s' "$SETUP_BACKGROUND_PATTERN" ;; *) printf 'checks' ;; esac }
 
@@ -1205,7 +1410,14 @@ step_background() {
 
 # The desktop icons: links in ~/Desktop, shown by Plasma's Folder View at the originals' 32px (its size 1) with two label lines.
 # SETUP_DESKTOP_ICONS lists them (computer, documents, network, recycle); unset or auto takes the look's own, empty none.
-desktop_icon_defaults() { case "${SETUP_START_MENU_STYLE:-1995}" in 1995) printf 'computer,network,recycle' ;; *) printf 'computer,documents,network,recycle' ;; esac }
+desktop_icon_defaults() {
+  case "${SETUP_START_MENU_STYLE:-1995}" in
+  1995) printf 'computer,network,recycle' ;;
+  2001) printf 'documents,computer,network,recycle' ;;
+  luna) printf 'documents,computer,recycle' ;;
+  *) printf 'computer,documents,network,recycle' ;;
+  esac
+}
 
 desktop_icons_chosen() {
   local chosen="${SETUP_DESKTOP_ICONS-auto}"
@@ -1217,7 +1429,7 @@ desktop_icon_source() { # desktop_icon_source <icon>   the link file in the repo
   case "$1" in
   computer) printf '%s' "$REPO/config/desktop/my-computer.desktop" ;;
   documents) printf '%s' "$REPO/config/desktop/my-documents.desktop" ;;
-  network) [ "${SETUP_START_MENU_STYLE:-1995}" = 2000 ] && printf '%s' "$REPO/config/desktop/my-network-places.desktop" || printf '%s' "$REPO/config/desktop/network-neighborhood.desktop" ;;
+  network) case "${SETUP_START_MENU_STYLE:-1995}" in 2000 | 2001) true ;; *) false ;; esac && printf '%s' "$REPO/config/desktop/my-network-places.desktop" || printf '%s' "$REPO/config/desktop/network-neighborhood.desktop" ;;
   recycle) printf '%s' "$REPO/config/desktop/trash.desktop" ;;
   esac
 }
@@ -1277,6 +1489,7 @@ write_switcher_settings() { # <dir>  settings.js: the Alt+Tab box's preview size
 step_switcher() { # Alt+Tab: our KWin switcher layout, chosen in kwinrc
   local dir=~/.local/share/kwin/tabbox/chicago95
   put_tree "$REPO/kwin-tabbox/chicago95" "$dir"
+  [ "${SETUP_START_MENU_STYLE:-1995}" = luna ] && put_tree "$REPO/luna/kwin-tabbox" "$dir/contents/ui/luna"
   write_switcher_settings "$dir/contents/ui"
   kconf kwinrc TabBox LayoutName chicago95
   kconf kwinrc TabBox ShowTabBox true
@@ -1333,7 +1546,35 @@ fix_font_spaces() { # MS W98 UI Regular's no-break space is a third as wide as i
 
 APP_FONT_KEYS=(font menuFont toolBarFont smallestReadableFont)
 
+PIXEL_FONT_RULE=~/.config/fontconfig/conf.d/60-chicago95-pixel-font.conf
+
+# Tahoma is smoothed text: the pixel font's no-smoothing rule would spoil it.
+apply_luna_gtk_font() {
+  edit_xsettings Gtk/FontName '"Tahoma 8"'
+  backup "$PIXEL_FONT_RULE"
+  run rm -f "$PIXEL_FONT_RULE"
+}
+
+restore_classic_gtk_font() {
+  [ -d ~/.themes/Chicago95Luna ] || return 0
+  edit_xsettings Gtk/FontName "$(sed -n 's|^Gtk/FontName ||p' "$REPO/config/xsettingsd/xsettingsd.conf")"
+}
+
+step_luna_fonts() {
+  local key
+  put_file "$REPO/luna/fontconfig/61-chicago95-luna-fonts.conf" ~/.config/fontconfig/conf.d/61-chicago95-luna-fonts.conf
+  [ "${SETUP_FONT_SCOPE:-everywhere}" = none ] && return 0
+  [ "${SETUP_FONT_SCOPE:-everywhere}" = everywhere ] && for key in "${APP_FONT_KEYS[@]}"; do kconf kdeglobals General "$key" "Tahoma,8,-1,5,50,0,0,0,0,0"; done
+  widget_style_is_luna && [ "${SETUP_FONT_SCOPE:-everywhere}" = everywhere ] && apply_luna_gtk_font
+  kconf kdeglobals WM activeFont "Trebuchet MS,10,-1,5,75,0,0,0,0,0"
+  return 0
+}
+
 step_fonts() { # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bars only) or none
+  wants_luna && {
+    step_luna_fonts
+    return
+  }
   local family="${SETUP_FONT:-MS W98 UI}" key
   if ! fc-list : family | grep -i "$family" >/dev/null; then
     ui_status "Font '$family' not installed; UI text keeps your current font until it is in ~/.local/share/fonts"
@@ -1357,8 +1598,8 @@ step_fonts() { # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bar
   *) kconf kdeglobals WM activeFont "$family,8,-1,5,75,0,0,0,0,0" ;; # 8 points: the originals' 11px titles
   esac
   # A pixel font: drawn without smoothing, its edges stay as sharp as the originals' text.
-  [ "${SETUP_FONT_SCOPE:-everywhere}" = none ] || put_file "$REPO/config/fontconfig/60-chicago95-pixel-font.conf" \
-    ~/.config/fontconfig/conf.d/60-chicago95-pixel-font.conf
+  [ "${SETUP_FONT_SCOPE:-everywhere}" = none ] || put_file "$REPO/config/fontconfig/60-chicago95-pixel-font.conf" "$PIXEL_FONT_RULE"
+  [ "${SETUP_FONT_SCOPE:-everywhere}" = everywhere ] && restore_classic_gtk_font
   return 0
 }
 

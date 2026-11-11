@@ -1,0 +1,10 @@
+{
+  "KPlugin": {
+    "Authors": [{ "Name": "Bending Unit 22" }],
+    "Id": "Chicago95Luna",
+    "License": "GPL-3.0",
+    "Name": "Chicago95 Luna",
+    "Description": "Chicago95 Windows XP Luna window decoration",
+    "Version": "1.0"
+  }
+}

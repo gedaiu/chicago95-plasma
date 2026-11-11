@@ -1,0 +1,32 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="36" height="32" viewBox="0 0 36 32">
+<defs><linearGradient id="header-fill" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="20"><stop offset="0" stop-opacity="0"/><stop offset=".05" stop-opacity="0"/><stop offset=".05" stop-color="#FEFEFE"/><stop offset=".95" stop-color="#ECEAD9"/><stop offset=".95" stop-color="#ACA899"/><stop offset="1" stop-color="#ACA899"/></linearGradient></defs>
+<rect id="header-topleft" x="0" y="0" width="1" height="1" fill="none"/>
+<rect id="header-top" x="1" y="0" width="8" height="1" fill="none"/>
+<rect id="header-topright" x="9" y="0" width="1" height="1" fill="none"/>
+<rect id="header-left" x="0" y="1" width="1" height="18" fill="none"/>
+<path id="header-center" d="M1,1 L9,1 L9,19 L1,19 Z" fill="url(#header-fill)"/>
+<rect id="header-right" x="9" y="1" width="1" height="18" fill="none"/>
+<path id="header-bottomleft" d="M0,19 L1,19 L1,20 L0,20 Z" fill="#ACA899"/>
+<path id="header-bottom" d="M1,19 L9,19 L9,20 L1,20 Z" fill="#ACA899"/>
+<path id="header-bottomright" d="M9,19 L10,19 L10,20 L9,20 Z" fill="#ACA899"/>
+<rect id="header-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="header-hint-top-margin" width="2" height="2" fill="none"/>
+<rect id="header-hint-bottom-margin" width="2" height="2" fill="none"/>
+<rect id="header-hint-left-margin" width="2" height="2" fill="none"/>
+<rect id="header-hint-right-margin" width="2" height="2" fill="none"/>
+<defs><linearGradient id="footer-fill" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="20"><stop offset="0" stop-color="#ACA899"/><stop offset=".05" stop-color="#ACA899"/><stop offset=".05" stop-color="#ECEAD9"/><stop offset=".95" stop-color="#FEFEFE"/><stop offset=".95" stop-opacity="0"/><stop offset="1" stop-opacity="0"/></linearGradient></defs>
+<path id="footer-topleft" d="M26,0 L27,0 L27,1 L26,1 Z" fill="#ACA899"/>
+<path id="footer-top" d="M27,0 L35,0 L35,1 L27,1 Z" fill="#ACA899"/>
+<path id="footer-topright" d="M35,0 L36,0 L36,1 L35,1 Z" fill="#ACA899"/>
+<rect id="footer-left" x="26" y="1" width="1" height="18" fill="none"/>
+<path id="footer-center" d="M27,1 L35,1 L35,19 L27,19 Z" fill="url(#footer-fill)"/>
+<rect id="footer-right" x="35" y="1" width="1" height="18" fill="none"/>
+<rect id="footer-bottomleft" x="26" y="19" width="1" height="1" fill="none"/>
+<rect id="footer-bottom" x="27" y="19" width="8" height="1" fill="none"/>
+<rect id="footer-bottomright" x="35" y="19" width="1" height="1" fill="none"/>
+<rect id="footer-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="footer-hint-top-margin" width="2" height="2" fill="none"/>
+<rect id="footer-hint-bottom-margin" width="2" height="2" fill="none"/>
+<rect id="footer-hint-left-margin" width="2" height="2" fill="none"/>
+<rect id="footer-hint-right-margin" width="2" height="2" fill="none"/>
+</svg>

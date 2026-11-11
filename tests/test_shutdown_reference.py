@@ -63,24 +63,41 @@ def dialog_for(shutdown, qt_app, style, banner="Chicago95", company=""):
     return dialog
 
 
-@pytest.fixture(scope="module")
-def whole_2000(shutdown, qt_app, tmp_path_factory):
-    """Our 2000 dialog with the frame and title it draws, its close button from our 2000 decoration."""
+def whole_dialog(shutdown, qt_app, tmp_path_factory, style, banner):
+    """Our dialog with the frame and title it draws, its close button from the look's own decoration."""
     import chicago95ui
     from aurorae_model import build_theme
 
-    chicago95ui.DECORATION = build_theme(tmp_path_factory.mktemp("aurorae-2000"), "2000")
-    with installed_look(qt_app, "[StartMenu]\nstyle=2000\n", LOOK_2000_KDEGLOBALS):
-        dialog = dialog_for(shutdown, qt_app, "2000", banner="Windows 2000", company="Microsoft")
+    chicago95ui.DECORATION = build_theme(tmp_path_factory.mktemp(f"aurorae-{style}"), style)
+    with installed_look(qt_app, f"[StartMenu]\nstyle={style}\n[Look]\nbevel=2000\n", LOOK_2000_KDEGLOBALS):
+        dialog = dialog_for(shutdown, qt_app, style, banner=banner, company="Microsoft")
         image = qimage_to_pil(dialog.grab().toImage())
         dialog.close()
     return image
 
 
 @pytest.fixture(scope="module")
+def whole_2000(shutdown, qt_app, tmp_path_factory):
+    return whole_dialog(shutdown, qt_app, tmp_path_factory, "2000", "Windows 2000")
+
+
+@pytest.fixture(scope="module")
+def whole_2001(shutdown, qt_app, tmp_path_factory):
+    return whole_dialog(shutdown, qt_app, tmp_path_factory, "2001", "Windows XP")
+
+
+def client_area(whole):
+    return whole.crop((*BODY_2000, BODY_2000[0] + 409, BODY_2000[1] + 246))
+
+
+@pytest.fixture(scope="module")
 def ours_2000(whole_2000):
-    """The client area, inside the frame and under the title."""
-    return whole_2000.crop((*BODY_2000, BODY_2000[0] + 409, BODY_2000[1] + 246))
+    return client_area(whole_2000)
+
+
+@pytest.fixture(scope="module")
+def ours_2001(whole_2001):
+    return client_area(whole_2001)
 
 
 @pytest.fixture(scope="module")
@@ -187,27 +204,47 @@ def test_2000_buttons_sit_where_the_original_puts_them(reference_2000, ours_2000
 
 
 def test_2000_dropdown_frame_matches(reference_2000, ours_2000):
-    def frame(image):
-        return bounding_box(
-            image, lambda c: close(c, (132, 132, 132), 16) or close(c, (128, 128, 128), 16), (60, 340), (105, 135)
-        )
+    assert dropdown_frame(ours_2000) == dropdown_frame(reference_2000)
 
-    assert frame(ours_2000) == frame(reference_2000)
+
+def test_2001_dialog_is_417_by_269_like_2000(whole_2000, whole_2001):
+    assert whole_2001.size == whole_2000.size
+
+
+def test_2001_buttons_and_dropdown_frame_sit_where_2000s_do(ours_2000, ours_2001):
+    assert (button_frames(ours_2001), dropdown_frame(ours_2001)) == (
+        button_frames(ours_2000),
+        dropdown_frame(ours_2000),
+    )
+
+
+def dropdown_frame(image):
+    return bounding_box(
+        image, lambda c: close(c, (132, 132, 132), 16) or close(c, (128, 128, 128), 16), (60, 340), (105, 135)
+    )
+
+
+@needs_ui_font
+def test_2001_everything_but_the_wordmark_matches_the_2000_original(reference_2000, ours_2001, tmp_path):
+    count = differing_pixels(reference_2000, ours_2001, UNCOMPARED_2000, tmp_path / "shutdown-2001-diff.png", 0.15)
+    assert count == 0, f"{count} pixels differ; see {tmp_path}"
+
+
+UNCOMPARED_2000 = [
+    (0, 1, 409, 72),  # banner artwork and name
+    (0, 72, 409, 78),  # strip: dithered in the 256-colour original; its colours have their own test
+    (15, 82, 60, 125),  # icon
+    (60, 86, 400, 106),  # question
+    (314, 124, 334, 152),  # the original screenshot's mouse pointer
+    (67, 112, 330, 131),  # dropdown contents and focus highlight
+    (60, 133, 409, 175),  # description (same words with OS name "Windows"; letter shapes differ)
+    (163, 211, 409, 234),
+]  # button captions sit inside the compared button frames
 
 
 @needs_ui_font
 def test_2000_everything_but_artwork_and_lettering_matches(reference_2000, ours_2000, tmp_path):
-    masks = [
-        (0, 1, 409, 72),  # banner artwork and name
-        (0, 72, 409, 78),  # strip: dithered in the 256-colour original; its colours have their own test
-        (15, 82, 60, 125),  # icon
-        (60, 86, 400, 106),  # question
-        (314, 124, 334, 152),  # the original screenshot's mouse pointer
-        (67, 112, 330, 131),  # dropdown contents and focus highlight
-        (60, 133, 409, 175),  # description (same words with OS name "Windows"; letter shapes differ)
-        (163, 211, 409, 234),
-    ]  # button captions sit inside the compared button frames
-    count = differing_pixels(reference_2000, ours_2000, masks, tmp_path / "shutdown-2000-diff.png", threshold=0.15)
+    count = differing_pixels(reference_2000, ours_2000, UNCOMPARED_2000, tmp_path / "shutdown-2000-diff.png", 0.15)
     assert count == 0, f"{count} pixels differ; see {tmp_path}"
 
 
@@ -267,7 +304,7 @@ def test_radio_dialog_with_its_frame_has_the_originals_size(shutdown, qt_app, st
 
 
 @needs_ui_font
-@pytest.mark.parametrize("style", ["1995", "1998", "2000"])
+@pytest.mark.parametrize("style", ["1995", "1998", "2000", "2001"])
 def test_dialog_title_has_no_icon_and_its_caption_starts_where_the_icon_would(shutdown, qt_app, style):
     """The originals' dialogs show no icon: the caption's first stroke is 5px from the dialog's edge
     (2px into the title), as on 2000's full-size original."""
@@ -325,3 +362,33 @@ def test_radio_dialog_opens_with_the_checked_option_focused(shutdown, qt_app, st
     focused = dialog.focusWidget()
     dialog.close()
     assert focused is not None and focused.isChecked() and "Shut down" in focused.text().replace("&", "")
+
+
+XP_CHOICES = ["Log off {user}", "Shut down", "Restart", "Stand by", "Hibernate"]
+XP_DESCRIPTIONS = {
+    "Log off {user}": "Ends your session, leaving the computer running on full power.",
+    "Shut down": "Ends your session and shuts down Windows so that you can safely turn off power.",
+    "Restart": "Ends your session, shuts down Windows, and starts Windows again.",
+    "Stand by": "Keeps your session in memory and puts the computer in a low-power state so that you can quickly resume working.",
+}
+
+
+def test_2001_choice_list_is_the_xp_one(shutdown):
+    assert [label for _, label in shutdown.CHOICES["2001"]] == XP_CHOICES
+
+
+def test_2001_descriptions_are_the_xp_wording_for_each_choice(shutdown, qt_app):
+    dialog = dialog_for(shutdown, qt_app, "2001", banner="Windows")
+    shown = {}
+    for index, (_, label) in enumerate(dialog.choices[:4]):
+        dialog.combo.setCurrentIndex(index)
+        shown[label] = dialog.description.text()
+    dialog.close()
+    assert shown == XP_DESCRIPTIONS
+
+
+def test_2001_asks_the_2000_question_in_a_combo_layout(shutdown):
+    assert (shutdown.QUESTIONS["2001"], shutdown.LAYOUT["2001"]) == (
+        "What do you want the computer to do?",
+        "combo",
+    )

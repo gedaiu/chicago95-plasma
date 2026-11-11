@@ -1,0 +1,44 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="62" height="22" viewBox="0 0 62 22">
+<path id="topleft" d="M0,0 L1,0 L1,1 L0,1 Z" fill="#000000"/>
+<path id="top" d="M1,0 L9,0 L9,1 L1,1 Z" fill="#000000"/>
+<path id="topright" d="M9,0 L10,0 L10,1 L9,1 Z" fill="#000000"/>
+<path id="left" d="M0,1 L1,1 L1,9 L0,9 Z" fill="#000000"/>
+<path id="center" d="M1,1 L9,1 L9,9 L1,9 Z" fill="#FFFFE1"/>
+<path id="right" d="M9,1 L10,1 L10,9 L9,9 Z" fill="#000000"/>
+<path id="bottomleft" d="M0,9 L1,9 L1,10 L0,10 Z" fill="#000000"/>
+<path id="bottom" d="M1,9 L9,9 L9,10 L1,10 Z" fill="#000000"/>
+<path id="bottomright" d="M9,9 L10,9 L10,10 L9,10 Z" fill="#000000"/>
+<rect id="hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="hint-top-margin" width="3" height="3" fill="none"/>
+<rect id="hint-bottom-margin" width="3" height="3" fill="none"/>
+<rect id="hint-left-margin" width="3" height="3" fill="none"/>
+<rect id="hint-right-margin" width="3" height="3" fill="none"/>
+<rect id="shadow-topleft" x="26" y="0" width="1" height="1" fill="none"/>
+<rect id="shadow-top" x="27" y="0" width="8" height="1" fill="none"/>
+<rect id="shadow-topright" x="35" y="0" width="1" height="1" fill="none"/>
+<rect id="shadow-left" x="26" y="1" width="1" height="8" fill="none"/>
+<rect id="shadow-center" x="27" y="1" width="8" height="8" fill="none"/>
+<rect id="shadow-right" x="35" y="1" width="1" height="8" fill="none"/>
+<rect id="shadow-bottomleft" x="26" y="9" width="1" height="1" fill="none"/>
+<rect id="shadow-bottom" x="27" y="9" width="8" height="1" fill="none"/>
+<rect id="shadow-bottomright" x="35" y="9" width="1" height="1" fill="none"/>
+<rect id="shadow-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="shadow-hint-top-margin" width="0" height="0" fill="none"/>
+<rect id="shadow-hint-bottom-margin" width="0" height="0" fill="none"/>
+<rect id="shadow-hint-left-margin" width="0" height="0" fill="none"/>
+<rect id="shadow-hint-right-margin" width="0" height="0" fill="none"/>
+<path id="mask-topleft" d="M52,0 L53,0 L53,1 L52,1 Z" fill="#000000"/>
+<path id="mask-top" d="M53,0 L61,0 L61,1 L53,1 Z" fill="#000000"/>
+<path id="mask-topright" d="M61,0 L62,0 L62,1 L61,1 Z" fill="#000000"/>
+<path id="mask-left" d="M52,1 L53,1 L53,9 L52,9 Z" fill="#000000"/>
+<path id="mask-center" d="M53,1 L61,1 L61,9 L53,9 Z" fill="#000000"/>
+<path id="mask-right" d="M61,1 L62,1 L62,9 L61,9 Z" fill="#000000"/>
+<path id="mask-bottomleft" d="M52,9 L53,9 L53,10 L52,10 Z" fill="#000000"/>
+<path id="mask-bottom" d="M53,9 L61,9 L61,10 L53,10 Z" fill="#000000"/>
+<path id="mask-bottomright" d="M61,9 L62,9 L62,10 L61,10 Z" fill="#000000"/>
+<rect id="mask-hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="mask-hint-top-margin" width="3" height="3" fill="none"/>
+<rect id="mask-hint-bottom-margin" width="3" height="3" fill="none"/>
+<rect id="mask-hint-left-margin" width="3" height="3" fill="none"/>
+<rect id="mask-hint-right-margin" width="3" height="3" fill="none"/>
+</svg>

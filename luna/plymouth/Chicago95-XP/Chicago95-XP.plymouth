@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Chicago95 XP Boot Screen
+Description=The XP start-up screen: wordmark on black with a sliding three-block progress bar
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/Chicago95-XP
+ScriptFile=/usr/share/plymouth/themes/Chicago95-XP/Chicago95-XP.script

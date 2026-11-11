@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """The comparison report: every detail the reference tests compare, the original's beside ours.
 
-    python3 tests/render_report.py [OUTPUT_DIR]
+    python3 tests/render_report.py [OUTPUT_DIR [LOOK ...]]
 
-writes, for 1995, 1998 and 2000:
+writes, for 1995, 1998, 2000, 2001 (XP Classic) and luna (Windows XP):
 - showcase-<look>.jpg, to show people: component by component (desktop, taskbar, windows, Start menu,
-  Shut Down, and for 2000 the loading and log-on screens) the original beside ours;
+  Shut Down, System Properties, and for 2000, 2001 and luna the loading and log-on screens) the original
+  beside ours; showcase-controls-<look>.jpg the same for the controls;
 - report-<look>-<section>.png (and .txt, the counts): every detail the tests compare, one per row: the
   original, ours and their difference (red where a pixel differs, the original faded elsewhere),
   enlarged together. What is not ours to compare (the programs' content in the windows, icons, the
@@ -26,7 +27,7 @@ os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ["QT_SCALE_FACTOR"] = "1"
 os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="chicago95-report-config-")
 TESTS = Path(__file__).resolve().parent
-sys.path[:0] = [str(TESTS), str(TESTS.parent / "lib")]
+sys.path[:0] = [str(TESTS), str(TESTS / "luna"), str(TESTS.parent / "lib")]
 
 from conftest import REPO, load_script  # noqa: E402
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
@@ -50,9 +51,35 @@ MENU_SETTINGS = {
         "bannerBackground=#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0\n",
         LOOK_2000_KDEGLOBALS,
     ),
+    "2001": (
+        "[StartMenu]\nstyle=2001\nbannerText=Windows XP Professional\nbannerTextColor=#FFFFFF\n"
+        "bannerNumberColor=#FFFFFF\n"
+        "bannerBackground=#000000@225,#000080@195,#0000FF@125,#0000FF@60,#000080@0\n",
+        LOOK_2000_KDEGLOBALS,
+    ),
 }
 
 
+MENU_ORIGINALS = {  # look: (screenshot, the menu's box in it)
+    "1995": ("win95startmenu", (2, 217, 166, 456)),
+    "1998": ("win98start", (2, 0, 216, 456)),
+    "2000": ("w2kstartmenu", (2, 113, 206, 456)),
+    "2001": ("xpclassic", (2, 233, 193, 576)),
+}
+MENU_EXTRA_TOP = {  # the entries an original shows above Programs
+    "2000": ("New Office Document", "Open Office Document", "Windows Update"),
+}
+MENU_ACTIVE_ROW = {"1995": 0, "1998": 4, "2000": None, "2001": None}  # highlighted in the detail rows
+SHOWCASE_ACTIVE_ROW = {"1995": 0, "1998": 4, "2000": 4, "2001": 4}  # highlighted in the showcase
+LOG_OFF_LOOKS = ("1998", "2001")  # 1995's and 2000's originals have no Log Off entry
+KDEGLOBALS = {  # the colours each look's Setup writes
+    "1995": "",
+    "1998": "[WM]\nactiveBackground=0,0,128\nactiveBlend=16,132,208\n",
+    "2000": LOOK_2000_KDEGLOBALS,
+    "2001": LOOK_2000_KDEGLOBALS,
+}
+BEVELS = {"1995": "1995", "1998": "1995", "2000": "2000", "2001": "2000"}
+SCREEN_LOOKS = ("2000", "2001")  # the looks with a loading and a log-on screen of their own (2001 uses 2000's)
 HATCH, HATCH_BACKGROUND = (200, 200, 200), (240, 240, 240)
 
 
@@ -85,11 +112,13 @@ def details(original, ours, boxes, prefix="", masks=()):
 def taskbar_boxes(look):
     from test_plasma_taskbar_reference import ETCHED_LINES, QUICK_LAUNCH, TRAY_ICONS
     from test_taskbar_reference import BUTTONS, HEIGHT, TRAYS
+    from test_taskbar_reference import taskbar as original_taskbar
 
     (start_left, start_right), tasks = BUTTONS[look]
+    width = original_taskbar(look).width
     boxes = {
-        "left half": (0, 0, 320, HEIGHT),
-        "right half": (320, 0, 640, HEIGHT),
+        "left half": (0, 0, width // 2, HEIGHT),
+        "right half": (width // 2, 0, width, HEIGHT),
         "Start button": (0, 2, start_right + 4, HEIGHT),
     }
     for index, x in enumerate(ETCHED_LINES.get(look, []), 1):
@@ -102,11 +131,19 @@ def taskbar_boxes(look):
     for index, ((_l, right, _p), (left, _r, _q)) in enumerate(zip(tasks, tasks[1:], strict=False), 1):
         boxes[f"gap between task buttons {index} and {index + 1}"] = (right - 8, 2, left + 9, HEIGHT)
     tray_left, _tray_right = TRAYS[look]
-    boxes["tray box"] = (tray_left - 3, 2, 640, HEIGHT)
+    boxes["tray box"] = (tray_left - 3, 2, width, HEIGHT)
     for index, x in enumerate(TRAY_ICONS[look], 1):
         boxes[f"tray icon {index}"] = (x - 3, 3, x + 19, HEIGHT - 1)
-    boxes["clock"] = (TRAY_ICONS[look][-1] + 16, 2, 640, HEIGHT)
+    boxes["clock"] = (clock_left(look) - 1, 2, width, HEIGHT)
     return boxes
+
+
+def clock_left(look):
+    """The clock's first column: right of the last tray icon, or just inside a tray box that holds the clock alone."""
+    from test_plasma_taskbar_reference import TRAY_ICONS
+    from test_taskbar_reference import TRAYS
+
+    return TRAY_ICONS[look][-1] + 17 if TRAY_ICONS[look] else TRAYS[look][0] + 3
 
 
 def model_taskbar(look, app, scratch):
@@ -179,15 +216,15 @@ def taskbar_masks(look):
     """The icons (the programs' own; ours are the test's squares, placed by the tests) and the clock's
     lettering (another time)."""
     from test_plasma_taskbar_reference import QUICK_LAUNCH, TRAY_ICONS
-    from test_taskbar_reference import BUTTONS
+    from test_taskbar_reference import BUTTONS, TRAYS, XP_FLAG_AND_FOCUS_RECTANGLE_MASKS
 
     def icon(x, y=7):
         return (x, y, x + 16, y + 16)
 
     masks = [icon(x) for x in QUICK_LAUNCH.get(look, [])] + [icon(x) for x in TRAY_ICONS[look]]
     masks += [icon(left + 4, 7 + pressed) for left, _right, pressed in BUTTONS[look][1]]
-    masks.append((TRAY_ICONS[look][-1] + 18, 6, 636, 24))
-    return masks
+    masks.append((clock_left(look) + 1, 6, TRAYS[look][1] - 1, 24))
+    return masks + XP_FLAG_AND_FOCUS_RECTANGLE_MASKS.get(look, [])
 
 
 def taskbar_details(look, desktop, app, scratch):
@@ -235,9 +272,9 @@ def window_details(look, desktop, scratch):
     drawn by our decoration at the original's size."""
     from aurorae_model import Window, build_theme
     from plasma_session import CONTENT
-    from test_window_reference import WINDOWS
+    from test_window_reference import SIXTEEN_COLOUR_SCREENSHOT_COLOURS, WINDOWS
 
-    theme = build_theme(scratch / f"aurorae-{look}", look)
+    theme = build_theme(scratch / f"aurorae-{look}", look, **SIXTEEN_COLOUR_SCREENSHOT_COLOURS.get(look, {}))
     toolkits = {box: toolkit for _title, toolkit, box in CONTENT[look]["windows"]}
     rows = []
     from test_window_reference import BORDER, ICON, TOP
@@ -254,8 +291,7 @@ def window_details(look, desktop, scratch):
         state = "active" if active else "inactive"
         w, h = original.size
         masks = [(BORDER, TOP, w - BORDER, h - BORDER), ICON]
-        if covered:
-            masks.append((covered[0] - left, covered[1] - top, covered[2] - left + 1, covered[3] - top + 1))
+        masks += [(box[0] - left, box[1] - top, box[2] - left + 1, box[3] - top + 1) for box in covered]
         rows += details(original, ours, window_boxes(w, h), f"{caption} ({state}; ours: {source}): ", masks)
     rows += dialog_button_details(look, theme)
     return rows
@@ -301,12 +337,7 @@ def start_menu_details(startmenu, app, look, scratch):
     from test_startmenu_reference import ROW_TOPS
 
     settings, kdeglobals = MENU_SETTINGS[look]
-    extra = ("New Office Document", "Open Office Document", "Windows Update") if look == "2000" else ()
-    name, box = {
-        "1995": ("win95startmenu", (2, 217, 166, 456)),
-        "1998": ("win98start", (2, 0, 216, 456)),
-        "2000": ("w2kstartmenu", (2, 113, 206, 456)),
-    }[look]
+    name, box = MENU_ORIGINALS[look]
     (scratch / f"menu-{look}").mkdir(exist_ok=True)
     ours = render_start_menu(
         startmenu,
@@ -314,8 +345,8 @@ def start_menu_details(startmenu, app, look, scratch):
         scratch / f"menu-{look}",
         settings,
         kdeglobals,
-        active={"1995": 0, "1998": 4, "2000": None}[look],
-        extra_top=extra,
+        active=MENU_ACTIVE_ROW[look],
+        extra_top=MENU_EXTRA_TOP.get(look, ()),
     )
     original = screenshot(name).crop(box)
     height = min(original.height, ours.height)  # 1998's original has more entries above Programs
@@ -338,7 +369,7 @@ def start_menu_details(startmenu, app, look, scratch):
                 for label, top in zip(names, ROW_TOPS, strict=False)
             }
         )
-    else:
+    elif look in ROWS:
         rows, height, _active = ROWS[look]
         boxes.update(
             {
@@ -355,16 +386,20 @@ def start_menu_details(startmenu, app, look, scratch):
 # --- Shut Down, loading and log-on screens -------------------------------------------------------
 
 SHUT_DOWN_DIALOGS = {}  # look: our whole dialog, for the showcase
+# No XP Classic shot of Shut Down or System Properties exists: 2001 is shown against 2000's originals.
+SHUT_DOWN_BANNERS = {"1995": "Windows 2000", "1998": "Windows 2000", "2000": "Windows 2000", "2001": "Windows XP"}
+SHUT_DOWN_REFERENCE_LOOKS = ("2000", "2001")
+SYSPROPS_APPLY_LOOKS = ("2000", "2001")
 
 
 def shut_down_details(shutdown, app, look, scratch):
     from test_shutdown_reference import BANNER_LINES, BANNER_MARK
 
-    logo = WAVING_FLAG if look == "2000" and WAVING_FLAG.exists() else DEFAULT_LOGO
+    logo = WAVING_FLAG if look in SHUT_DOWN_REFERENCE_LOOKS and WAVING_FLAG.exists() else DEFAULT_LOGO
     settings = {
         "style": look,
-        "bannerText": "Windows 2000",
-        "osName": "Windows 2000",
+        "bannerText": SHUT_DOWN_BANNERS[look],
+        "osName": SHUT_DOWN_BANNERS[look],
         "osCompany": "Microsoft",
         "edition": "Professional",
         "osLogo": str(logo),
@@ -374,19 +409,14 @@ def shut_down_details(shutdown, app, look, scratch):
     from aurorae_model import build_theme
 
     chicago95ui.DECORATION = str(build_theme(scratch / f"shutdown-aurorae-{look}", look))  # the look's close button
-    kdeglobals = {
-        "1995": "",
-        "1998": "[WM]\nactiveBackground=0,0,128\nactiveBlend=16,132,208\n",
-        "2000": LOOK_2000_KDEGLOBALS,
-    }[look]
-    with installed_look(app, f"[StartMenu]\nstyle={look}\n", kdeglobals):
+    with installed_look(app, f"[StartMenu]\nstyle={look}\n[Look]\nbevel={BEVELS[look]}\n", KDEGLOBALS[look]):
         dialog = shutdown.ShutDownDialog(settings)
         dialog.show()
         app.processEvents()
         ours = qimage_to_pil(dialog.grab().toImage())
         dialog.close()
     SHUT_DOWN_DIALOGS[look] = ours
-    if look != "2000":
+    if look not in SHUT_DOWN_REFERENCE_LOOKS:
         return thumbnail_shut_down_details(look, ours)
     from test_shutdown_reference import BODY_2000, CLIENT_2000, DIALOG_2000
 
@@ -475,7 +505,7 @@ def sysprops_details(look, app, scratch):
             buttons_top + 23 + 6,
         ),
     }
-    if look == "2000":
+    if look in SYSPROPS_APPLY_LOOKS:
         boxes["disabled button (Apply)"] = (
             settings["buttons"]["Apply"] - 4,
             buttons_top - 4,
@@ -572,6 +602,187 @@ def login_details(shutdown, app, scratch):
     return details(screenshot("w2klogon"), ours, boxes)
 
 
+# --- Luna (Windows XP) ---------------------------------------------------------------------------
+# Its originals are cut from several shots (tests/references/SOURCES.md); the pieces are drawn from the Luna
+# modules (tests/luna/luna_render.py), the taskbar and the active window from the real desktop when there is one.
+
+LUNA_PANEL_HEIGHT = 30
+LUNA_WINDOW_FRAME = (100, 50, 700, 454)  # where plasma_session.py puts the active window: xpnotepad's size
+LUNA_INACTIVE_VISIBLE = (66, 53, 312, 138)  # xpfulldesktop: the Help and Support Center's corner and title
+LUNA_CORNER = 6
+
+
+def luna_window_boxes(width, height, label="whole"):
+    title = 30
+    boxes = {
+        label: (0, 0, width, height),
+        "title bar: icon and caption": (0, 0, min(width, 190), title + 4),
+        "title bar: buttons": (width - 80, 0, width, title + 4),
+        "top-left corner": (0, 0, 14, 14),
+        "left edge": (0, height // 2 - 8, 14, height // 2 + 8),
+    }
+    if width > 300:
+        boxes.update(
+            {
+                "close button": (width - 28, 5, width - 5, 28),
+                "maximize button": (width - 51, 5, width - 28, 28),
+                "minimize button": (width - 74, 5, width - 51, 28),
+                "top-right corner": (width - 14, 0, width, 14),
+                "bottom-left corner": (0, height - 14, 14, height),
+                "bottom-right corner": (width - 14, height - 14, width, height),
+                "bottom edge": (width // 2 - 8, height - 14, width // 2 + 8, height),
+            }
+        )
+    return boxes
+
+
+def luna_window_details(desktop, scratch):
+    from luna_render import luna_window
+
+    rows = []
+    original = screenshot("xpnotepad")
+    width, height = original.size
+    if desktop:
+        ours, source = desktop.crop(LUNA_WINDOW_FRAME), "a Qt window on the real desktop"
+    else:
+        ours, source = luna_window(width, height, True, scratch, "Untitled - Notepad"), "our decoration"
+    masks = [(0, 0, LUNA_CORNER, LUNA_CORNER), (width - LUNA_CORNER, 0, width, LUNA_CORNER)]
+    masks += [(4, 30, width - 4, height - 4), (4, 4, 26, 26), (26, 3, 150, 27)]  # client area, icon, caption
+    rows += details(original, ours, luna_window_boxes(width, height), f"Notepad (active; ours: {source}): ", masks)
+    left, top, right, bottom = LUNA_INACTIVE_VISIBLE
+    original = screenshot("xpfulldesktop").crop(LUNA_INACTIVE_VISIBLE)
+    ours = luna_window(400, 402, False, scratch).crop((0, 0, right - left, bottom - top))
+    masks = [(0, 0, LUNA_CORNER, LUNA_CORNER), (4, 30, right - left - 4, bottom - top), (4, 4, 26, 26), (26, 3, 225, 27)]
+    boxes = luna_window_boxes(right - left, bottom - top, "whole visible part")
+    rows += details(original, ours, boxes, "Help and Support Center (inactive; ours: our decoration): ", masks)
+    return rows
+
+
+def luna_taskbar_details(desktop, app, scratch):
+    from luna_render import START_PILL, TASK_BUTTONS, TRAY_BOX, luna_taskbar
+
+    original = screenshot("xprunning")
+    ours = (
+        desktop.crop((0, desktop.height - LUNA_PANEL_HEIGHT, desktop.width, desktop.height))
+        if desktop
+        else luna_taskbar(app, scratch)
+    )
+    boxes = {"whole": (0, 0, original.width, LUNA_PANEL_HEIGHT), "Start button": (0, 0, START_PILL[1] + 2, LUNA_PANEL_HEIGHT)}
+    masks = [(6, 4, 78, 27), (TRAY_BOX[0] + 3, 4, original.width - 5, 26)]  # the flag and lettering, the tray's icon and clock
+    for index, (left, width, _text, pressed) in enumerate(TASK_BUTTONS, 1):
+        boxes[f"task button {index}{' (pressed)' if pressed else ''}"] = (left - 2, 0, left + width + 2, LUNA_PANEL_HEIGHT)
+        masks += [(left + 4, 4, left + 24, 22), (left + 25, 5, left + width - 5, 22)]  # the icon, the label
+    boxes["tray box"] = (TRAY_BOX[0] - 3, 0, original.width, LUNA_PANEL_HEIGHT)
+    rows = details(original, ours, boxes, masks=masks)
+    wide, wide_ours = screenshot("xptaskbar-1x"), luna_taskbar(app, scratch, 3000, 147)
+    wide_boxes = {"Start button (3000px shot)": (0, 0, 100, LUNA_PANEL_HEIGHT), "tray box (3000px shot)": (2850, 0, 3000, LUNA_PANEL_HEIGHT)}
+    return rows + details(wide, wide_ours, wide_boxes, masks=[(6, 4, 78, 27), (2858, 4, 2996, 26)])
+
+
+def luna_start_menu_details():
+    from luna_render import luna_menu
+
+    original, ours = screenshot("xpdesktop").crop((0, 93, 380, 570)), luna_menu()
+    boxes = {
+        "whole": (0, 0, 380, 477),
+        "header": (0, 0, 380, 66),
+        "left column": (0, 66, 199, 436),
+        "right column": (199, 66, 380, 436),
+        "footer": (0, 436, 380, 477),
+    }
+    return details(original, ours, boxes, masks=[(6, 6, 62, 62), (66, 16, 260, 50)])  # the user's picture and name
+
+
+def luna_shut_down_details():
+    from luna.test_luna_dialogs import TURN_OFF_MASKS
+    from luna_render import luna_turn_off
+
+    original, ours = screenshot("xpshutdowndialog"), luna_turn_off()
+    width, height = original.size
+    boxes = {
+        "whole": (0, 0, width, height),
+        "title band": (0, 0, width, 44),
+        "options": (0, 44, width, 157),
+        "bottom band": (0, 157, width, height),
+    }
+    return details(original, ours, boxes, masks=TURN_OFF_MASKS)
+
+
+def luna_loading_details(app):
+    from luna_qml import render_luna_splash
+
+    boxes = {
+        "whole": (0, 0, 640, 480),
+        "logo": (150, 100, 500, 330),
+        "progress": (240, 340, 400, 375),
+        "footer": (10, 420, 260, 470),
+    }
+    return details(screenshot("xpsplash"), render_luna_splash(app), boxes)
+
+
+def luna_login_details(app):
+    from luna_qml import render_luna_login
+
+    boxes = {
+        "whole": (0, 0, 800, 600),
+        "top band": (0, 0, 800, 80),
+        "bottom band": (0, 500, 800, 600),
+        "fields": (490, 301, 665, 340),
+    }
+    return details(screenshot("xplogin"), render_luna_login(app), boxes, masks=[(20, 520, 215, 555), (465, 520, 755, 558)])
+
+
+def luna_sysprops_details(app):
+    """System Properties in LunaStyle and the Luna frame: no XP original of it exists, so ours alone."""
+    sysprops = load_script("chicago95-sysprops")
+    settings = "[StartMenu]\nstyle=luna\n[Look]\ndecoration=luna\nwidgetStyle=luna\ntaskbarStyle=luna\n"
+    with installed_look(app, settings, ""):
+        window = sysprops.build_window(sysprops.SystemFacts(**SYSPROPS_FACTS), "luna")
+        window.show()
+        app.processEvents()
+        ours = qimage_to_pil(window.grab().toImage())
+        window.close()
+    return [("whole", None, ours)]
+
+
+def luna_sections(desktop, app, scratch):
+    sections = {
+        "taskbar": (
+            "Taskbar" + (" (real desktop; icons are the test's squares)" if desktop else " (our parts, no icons)"),
+            luna_taskbar_details(desktop, app, scratch),
+        ),
+        "windows": ("Windows", luna_window_details(desktop, scratch)),
+        "startmenu": ("Start menu", luna_start_menu_details()),
+        "shutdown": ("Turn Off Computer", luna_shut_down_details()),
+        "loading": ("Loading screen", luna_loading_details(app)),
+        "logon": ("Log on", luna_login_details(app)),
+    }
+    sysprops = load_script("chicago95-sysprops")
+    if "luna" in sysprops.TABS:  # no XP original of System Properties exists: ours alone
+        sections["sysprops"] = ("System Properties (no original exists)", luna_sysprops_details(app))
+    else:
+        print("System Properties has no Luna layout yet: left out of the Luna report")
+    return sections
+
+
+def luna_showcase_panels(sections):
+    def whole(key, index=0):
+        _label, original, ours = sections[key][1][index]
+        return original, ours
+
+    inactive = next(index for index, row in enumerate(sections["windows"][1]) if "inactive" in row[0])
+    panels = [
+        ("Taskbar", *whole("taskbar")),
+        ("Window, active", *whole("windows")),
+        ("Window, inactive (the corner and title that show)", *whole("windows", inactive)),
+        ("Start menu", *whole("startmenu")),
+        ("Turn Off Computer", *whole("shutdown")),
+    ]
+    if "sysprops" in sections:
+        panels.append(("System Properties (no original exists)", None, whole("sysprops")[1]))
+    return panels + [("Loading screen", *whole("loading")), ("Log on", *whole("logon"))]
+
+
 # --- the sheets ----------------------------------------------------------------------------------
 
 
@@ -604,11 +815,23 @@ def zoom_for(original, ours):
     return max(1, min(MAX_ZOOM, ROW_HEIGHT // height, COLUMN_WIDTH // width))
 
 
+def no_reference(size, note):
+    placeholder = Image.new("RGB", size, SHOWCASE_BACKGROUND)
+    ImageDraw.Draw(placeholder).text((6, size[1] // 2 - 7), note, fill=(110, 110, 110), font=label_font(12))
+    return placeholder
+
+
 def compose(title, rows, path):
     font = label_font()
     prepared = []
     summary = []
     for label, original, ours in rows:
+        if original is None:  # no original exists: ours alone, nothing to count
+            blank = no_reference(ours.size, "no original screenshot exists")
+            images = [image.resize((image.width * 2, image.height * 2), Image.NEAREST) for image in (blank, ours)]
+            prepared.append((f"{label}: no original to compare, x2", images))
+            summary.append(f"{'-':>7} {'-':>5}   {title}: {label} (no original)")
+            continue
         zoom = zoom_for(original, ours)
         diff = difference(original, ours)
         differing = sum(1 for pixel in diff.getdata() if pixel == DIFFERENT)
@@ -641,7 +864,13 @@ def compose(title, rows, path):
 # --- the showcase: one picture per OS, component by component --------------------------------------
 
 SHOWCASE_WIDTH, SHOWCASE_BACKGROUND, CARD = 1400, (236, 236, 236), (255, 255, 255)
-LOOK_NAMES = {"1995": "1995 look", "1998": "1998 look", "2000": "2000 look"}
+LOOK_NAMES = {
+    "1995": "1995 look",
+    "1998": "1998 look",
+    "2000": "2000 look",
+    "2001": "Windows XP Classic",
+    "luna": "Windows XP",
+}
 
 
 def showcase_panels(look, desktop, sections, app, scratch, startmenu):
@@ -651,7 +880,7 @@ def showcase_panels(look, desktop, sections, app, scratch, startmenu):
     from plasma_session import CONTENT
     from test_taskbar_reference import HEIGHT, TASKBARS
     from test_taskbar_reference import taskbar as original_taskbar
-    from test_window_reference import WINDOWS
+    from test_window_reference import SIXTEEN_COLOUR_SCREENSHOT_COLOURS, WINDOWS
 
     panels = []
     if desktop:
@@ -662,7 +891,9 @@ def showcase_panels(look, desktop, sections, app, scratch, startmenu):
         else model_taskbar(look, app, scratch)
     )
     panels.append(("Taskbar", original_taskbar(look), bar))
-    theme = build_theme(scratch / f"showcase-aurorae-{look}", look)
+    theme = build_theme(
+        scratch / f"showcase-aurorae-{look}", look, **SIXTEEN_COLOUR_SCREENSHOT_COLOURS.get(look, {})
+    )
     toolkits = {box: toolkit for _title, toolkit, box in CONTENT[look]["windows"]}
     for window_look, name, (left, top, right, bottom), active, caption, _covered in WINDOWS.values():
         if window_look != look:
@@ -678,11 +909,7 @@ def showcase_panels(look, desktop, sections, app, scratch, startmenu):
             )
         panels.append((f"Window, {'active' if active else 'inactive'} ({note})", original, ours))
     settings, kdeglobals = MENU_SETTINGS[look]
-    menu_box = {
-        "1995": ("win95startmenu", (2, 217, 166, 456)),
-        "1998": ("win98start", (2, 0, 216, 456)),
-        "2000": ("w2kstartmenu", (2, 113, 206, 456)),
-    }[look]
+    menu_box = MENU_ORIGINALS[look]
     (scratch / f"showcase-menu-{look}").mkdir(exist_ok=True)
     # Each original's own entries: 1995 had no Log Off; 2000's shows Office and Windows Update above.
     menu = render_start_menu(
@@ -691,9 +918,9 @@ def showcase_panels(look, desktop, sections, app, scratch, startmenu):
         scratch / f"showcase-menu-{look}",
         settings,
         kdeglobals,
-        without=() if look == "1998" else ("&Log Off...",),
-        active={"1995": 0, "1998": 4, "2000": 4}[look],
-        extra_top=("New Office Document", "Open Office Document", "Windows Update") if look == "2000" else (),
+        without=() if look in LOG_OFF_LOOKS else ("&Log Off...",),
+        active=SHOWCASE_ACTIVE_ROW[look],
+        extra_top=MENU_EXTRA_TOP.get(look, ()),
     )
     panels.append(("Start menu", screenshot(menu_box[0]).crop(menu_box[1]), menu))
     panels.append(("Shut Down", *shut_down_whole(look, sections)))
@@ -707,7 +934,7 @@ def showcase_panels(look, desktop, sections, app, scratch, startmenu):
 def shut_down_whole(look, sections):
     """The original dialog and ours, whole: 1995's and 1998's originals are half-size thumbnails,
     shown enlarged beside ours at full size."""
-    if look == "2000":
+    if look in SHUT_DOWN_REFERENCE_LOOKS:
         _label, original, ours = sections["shutdown"][1][0]
         return original, ours
     _label, original, _halved = sections["shutdown"][1][0]
@@ -743,14 +970,31 @@ CONTROLS = [
 ]
 
 
-def controls_panels(sections, look, app):
-    """[(control, original or None, ours)]: every Qt control our theme draws (tests/controls_gallery.py),
-    in the look's colours, then our own controls from the sections' detail rows, in CONTROLS' order."""
+def flat_controls(app, look):
+    """Every Qt control our flat theme draws (tests/controls_gallery.py), in the look's colours."""
     import controls_gallery
 
-    kdeglobals = {"1995": "", "1998": "", "2000": LOOK_2000_KDEGLOBALS}[look]
-    with installed_look(app, f"[StartMenu]\nstyle={look}\n", kdeglobals):
-        panels = controls_gallery.controls(app, look)
+    with installed_look(app, f"[StartMenu]\nstyle={look}\n", KDEGLOBALS[look]):
+        return controls_gallery.controls(app, look)
+
+
+def luna_controls_panels(app):
+    """LunaStyle's gallery (tests/luna/luna_gallery.py) beside the Display Properties and Appearance shots."""
+    from luna_render import luna_controls
+
+    gallery = luna_controls(app)
+    display, appearance = screenshot("xpdisplayprop-1x"), screenshot("xpappearance")
+    return [
+        ("Tabs, group box, combo, slider and buttons (the original: Display Properties)", display, gallery),
+        ("Push buttons (the original: Display Properties' OK and Cancel)", display.crop((150, 415, 404, 452)), gallery.crop((6, 6, 260, 43))),
+        ("Fields, check boxes, radio buttons and tabs (the original: Appearance)", appearance, gallery.crop((0, 40, 400, 215))),
+    ]
+
+
+def controls_panels(sections, look, app):
+    """[(control, original or None, ours)]: every Qt control the look's theme draws, then our own controls
+    from the sections' detail rows, in CONTROLS' order."""
+    panels = luna_controls_panels(app) if look == "luna" else flat_controls(app, look)
     for section, matches, name in CONTROLS:
         rows = sections.get(section, ("", []))[1]
         for label, theirs, ours in rows:
@@ -767,13 +1011,7 @@ def compose_showcase(title, panels, path):
     for component, original_shot, ours in panels:
         original = original_shot
         if original is None:  # no original screenshot shows this control
-            original = Image.new("RGB", ours.size, SHOWCASE_BACKGROUND)
-            ImageDraw.Draw(original).text(
-                (6, ours.height // 2 - 7),
-                "no original screenshot shows this control",
-                fill=(110, 110, 110),
-                font=label_font(12),
-            )
+            original = no_reference(ours.size, "no original screenshot shows this control")
         width = max(original.width, ours.width)
         side_by_side = 2 * width + GAP <= inner
         zoom = max(1, min(3, (inner - GAP) // 2 // width)) if side_by_side else max(1, min(2, inner // width))
@@ -813,8 +1051,8 @@ def compose_showcase(title, panels, path):
     print("wrote", path)
 
 
-def real_desktops():
-    """{look: screenshot} of the real desktop, or {} without KWin and Plasma."""
+def real_desktops(looks):
+    """{look: screenshot} of the real desktop of each look, or {} without KWin and Plasma."""
     from plasma_session import desktop_session, missing_programs
 
     if missing_programs():
@@ -825,44 +1063,56 @@ def real_desktops():
         )
         return {}
     screens = {}
-    for look in ("1995", "1998", "2000"):
+    for look in looks:
         work = tempfile.mkdtemp(prefix=f"c95-{look}-", dir="/tmp")  # short: Wayland's socket path limit
         screens[look] = desktop_session(look, work)
         shutil.rmtree(work, ignore_errors=True)
     return screens
 
 
-def main(output):
+def flat_sections(look, desktop, app, scratch, startmenu, shutdown):
+    against = " (against 2000's original: no XP Classic shot exists)" if look == "2001" else ""
+    sections = {
+        "taskbar": (
+            "Taskbar" + (" (real desktop; icons are the test's squares)" if desktop else " (our parts, no icons)"),
+            taskbar_details(look, desktop, app, scratch),
+        ),
+        "windows": ("Windows", window_details(look, desktop, scratch)),
+        "startmenu": ("Start menu", start_menu_details(startmenu, app, look, scratch)),
+        "shutdown": ("Shut Down" + against, shut_down_details(shutdown, app, look, scratch)),
+        "sysprops": ("System Properties" + against, sysprops_details(look, app, scratch)),
+    }
+    if look in SCREEN_LOOKS:
+        sections["loading"] = ("Loading screen", loading_details(app, scratch))
+        sections["logon"] = ("Log on", login_details(shutdown, app, scratch))
+    return sections
+
+
+def main(output, looks):
     import chicago95ui  # noqa: F401  sets the platform before the application exists
     from PySide6.QtWidgets import QApplication
 
     app = QApplication.instance() or chicago95ui.make_app("chicago95-report")  # as the tools make it
     startmenu, shutdown = load_script("chicago95-startmenu"), load_script("chicago95-shutdown")
     output.mkdir(parents=True, exist_ok=True)
-    for stale in [*output.glob("report-*"), *output.glob("showcase-*")]:
-        stale.unlink()
+    for look in looks:
+        for stale in [*output.glob(f"report-{look}-*"), *output.glob(f"showcase-{look}.jpg"), *output.glob(f"showcase-controls-{look}.jpg")]:
+            stale.unlink()
     scratch = Path(tempfile.mkdtemp(prefix="chicago95-report-"))
-    desktops = real_desktops()
-    for look in ("1995", "1998", "2000"):
+    desktops = real_desktops(looks)
+    for look in looks:
         desktop = desktops.get(look)
-        sections = {
-            "taskbar": (
-                "Taskbar" + (" (real desktop; icons are the test's squares)" if desktop else " (our parts, no icons)"),
-                taskbar_details(look, desktop, app, scratch),
-            ),
-            "windows": ("Windows", window_details(look, desktop, scratch)),
-            "startmenu": ("Start menu", start_menu_details(startmenu, app, look, scratch)),
-            "shutdown": ("Shut Down", shut_down_details(shutdown, app, look, scratch)),
-            "sysprops": ("System Properties", sysprops_details(look, app, scratch)),
-        }
-        if look == "2000":
-            sections["loading"] = ("Loading screen", loading_details(app, scratch))
-            sections["logon"] = ("Log on", login_details(shutdown, app, scratch))
+        if look == "luna":
+            sections = luna_sections(desktop, app, scratch)
+            panels = luna_showcase_panels(sections)
+        else:
+            sections = flat_sections(look, desktop, app, scratch, startmenu, shutdown)
+            panels = showcase_panels(look, desktop, sections, app, scratch, startmenu)
         for key, (title, rows) in sections.items():
             compose(f"{look} {title}", rows, output / f"report-{look}-{key}.png")
         compose_showcase(
             f"Chicago95 for KDE Plasma, {LOOK_NAMES[look]}: the original beside ours",
-            showcase_panels(look, desktop, sections, app, scratch, startmenu),
+            panels,
             output / f"showcase-{look}.jpg",
         )
         compose_showcase(
@@ -873,4 +1123,4 @@ def main(output):
 
 
 if __name__ == "__main__":
-    main(Path(sys.argv[1] if len(sys.argv) > 1 else "report"))
+    main(Path(sys.argv[1] if len(sys.argv) > 1 else "report"), sys.argv[2:] or list(LOOK_NAMES))

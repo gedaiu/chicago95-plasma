@@ -12,6 +12,10 @@ Item {
     property bool held
     // 2000's lettering is wider than this font's: its button has a pixel more face after the text.
     property string bevel: "1995"
+    // XP Classic's Start button is tighter than 2000's: 2px before the logo, 4px between logo and text,
+    // 2px of face after the last stroke (tests/references/xpclassic.png).
+    property string look: "1995"
+    readonly property bool isXpClassic: look === "2001"
     // Bevel colours: 1995 and 1998 derive light and shadow from the face (#DFDFDF and #808080 for
     // #C0C0C0) with a black outer shadow; 2000 uses the face itself as light, #808080 and #404040.
     property color face: "#c0c0c0"
@@ -23,9 +27,10 @@ Item {
     readonly property int buttonHeight: 22
     readonly property int logoSize: 16
 
-    readonly property int contentX: 4
+    readonly property int contentX: isXpClassic ? 2 : 4
+    readonly property int trailingFace: bevel !== "2000" ? 0 : isXpClassic ? -2 : 1
     // The text's advance runs 3px past its last stroke: the original's face before the bevel.
-    implicitWidth: contentX + content.implicitWidth + (label.visible ? 0 : 3) + 2 + (bevel === "2000" ? 1 : 0)
+    implicitWidth: contentX + content.implicitWidth + (label.visible ? 0 : 3) + 2 + trailingFace
     implicitHeight: buttonHeight
 
     Item {
@@ -100,7 +105,7 @@ Item {
 
         RowLayout {
             id: content
-            spacing: 3
+            spacing: button.isXpClassic ? 4 : 3
             // Whole pixels: a half-pixel offset would resample the pixel-art logo.
             x: button.contentX + (button.held ? 1 : 0)
             y: Math.round((parent.height - height) / 2) + (button.held ? 1 : 0)

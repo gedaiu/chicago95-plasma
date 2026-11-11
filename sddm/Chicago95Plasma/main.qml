@@ -4,12 +4,14 @@ import SddmComponents 2.0
 
 // Chicago95 log on dialog. Drawn at 1x in classic pixels and scaled by a whole number,
 // so every bevel line stays one crisp pixel wide on any screen.
-// loginStyle in theme.conf: "classic" (1995/1998 key dialog on teal) or "2000" (branded banner on blue).
+// loginStyle in theme.conf: "classic" (1995/1998 key dialog on teal), "2000" (branded banner on blue) or
+// "luna" (Windows XP welcome screen, luna/sddm/LunaLogin.qml, loaded in place of the dialog below).
 Rectangle {
     id: root
     width: 1024
     height: 768
     readonly property bool modern: config.loginStyle === "2000"
+    readonly property bool luna: config.loginStyle === "luna"
     color: modern ? "#3A6EA5" : "#008080"
 
     readonly property int pixelScale: config.scale > 0 ? config.scale : Math.max(1, Math.floor(Math.min(width / 640, height / 720)))
@@ -339,6 +341,7 @@ Rectangle {
 
     Bevel {
         id: dialog
+        visible: !root.luna
         // 2000's top edge sits a third of the way down the free space above its expanded size, like the
         // original, and stays there while Options grows the dialog; classic is centred.
         anchors.horizontalCenter: parent.horizontalCenter
@@ -669,5 +672,21 @@ Rectangle {
         }
     }
 
-    Component.onCompleted: (userField.text === "" ? userField : passwordField).input.forceActiveFocus()
+    Loader {
+        anchors.fill: parent
+        active: root.luna
+        source: "luna/sddm/LunaLogin.qml"
+        onLoaded: {
+            item.greeter = root.greeter;
+            item.users = root.users;
+            item.sessions = root.sessions;
+            item.theme = root.theme;
+            item.keyboardState = root.keyboardState;
+        }
+    }
+
+    Component.onCompleted: {
+        if (!root.luna)
+            (userField.text === "" ? userField : passwordField).input.forceActiveFocus();
+    }
 }

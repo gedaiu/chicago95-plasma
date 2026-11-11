@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=X-GNOME-Metatheme
+Name=Chicago95Luna
+Comment=Windows XP Luna widgets
+Encoding=UTF-8
+
+[X-GNOME-Metatheme]
+GtkTheme=Chicago95Luna
+MetacityTheme=Chicago95Luna
+IconTheme=Chicago95

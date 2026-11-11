@@ -1,0 +1,3 @@
+  13541  20.7%  2001 Start menu: whole
+   3419  38.2%  2001 Start menu: banner
+   1764  23.1%  2001 Start menu: bottom edge

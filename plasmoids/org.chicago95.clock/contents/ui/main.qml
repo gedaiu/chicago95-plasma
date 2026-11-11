@@ -8,7 +8,7 @@ import "clockFormat.js" as ClockFormat
 
 // The tray's clock as the originals show it (tests/test_plasma_taskbar_reference.py): the time in the
 // locale's short format, in the UI font without smoothing, centred in a cell that ends at the tray
-// box's inner edge (60px wide; 69px on 2000, whose lettering is wider). The date shows on hover;
+// box's inner edge (60px wide; 69px on 2000, whose lettering is wider; XP Classic's is 60px again, a row higher). The date shows on hover;
 // a double click opens the date and time settings.
 PlasmoidItem {
     id: root
@@ -16,8 +16,10 @@ PlasmoidItem {
     preferredRepresentation: fullRepresentation
     Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground
 
-    readonly property int cellWidth: Plasmoid.configuration.bevel === "2000" ? 69 : 60
-    readonly property int textTop: 9   // the lettering's top row in the applet, which starts 2px into the taskbar
+    readonly property bool isLuna: Plasmoid.configuration.taskbarStyle === "luna"
+    readonly property bool isXpClassic: Plasmoid.configuration.look === "2001"
+    readonly property int cellWidth: isLuna ? 68 : Plasmoid.configuration.bevel === "2000" && !isXpClassic ? 69 : 60
+    readonly property int textTop: isXpClassic ? 8 : 9   // the lettering's top row in the applet, which starts 2px into the taskbar
     property date now: new Date()
 
     Layout.minimumWidth: cellWidth
@@ -44,6 +46,7 @@ PlasmoidItem {
     }
 
     Text {
+        id: clockText
         x: Math.round((root.width - implicitWidth) / 2)
         y: root.textTop
         // Locales put a narrow no-break space before AM and PM; the originals have a full space.
@@ -53,6 +56,30 @@ PlasmoidItem {
         color: Kirigami.Theme.textColor
         renderType: Text.NativeRendering
         antialiasing: false
+    }
+    Binding {
+        target: clockText
+        property: "font.family"
+        value: "Tahoma"
+        when: root.isLuna
+    }
+    Binding {
+        target: clockText
+        property: "color"
+        value: "#ffffff"
+        when: root.isLuna
+    }
+    Binding {
+        target: clockText
+        property: "renderType"
+        value: Text.QtRendering
+        when: root.isLuna
+    }
+    Binding {
+        target: clockText
+        property: "antialiasing"
+        value: true
+        when: root.isLuna
     }
 
     MouseArea {

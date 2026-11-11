@@ -46,121 +46,142 @@ Item {
     readonly property color dark: look === "2000" ? "#404040" : "#000000"
     readonly property color navy: "#000080"
 
-    width: previews ? 2 * (frame + sidePad) + rowWidth : classicWidth
-    height: frame + topPad + rows * cellHeight + captionGap + captionHeight + bottomPad + frame
+    readonly property bool luna: look === "luna"
 
-    Rectangle {
-        anchors.fill: parent
-        color: box.face
+    width: luna && lunaLoader.item ? lunaLoader.item.width : previews ? 2 * (frame + sidePad) + rowWidth : classicWidth
+    height: luna && lunaLoader.item ? lunaLoader.item.height : frame + topPad + rows * cellHeight + captionGap + captionHeight + bottomPad + frame
+
+    Loader {
+        id: lunaLoader
+        active: box.luna
+        source: "luna/LunaSwitcherBox.qml"
+        onLoaded: {
+            item.model = Qt.binding(() => box.model);
+            item.currentIndex = Qt.binding(() => box.currentIndex);
+        }
     }
-    // Raised frame: light and white along the top and left, dark and shadow along the bottom and right.
-    Rectangle { x: 0; y: 0; width: parent.width - 1; height: 1; color: box.light }
-    Rectangle { x: 0; y: 0; width: 1; height: parent.height - 1; color: box.light }
-    Rectangle { x: 1; y: 1; width: parent.width - 3; height: 1; color: "#FFFFFF" }
-    Rectangle { x: 1; y: 1; width: 1; height: parent.height - 3; color: "#FFFFFF" }
-    Rectangle { x: 0; y: parent.height - 1; width: parent.width; height: 1; color: box.dark }
-    Rectangle { x: parent.width - 1; y: 0; width: 1; height: parent.height; color: box.dark }
-    Rectangle { x: 1; y: parent.height - 2; width: parent.width - 2; height: 1; color: box.shadow }
-    Rectangle { x: parent.width - 2; y: 1; width: 1; height: parent.height - 2; color: box.shadow }
+    Connections {
+        target: lunaLoader.item
+        function onActivated(index) { box.activated(index); }
+    }
 
-    GridView {
-        id: grid
-        // A single row sits centred; rows that wrap start at the left pad, as the originals' did.
-        x: box.rows === 1 ? Math.floor((box.width - box.rowWidth) / 2) : box.frame + box.sidePad
-        y: box.frame + box.topPad
-        width: box.rowWidth
-        height: box.rows * box.cellHeight
-        cellWidth: box.cellWidth
-        cellHeight: box.cellHeight
-        interactive: false
-        model: box.model
-        currentIndex: box.currentIndex
-        highlightMoveDuration: 0
-        highlightFollowsCurrentItem: false
-        delegate: Item {
-            id: cell
-            required property int index
-            required property var model
-            readonly property bool chosen: index === grid.currentIndex
-            width: box.cellWidth
-            height: box.cellHeight
+    Item {
+        anchors.fill: parent
+        visible: !box.luna
 
-            // The chosen window's 1px navy frame on the cell's edge.
-            Rectangle {
-                anchors.fill: parent
-                color: "transparent"
-                border.width: 1
-                border.color: box.navy
-                visible: cell.chosen
-            }
-            Kirigami.Icon {
-                visible: !box.previews
-                x: (box.iconCell - box.iconSize) / 2
-                y: (box.iconCell - box.iconSize) / 2
-                width: box.iconSize
-                height: box.iconSize
-                source: cell.model.icon
-                roundToIconSize: false
-            }
-            Item {
-                visible: box.previews
-                x: 5
-                y: 5
-                width: box.previewSize
-                height: box.previewHeight
-                // Sunken 1px frame: shadow above and left, white below and right.
-                Rectangle { x: 0; y: 0; width: parent.width; height: 1; color: box.shadow }
-                Rectangle { x: 0; y: 0; width: 1; height: parent.height; color: box.shadow }
-                Rectangle { x: 0; y: parent.height - 1; width: parent.width; height: 1; color: "#FFFFFF" }
-                Rectangle { x: parent.width - 1; y: 0; width: 1; height: parent.height; color: "#FFFFFF" }
-                KWin.WindowThumbnail {
+        Rectangle {
+            anchors.fill: parent
+            color: box.face
+        }
+        // Raised frame: light and white along the top and left, dark and shadow along the bottom and right.
+        Rectangle { x: 0; y: 0; width: parent.width - 1; height: 1; color: box.light }
+        Rectangle { x: 0; y: 0; width: 1; height: parent.height - 1; color: box.light }
+        Rectangle { x: 1; y: 1; width: parent.width - 3; height: 1; color: "#FFFFFF" }
+        Rectangle { x: 1; y: 1; width: 1; height: parent.height - 3; color: "#FFFFFF" }
+        Rectangle { x: 0; y: parent.height - 1; width: parent.width; height: 1; color: box.dark }
+        Rectangle { x: parent.width - 1; y: 0; width: 1; height: parent.height; color: box.dark }
+        Rectangle { x: 1; y: parent.height - 2; width: parent.width - 2; height: 1; color: box.shadow }
+        Rectangle { x: parent.width - 2; y: 1; width: 1; height: parent.height - 2; color: box.shadow }
+
+        GridView {
+            id: grid
+            // A single row sits centred; rows that wrap start at the left pad, as the originals' did.
+            x: box.rows === 1 ? Math.floor((box.width - box.rowWidth) / 2) : box.frame + box.sidePad
+            y: box.frame + box.topPad
+            width: box.rowWidth
+            height: box.rows * box.cellHeight
+            cellWidth: box.cellWidth
+            cellHeight: box.cellHeight
+            interactive: false
+            model: box.model
+            currentIndex: box.currentIndex
+            highlightMoveDuration: 0
+            highlightFollowsCurrentItem: false
+            delegate: Item {
+                id: cell
+                required property int index
+                required property var model
+                readonly property bool chosen: index === grid.currentIndex
+                width: box.cellWidth
+                height: box.cellHeight
+
+                // The chosen window's 1px navy frame on the cell's edge.
+                Rectangle {
                     anchors.fill: parent
-                    anchors.margins: 1
-                    wId: cell.model.windowId
+                    color: "transparent"
+                    border.width: 1
+                    border.color: box.navy
+                    visible: cell.chosen
                 }
                 Kirigami.Icon {
-                    x: parent.width - 16 - 3
-                    y: parent.height - 16 - 3
-                    width: 16
-                    height: 16
+                    visible: !box.previews
+                    x: (box.iconCell - box.iconSize) / 2
+                    y: (box.iconCell - box.iconSize) / 2
+                    width: box.iconSize
+                    height: box.iconSize
                     source: cell.model.icon
                     roundToIconSize: false
                 }
-            }
-            MouseArea {
-                anchors.fill: parent
-                onClicked: box.activated(cell.index)
+                Item {
+                    visible: box.previews
+                    x: 5
+                    y: 5
+                    width: box.previewSize
+                    height: box.previewHeight
+                    // Sunken 1px frame: shadow above and left, white below and right.
+                    Rectangle { x: 0; y: 0; width: parent.width; height: 1; color: box.shadow }
+                    Rectangle { x: 0; y: 0; width: 1; height: parent.height; color: box.shadow }
+                    Rectangle { x: 0; y: parent.height - 1; width: parent.width; height: 1; color: "#FFFFFF" }
+                    Rectangle { x: parent.width - 1; y: 0; width: 1; height: parent.height; color: "#FFFFFF" }
+                    KWin.WindowThumbnail {
+                        anchors.fill: parent
+                        anchors.margins: 1
+                        wId: cell.model.windowId
+                    }
+                    Kirigami.Icon {
+                        x: parent.width - 16 - 3
+                        y: parent.height - 16 - 3
+                        width: 16
+                        height: 16
+                        source: cell.model.icon
+                        roundToIconSize: false
+                    }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: box.activated(cell.index)
+                }
             }
         }
-    }
 
-    // The chosen window's title, bold, in a sunken field on the face under the grid.
-    Item {
-        id: caption
-        x: box.captionInset
-        y: grid.y + grid.height + box.captionGap
-        width: box.width - 2 * box.captionInset
-        height: box.captionHeight
-        Rectangle { x: 0; y: 0; width: parent.width; height: 1; color: box.shadow }
-        Rectangle { x: 0; y: 0; width: 1; height: parent.height; color: box.shadow }
-        Rectangle { x: 1; y: 1; width: parent.width - 2; height: 1; color: box.dark }
-        Rectangle { x: 1; y: 1; width: 1; height: parent.height - 2; color: box.dark }
-        Rectangle { x: 0; y: parent.height - 1; width: parent.width; height: 1; color: "#FFFFFF" }
-        Rectangle { x: parent.width - 1; y: 0; width: 1; height: parent.height; color: "#FFFFFF" }
-        Rectangle { x: 1; y: parent.height - 2; width: parent.width - 2; height: 1; color: box.light }
-        Rectangle { x: parent.width - 2; y: 1; width: 1; height: parent.height - 2; color: box.light }
-        Text {
-            x: 4
-            y: 9
-            width: parent.width - 8
-            text: grid.currentItem ? grid.currentItem.model.caption : ""
-            font.family: "MS W98 UI"
-            font.pixelSize: 11
-            font.bold: true
-            color: "#000000"
-            elide: Text.ElideRight
-            renderType: Text.NativeRendering
-            antialiasing: false
+        // The chosen window's title, bold, in a sunken field on the face under the grid.
+        Item {
+            id: caption
+            x: box.captionInset
+            y: grid.y + grid.height + box.captionGap
+            width: box.width - 2 * box.captionInset
+            height: box.captionHeight
+            Rectangle { x: 0; y: 0; width: parent.width; height: 1; color: box.shadow }
+            Rectangle { x: 0; y: 0; width: 1; height: parent.height; color: box.shadow }
+            Rectangle { x: 1; y: 1; width: parent.width - 2; height: 1; color: box.dark }
+            Rectangle { x: 1; y: 1; width: 1; height: parent.height - 2; color: box.dark }
+            Rectangle { x: 0; y: parent.height - 1; width: parent.width; height: 1; color: "#FFFFFF" }
+            Rectangle { x: parent.width - 1; y: 0; width: 1; height: parent.height; color: "#FFFFFF" }
+            Rectangle { x: 1; y: parent.height - 2; width: parent.width - 2; height: 1; color: box.light }
+            Rectangle { x: parent.width - 2; y: 1; width: 1; height: parent.height - 2; color: box.light }
+            Text {
+                x: 4
+                y: 9
+                width: parent.width - 8
+                text: grid.currentItem ? grid.currentItem.model.caption : ""
+                font.family: "MS W98 UI"
+                font.pixelSize: 11
+                font.bold: true
+                color: "#000000"
+                elide: Text.ElideRight
+                renderType: Text.NativeRendering
+                antialiasing: false
+            }
         }
     }
 }
