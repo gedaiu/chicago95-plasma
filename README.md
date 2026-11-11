@@ -101,6 +101,12 @@ Office Assistant, extra tools, Control Panel, sound scheme, desktop background, 
 Dolphin), lock screen, splash screen, boot screen (Plymouth), login screen
 (SDDM), Firefox colours.
 
+Selections are the selection colour under white text everywhere: drop-down
+rows, selected desktop icons and KRunner's current result (its results view is
+a QML override under `data/qml`, loaded ahead of Plasma's through
+`QML_IMPORT_PATH`); a row that is only under the pointer keeps black text and
+gets an outline instead.
+
 Toolbar icons in every program are grey until the pointer is over them, as
 Explorer's were: KDE's icon effects for Qt programs, a GTK CSS rule for the rest.
 

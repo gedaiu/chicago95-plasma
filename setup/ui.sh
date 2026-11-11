@@ -228,9 +228,9 @@ ui_choose() {
   for index in "${!options[@]}"; do
     lines+=("$(printf '  %d. [%s] %s' $((index + 1)) "$([ $((index + 1)) = "$current" ] && echo X || echo ' ')" "${options[$index]}")")
   done
-  # Called as $(ui_choose ...): the screen goes to the terminal, only the answer to the caller.
+  # Called as $(ui_choose ...): the screen goes to stderr (the terminal, or the Control Panel's log), only the answer to the caller.
   while :; do
-    ui_card "$title" "${lines[@]}" >/dev/tty
+    ui_card "$title" "${lines[@]}" >&2
     answer=$(ui_ask "Type a number and press ENTER" "$current")
     [[ "$answer" =~ ^[0-9]+$ ]] && [ "$answer" -ge 1 ] && [ "$answer" -le ${#options[@]} ] && {
       printf '%s' "$answer"

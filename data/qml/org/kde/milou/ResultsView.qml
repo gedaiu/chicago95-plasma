@@ -7,7 +7,6 @@
  */
 
 import QtQuick
-import QtQuick.Templates as T
 
 import org.kde.plasma.extras 2.0 as PlasmaExtras
 import org.kde.milou as Milou
@@ -29,8 +28,9 @@ ListView {
     // NOTE this also flips increment/decrementCurrentIndex (Bug 360789)
     verticalLayoutDirection: reversed ? ListView.BottomToTop : ListView.TopToBottom
     keyNavigationWraps: true
+    // The current result is the selection: the selected highlight (navy, as a drop-down's) under white text.
     highlight: PlasmaExtras.Highlight {
-        pressed: (listView.currentItem as T.AbstractButton)?.down ?? false
+        pressed: true
     }
     highlightMoveDuration: 0
     activeFocusOnTab: true
