@@ -73,3 +73,43 @@ Desktop icons, Run, and the taskbar's menu:
 | `win98tileh.png` | https://www.tech2u.com.au/training/tech2u/win98_1/images/view06.gif (Windows 98: three windows after Tile Windows Horizontally; a palette GIF, saved as PNG) |
 | `win95alttab.png` | screenshot supplied by the project owner (Windows 95 Alt+Tab with four windows: smoothed and scaled 4.625x, so rules and positions, not exact pixels) |
 | `win8classicalttab.png` | https://i.sstatic.net/a6lrf.png (the classic Alt+Tab box on Windows 8: seven icons per row at a fixed width, further rows below) |
+
+Windows XP (Luna and XP Classic), from Toasty Technology, GUIdebook, Wikipedia and a project-owner capture:
+
+| File | Source |
+| --- | --- |
+| `xptaskbar-1x.png` | https://i.redd.it/xpwr0merodxd1.png (supplied by the project owner: the bottom 30 rows of a lossless 3000x1774 Windows XP capture, cropped, not resampled; the Luna taskbar at 1:1: gradient, Start button, tray, clock) |
+| `xpdisplayprop-1x.png` | https://i.redd.it/xpwr0merodxd1.png (supplied by the project owner: the Display Properties window cut from the lossless 3000x1774 capture at x 242..645, y 319..773, not resampled; Luna decoration, caption buttons, tabs, group boxes, slider, drop-down, buttons) |
+| `xpdesktop.png` | http://toastytech.com/guis/wxpdefaultdesk.png (Toasty Technology, Windows XP: the Luna desktop with the two-column Start menu and a balloon tip) |
+| `xpclassic.png` | http://toastytech.com/guis/wxpclassic.png (Toasty Technology, Windows XP: the XP Classic desktop, Start menu, three windows and taskbar) |
+| `xpshutdown.png` | http://toastytech.com/guis/wxpshutdown.png (Toasty Technology, Windows XP: the Turn off computer dialog over the dimmed desktop) |
+| `xpshutdowndialog.png` | https://guidebookgallery.org/pics/gui/startupshutdown/shutdownwindow/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the Turn off computer dialog) |
+| `xplogoff.png` | https://guidebookgallery.org/pics/gui/startupshutdown/logout/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the Log Off dialog) |
+| `xpnotepad.png` | https://guidebookgallery.org/pics/gui/applications/office/notepad/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, Notepad: Luna decoration with three caption buttons, a menu bar and scroll bars) |
+| `xprunning.png` | https://guidebookgallery.org/pics/gui/system/managers/running/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the taskbar with normal and pressed task buttons and the tray) |
+| `xpfulldesktop.png` | https://guidebookgallery.org/pics/gui/desktop/full/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the desktop with inactive and active windows) |
+| `xpemptydesktop.png` | https://guidebookgallery.org/pics/gui/desktop/empty/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the Bliss desktop with its icons and taskbar) |
+| `xplogin.png` | https://guidebookgallery.org/pics/gui/startupshutdown/login/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the Welcome screen) |
+| `xpsplash.png` | https://guidebookgallery.org/pics/gui/startupshutdown/splash/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the boot splash) |
+| `xpshuttingdown.png` | https://guidebookgallery.org/pics/gui/startupshutdown/shuttingdown/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the shutting-down screen) |
+| `xpappearance.png` | https://guidebookgallery.org/pics/gui/settings/appearance/winxppro-1-1.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, Display Properties, Appearance tab) |
+| `xpmouse.png` | https://guidebookgallery.org/pics/gui/settings/mouse/winxppro-1-1.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, Mouse Properties) |
+| `xptimedate.png` | https://guidebookgallery.org/pics/gui/settings/timedate/winxppro-1-1.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, Date and Time Properties) |
+| `xpmenu.png` | https://guidebookgallery.org/pics/gui/settings/menu/winxppro-1-1.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the taskbar and Start menu properties) |
+| `xpopenfile.png` | https://guidebookgallery.org/pics/gui/interface/dialogs/openfile/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the Open dialog) |
+| `xpfont.png` | https://guidebookgallery.org/pics/gui/interface/dialogs/font/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the Font dialog) |
+| `xpcolour.png` | https://guidebookgallery.org/pics/gui/interface/dialogs/colourselector/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the Color dialog) |
+| `xpaboutgui.png` | https://guidebookgallery.org/pics/gui/interface/dialogs/aboutgui/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, an About box) |
+| `xprun.png` | https://guidebookgallery.org/pics/gui/system/features/run/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the Run dialog) |
+| `xpsearch.png` | https://guidebookgallery.org/pics/gui/system/features/search/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the Search Results window) |
+| `xphelp.png` | https://guidebookgallery.org/pics/gui/system/features/help/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, Help and Support Center) |
+| `xptrashcan.png` | https://guidebookgallery.org/pics/gui/system/features/trashcan/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the Recycle Bin window) |
+| `xpfilemanager.png` | https://guidebookgallery.org/pics/gui/system/managers/filemanager/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, an Explorer window) |
+| `xpbrowser.png` | https://guidebookgallery.org/pics/gui/applications/internet/browser/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, Internet Explorer) |
+| `xpstartmenu.png` | https://en.wikipedia.org/wiki/File:Windows_XP_Start_menu.png (https://en.wikipedia.org/wiki/Windows_XP: the Luna Start menu, 282x354 RGBA: real alpha in its rounded corners) |
+| `xptaskgrouping.png` | https://en.wikipedia.org/wiki/File:Windows_XP_task_grouping_(Luna).png (https://en.wikipedia.org/wiki/Windows_XP: a grouped task button on the Luna taskbar) |
+| `xpmycomputer.png` | http://toastytech.com/guis/wxpmycomputer.png (Toasty Technology, Windows XP: My Computer maximized) |
+| `xpcontrolpanel.png` | http://toastytech.com/guis/wxpcontrolpanel.png (Toasty Technology, Windows XP: Control Panel) |
+| `xpdisplayprop.png` | http://toastytech.com/guis/wxpdisplayprop.png (Toasty Technology, Windows XP: Display Properties) |
+| `xpsilver.png` | http://toastytech.com/guis/wxpsilver.png (Toasty Technology, Windows XP: the Silver variant) |
+| `xpcrash.png` | http://toastytech.com/guis/wxpcrash.png (Toasty Technology, Windows XP: an error dialog) |
