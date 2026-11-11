@@ -1022,8 +1022,8 @@ def test_the_base_theme_greys_gtk_toolbar_icons_until_the_pointer_is_over_them(t
     log = dry_run_log(tmp_path, "--components=base")
 
     assert [
-        f"{REPO}/config/gtk-toolbar-icons.css" in log and f"{tmp_path}/.config/gtk-{version}/gtk.css" in log
-        for version in ("3.0", "4.0")
+        f"{REPO}/config/gtk-toolbar-icons-gtk3.css" in log and f"{tmp_path}/.config/gtk-3.0/gtk.css" in log,
+        f"{REPO}/config/gtk-toolbar-icons.css" in log and f"{tmp_path}/.config/gtk-4.0/gtk.css" in log,
     ] == [True, True]
 
 
@@ -1032,8 +1032,8 @@ def test_the_gtk_toolbar_icon_rule_is_appended_once_however_often_setup_runs(tmp
     run_setup(tmp_path, "--components=base")
 
     assert [
-        (tmp_path / f".config/gtk-{version}/gtk.css").read_text().count("-gtk-icon-filter: grayscale(1)")
-        for version in ("3.0", "4.0")
+        (tmp_path / ".config/gtk-3.0/gtk.css").read_text().count("-gtk-icon-effect: dim"),
+        (tmp_path / ".config/gtk-4.0/gtk.css").read_text().count("-gtk-icon-filter: grayscale(1)"),
     ] == [1, 1]
 
 

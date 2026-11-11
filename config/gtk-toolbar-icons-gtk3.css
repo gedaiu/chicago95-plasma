@@ -1,0 +1,5 @@
+/* Chicago95 toolbar icons (GTK 3): dimmed until the pointer is over the button; GTK 3 cannot grey them. */
+toolbar button:not(:hover):not(:active):not(:checked) image,
+headerbar button:not(:hover):not(:active):not(:checked) image {
+  -gtk-icon-effect: dim;
+}

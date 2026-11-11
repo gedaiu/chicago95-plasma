@@ -1,4 +1,4 @@
-/* Chicago95 toolbar icons: grey until the pointer is over the button, as Explorer's toolbar drew them. */
+/* Chicago95 toolbar icons (GTK 4): grey until the pointer is over the button, as Explorer's toolbar drew them. */
 toolbar button:not(:hover):not(:active):not(:checked) image,
 headerbar button:not(:hover):not(:active):not(:checked) image {
   -gtk-icon-filter: grayscale(1);

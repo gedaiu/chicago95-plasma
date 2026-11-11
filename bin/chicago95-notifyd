@@ -372,13 +372,24 @@ class NotificationPopup(QWidget):
 
         self.expiry_timer = QTimer(self)
         self.expiry_timer.setSingleShot(True)
-        self.expiry_timer.timeout.connect(lambda: self.dismissed.emit(CLOSED_EXPIRED))
-        self.title_bar.close_button.clicked.connect(lambda: self.dismissed.emit(CLOSED_DISMISSED))
+        # Bound methods, never lambdas holding self: PySide keeps a lambda alive with its signal, and a popup
+        # freed by its own button or timer could then free its stack's window while still inside it.
+        self.expiry_timer.timeout.connect(self.expire)
+        self.title_bar.close_button.clicked.connect(self.dismiss)
         self.has_default_action = False
         self.timeout_ms = 0
         self.move_animation = None
         self.fade_animation = None
         self.update_content(notification)
+
+    def expire(self):
+        self.dismissed.emit(CLOSED_EXPIRED)
+
+    def dismiss(self):
+        self.dismissed.emit(CLOSED_DISMISSED)
+
+    def action_clicked(self):
+        self.action_invoked.emit(self.sender().property("action"))
 
     def update_content(self, notification):
         device_pixel_ratio = self.devicePixelRatioF()
@@ -413,7 +424,8 @@ class NotificationPopup(QWidget):
             button = QPushButton(label)
             button.setMinimumSize(75, 23)
             button.setFocusPolicy(Qt.NoFocus)
-            button.clicked.connect(lambda _checked=False, key=key: self.action_invoked.emit(key))
+            button.setProperty("action", key)
+            button.clicked.connect(self.action_clicked)
             self.action_row.addWidget(button)
             self.action_buttons.append(button)
 
@@ -529,7 +541,18 @@ class PopupStack(QObject):
         if self.popups and not self.host.isVisible():
             self.host.show()
         elif not self.popups and self.host.isVisible():
-            QTimer.singleShot(SLIDE_OUT_MS + 50, lambda: None if self.popups else self.host.hide())
+            QTimer.singleShot(SLIDE_OUT_MS + 50, self.hide_host_if_empty)
+
+    def hide_host_if_empty(self):
+        if not self.popups:
+            self.host.hide()
+
+    def popup_dismissed(self, reason):
+        self.close(self.sender().notification_id, reason)
+
+    def popup_action(self, key):
+        popup = self.sender()
+        self.invoke(popup.notification_id, key, popup.resident)
 
     def show(self, notification):
         existing = self.popups.get(notification.notification_id)
@@ -538,9 +561,10 @@ class PopupStack(QObject):
             self.relayout()
             return
         popup = NotificationPopup(notification, self.host)
-        notification_id, resident = notification.notification_id, notification.resident
-        popup.dismissed.connect(lambda reason: self.close(notification_id, reason))
-        popup.action_invoked.connect(lambda key: self.invoke(notification_id, key, resident))
+        notification_id = popup.notification_id = notification.notification_id
+        popup.resident = notification.resident
+        popup.dismissed.connect(self.popup_dismissed)
+        popup.action_invoked.connect(self.popup_action)
         self.popups[notification_id] = popup
         self.sync_host()
         self.drop_overflow()

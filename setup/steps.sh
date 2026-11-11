@@ -222,7 +222,8 @@ step_base() {
   run mkdir -p ~/.local/share/icons
   run ln -sfn ~/.icons/Chicago95 ~/.local/share/icons/Chicago95
   record ~/.local/share/icons/Chicago95
-  append_gtk_css "$REPO/config/gtk-toolbar-icons.css" 3.0 4.0
+  append_gtk_css "$REPO/config/gtk-toolbar-icons-gtk3.css" 3.0 # GTK 3 has no icon filters: its icons dim instead
+  append_gtk_css "$REPO/config/gtk-toolbar-icons.css" 4.0
   # GTK programs draw their own widgets, and GTK 4 its own title bars: both take the classic theme.
   local version
   for version in 3.0 4.0; do
@@ -662,9 +663,9 @@ gtk_gradient() { # gtk_gradient <colour[,colour]>   a CSS background for a title
 write_gtk_titlebar_css() {
   local begin="/* >>> Chicago95 title bars BEGIN */" end="/* <<< Chicago95 title bars END */" version target block
   block="$begin
-window.background headerbar.titlebar, window.background .titlebar.default-decoration, window.background .titlebar:not(headerbar), window.background headerbar.titlebar .title {
+headerbar.titlebar, .titlebar.default-decoration, headerbar.titlebar .title, .titlebar.default-decoration .title {
   background-image: $(gtk_gradient "$1"); background-color: ${1%%,*}; color: #FFFFFF; font-weight: bold; text-shadow: none; }
-window.background headerbar.titlebar:backdrop, window.background .titlebar.default-decoration:backdrop, window.background .titlebar:not(headerbar):backdrop, window.background headerbar.titlebar:backdrop .title {
+headerbar.titlebar:backdrop, .titlebar.default-decoration:backdrop, headerbar.titlebar:backdrop .title, .titlebar.default-decoration:backdrop .title {
   background-image: $(gtk_gradient "$2"); background-color: ${2%%,*}; color: $3; }
 $end"
   for version in 3.0 4.0; do

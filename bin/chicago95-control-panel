@@ -109,6 +109,9 @@ INSTALL_ORDER = (
     "firefox",
 )
 
+# Keys the Control Panel applies itself, right away, and never saves: the screen's resolution is KDE's.
+LIVE_KEYS = ("SCREEN_AREA",)
+
 # Each key of setup.conf with the Setup components that apply it.
 COMPONENTS_BY_KEY = {
     "LOOK": ("look", "taskbar", "startmenu"),
@@ -1488,7 +1491,8 @@ class ColorListField(QWidget):
             swatch.setIcon(swatch_icon(colour))
             swatch.setIconSize(QSize(self.SWATCH_SIZE[0] - 10, self.SWATCH_SIZE[1] - 8))
             swatch.setToolTip(colour)
-            swatch.clicked.connect(lambda _checked=False, index=index: self.pick(index))
+            swatch.setProperty("entry", index)
+            swatch.clicked.connect(self.swatch_clicked)  # a bound method: see NotificationPopup in chicago95-notifyd
             self.row.addWidget(swatch)
             self.swatches.append(swatch)
             if self.stops and index > 0:
@@ -1496,11 +1500,18 @@ class ColorListField(QWidget):
                 box.setRange(0, 999)
                 box.setSuffix(" px")
                 box.setValue(position or 0)
-                box.valueChanged.connect(lambda value, index=index: self.set_position(index, value))
+                box.setProperty("entry", index)
+                box.valueChanged.connect(self.position_changed)
                 self.row.addWidget(box)
                 self.stop_boxes.append(box)
         self.add_button.setEnabled(len(self.entries) < self.most)
         self.remove_button.setEnabled(len(self.entries) > 1)
+
+    def swatch_clicked(self):
+        self.pick(self.sender().property("entry"))
+
+    def position_changed(self, position):
+        self.set_position(self.sender().property("entry"), position)
 
     def pick(self, index):
         chosen = self.choose_color(self.entries[index][0])
@@ -3754,10 +3765,10 @@ class ControlPanel(QMainWindow):
         self.refresh_navigation()
 
     def apply_changes(self, changes):
-        changes = dict(changes)
-        area = changes.pop("SCREEN_AREA", None)
-        if area:
-            self.change_screen_area(area)
+        live = {key: changes[key] for key in LIVE_KEYS if key in changes}
+        changes = {key: value for key, value in changes.items() if key not in LIVE_KEYS}
+        if live.get("SCREEN_AREA"):
+            self.change_screen_area(live["SCREEN_AREA"])
         if not changes:
             return True
         settings = read_settings(self.settings_path)

@@ -927,7 +927,7 @@ def test_every_tab_of_every_page_has_its_own_builder(control_panel):
     assert declared == set(control_panel.TAB_BUILDERS)
 
 
-def test_every_key_the_tabs_report_is_one_setup_applies(control_panel, qt_app):
+def test_every_key_the_tabs_report_is_one_setup_applies_or_the_control_panel_applies_live(control_panel, qt_app):
     reported = {
         key
         for applet, tabs in control_panel.PAGE_TABS.items()
@@ -937,7 +937,7 @@ def test_every_key_the_tabs_report_is_one_setup_applies(control_panel, qt_app):
         ).values()
     }
 
-    assert reported <= set(control_panel.COMPONENTS_BY_KEY)
+    assert reported <= set(control_panel.COMPONENTS_BY_KEY) | set(control_panel.LIVE_KEYS)
 
 
 def test_unticking_the_looks_own_width_starts_from_160_pixels(control_panel, qt_app):
