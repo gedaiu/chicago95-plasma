@@ -504,7 +504,8 @@ def test_showing_the_clock_adds_one_to_a_taskbar_without_it(tmp_path):
     assert (
         "if (panel.widgets('org.chicago95.tasks').length > 0 && panel.widgets('org.chicago95.clock').length === 0) { "
         "const clock = panel.addWidget('org.chicago95.clock'); clock.currentConfigGroup = ['General']; "
-        "clock.writeConfig('look', \"2000\"); }"
+        "clock.writeConfig('look', \"2000\"); clock.writeConfig('taskbarStyle', \"classic\"); "
+        "clock.writeConfig('bevel', \"1995\"); }"
     ) in written
 
 

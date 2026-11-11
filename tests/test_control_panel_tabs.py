@@ -511,6 +511,7 @@ TASKBAR_OPTION_DEFAULTS = {
     "PREVIEW_SIZE": "off",
     "CLOCK_SHOW": "yes",
     "CLOCK_HOURS": "locale",
+    "TASKBAR_STYLE": "classic",
 }
 
 
@@ -532,6 +533,7 @@ def test_taskbar_options_tab_reports_every_saved_choice(control_panel, qt_app):
         "PREVIEW_SIZE": "240",
         "CLOCK_SHOW": "no",
         "CLOCK_HOURS": "24",
+        "TASKBAR_STYLE": "classic",
     }
 
     assert built(control_panel, "Taskbar", "Taskbar Options", saved).values() == saved
@@ -1227,11 +1229,13 @@ def test_appearance_items_are_the_parts_this_desktop_can_colour_in_alphabetical_
 
     assert [tab.items.itemText(index) for index in range(tab.items.count())] == [
         "Active Title Bar",
+        "Controls",
         "Desktop",
         "Icon",
         "Inactive Title Bar",
         "Start Menu Banner",
         "Start Menu Banner Text",
+        "Window Frames",
     ]
 
 

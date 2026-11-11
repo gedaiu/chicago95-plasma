@@ -2996,12 +2996,15 @@ ICON_SETS = [("Chicago95 (1995)", "chicago95"), ("SE98 (1998)", "se98"), ("Class
 # colours): its setting, and how many colours it takes (stops: the banner's base colour and its glows).
 APPEARANCE_ITEMS = (
     ("Active Title Bar", "TITLE_ACTIVE", 2, False),
+    ("Controls", "WIDGET_STYLE", 0, False),
     ("Desktop", "BACKGROUND_COLOR", 1, False),
     ("Icon", "ICONS", 0, False),
     ("Inactive Title Bar", "TITLE_INACTIVE", 2, False),
     ("Start Menu Banner", "BANNER_BG", 8, True),
     ("Start Menu Banner Text", "BANNER_FG", 1, False),
+    ("Window Frames", "DECORATION", 0, False),
 )
+COMPONENT_STYLES = [("Classic", "classic")]
 
 
 @tab_builder("Display", "Appearance")
@@ -3026,6 +3029,7 @@ def appearance_tab(settings, actions):
     tab.items = chicago95ui.classic_combo(QComboBox())
     tab.item_editors = QStackedWidget()
     tab.color_edits = {}
+    component_combos = {}
     for label, key, most, stops in APPEARANCE_ITEMS:
         editor = QWidget()
         form = QFormLayout(editor)
@@ -3035,6 +3039,11 @@ def appearance_tab(settings, actions):
             for icon_label, value in ICON_SETS:
                 tab.icons.addItem(icon_label, value)
             form.addRow("Icon set:", tab.icons)
+        elif key in ("DECORATION", "WIDGET_STYLE"):
+            component_combos[key] = chicago95ui.classic_combo(QComboBox())
+            for style_label, value in COMPONENT_STYLES:
+                component_combos[key].addItem(style_label, value)
+            form.addRow("Style:", component_combos[key])
         else:
             tab.color_edits[key] = ColorListField(lambda current: actions.choose_color(tab, current), most, stops)
             form.addRow("Color:", tab.color_edits[key])
@@ -3081,10 +3090,14 @@ def appearance_tab(settings, actions):
         tab.icons.currentIndexChanged,
     )
     saved_look = LOOK_PRESETS.get(settings.get("LOOK"), start)
-    component_combos = [
-        tab.choice("DECORATION", "Window &frames:", [("Classic", "classic")], default=saved_look["DECORATION"]),
-        tab.choice("WIDGET_STYLE", "&Controls:", [("Classic", "classic")], default=saved_look["WIDGET_STYLE"]),
-    ]
+    for key, combo in component_combos.items():
+        tab.track(
+            key,
+            combo.currentData,
+            lambda value, combo=combo: combo.setCurrentIndex(max(combo.findData(value), 0)),
+            saved_look[key],
+            combo.currentIndexChanged,
+        )
     unseen_components = {key: saved_look[key] for key in UNSEEN_COMPONENT_KEYS}
     for key in UNSEEN_COMPONENT_KEYS:
         tab.track(
@@ -3106,7 +3119,7 @@ def appearance_tab(settings, actions):
         for key, field in tab.color_edits.items():
             field.set_value(preset[key])
         tab.icons.setCurrentIndex(tab.icons.findData(preset["ICONS"]))
-        for combo, key in zip(component_combos, ("DECORATION", "WIDGET_STYLE"), strict=True):
+        for key, combo in component_combos.items():
             combo.setCurrentIndex(combo.findData(preset[key]))
         unseen_components.update({key: preset[key] for key in UNSEEN_COMPONENT_KEYS})
         state["applying"] = False
@@ -3131,7 +3144,7 @@ def appearance_tab(settings, actions):
     tab.scheme.currentIndexChanged.connect(scheme_changed)
     for field in tab.color_edits.values():
         field.changed.connect(colour_edited)
-    for combo in component_combos:
+    for combo in component_combos.values():
         combo.currentIndexChanged.connect(lambda *_: colour_edited())
     refresh_preview()
     return tab
