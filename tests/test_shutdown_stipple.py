@@ -45,3 +45,35 @@ def test_backdrops_close_when_the_shutdown_dialog_finishes(shutdown, qt_app, mon
     assert shutdown.ask(dialog) == accepted
     assert all(not overlay.isVisible() for overlay in overlays)
     assert dialog.windowHandle().transientParent() is None
+
+
+@pytest.mark.parametrize("scale", ["1.5", "2"])
+def test_dots_remain_one_physical_pixel_at_desktop_scaling(scale):
+    import os
+    import subprocess
+    import sys
+
+    from conftest import REPO
+
+    program = '''
+import sys, os
+sys.path.insert(0, str(__import__('pathlib').Path.cwd() / 'tests'))
+import conftest
+os.environ['QT_SCALE_FACTOR'] = sys.argv[1]
+from PySide6.QtWidgets import QApplication
+app = QApplication([])
+shutdown = conftest.load_script('chicago95-shutdown')
+overlay = shutdown.ShutdownStipple(app.primaryScreen())
+overlay.resize(20, 20)
+image = overlay.grab().toImage()
+assert image.devicePixelRatio() == float(sys.argv[1])
+for y in range(image.height()):
+    for x in range(image.width()):
+        assert image.pixelColor(x, y).alpha() == (255 if (x + y) % 2 == 0 else 0), (x, y)
+'''
+    result = subprocess.run(
+        [sys.executable, "-c", program, scale], cwd=REPO,
+        env={**os.environ, "QT_QPA_PLATFORM": "offscreen"},
+        capture_output=True, text=True, check=False, timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

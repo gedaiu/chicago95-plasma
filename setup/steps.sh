@@ -838,7 +838,8 @@ step_startmenu() {
   # Wayland clients cannot enforce their own stacking order; KWin keeps every
   # shutdown/log-off dialog above ordinary windows, regardless of the chosen look.
   kwin_rule chicago95-shutdown "Description=Chicago95 shutdown and log-off dialogs" \
-    "wmclass=chicago95-shutdown" "wmclassmatch=1" "above=true" "aboverule=3"
+    "wmclass=chicago95-shutdown" "wmclassmatch=1" "above=true" "aboverule=3" \
+    "skiptaskbar=true" "skiptaskbarrule=3"
   kwin_reconfigure
   run chmod +x ~/.local/bin/chicago95-shutdown
   put_file "$REPO/bin/chicago95-run" ~/.local/bin/chicago95-run

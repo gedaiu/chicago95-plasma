@@ -143,3 +143,10 @@ in `w2klogon.png`. `images/windows2000-brand.png` in the splash theme isolates
 (100, 0)–(640, 365) of `w2kboot.png`, containing the static logo and wordmarks.
 The boot progress and login fields remain live components; these assets apply
 only to the original product branding, with custom logos retaining the drawn layout.
+
+Luna shutdown/logoff button state strips in `luna/lib/images/xp-turn-off-buttons.bmp`
+and `xp-log-off-buttons.bmp` are unchanged copies of `src/res/to_buttons.bmp` and
+`src/res/su_buttons.bmp` from [ClassicShutdown](https://github.com/aubymori/ClassicShutdown/tree/dfd9ae79d16fb8f2684e83e4f99e5effe5305562)
+(GPL-3.0; commit `dfd9ae79d16fb8f2684e83e4f99e5effe5305562`). The magenta colour key is made transparent at runtime.
+Its `src/FriendlyDialog.cpp` documents the normal/pressed/hot frame mapping,
+with keyboard focus using the hot frame and disabled Stand By using frame 9.

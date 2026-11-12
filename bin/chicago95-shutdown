@@ -15,13 +15,13 @@ import subprocess
 import chicago95ui  # noqa: E401,E702
 from PySide6.QtCore import QPoint, QPointF, QRect, Qt, QTimer
 from PySide6.QtGui import (
-    QColor,
     QBrush,
-    QGuiApplication,
+    QColor,
     QFont,
     QFontDatabase,
     QFontMetrics,
     QFontMetricsF,
+    QGuiApplication,
     QIcon,
     QImage,
     QLinearGradient,
@@ -251,7 +251,7 @@ class LogOffDialog(chicago95ui.ClassicDialog):
     def __init__(self, look=None):
         look = {**chicago95ui.look_settings(), **(look or {})}
         super().__init__(f"Log Off {chicago95ui.short_os_name(look['osName'])}", look["style"], (300, 110))
-        self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
+        self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
 
         upper = QHBoxLayout()
         upper.setSpacing(12)
@@ -437,7 +437,7 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         self.style = self.look["style"] if self.look["style"] in CHOICES else "1995"
         body, inset = self.BODIES[self.style]
         super().__init__(f"Shut Down {chicago95ui.short_os_name(self.look['osName'])}", self.style, body, inset)
-        self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
+        self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.choices = CHOICES[self.style]
         self.choice = None
         {"combo": self.build_combo_list, "radio": self.build_radio_list}[LAYOUT[self.style]]()
@@ -525,9 +525,11 @@ class ShutdownStipple(QWidget):
     """9x dims the desktop with alternating black pixels, preserving its colours."""
 
     def __init__(self, screen):
-        super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
-                         | Qt.WindowDoesNotAcceptFocus)
+        super().__init__(
+            None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.WindowDoesNotAcceptFocus
+        )
         self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setWindowTitle("Chicago95 shutdown backdrop")
         self.winId()
         self.windowHandle().setScreen(screen)

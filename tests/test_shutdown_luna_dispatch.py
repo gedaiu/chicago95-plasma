@@ -74,7 +74,7 @@ def test_ask_luna_choice_returns_shut_down_when_the_turn_off_button_is_pressed(s
 
 @pytest.mark.parametrize("style", ["1995", "1998", "2000", "2001", "luna"])
 @pytest.mark.parametrize("log_off", [False, True])
-def test_power_dialogs_stay_on_top_in_every_look(shutdown, qt_app, style, log_off):
+def test_power_dialogs_stay_on_top_and_are_tools_in_every_look(shutdown, qt_app, style, log_off):
     from PySide6.QtCore import Qt
 
     if style == "luna":
@@ -85,6 +85,7 @@ def test_power_dialogs_stay_on_top_in_every_look(shutdown, qt_app, style, log_of
     else:
         dialog_type = shutdown.LogOffDialog if log_off else shutdown.ShutDownDialog
         dialog = dialog_type({"style": style})
+    assert dialog.windowType() == Qt.Tool
     assert dialog.windowFlags() & Qt.WindowStaysOnTopHint
     assert dialog.windowFlags() & Qt.FramelessWindowHint
     dialog.close()

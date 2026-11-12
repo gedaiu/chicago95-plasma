@@ -1804,10 +1804,13 @@ def test_dry_run_of_an_xp_welcome_login_copies_the_welcome_screen_into_the_loadi
     assert "contents/splash/luna/sddm" in log
 
 
-def test_shutdown_dialogs_are_forced_above_other_windows_on_wayland(tmp_path):
-    run_setup(tmp_path, "--components=startmenu", "--look=luna", "--screen=1920x1080@1")
+@pytest.mark.parametrize("look", ["1995", "1998", "2000", "2001", "luna"])
+def test_shutdown_dialogs_are_above_windows_and_hidden_from_taskbar_on_wayland(tmp_path, look):
+    run_setup(tmp_path, "--components=startmenu", f"--look={look}", "--screen=1920x1080@1")
     rules = (tmp_path / ".config/kwinrulesrc").read_text()
     rule = rules.split("[chicago95-shutdown]")[1].split("\n[")[0]
     assert "wmclass=chicago95-shutdown\n" in rule
     assert "above=true\n" in rule
     assert "aboverule=3\n" in rule
+    assert "skiptaskbar=true\n" in rule
+    assert "skiptaskbarrule=3\n" in rule
