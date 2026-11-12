@@ -314,16 +314,17 @@ BUTTON_FACES = {
 }
 
 
-def paint_button_halo(painter, rect, line):
-    painter.fillRect(rect.left(), rect.top(), rect.width(), line, QColor(BUTTON_HALO["top"]))
-    painter.fillRect(rect.left(), rect.bottom() - line + 1, rect.width(), line, QColor(BUTTON_HALO["bottom"]))
-    painter.fillRect(rect.left(), rect.top() + line, line, rect.height() - 2 * line, QColor(BUTTON_HALO["left"]))
+def paint_button_halo(painter, rect, line, colours=None):
+    colours = BUTTON_HALO if colours is None else colours
+    painter.fillRect(rect.left(), rect.top(), rect.width(), line, QColor(colours["top"]))
+    painter.fillRect(rect.left(), rect.bottom() - line + 1, rect.width(), line, QColor(colours["bottom"]))
+    painter.fillRect(rect.left(), rect.top() + line, line, rect.height() - 2 * line, QColor(colours["left"]))
     painter.fillRect(
-        rect.right() - line + 1, rect.top() + line, line, rect.height() - 2 * line, QColor(BUTTON_HALO["right"])
+        rect.right() - line + 1, rect.top() + line, line, rect.height() - 2 * line, QColor(colours["right"])
     )
 
 
-def paint_push_button(painter, option):
+def paint_push_button(painter, option, halo=None):
     state = button_state(option)
     painter.save()
     painter.setRenderHint(QPainter.Antialiasing, False)
@@ -333,7 +334,7 @@ def paint_push_button(painter, option):
     if state != "disabled":
         painter.save()
         painter.setClipPath(rounded_path(rect, radius + line, 0), Qt.IntersectClip)
-        paint_button_halo(painter, rect, line)
+        paint_button_halo(painter, rect, line, halo)
         painter.restore()
     painter.setClipPath(rounded_path(body, radius, line), Qt.IntersectClip)
     BUTTON_FACES[state](painter, body.adjusted(line, line, -line, -line), ring)

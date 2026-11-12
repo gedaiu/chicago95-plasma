@@ -312,18 +312,6 @@ def test_run_command_starts_the_process_when_not_dry_run(shutdown, tmp_path):
     assert marker.exists() is True
 
 
-def test_log_off_runs_the_logout_command_when_confirmed(shutdown, capsys):
-    shutdown.log_off(True, True, ["gdbus"])
-
-    assert capsys.readouterr().out == "dry-run, would run: gdbus org.kde.Shutdown.logout\n"
-
-
-def test_log_off_runs_nothing_when_not_confirmed(shutdown, capsys):
-    shutdown.log_off(False, True, ["gdbus"])
-
-    assert capsys.readouterr().out == ""
-
-
 def test_shutdown_sound_plays_through_the_player_when_both_exist(shutdown, sound_root, path_with, tmp_path, capsys):
     path_with("pw-play")
     sound = make_sound(sound_root, "Chicago95")
@@ -416,6 +404,36 @@ def test_main_logs_off_when_the_log_off_question_is_confirmed(shutdown, app_for_
         0,
         "dry-run, would run: gdbus " + " ".join(shutdown.dbus_caller()[1:]) + " org.kde.Shutdown.logout\n",
     )
+
+
+def test_switch_user_commands_lock_the_session_then_show_the_greeter_of_the_seat(shutdown, monkeypatch):
+    monkeypatch.setenv("XDG_SEAT_PATH", "/org/freedesktop/DisplayManager/Seat1")
+
+    assert shutdown.switch_user_commands() == [
+        ["loginctl", "lock-session"],
+        ["gdbus", "call", "--system", "--dest", "org.freedesktop.DisplayManager",
+         "--object-path", "/org/freedesktop/DisplayManager/Seat1",
+         "--method", "org.freedesktop.DisplayManager.Seat.SwitchToGreeter"],
+    ]
+
+
+def test_main_switches_user_without_logging_off_when_switch_user_is_chosen(shutdown, app_for_main, monkeypatch, capsys):
+    monkeypatch.setattr(shutdown, "log_off_choice", lambda: shutdown.SWITCH_USER)
+
+    exit_code = run_main(shutdown, monkeypatch, "--log-off", "--dry-run")
+
+    assert (exit_code, capsys.readouterr().out) == (
+        0,
+        "".join("dry-run, would run: " + " ".join(command) + "\n" for command in shutdown.switch_user_commands()),
+    )
+
+
+def test_main_runs_nothing_when_log_off_is_cancelled(shutdown, app_for_main, monkeypatch, capsys):
+    monkeypatch.setattr(shutdown, "log_off_choice", lambda: None)
+
+    exit_code = run_main(shutdown, monkeypatch, "--log-off", "--dry-run")
+
+    assert (exit_code, capsys.readouterr().out) == (0, "")
 
 
 def test_main_runs_nothing_when_shut_down_is_cancelled(shutdown, app_for_main, monkeypatch, capsys):

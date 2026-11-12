@@ -40,7 +40,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-SHUT_DOWN, RESTART, DOS_MODE, LOG_OFF, STAND_BY, HIBERNATE = range(6)
+SHUT_DOWN, RESTART, DOS_MODE, LOG_OFF, STAND_BY, HIBERNATE, SWITCH_USER = range(7)
 
 # Choices per style, in the order each original lists them; the first in DEFAULT_CHOICE is preselected.
 CHOICES = {
@@ -143,6 +143,16 @@ def shutdown_command(choice, dbus_prefix=None):
     if dbus_prefix:
         return dbus_prefix + [KDE_SHUTDOWN_METHODS[choice]]
     return SYSTEMCTL_FALLBACKS[choice]
+
+
+def switch_user_commands():
+    """Lock this session first so it is not left open behind the greeter the other user logs in from."""
+    seat = os.environ.get("XDG_SEAT_PATH", "/org/freedesktop/DisplayManager/Seat0")
+    return [
+        ["loginctl", "lock-session"],
+        ["gdbus", "call", "--system", "--dest", "org.freedesktop.DisplayManager",
+         "--object-path", seat, "--method", "org.freedesktop.DisplayManager.Seat.SwitchToGreeter"],
+    ]
 
 
 def chosen_sound_theme(kdeglobals_path=KDEGLOBALS):
@@ -577,11 +587,25 @@ def ask(dialog):
             overlay.deleteLater()
 
 
+def ensure_luna_grayscale_effect():
+    """Recover an enabled but unloaded effect before the compositor sees the dialog."""
+    try:
+        subprocess.run(
+            ["gdbus", "call", "--session", "--dest", "org.kde.KWin", "--object-path", "/Effects",
+             "--method", "org.kde.kwin.Effects.loadEffect", "chicago95shutdown"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        # The chooser remains usable outside KWin or without a session bus.
+        pass
+
+
 def ask_luna_choice(dialog_class, choices_by_command):
     """The choice a Luna dialog's button stands for, or None when it was cancelled."""
     chosen = []
     commands = {name: (lambda choice=choice: chosen.append(choice)) for name, choice in choices_by_command.items()}
     commands["cancel"] = lambda: None
+    ensure_luna_grayscale_effect()
     return chosen[0] if ask(dialog_class(commands)) else None
 
 
@@ -596,7 +620,7 @@ def luna_turn_off_choice():
 def luna_log_off_choice():
     import chicago95lunadialogs
 
-    return ask_luna_choice(chicago95lunadialogs.LogOffDialog, {"log_off": LOG_OFF, "switch_user": LOG_OFF})
+    return ask_luna_choice(chicago95lunadialogs.LogOffDialog, {"log_off": LOG_OFF, "switch_user": SWITCH_USER})
 
 
 def luna_dialogs_wanted():
@@ -629,15 +653,21 @@ def turn_off_choice():
     return dialog.choice if ask(dialog) else None
 
 
-def log_off_confirmed():
+def log_off_choice():
+    """LOG_OFF or SWITCH_USER as picked in the Log Off dialog of the look, or None when it was cancelled."""
     if luna_dialogs_wanted():
-        return luna_log_off_choice() == LOG_OFF
-    return ask(LogOffDialog())
+        return luna_log_off_choice()
+    return LOG_OFF if ask(LogOffDialog()) else None
 
 
-def log_off(confirmed, dry_run, dbus_prefix):
-    if confirmed:
-        run_command(shutdown_command(LOG_OFF, dbus_prefix), dry_run)
+def log_off(choice, dry_run, dbus_prefix):
+    commands = {
+        LOG_OFF: lambda: [shutdown_command(LOG_OFF, dbus_prefix)],
+        SWITCH_USER: switch_user_commands,
+        None: list,
+    }[choice]()
+    for command in commands:
+        run_command(command, dry_run)
 
 
 def play_shutdown_sound(dry_run):
@@ -706,7 +736,7 @@ def main():
         return 0
 
     if args.log_off:
-        log_off(log_off_confirmed(), args.dry_run, dbus_caller())
+        log_off(log_off_choice(), args.dry_run, dbus_caller())
         return 0
 
     choice = turn_off_choice()

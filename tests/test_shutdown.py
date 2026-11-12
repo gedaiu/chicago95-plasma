@@ -46,14 +46,14 @@ def test_dos_mode_command_opens_konsole(shutdown):
     assert shutdown.shutdown_command(shutdown.DOS_MODE, GDBUS_PREFIX) == ["konsole"]
 
 
-def test_log_off_prints_gdbus_logout_on_dry_run_when_confirmed(shutdown, capsys):
-    shutdown.log_off(True, True, GDBUS_PREFIX)
+def test_log_off_prints_gdbus_logout_on_dry_run_when_log_off_is_chosen(shutdown, capsys):
+    shutdown.log_off(shutdown.LOG_OFF, True, GDBUS_PREFIX)
 
     assert capsys.readouterr().out == "dry-run, would run: " + " ".join(GDBUS_PREFIX) + " org.kde.Shutdown.logout\n"
 
 
-def test_log_off_runs_nothing_when_declined(shutdown, capsys):
-    shutdown.log_off(False, True, GDBUS_PREFIX)
+def test_log_off_runs_nothing_when_cancelled(shutdown, capsys):
+    shutdown.log_off(None, True, GDBUS_PREFIX)
 
     assert capsys.readouterr().out == ""
 

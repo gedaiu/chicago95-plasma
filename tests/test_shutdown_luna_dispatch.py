@@ -45,15 +45,15 @@ def test_turn_off_choice_asks_the_shut_down_dialog_when_widget_style_is_classic(
 def test_log_off_asks_the_luna_log_off_dialog_when_widget_style_is_luna(shutdown, asked_dialogs):
     dialogs = asked_dialogs("luna")
 
-    confirmed = shutdown.log_off_confirmed()
+    choice = shutdown.log_off_choice()
 
-    assert (confirmed, type(dialogs[0]).__name__) == (False, "LogOffDialog")
+    assert (choice, type(dialogs[0]).__name__) == (None, "LogOffDialog")
 
 
 def test_log_off_asks_the_classic_log_off_dialog_when_widget_style_is_classic(shutdown, asked_dialogs):
     dialogs = asked_dialogs("classic")
 
-    shutdown.log_off_confirmed()
+    shutdown.log_off_choice()
 
     assert type(dialogs[0]) is shutdown.LogOffDialog
 

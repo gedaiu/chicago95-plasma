@@ -1814,3 +1814,17 @@ def test_shutdown_dialogs_are_above_windows_and_hidden_from_taskbar_on_wayland(t
     assert "aboverule=3\n" in rule
     assert "skiptaskbar=true\n" in rule
     assert "skiptaskbarrule=3\n" in rule
+
+
+def test_startmenu_install_enables_and_loads_shutdown_effect(tmp_path):
+    result = run_setup(tmp_path, '--components=startmenu', '--look=luna', '--screen=1920x1080@1')
+    assert result.returncode == 0
+    effect = tmp_path / '.local/share/kwin/effects/chicago95shutdown/contents/code/main.js'
+    assert 'Log Off Windows' in effect.read_text()
+    dry_home = tmp_path / 'dry-run'
+    dry_home.mkdir()
+    result = run_setup(dry_home, '--dry-run', '--components=startmenu', '--look=luna')
+    assert result.returncode == 0
+    log = next(dry_home.glob('chicago95-setup-*.log')).read_text()
+    assert '--key chicago95shutdownEnabled true' in log
+    assert 'org.kde.kwin.Effects.loadEffect chicago95shutdown' in log

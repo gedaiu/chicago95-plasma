@@ -10,11 +10,9 @@ x then y of the first pixel):
   middle band       y=46..155, horizontal gradient (MIDDLE_STOPS), flat down the column
   separator         y=156, #0F40A4
   bottom band       y=157..198, #003399
-  icon buttons      32x32 sprite controls at y=81; normal, pressed and hot/focused frames.
-  labels            white bold Tahoma 11px, cap top y=122 (baseline 130), centred under the icon, mnemonic
-                    underline y=131
-  Cancel            halo x=243..302 y=168..187 (60x20), border #003C74 x=244..301 y=169..186; the halo is blended with
-                    the blue: left and top #113C94, right #375FAF, bottom #9DB1D8
+  icon buttons      32x32 antialiased vector artwork with continuous gradients and distinct states
+  labels            white bold Tahoma 11px, baseline 130, centred under each icon
+  Cancel            60x20 at (243,168), continuous gradient and rounded border, no outer halo
 
 Fitted gradients. The screenshots are JPEG-like quantised and the same in both, so each profile was averaged over
 text-free rows, smoothed with a 3-sample moving average, and reduced to the fewest linear stops that stay within 12
@@ -25,11 +23,10 @@ per channel of that average (positions are pixel columns, colours "#RRGGBB"):
                     (max deviation 4.8)
 """
 
-from functools import lru_cache
 from pathlib import Path
 
 from chicago95luna import LunaStyle, luna_font, luna_palette
-from PySide6.QtCore import QPoint, QPointF, QRect, Qt
+from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -37,9 +34,12 @@ from PySide6.QtGui import (
     QImage,
     QLinearGradient,
     QPainter,
+    QPainterPath,
+    QPen,
     QPixmap,
+    QRadialGradient,
 )
-from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QPushButton
+from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QPushButton, QStyle
 
 DIALOG_SIZE = (314, 200)
 BORDER = "#000000"
@@ -62,16 +62,7 @@ BUTTON_AREA = QRect(0, 78, 86, 58)
 LABEL_BASELINE = 130
 UNDERLINE_ROW = 131
 CANCEL_RECT = QRect(243, 168, 60, 20)
-CANCEL_HALO = {"left": "#113C94", "top": "#113C94", "right": "#375FAF", "bottom": "#9DB1D8"}
 WHITE = QColor("#FFFFFF")
-# Vertical 32px cells: normal, pressed, hot (also keyboard focus).
-ICON_FRAMES = {
-    "turn_off": ("xp-turn-off-buttons.bmp", 0),
-    "stand_by": ("xp-turn-off-buttons.bmp", 3),
-    "restart": ("xp-turn-off-buttons.bmp", 6),
-    "switch_user": ("xp-log-off-buttons.bmp", 0),
-    "log_off": ("xp-log-off-buttons.bmp", 3),
-}
 
 
 class ButtonSpec:
@@ -145,28 +136,93 @@ def paint_flag(painter):
     painter.drawPixmap(QPoint(*FLAG_ORIGIN), picture)
 
 
-@lru_cache(maxsize=2)
-def icon_strip(filename):
-    image = QImage(str(Path(__file__).resolve().parent / "images" / filename))
-    if image.isNull():
-        raise RuntimeError(f"Missing Luna dialog artwork: {filename}")
-    image = image.convertToFormat(QImage.Format_ARGB32)
-    for y in range(image.height()):
-        for x in range(image.width()):
-            if image.pixelColor(x, y) == QColor(255, 0, 255):
-                image.setPixelColor(x, y, QColor(0, 0, 0, 0))
-    return image
+def smooth_gradient(top, bottom, height):
+    gradient = QLinearGradient(0, 0, 0, height)
+    gradient.setColorAt(0, QColor(top))
+    gradient.setColorAt(1, QColor(bottom))
+    return gradient
+
+
+def paint_cancel(painter, option):
+    """A continuous face and a single border, with no outer highlight/shadow."""
+    painter.save()
+    painter.setRenderHint(QPainter.Antialiasing)
+    enabled = bool(option.state & QStyle.State_Enabled)
+    pressed = bool(option.state & QStyle.State_Sunken)
+    hot = bool(option.state & QStyle.State_MouseOver)
+    rect = QRectF(option.rect).adjusted(1.5, 1.5, -1.5, -1.5)
+    top, bottom = ("#DDD9CF", "#F0EFE8") if pressed else ("#FFFFFF", "#ECE9DF")
+    painter.setBrush(smooth_gradient(top, bottom, option.rect.height()))
+    painter.setPen(QPen(QColor("#003C74" if enabled else "#A7A69C"), 1))
+    painter.drawRoundedRect(rect, 2.5, 2.5)
+    if enabled and hot and not pressed:
+        painter.setBrush(Qt.NoBrush)
+        painter.setPen(QPen(QColor("#F3BB51"), 1.5))
+        painter.drawRoundedRect(rect.adjusted(1.25, 1.25, -1.25, -1.25), 1.5, 1.5)
+    painter.restore()
 
 
 def paint_icon(painter, spec, pressed=False, hot=False, enabled=True):
-    filename, frame = ICON_FRAMES[spec.command]
-    if not enabled and spec.command == "stand_by":
-        frame = 9
-    elif enabled:
-        frame += 1 if pressed else 2 if hot else 0
-    painter.drawImage(
-        QRect(0, 0, ICON_SIZE, ICON_SIZE), icon_strip(filename), QRect(0, frame * ICON_SIZE, ICON_SIZE, ICON_SIZE)
-    )
+    """Render at the display resolution instead of enlarging a 32px bitmap."""
+    colours = {
+        "stand_by": ("#FBC66A", "#E69B0C"),
+        "turn_off": ("#ED876E", "#CF3712"),
+        "restart": ("#70B970", "#138513"),
+        "switch_user": ("#75CC70", "#159F0A"),
+        "log_off": ("#E8BB75", "#CD880D"),
+    }
+    top, bottom = map(QColor, colours[spec.command])
+    if not enabled:
+        top, bottom = QColor("#8EA8CF"), QColor("#718FB8")
+    elif pressed:
+        top, bottom = top.darker(145), bottom.darker(145)
+    elif hot:
+        top, bottom = top.lighter(120), bottom.lighter(120)
+    painter.save()
+    painter.setRenderHint(QPainter.Antialiasing)
+    painter.setPen(QPen(QColor("#FFFFFF" if not pressed else "#C4C9D5"), 1))
+    painter.setBrush(smooth_gradient(top, bottom, 31))
+    painter.drawRoundedRect(QRectF(0.5, 0.5, 31, 31), 3.5, 3.5)
+    gloss = QRadialGradient(QPointF(7, 5), 24)
+    gloss.setColorAt(0, QColor(255, 255, 255, 65 if not pressed else 15))
+    gloss.setColorAt(1, QColor(255, 255, 255, 0))
+    painter.setPen(Qt.NoPen)
+    painter.setBrush(gloss)
+    painter.drawRoundedRect(QRectF(1.5, 1.5, 29, 29), 2.5, 2.5)
+    pen = QPen(QColor("#FFFFFF" if enabled and not pressed else "#C3CEDD"), 2)
+    pen.setCapStyle(Qt.RoundCap)
+    pen.setJoinStyle(Qt.RoundJoin)
+    painter.setPen(pen)
+    painter.setBrush(Qt.NoBrush)
+    if spec.command in ("stand_by", "turn_off"):
+        if spec.command == "stand_by":
+            painter.drawArc(QRectF(8, 8, 16, 17), 125 * 16, 290 * 16)
+            painter.drawLine(QPointF(16, 6), QPointF(16, 15))
+        else:
+            painter.drawEllipse(QRectF(7.5, 7, 17, 18))
+            painter.drawLine(QPointF(16, 11), QPointF(16, 21))
+    elif spec.command == "restart":
+        for angle in range(0, 360, 45):
+            painter.save()
+            painter.translate(16, 16)
+            painter.rotate(angle)
+            painter.drawLine(QPointF(0, -11), QPointF(0, -5))
+            painter.restore()
+    elif spec.command == "switch_user":
+        for points in (((24, 9), (8, 9), (13, 4)), ((8, 23), (24, 23), (19, 28))):
+            path = QPainterPath(QPointF(*points[0]))
+            path.lineTo(QPointF(*points[1]))
+            path.lineTo(QPointF(*points[2]))
+            painter.drawPath(path)
+        painter.drawLine(QPointF(8, 9), QPointF(13, 14))
+        painter.drawLine(QPointF(24, 23), QPointF(19, 18))
+    else:
+        painter.drawEllipse(QRectF(17, 5, 9, 9))
+        path = QPainterPath(QPointF(19, 13))
+        for point in ((8, 24), (5, 24), (5, 20), (8, 20), (8, 17), (11, 17), (17, 11)):
+            path.lineTo(QPointF(*point))
+        painter.drawPath(path)
+    painter.restore()
 
 
 def label_font():
@@ -212,17 +268,6 @@ class IconButton(QAbstractButton):
         paint_icon(painter, self.spec, self.isDown(), self.underMouse() or self.hasFocus(), self.isEnabled())
 
 
-class CancelButton(QPushButton):
-    def paintEvent(self, event):
-        super().paintEvent(event)
-        painter = QPainter(self)
-        right, bottom = self.width() - 1, self.height() - 1
-        painter.fillRect(1, 0, self.width() - 2, 1, QColor(CANCEL_HALO["top"]))
-        painter.fillRect(1, bottom, self.width() - 2, 1, QColor(CANCEL_HALO["bottom"]))
-        painter.fillRect(0, 1, 1, self.height() - 2, QColor(CANCEL_HALO["left"]))
-        painter.fillRect(right, 1, 1, self.height() - 2, QColor(CANCEL_HALO["right"]))
-
-
 class LunaDialog(QDialog):
     TITLE = ""
     SPECS = []
@@ -231,6 +276,10 @@ class LunaDialog(QDialog):
         super().__init__(parent, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.commands = commands
         self.luna_style = LunaStyle()
+        # Smooth dialog-specific faces, with no shadow beneath Cancel.
+        button_painter = paint_cancel
+        self.luna_style.primitive_painters[QStyle.PE_PanelButtonCommand] = button_painter
+        self.luna_style.control_painters[QStyle.CE_PushButtonBevel] = button_painter
         self.setWindowTitle(self.TITLE)
         self.setFixedSize(*DIALOG_SIZE)
         self.setPalette(luna_palette())
@@ -245,7 +294,7 @@ class LunaDialog(QDialog):
         return button
 
     def add_cancel_button(self):
-        button = CancelButton("Cancel", self)
+        button = QPushButton("Cancel", self)
         button.setStyle(self.luna_style)
         button.setAutoDefault(False)
         button.setGeometry(CANCEL_RECT)

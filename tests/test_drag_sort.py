@@ -184,8 +184,12 @@ def test_the_dragged_item_cannot_leave_its_section(qt_app, harness):
     view, root = harness
     dragged = named(root, "cell0")
     drag(qt_app, view, (5, 14), (100, 14), (190, 14), release=False)
+    during = dragged.x()
+    # QTest remembers a held button across windows: left down, it would turn later tests' clicks into drags.
+    QTest.mouseRelease(view, Qt.LeftButton, Qt.NoModifier, QPoint(190, 14))
+    qt_app.processEvents()
 
-    assert (dragged.x(), recorded(root, "moves")) == (69, [[0, 3]])
+    assert (during, recorded(root, "moves")) == (69, [[0, 3]])
 
 
 def test_the_drag_threshold_defaults_to_the_platforms_start_drag_distance(qt_app):

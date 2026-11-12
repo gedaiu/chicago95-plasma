@@ -3,7 +3,7 @@
   "KPlugin": {
     "Authors": [{ "Name": "Chicago95 setup" }],
     "Category": "Appearance",
-    "Description": "Fade the desktop to grayscale behind the Windows XP shutdown dialog",
+    "Description": "Fade the desktop to grayscale behind the Windows XP shutdown and logoff dialogs",
     "EnabledByDefault": false,
     "Id": "chicago95shutdown",
     "License": "GPL",

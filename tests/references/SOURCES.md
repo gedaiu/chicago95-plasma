@@ -147,6 +147,7 @@ only to the original product branding, with custom logos retaining the drawn lay
 Luna shutdown/logoff button state strips in `luna/lib/images/xp-turn-off-buttons.bmp`
 and `xp-log-off-buttons.bmp` are unchanged copies of `src/res/to_buttons.bmp` and
 `src/res/su_buttons.bmp` from [ClassicShutdown](https://github.com/aubymori/ClassicShutdown/tree/dfd9ae79d16fb8f2684e83e4f99e5effe5305562)
-(GPL-3.0; commit `dfd9ae79d16fb8f2684e83e4f99e5effe5305562`). The magenta colour key is made transparent at runtime.
+(GPL-3.0; commit `dfd9ae79d16fb8f2684e83e4f99e5effe5305562`). The strips are retained as references; the dialogs now draw antialiased vector icons
+and continuous gradients at the display resolution instead of scaling these bitmaps.
 Its `src/FriendlyDialog.cpp` documents the normal/pressed/hot frame mapping,
 with keyboard focus using the hot frame and disabled Stand By using frame 9.

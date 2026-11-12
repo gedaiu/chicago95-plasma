@@ -3,7 +3,8 @@
 // Run in the compositor: this includes wallpaper and panels on Wayland, and keeps
 // the shutdown dialog itself in colour. set() holds the final saturation until Cancel.
 function isShutdownDialog(window) {
-  return window.caption === "Turn off computer" && String(window.windowClass).split(" ").includes("chicago95-shutdown");
+  return ["Turn off computer", "Log Off Windows"].includes(window.caption) &&
+    String(window.windowClass).split(" ").includes("chicago95-shutdown");
 }
 
 class ShutdownEffect {
@@ -19,6 +20,8 @@ class ShutdownEffect {
   }
 
   added(window) {
+    // Wayland can announce a window before its final title or visibility arrives.
+    if (window.captionChanged) window.captionChanged.connect(() => this.shown(window));
     if (window.visibleChanged) {
       window.visibleChanged.connect(() => window.visible ? this.shown(window) : this.removed(window));
     }
@@ -26,6 +29,7 @@ class ShutdownEffect {
   }
 
   shown(window) {
+    if (!window.visible) return;
     if (isShutdownDialog(window)) {
       this.dialogs.add(window);
       effects.stackingOrder.forEach((background) => this.fade(background));

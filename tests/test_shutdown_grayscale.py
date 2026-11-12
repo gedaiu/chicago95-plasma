@@ -11,7 +11,7 @@ def effect(qt_app, request):
 var handlers = {}, starts = [], cancelled = [];
 function signal(key) { return {connect: function(fn) {handlers[key] = fn;}}; }
 function win(name, app) { return {caption: name, windowClass: app, visible: true,
- visibleChanged: signal(name + 'Visible')}; }
+ captionChanged: signal(name + 'Caption'), visibleChanged: signal(name + 'Visible')}; }
 var desktop = win('Desktop', 'plasmashell');
 var panel = win('Panel', 'plasmashell');
 var dialog = win('Turn off computer', 'python3 chicago95-shutdown');
@@ -67,3 +67,24 @@ def test_second_shutdown_dialog_keeps_desktop_grayscale_until_both_close(effect)
     assert evaluate(effect, 'cancelled') == []
     evaluate(effect, "handlers.closed(second)")
     assert evaluate(effect, 'cancelled') == [1, 2]
+
+
+def test_logoff_fades_background_and_cancel_restores_it(effect):
+    evaluate(effect, "dialog.caption = 'Log Off Windows'; effects.stackingOrder.push(dialog); handlers.added(dialog);")
+    assert evaluate(effect, 'starts.map(s => s.window.caption)') == ['Desktop', 'Panel']
+    evaluate(effect, 'handlers.closed(dialog)')
+    assert evaluate(effect, 'cancelled') == [1, 2]
+
+
+def test_hidden_dialog_waits_until_shown(effect):
+    evaluate(effect, 'dialog.visible = false; effects.stackingOrder.push(dialog); handlers.added(dialog);')
+    assert evaluate(effect, 'starts.length') == 0
+    evaluate(effect, "dialog.visible = true; handlers['Turn off computerVisible']();")
+    assert evaluate(effect, 'starts.length') == 2
+
+
+def test_title_arriving_after_window_added_activates_effect(effect):
+    evaluate(effect, "dialog.caption = ''; effects.stackingOrder.push(dialog); handlers.added(dialog);")
+    assert evaluate(effect, 'starts.length') == 0
+    evaluate(effect, "dialog.caption = 'Turn off computer'; handlers['Turn off computerCaption']();")
+    assert evaluate(effect, 'starts.length') == 2

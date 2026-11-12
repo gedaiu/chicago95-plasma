@@ -58,3 +58,28 @@ def test_luna_shutting_down_screen_draws_white_lettering_where_the_reference_doe
     save_preview("shutdown", screen_picture, reference("xpshuttingdown.png"))
     text_band = screen_picture.crop((300, 330, 560, 360))
     assert (255, 255, 255) in [colour for _count, colour in text_band.getcolors(maxcolors=1 << 20)]
+
+
+@pytest.mark.parametrize('chooser', ['luna_turn_off_choice', 'luna_log_off_choice'])
+def test_power_dialog_loads_effect_before_showing(shutdown, monkeypatch, chooser):
+    events = []
+    monkeypatch.setattr(shutdown.subprocess, 'run', lambda command, **kw: events.append(command))
+    monkeypatch.setattr(shutdown, 'ask', lambda dialog: events.append('show') or False)
+    assert getattr(shutdown, chooser)() is None
+    assert events[0][-2:] == ['org.kde.kwin.Effects.loadEffect', 'chicago95shutdown']
+    assert events[1] == 'show'
+
+
+@pytest.mark.parametrize('failure', [FileNotFoundError(), __import__('subprocess').TimeoutExpired('gdbus', 2)])
+def test_missing_compositor_does_not_block_dialog(shutdown, monkeypatch, failure):
+    def unavailable(*args, **kwargs):
+        raise failure
+    monkeypatch.setattr(shutdown.subprocess, 'run', unavailable)
+    shutdown.ensure_luna_grayscale_effect()
+
+
+@pytest.mark.parametrize('button, choice', [('switch_user', 'SWITCH_USER'), ('log_off', 'LOG_OFF')])
+def test_luna_log_off_dialog_button_returns_its_own_choice(shutdown, monkeypatch, button, choice):
+    monkeypatch.setattr(shutdown, 'ensure_luna_grayscale_effect', lambda: None)
+    monkeypatch.setattr(shutdown, 'ask', lambda dialog: dialog.commands[button]() or True)
+    assert shutdown.luna_log_off_choice() == getattr(shutdown, choice)

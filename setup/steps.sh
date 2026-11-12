@@ -842,6 +842,10 @@ step_startmenu() {
     "skiptaskbar=true" "skiptaskbarrule=3"
   kwin_reconfigure
   run chmod +x ~/.local/bin/chicago95-shutdown
+  # Reconfigure alone may leave newly installed scripted effects unloaded. Reload
+  # this effect explicitly so both first installs and script updates take effect.
+  run gdbus call --session --dest org.kde.KWin --object-path /Effects --method org.kde.kwin.Effects.unloadEffect chicago95shutdown >/dev/null 2>&1 || true
+  run gdbus call --session --dest org.kde.KWin --object-path /Effects --method org.kde.kwin.Effects.loadEffect chicago95shutdown >/dev/null 2>&1 || true
   put_file "$REPO/bin/chicago95-run" ~/.local/bin/chicago95-run
   run chmod +x ~/.local/bin/chicago95-run
   for entry in chicago95-startmenu chicago95-shutdown chicago95-run; do put_file "$REPO/config/applications/$entry.desktop" ~/.local/share/applications/$entry.desktop; done

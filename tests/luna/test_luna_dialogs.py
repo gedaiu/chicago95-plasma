@@ -218,36 +218,50 @@ def test_stand_by_falls_back_to_hibernate(qt_app, calls):
 
 
 @pytest.mark.parametrize(
-    "dialog_name,key,filename,base",
+    "dialog_name,key",
     [
-        ("turn_off", "turn_off", "xp-turn-off-buttons.bmp", 0),
-        ("turn_off", "stand_by", "xp-turn-off-buttons.bmp", 3),
-        ("turn_off", "restart", "xp-turn-off-buttons.bmp", 6),
-        ("log_off", "switch_user", "xp-log-off-buttons.bmp", 0),
-        ("log_off", "log_off", "xp-log-off-buttons.bmp", 3),
+        ("turn_off", "turn_off"),
+        ("turn_off", "stand_by"),
+        ("turn_off", "restart"),
+        ("log_off", "switch_user"),
+        ("log_off", "log_off"),
     ],
 )
-@pytest.mark.parametrize("state,offset", [("normal", 0), ("hover", 2), ("focus", 2), ("pressed", 1)])
-def test_button_states_match_reference_pixels(request, dialog_name, key, filename, base, state, offset):
+def test_vector_button_states_keep_hover_focus_and_pressed_distinct(request, dialog_name, key):
     dialog = request.getfixturevalue(dialog_name)
     button = dialog.buttons[key]
     dialog.activateWindow()
-    QApplication = luna_dialogs.QApplication
-    QApplication.processEvents()
+    luna_dialogs.QApplication.processEvents()
     dialog.cancel_button.setFocus()
-    button.setAttribute(Qt.WA_UnderMouse, state in ("hover", "pressed"))
-    if state in ("focus", "pressed"):
-        button.setFocus()
-        assert button.hasFocus()
-    button.setDown(state == "pressed")
-    actual = qimage_to_pil(button.grab().toImage()).convert("RGB")
-    expected = Image.open(REPO / "luna/lib/images" / filename).convert("RGB")
-    expected = expected.crop((0, (base + offset) * 32, 32, (base + offset + 1) * 32))
-    assert actual.size == (32, 32)
-    for y in range(32):
-        for x in range(32):
-            if expected.getpixel((x, y)) != (255, 0, 255):
-                assert actual.getpixel((x, y)) == expected.getpixel((x, y))
+    button.setAttribute(Qt.WA_UnderMouse, False)
+    idle = button.grab().toImage()
+    button.setAttribute(Qt.WA_UnderMouse, True)
+    hot = button.grab().toImage()
+    button.setAttribute(Qt.WA_UnderMouse, False)
+    button.setFocus()
+    assert button.hasFocus()
+    focused = button.grab().toImage()
+    button.setDown(True)
+    pressed = button.grab().toImage()
+    assert focused == hot
+    assert hot.pixelColor(4, 16).lightness() > idle.pixelColor(4, 16).lightness()
+    assert pressed.pixelColor(4, 16).lightness() < idle.pixelColor(4, 16).lightness()
+
+
+@pytest.mark.parametrize("spec", luna_dialogs.TURN_OFF_SPECS + luna_dialogs.LOG_OFF_SPECS)
+def test_vector_icons_render_new_detail_at_high_dpi(qt_app, spec):
+    images = []
+    for scale in (1, 2):
+        image = luna_dialogs.QImage(32 * scale, 32 * scale, luna_dialogs.QImage.Format_ARGB32)
+        image.setDevicePixelRatio(scale)
+        image.fill(Qt.transparent)
+        painter = luna_dialogs.QPainter(image)
+        luna_dialogs.paint_icon(painter, spec)
+        painter.end()
+        images.append(image)
+    # A native high-DPI render must not repeat each low-resolution pixel in 2x2 blocks.
+    assert images[1] != images[0].scaled(64, 64, Qt.IgnoreAspectRatio, Qt.FastTransformation)
+    assert len({images[1].pixelColor(8, y).rgb() for y in range(8, 56)}) > 32
 
 
 def test_highlight_does_not_change_caption_or_background(turn_off):
@@ -289,8 +303,8 @@ def test_disabled_stand_by_uses_disabled_artwork_and_ignores_mnemonic(turn_off, 
     button = turn_off.buttons["stand_by"]
     button.setEnabled(False)
     actual = qimage_to_pil(button.grab().toImage()).convert("RGB")
-    expected = Image.open(REPO / "luna/lib/images/xp-turn-off-buttons.bmp").convert("RGB")
-    assert actual.getpixel((5, 16)) == expected.getpixel((5, 9 * 32 + 16))
+    red, green, blue = actual.getpixel((5, 16))
+    assert blue > green > red
     QTest.keyClick(turn_off, Qt.Key_S)
     assert calls == []
 
@@ -307,3 +321,40 @@ def test_preview_compares_dialogs_with_references(qt_app):
         sheet.paste(expected.resize((628, 400), Image.NEAREST), (628, row * 400))
     sheet.save(PREVIEW_DIR / "dialogs-compare.png")
     assert sheet.size == (1256, 800)
+
+
+@pytest.mark.parametrize("dialog_name", ["turn_off", "log_off"])
+@pytest.mark.parametrize("state", ["normal", "hover", "focus", "pressed", "disabled"])
+@pytest.mark.parametrize("scale", [1, 1.5, 2])
+def test_cancel_rounded_corners_leave_blue_background(request, dialog_name, state, scale):
+    dialog = request.getfixturevalue(dialog_name)
+    button = dialog.cancel_button
+    button.setEnabled(state != "disabled")
+    button.setAttribute(Qt.WA_UnderMouse, state in ("hover", "pressed"))
+    button.setDown(state == "pressed")
+    if state == "focus":
+        button.setFocus()
+    image = luna_dialogs.QImage(round(314 * scale), round(200 * scale), luna_dialogs.QImage.Format_RGB32)
+    image.setDevicePixelRatio(scale)
+    dialog.render(image)
+    rect = button.geometry()
+    # The former straight edge overlays painted these pixels past the rounded
+    # corners, leaving bright tails at either end of the bottom edge.
+    left, top = round(rect.left() * scale), round(rect.top() * scale)
+    right, bottom = round((rect.right() + 1) * scale) - 1, round((rect.bottom() + 1) * scale) - 1
+    for x in (left + 1, right - 1):
+        for y in (top, bottom):
+            assert image.pixelColor(x, y).name() == "#003399"
+
+
+@pytest.mark.parametrize("dialog_name", ["turn_off", "log_off"])
+@pytest.mark.parametrize("state", ["normal", "hover", "pressed", "disabled"])
+def test_cancel_has_no_line_below_button(request, dialog_name, state):
+    dialog = request.getfixturevalue(dialog_name)
+    button = dialog.cancel_button
+    button.setEnabled(state != "disabled")
+    button.setAttribute(Qt.WA_UnderMouse, state == "hover")
+    button.setDown(state == "pressed")
+    image = dialog.grab().toImage()
+    rect = button.geometry()
+    assert all(image.pixelColor(x, rect.bottom()).name() == "#003399" for x in range(rect.left(), rect.right() + 1))
