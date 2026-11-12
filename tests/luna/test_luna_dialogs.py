@@ -217,13 +217,16 @@ def test_stand_by_falls_back_to_hibernate(qt_app, calls):
     assert calls == ["hibernate"]
 
 
-@pytest.mark.parametrize("dialog_name,key,filename,base", [
-    ("turn_off", "turn_off", "xp-turn-off-buttons.bmp", 0),
-    ("turn_off", "stand_by", "xp-turn-off-buttons.bmp", 3),
-    ("turn_off", "restart", "xp-turn-off-buttons.bmp", 6),
-    ("log_off", "switch_user", "xp-log-off-buttons.bmp", 0),
-    ("log_off", "log_off", "xp-log-off-buttons.bmp", 3),
-])
+@pytest.mark.parametrize(
+    "dialog_name,key,filename,base",
+    [
+        ("turn_off", "turn_off", "xp-turn-off-buttons.bmp", 0),
+        ("turn_off", "stand_by", "xp-turn-off-buttons.bmp", 3),
+        ("turn_off", "restart", "xp-turn-off-buttons.bmp", 6),
+        ("log_off", "switch_user", "xp-log-off-buttons.bmp", 0),
+        ("log_off", "log_off", "xp-log-off-buttons.bmp", 3),
+    ],
+)
 @pytest.mark.parametrize("state,offset", [("normal", 0), ("hover", 2), ("focus", 2), ("pressed", 1)])
 def test_button_states_match_reference_pixels(request, dialog_name, key, filename, base, state, offset):
     dialog = request.getfixturevalue(dialog_name)

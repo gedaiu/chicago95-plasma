@@ -164,8 +164,9 @@ def paint_icon(painter, spec, pressed=False, hot=False, enabled=True):
         frame = 9
     elif enabled:
         frame += 1 if pressed else 2 if hot else 0
-    painter.drawImage(QRect(0, 0, ICON_SIZE, ICON_SIZE), icon_strip(filename),
-                      QRect(0, frame * ICON_SIZE, ICON_SIZE, ICON_SIZE))
+    painter.drawImage(
+        QRect(0, 0, ICON_SIZE, ICON_SIZE), icon_strip(filename), QRect(0, frame * ICON_SIZE, ICON_SIZE, ICON_SIZE)
+    )
 
 
 def label_font():
