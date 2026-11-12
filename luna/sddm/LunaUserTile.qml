@@ -17,6 +17,7 @@ Item {
 
     property string name
     property url picture
+    property bool loggedIn: false
     property bool selected
     property string status: ""  // in place of the password box, while Windows logs the user on
     readonly property bool askingPassword: selected && status === ""
@@ -143,17 +144,18 @@ Item {
 
     Text {
         x: 75 * tile.unit
-        y: (tile.selected ? 8 : 22) * tile.unit
+        y: (tile.selected || tile.loggedIn ? 8 : 22) * tile.unit
         text: tile.name
         color: "#ffffff"
         font.family: tile.family
         font.pixelSize: 16 * tile.unit
     }
     Text {
-        visible: tile.selected
+        objectName: "userStatus"
+        visible: tile.selected || tile.loggedIn
         x: 75 * tile.unit
         y: 34 * tile.unit
-        text: tile.status || "Type your password"
+        text: tile.status || (tile.loggedIn ? "Logged on" : "Type your password")
         color: "#ffffff"
         font.family: tile.family
         font.pixelSize: 11 * tile.unit

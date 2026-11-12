@@ -32,6 +32,13 @@ Item {
     property string loadingStatus: ""
     readonly property bool loggingOn: loadingStatus !== ""
     property bool locked: false
+    // Preview models may supply loggedIn. Live status comes from logind, not lastUser.
+    readonly property var loggedOnUsers: sessionStatus.item ? sessionStatus.item.users : ({})
+    Loader {
+        id: sessionStatus
+        active: !root.theme.previewMode && !root.loggingOn && !root.shuttingDown
+        source: "ActiveSessions.qml"
+    }
     property string family: "Trebuchet MS"
 
     readonly property real unit: height / 600
@@ -336,6 +343,7 @@ Item {
                 name: model.realName || model.name
                 picture: model.icon || ""
                 selected: model.name === root.selectedName
+                loggedIn: !!root.loggedOnUsers[model.name] || (root.theme.previewMode && !!model.loggedIn)
                 visible: !root.loggingOn || selected
                 status: root.loadingStatus
                 failureCount: root.failureCount

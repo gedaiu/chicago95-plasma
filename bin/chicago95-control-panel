@@ -1817,7 +1817,7 @@ class LogOnPreview(QmlPreview):
                 avatar = folder / f"avatar-{name}.png"
                 QIcon.fromTheme(icon_name).pixmap(48, 48).save(str(avatar))
                 source = QUrl.fromLocalFile(str(avatar)).toString() if avatar.exists() else ""
-                users.append({"name": name, "icon": source})
+                users.append({"name": name, "icon": source, "loggedIn": name == "Sam"})
             examples = {"user": "Alex", "users": users, "sessions": ("Plasma (Wayland)", "Plasma (X11)")}
         self.load(main_qml, login_preview.login_context(theme, host_name=socket.gethostname(), **examples, **settings))
 

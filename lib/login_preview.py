@@ -9,6 +9,7 @@ from PySide6.QtCore import Property, QObject, Qt, Signal, Slot
 from PySide6.QtGui import QStandardItem, QStandardItemModel
 
 NAME_ROLE = Qt.UserRole + 1
+LOGGED_IN_ROLE = NAME_ROLE + 3
 UI_FONT = Path.home() / ".local/share/fonts/MSW98UI-Regular.otf"
 
 
@@ -62,13 +63,16 @@ class Users(QStandardItemModel):
     def __init__(self, names, last_user):
         super().__init__()
         self._last_user = last_user
-        self.setItemRoleNames({NAME_ROLE: b"name", NAME_ROLE + 1: b"realName", NAME_ROLE + 2: b"icon"})
+        self.setItemRoleNames(
+            {NAME_ROLE: b"name", NAME_ROLE + 1: b"realName", NAME_ROLE + 2: b"icon", LOGGED_IN_ROLE: b"loggedIn"}
+        )
         for entry in names:
             values = entry if isinstance(entry, dict) else {"name": entry}
             item = QStandardItem()
             item.setData(values["name"], NAME_ROLE)
             item.setData(values.get("realName", values["name"]), NAME_ROLE + 1)
             item.setData(values.get("icon", ""), NAME_ROLE + 2)
+            item.setData(bool(values.get("loggedIn", False)), LOGGED_IN_ROLE)
             self.appendRow(item)
 
     @Property(str, constant=True)
@@ -185,7 +189,7 @@ def login_context(
 ):
     """The context objects SDDM gives the theme, as {name: object}; the caller keeps them alive."""
     return {
-        "config": theme_settings(theme_source, **settings),
+        "config": theme_settings(theme_source, **{"previewMode": True, **settings}),
         "sddm": Greeter(host_name, can_sleep),
         "userModel": Users(users, user),
         "sessionModel": Sessions(sessions),
