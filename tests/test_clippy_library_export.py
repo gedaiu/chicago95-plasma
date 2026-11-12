@@ -86,3 +86,31 @@ def test_sixty_fps_export_verifies_alpha_and_frame_rate(tmp_path):
     assert r["max_alpha_error"] == 0
     assert r["max_boundary_error_ms"] <= 1000 / 120
     assert r["source_frame_repeats"][1] == 0
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="ffmpeg required")
+def test_dense_motion_exports_every_unique_pose_once(tmp_path):
+    frames = []
+    for index, duration in enumerate([17, 16, 17, 17, 16, 17]):
+        filename = f"{index}.png"
+        # Distinct alpha per pose catches dropped, reordered, or repeated images
+        # in the exporter's independent decoded-alpha comparison.
+        Image.new("RGBA", (16, 16), (100, 150, 200, 30 + index * 35)).save(tmp_path / filename)
+        frames.append({"file": filename, "duration_ms": duration})
+    sampling = "One independently rendered pose per 60-fps frame."
+    (tmp_path / "manifest.json").write_text(
+        json.dumps(
+            {
+                "pixel_size": [16, 16],
+                "status": "test",
+                "sampling": sampling,
+                "sequences": {"Motion": frames},
+            }
+        )
+    )
+    export(tmp_path, tmp_path / "video", fps=60)
+    report = json.loads((tmp_path / "video/verification.json").read_text())
+    assert report["source_frame_repeats"] == [1] * 6
+    assert report["frames"] == report["webm_decoded_frames"] == 6
+    assert report["max_alpha_error"] == 0
+    assert report["sampling"] == sampling

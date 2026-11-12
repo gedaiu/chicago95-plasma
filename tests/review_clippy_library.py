@@ -155,6 +155,8 @@ if([...clip.options].some(option=>option.value===requested))clip.value=requested
 change();</script></html>"""
     rates = ", ".join(str(rate) for rate in report["export_frame_rates"])
     extra_links = [
+        ("../preview-wave/index.html", "Wave: corrected collision review and video"),
+        ("../preview-checking/index.html", "CheckingSomething: smooth transition and collision review"),
         ("../preview-getattention/index.html", "GetAttention: corrected collision review and video"),
         ("eye-rims-before-after.png", "Eye rims: before and after"),
         ("eyelid-verification.json", "Eyelid surface-separation regression"),

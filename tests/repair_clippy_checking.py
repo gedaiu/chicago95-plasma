@@ -31,6 +31,17 @@ def interpolate(a, b, t):
     return Matrix.LocRotScale(al.lerp(bl, t), ar.slerp(br, t), az.lerp(bz, t))
 
 
+def forbidden(report):
+    bad = [
+        c
+        for c in report["object_contacts"]
+        if c["kind"] != "source_eye_assembly"
+        and set(c["objects"]) not in [{"GlassesLeft", "GlassesBridge"}, {"GlassesRight", "GlassesBridge"}]
+    ]
+    bad += [c for c in report["self_intersections"] if c["kind"] != "source_pupil_eye_join_review"]
+    return bad
+
+
 def build(folder, output):
     output.mkdir(parents=True, exist_ok=False)
     manifest = json.loads((folder / "manifest.json").read_text())
@@ -72,6 +83,15 @@ def build(folder, output):
         if obj.data and hasattr(obj.data, "animation_data_clear"):
             obj.data.animation_data_clear()
     visible = {o.name for o in objects if not o.hide_render}
+    # A straight bridge needs two endpoints. Hundreds of nearly coincident
+    # points on this short tube produce unstable bevel frames and self contacts.
+    bridge_data = glasses[2].data
+    ends = [bridge_data.splines[0].points[i].co.copy() for i in [0, -1]]
+    bridge_data.splines.clear()
+    spline = bridge_data.splines.new("POLY")
+    spline.points.add(1)
+    for point, co in zip(spline.points, ends, strict=True):
+        point.co = co
     origin = camera.matrix_world.translation.copy()
 
     def depth_scale(ratio):
@@ -85,7 +105,7 @@ def build(folder, output):
         starts.append(elapsed)
         elapsed += item["duration_ms"]
     count = round(elapsed * 60 / 1000)
-    rows, frames = [], []
+    rows, frames, generated = [], [], []
     for tick in range(count):
         time_ms = tick * 1000 / 60
         index = min(len(items) - 1, bisect.bisect_right(starts, time_ms) - 1)
@@ -105,6 +125,7 @@ def build(folder, output):
         phase = min(smooth(time_ms / 600), smooth(((count - 1) * 1000 / 60 - time_ms) / 600))
         wire.hide_render = phase >= 1
         wire.hide_viewport = wire.hide_render
+        bpy.context.view_layer.update()
         if not wire.hide_render:
             centre = bounds_center(wire)
             wire.matrix_world = (
@@ -117,6 +138,9 @@ def build(folder, output):
             obj.hide_render = phase <= 0
             obj.hide_viewport = obj.hide_render
             if not obj.hide_render:
+                # Hidden objects retain a stale evaluated world matrix until
+                # re-enabled and updated. Never scale that cached transform.
+                bpy.context.view_layer.update()
                 centre = bounds_center(obj)
                 obj.matrix_world = (
                     Matrix.Translation(centre)
@@ -140,25 +164,100 @@ def build(folder, output):
         paper.matrix_world = depth_scale(max(1.0, (wire_far + 0.12) / paper_near)) @ paper.matrix_world
         bpy.context.view_layer.update()
         if phase > 0:
+            # Keep each rim centred on its eye, rather than the old fixed
+            # screen coordinates that put the upper edge through the pupil.
+            camera_basis = camera.matrix_world.to_3x3()
+            for obj, group in zip(glasses[:2], [face[:3], face[3:6]], strict=True):
+                centre = bounds_center(obj)
+                narrow = (
+                    camera_basis.to_4x4() @ Matrix.Diagonal(Vector((0.85, 1, 1, 1))) @ camera_basis.inverted().to_4x4()
+                )
+                obj.matrix_world = Matrix.Translation(centre) @ narrow @ Matrix.Translation(-centre) @ obj.matrix_world
+                bpy.context.view_layer.update()
+                eye_coords, _, _ = projected(group, camera)
+                rim_coords, near, far = projected([obj], camera)
+                eye_centre = (eye_coords.min(axis=0) + eye_coords.max(axis=0)) / 2
+                rim_centre = (rim_coords.min(axis=0) + rim_coords.max(axis=0)) / 2
+                delta = (eye_centre - rim_centre) * ((near + far) / 2)
+                obj.matrix_world.translation += camera_basis @ Vector((delta[0], delta[1], 0))
+            bpy.context.view_layer.update()
+            # Connect the inner upper corners with actual bridge geometry.
+            endpoints = []
+            for obj, direction in zip(glasses[:2], [1, -1], strict=True):
+                coords, near, far = projected([obj], camera)
+                centre = (coords.min(axis=0) + coords.max(axis=0)) / 2
+                extent = coords.max(axis=0) - coords.min(axis=0)
+                depth = (near + far) / 2
+                endpoints.append(
+                    camera.matrix_world
+                    @ Vector(
+                        (
+                            (centre[0] + direction * extent[0] * 0.45) * depth,
+                            (centre[1] + extent[1] * 0.25) * depth,
+                            -depth,
+                        )
+                    )
+                )
+            bridge = glasses[2]
+            for i, point in enumerate(bridge.data.splines[0].points):
+                coordinate = bridge.matrix_world.inverted() @ endpoints[0].lerp(
+                    endpoints[1], i / (len(bridge.data.splines[0].points) - 1)
+                )
+                point.co = (*coordinate, 1)
+                point.radius = phase
+            bridge.data.update_tag()
+            bpy.context.view_layer.update()
             _, face_near, _ = projected(face, camera)
             _, _, glasses_far = projected(glasses, camera)
             transform = depth_scale(min(1.0, (face_near - 0.12) / glasses_far))
             for obj in glasses:
                 obj.matrix_world = transform @ obj.matrix_world
         bpy.context.view_layer.update()
+        if phase > 0.05:
+            for obj in glasses[:2]:
+                coords, _, _ = projected([obj], camera)
+                if float(coords[:, 0].max() - coords[:, 0].min()) < 0.02 * phase:
+                    raise RuntimeError(f"Collapsed glasses: {tick}: {obj.name}: {tuple(obj.scale)}")
         report = inspect_pose()
-        bad = [
-            c
-            for c in report["object_contacts"]
-            if c["kind"] != "source_eye_assembly"
-            and set(c["objects"]) not in [
-                {"GlassesLeft", "GlassesBridge"}, {"GlassesRight", "GlassesBridge"}
-            ]
-        ]
-        bad += [c for c in report["self_intersections"] if c["kind"] != "source_pupil_eye_join_review"]
+        bad = forbidden(report)
         if bad:
             raise RuntimeError(f"Collision at output frame {tick}: {bad}")
         frame = tick + 1
+        generated.append(
+            (
+                {o.name: o.matrix_basis.copy() for o in objects},
+                {b.name: b.matrix_basis.copy() for b in rig.pose.bones},
+                {o.name: o.hide_render for o in objects},
+                {o.name: o.data.energy for o in lights},
+                [(p.co.copy(), p.radius) for p in glasses[2].data.splines[0].points],
+            )
+        )
+        rows.append({"output_frame": tick, "source_index": index, "source_blend": blend, "phase": phase, **report})
+        # Rounded millisecond boundaries encode one uniquely rendered pose per
+        # 60-fps output frame with the existing exporter, without repeated PNGs.
+        duration = round((tick + 1) * 1000 / 60) - round(tick * 1000 / 60)
+        frames.append({"frame": frame, "file": f"CheckingSomething/{tick:03d}.png", "duration_ms": duration})
+        if tick % 30 == 0:
+            print("AUDITED", tick, "/", count, flush=True)
+    # Bake only after generating/auditing all poses. Evaluation of partially
+    # written animation must not feed back into the next generated pose.
+    # Use the identical stored rest state at both ends, avoiding tiny slerp/
+    # matrix-rounding changes that can alter denoised edge pixels on looping.
+    generated[-1] = generated[0]
+    for frame, pose in enumerate(generated, 1):
+        scene.frame_set(frame)
+        for obj in objects:
+            obj.matrix_basis = pose[0][obj.name]
+            obj.hide_render = pose[2][obj.name]
+            obj.hide_viewport = obj.hide_render
+        for bone in rig.pose.bones:
+            bone.matrix_basis = pose[1][bone.name]
+        for light in lights:
+            light.data.energy = pose[3][light.name]
+        for point, (co, radius) in zip(glasses[2].data.splines[0].points, pose[4], strict=True):
+            point.co, point.radius = co, radius
+            point.keyframe_insert("co", frame=frame)
+            point.keyframe_insert("radius", frame=frame)
         for obj in objects:
             for prop in ["location", "rotation_quaternion", "rotation_euler", "scale", "hide_render", "hide_viewport"]:
                 obj.keyframe_insert(prop, frame=frame)
@@ -167,13 +266,6 @@ def build(folder, output):
                 bone.keyframe_insert(prop, frame=frame)
         for light in lights:
             light.data.keyframe_insert("energy", frame=frame)
-        rows.append({"output_frame": tick, "source_index": index, "source_blend": blend, "phase": phase, **report})
-        # Rounded millisecond boundaries encode one uniquely rendered pose per
-        # 60-fps output frame with the existing exporter, without repeated PNGs.
-        duration = round((tick + 1) * 1000 / 60) - round(tick * 1000 / 60)
-        frames.append({"frame": frame, "file": f"CheckingSomething/{tick:03d}.png", "duration_ms": duration})
-        if tick % 30 == 0:
-            print("AUDITED", tick, "/", count, flush=True)
     for obj in objects:
         for owner in [obj, obj.data]:
             if owner is None or not getattr(owner, "animation_data", None) or not owner.animation_data.action:
@@ -218,9 +310,58 @@ def build(folder, output):
     )
 
 
+def verify_bake(folder):
+    """Reopen the saved master and independently audit every rendered sample."""
+    import numpy as np
+
+    bpy.ops.wm.open_mainfile(filepath=str(folder / "all-animations.blend"))
+    manifest = json.loads((folder / "manifest.json").read_text())
+    report = json.loads((folder / "checking-collisions.json").read_text())
+    scene = bpy.context.scene
+    rows = []
+    endpoint = None
+    for index, item in enumerate(manifest["sequences"]["CheckingSomething"]):
+        scene.frame_set(item["frame"])
+        bpy.context.view_layer.update()
+        phase = report["rows"][index]["phase"]
+        for name in ["GlassesLeft", "GlassesRight"]:
+            obj = bpy.data.objects[name]
+            if obj.hide_render != (phase <= 0):
+                raise RuntimeError(f"Incorrect glasses visibility at {index}")
+            if phase > 0.05:
+                coords, _, _ = projected([obj], scene.camera)
+                if float(coords[:, 0].max() - coords[:, 0].min()) < 0.02 * phase:
+                    raise RuntimeError(f"Collapsed baked glasses at {index}: {name}")
+        contacts = inspect_pose()
+        if forbidden(contacts):
+            raise RuntimeError(f"Baked collision at {index}: {forbidden(contacts)}")
+        rows.append({"output_frame": index, **contacts})
+        if index in (0, len(manifest["sequences"]["CheckingSomething"]) - 1):
+            visible = [o for o in scene.objects if o.type in ("MESH", "CURVE") and not o.hide_render]
+            projection, _, _ = projected(visible, scene.camera)
+            if endpoint is None:
+                endpoint = projection
+            else:
+                if endpoint.shape != projection.shape or not np.allclose(endpoint, projection, atol=1e-6, rtol=0):
+                    raise RuntimeError("Start and end rest geometry differ")
+        if index % 60 == 0:
+            print("BAKE AUDITED", index, flush=True)
+    report["baked_samples_checked"] = len(rows)
+    report["baked_rows"] = rows
+    report["start_end_rest_projection_matches"] = True
+    (folder / "checking-collisions.json").write_text(json.dumps(report, indent=2) + "\n")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--folder", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--verify-only", action="store_true")
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
-    build(args.folder, args.output)
+    if args.verify_only:
+        verify_bake(args.folder)
+    else:
+        if args.output is None:
+            parser.error("--output is required when building")
+        build(args.folder, args.output)
+        verify_bake(args.output)

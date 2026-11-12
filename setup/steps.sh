@@ -1857,6 +1857,17 @@ step_luna_fonts() {
   return 0
 }
 
+# A pixel font: drawn without smoothing at 11px and 22px, its edges stay as sharp as the originals' text. GTK 4 asks
+# fontconfig with the logical size and draws at the screen's scale, so on a fractional scale those bands would come out
+# jagged (11px drawn at 16.5): there the rule smooths every size.
+install_pixel_font_rule() {
+  put_file "$REPO/config/fontconfig/60-chicago95-pixel-font.conf" "$PIXEL_FONT_RULE"
+  case "${SETUP_SCALE:-1}" in
+  1 | 1.0 | 2 | 2.0 | 3 | 3.0) ;;
+  *) [ "${SETUP_DRY_RUN:-0}" = 1 ] || sed -i '/<!-- whole pixels BEGIN -->/,/<!-- whole pixels END -->/d' "$PIXEL_FONT_RULE" ;;
+  esac
+}
+
 step_fonts() { # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bars only) or none
   wants_luna && {
     step_luna_fonts
@@ -1884,8 +1895,7 @@ step_fonts() { # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bar
   none) installed_by_setup "kconf:kdeglobals:WM:activeFont" && run kwriteconfig6 --file kdeglobals --group WM --key activeFont --delete ;;
   *) kconf kdeglobals WM activeFont "$family,8,-1,5,75,0,0,0,0,0" ;; # 8 points: the originals' 11px titles
   esac
-  # A pixel font: drawn without smoothing, its edges stay as sharp as the originals' text.
-  [ "${SETUP_FONT_SCOPE:-everywhere}" = none ] || put_file "$REPO/config/fontconfig/60-chicago95-pixel-font.conf" "$PIXEL_FONT_RULE"
+  [ "${SETUP_FONT_SCOPE:-everywhere}" = none ] || install_pixel_font_rule
   [ "${SETUP_FONT_SCOPE:-everywhere}" = everywhere ] && restore_classic_gtk_font
   return 0
 }

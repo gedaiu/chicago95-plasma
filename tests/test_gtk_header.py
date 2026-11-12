@@ -268,5 +268,23 @@ def test_the_address_field_drops_libadwaitas_inner_padding(address):
     assert "padding-top: 0;" in rule_body(address, ".nautilus-pathbar button")
 
 
-def test_the_sidebars_buttons_sit_1px_lower_to_line_up_with_the_contents(strip):
-    assert "margin-top: 5px;" in rule_body(strip, f".sidebar-pane {gtk_header.STRIP} button.image-button")
+def test_the_split_button_takes_the_rows_gap_around_both_its_halves(strip):
+    assert "margin: 4px 0;" in rule_body(strip, f"{gtk_header.STRIP} splitbutton")
+
+
+def test_the_split_buttons_halves_have_no_gap_of_their_own(strip):
+    assert "margin: 0;" in rule_body(strip, gtk_header.SPLIT_ARROW)
+
+
+def test_the_search_fields_filter_button_stays_inside_the_fields_height(strip):
+    assert "min-height: 0;" in rule_body(strip, f"{gtk_header.STRIP} .nautilus-query-editor button.image-button")
+
+
+def test_the_location_entry_is_the_same_sunken_field_as_the_address_bar(address):
+    body = rule_body(address, f"{gtk_header.STRIP} entry")
+
+    assert ("margin: 4px 0;" in body, "background-color: #FFFFFF;" in body) == (True, True)
+
+
+def test_the_current_folders_heading_label_is_regular_weight_like_the_rest(address):
+    assert "font-weight: normal;" in rule_body(address, ".nautilus-pathbar .nautilus-path-button label.heading")

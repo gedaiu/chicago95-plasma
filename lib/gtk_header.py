@@ -135,16 +135,24 @@ def header_css(active, inactive, inactive_text, face):
             rule(f"window:backdrop .sidebar-pane {STRIP}", background_image=gradient(first[inactive])),
             rule(f"{STRIP} label, {STRIP} text", font_size=TEXT_SIZE),
             rule(TOOLS, min_width=f"{TOOL}px", min_height=f"{TOOL}px", padding="0", margin=f"{TOOL_GAP}px 0"),
-            # Measured: the content header's row starts 1px lower than the sidebar's at every row height and font size,
-            # so the sidebar's buttons sit 1px lower in theirs to line up with back and forward.
+            # A split button's arrow half is narrow, as on 9x's Views button. The row's gap goes around the split button
+            # as a whole: on its halves too, it would make the split button, and with it the row, 8px taller.
+            rule(f"{STRIP} splitbutton", margin=f"{TOOL_GAP}px 0", padding="0"),
             rule(
-                f".sidebar-pane {STRIP} button.image-button",
-                margin_top=f"{TOOL_GAP + 1}px",
-                margin_bottom=f"{TOOL_GAP - 1}px",
+                ", ".join(f"{STRIP} splitbutton > {half}" for half in ("button.image-button", "button", "menubutton")),
+                margin="0",
             ),
-            # A split button's arrow half is narrow, as on 9x's Views button. The theme leaves its arrow without an
-            # icon in a focused window.
-            rule(SPLIT_ARROW, min_height=f"{TOOL}px", padding="0 2px", margin=f"{TOOL_GAP}px 0"),
+            rule(SPLIT_ARROW, min_height=f"{TOOL}px", padding="0 2px", margin="0"),
+            # Files keeps its header's pages (address field, location entry, search) one height: the search page's
+            # filter button, sized as a toolbar button inside the search field, would make every page 7px taller.
+            rule(
+                f"{STRIP} .nautilus-query-editor button.image-button",
+                min_width=f"{ICON}px",
+                min_height="0",
+                padding="0 2px",
+                margin="0",
+            ),
+            # The theme leaves the split button's arrow without an icon in a focused window.
             rule(
                 f"{SPLIT_ARROW} > arrow",
                 color="#000000",
@@ -229,8 +237,9 @@ def path_bar_css(light, shadow, dark):
     flat = dict(margin="0", padding="0 3px", min_height="0", border="none", border_radius="0")
     return "".join(
         [
+            # Ctrl+L swaps the field for a location entry: the same sunken field, the same size.
             rule(
-                ".nautilus-pathbar",
+                f".nautilus-pathbar, {STRIP} entry",
                 margin=f"{TOOL_GAP}px 0",
                 padding="1px 2px",
                 border_radius="0",
@@ -249,7 +258,12 @@ def path_bar_css(light, shadow, dark):
                 color="#000000",
             ),
             # libadwaita dims every folder but the current one, and the theme bolds some: the Address bar did neither.
-            rule(f"{PATH_BUTTON} label, {PATH_BUTTON} image", opacity="1", color="#000000", font_weight="normal"),
+            rule(
+                f"{PATH_BUTTON} label, {PATH_BUTTON} label.heading, {PATH_BUTTON} image",
+                opacity="1",
+                color="#000000",
+                font_weight="normal",
+            ),
             rule(f"{PATH_BUTTON} > box", border_spacing="4px"),
             # libadwaita pads the field's insides for a rounded pill; the Address bar was one line of text.
             rule(

@@ -2004,3 +2004,14 @@ def test_a_9x_install_gives_the_control_panel_the_xp_modules_its_previews_load(t
     """Its Log On, Booting Screen and Distro Setup previews draw XP's screens whatever the look."""
     run_setup(tmp_path, "--components=controlpanel", "--look=1995")
     assert (tmp_path / ".local/lib/chicago95/chicago95lunapreviews.py").is_file()
+
+
+@pytest.mark.parametrize(("scale", "unsmoothed_bands"), [("1", 2), ("2", 2), ("1.5", 0), ("1.25", 0)])
+def test_the_pixel_font_rule_keeps_its_unsmoothed_bands_only_on_whole_pixel_scales(tmp_path, scale, unsmoothed_bands):
+    lines = run_bash_with_steps(
+        tmp_path,
+        f"SETUP_DRY_RUN=0; MANIFEST={tmp_path}/manifest; STATE_DIR={tmp_path}; SETUP_SCALE={scale}; "
+        'install_pixel_font_rule; grep -c "<bool>false</bool>" "$PIXEL_FONT_RULE"',
+    )
+
+    assert lines[-1] == str(unsmoothed_bands)

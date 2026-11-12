@@ -710,7 +710,10 @@ blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
   --folder /tmp/clippy-wire-repaired --output /tmp/clippy-face-placed
 blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
   --python tests/repair_clippy_attention.py -- \
-  --folder /tmp/clippy-face-placed --output /tmp/clippy-library
+  --folder /tmp/clippy-face-placed --output /tmp/clippy-attention-repaired
+blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
+  --python tests/repair_clippy_attention.py -- --action Wave \
+  --folder /tmp/clippy-attention-repaired --output /tmp/clippy-library
 blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
   --python tests/render_clippy_library.py -- --folder /tmp/clippy-library
 python3 tests/review_clippy_library.py /tmp/clippy-library
@@ -845,3 +848,43 @@ the face, original wire, and paper in disjoint depth ranges. It rejects every
 remaining surface contact except internal eye assembly/pupil construction, checks
 all 24 baked poses and all 159 held playback samples, and verifies the other 1,209
 poses are unchanged. This does not validate future interpolated motion.
+
+The same repair supports Wave via `--action Wave`. The local
+[Wave review](data/clippy/3d-prototype/preview-wave/index.html) contains its corrected
+clip and every-frame comparison. It checks all 27 source poses, reopens the saved
+master for a second contact audit, and verifies 294 held playback samples; 1,206
+other keyed poses remain unchanged. This clip preserves the source holds and
+does not yet add smooth intermediate motion.
+
+```sh
+blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
+  --python tests/repair_clippy_attention.py -- --action Wave \
+  --folder /tmp/clippy-library --output /tmp/clippy-wave
+blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
+  --python tests/render_clippy_library.py -- --folder /tmp/clippy-wave --actions Wave
+python3 tests/export_clippy_video.py /tmp/clippy-wave \
+  --output /tmp/clippy-wave/videos/Wave --actions Wave --fps 60
+```
+
+The local [CheckingSomething review](data/clippy/3d-prototype/preview-checking/index.html)
+is a separate single-animation candidate with 398 individually rendered poses at
+60 fps. It adds continuous entrance/return motion and checks the reopened baked
+geometry at every output sample. The wire contraction and glasses introduction
+are reconstructed transitions, not a certified recreation of the original morph.
+Internal eye construction and glasses bridge/frame joints remain; eye/glasses,
+eyebrow/glasses, wire/face and paper intersections are rejected. Size checks also
+reject collapsed glasses, which collision tests alone cannot detect.
+
+```sh
+blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
+  --python tests/repair_clippy_checking.py -- \
+  --folder /tmp/clippy-library --output /tmp/clippy-checking
+blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
+  --python tests/render_clippy_library.py -- --folder /tmp/clippy-checking
+python3 tests/review_clippy_checking.py /tmp/clippy-checking
+```
+
+This review checks matching endpoint geometry and pixels within one 8-bit level, unclipped artwork, distinct
+intermediate renders, and decoded video transparency. The animation keeps the
+original 6.64-second linear sequence to within one 60-fps sample; branch-driven
+interactive playback and the older combined library video are not updated here.

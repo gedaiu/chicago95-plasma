@@ -1,4 +1,4 @@
-"""Repair GetAttention eye spacing and eye/wire/paper depth intersections.
+"""Repair GetAttention/Wave eye spacing and eye/wire/paper depth intersections.
 
 Run after position_clippy_face.py. Output is an isolated candidate; source files
 are untouched. Checks actual evaluated triangle contacts, including the original
@@ -50,7 +50,9 @@ def verify_playback(scene, items, state):
     return checked
 
 
-def repair(folder, output):
+def repair(folder, output, action="GetAttention"):
+    if action not in {"GetAttention", "Wave"}:
+        raise ValueError(f"Unsupported action: {action}")
     output.mkdir(parents=True, exist_ok=False)
     manifest = json.loads((folder / "manifest.json").read_text())
     bpy.ops.wm.open_mainfile(filepath=str(folder / "all-animations.blend"))
@@ -76,7 +78,7 @@ def repair(folder, output):
 
     unchanged = {}
     for name, items in manifest["sequences"].items():
-        if name == "GetAttention":
+        if name == action:
             continue
         for item in items:
             scene.frame_set(item["frame"])
@@ -96,7 +98,7 @@ def repair(folder, output):
         ]
     )
     changed_frames = set()
-    for index, item in enumerate(manifest["sequences"]["GetAttention"]):
+    for index, item in enumerate(manifest["sequences"][action]):
         frame = item["frame"]
         changed_frames.add(frame)
         scene.frame_set(frame)
@@ -173,7 +175,7 @@ def repair(folder, output):
                 "paper_depth_ratio": paper_ratio,
             }
         )
-        item["file"] = f"GetAttention/{index:03d}.png"
+        item["file"] = f"{action}/{index:03d}.png"
         item["pose_signature"] = hashlib.sha256(json.dumps(state(), sort_keys=True).encode()).hexdigest()
         print("REPAIRED", index, "projection error", error, flush=True)
     for owner in [rig, paper] + lights + [o.data for o in lights]:
@@ -196,14 +198,23 @@ def repair(folder, output):
         row["after"] = inspect_pose()
         assert not forbidden(row["after"]), ("Collision remains", row["source_index"], forbidden(row["after"]))
         print("VERIFIED", row["source_index"], flush=True)
-    playback_frames = verify_playback(scene, manifest["sequences"]["GetAttention"], state)
+    playback_frames = verify_playback(scene, manifest["sequences"][action], state)
     scene.frame_set(1)
     bpy.ops.wm.save_as_mainfile(filepath=str(output / "all-animations.blend"), compress=True)
+    # Reopen the saved file: an in-memory pass alone does not verify the asset
+    # that the renderer will actually consume.
+    bpy.ops.wm.open_mainfile(filepath=str(output / "all-animations.blend"))
+    for row in rows:
+        bpy.context.scene.frame_set(row["timeline_frame"])
+        bpy.context.view_layer.update()
+        row["reopened"] = inspect_pose()
+        assert not forbidden(row["reopened"]), ("Saved collision", action, row["source_index"])
     manifest["unique_render_frames"] = len({i["file"] for items in manifest["sequences"].values() for i in items})
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     report = {
-        "action": "GetAttention",
+        "action": action,
         "poses_checked": len(rows),
+        "reopened_poses_checked": len(rows),
         "held_playback_samples_checked": playback_frames,
         "unchanged_poses_checked": len(unchanged),
         "scope": (
@@ -215,7 +226,9 @@ def repair(folder, output):
         "pass": True,
         "rows": rows,
     }
-    (output / "attention-collisions.json").write_text(json.dumps(report, indent=2) + "\n")
+    (output / ("attention-collisions.json" if action == "GetAttention" else "wave-collisions.json")).write_text(
+        json.dumps(report, indent=2) + "\n"
+    )
     for name in ["bake-verification.json", "wire-repair.json", "face-placement.json"]:
         if (folder / name).is_file():
             shutil.copy2(folder / name, output / name)
@@ -225,5 +238,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--folder", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--action", choices=["GetAttention", "Wave"], default="GetAttention")
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
-    repair(args.folder, args.output)
+    repair(args.folder, args.output, args.action)
