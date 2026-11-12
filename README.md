@@ -189,6 +189,13 @@ starts, the loading screen follows the login instead, as the originals did: the
 desktop's colour under the hourglass pointer for 9x and 2000 logins, XP's Welcome
 screen with "Loading your personal settings..." for the Welcome login. KWin's
 log on fade (Effects, "Log on and log off") then fades it into the desktop.
+Distro Setup holds every name, text and logo the screens show (the Start button
+and menu, the log on, boot and loading screens, the Shut Down dialog) on one page,
+with a preview of each screen; the pages they come from keep their own fields, and
+an Apply on either shows on the other. Its "Use this computer's system" button
+fills them from the running distribution (`/etc/os-release` and its logo icon),
+as Setup's `--branding=distro` does; Setup asks the same question once, with the
+detected system first, and `--branding=windows` keeps the look's Windows names.
 Display opens its own
 Display Properties window with the original's tabs, and its Effects tab picks the
 animation of each event with a speed slider from Off to Slow. Classic sets every
@@ -305,6 +312,65 @@ anywhere. At 1x or 2x the DPI section of the tutorial can be skipped.
 pip install --user -r requirements-dev.txt
 python3 -m pytest tests
 ```
+
+Control Panel → Passwords → Log On → **Test Luna startup flow…** rehearses boot,
+user selection, wrong passwords, loading, desktop fade, switching users and logoff.
+Use dummy passwords. **Hold loading screen** tests delayed readiness; **Continue**
+releases it. **Run scenario** records a failed attempt followed by successful logins,
+two user switches, logoff, another login and shutdown. **Shut down** and **Reboot**
+rehearse the status-screen sequence without requesting a real power action. Choose an output folder for timestamped PNG frames,
+`events.json`, and `flow.mp4` (requires ffmpeg). The desktop is a Spectacle snapshot;
+the UI test uses the actual QML screens with simulated authentication and a preview fade.
+
+For native startup integration and an automated recording, run:
+
+```sh
+python3 tests/record_login_flow.py --output /tmp/luna-flow-run
+```
+
+The destination must be new. The runner installs Luna in a disposable home and runs
+an isolated KWin/Plasma session. It checks first-frame ordering, failed/successful
+mock authentication, real KSplash startup, Plasma desktop/panel readiness, and the
+actual KWin login fade, including an intermediate frame. Plasma supplies KSplash's
+final desktop stage. Results are in `integration.json`, screenshots/logs, and
+`recording/flow.mp4`; recording timestamps preserve capture delays. It does not change
+the current desktop, authenticate accounts, or reboot. Dependencies are those of the
+native desktop tests below, plus `ksplashqml` and ffmpeg.
+
+For 1995, 1998, 2000 and 2001, **Distro Setup → Names and Logos → Shut Down**
+has **Test shutdown…** and **Test logoff…** buttons. They use the unapplied preview
+settings and always pass `--dry-run`: no session or power command runs. Click or
+press a key to dismiss the safe-to-turn-off screen. Action options and confirmation
+buttons provide tooltips; combo-box help follows the selected action.
+
+```sh
+python3 tests/record_classic_power_flows.py --output /tmp/classic-power-review
+```
+
+This runs all supported action/cancellation paths with backend commands intercepted,
+checks tooltip display and saves per-theme PNG captures and MP4 review reels. Reels
+hold each capture for one second; they are not recordings of native animation timing.
+The 2000/2001 path currently shares the legacy safe-to-turn-off screen, so passing
+these behavior tests does not establish original-OS shutdown-screen fidelity.
+
+Video-reference visual regressions run with:
+
+```sh
+python3 -m pytest tests/luna/test_luna_video_flow.py tests/test_login_flow.py
+```
+
+These compare welcome, logoff and shutdown renders against frames from the reference
+video, check logo placement locally, and test fixed control dimensions at three
+resolutions. Failed image comparisons retain actual, masked-reference and difference
+PNGs in pytest's temporary directory. Text and account photos are explicitly masked
+in full-frame comparisons because installed fonts and user pictures vary; separate
+assertions check captions, alignment, avatar size and loading-state styling. Passing
+these checks does not establish pixel-perfect font rendering or animation timing.
+
+This is not a firmware/Plymouth/PAM integration test or proof of XP animation timing.
+The native session uses the test account; account switching is simulated separately.
+If these checks pass but installed startup still fails, reproduce it in a disposable
+VM with a real boot and SDDM login before changing transition timings.
 
 `tests/test_startmenu_reference.py` renders the Start menu at 1x and compares it with a
 screenshot of the 1995 original:

@@ -82,6 +82,7 @@ def main():
         )
     )
     environment = {
+        "SETUP_OS_RELEASE": "/dev/null",
         "HOME": str(home),
         "PATH": os.environ["PATH"],
         "LANG": "en_US.UTF-8",

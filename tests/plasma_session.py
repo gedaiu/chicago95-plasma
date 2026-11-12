@@ -156,7 +156,8 @@ kwin_script() {{
 }}
 start_plasmashell() {{
     local command
-    command=$(grep -m1 '^ExecStart=/' "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" | cut -d= -f2-)
+    command=$(grep -m1 '^ExecStart=/' \\
+        "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" | cut -d= -f2-)
     ${{command//%h/$HOME}} >"$1" 2>&1 &
 }}
 # Screenshots until two in a row match: Plasma settles its widgets on timers, later when the machine is busy.
@@ -345,14 +346,15 @@ def desktop_session(
     pointer_steps=(),
 ):
     """Runs both sessions for a look in work (a short path: Wayland's socket path is limited to 108
-    bytes); returns the screenshot, 640x480 or the look's own size (SCREENS). tray_applets are Plasma applets shown in the tray (such
-    as org.kde.plasma.notifications), hidden_applets ones behind its "show hidden icons" arrow, and
-    tray_icons the number of the test's icons there, beside the original's; tasks_config (key, value) pairs
-    for the taskbar widget's settings; taskbar_style the taskbar Setup installs whatever the look (classic or luna); settings (key, value) pairs Setup applies with its animations step too;
-    components further Setup components to install (such as desktop); windows replaces the look's own windows
-    (an empty list: none, for the desktop behind them); launchers replaces the number of Quick Launch entries; windows_first opens them before Plasma starts, as a login
-    that restores the last session does; pointer_steps (see eis_pointer.py) drive the pointer before the screenshot,
-    to open a context menu (see MENU_OPENERS) and hover one of its rows.
+    bytes); returns the screenshot, 640x480 or the look's own size (SCREENS). tray_applets are Plasma applets
+    shown in the tray (such as org.kde.plasma.notifications), hidden_applets ones behind its "show hidden icons"
+    arrow, and tray_icons the number of the test's icons there, beside the original's; tasks_config (key, value)
+    pairs for the taskbar widget's settings; taskbar_style the taskbar Setup installs whatever the look (classic
+    or luna); settings (key, value) pairs Setup applies with its animations step too; components further Setup
+    components to install (such as desktop); windows replaces the look's own windows (an empty list: none, for
+    the desktop behind them); launchers replaces the number of Quick Launch entries; windows_first opens them
+    before Plasma starts, as a login that restores the last session does; pointer_steps (see eis_pointer.py)
+    drive the pointer before the screenshot, to open a context menu (see MENU_OPENERS) and hover one of its rows.
     The screenshot's info holds KWin's loaded effects, its log, and Setup's own session's screenshot
     ("setup_screen": the taskbar right after Setup restarted Plasma, before anyone touched it)."""
     work = Path(work)
@@ -407,13 +409,15 @@ def desktop_session(
             places=json.dumps(places),
             active=json.dumps(content["active"]),
             pointer_command=(
-                f'python3 "$WORK/eis_pointer.py" {" ".join(quote(step) for step in pointer_steps)} >"$WORK/pointer.log" 2>&1; sleep 1'
+                f'python3 "$WORK/eis_pointer.py" {" ".join(quote(step) for step in pointer_steps)} '
+                '>"$WORK/pointer.log" 2>&1; sleep 1'
                 if pointer_steps
                 else ""
             ),
         )
     )
     environment = {
+        "SETUP_OS_RELEASE": "/dev/null",
         "HOME": str(home),
         "PATH": f"{work / 'stubs'}:{os.environ['PATH']}",
         "LANG": "en_US.UTF-8",

@@ -27,6 +27,7 @@ def home(tmp_path):
 def sync_colors(home, *arguments):
     environment = {
         **os.environ,
+        "SETUP_OS_RELEASE": "/dev/null",
         "HOME": str(home),
         "PYTHONUSERBASE": site.getuserbase(),
         "XDG_CONFIG_HOME": str(home / "config"),

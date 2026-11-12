@@ -23,7 +23,7 @@ def apply_like_the_control_panel(home, components):
         stdin=subprocess.DEVNULL,
         start_new_session=True,
         timeout=120,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(home), "TMPDIR": str(home)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(home), "TMPDIR": str(home)},
         check=False,
     )
 
@@ -110,7 +110,13 @@ def command_the_panel_runs_when_applying(tmp_path, qt_app, changes):
     return ran
 
 
-@pytest.mark.parametrize("key", sorted(CONTROL_PANEL.COMPONENTS_BY_KEY))
+def test_applying_only_where_the_names_came_from_runs_no_setup(tmp_path, qt_app):
+    assert command_the_panel_runs_when_applying(tmp_path, qt_app, {"BRANDING": "distro"}) == []
+
+
+@pytest.mark.parametrize(
+    "key", sorted(key for key, components in CONTROL_PANEL.COMPONENTS_BY_KEY.items() if components)
+)
 def test_applying_a_changed_key_runs_setup_that_exits_0_without_a_terminal(key, tmp_path, qt_app):
     [command] = command_the_panel_runs_when_applying(tmp_path, qt_app, {key: a_changed_value(key)})
     setup_command = [argument for argument in command if argument not in CONTROL_PANEL.OWN_SCOPE]
@@ -122,7 +128,7 @@ def test_applying_a_changed_key_runs_setup_that_exits_0_without_a_terminal(key, 
         stdin=subprocess.DEVNULL,
         start_new_session=True,
         timeout=120,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
         check=False,
     )
 

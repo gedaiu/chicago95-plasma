@@ -162,9 +162,9 @@ def test_shutdown_screen_has_no_divider_and_no_tile(qt_app):
     )
 
 
-def test_screen_scales_with_height(qt_app):
+def test_screen_keeps_native_band_sizes_on_taller_displays(qt_app):
     image = render_luna_login(qt_app, size=(1600, 1200))
-    probes = {(10, 100): (0, 48, 156), (10, 155): (0, 48, 156), (10, 1100): (57, 52, 173), (1590, 1100): (0, 48, 156)}
+    probes = {(10, 60): (0, 48, 156), (700, 100): (90, 126, 220), (10, 1120): (57, 52, 173), (1590, 1120): (0, 48, 156)}
     assert [point for point, colour in probes.items() if not close(image.getpixel(point), colour)] == []
 
 

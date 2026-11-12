@@ -5,6 +5,8 @@ Item {
     id: button
     property string text
     property url logoSource
+    // A logo of the user's own (a distribution's, the penguin) takes the XP flag's place; the bundled flags keep it.
+    property bool customLogo: false
     property bool hovered: pointer.hovered
     property bool held
     property string bevel: "1995"
@@ -44,6 +46,7 @@ Item {
     // The original's flag casts a soft dark green shadow below and to the right (xprunning.png, rows 20..24),
     // baked from the flag's own outline by luna/images/render_logo.py.
     Item {
+        visible: !button.customLogo
         width: button.width
         height: button.flagTop + button.flagInk.height + 1
         clip: true
@@ -64,7 +67,9 @@ Item {
         width: button.flagInk.width
         height: button.flagInk.height
         sourceSize: Qt.size(width * Screen.devicePixelRatio, height * Screen.devicePixelRatio)
-        source: "../../images/windows-xp-flag.svg"
+        source: button.customLogo ? button.logoSource : "../../images/windows-xp-flag.svg"
+        fillMode: Image.PreserveAspectFit
+        smooth: true
     }
 
     readonly property string lettersFamilies: "Franklin Gothic Medium, Libre Franklin, Trebuchet MS, Noto Sans, DejaVu Sans"

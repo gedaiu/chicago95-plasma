@@ -93,7 +93,7 @@ def installed_menus_sheet(tmp_path, look):
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=120,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
         check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()

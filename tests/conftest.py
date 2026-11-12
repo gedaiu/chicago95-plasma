@@ -51,7 +51,7 @@ def run_bash_with_steps(tmp_path, script):
         capture_output=True,
         text=True,
         timeout=30,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path)},
         check=False,
     ).stdout.splitlines()
 

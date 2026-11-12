@@ -303,3 +303,25 @@ def test_tooltip_streams_the_window_preview_through_the_same_screencast_as_the_c
     packages, _themes = installed
     text = (packages / "org.chicago95.tasks/contents/ui/luna/TaskToolTip.qml").read_text()
     assert ("PipeWire.PipeWireSourceItem" in text, "TaskManager.ScreencastingRequest" in text) == (True, True)
+
+
+FLAG_MIDDLE = (20, 15)  # inside the XP flag's 20x18 box at (10, 6)
+
+
+def blue_logo(tmp_path):
+    from PIL import Image
+
+    Image.new("RGBA", (32, 32), "#0000ff").save(tmp_path / "logo.png")
+    return QUrl.fromLocalFile(str(tmp_path / "logo.png"))
+
+
+def test_a_chosen_logo_takes_the_xp_flags_place_on_the_start_button(qt_app, qml_root, installed, tmp_path):
+    image = render_start(
+        qt_app, qml_root, installed, tmp_path, text="start", logoSource=blue_logo(tmp_path), customLogo=True
+    )
+    assert image.convert("RGB").getpixel(FLAG_MIDDLE) == (0, 0, 255)
+
+
+def test_the_start_button_keeps_the_xp_flag_for_the_bundled_flags(qt_app, qml_root, installed, tmp_path):
+    image = render_start(qt_app, qml_root, installed, tmp_path, text="start", logoSource=blue_logo(tmp_path))
+    assert image.convert("RGB").getpixel(FLAG_MIDDLE) != (0, 0, 255)

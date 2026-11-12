@@ -26,7 +26,7 @@ def planned_copies(home):
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=180,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(home), "TMPDIR": str(home)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(home), "TMPDIR": str(home)},
         check=False,
     )
     log = next(home.glob("chicago95-setup-*.log")).read_text()
@@ -58,7 +58,13 @@ def run_installed(home, *arguments, script=None):
         text=True,
         timeout=120,
         cwd=home,
-        env={**ENVIRONMENT, "HOME": str(home), "XDG_CONFIG_HOME": str(home / ".config"), "XDG_RUNTIME_DIR": str(home)},
+        env={
+            **ENVIRONMENT,
+            "SETUP_OS_RELEASE": "/dev/null",
+            "HOME": str(home),
+            "XDG_CONFIG_HOME": str(home / ".config"),
+            "XDG_RUNTIME_DIR": str(home),
+        },
         check=False,
     )
 

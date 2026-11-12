@@ -24,7 +24,12 @@ def matched_family(tmp_path, requested):
         ["fc-match", "-f", "%{family}", requested],
         capture_output=True,
         text=True,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "FONTCONFIG_FILE": str(configuration)},
+        env={
+            "PATH": "/usr/bin:/bin",
+            "SETUP_OS_RELEASE": "/dev/null",
+            "HOME": str(tmp_path),
+            "FONTCONFIG_FILE": str(configuration),
+        },
         timeout=30,
         check=False,
     ).stdout

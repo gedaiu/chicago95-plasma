@@ -16,6 +16,7 @@
 #     --start-menu-style=1995|1998|2000|2001|luna
 #     --login-style=classic|2000|luna  --boot-style=classic|2000|luna  --icons=chicago95|se98|classicos2000|windowsxp
 #     --sounds=Chicago95|Windows98|Windows2000|Plus98-Jungle|...  (data/sound-themes/)
+#     --branding=distro|windows  name the screens after this computer's distribution (detected) or keep the look's Windows names
 #     --settings=FILE  choices saved by the Control Panel (KEY=value lines), applied over the defaults
 #     --task-button-width=160  longest a task button on the taskbar may be, in pixels
 set -euo pipefail
@@ -57,9 +58,10 @@ for arg in "$@"; do
   --boot-style=*) OPT_BOOT_STYLE="${arg#*=}" ;;
   --sounds=*) OPT_SOUNDS="${arg#*=}" ;;
   --settings=*) OPT_SETTINGS="${arg#*=}" ;;
+  --branding=*) OPT_BRANDING="${arg#*=}" ;;
   --task-button-width=*) OPT_TASK_BUTTON_WIDTH="${arg#*=}" ;;
   --help | -h)
-    sed -n '2,17p' "$0"
+    sed -n '2,18p' "$0"
     exit 0
     ;;
   *) [ -z "$WANTED" ] && [[ "$arg" != --* ]] && WANTED="$arg" ;;
@@ -138,6 +140,22 @@ choose_image() {
     path=${path/#\~/$HOME}
   done
   printf '%s' "$path"
+}
+
+# Brand the screens as the running distribution (its name, edition, company and logos) or as the look's Windows.
+# Asked once: a saved choice stays unless --look applies a look's Windows names again.
+choose_distro_branding() {
+  local name
+  name=$(detected_distro_name)
+  if [ -z "$name" ]; then
+    SETUP_BRANDING=windows
+    return 0
+  fi
+  case $(ui_choose "Branding" "Which system should the Start menu, the log on, boot and Shut Down screens name?" 1 \
+    "$name (this computer)" "Windows, as the look had it") in
+  1) SETUP_BRANDING=distro ;;
+  *) SETUP_BRANDING=windows ;;
+  esac
 }
 
 choose_start_menu() {
@@ -474,6 +492,13 @@ SETUP_TASKBAR_STYLE=${OPT_TASKBAR_STYLE:-${SETUP_TASKBAR_STYLE:-classic}}
 SETUP_START_MENU_STYLE=${OPT_START_MENU_STYLE:-${SETUP_START_MENU_STYLE:-1995}}
 [ -n "$PANEL_CHOSEN" ] || [ "$SETUP_PANEL" != 28 ] || SETUP_PANEL=$(default_panel_height)
 [ -z "${OPT_DECORATION:-}${OPT_WIDGET_STYLE:-}${OPT_TASKBAR_STYLE:-}${OPT_START_MENU_STYLE:-}" ] || SETUP_LOOK=custom
+LOOK_APPLIED=$([ -n "${OPT_LOOK:-}" ] || [ -z "${SETUP_BRANDING:-}" ] && echo 1 || echo 0)
+if [ -n "${OPT_BRANDING:-}" ]; then
+  SETUP_BRANDING=$OPT_BRANDING
+elif [ -z "${SETUP_BRANDING:-}" ] && [[ " $COMPONENTS " =~ \ (startmenu|taskbar|splash|sddm|plymouth)\  ]]; then
+  choose_distro_branding
+fi
+[ "${SETUP_BRANDING:-}" = distro ] && { [ -n "${OPT_BRANDING:-}" ] || [ "$LOOK_APPLIED" = 1 ]; } && apply_distro_branding
 SETUP_START_TEXT=${OPT_START_TEXT:-${SETUP_START_TEXT:-Start}}
 SETUP_START_LOGO=${OPT_START_LOGO:-${SETUP_START_LOGO:-$(default_start_logo)}}
 SETUP_BANNER_TEXT=${OPT_BANNER_TEXT:-${SETUP_BANNER_TEXT:-$(default_banner_text)}}

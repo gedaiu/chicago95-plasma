@@ -87,9 +87,10 @@ def test_login_preview_is_the_blue_welcome_screen_when_the_style_is_luna(control
     ) == ([], (264, 198), "#00309c")
 
 
-def test_branding_preview_is_the_xp_wordmark_on_black_when_the_log_on_style_is_luna(control_panel, qt_app):
+def test_branding_preview_is_the_xp_wordmark_on_black_when_the_log_on_style_is_luna_with_no_name(control_panel, qt_app):
+    """As the XP log on screen: an empty name keeps XP's own wordmark; any name draws the user's branding."""
     preview = preview_of(control_panel, "Passwords", "Branding")
-    preview.refresh({"LOGIN_STYLE": "luna", "EDITION": "Professional"})
+    preview.refresh({"LOGIN_STYLE": "luna", "EDITION": "Professional", "BANNER_TEXT": ""})
     show_settled(preview, qt_app)
     image = preview.grab().toImage()
     colours = colours_of(image)

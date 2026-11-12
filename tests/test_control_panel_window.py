@@ -11,6 +11,7 @@ APPLET_NAMES = [
     "Add New Hardware",
     "Booting Screen",
     "Display",
+    "Distro Setup",
     "Explorer",
     "Fonts",
     "Modems",
@@ -56,7 +57,7 @@ def test_control_panel_lists_its_applets_alphabetically(window):
 
 
 def test_status_bar_counts_the_objects_when_nothing_is_selected(window):
-    assert window.status_message.text() == "13 object(s)"
+    assert window.status_message.text() == "14 object(s)"
 
 
 def test_status_bar_shows_the_selected_applets_description(window):
@@ -233,7 +234,7 @@ def test_address_bar_drop_down_lists_the_control_panel_and_every_applet_page(win
         "Control Panel",
         "Control Panel > Booting Screen",
         "Control Panel > Display",
-        "Control Panel > Explorer",
+        "Control Panel > Distro Setup",
     ]
 
 
@@ -273,7 +274,12 @@ def run_control_panel(tmp_path, *arguments):
         capture_output=True,
         text=True,
         timeout=60,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "QT_QPA_PLATFORM": "offscreen"},
+        env={
+            "PATH": "/usr/bin:/bin",
+            "SETUP_OS_RELEASE": "/dev/null",
+            "HOME": str(tmp_path),
+            "QT_QPA_PLATFORM": "offscreen",
+        },
         check=False,
     )
 
@@ -311,7 +317,7 @@ def test_status_bar_is_empty_on_an_applet_page_and_counts_again_on_the_control_p
     on_page = window.status_message.text()
     window.back_action.trigger()
 
-    assert (on_page, window.status_message.text()) == ("", "13 object(s)")
+    assert (on_page, window.status_message.text()) == ("", "14 object(s)")
 
 
 def saved_settings_with_a_setup_checkout(window, tmp_path, **settings):
@@ -467,7 +473,7 @@ def test_status_bar_shows_the_object_count_the_place_icon_and_a_size_grip(window
         window.status_message.text(),
         window.status_place_icon.pixmap().isNull(),
         window.statusBar().grip.isVisible(),
-    ) == ("13 object(s)", False, True)
+    ) == ("14 object(s)", False, True)
 
 
 def test_size_grip_hides_while_the_window_is_maximized_and_returns_when_restored(window, qt_app):

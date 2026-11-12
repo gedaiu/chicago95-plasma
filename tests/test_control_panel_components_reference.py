@@ -1192,7 +1192,13 @@ def test_the_frame_line_never_runs_under_a_group_title_at_any_screen_scale(scale
         capture_output=True,
         text=True,
         timeout=60,
-        env={**os.environ, "QT_QPA_PLATFORM": "offscreen", "QT_SCALE_FACTOR": scale, "HOME": str(tmp_path)},
+        env={
+            **os.environ,
+            "QT_QPA_PLATFORM": "offscreen",
+            "QT_SCALE_FACTOR": scale,
+            "SETUP_OS_RELEASE": "/dev/null",
+            "HOME": str(tmp_path),
+        },
         check=False,
     )
     assert result.returncode == 0, result.stderr[-800:]

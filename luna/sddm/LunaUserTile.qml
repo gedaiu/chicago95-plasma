@@ -47,7 +47,7 @@ Item {
         id: edge
         anchors.fill: parent
         radius: 8 * tile.unit
-        opacity: tile.selected || hover.hovered ? 1 : 0
+        opacity: tile.status !== "" ? 0 : tile.selected || hover.hovered ? 1 : 0
         gradient: Gradient {
             orientation: Gradient.Horizontal
             GradientStop {
@@ -66,7 +66,7 @@ Item {
         width: parent.width - tile.unit
         height: parent.height - 2 * tile.unit
         radius: 8 * tile.unit
-        opacity: tile.selected ? 1 : hover.hovered ? 0.55 : 0
+        opacity: tile.status !== "" ? 0 : tile.selected ? 1 : hover.hovered ? 0.55 : 0
         gradient: Gradient {
             orientation: Gradient.Horizontal
             GradientStop {
@@ -91,14 +91,14 @@ Item {
         width: 52 * tile.unit
         height: 52 * tile.unit
         radius: 3 * tile.unit
-        color: "#ffb600"
+        color: tile.status !== "" ? "#a6b6ce" : "#ffb600"
         Rectangle {
             x: tile.unit
             y: tile.unit
             width: parent.width - 2 * tile.unit
             height: parent.height - tile.unit
             radius: 2 * tile.unit
-            color: "#ffee00"
+            color: tile.status !== "" ? "#ffffff" : "#ffee00"
         }
         Rectangle {
             id: face
@@ -156,8 +156,9 @@ Item {
         x: 75 * tile.unit
         y: 34 * tile.unit
         text: tile.status || (tile.loggedIn ? "Logged on" : "Type your password")
-        color: "#ffffff"
+        color: tile.status !== "" ? "#083399" : "#ffffff"
         font.family: tile.family
+        font.bold: tile.status !== ""
         font.pixelSize: 11 * tile.unit
     }
 

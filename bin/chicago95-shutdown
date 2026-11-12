@@ -73,11 +73,14 @@ DESCRIPTIONS = {
     RESTART: "Ends your session, shuts down {os}, and starts {os} again.",
     STAND_BY: "Maintains your session, keeping the computer running on low power with data still in memory.",
 }
+DESCRIPTIONS[DOS_MODE] = "Closes your session and opens the configured DOS-mode terminal."
 DESCRIPTIONS_BY_STYLE = {
     "2001": {
         **DESCRIPTIONS,
-        STAND_BY: "Keeps your session in memory and puts the computer in a low-power state so that you can quickly resume working.",
-        HIBERNATE: "Saves your session to disk and turns off the computer. When you turn it on again, Windows restores your session.",
+        STAND_BY: ("Keeps your session in memory and puts the computer in a low-power state "
+                   "so that you can quickly resume working."),
+        HIBERNATE: ("Saves your session to disk and turns off the computer. "
+                    "When you turn it on again, Windows restores your session."),
     }
 }
 LAYOUT = {"1995": "radio", "1998": "radio", "2000": "combo", "2001": "combo"}
@@ -228,7 +231,9 @@ class SafeScreen(QWidget):
 def yes_no_buttons(dialog):
     yes_button = QPushButton("&Yes")
     yes_button.setDefault(True)
+    yes_button.setToolTip("Closes your programs and ends your session.")
     no_button = QPushButton("&No")
+    no_button.setToolTip("Closes this dialog without logging off.")
     help_button = QPushButton("&Help")
     help_button.setEnabled(False)
     buttons = QHBoxLayout()
@@ -285,6 +290,9 @@ def dialog_buttons(dialog, labels):
         button.setFixedSize(75, 23)
         buttons.addWidget(button)
         made.append(button)
+        button.setToolTip("Performs the selected action." if len(made) == 1 else
+                          "Closes this dialog without changing your session." if len(made) == 2 else
+                          "Help is not available.")
     made[0].setDefault(True)
     made[0].clicked.connect(dialog.accept)
     made[1].clicked.connect(dialog.reject)
@@ -463,7 +471,8 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         options.setSpacing(spacing)
         options.addWidget(QLabel(QUESTIONS[self.style]))
         options.addSpacing(gap)
-        for radio in self.radios:
+        for radio, (choice, _) in zip(self.radios, self.choices, strict=True):
+            radio.setToolTip(chicago95ui.fill_placeholders(DESCRIPTIONS[choice], self.look))
             options.addWidget(radio)
         options.addStretch()
 
@@ -492,6 +501,9 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         self.combo.setGeometry(65, 111, 260, 21)
         for choice, label in self.choices:
             self.combo.addItem(chicago95ui.fill_placeholders(label, self.look), choice)
+            description = DESCRIPTIONS_BY_STYLE.get(self.style, DESCRIPTIONS)[choice]
+            self.combo.setItemData(self.combo.count() - 1,
+                                   chicago95ui.fill_placeholders(description, self.look), Qt.ToolTipRole)
         self.combo.setCurrentIndex([choice for choice, _ in self.choices].index(SHUT_DOWN))
         self.description = QLabel(body)
         self.description.setWordWrap(True)
@@ -504,6 +516,9 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         for x, label in zip((163, 244, 325), ("OK", "Cancel", "Help"), strict=False):
             button = QPushButton(label, body)
             button.setGeometry(x if label == "OK" else x - 1, 211, 76 if label == "OK" else 77, 24)
+            button.setToolTip({"OK": "Performs the selected action.",
+                               "Cancel": "Closes this dialog without changing your session.",
+                               "Help": "Help is not available."}[label])
             if label == "OK":
                 button.setDefault(True)
                 button.clicked.connect(self.accept)
@@ -514,7 +529,9 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
 
     def describe(self):
         descriptions = DESCRIPTIONS_BY_STYLE.get(self.style, DESCRIPTIONS)
-        self.description.setText(chicago95ui.fill_placeholders(descriptions[self.combo.currentData()], self.look))
+        text = chicago95ui.fill_placeholders(descriptions[self.combo.currentData()], self.look)
+        self.description.setText(text)
+        self.combo.setToolTip(text)
 
     def accept(self):
         if LAYOUT[self.style] == "combo":
@@ -600,13 +617,19 @@ def ensure_luna_grayscale_effect():
         pass
 
 
+def luna_branding():
+    """What the XP dialogs name: the branded system's short name ("Log Off Fedora Linux") and its logo."""
+    look = chicago95ui.look_settings()
+    return {"logo": look["osLogo"], "name": chicago95ui.short_os_name(look["osName"])}
+
+
 def ask_luna_choice(dialog_class, choices_by_command):
     """The choice a Luna dialog's button stands for, or None when it was cancelled."""
     chosen = []
     commands = {name: (lambda choice=choice: chosen.append(choice)) for name, choice in choices_by_command.items()}
     commands["cancel"] = lambda: None
     ensure_luna_grayscale_effect()
-    return chosen[0] if ask(dialog_class(commands)) else None
+    return chosen[0] if ask(dialog_class(commands, **luna_branding())) else None
 
 
 def luna_turn_off_choice():
@@ -633,7 +656,7 @@ def screenshot_dialog(log_off):
 
         names = ("turn_off", "restart", "stand_by", "hibernate", "cancel", "log_off", "switch_user")
         dialog_class = chicago95lunadialogs.LogOffDialog if log_off else chicago95lunadialogs.TurnOffDialog
-        return dialog_class({name: (lambda: None) for name in names})
+        return dialog_class({name: (lambda: None) for name in names}, **luna_branding())
     return LogOffDialog() if log_off else ShutDownDialog()
 
 
@@ -736,7 +759,20 @@ def main():
         return 0
 
     if args.log_off:
-        log_off(log_off_choice(), args.dry_run, dbus_caller())
+        choice = log_off_choice()
+        if choice == LOG_OFF and luna_dialogs_wanted():
+            screen = shutting_down_screen(virtual_screen_geometry(app), hold_until_input=args.dry_run)
+            screen.set_status("Logging off...")
+            screen.showFullScreen()
+            def finish_logoff():
+                log_off(choice, args.dry_run, dbus_caller())
+                if not args.dry_run:
+                    app.quit()
+            QTimer.singleShot(SAFE_SCREEN_DELAY_MS, finish_logoff)
+            if args.dry_run:
+                screen.destroyed.connect(app.quit)
+            return app.exec()
+        log_off(choice, args.dry_run, dbus_caller())
         return 0
 
     choice = turn_off_choice()
@@ -749,6 +785,10 @@ def main():
         return 0
 
     safe_screen = shutting_down_screen(virtual_screen_geometry(app), hold_until_input=args.dry_run)
+    if luna_dialogs_wanted():
+        safe_screen.set_status("Logging off...")
+        QTimer.singleShot(SAFE_SCREEN_DELAY_MS // 2,
+                          lambda: safe_screen.set_status("Windows is shutting down..."))
     safe_screen.showFullScreen()
     play_shutdown_sound(args.dry_run)
 

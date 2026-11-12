@@ -22,7 +22,8 @@ Item {
     readonly property real brandedWidth: 220  // room for a name like "Windows2026" at full size
 
     implicitWidth: (branded ? brandedWidth : fullWidth) * unit
-    implicitHeight: (branded ? 68 : edition === "" ? fullWidth * logoAspect : editionBaseline + 1) * unit
+    // Branded: down to the edition line's foot, wherever the font puts it.
+    implicitHeight: branded ? Math.max(68 * unit, brandedEdition.y + brandedEdition.height) : (edition === "" ? fullWidth * logoAspect : editionBaseline + 1) * unit
 
     Image {
         visible: wordmark.branded && wordmark.logo !== ""
@@ -59,6 +60,8 @@ Item {
         font.pixelSize: 26 * wordmark.unit
     }
     Text {
+        id: brandedEdition
+        objectName: "edition"
         visible: wordmark.branded && wordmark.edition !== ""
         x: brandName.x + brandName.contentWidth - width
         y: brandName.y + brandName.height  // right under the name, never into it

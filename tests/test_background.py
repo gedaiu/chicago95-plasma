@@ -78,7 +78,7 @@ def test_dry_run_of_the_background_component_sets_the_saved_colour(tmp_path):
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=60,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
         check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
@@ -95,7 +95,7 @@ def test_dry_run_of_a_pattern_background_draws_the_pattern_first(tmp_path):
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=60,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
         check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
@@ -133,7 +133,13 @@ def test_named_patterns_are_eight_rows_of_eight_bits():
 
 @pytest.mark.parametrize(
     "start_menu_style, red_green_blue",
-    [("1995", "0,128,128"), ("1998", "0,128,128"), ("2000", "58,110,165"), ("2001", "58,110,165"), ("luna", "0,78,152")],
+    [
+        ("1995", "0,128,128"),
+        ("1998", "0,128,128"),
+        ("2000", "58,110,165"),
+        ("2001", "58,110,165"),
+        ("luna", "0,78,152"),
+    ],
 )
 def test_background_color_is_the_desktop_of_that_looks_windows_when_none_is_saved(
     tmp_path, start_menu_style, red_green_blue

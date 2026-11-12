@@ -151,3 +151,10 @@ and `xp-log-off-buttons.bmp` are unchanged copies of `src/res/to_buttons.bmp` an
 and continuous gradients at the display resolution instead of scaling these bitmaps.
 Its `src/FriendlyDialog.cpp` documents the normal/pressed/hot frame mapping,
 with keyboard focus using the hot frame and disabled Stand By using frame 9.
+
+Flow references `xp-video-welcome-68.png`, `xp-video-logoff-37.png` and
+`xp-video-shutdown-42.png` are unscaled 1920×1080 frames at 68s, 37s and 42s from
+[Windows XP Normal vs. Classic Welcome Screens!](https://www.youtube.com/watch?v=2JeE3LsmIdY),
+provided by the user. They establish screen content/layout, not animation durations:
+the video includes editorial zooms/cuts. Account name/avatar and font rasterization
+are excluded from whole-frame colour comparisons and checked separately by layout/state.

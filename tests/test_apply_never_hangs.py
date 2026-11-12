@@ -33,7 +33,7 @@ def run_without_terminal(command, home):
         text=True,
         stdin=subprocess.DEVNULL,
         start_new_session=True,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(home), "TMPDIR": str(home)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(home), "TMPDIR": str(home)},
     )
     try:
         output, _errors = process.communicate(timeout=SETUP_TIMEOUT_SECONDS)

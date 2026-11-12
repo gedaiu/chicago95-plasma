@@ -100,7 +100,7 @@ kconf() {
 SETTINGS_KEYS="LOOK DECORATION WIDGET_STYLE TASKBAR_STYLE START_MENU_STYLE BEVEL TITLE_ACTIVE TITLE_INACTIVE BANNER_BG BANNER_FG ICONS FONT FONT_SCOPE CURSOR PANEL MOUSE_HAND DOUBLE_CLICK_MS POINTER_SPEED
     TASK_BUTTON_WIDTH QUICK_LAUNCH LAUNCHERS TASKBAR_AUTOHIDE TASKBAR_ON_TOP CLOCK_SHOW CLOCK_HOURS START_TEXT START_LOGO BANNER_TEXT
     SAVER IDLE_MIN LOGIN_STYLE LOGIN_TITLE LOGIN_MESSAGE LOGIN_ICON LOGIN_LOGO EDITION TAGLINE COMPANY COMPANY_LOGO
-    BOOT_STYLE SPLASH_IMAGE LOADING_TEXT LOADING_FOOTER SOUND_THEME CLIPPY_AUTOSTART EXPLORER
+    BOOT_STYLE SPLASH_IMAGE LOADING_TEXT LOADING_FOOTER BRANDING SOUND_THEME CLIPPY_AUTOSTART EXPLORER
     BACKGROUND_MODE BACKGROUND_COLOR BACKGROUND_PATTERN BACKGROUND_IMAGE BACKGROUND_FILL DESKTOP_ICONS PREVIEW_SIZE
     $(sed -n 's/^EVENT|\([^|]*\)|.*/\1/p' "$REPO/setup/animations.conf" | tr '\n' ' ')"
 
@@ -109,6 +109,22 @@ SETTINGS_KEYS="LOOK DECORATION WIDGET_STYLE TASKBAR_STYLE START_MENU_STYLE BEVEL
 # #RRGGBB, two separated by a comma for a gradient; banner stops with @N sit N pixels above its bottom.
 # The 1998 and 2000 banners are measured from the originals (tests/test_startmenu_styles_reference.py).
 default_start_logo() { [ "${SETUP_START_MENU_STYLE:-1995}" = 2001 ] && printf xp || printf flag; }
+# The running distribution's branding (lib/chicago95distro.py): KEY<TAB>value lines, read as data; nothing when
+# there is no os-release. SETUP_OS_RELEASE and SETUP_DATA_DIRS point it elsewhere (tests).
+DISTRO_BRANDING_KEYS="BANNER_TEXT EDITION COMPANY LOADING_FOOTER START_LOGO LOGIN_LOGO COMPANY_LOGO"
+distro_branding_lines() {
+  python3 "$REPO/lib/chicago95distro.py" --os-release "${SETUP_OS_RELEASE:-/etc/os-release}" \
+    --data-dirs "${SETUP_DATA_DIRS:-${XDG_DATA_DIRS:-/usr/local/share:/usr/share}}" 2>/dev/null || true
+}
+apply_distro_branding() { # the distribution's names and logos over the look's Windows ones; only known keys
+  local key value
+  while IFS=$'\t' read -r key value; do
+    [[ " $DISTRO_BRANDING_KEYS " == *" $key "* ]] && printf -v "SETUP_$key" '%s' "$value"
+  done < <(distro_branding_lines)
+  return 0
+}
+detected_distro_name() { distro_branding_lines | awk -F'\t' '$1 == "BANNER_TEXT" { print $2 }'; }
+
 default_banner_text() { [ "${SETUP_START_MENU_STYLE:-1995}" = 2001 ] && printf 'Windows XP Professional' || printf Chicago95; }
 
 apply_look() {
@@ -795,11 +811,16 @@ step_tools_common() { # shared by every PySide6 component; idempotent
   put_file "$REPO/data/2000-logon-banner.png" ~/.local/share/chicago95/2000-logon-banner.png
   put_file "$REPO/data/xp-logon-banner.png" ~/.local/share/chicago95/xp-logon-banner.png
   put_file "$REPO/lib/login_preview.py" ~/.local/lib/chicago95/login_preview.py
+  put_file "$REPO/lib/login_flow.py" ~/.local/lib/chicago95/login_flow.py
   put_file "$REPO/lib/chicago95update.py" ~/.local/lib/chicago95/chicago95update.py
   put_file "$REPO/lib/chicago95animations.py" ~/.local/lib/chicago95/chicago95animations.py
   if wants_luna || [ "${SETUP_START_MENU_STYLE:-}" = luna ]; then
     for luna_module in "$REPO"/luna/lib/*.py; do put_file "$luna_module" ~/.local/lib/chicago95/"$(basename "$luna_module")"; done
     put_tree "$REPO/luna/lib/images" ~/.local/lib/chicago95/images
+    # Keep the interactive boot/login flow test usable without the source checkout.
+    for screen_tree in qml images splash sddm; do
+      put_tree "$REPO/luna/$screen_tree" "$HOME/.local/share/chicago95/luna/$screen_tree"
+    done
     put_file "$REPO/luna/palette.py" ~/.local/lib/chicago95/chicago95lunapalette.py
     put_file "$REPO/luna/images/windows-xp-flag.svg" ~/.local/lib/chicago95/images/windows-xp-flag.svg
   fi

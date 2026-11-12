@@ -38,7 +38,7 @@ def fallback(home):
             "-c",
             f"REPO={REPO}; source {REPO}/setup/steps.sh; SETUP_DRY_RUN=0 SETUP_LOG=$HOME/log xp_icon_fallback",
         ],
-        env={"PATH": "/usr/bin:/bin", "HOME": str(home)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(home)},
         timeout=60,
         check=False,
     )

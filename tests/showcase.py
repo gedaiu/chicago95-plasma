@@ -23,8 +23,11 @@ def themed(app, look):
     settings = f"[StartMenu]\nstyle={look}\n[Look]\nwidgetStyle={look if look == 'luna' else 'classic'}\n"
     with installed_look(app, settings, KDEGLOBALS.get(look, "")):
         chicago95ui.apply_style(app)
-        QIcon.setThemeName({"1995": "Chicago95", "1998": "SE98", "2000": "ClassicOS-2000",
-                            "2001": "Windows-XP", "luna": "Windows-XP"}[look])
+        QIcon.setThemeName(
+            {"1995": "Chicago95", "1998": "SE98", "2000": "ClassicOS-2000", "2001": "Windows-XP", "luna": "Windows-XP"}[
+                look
+            ]
+        )
         try:
             yield
         finally:
@@ -64,8 +67,11 @@ def boot(app, look, scratch):
     from plasma_session import CHICAGO95_SRC
 
     if look in ("1995", "1998"):
-        asset = (REPO / "splash/chicago95.splashscreen/contents/splash/images/windows98.png"
-                 if look == "1998" else CHICAGO95_SRC / "Plymouth/Chicago95/win95_boot_10.png")
+        asset = (
+            REPO / "splash/chicago95.splashscreen/contents/splash/images/windows98.png"
+            if look == "1998"
+            else CHICAGO95_SRC / "Plymouth/Chicago95/win95_boot_10.png"
+        )
         if not asset.exists():
             return None
         return Image.open(asset).convert("RGB").resize(SIZE, Image.Resampling.NEAREST)
@@ -82,8 +88,9 @@ def boot(app, look, scratch):
     settings = settings.replace('var brandLogo = ""', f"var brandLogo = {json.dumps(str(logo))}")
     settings = settings.replace('var company = ""', 'var company = "Microsoft"')
     settings = settings.replace('var tagline = "Built on Linux Technology"', 'var tagline = "Built on NT Technology"')
-    settings = settings.replace('var footer = "Chicago95 for KDE Plasma"',
-                                'var footer = "Copyright © 1985-1999 Microsoft Corporation"')
+    settings = settings.replace(
+        'var footer = "Chicago95 for KDE Plasma"', 'var footer = "Copyright © 1985-1999 Microsoft Corporation"'
+    )
     settings = settings.replace(
         'var brandText = "Chicago95"', f'var brandText = "Windows {"XP" if look == "2001" else "2000"}"'
     )
@@ -137,8 +144,9 @@ def taskbars(app, look, scratch):
     from aurorae_model import LOOKS
     from render_report import DEFAULT_LOGO
 
-    start_logo = (REPO / "plasmoids/org.chicago95.start/contents/images/logo-xp-16.png"
-                  if look == "2001" else DEFAULT_LOGO)
+    start_logo = (
+        REPO / "plasmoids/org.chicago95.start/contents/images/logo-xp-16.png" if look == "2001" else DEFAULT_LOGO
+    )
     scratch.mkdir(parents=True, exist_ok=True)
     luna = look == "luna"
     themes = scratch / "themes"
@@ -228,8 +236,10 @@ def taskbars(app, look, scratch):
                 + json.dumps(PALETTE["taskbar"])
                 + "; Rectangle { required property string modelData; width: 800; height: 1; color: modelData } } }"
             )
-            start = (f'Start.StartButton {{ id: startButton; width: {start_width}; height: 30; text: "start"; '
-                     'hovered: root.variant === "start-hovered"; held: root.variant === "start-held" }')
+            start = (
+                f'Start.StartButton {{ id: startButton; width: {start_width}; height: 30; text: "start"; '
+                'hovered: root.variant === "start-hovered"; held: root.variant === "start-held" }'
+            )
         else:
             background = (
                 f'color: "{LOOKS[look]["face"]}"\n'
@@ -419,9 +429,19 @@ def start_menus(app, look, scratch):
         apps = sample_apps()
         apps[0].update(icon="internet-web-browser", categories=["WebBrowser"])
         apps[1].update(icon="internet-mail", categories=["Email"])
-        for entry, name, icon in zip(apps[2:], ("Documents", "Pictures", "Music", "Calculator", "Notepad", "Terminal"),
-                                     ("folder-documents", "folder-pictures", "folder-music", "accessories-calculator",
-                                      "text-editor", "utilities-terminal"), strict=False):
+        for entry, name, icon in zip(
+            apps[2:],
+            ("Documents", "Pictures", "Music", "Calculator", "Notepad", "Terminal"),
+            (
+                "folder-documents",
+                "folder-pictures",
+                "folder-music",
+                "accessories-calculator",
+                "text-editor",
+                "utilities-terminal",
+            ),
+            strict=False,
+        ):
             entry.update(name=name, icon=icon)
         menu = chicago95lunamenu.LunaMenu(apps, [], lambda _: None, startmenu.luna_icon, None, None, user_name="Alex")
         menu.adjustSize()
@@ -490,9 +510,26 @@ def controls(app, look, scratch):
 
 
 CONTROL_GROUPS = (
-    "Buttons", "Checkboxes", "Radio buttons", "Switches", "Inputs", "Scrollbars", "Sliders", "Progress bars",
-    "Tabs", "Menus", "Toolbars", "Status bars", "Lists", "Trees", "Tables", "Headers",
-    "Group boxes", "Containers and text", "Windows", "Shell",
+    "Buttons",
+    "Checkboxes",
+    "Radio buttons",
+    "Switches",
+    "Inputs",
+    "Scrollbars",
+    "Sliders",
+    "Progress bars",
+    "Tabs",
+    "Menus",
+    "Toolbars",
+    "Status bars",
+    "Lists",
+    "Trees",
+    "Tables",
+    "Headers",
+    "Group boxes",
+    "Containers and text",
+    "Windows",
+    "Shell",
 )
 
 
@@ -571,9 +608,7 @@ def gtk_controls(look, scratch, audit=False, audit_kinds=()):
 
             config = home / ".config/gtk-4.0"
             config.mkdir(parents=True, exist_ok=True)
-            (config / "gtk.css").write_text(
-                notebook_css(classic_theme) + scrollbar_css(classic_theme)
-            )
+            (config / "gtk.css").write_text(notebook_css(classic_theme) + scrollbar_css(classic_theme))
             progress_css = (REPO / "config/gtk-progress-classic.css").read_text()
             progress_css += (REPO / "config/gtk-frames-classic.css").read_text()
             for version in ("3.0", "4.0"):
@@ -596,8 +631,11 @@ def gtk_controls(look, scratch, audit=False, audit_kinds=()):
             font_family = QFontInfo(app.font()).family()
         fontconfig = home / ".config/fontconfig/conf.d"
         fontconfig.mkdir(parents=True, exist_ok=True)
-        font_rules = (REPO / "luna/fontconfig/61-chicago95-luna-fonts.conf" if look == "luna"
-                      else REPO / "config/fontconfig/60-chicago95-pixel-font.conf")
+        font_rules = (
+            REPO / "luna/fontconfig/61-chicago95-luna-fonts.conf"
+            if look == "luna"
+            else REPO / "config/fontconfig/60-chicago95-pixel-font.conf"
+        )
         shutil.copy(font_rules, fontconfig / font_rules.name)
         for version in ("3.0", "4.0"):
             config = home / f".config/gtk-{version}"
@@ -626,6 +664,7 @@ def gtk_controls(look, scratch, audit=False, audit_kinds=()):
         script.write_text("#!/bin/sh\n" + "\n".join(commands) + "\n")
         environment = {
             **os.environ,
+            "SETUP_OS_RELEASE": "/dev/null",
             "HOME": str(home),
             "XDG_CONFIG_HOME": str(home / ".config"),
             "XDG_RUNTIME_DIR": str(runtime),

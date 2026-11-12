@@ -25,6 +25,7 @@ def child_home(tmp_path):
     (home / ".local/share/chicago95/clippy").symlink_to(REPO / "data/clippy")
     environment = {
         **os.environ,
+        "SETUP_OS_RELEASE": "/dev/null",
         "HOME": str(home),
         "PYTHONUSERBASE": USER_BASE,
         "XDG_RUNTIME_DIR": str(runtime_dir),

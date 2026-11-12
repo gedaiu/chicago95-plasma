@@ -26,7 +26,7 @@ per channel of that average (positions are pixel columns, colours "#RRGGBB"):
 from pathlib import Path
 
 from chicago95luna import LunaStyle, luna_font, luna_palette
-from PySide6.QtCore import QPointF, QRect, QRectF, Qt
+from PySide6.QtCore import QPointF, QRect, QRectF, QSizeF, Qt
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -74,6 +74,15 @@ class ButtonSpec:
         self.glyph = glyph
         self.centre = centre
         self.underlined = underlined
+
+
+BUTTON_HELP = {
+    "stand_by": "Keeps your session in memory while the computer uses less power. Resume to continue working.",
+    "turn_off": "Closes your programs, logs off all users, and turns off the computer.",
+    "restart": "Closes your programs, logs off all users, and restarts the computer.",
+    "switch_user": "Lets another user log on while keeping your programs and session open.",
+    "log_off": "Closes your programs and ends your session so another user can log on.",
+}
 
 
 TURN_OFF_SPECS = [
@@ -129,13 +138,34 @@ def flag_picture_path():
     )
 
 
-def paint_flag(painter, renderer):
+# The flags Setup bundles: with one of them the dialog keeps XP's own flag.
+BUNDLED_LOGOS = ("", "waving-flag.png", "logo-flag-16.png", "logo-flag.png", "logo-xp-16.png")
+
+
+def logo_picture(logo=""):
+    """The picture in the flag's slot: the user's own logo (a distribution's) when the branding names one, read
+    as an SVG renderer or an image; else XP's flag."""
+    path = Path(logo) if logo else None
+    if path is None or path.name in BUNDLED_LOGOS or not path.is_file():
+        path = flag_picture_path()
+    return QSvgRenderer(str(path)) if path.suffix == ".svg" else QImage(str(path))
+
+
+def paint_flag(painter, picture):
     painter.save()
     painter.setRenderHint(QPainter.Antialiasing)
-    # Preserve the flag's aspect ratio inside the original 38x32 slot. Render
+    painter.setRenderHint(QPainter.SmoothPixmapTransform)
+    # Preserve the picture's aspect ratio inside the original 38x32 slot, centred. Render
     # paths at the painter's actual device scale, including fractional scales.
-    width = 32 * renderer.viewBoxF().width() / renderer.viewBoxF().height()
-    renderer.render(painter, QRectF(FLAG_ORIGIN[0] + (38 - width) / 2, FLAG_ORIGIN[1], width, 32))
+    svg = isinstance(picture, QSvgRenderer)
+    size = picture.viewBoxF().size() if svg else QSizeF(picture.size())
+    scale = min(38 / size.width(), 32 / size.height())
+    width, height = size.width() * scale, size.height() * scale
+    target = QRectF(FLAG_ORIGIN[0] + (38 - width) / 2, FLAG_ORIGIN[1] + (32 - height) / 2, width, height)
+    if svg:
+        picture.render(painter, target)
+    else:
+        painter.drawImage(target, picture)
     painter.restore()
 
 
@@ -259,6 +289,10 @@ class IconButton(QAbstractButton):
         self.setGeometry(spec.centre - ICON_SIZE // 2, ICON_TOP, ICON_SIZE, ICON_SIZE)
         self.setCursor(Qt.PointingHandCursor)
         self.setText(spec.label)
+        self.setToolTip(
+            f'<qt><table width="240"><tr><td><b>{spec.label}</b><br>{BUTTON_HELP[spec.command]}</td></tr></table></qt>'
+        )
+        self.setAccessibleDescription(BUTTON_HELP[spec.command])
 
     def keyPressEvent(self, event):
         if event.key() in (Qt.Key_Return, Qt.Key_Enter):
@@ -275,16 +309,17 @@ class LunaDialog(QDialog):
     TITLE = ""
     SPECS = []
 
-    def __init__(self, commands, parent=None):
+    def __init__(self, commands, parent=None, logo="", name="Windows"):
         super().__init__(parent, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.commands = commands
-        self.flag = QSvgRenderer(str(flag_picture_path()), self)
+        self.title = self.TITLE.format(name=name)
+        self.flag = logo_picture(logo)
         self.luna_style = LunaStyle()
         # Smooth dialog-specific faces, with no shadow beneath Cancel.
         button_painter = paint_cancel
         self.luna_style.primitive_painters[QStyle.PE_PanelButtonCommand] = button_painter
         self.luna_style.control_painters[QStyle.CE_PushButtonBevel] = button_painter
-        self.setWindowTitle(self.TITLE)
+        self.setWindowTitle(self.title)
         self.setFixedSize(*DIALOG_SIZE)
         self.setPalette(luna_palette())
         self.setFont(luna_font())
@@ -301,6 +336,7 @@ class LunaDialog(QDialog):
         button = QPushButton("Cancel", self)
         button.setStyle(self.luna_style)
         button.setAutoDefault(False)
+        button.setToolTip("Closes this dialog without changing your session.")
         button.setGeometry(CANCEL_RECT)
         button.clicked.connect(self.reject)
         return button
@@ -324,7 +360,7 @@ class LunaDialog(QDialog):
     def paintEvent(self, event):
         painter = QPainter(self)
         paint_bands(painter)
-        paint_title(painter, self.TITLE)
+        paint_title(painter, self.title)
         paint_flag(painter, self.flag)
         for spec in self.SPECS:
             painter.save()
@@ -337,14 +373,14 @@ class TurnOffDialog(LunaDialog):
     TITLE = "Turn off computer"
     SPECS = TURN_OFF_SPECS
 
-    def __init__(self, commands, parent=None):
+    def __init__(self, commands, parent=None, **branding):
         resolved = dict(commands)
         resolved["stand_by"] = commands.get("stand_by") or commands["hibernate"]
-        super().__init__(resolved, parent)
+        super().__init__(resolved, parent, **branding)
 
 
 class LogOffDialog(LunaDialog):
-    TITLE = "Log Off Windows"
+    TITLE = "Log Off {name}"
     SPECS = LOG_OFF_SPECS
 
 

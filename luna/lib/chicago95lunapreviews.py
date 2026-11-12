@@ -39,6 +39,7 @@ Rectangle {
         active: false
         sourceComponent: Start.StartButton {
             objectName: "startButton"; height: %(height)d; text: startText; held: true
+            logoSource: startLogo; customLogo: startCustomLogo
         }
     }
 }
@@ -74,9 +75,14 @@ import "luna/qml"
 Rectangle {
     color: "#000000"
     XpWordmark {
+        objectName: "wordmark"
         anchors.centerIn: parent
         unit: 1.1
+        scale: Math.min(1, (parent.height - 2) / implicitHeight)  // a branded name and edition fit the strip
         edition: wordmarkEdition
+        name: wordmarkName
+        company: wordmarkCompany
+        logo: wordmarkLogo
         textColor: "#efefef"
     }
 }

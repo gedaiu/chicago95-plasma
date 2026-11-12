@@ -17,6 +17,7 @@ class Greeter(QObject):
     """sddm: the host name, what the machine can do, login() and the power actions, the loginFailed signal."""
 
     loginFailed = Signal()
+    loginSucceeded = Signal()
     loginAttempted = Signal(str, int)
     powerRequested = Signal(str)
 

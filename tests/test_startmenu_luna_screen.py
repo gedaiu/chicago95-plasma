@@ -33,6 +33,7 @@ def screen(tmp_path_factory):
     picture = home / "menu.png"
     environment = {
         **os.environ,
+        "SETUP_OS_RELEASE": "/dev/null",
         "HOME": str(home),
         "XDG_CONFIG_HOME": str(home / ".config"),
         "QT_QPA_PLATFORM": "offscreen",

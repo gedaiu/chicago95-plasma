@@ -16,7 +16,7 @@ def test_dry_run_of_sddm_component_writes_the_zz_override_without_asking_for_a_p
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=60,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
         check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
@@ -52,7 +52,7 @@ def run_setup(home, *arguments):
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=120,
-        env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(home), "TMPDIR": str(home)},
+        env={"PATH": f"{stubs}:/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(home), "TMPDIR": str(home)},
         check=False,
     )
 
@@ -87,7 +87,7 @@ def test_dry_run_of_the_2000_look_downloads_the_waving_flag_for_the_loading_scre
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=60,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
         check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
@@ -105,7 +105,7 @@ def test_login_theme_settings_carry_title_message_and_picture_without_banner_tex
         capture_output=True,
         text=True,
         timeout=30,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path)},
         check=False,
     ).stdout.splitlines()
 
@@ -122,7 +122,7 @@ def test_dry_run_of_the_2000_login_draws_the_banner_with_the_shut_down_code(tmp_
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=60,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
         check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
@@ -142,7 +142,7 @@ def test_dry_run_of_the_2000_look_alone_writes_the_look_before_redrawing_the_bev
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=60,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
         check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
@@ -162,6 +162,7 @@ def test_dry_run_of_the_base_theme_selects_chicago95_for_gtk_3_and_4(tmp_path):
         timeout=60,
         env={
             "PATH": "/usr/bin:/bin",
+            "SETUP_OS_RELEASE": "/dev/null",
             "HOME": str(tmp_path),
             "TMPDIR": str(tmp_path),
             "CHICAGO95_SRC": str(Path.home() / "src/Chicago95"),
@@ -184,7 +185,7 @@ def test_dry_run_of_the_windows_2000_sounds_selects_that_theme_for_plasma(tmp_pa
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=60,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
         check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
@@ -213,7 +214,7 @@ def test_dry_run_of_the_2000_look_puts_the_2000_toolbar_buttons_over_its_icon_se
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=60,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
         check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
@@ -236,7 +237,10 @@ def test_every_run_writes_the_look_into_each_taskbar_applet(tmp_path):
         f"SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 SETUP_LOG={log} SETUP_START_MENU_STYLE=2000 apply_taskbar"
     )
     subprocess.run(
-        ["bash", "-c", script], timeout=30, env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}, check=False
+        ["bash", "-c", script],
+        timeout=30,
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path)},
+        check=False,
     )
     written = log.read_text()
 
@@ -256,7 +260,10 @@ def test_an_empty_quick_launch_gets_the_default_programs_on_a_look_that_shows_it
         f"SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 SETUP_LOG={log} SETUP_START_MENU_STYLE=1998 apply_taskbar"
     )
     subprocess.run(
-        ["bash", "-c", script], timeout=30, env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}, check=False
+        ["bash", "-c", script],
+        timeout=30,
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path)},
+        check=False,
     )
     written = log.read_text()
 
@@ -281,7 +288,7 @@ def test_dry_run_with_settings_file_applies_the_saved_sound_theme(tmp_path):
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=60,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
         check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
@@ -311,7 +318,7 @@ def test_settings_with_look_2000_and_custom_active_title_keep_the_looks_inactive
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=60,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
         check=False,
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
@@ -376,7 +383,10 @@ def taskbar_script_written(tmp_path, assignments=""):
         f"SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 SETUP_LOG={log} {assignments} apply_taskbar"
     )
     subprocess.run(
-        ["bash", "-c", script], timeout=30, env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}, check=False
+        ["bash", "-c", script],
+        timeout=30,
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path)},
+        check=False,
     )
     return log.read_text()
 
@@ -561,21 +571,27 @@ def test_ui_sudo_with_sudo_askpass_asks_sudo_to_authenticate_through_it(tmp_path
         capture_output=True,
         text=True,
         timeout=30,
-        env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(tmp_path)},
+        env={"PATH": f"{stubs}:/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path)},
         check=False,
     ).stdout.split()[-1]
 
     assert ((tmp_path / "sudo-calls").read_text().strip(), status) == expected
 
 
-def dry_run_log(tmp_path, *arguments):
+def dry_run_log(tmp_path, *arguments, environment=None):
     subprocess.run(
         [str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", *arguments],
         capture_output=True,
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=120,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        env={
+            "PATH": "/usr/bin:/bin",
+            "SETUP_OS_RELEASE": "/dev/null",
+            "HOME": str(tmp_path),
+            "TMPDIR": str(tmp_path),
+            **(environment or {}),
+        },
         check=False,
     )
     return next(tmp_path.glob("chicago95-setup-*.log")).read_text()
@@ -720,7 +736,7 @@ def test_uninstall_resets_the_gsettings_keys_setup_wrote(tmp_path):
         text=True,
         timeout=30,
         stdin=subprocess.DEVNULL,
-        env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(tmp_path)},
+        env={"PATH": f"{stubs}:/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path)},
         check=False,
     )
 
@@ -748,7 +764,7 @@ def test_uninstall_deletes_the_animation_settings_setup_wrote(tmp_path):
         text=True,
         timeout=30,
         stdin=subprocess.DEVNULL,
-        env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(tmp_path)},
+        env={"PATH": f"{stubs}:/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path)},
         check=False,
     )
 
@@ -790,7 +806,7 @@ def test_winamp_rule_drops_the_frame_of_the_skinned_player_only(tmp_path):
         capture_output=True,
         text=True,
         timeout=30,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path)},
         check=False,
     ).stdout.splitlines()
     settings = dict(line.split("=", 1) for line in rule[1:])
@@ -908,7 +924,10 @@ def finish_session_calls(tmp_path, shell_changed):
         f"SHELL_CHANGED={shell_changed} SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 finish_session"
     )
     subprocess.run(
-        ["bash", "-c", script], timeout=30, env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(tmp_path)}, check=False
+        ["bash", "-c", script],
+        timeout=30,
+        env={"PATH": f"{stubs}:/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path)},
+        check=False,
     )
     return calls.read_text().splitlines()
 
@@ -946,7 +965,7 @@ def test_detecting_without_a_display_starts_no_graphical_program_that_would_cras
         capture_output=True,
         text=True,
         timeout=30,
-        env={"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(tmp_path)},
+        env={"PATH": f"{stubs}:/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path)},
         check=False,
     ).stdout
     started = calls.read_text().splitlines() if calls.exists() else []
@@ -1355,7 +1374,7 @@ def component_dry_run_log(tmp_path, *flags):
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=120,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
         check=False,
     )
     return next(tmp_path.glob("chicago95-setup-*.log")).read_text()
@@ -1409,7 +1428,12 @@ def test_dry_run_of_the_2001_look_uses_the_xp_flag_and_the_xp_professional_banne
 def widget_look_log(tmp_path, *arguments, qt_style_dirs=None, prepare=None):
     if prepare:
         prepare(tmp_path)
-    environment = {"PATH": f"{tmp_path}/stubs:/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)}
+    environment = {
+        "PATH": f"{tmp_path}/stubs:/usr/bin:/bin",
+        "SETUP_OS_RELEASE": "/dev/null",
+        "HOME": str(tmp_path),
+        "TMPDIR": str(tmp_path),
+    }
     if qt_style_dirs:
         environment["SETUP_QT_STYLE_DIRS"] = str(qt_style_dirs)
     subprocess.run(
@@ -1817,14 +1841,98 @@ def test_shutdown_dialogs_are_above_windows_and_hidden_from_taskbar_on_wayland(t
 
 
 def test_startmenu_install_enables_and_loads_shutdown_effect(tmp_path):
-    result = run_setup(tmp_path, '--components=startmenu', '--look=luna', '--screen=1920x1080@1')
+    result = run_setup(tmp_path, "--components=startmenu", "--look=luna", "--screen=1920x1080@1")
     assert result.returncode == 0
-    effect = tmp_path / '.local/share/kwin/effects/chicago95shutdown/contents/code/main.js'
-    assert 'Log Off Windows' in effect.read_text()
-    dry_home = tmp_path / 'dry-run'
+    effect = tmp_path / ".local/share/kwin/effects/chicago95shutdown/contents/code/main.js"
+    assert "Log Off Windows" in effect.read_text()
+    dry_home = tmp_path / "dry-run"
     dry_home.mkdir()
-    result = run_setup(dry_home, '--dry-run', '--components=startmenu', '--look=luna')
+    result = run_setup(dry_home, "--dry-run", "--components=startmenu", "--look=luna")
     assert result.returncode == 0
-    log = next(dry_home.glob('chicago95-setup-*.log')).read_text()
-    assert '--key chicago95shutdownEnabled true' in log
-    assert 'org.kde.kwin.Effects.loadEffect chicago95shutdown' in log
+    log = next(dry_home.glob("chicago95-setup-*.log")).read_text()
+    assert "--key chicago95shutdownEnabled true" in log
+    assert "org.kde.kwin.Effects.loadEffect chicago95shutdown" in log
+
+
+def fake_distribution(tmp_path):
+    """An os-release naming Testix Linux 7 and a data dir with its logo icon; the env that points Setup at them."""
+    from PIL import Image
+
+    (tmp_path / "os-release").write_text(
+        'NAME="Testix Linux"\nVERSION_ID=7\nVARIANT="Studio Edition"\nPRETTY_NAME="Testix Linux 7"\nLOGO=testix-logo\n'
+    )
+    icon = tmp_path / "share/icons/hicolor/48x48/apps/testix-logo.png"
+    icon.parent.mkdir(parents=True)
+    Image.new("RGBA", (48, 48), "#3c6eb4").save(icon)
+    return {"SETUP_OS_RELEASE": str(tmp_path / "os-release"), "SETUP_DATA_DIRS": str(tmp_path / "share")}
+
+
+def test_branding_as_the_distribution_names_the_start_menu_after_it(tmp_path):
+    log = dry_run_log(tmp_path, "--components=startmenu", "--branding=distro", environment=fake_distribution(tmp_path))
+    assert "Start menu banner: Testix Linux 7" in log
+
+
+def test_branding_as_the_distribution_replaces_the_xp_looks_windows_name(tmp_path):
+    log = dry_run_log(
+        tmp_path, "--components=startmenu", "--look=2001", "--branding=distro", environment=fake_distribution(tmp_path)
+    )
+    assert "Start menu banner: Testix Linux 7" in log
+
+
+def test_a_banner_text_flag_wins_over_the_distributions_name(tmp_path):
+    log = dry_run_log(
+        tmp_path,
+        "--components=startmenu",
+        "--branding=distro",
+        "--banner-text=Mine",
+        environment=fake_distribution(tmp_path),
+    )
+    assert "Start menu banner: Mine" in log
+
+
+def test_branding_as_windows_keeps_the_looks_names(tmp_path):
+    log = dry_run_log(
+        tmp_path, "--components=startmenu", "--look=2001", "--branding=windows", environment=fake_distribution(tmp_path)
+    )
+    assert "Start menu banner: Windows XP Professional" in log
+
+
+def test_without_the_flag_setup_brands_it_as_the_detected_distribution(tmp_path):
+    log = dry_run_log(tmp_path, "--components=startmenu", environment=fake_distribution(tmp_path))
+    assert "Start menu banner: Testix Linux 7" in log
+
+
+def test_without_a_detected_distribution_setup_keeps_the_windows_names(tmp_path):
+    log = dry_run_log(tmp_path, "--components=startmenu", "--look=2001")
+    assert "Start menu banner: Windows XP Professional" in log
+
+
+def test_the_branding_choice_is_saved(tmp_path):
+    run_bash_with_steps(tmp_path, "SETUP_BRANDING=distro; save_settings")
+    assert "BRANDING=distro" in (tmp_path / ".config/chicago95/setup.conf").read_text().splitlines()
+
+
+def test_the_distributions_branding_fills_only_known_settings(tmp_path):
+    script = (
+        "distro_branding_lines() { printf 'EDITION\\tStudio\\nPATH\\t/evil\\n'; }; "
+        'apply_distro_branding; echo "$SETUP_EDITION|$PATH"'
+    )
+    assert run_bash_with_steps(tmp_path, script) == ["Studio|/usr/bin:/bin"]
+
+
+def test_the_distributions_logo_goes_on_the_start_button(tmp_path):
+    environment = fake_distribution(tmp_path)
+    script = (
+        f"SETUP_OS_RELEASE={environment['SETUP_OS_RELEASE']}; SETUP_DATA_DIRS={environment['SETUP_DATA_DIRS']}; "
+        'apply_distro_branding; echo "$SETUP_START_LOGO"'
+    )
+    assert run_bash_with_steps(tmp_path, script) == [str(tmp_path / "share/icons/hicolor/48x48/apps/testix-logo.png")]
+
+
+def test_luna_install_includes_the_flow_test_without_needing_source_checkout(tmp_path):
+    result = run_setup(tmp_path, "--components=startmenu", "--look=luna", "--screen=1920x1080@1")
+    assert result.returncode == 0
+    assert (tmp_path / ".local/lib/chicago95/login_flow.py").is_file()
+    root = tmp_path / ".local/share/chicago95/luna"
+    for relative in ("splash/LunaFlow.qml", "splash/LunaSplash.qml", "splash/LunaStatus.qml", "sddm/LunaLogin.qml", "sddm/ActiveSessions.qml"):
+        assert (root / relative).is_file()

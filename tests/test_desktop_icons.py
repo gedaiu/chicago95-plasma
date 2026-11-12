@@ -43,7 +43,11 @@ def test_desktop_script_parses_as_javascript(qt_app, tmp_path):
 
 
 def test_1995_shows_my_computer_network_neighborhood_and_the_recycle_bin_and_later_looks_add_my_documents(tmp_path):
-    assert (chosen(tmp_path), chosen(tmp_path, "SETUP_START_MENU_STYLE=1998"), chosen(tmp_path, "SETUP_START_MENU_STYLE=2000")) == (
+    assert (
+        chosen(tmp_path),
+        chosen(tmp_path, "SETUP_START_MENU_STYLE=1998"),
+        chosen(tmp_path, "SETUP_START_MENU_STYLE=2000"),
+    ) == (
         ["computer", "network", "recycle"],
         ["computer", "documents", "network", "recycle"],
         ["computer", "documents", "network", "recycle"],
@@ -92,7 +96,12 @@ def test_my_documents_link_points_into_the_home_folder_once_installed(tmp_path):
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=120,
-        env={"PATH": f"{tmp_path / 'stubs'}:/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
+        env={
+            "PATH": f"{tmp_path / 'stubs'}:/usr/bin:/bin",
+            "SETUP_OS_RELEASE": "/dev/null",
+            "HOME": str(tmp_path),
+            "TMPDIR": str(tmp_path),
+        },
         check=False,
     )
 

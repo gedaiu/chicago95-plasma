@@ -384,3 +384,69 @@ def test_installed_dialog_resolves_shipped_vector_flag(tmp_path, monkeypatch):
     (images / source.name).write_bytes(source.read_bytes())
     monkeypatch.setattr(luna_dialogs, "__file__", str(tmp_path / "chicago95lunadialogs.py"))
     assert luna_dialogs.flag_picture_path() == images / source.name
+
+
+LOGO_MIDDLE = (289, 23)  # inside the XP flag's 38x32 slot at (270, 7)
+
+
+def blue_picture(path):
+    Image.new("RGBA", (32, 32), "#0000ff").save(path)
+    return str(path)
+
+
+def drawn_with(dialog_class, **branding):
+    commands = luna_dialogs.silent_commands("stand_by", "turn_off", "restart", "log_off", "switch_user")
+    return qimage_to_pil(luna_dialogs.grab_image(dialog_class(commands, **branding))).convert("RGB")
+
+
+def test_a_logo_of_the_users_own_takes_the_xp_flags_place_on_turn_off(qt_app, tmp_path):
+    image = drawn_with(luna_dialogs.TurnOffDialog, logo=blue_picture(tmp_path / "fedora-logo-icon.png"))
+    assert image.getpixel(LOGO_MIDDLE) == (0, 0, 255)
+
+
+def test_a_bundled_flag_keeps_the_xp_flag_on_turn_off(qt_app, tmp_path):
+    image = drawn_with(luna_dialogs.TurnOffDialog, logo=blue_picture(tmp_path / "logo-xp-16.png"))
+    assert image.getpixel(LOGO_MIDDLE) != (0, 0, 255)
+
+
+def test_log_off_names_the_system_it_is_given(qt_app):
+    commands = luna_dialogs.silent_commands("log_off", "switch_user")
+    assert luna_dialogs.LogOffDialog(commands, name="Fedora Linux").title == "Log Off Fedora Linux"
+
+
+def test_log_off_names_windows_without_a_system(qt_app):
+    commands = luna_dialogs.silent_commands("log_off", "switch_user")
+    assert luna_dialogs.LogOffDialog(commands).title == "Log Off Windows"
+
+
+@pytest.mark.parametrize("dialog_name,command", [
+    ("turn_off", "stand_by"), ("turn_off", "turn_off"), ("turn_off", "restart"),
+    ("log_off", "switch_user"), ("log_off", "log_off"),
+    ("turn_off", "cancel"), ("log_off", "cancel"),
+])
+def test_button_tooltip_is_displayed_without_running_action(request, dialog_name, command, calls, tmp_path):
+    from PySide6.QtCore import QEvent
+    from PySide6.QtGui import QHelpEvent
+    from PySide6.QtWidgets import QApplication, QToolTip
+
+    dialog = request.getfixturevalue(dialog_name)
+    button = dialog.cancel_button if command == "cancel" else dialog.buttons[command]
+    dialog.activateWindow()
+    QTest.qWait(50)
+    point = button.rect().center()
+    QTest.mouseMove(button, point)
+    QToolTip.hideText()
+    QApplication.sendEvent(button, QHelpEvent(QEvent.ToolTip, point, button.mapToGlobal(point)))
+    QTest.qWait(50)
+    assert button.toolTip()
+    assert QToolTip.isVisible()
+    assert QToolTip.text() == button.toolTip()
+    tooltip = next(widget for widget in QApplication.topLevelWidgets() if widget.isVisible()
+                   and widget.windowType() == Qt.ToolTip)
+    image = qimage_to_pil(tooltip.grab().toImage()).convert("RGB")
+    image.save(tmp_path / f"{dialog_name}-{command}-tooltip.png")
+    assert image.width > 50 and image.height > 10
+    assert len(image.getcolors(maxcolors=1 << 20)) > 1
+    assert calls == []
+    QToolTip.hideText()
+    dialog.close()

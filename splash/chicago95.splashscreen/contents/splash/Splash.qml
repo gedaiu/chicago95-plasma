@@ -17,6 +17,27 @@ Rectangle {
     id: root
     property int stage
     property bool booting: false
+    property bool textBoot: false
+    property int textBootDuration: 1800
+    property string textBootName: Settings.brandText || "Windows 95"
+    function playBootPreview() {
+        booting = true;
+        textBoot = !luna;
+        textBootTimer.restart();
+    }
+    Timer {
+        id: textBootTimer
+        interval: root.textBootDuration
+        onTriggered: root.textBoot = false
+    }
+    TextBoot {
+        anchors.fill: parent
+        z: 100
+        visible: root.booting && root.textBoot
+        ntLoader: Settings.style === "2000"
+        systemName: root.textBootName
+        progress: root.stage / root.stages
+    }
 
     readonly property bool modern: booting && Settings.style === "2000"
     readonly property bool luna: booting && Settings.style === "luna"

@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import chicago95animations
+import chicago95distro
 import chicago95ui  # noqa: E401,E702
 import chicago95update  # noqa: E402
 import login_preview
@@ -154,11 +155,13 @@ COMPONENTS_BY_KEY = {
     "SAVER": ("screensaver",),
     "IDLE_MIN": ("screensaver",),
     "LOGIN_STYLE": ("splash", "sddm"),
-    "LOGIN_LOGO": ("splash", "sddm", "plymouth"),
-    "EDITION": ("splash", "sddm", "plymouth"),
-    "TAGLINE": ("splash", "sddm"),
-    "COMPANY": ("splash", "sddm", "plymouth"),
-    "COMPANY_LOGO": ("splash", "sddm"),
+    # The Shut Down dialog's banner reads them from chicago95rc [Branding], which the Start menu step writes.
+    "LOGIN_LOGO": ("splash", "sddm", "plymouth", "startmenu"),
+    "EDITION": ("splash", "sddm", "plymouth", "startmenu"),
+    "TAGLINE": ("splash", "sddm", "startmenu"),
+    "COMPANY": ("splash", "sddm", "plymouth", "startmenu"),
+    "COMPANY_LOGO": ("splash", "sddm", "startmenu"),
+    "BRANDING": (),  # only which names the texts and logos came from: they apply themselves
     "LOGIN_TITLE": ("sddm",),
     "LOGIN_MESSAGE": ("sddm",),
     "LOGIN_ICON": ("sddm",),
@@ -254,6 +257,59 @@ START_MENU_STYLES = [
 ]
 TASKBAR_STYLE_HELP = "The Windows XP taskbar also switches tooltips and popups to the XP style."
 
+# The names, texts and logos the screens show, each edited on its own page and all together on Distro Setup.
+BRANDING_PICTURES = {
+    "START_LOGO": [("Classic flag", "flag"), ("Windows XP flag", "xp"), ("Penguin", "penguin")],
+    "LOGIN_LOGO": [
+        ("Same as the Start button", "start"),
+        ("Waving flag", "waving-flag"),
+        ("Classic flag", "flag"),
+        ("Windows XP flag", "xp"),
+        ("Penguin", "penguin"),
+    ],
+    "LOGIN_ICON": [("Keys", "keys"), ("Padlock", "padlock")],
+    "COMPANY_LOGO": [("The company's name in heavy italics", "text")],
+    "SPLASH_IMAGE": [("Chicago95 picture", "classic")],
+}
+
+
+def branding_defaults(settings):
+    """Each name, text and logo as the look's Windows had it, before anyone changes it."""
+    preset = LOOK_PRESETS.get(settings.get("LOOK"), LOOK_PRESETS["1995"])
+    return {
+        "BANNER_TEXT": preset.get("BANNER_TEXT", "Chicago95"),
+        "EDITION": "Professional",
+        "TAGLINE": "Built on Linux Technology",
+        "COMPANY": "KDE",
+        "START_LOGO": preset.get("START_LOGO", "flag"),
+        "LOGIN_LOGO": "start",
+        "COMPANY_LOGO": "text",
+        "LOGIN_ICON": "keys",
+        "START_TEXT": "Start",
+        "LOGIN_TITLE": "Log On to %h",
+        "LOGIN_MESSAGE": "Type a user name and password to log on.",
+        "LOADING_TEXT": "Starting up...",
+        "LOADING_FOOTER": "Chicago95 for KDE Plasma",
+        "SPLASH_IMAGE": "classic",
+    }
+
+
+def branding_field(tab, key, label, settings):
+    """One name, text or logo field, with its default and, for a logo, its pictures."""
+    default = branding_defaults(settings)[key]
+    if key in BRANDING_PICTURES:
+        return tab.picture(key, label, BRANDING_PICTURES[key], default=default)
+    return tab.text(key, label, default=default)
+
+
+def detected_branding():
+    """This computer's distribution's names and logos (lib/chicago95distro.py), where Setup looks for them."""
+    data_dirs = os.environ.get("SETUP_DATA_DIRS", "")
+    roots = [path for path in data_dirs.split(":") if path] or chicago95distro.data_dirs()
+    fields = chicago95distro.read_os_release(os.environ.get("SETUP_OS_RELEASE") or chicago95distro.OS_RELEASE)
+    return chicago95distro.distro_branding(fields, roots)
+
+
 HOME_PAGE = ("Control Panel",)
 DETAILS_SEPARATOR = "  -  "
 MENU_BAR_HEIGHT, STATUS_BAR_HEIGHT = (
@@ -299,6 +355,12 @@ APPLETS = (
         "Changes the desktop background, screen saver, colors and icons.",
         own_window=True,
     ),
+    Applet(
+        "Distro Setup",
+        ("distributor-logo", "start-here", "computer"),
+        "Names this computer's system everywhere it shows: the Start button and menu, the log on, boot and "
+        "loading screens, and the Shut Down dialog.",
+    ),
     Applet("Explorer", ("system-file-manager", "folder"), "Chooses the file manager."),
     Applet("Fonts", ("preferences-desktop-font", "font-x-generic"), "Changes the font used on screen."),
     Applet("Modems", ("modem", "network-modem"), "Opens Dial-Up Networking.", "chicago95-dialup"),
@@ -325,6 +387,7 @@ APPLET_BY_NAME = {applet.name: applet for applet in APPLETS}
 PAGE_TABS = {
     "Booting Screen": ("Boot Screen",),
     "Display": ("Background", "Screen Saver", "Appearance", "Effects", "Settings"),
+    "Distro Setup": ("Names and Logos",),
     "Explorer": ("General",),
     "Fonts": ("Font",),
     "Mouse": ("Buttons", "Pointers", "Motion"),
@@ -339,6 +402,7 @@ PAGE_TABS = {
 PAGE_SLUGS = {
     "boot": "Booting Screen",
     "display": "Display",
+    "distro": "Distro Setup",
     "explorer": "Explorer",
     "fonts": "Fonts",
     "mouse": "Mouse",
@@ -705,8 +769,10 @@ def themed_icon(names):
 
 
 def tool_path(name):
-    installed = Path.home() / ".local/bin" / name
-    return str(installed if installed.exists() else Path(__file__).resolve().parent / name)
+    """The tool beside this Control Panel (both installed by Setup, or both in the checkout), so a checkout's Control
+    Panel never draws with an older installed copy; the installed one when there is none beside it."""
+    beside = Path(__file__).resolve().parent / name
+    return str(beside if beside.exists() else Path.home() / ".local/bin" / name)
 
 
 def screensaver_picture_dir():
@@ -1399,10 +1465,12 @@ class SettingsTab(QWidget):
     def values(self):
         return {key: getter() for key, (getter, _setter, _default) in self.fields.items()}
 
-    def load(self, settings):
+    def load(self, settings, keys=None):
+        """The fields show the settings: all of them, or only the given keys'."""
         self.loading = True
         for key, (_getter, setter, default) in self.fields.items():
-            setter(settings.get(key, default))
+            if keys is None or key in keys:
+                setter(settings.get(key, default))
         self.loading = False
 
     def text(self, key, label, default=""):
@@ -1635,7 +1703,8 @@ def luna_previews():
 
 
 def luna_root_of(values):
-    return repo_of(values) / "luna"
+    source = repo_of(values) / "luna"
+    return source if source.exists() else Path.home() / ".local/share/chicago95/luna"
 
 
 def desktop_color(values):
@@ -1812,8 +1881,9 @@ class LogOnPreview(QmlPreview):
         examples = {}
         if self.interactive:
             users = []
-            for name, icon_name in zip(("Alex", "Sam", "Taylor"),
-                                       ("user-identity", "user-home", "computer"), strict=True):
+            for name, icon_name in zip(
+                ("Alex", "Sam", "Taylor"), ("user-identity", "user-home", "computer"), strict=True
+            ):
                 avatar = folder / f"avatar-{name}.png"
                 QIcon.fromTheme(icon_name).pixmap(48, 48).save(str(avatar))
                 source = QUrl.fromLocalFile(str(avatar)).toString() if avatar.exists() else ""
@@ -1829,6 +1899,24 @@ class LogOnPreview(QmlPreview):
             parent.refresh_previews()
         self.test_window = LoginTestDialog(self.values, self.window())
         self.test_window.show()
+
+    def open_flow_test(self):
+        from login_flow import FlowTestDialog
+
+        parent = self.parentWidget()
+        while parent is not None and not isinstance(parent, PropertiesPage):
+            parent = parent.parentWidget()
+        if parent is not None:
+            parent.refresh_previews()
+        values = dict(self.values)
+        values["LOGIN_STYLE"] = "luna"
+        preview = LogOnPreview(interactive=True)
+        preview.refresh(values)
+        root = luna_root_of(values)
+        if not root.exists():
+            root = INSTALLED_SPLASH / "luna"
+        self.flow_test_window = FlowTestDialog(preview, root, self.window())
+        self.flow_test_window.show()
 
 
 class LoginTestDialog(QDialog):
@@ -1920,6 +2008,29 @@ def start_button_ui(installed=INSTALLED_START_PLASMOID, repo=REPO_DIR):
     return checkout if checkout.exists() else installed
 
 
+def scratch_config(folder):
+    """A config folder for a tool drawn offscreen: the user's colours, and room for the preview's own chicago95rc."""
+    config = folder / "config"
+    config.mkdir()
+    user_colours = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "kdeglobals"
+    if user_colours.exists():
+        shutil.copy(user_colours, config / "kdeglobals")
+    return config
+
+
+def screenshot_offscreen(process, config, tool, shot):
+    """Runs one of our tools offscreen on the config folder, saving its window as shot; the tool beside this
+    Control Panel (both installed by Setup, or both in the checkout). A run still going is stopped first."""
+    if process.state() != QProcess.NotRunning:
+        process.kill()
+        process.waitForFinished()
+    environment = QProcessEnvironment.systemEnvironment()
+    environment.insert("XDG_CONFIG_HOME", str(config))
+    environment.insert("QT_QPA_PLATFORM", "offscreen")
+    process.setProcessEnvironment(environment)
+    process.start(sys.executable, [str(Path(__file__).resolve().parent / tool), "--screenshot", str(shot)])
+
+
 class StartMenuPreview(QWidget):
     """The Start menu open above the pressed Start button, with the tab's values before they are applied: the menu
     drawn by the Start menu itself, offscreen on a scratch chicago95rc; the button by the taskbar's StartButton.qml."""
@@ -1975,15 +2086,18 @@ class StartMenuPreview(QWidget):
         self.button.engine().addImportPath(str(luna_previews().qml_import_root()))
         scene = folder / "LunaStartButtonPreview.qml"
         scene.write_text(luna_previews().panel_scene(luna_previews().START_SCENE, parts))
-        context = {"panelRows": luna_previews().panel_rows(), "startText": values.get("START_TEXT", "Start")}
+        logo = values.get("START_LOGO", "flag")
+        context = {
+            "panelRows": luna_previews().panel_rows(),
+            "startText": values.get("START_TEXT", "Start"),
+            # The XP button keeps its own flag for the bundled flags; any other logo takes the flag's place.
+            "startLogo": QUrl.fromLocalFile(str(picture_file(logo, repo_of(values)))),
+            "startCustomLogo": logo not in ("", "flag", "xp"),
+        }
         self.show_scene(scene, context, luna_previews().PANEL_HEIGHT)
 
     def draw_menu(self, folder, values, look):
-        config = folder / "config"
-        config.mkdir()
-        user_colours = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "kdeglobals"
-        if user_colours.exists():
-            shutil.copy(user_colours, config / "kdeglobals")
+        config = scratch_config(folder)
         (config / "chicago95rc").write_text(
             "[StartMenu]\n"
             f"bannerText={values.get('BANNER_TEXT', 'Chicago95')}\n"
@@ -1991,17 +2105,8 @@ class StartMenuPreview(QWidget):
             f"bannerTextColor={values.get('BANNER_FG', '#C0C0C0')}\n"
             f"style={look}\n"
         )
-        if self.process.state() != QProcess.NotRunning:
-            self.process.kill()
-            self.process.waitForFinished()
-        environment = QProcessEnvironment.systemEnvironment()
-        environment.insert("XDG_CONFIG_HOME", str(config))
-        environment.insert("QT_QPA_PLATFORM", "offscreen")
-        self.process.setProcessEnvironment(environment)
         self.shot = folder / "menu.png"
-        # The Start menu beside this Control Panel: both installed by Setup, or both in the checkout.
-        start_menu = Path(__file__).resolve().parent / "chicago95-startmenu"
-        self.process.start(sys.executable, [str(start_menu), "--screenshot", str(self.shot)])
+        screenshot_offscreen(self.process, config, "chicago95-startmenu", self.shot)
 
     def show_menu(self):
         menu = QPixmap(str(self.shot))
@@ -2039,10 +2144,86 @@ class BrandingPreview(QLabel):
         folder = fresh_scratch(self)
         luna_previews().copy_screen_trees(luna_root_of(values), folder / "luna")
         (folder / "WordmarkPreview.qml").write_text(luna_previews().WORDMARK_SCENE)
-        self.wordmark.rootContext().setContextProperty("wordmarkEdition", values.get("EDITION", "Professional"))
+        logo = picture_file(values.get("LOGIN_LOGO", "start"), repo_of(values))
+        context = {
+            "wordmarkEdition": values.get("EDITION", "Professional"),
+            "wordmarkName": values.get("BANNER_TEXT", "Chicago95"),
+            "wordmarkCompany": values.get("COMPANY", "KDE"),
+            "wordmarkLogo": QUrl.fromLocalFile(str(logo)).toString() if logo.is_file() else "",
+        }
+        for name, value in context.items():
+            self.wordmark.rootContext().setContextProperty(name, value)
         self.wordmark.engine().clearComponentCache()
         self.wordmark.setSource(QUrl.fromLocalFile(str(folder / "WordmarkPreview.qml")))
         self.wordmark.show()
+
+
+class ShutDownPreview(QWidget):
+    """The Shut Down dialog as the Shut Down tool draws it, with the values' name, edition and logos: drawn
+    offscreen on a scratch chicago95rc whose [Branding] is what Setup's write_branding would write."""
+
+    WIDTH = 340  # the 2000 dialog's 411-wide banner shrunk to the property sheet, as BrandingPreview
+
+    def __init__(self):
+        super().__init__()
+        self.scratch = None
+        self.shot = None
+        self.test_processes = []
+        self.picture = QLabel()
+        self.process = QProcess(self)
+        self.process.finished.connect(self.show_dialog)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.picture, 0, Qt.AlignLeft)
+        for label, log_off in (("Test shutdown…", False), ("Test logoff…", True)):
+            button = QPushButton(label)
+            button.setToolTip("Try the current theme without logging off or running a power command.")
+            button.clicked.connect(lambda checked=False, log_off=log_off: self.open_test(log_off))
+            layout.addWidget(button)
+
+    def open_test(self, log_off=False):
+        if self.shot is None:
+            return
+        # Keep this configuration alive even if the property sheet is refreshed.
+        folder = Path(tempfile.mkdtemp(dir=PREVIEW_SCRATCH.name))
+        shutil.copytree(self.shot.parent / "config", folder / "config")
+        process = QProcess(self)
+        environment = QProcessEnvironment.systemEnvironment()
+        environment.insert("XDG_CONFIG_HOME", str(folder / "config"))
+        process.setProcessEnvironment(environment)
+        self.test_processes.append(process)
+        arguments = [str(Path(__file__).resolve().parent / "chicago95-shutdown"), "--dry-run"]
+        if log_off:
+            arguments.append("--log-off")
+        process.start(sys.executable, arguments)
+
+
+    def refresh(self, values):
+        folder = fresh_scratch(self)
+        config = scratch_config(folder)
+        look = branding_look(values)
+        rc = configparser.ConfigParser(interpolation=None)
+        rc.optionxform = str
+        rc["StartMenu"] = {"style": menu_style_of(values), "bannerText": look["bannerText"]}
+        rc["Look"] = {"widgetStyle": values.get("WIDGET_STYLE", "classic")}
+        rc["Branding"] = {
+            "osName": look["osName"],
+            "osCompany": look["osCompany"],
+            "osEdition": look["edition"],
+            "tagline": look["tagline"],
+            "osLogo": look["osLogo"],
+            "companyLogo": look["companyLogo"],
+        }
+        with open(config / "chicago95rc", "w") as file:
+            rc.write(file, space_around_delimiters=False)
+        self.shot = folder / "shut-down.png"
+        screenshot_offscreen(self.process, config, "chicago95-shutdown", self.shot)
+
+    def show_dialog(self):
+        dialog = QPixmap(str(self.shot))
+        if dialog.width() > self.WIDTH:
+            dialog = dialog.scaledToWidth(self.WIDTH, Qt.SmoothTransformation)
+        self.picture.setPixmap(dialog)
 
 
 class LoadingPreview(QmlPreview):
@@ -2080,6 +2261,7 @@ class LoadingPreview(QmlPreview):
         add_luna_screen(values, folder, "splash", boot_style(values))
 
     def refresh(self, values):
+        self.values = dict(values)
         folder = fresh_scratch(self) / "splash"
         shutil.copytree(splash_of(values), folder)
         self.add_screens(values, folder)
@@ -2088,6 +2270,29 @@ class LoadingPreview(QmlPreview):
         if self.dialog() is not None:
             self.dialog().setProperty("booting", self.BOOTING)
             self.dialog().setProperty("stage", 3)
+
+
+    def open_boot_test(self):
+        parent = self.parentWidget()
+        while parent is not None and not isinstance(parent, PropertiesPage):
+            parent = parent.parentWidget()
+        if parent is not None:
+            parent.refresh_previews()
+        window = QDialog(self.window())
+        window.setWindowTitle("Test boot sequence")
+        layout = QVBoxLayout(window)
+        preview = LoadingPreview()
+        preview.fit((800, 600), 1)
+        preview.refresh(self.values)
+        layout.addWidget(preview)
+        note = QLabel("Preview only: text loader → boot image. No firmware or system boot is performed.")
+        layout.addWidget(note)
+        replay = QPushButton("Replay")
+        replay.clicked.connect(lambda: preview.dialog().playBootPreview())
+        layout.addWidget(replay)
+        self.boot_test_window = window
+        window.show()
+        preview.dialog().playBootPreview()
 
 
 class AfterLogOnPreview(LoadingPreview):
@@ -2784,6 +2989,17 @@ class PropertiesPage(QWidget):
         self.refresh_apply_button()
         return True
 
+    def take_applied(self, settings, applied):
+        """Another page applied these keys: this one shows them too, except the ones it changed itself and has
+        not applied yet; those and its other changes stay pending."""
+        own = self.changed_values()
+        shown = [key for key in applied if key in self.baseline and key not in own]
+        for tab in self.settings_tabs:
+            tab.saved = dict(settings)
+            tab.load(settings, shown)
+        self.baseline.update({key: settings[key] for key in shown})
+        self.refresh_apply_button()
+
     def ok(self):
         if not self.changed_values() or self.apply():
             self.finished.emit()
@@ -3256,18 +3472,9 @@ def start_menu_tab(settings, actions):
         START_MENU_STYLES,
         default=LOOK_PRESETS.get(settings.get("LOOK"), LOOK_PRESETS["1995"])["START_MENU_STYLE"],
     )
-    tab.text("START_TEXT", "Button text:", default="Start")
-    tab.picture(
-        "START_LOGO",
-        "Button logo:",
-        [("Classic flag", "flag"), ("Windows XP flag", "xp"), ("Penguin", "penguin")],
-        default=LOOK_PRESETS.get(settings.get("LOOK"), LOOK_PRESETS["1995"]).get("START_LOGO", "flag"),
-    )
-    tab.text(
-        "BANNER_TEXT",
-        "Menu banner text:",
-        default=LOOK_PRESETS.get(settings.get("LOOK"), LOOK_PRESETS["1995"]).get("BANNER_TEXT", "Chicago95"),
-    )
+    branding_field(tab, "START_TEXT", "Button text:", settings)
+    branding_field(tab, "START_LOGO", "Button logo:", settings)
+    branding_field(tab, "BANNER_TEXT", "Menu banner text:", settings)
     tab.group("Preview")
     tab.preview(StartMenuPreview())
     return tab
@@ -3283,37 +3490,28 @@ def log_on_tab(settings, actions):
         [("Classic (1995 and 1998)", "classic"), ("Windows 2000", "2000"), ("Windows XP", "luna")],
         default="classic",
     )
-    tab.text("LOGIN_TITLE", "Title bar:", default="Log On to %h")
-    tab.text("LOGIN_MESSAGE", "Message:", default="Type a user name and password to log on.")
+    branding_field(tab, "LOGIN_TITLE", "Title bar:", settings)
+    branding_field(tab, "LOGIN_MESSAGE", "Message:", settings)
     tab.group("Pictures")
-    tab.picture("LOGIN_ICON", "Picture:", [("Keys", "keys"), ("Padlock", "padlock")], default="keys")
-    tab.picture(
-        "LOGIN_LOGO",
-        "Logo:",
-        [
-            ("Same as the Start button", "start"),
-            ("Waving flag", "waving-flag"),
-            ("Classic flag", "flag"),
-            ("Windows XP flag", "xp"),
-            ("Penguin", "penguin"),
-        ],
-        default="start",
-    )
+    branding_field(tab, "LOGIN_ICON", "Picture:", settings)
+    branding_field(tab, "LOGIN_LOGO", "Logo:", settings)
     tab.group("Preview")
     preview = tab.preview(LogOnPreview())
     test = chicago95ui.dialog_button("Test login…")
     test.clicked.connect(preview.open_test)
     tab.form.addRow("", test)
+    flow_test = chicago95ui.dialog_button("Test Luna startup flow…")
+    flow_test.clicked.connect(preview.open_flow_test)
+    tab.form.addRow("", flow_test)
     return tab
 
 
 @tab_builder("Passwords", "Branding")
 def branding_tab(settings, actions):
     tab = SettingsTab(settings, actions)
-    tab.text("EDITION", "Edition:", default="Professional")
-    tab.text("TAGLINE", "Tagline:", default="Built on Linux Technology")
-    tab.text("COMPANY", "Company:", default="KDE")
-    tab.picture("COMPANY_LOGO", "Company logo:", [("The company's name in heavy italics", "text")], default="text")
+    for key, label in (("EDITION", "Edition:"), ("TAGLINE", "Tagline:"), ("COMPANY", "Company:")):
+        branding_field(tab, key, label, settings)
+    branding_field(tab, "COMPANY_LOGO", "Company logo:", settings)
     tab.group("Preview (the log-on banner)")
     tab.preview(BrandingPreview())
     return tab
@@ -3342,14 +3540,88 @@ def boot_screen_tab(settings, actions):
         default=boot_style(settings),
     )
     tab.group("Classic picture")
-    tab.picture("SPLASH_IMAGE", "Picture:", [("Chicago95 picture", "classic")], default="classic")
+    branding_field(tab, "SPLASH_IMAGE", "Picture:", settings)
     tab.group("2000 texts")
-    tab.text("LOADING_TEXT", "Text beside the progress bar:", default="Starting up...")
-    tab.text("LOADING_FOOTER", "Bottom line:", default="Chicago95 for KDE Plasma")
+    branding_field(tab, "LOADING_TEXT", "Text beside the progress bar:", settings)
+    branding_field(tab, "LOADING_FOOTER", "Bottom line:", settings)
     tab.group("Preview")
-    tab.preview(LoadingPreview())
+    boot_preview = tab.preview(LoadingPreview())
+    test_boot = QPushButton("Test boot sequence…")
+    test_boot.clicked.connect(boot_preview.open_boot_test)
+    tab.form.addRow("", test_boot)
     tab.group("After log on")
     tab.preview(AfterLogOnPreview())
+    return tab
+
+
+DISTRO_FIELDS = {
+    "System": (("BANNER_TEXT", "Name:"), ("EDITION", "Edition:"), ("TAGLINE", "Tagline:"), ("COMPANY", "Company:")),
+    "Logos": (
+        ("START_LOGO", "Start button:"),
+        ("LOGIN_LOGO", "Log on and boot:"),
+        ("COMPANY_LOGO", "Company:"),
+        ("LOGIN_ICON", "Log on picture:"),
+    ),
+    "Texts": (
+        ("START_TEXT", "Start button:"),
+        ("LOGIN_TITLE", "Log on title bar:"),
+        ("LOGIN_MESSAGE", "Log on message:"),
+        ("LOADING_TEXT", "Beside the progress bar:"),
+        ("LOADING_FOOTER", "Boot page's bottom line:"),
+        ("SPLASH_IMAGE", "Boot picture:"),
+    ),
+}
+DISTRO_PREVIEWS = (
+    ("The Start button and menu", StartMenuPreview),
+    ("Log on", LogOnPreview),
+    ("The log on banner", BrandingPreview),
+    ("Booting", LoadingPreview),
+    ("After log on", AfterLogOnPreview),
+    ("Shut Down", ShutDownPreview),
+)
+
+
+@tab_builder("Distro Setup", "Names and Logos")
+def distro_setup_tab(settings, actions):
+    """Every name, text and logo the screens show, in one place, with each screen beside them. The pages they
+    come from keep their fields; this one names the system once. "Use this computer's system" fills them from
+    the running distribution, as Setup's --branding=distro does; "Windows names" puts the look's back."""
+    tab = SettingsTab(settings, actions)
+    fields = {}
+    for title, keys in DISTRO_FIELDS.items():
+        tab.group(title)
+        for key, label in keys:
+            fields[key] = branding_field(tab, key, label, settings)
+    branding = {"value": "windows"}
+    tab.track("BRANDING", lambda: branding["value"], lambda value: branding.update(value=value or "windows"), "windows")
+
+    def fill(found, chosen):
+        for key, value in found.items():
+            tab.fields[key][1](value)
+        branding["value"] = chosen
+        tab.notify()
+
+    tab.group("Names from")
+    tab.distro_button = chicago95ui.dialog_button("Use this computer's system")
+    tab.distro_button.clicked.connect(lambda: fill(detected_branding(), "distro"))
+    tab.windows_button = chicago95ui.dialog_button("Windows names")
+    for button in (tab.distro_button, tab.windows_button):  # wider than OK and Cancel: their captions are longer
+        button.setFixedWidth(max(button.width(), button.sizeHint().width()))
+    keys = chicago95distro.BRANDING_KEYS
+    tab.windows_button.clicked.connect(
+        lambda: fill({key: branding_defaults(tab.saved)[key] for key in keys}, "windows")
+    )
+    row = QWidget()
+    buttons = QHBoxLayout(row)
+    buttons.setContentsMargins(0, 0, 0, 0)
+    buttons.addWidget(tab.distro_button)
+    buttons.addWidget(tab.windows_button)
+    buttons.addStretch(1)
+    tab.form.addRow(row)
+    tab.group("Preview")
+    for caption, preview_class in DISTRO_PREVIEWS:
+        tab.form.addRow(QLabel(caption))
+        tab.preview(preview_class())
     return tab
 
 
@@ -4303,6 +4575,9 @@ class ControlPanel(QMainWindow):
         settings = read_settings(self.settings_path)
         settings.update(changes)
         write_settings(self.settings_path, settings)
+        # The same names are on several pages (Distro Setup and the pages they come from): each open one shows them.
+        for page in [*self.applet_pages.values(), *(window.page for window in self.applet_windows.values())]:
+            page.take_applied(settings, changes)
         repo = settings.get("REPO", "")
         if not repo or not Path(repo, "install.sh").is_file():
             self.actions.show_message(

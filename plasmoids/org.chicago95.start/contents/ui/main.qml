@@ -86,6 +86,12 @@ PlasmoidItem {
     }
     Binding {
         target: button.item
+        property: "customLogo"
+        when: root.isLuna
+        value: ["", "flag", "xp"].indexOf(root.logo) < 0
+    }
+    Binding {
+        target: button.item
         property: "held"
         value: clickArea.pressed && clickArea.containsMouse
     }

@@ -101,7 +101,12 @@ grep -c '^copied' {tmp_path}/setup.log
         capture_output=True,
         text=True,
         timeout=120,
-        env={"PATH": os.environ["PATH"], "HOME": str(tmp_path), "TERM": "xterm-256color"},
+        env={
+            "PATH": os.environ["PATH"],
+            "SETUP_OS_RELEASE": "/dev/null",
+            "HOME": str(tmp_path),
+            "TERM": "xterm-256color",
+        },
         check=False,
     ).stdout.split()
     assert output[-1] == "2000" and int(output[-2]) < 3, output

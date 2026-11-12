@@ -66,7 +66,12 @@ def test_screenshot_option_saves_a_picture_of_the_prompt(tmp_path):
         capture_output=True,
         text=True,
         timeout=60,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "QT_QPA_PLATFORM": "offscreen"},
+        env={
+            "PATH": "/usr/bin:/bin",
+            "SETUP_OS_RELEASE": "/dev/null",
+            "HOME": str(tmp_path),
+            "QT_QPA_PLATFORM": "offscreen",
+        },
         check=False,
     )
 

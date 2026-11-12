@@ -22,12 +22,13 @@ Item {
     id: root
     objectName: "lunaWelcome"
 
-    property var greeter
-    property var users
-    property var sessions
+    property var greeter: null
+    property var users: null
+    property var sessions: null
     property var theme: ({})
     property var keyboardState: null
     property bool shuttingDown: false
+    property string shutdownStatus: "Windows is shutting down..."
     // After log on (luna/splash/LunaWelcome.qml): the chosen user's tile says this, the rest is put away.
     property string loadingStatus: ""
     readonly property bool loggingOn: loadingStatus !== ""
@@ -41,7 +42,7 @@ Item {
     }
     property string family: "Trebuchet MS"
 
-    readonly property real unit: height / 600
+    readonly property real unit: 1
     readonly property real topBandHeight: 78 * unit
     readonly property real bottomBandTop: height - 96 * unit
     readonly property real middleCenterY: (80 * unit + bottomBandTop) / 2
@@ -70,7 +71,12 @@ Item {
 
     Connections {
         target: root.greeter
+        ignoreUnknownSignals: true
+        function onLoginSucceeded() {
+            root.loadingStatus = "Loading your personal settings...";
+        }
         function onLoginFailed() {
+            root.loadingStatus = "";
             root.message = "The password is incorrect. Try again.";
             root.failureCount++;
         }
@@ -296,6 +302,8 @@ Item {
 
     XpWordmark {
         id: wordmark
+        objectName: "loginWordmark"
+        visible: !root.loggingOn
         x: root.shuttingDown ? root.width / 2 + 39 * root.unit : root.dividerX - 21 * root.unit - wordmark.width
         y: root.middleCenterY - 59 * root.unit
         unit: root.unit
@@ -308,13 +316,30 @@ Item {
     }
 
     Text {
-        x: (root.shuttingDown ? root.width / 2 + 33 * root.unit : root.dividerX - 171.5 * root.unit) - width / 2
-        y: root.middleCenterY + 44 * root.unit
-        visible: !root.loggingOn
-        text: root.shuttingDown ? "Windows is shutting down..." : root.locked ? "To unlock, type your password" : "To begin, click your user name"
+        objectName: "welcomeCaption"
+        visible: root.loggingOn
+        text: "welcome"
+        x: root.dividerX - 30 * root.unit - width
+        y: root.middleCenterY - height / 2
         color: "#ffffff"
         font.family: root.family
-        font.pixelSize: 16 * root.unit
+        font.pixelSize: 48 * root.unit
+        font.bold: true
+        font.italic: true
+        style: Text.Raised
+        styleColor: "#31549d"
+    }
+
+    Text {
+        objectName: "screenStatus"
+        x: root.shuttingDown ? root.width / 2 + 151 * root.unit - width
+                            : root.dividerX - 171.5 * root.unit - width / 2
+        y: root.middleCenterY + 44 * root.unit
+        visible: !root.loggingOn
+        text: root.shuttingDown ? root.shutdownStatus : root.locked ? "To unlock, type your password" : "To begin, click your user name"
+        color: "#ffffff"
+        font.family: root.family
+        font.pixelSize: (root.shuttingDown ? 18 : 16) * root.unit
     }
 
     Repeater {
@@ -343,8 +368,9 @@ Item {
                 name: model.realName || model.name
                 picture: model.icon || ""
                 selected: model.name === root.selectedName
-                loggedIn: !!root.loggedOnUsers[model.name] || (root.theme.previewMode && !!model.loggedIn)
+                loggedIn: !!root.loggedOnUsers[model.name] || (!!root.theme.previewMode && !!model.loggedIn)
                 visible: !root.loggingOn || selected
+                enabled: !root.loggingOn
                 status: root.loadingStatus
                 failureCount: root.failureCount
                 family: root.family
