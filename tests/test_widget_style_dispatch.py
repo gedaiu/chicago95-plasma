@@ -53,4 +53,3 @@ def test_ui_font_is_not_tahoma_when_widget_style_is_classic(look_in_rc):
     look_in_rc("[Look]\nwidgetStyle=classic\n")
 
     assert chicago95ui.ui_font().family() != "Tahoma"
-

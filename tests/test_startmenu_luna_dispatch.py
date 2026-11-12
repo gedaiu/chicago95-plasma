@@ -1,5 +1,4 @@
 import pytest
-from conftest import REPO
 from PySide6.QtWidgets import QApplication
 
 

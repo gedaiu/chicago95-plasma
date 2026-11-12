@@ -145,16 +145,27 @@ def test_9x_login_geometry_icon_and_bevels_match_original(qt_app, tmp_path, look
 
     original = screenshot(f"win{look}login")
     ours = render_login(
-        qt_app, tmp_path, users=(), loginStyle="classic", loginTitle="Welcome to Windows",
+        qt_app,
+        tmp_path,
+        users=(),
+        loginStyle="classic",
+        loginTitle="Welcome to Windows",
         loginMessage="Type a user name and password to log on to Windows.",
         titleActive="#000080" if look == "95" else "#000080,#1084d0",
     )
     difference = ImageChops.difference(original, ours.convert("RGB"))
     # Dynamic username/caret and font glyphs have separate typography requirements.
     # Keep all window, field and button edges, key artwork and surrounding backdrop.
-    for box in [(94, 93, 507, 110), (183, 122, 445, 145), (180, 155, 245, 216),
-                (257, 159, 388, 177), (257, 189, 388, 208), (478, 125, 523, 143),
-                (473, 155, 524, 173), (511, 95, 543, 107)]:
+    for box in [
+        (94, 93, 507, 110),
+        (183, 122, 445, 145),
+        (180, 155, 245, 216),
+        (257, 159, 388, 177),
+        (257, 189, 388, 208),
+        (478, 125, 523, 143),
+        (473, 155, 524, 173),
+        (511, 95, 543, 107),
+    ]:
         ImageDraw.Draw(difference).rectangle(box, fill=(0, 0, 0))
     difference.save(tmp_path / "9x-login-difference.png")
     # GDI's 98 caption gradient is quantised differently from Qt Quick (at most

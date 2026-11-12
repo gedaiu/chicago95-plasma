@@ -121,7 +121,9 @@ def linear_gradient(gradient_id, start, end, stops):
 
 def radial_gradient(gradient_id, centre, radii, stops):
     if radii[0] == radii[1]:
-        attributes = f'gradientUnits="userSpaceOnUse" cx="{short(centre[0])}" cy="{short(centre[1])}" r="{short(radii[0])}"'
+        attributes = (
+            f'gradientUnits="userSpaceOnUse" cx="{short(centre[0])}" cy="{short(centre[1])}" r="{short(radii[0])}"'
+        )
     else:
         attributes = (
             f'gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate({short(centre[0])} {short(centre[1])}) '
@@ -427,7 +429,9 @@ def frame_markup(prefix, x0, spec):
         pieces.append(piece_element(f"{prefix}{name}", bounds_markup(prefix, name, box, markup) + markup))
     used = "".join(pieces)
     definitions += [
-        definition for gradient_id, definition in shared_definitions(prefix, spec, x0).items() if f"#{gradient_id})" in used
+        definition
+        for gradient_id, definition in shared_definitions(prefix, spec, x0).items()
+        if f"#{gradient_id})" in used
     ]
     unique = {definition_id(definition): definition for definition in definitions}
     markup = [f"<defs>{''.join(unique.values())}</defs>", *pieces] if unique else pieces

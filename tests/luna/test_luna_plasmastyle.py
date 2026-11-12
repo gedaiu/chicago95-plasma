@@ -221,7 +221,10 @@ def test_active_switch_groove_is_blue_and_the_inactive_one_is_face(theme):
 
 def test_slider_hover_handle_has_a_316ac5_border_and_the_normal_one_a_919b9c_border(theme):
     renderer = QSvgRenderer(str(theme / "widgets/slider.svg"))
-    handles = {name: element_image(theme, "widgets/slider.svg", name, 12, 22) for name in ("horizontal-slider-handle", "horizontal-slider-hover")}
+    handles = {
+        name: element_image(theme, "widgets/slider.svg", name, 12, 22)
+        for name in ("horizontal-slider-handle", "horizontal-slider-hover")
+    }
     assert renderer.elementExists("hint-handle-size") and [
         pixel(handles["horizontal-slider-handle"], 6, 0),
         pixel(handles["horizontal-slider-hover"], 6, 0),
@@ -234,7 +237,10 @@ def test_pager_desktops_are_face_selected_blue_or_hot_orange_outlined(theme):
 
 
 def test_action_button_has_the_push_buttons_003c74_border_in_every_state(theme):
-    borders = [pixel(rendered(theme, "widgets/actionbutton.svg", prefix, 40, 26), 20, 1) for prefix in ("normal-", "hover-", "pressed-")]
+    borders = [
+        pixel(rendered(theme, "widgets/actionbutton.svg", prefix, 40, 26), 20, 1)
+        for prefix in ("normal-", "hover-", "pressed-")
+    ]
     assert borders == [rgb("#003C74")] * 3
 
 

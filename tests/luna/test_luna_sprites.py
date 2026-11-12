@@ -8,7 +8,6 @@ import os
 from pathlib import Path
 
 import pytest
-from conftest import REPO
 from PIL import Image
 from reference import close
 
@@ -48,7 +47,9 @@ def differing_fraction(ours, original, rows=None):
         for y in (rows or range(original.height))
         if opaque(original.getpixel((x, y)))
     ]
-    return sum(not close(ours.getpixel(point), original.getpixel(point)[:3], TOLERANCE) for point in points) / len(points)
+    return sum(not close(ours.getpixel(point), original.getpixel(point)[:3], TOLERANCE) for point in points) / len(
+        points
+    )
 
 
 def test_taskbar_background_equals_the_sprite_in_its_top_15_and_bottom_11_rows_within_12(theme):
@@ -56,8 +57,14 @@ def test_taskbar_background_equals_the_sprite_in_its_top_15_and_bottom_11_rows_w
     original = sprite("TASKBARBACKGROUND")
     top, bottom = BACKGROUND_ROWS
     pairs = [(row, row) for row in range(top)] + [(30 - bottom + index, 28 - bottom + index) for index in range(bottom)]
-    ours = [(panel.pixelColor(20, row).red(), panel.pixelColor(20, row).green(), panel.pixelColor(20, row).blue()) for row, _ in pairs]
-    assert [close(colour, original.getpixel((20, source))[:3], TOLERANCE) for colour, (_, source) in zip(ours, pairs, strict=True)] == [True] * len(pairs)
+    ours = [
+        (panel.pixelColor(20, row).red(), panel.pixelColor(20, row).green(), panel.pixelColor(20, row).blue())
+        for row, _ in pairs
+    ]
+    assert [
+        close(colour, original.getpixel((20, source))[:3], TOLERANCE)
+        for colour, (_, source) in zip(ours, pairs, strict=True)
+    ] == [True] * len(pairs)
 
 
 def test_quick_launch_grip_dots_equal_the_sprites_rows_6_to_11_within_12(qt_app, qml_root, installed, tmp_path):
@@ -105,5 +112,7 @@ def test_chevron_glyph_pixels_are_the_sprites_7bb6e8_double_arrow(qt_app, qml_ro
 
 def test_hot_band_button_resembles_the_sprites_hot_state_within_the_band_budget(qt_app, qml_root, installed, tmp_path):
     original = sprite("TASKBANDBUTTONNOEDGE", 1, 6).crop((0, 3, 13, 25))
-    ours = render(qt_app, qml_root, installed, tmp_path, "org.chicago95.tasks", "QuickLaunchButton", 13, {"hovered": True}).crop((0, 4, 13, 26))
+    ours = render(
+        qt_app, qml_root, installed, tmp_path, "org.chicago95.tasks", "QuickLaunchButton", 13, {"hovered": True}
+    ).crop((0, 4, 13, 26))
     assert differing_fraction(ours, original) < BAND_HOVER_BUDGET

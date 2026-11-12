@@ -1,4 +1,5 @@
 """Native client-side caption buttons must retain Luna faces in both GTK versions."""
+
 import json
 
 import pytest

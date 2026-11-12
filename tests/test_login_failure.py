@@ -35,6 +35,7 @@ def test_no_shown_item_of_the_login_lies_over_another(qt_app, tmp_path, options)
     with login_view(qt_app, tmp_path, **options) as view:
         assert overlapping_pairs(view.rootObject()) == []
 
+
 WELCOME_STATES = {
     "xp welcome": {},
     "xp welcome after a wrong password": {"failed": True},

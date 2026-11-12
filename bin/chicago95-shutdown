@@ -77,10 +77,14 @@ DESCRIPTIONS[DOS_MODE] = "Closes your session and opens the configured DOS-mode 
 DESCRIPTIONS_BY_STYLE = {
     "2001": {
         **DESCRIPTIONS,
-        STAND_BY: ("Keeps your session in memory and puts the computer in a low-power state "
-                   "so that you can quickly resume working."),
-        HIBERNATE: ("Saves your session to disk and turns off the computer. "
-                    "When you turn it on again, Windows restores your session."),
+        STAND_BY: (
+            "Keeps your session in memory and puts the computer in a low-power state "
+            "so that you can quickly resume working."
+        ),
+        HIBERNATE: (
+            "Saves your session to disk and turns off the computer. "
+            "When you turn it on again, Windows restores your session."
+        ),
     }
 }
 LAYOUT = {"1995": "radio", "1998": "radio", "2000": "combo", "2001": "combo"}
@@ -153,8 +157,17 @@ def switch_user_commands():
     seat = os.environ.get("XDG_SEAT_PATH", "/org/freedesktop/DisplayManager/Seat0")
     return [
         ["loginctl", "lock-session"],
-        ["gdbus", "call", "--system", "--dest", "org.freedesktop.DisplayManager",
-         "--object-path", seat, "--method", "org.freedesktop.DisplayManager.Seat.SwitchToGreeter"],
+        [
+            "gdbus",
+            "call",
+            "--system",
+            "--dest",
+            "org.freedesktop.DisplayManager",
+            "--object-path",
+            seat,
+            "--method",
+            "org.freedesktop.DisplayManager.Seat.SwitchToGreeter",
+        ],
     ]
 
 
@@ -290,9 +303,13 @@ def dialog_buttons(dialog, labels):
         button.setFixedSize(75, 23)
         buttons.addWidget(button)
         made.append(button)
-        button.setToolTip("Performs the selected action." if len(made) == 1 else
-                          "Closes this dialog without changing your session." if len(made) == 2 else
-                          "Help is not available.")
+        button.setToolTip(
+            "Performs the selected action."
+            if len(made) == 1
+            else "Closes this dialog without changing your session."
+            if len(made) == 2
+            else "Help is not available."
+        )
     made[0].setDefault(True)
     made[0].clicked.connect(dialog.accept)
     made[1].clicked.connect(dialog.reject)
@@ -502,8 +519,9 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         for choice, label in self.choices:
             self.combo.addItem(chicago95ui.fill_placeholders(label, self.look), choice)
             description = DESCRIPTIONS_BY_STYLE.get(self.style, DESCRIPTIONS)[choice]
-            self.combo.setItemData(self.combo.count() - 1,
-                                   chicago95ui.fill_placeholders(description, self.look), Qt.ToolTipRole)
+            self.combo.setItemData(
+                self.combo.count() - 1, chicago95ui.fill_placeholders(description, self.look), Qt.ToolTipRole
+            )
         self.combo.setCurrentIndex([choice for choice, _ in self.choices].index(SHUT_DOWN))
         self.description = QLabel(body)
         self.description.setWordWrap(True)
@@ -516,9 +534,13 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         for x, label in zip((163, 244, 325), ("OK", "Cancel", "Help"), strict=False):
             button = QPushButton(label, body)
             button.setGeometry(x if label == "OK" else x - 1, 211, 76 if label == "OK" else 77, 24)
-            button.setToolTip({"OK": "Performs the selected action.",
-                               "Cancel": "Closes this dialog without changing your session.",
-                               "Help": "Help is not available."}[label])
+            button.setToolTip(
+                {
+                    "OK": "Performs the selected action.",
+                    "Cancel": "Closes this dialog without changing your session.",
+                    "Help": "Help is not available.",
+                }[label]
+            )
             if label == "OK":
                 button.setDefault(True)
                 button.clicked.connect(self.accept)
@@ -552,9 +574,7 @@ class ShutdownStipple(QWidget):
     """9x dims the desktop with alternating black pixels, preserving its colours."""
 
     def __init__(self, screen):
-        super().__init__(
-            None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.WindowDoesNotAcceptFocus
-        )
+        super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.WindowDoesNotAcceptFocus)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setWindowTitle("Chicago95 shutdown backdrop")
@@ -609,9 +629,22 @@ def ensure_luna_grayscale_effect():
     """Recover an enabled but unloaded effect before the compositor sees the dialog."""
     try:
         subprocess.run(
-            ["gdbus", "call", "--session", "--dest", "org.kde.KWin", "--object-path", "/Effects",
-             "--method", "org.kde.kwin.Effects.loadEffect", "chicago95shutdown"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2, check=False,
+            [
+                "gdbus",
+                "call",
+                "--session",
+                "--dest",
+                "org.kde.KWin",
+                "--object-path",
+                "/Effects",
+                "--method",
+                "org.kde.kwin.Effects.loadEffect",
+                "chicago95shutdown",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+            check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
         # The chooser remains usable outside KWin or without a session bus.
@@ -706,20 +739,27 @@ LOGIN_BANNER_SIZE = (411, 93)
 def render_login_banner(look, path, scale=4):
     """The login screen's 2000 banner as a PNG, scale times the original's pixels: the login theme can't
     run this code, so Setup draws the banner here and copies the picture next to the theme."""
-    original = {"2000": ("Windows 2000", "2000-logon-banner.png"),
-                "2001": ("Windows XP", "xp-logon-banner.png")}.get(look.get("style"))
+    original = {"2000": ("Windows 2000", "2000-logon-banner.png"), "2001": ("Windows XP", "xp-logon-banner.png")}.get(
+        look.get("style")
+    )
     default_logos = ("", "waving-flag.png", "logo-flag-16.png", "logo-xp-16.png")
-    if (original and look.get("osName", "").startswith(original[0])
-            and look.get("osCompany", "Microsoft") == "Microsoft"
-            and os.path.basename(look.get("osLogo", "")) in default_logos):
+    if (
+        original
+        and look.get("osName", "").startswith(original[0])
+        and look.get("osCompany", "Microsoft") == "Microsoft"
+        and os.path.basename(look.get("osLogo", "")) in default_logos
+    ):
         # Original static banner artwork; custom branding still uses the drawn layout.
-        candidates = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "data", original[1]),
-                      os.path.expanduser("~/.local/share/chicago95/" + original[1])]
+        candidates = [
+            os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "data", original[1]),
+            os.path.expanduser("~/.local/share/chicago95/" + original[1]),
+        ]
         for candidate in candidates:
             image = QImage(candidate)
             if not image.isNull():
-                return image.scaled(image.width() * scale, image.height() * scale,
-                                    Qt.IgnoreAspectRatio, Qt.FastTransformation).save(str(path))
+                return image.scaled(
+                    image.width() * scale, image.height() * scale, Qt.IgnoreAspectRatio, Qt.FastTransformation
+                ).save(str(path))
     banner = BrandBanner(look, login=True)
     banner.resize(*LOGIN_BANNER_SIZE)
     image = QImage(LOGIN_BANNER_SIZE[0] * scale, LOGIN_BANNER_SIZE[1] * scale, QImage.Format_ARGB32)
@@ -765,10 +805,12 @@ def main():
             screen = shutting_down_screen(virtual_screen_geometry(app), hold_until_input=args.dry_run)
             screen.set_status("Logging off...")
             screen.showFullScreen()
+
             def finish_logoff():
                 log_off(choice, args.dry_run, dbus_caller())
                 if not args.dry_run:
                     app.quit()
+
             QTimer.singleShot(SAFE_SCREEN_DELAY_MS, finish_logoff)
             if args.dry_run:
                 screen.destroyed.connect(app.quit)
@@ -795,8 +837,7 @@ def main():
     safe_screen = shutting_down_screen(virtual_screen_geometry(app), hold_until_input=args.dry_run)
     if luna_dialogs_wanted():
         safe_screen.set_status("Logging off...")
-        QTimer.singleShot(SAFE_SCREEN_DELAY_MS // 2,
-                          lambda: safe_screen.set_status("Windows is shutting down..."))
+        QTimer.singleShot(SAFE_SCREEN_DELAY_MS // 2, lambda: safe_screen.set_status("Windows is shutting down..."))
     safe_screen.showFullScreen()
     play_shutdown_sound(args.dry_run)
 

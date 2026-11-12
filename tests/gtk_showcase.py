@@ -94,22 +94,29 @@ def widgets():
     yield "Inputs", "Text fields", entries
     inputs = list(input_widgets())
     for kind, title in (("dropdown", "Drop-down"), ("spinbox", "Spin box")):
-        yield "Inputs", f"{title}: normal, disabled, hovered, pressed", [
-            control for control_kind, _state, control in inputs if control_kind == kind
-        ]
+        yield (
+            "Inputs",
+            f"{title}: normal, disabled, hovered, pressed",
+            [control for control_kind, _state, control in inputs if control_kind == kind],
+        )
     for point in (None, "after"):
         for orientation in ("horizontal", "vertical"):
             label = "with ticks" if point else "plain"
-            yield "Ranges", f"Sliders: {orientation}, {label}, normal, disabled, hovered, pressed", [
-                control for state, axis, control in slider_widgets(point)
-                if axis == orientation and state in ("normal", "disabled", "hovered", "pressed")
-            ]
+            yield (
+                "Ranges",
+                f"Sliders: {orientation}, {label}, normal, disabled, hovered, pressed",
+                [
+                    control
+                    for state, axis, control in slider_widgets(point)
+                    if axis == orientation and state in ("normal", "disabled", "hovered", "pressed")
+                ],
+            )
     progress = Gtk.ProgressBar()
     progress.set_fraction(0.55)
     progress.set_size_request(260, -1)
     yield "Ranges", "Progress bar", [progress]
     states = []
-    for fraction, enabled in ((0, True), (1, True), (.55, False)):
+    for fraction, enabled in ((0, True), (1, True), (0.55, False)):
         bar = Gtk.ProgressBar()
         bar.set_fraction(fraction)
         bar.set_sensitive(enabled)
@@ -119,7 +126,7 @@ def widgets():
     directions = []
     for vertical, inverted in ((False, True), (True, False), (True, True)):
         bar = Gtk.ProgressBar()
-        bar.set_fraction(.55)
+        bar.set_fraction(0.55)
         bar.set_inverted(inverted != vertical)
         bar.set_orientation(Gtk.Orientation.VERTICAL if vertical else Gtk.Orientation.HORIZONTAL)
         bar.set_size_request(-1, 90) if vertical else bar.set_size_request(160, -1)
@@ -162,9 +169,11 @@ def widgets():
         frame.set_sensitive(state != "disabled")
         yield "Containers and text", f"Group box: {state}", [frame]
     for active in (False, True):
-        yield "Indicators", f"Switches: {'on' if active else 'off'}, normal, disabled, hovered, pressed, focused", [
-            widget for state, widget in switch_widgets() if state.startswith("on-" if active else "off-")
-        ]
+        yield (
+            "Indicators",
+            f"Switches: {'on' if active else 'off'}, normal, disabled, hovered, pressed, focused",
+            [widget for state, widget in switch_widgets() if state.startswith("on-" if active else "off-")],
+        )
 
 
 def switch_widgets():
@@ -175,8 +184,11 @@ def switch_widgets():
             widget.set_sensitive(state != "disabled")
             widget.set_valign(Gtk.Align.CENTER)
             widget.set_halign(Gtk.Align.CENTER)
-            flag = {"hovered": Gtk.StateFlags.PRELIGHT, "pressed": Gtk.StateFlags.ACTIVE,
-                    "focused": Gtk.StateFlags.FOCUSED}.get(state)
+            flag = {
+                "hovered": Gtk.StateFlags.PRELIGHT,
+                "pressed": Gtk.StateFlags.ACTIVE,
+                "focused": Gtk.StateFlags.FOCUSED,
+            }.get(state)
             if flag is not None:
                 widget._audit_switch_flag = flag
                 widget.set_state_flags(flag, False)
@@ -184,8 +196,12 @@ def switch_widgets():
 
 
 def consistency_widgets():
-    for state, flag in (("normal", None), ("hovered", Gtk.StateFlags.PRELIGHT),
-                        ("pressed", Gtk.StateFlags.ACTIVE), ("backdrop", Gtk.StateFlags.BACKDROP)):
+    for state, flag in (
+        ("normal", None),
+        ("hovered", Gtk.StateFlags.PRELIGHT),
+        ("pressed", Gtk.StateFlags.ACTIVE),
+        ("backdrop", Gtk.StateFlags.BACKDROP),
+    ):
         bar = Gtk.HeaderBar()
         if V4:
             bar.set_show_title_buttons(False)
@@ -195,7 +211,8 @@ def consistency_widgets():
             button.get_style_context().add_class("titlebutton")
             button.get_style_context().add_class(kind)
             button.set_child(Gtk.Image.new_from_icon_name(f"window-{kind}-symbolic")) if V4 else button.add(
-                Gtk.Image.new_from_icon_name(f"window-{kind}-symbolic", Gtk.IconSize.BUTTON))
+                Gtk.Image.new_from_icon_name(f"window-{kind}-symbolic", Gtk.IconSize.BUTTON)
+            )
             button._caption_flag = flag
             if flag is not None:
                 button.set_state_flags(flag, False)
@@ -268,8 +285,15 @@ def consistency_widgets():
             yield "Navigation", f"tabs {state}-{position}", [tabs]
 
     for orientation in ("horizontal", "vertical"):
-        for state, fraction in (("empty", 0), ("low", .01), ("half", .55), ("full", 1),
-                                ("disabled", .55), ("inverted", .55), ("rtl", .55)):
+        for state, fraction in (
+            ("empty", 0),
+            ("low", 0.01),
+            ("half", 0.55),
+            ("full", 1),
+            ("disabled", 0.55),
+            ("inverted", 0.55),
+            ("rtl", 0.55),
+        ):
             progress = Gtk.ProgressBar()
             progress.set_orientation(getattr(Gtk.Orientation, orientation.upper()))
             progress.set_size_request(260, -1) if orientation == "horizontal" else progress.set_size_request(-1, 160)
@@ -283,8 +307,14 @@ def consistency_widgets():
             yield "Ranges", f"progress {state}-{orientation}", [progress]
 
     for orientation in ("horizontal", "vertical"):
-        for state, value in (("normal", 25), ("start", 0), ("end", 80), ("disabled", 25),
-                             ("hovered", 25), ("pressed", 25)):
+        for state, value in (
+            ("normal", 25),
+            ("start", 0),
+            ("end", 80),
+            ("disabled", 25),
+            ("hovered", 25),
+            ("pressed", 25),
+        ):
             bar = Gtk.Scrollbar(
                 orientation=getattr(Gtk.Orientation, orientation.upper()),
                 adjustment=Gtk.Adjustment(value=value, lower=0, upper=100, page_size=20),
@@ -329,14 +359,22 @@ def consistency_widgets():
 
 def slider_widgets(point=None):
     for orientation in ("horizontal", "vertical"):
-        for state, value in (("normal", 40), ("start", 0), ("end", 100), ("disabled", 40),
-                             ("hovered", 40), ("pressed", 40)):
+        for state, value in (
+            ("normal", 40),
+            ("start", 0),
+            ("end", 100),
+            ("disabled", 40),
+            ("hovered", 40),
+            ("pressed", 40),
+        ):
             scale = Gtk.Scale.new_with_range(getattr(Gtk.Orientation, orientation.upper()), 0, 100, 1)
             scale.set_draw_value(False)
             if point:
-                side = ((Gtk.PositionType.TOP if point == "before" else Gtk.PositionType.BOTTOM)
-                        if orientation == "horizontal" else
-                        (Gtk.PositionType.LEFT if point == "before" else Gtk.PositionType.RIGHT))
+                side = (
+                    (Gtk.PositionType.TOP if point == "before" else Gtk.PositionType.BOTTOM)
+                    if orientation == "horizontal"
+                    else (Gtk.PositionType.LEFT if point == "before" else Gtk.PositionType.RIGHT)
+                )
                 for mark in (0, 25, 50, 75, 100):
                     scale.add_mark(mark, side, None)
             scale.set_value(value)
@@ -396,6 +434,7 @@ def main():
         for child in children:
             if getattr(child, "_audit_tab_hover", False):
                 if V4:
+
                     def hover_tab(node):
                         if node.get_css_name() == "tabs":
                             tab = node.get_first_child()
@@ -406,18 +445,22 @@ def main():
                         while node is not None:
                             hover_tab(node)
                             node = node.get_next_sibling()
+
                     hover_tab(child)
                 else:
                     from gi.repository import Gdk
 
                     label = child.get_tab_label(child.get_nth_page(1))
-                    x, y = label.translate_coordinates(window, label.get_allocated_width() // 2,
-                                                       label.get_allocated_height() // 2)
+                    x, y = label.translate_coordinates(
+                        window, label.get_allocated_width() // 2, label.get_allocated_height() // 2
+                    )
                     event_window = child.get_window()
                     for candidate in event_window.get_children():
                         geometry = candidate.get_geometry()
-                        if (geometry.x <= x < geometry.x + geometry.width
-                                and geometry.y <= y < geometry.y + geometry.height):
+                        if (
+                            geometry.x <= x < geometry.x + geometry.width
+                            and geometry.y <= y < geometry.y + geometry.height
+                        ):
                             event_window = candidate
                             x, y = x - geometry.x, y - geometry.y
                             break
@@ -436,6 +479,7 @@ def main():
             state = getattr(child, "_audit_interaction", None)
             if state:
                 if V4:
+
                     def flag_slider(widget, state=state):
                         if widget.get_css_name() == "slider":
                             widget.set_state_flags(
@@ -445,6 +489,7 @@ def main():
                         while node is not None:
                             flag_slider(node)
                             node = node.get_next_sibling()
+
                     flag_slider(child)
                 else:
                     from gi.repository import Gdk
@@ -458,7 +503,10 @@ def main():
                     for candidate in event.window.get_children():
                         geometry = candidate.get_geometry()
                         if (geometry.x, geometry.y, geometry.width, geometry.height) == (
-                            allocation.x, allocation.y, allocation.width, allocation.height
+                            allocation.x,
+                            allocation.y,
+                            allocation.width,
+                            allocation.height,
                         ):
                             event.window = candidate
                             break
@@ -490,12 +538,16 @@ def main():
             context = children[0].get_pango_context()
             description = context.get_font_description()
             resolved = context.load_font(description).describe()
-            (output / "font.json").write_text(json.dumps({
-                "requested_family": description.get_family(),
-                "resolved_family": resolved.get_family(),
-                "size": description.get_size() / Pango.SCALE,
-                "absolute": description.get_size_is_absolute(),
-            }))
+            (output / "font.json").write_text(
+                json.dumps(
+                    {
+                        "requested_family": description.get_family(),
+                        "resolved_family": resolved.get_family(),
+                        "size": description.get_size() / Pango.SCALE,
+                        "absolute": description.get_size_is_absolute(),
+                    }
+                )
+            )
         if not V4 and label.startswith("caption "):
             for button in children[0].get_children():
                 flag = getattr(button, "_caption_flag", None)
@@ -521,8 +573,10 @@ def main():
             renderer.unrealize()
         elif label.startswith("caption "):
             import cairo
+
             surface = cairo.ImageSurface(
-                cairo.FORMAT_ARGB32, window.get_allocated_width(), window.get_allocated_height())
+                cairo.FORMAT_ARGB32, window.get_allocated_width(), window.get_allocated_height()
+            )
             window.draw(cairo.Context(surface))
             surface.write_to_png(str(path))
         else:

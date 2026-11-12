@@ -87,6 +87,7 @@ def test_icons_line_up_down_the_left_with_their_labels_under_them_like_the_origi
 BACKGROUNDS = {"2001": (0x3A, 0x6E, 0xA5), "luna": (0x00, 0x4E, 0x98)}  # XP Classic's blue, Luna's
 OPEN_DESKTOP = ((400, 100), (700, 300), (300, 500))  # right of the icon column, above the taskbar
 
+
 @pytest.mark.parametrize(
     "look, colour",
     [

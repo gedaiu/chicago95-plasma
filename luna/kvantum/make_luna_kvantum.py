@@ -93,8 +93,12 @@ class Sheet:
             return colours.pop()
         if gradient_name not in self.defined:
             self.defined.add(gradient_name)
-            rows = "".join(f'<stop offset="{number(round(offset, 3))}" stop-color="{colour}"/>' for offset, colour in stop_list)
-            self.definitions.append(f'<linearGradient id="{gradient_name}" x1="0" y1="0" x2="0" y2="1">{rows}</linearGradient>')
+            rows = "".join(
+                f'<stop offset="{number(round(offset, 3))}" stop-color="{colour}"/>' for offset, colour in stop_list
+            )
+            self.definitions.append(
+                f'<linearGradient id="{gradient_name}" x1="0" y1="0" x2="0" y2="1">{rows}</linearGradient>'
+            )
         return f"url(#{gradient_name})"
 
     def place(self, element_id, width, height, shapes, bounds=False):
@@ -126,7 +130,9 @@ def corner_shapes(corner, size, radius, sides, fill):
         px = (lambda x: size - x) if flip_x else (lambda x: x)
         py = (lambda y: size - y) if flip_y else (lambda y: y)
         if fill:
-            shapes.append(f'<path d="M{px(0)} {py(size)}A{size} {size} 0 0 {sweep} {px(size)} {py(0)}L{px(size)} {py(size)}z" fill="{fill}"/>')
+            shapes.append(
+                f'<path d="M{px(0)} {py(size)}A{size} {size} 0 0 {sweep} {px(size)} {py(0)}L{px(size)} {py(size)}z" fill="{fill}"/>'
+            )
         for level, colour in enumerate(colours):
             outer, inner = radius - level, radius - level - 1
             shapes.append(
@@ -154,10 +160,16 @@ def edge_shapes(piece, size, sides, fill_paint):
     shapes = []
     if fill_paint and depth < size:
         origin = 0 if far else depth
-        shapes.append(rect(0, origin, EDGE_LENGTH, size - depth, fill_paint) if horizontal else rect(origin, 0, size - depth, EDGE_LENGTH, fill_paint))
+        shapes.append(
+            rect(0, origin, EDGE_LENGTH, size - depth, fill_paint)
+            if horizontal
+            else rect(origin, 0, size - depth, EDGE_LENGTH, fill_paint)
+        )
     for level, colour in enumerate(rings):
         position = size - 1 - level if far else level
-        shapes.append(rect(0, position, EDGE_LENGTH, 1, colour) if horizontal else rect(position, 0, 1, EDGE_LENGTH, colour))
+        shapes.append(
+            rect(0, position, EDGE_LENGTH, 1, colour) if horizontal else rect(position, 0, 1, EDGE_LENGTH, colour)
+        )
     return "".join(shapes), fill_paint is None
 
 
@@ -186,7 +198,13 @@ def add_frame(sheet, prefix, spec):
                 continue
             shapes, bounds = edge_shapes(piece, size, sides, edge_fill_paint(sheet, piece, fill_name))
             horizontal = piece in ("top", "bottom")
-            sheet.place(f"{name}-{piece}", EDGE_LENGTH if horizontal else size, size if horizontal else EDGE_LENGTH, shapes, bounds)
+            sheet.place(
+                f"{name}-{piece}",
+                EDGE_LENGTH if horizontal else size,
+                size if horizontal else EDGE_LENGTH,
+                shapes,
+                bounds,
+            )
 
 
 def polygon(points, fill):
@@ -210,7 +228,9 @@ def arrow_shapes(direction, colour):
 def add_arrows(sheet):
     for direction in stops.ARROW_DIRECTIONS:
         for state, colour in stops.ARROW_STATES.items():
-            sheet.place(f"arrow-{direction}-{state}", stops.GLYPH_SIZE, stops.GLYPH_SIZE, arrow_shapes(direction, colour), True)
+            sheet.place(
+                f"arrow-{direction}-{state}", stops.GLYPH_SIZE, stops.GLYPH_SIZE, arrow_shapes(direction, colour), True
+            )
 
 
 def pixel_path(pattern, left, top, colour):
@@ -244,7 +264,8 @@ def square_glow(size, light, dark):
 
 def round_glow(centre, light, dark):
     return "".join(
-        f'<circle cx="{centre}" cy="{centre}" r="{centre - depth - 0.5}" fill="none" stroke="{colour}"/>' for depth, colour in ((1, light), (2, dark))
+        f'<circle cx="{centre}" cy="{centre}" r="{centre - depth - 0.5}" fill="none" stroke="{colour}"/>'
+        for depth, colour in ((1, light), (2, dark))
     )
 
 
@@ -257,7 +278,9 @@ def indicator_shapes(sheet, look, round_shape, mark_colour):
         body = f'<circle cx="{centre}" cy="{centre}" r="{centre - 0.5}" fill="{paint}" stroke="{look["border"]}"/>'
         mark = f'<circle cx="{centre}" cy="{centre}" r="2.5" fill="{mark_colour}"/>' if mark_colour else ""
         return body + (round_glow(centre, *glow) if glow else "") + mark
-    body = f'<rect x=".5" y=".5" width="{size - 1}" height="{size - 1}" rx="1" fill="{paint}" stroke="{look["border"]}"/>'
+    body = (
+        f'<rect x=".5" y=".5" width="{size - 1}" height="{size - 1}" rx="1" fill="{paint}" stroke="{look["border"]}"/>'
+    )
     offset = (size - len(stops.CHECK_TICK[0])) // 2
     mark = pixel_path(stops.CHECK_TICK, offset, offset, mark_colour) if mark_colour else ""
     return body + (square_glow(size, *glow) if glow else "") + mark
@@ -269,39 +292,65 @@ def add_indicators(sheet):
             for state, look in stops.CHECK_LOOK.items():
                 mark = None
                 if variant:
-                    mark = stops.CHECK_MARK if variant == "checked" and state != "disabled" else stops.CHECK_MARK_DISABLED
+                    mark = (
+                        stops.CHECK_MARK if variant == "checked" and state != "disabled" else stops.CHECK_MARK_DISABLED
+                    )
                 name = "-".join(part for part in (kind, variant, state) if part)
-                sheet.place(name, stops.INDICATOR_SIZE, stops.INDICATOR_SIZE, indicator_shapes(sheet, look, kind == "radio", mark), True)
+                sheet.place(
+                    name,
+                    stops.INDICATOR_SIZE,
+                    stops.INDICATOR_SIZE,
+                    indicator_shapes(sheet, look, kind == "radio", mark),
+                    True,
+                )
 
 
 def slider_cursor_shapes(sheet, look):
     outline = [(0.5, 0.5), (10.5, 0.5), (10.5, 14.5), (5.5, 19.5), (0.5, 14.5)]
     points = " ".join(f"{x},{y}" for x, y in outline)
-    ring = f'<polygon points="1.5,1.5 9.5,1.5 9.5,14 5.5,18 1.5,14" fill="none" stroke="{look["glow"][1]}"/>' if look["glow"] else ""
+    ring = (
+        f'<polygon points="1.5,1.5 9.5,1.5 9.5,14 5.5,18 1.5,14" fill="none" stroke="{look["glow"][1]}"/>'
+        if look["glow"]
+        else ""
+    )
     return f'<polygon points="{points}" fill="{sheet.paint(look["fill"])}" stroke="{look["border"]}"/>' + ring
 
 
 def add_slider_cursors(sheet):
     looks = {**stops.CHECK_LOOK, "normal": {**stops.CHECK_LOOK["normal"], "fill": "slider-thumb"}}
     for state, look in looks.items():
-        sheet.place(f"slidercursor-{state}", stops.SIZES["slider_handle_width"], 20, slider_cursor_shapes(sheet, look), True)
+        sheet.place(
+            f"slidercursor-{state}", stops.SIZES["slider_handle_width"], 20, slider_cursor_shapes(sheet, look), True
+        )
 
 
 def add_solids(sheet):
     for prefix, states in stops.SOLIDS.items():
         for state in states:
-            sheet.place(f"{prefix}-{state}", EDGE_LENGTH, EDGE_LENGTH, rect(0, 0, EDGE_LENGTH, EDGE_LENGTH, sheet.paint("selection")))
+            sheet.place(
+                f"{prefix}-{state}",
+                EDGE_LENGTH,
+                EDGE_LENGTH,
+                rect(0, 0, EDGE_LENGTH, EDGE_LENGTH, sheet.paint("selection")),
+            )
     for name, gradient in stops.BOXES.items():
         sheet.place(name, EDGE_LENGTH, EDGE_LENGTH, rect(0, 0, EDGE_LENGTH, EDGE_LENGTH, sheet.paint(gradient)))
     for name, gradient in (("titlebar-focused", "title-active"), ("titlebar-normal", "title-inactive")):
-        sheet.place(name, EDGE_LENGTH, len(palette.PALETTE["title_active"]), rect(0, 0, EDGE_LENGTH, len(palette.PALETTE["title_active"]), sheet.paint(gradient)))
+        sheet.place(
+            name,
+            EDGE_LENGTH,
+            len(palette.PALETTE["title_active"]),
+            rect(0, 0, EDGE_LENGTH, len(palette.PALETTE["title_active"]), sheet.paint(gradient)),
+        )
 
 
 def add_progress(sheet):
     tile = stops.PROGRESS_CHUNK_WIDTH + stops.PROGRESS_CHUNK_GAP
     height = stops.PROGRESS_CHUNK_HEIGHT
     for state, paint in (("normal", sheet.paint("progress-chunk")), ("disabled", sheet.paint("face-pressed"))):
-        sheet.place(f"progress-pattern-{state}", tile, height, rect(0, 0, stops.PROGRESS_CHUNK_WIDTH, height, paint), True)
+        sheet.place(
+            f"progress-pattern-{state}", tile, height, rect(0, 0, stops.PROGRESS_CHUNK_WIDTH, height, paint), True
+        )
 
 
 def add_default_indicator(sheet):
@@ -314,14 +363,22 @@ def add_decorations(sheet):
     for state in ("normal", "focused", "pressed"):
         sheet.place(f"grip-{state}", 9, 9, grip_lines, True)
     sheet.place("header-separator", 2, 16, rect(0, 0, 1, 16, stops.MENU_BORDER) + rect(1, 0, 1, 16, "#FFFFFF"))
-    handle_dots = "".join(rect(x, y, 2, 2, "#FFFFFF") + rect(x - 1, y - 1, 2, 2, "#A0A096") for x in (2, 5) for y in (2, 5, 8, 11))
+    handle_dots = "".join(
+        rect(x, y, 2, 2, "#FFFFFF") + rect(x - 1, y - 1, 2, 2, "#A0A096") for x in (2, 5) for y in (2, 5, 8, 11)
+    )
     sheet.place("toolbar-handle", 7, 14, handle_dots, True)
     grip_dots = "".join(
-        rect(x + 1, y + 1, 2, 2, "#FFFFFF") + rect(x, y, 2, 2, stops.MENU_BORDER) for row in range(4) for x, y in [(10 - 3 * column, 1 + 3 * row) for column in range(4 - row)]
+        rect(x + 1, y + 1, 2, 2, "#FFFFFF") + rect(x, y, 2, 2, stops.MENU_BORDER)
+        for row in range(4)
+        for x, y in [(10 - 3 * column, 1 + 3 * row) for column in range(4 - row)]
     )
     sheet.place("sizegrip-normal", 14, 14, grip_dots, True)
     for side, (width, height) in {"top": (20, 1), "bottom": (20, 1), "left": (1, 20), "right": (1, 20)}.items():
-        dashes = f'<path d="M0 .5H{width}" stroke-dasharray="1 1"' if width > height else f'<path d="M.5 0V{height}" stroke-dasharray="1 1"'
+        dashes = (
+            f'<path d="M0 .5H{width}" stroke-dasharray="1 1"'
+            if width > height
+            else f'<path d="M.5 0V{height}" stroke-dasharray="1 1"'
+        )
         sheet.place(f"focus-{side}", width, height, f'{dashes} stroke="{stops.FOCUS_DOTS}" fill="none"/>', True)
 
 

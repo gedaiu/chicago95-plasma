@@ -392,7 +392,12 @@ def test_extra_caption_button_has_every_state_and_white_ink_on_the_blue_face(nam
     painter = QPainter(image)
     renderer.render(painter, "active-center")
     painter.end()
-    white = [(x, y) for x in range(21) for y in range(21) if image.pixelColor(x, y).name() == "#ffffff" and 4 <= x <= 16 and 4 <= y <= 17]
+    white = [
+        (x, y)
+        for x in range(21)
+        for y in range(21)
+        if image.pixelColor(x, y).name() == "#ffffff" and 4 <= x <= 16 and 4 <= y <= 17
+    ]
     assert ([renderer.elementExists(state) for state in BUTTON_STATE_IDS], len(white) > 8) == (
         [True] * len(BUTTON_STATE_IDS),
         True,
@@ -406,7 +411,16 @@ SPRITE_BUTTONS = {
     "restore": "Window.RestoreButton",
     "help": "Window.HelpButton",
 }
-STATE_NAMES = ["normal", "hot", "pressed", "disabled", "inactive", "hot-inactive", "pressed-inactive", "disabled-inactive"]
+STATE_NAMES = [
+    "normal",
+    "hot",
+    "pressed",
+    "disabled",
+    "inactive",
+    "hot-inactive",
+    "pressed-inactive",
+    "disabled-inactive",
+]
 BOTTOM_MITRE_BUDGET = 0.01
 FACE_BUDGETS = {"normal": 0.09, "hot": 0.13, "pressed": 0.09, "disabled": 0.10, "inactive": 0.06}
 GLYPH_BOX_IN_BUTTON = (4, 4, 17, 17)
@@ -470,7 +484,8 @@ def test_side_and_bottom_borders_equal_the_stretched_frame_sprites(theme, active
     rows = HEIGHT - TITLE_ROWS - 4
     differences = [
         luna_sprites.differing_fraction(
-            frame.crop((0, TITLE_ROWS, 4, TITLE_ROWS + rows)), luna_sprites.stretched("Window.FrameLeft", state, 4, rows)
+            frame.crop((0, TITLE_ROWS, 4, TITLE_ROWS + rows)),
+            luna_sprites.stretched("Window.FrameLeft", state, 4, rows),
         ),
         luna_sprites.differing_fraction(
             frame.crop((WIDTH - 4, TITLE_ROWS, WIDTH, TITLE_ROWS + rows)),
@@ -497,6 +512,9 @@ def test_caption_button_state_matches_the_sprite_outside_the_glyph_within_the_bu
 @pytest.mark.parametrize("kind", list(SPRITE_BUTTONS))
 @pytest.mark.parametrize(("state", "source"), [(5, 1), (6, 2)], ids=["hot-inactive", "pressed-inactive"])
 def test_inactive_window_hot_and_pressed_buttons_equal_the_active_window_ones(theme, kind, state, source):
-    assert luna_sprites.differing_fraction(
-        rendered_button_state(theme, kind, state), rendered_button_state(theme, kind, source)
-    ) == 0.0
+    assert (
+        luna_sprites.differing_fraction(
+            rendered_button_state(theme, kind, state), rendered_button_state(theme, kind, source)
+        )
+        == 0.0
+    )

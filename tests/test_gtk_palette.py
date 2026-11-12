@@ -1,27 +1,33 @@
 """Classic GTK follows the window scheme instead of retaining Windows 95 greys."""
 
-
 import pytest
 from gtk_palette import prepare_theme
 from PIL import Image
 
-WARM = dict(face="#d4d0c8", selection="#0a246a", selection_text="#ffffff",
-            light="#d4d0c8", shadow="#808080", dark="#404040")
+WARM = dict(
+    face="#d4d0c8", selection="#0a246a", selection_text="#ffffff", light="#d4d0c8", shadow="#808080", dark="#404040"
+)
 
 
 def test_theme_colours_change_without_recolouring_text_fields_or_transparency(tmp_path):
     source, output = tmp_path / "source", tmp_path / "output"
     source.mkdir()
-    (source / "gtk.css").write_text("@define-color bg_color #c0c0c0;\n@define-color border_dark #000000;\n"
-                                    ":root { --c95-face: #c0c0c0; --c95-selected-bg: #000080; }\n")
+    (source / "gtk.css").write_text(
+        "@define-color bg_color #c0c0c0;\n@define-color border_dark #000000;\n"
+        ":root { --c95-face: #c0c0c0; --c95-selected-bg: #000080; }\n"
+    )
     image = Image.new("RGBA", (5, 1))
-    image.putdata([(192, 192, 192, 255), (223, 223, 223, 128), (0, 0, 128, 255),
-                   (0, 0, 0, 255), (255, 255, 255, 255)])
+    image.putdata([(192, 192, 192, 255), (223, 223, 223, 128), (0, 0, 128, 255), (0, 0, 0, 255), (255, 255, 255, 255)])
     image.save(source / "control.png")
     prepare_theme(source, output, WARM)
     result = Image.open(output / "control.png")
-    assert list(result.get_flattened_data()) == [(212, 208, 200, 255), (212, 208, 200, 128),
-                                                (10, 36, 106, 255), (0, 0, 0, 255), (255, 255, 255, 255)]
+    assert list(result.get_flattened_data()) == [
+        (212, 208, 200, 255),
+        (212, 208, 200, 128),
+        (10, 36, 106, 255),
+        (0, 0, 0, 255),
+        (255, 255, 255, 255),
+    ]
     assert "--c95-face: #d4d0c8" in (output / "gtk.css").read_text()
     assert "border_dark #404040" in (output / "gtk.css").read_text()
     # Rebuild from the original, so switching to another/custom scheme cannot leave old colours behind.

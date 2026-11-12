@@ -5,8 +5,8 @@ import subprocess
 import sys
 
 import pytest
-from PIL import Image
 from conftest import REPO
+from PIL import Image
 
 GENERATOR = REPO / "luna/gtk/make_luna_gtk.py"
 COMMITTED = REPO / "luna/gtk/Chicago95Luna"

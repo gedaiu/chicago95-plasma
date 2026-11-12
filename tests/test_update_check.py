@@ -4,13 +4,12 @@ one `git ls-remote`; the answer is cached for a day so Clippy and the Control Pa
 
 import json
 import stat
-from datetime import datetime, timedelta, timezone
-
-import pytest
+from datetime import UTC, datetime, timedelta
 
 import chicago95update
+import pytest
 
-NOON = datetime(2026, 11, 11, 12, 0, tzinfo=timezone.utc)
+NOON = datetime(2026, 11, 11, 12, 0, tzinfo=UTC)
 OLD, NEW = "a" * 40, "b" * 40
 
 

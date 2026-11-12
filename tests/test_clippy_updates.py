@@ -1,11 +1,10 @@
 """Clippy tells, once a day, when a newer Chicago95 for Plasma is published (lib/chicago95update.py)."""
 
+import chicago95update
 import pytest
 from conftest import REPO, load_script
 from PySide6.QtCore import QSize
 from PySide6.QtGui import QPixmap
-
-import chicago95update
 
 OLD, NEW = "a" * 40, "b" * 40
 

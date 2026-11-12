@@ -550,7 +550,10 @@ def parse_args():
     return parser.parse_args()
 
 
-UPDATE_CHECK_FIRST_MS, UPDATE_CHECK_EVERY_MS = 60_000, 3_600_000  # a minute after login, then hourly: the lib checks once a day
+UPDATE_CHECK_FIRST_MS, UPDATE_CHECK_EVERY_MS = (
+    60_000,
+    3_600_000,
+)  # a minute after login, then hourly: the lib checks once a day
 
 
 def update_schedule(on_update):

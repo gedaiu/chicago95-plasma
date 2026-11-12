@@ -67,7 +67,11 @@ def test_recorded_scenario_switches_users_and_preserves_event_order(flow, tmp_pa
     assert names[logoff + 1 : logoff + 3] == ["logging-off", "login"]
     shutdown = names.index("shutdown-requested")
     assert names[shutdown + 1 : shutdown + 6] == [
-        "logging-off", "shutting-down", "power-simulated", "powered-off", "scenario-complete"
+        "logging-off",
+        "shutting-down",
+        "power-simulated",
+        "powered-off",
+        "scenario-complete",
     ]
     assert "scenario-complete" in names
     first = names.index("authentication-succeeded")

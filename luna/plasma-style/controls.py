@@ -172,9 +172,7 @@ def radio_element(element_id, border):
         f'<radialGradient id="{element_id}-body" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="{WHITE}"/>'
         f'<stop offset="1" stop-color="#D6D0C5"/></radialGradient>'
     )
-    circles = (
-        f'<circle cx="6.5" cy="6.5" r="6.5" fill="{border}"/><circle cx="6.5" cy="6.5" r="5.5" fill="url(#{element_id}-body)"/>'
-    )
+    circles = f'<circle cx="6.5" cy="6.5" r="6.5" fill="{border}"/><circle cx="6.5" cy="6.5" r="5.5" fill="url(#{element_id}-body)"/>'
     return gradient, circles
 
 
@@ -206,7 +204,9 @@ def meter_specs():
         rings=(sides(PROGRESS_BORDER), sides(WHITE)),
     )
     chunk = [(0, "#D0F8C8"), (3, "#4BD94B"), (9, "#25BD25"), (14, "#B8F0B0")]
-    active = FrameSpec(10, 15, (2, 2, 2, 2), (0,) * 4, radii=(2,) * 4, body=chunk, rings=(sides(WHITE), sides("#8EE88E")))
+    active = FrameSpec(
+        10, 15, (2, 2, 2, 2), (0,) * 4, radii=(2,) * 4, body=chunk, rings=(sides(WHITE), sides("#8EE88E"))
+    )
     return [("bar-inactive-", inactive), ("bar-active-", active)]
 
 
@@ -239,7 +239,7 @@ def switch_svg():
     definitions, groups = zip(*handles, pressed, strict=True)
     shadow = '<circle id="handle-shadow" cx="70" cy="10" r="10" fill="#000000" fill-opacity=".2"/>'
     extra = f"<defs>{''.join(definitions)}</defs>\n" + "\n".join(
-        group.replace('<g id', f'<g transform="translate(0 {bottom})" id', 1) for group in groups
+        group.replace("<g id", f'<g transform="translate(0 {bottom})" id', 1) for group in groups
     )
     extra += "\n" + shadow.replace('cy="10"', f'cy="{bottom + 10}"')
     extra += "\n" + hidden("hint-bar-size", 0, bottom + 24, 36, 16)

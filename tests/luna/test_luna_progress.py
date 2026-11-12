@@ -39,8 +39,9 @@ def test_progress_has_white_inset_and_black_text(progress, orientation, value, e
         assert plain.getpixel((x, 1)) == plain.getpixel((x, plain.height - 2)) == (255, 255, 255)
     for y in range(2, plain.height - 2):
         assert plain.getpixel((1, y)) == plain.getpixel((plain.width - 2, y)) == (255, 255, 255)
-    greens = [(x, y) for y in range(plain.height) for x in range(plain.width)
-              if plain.getpixel((x, y)) == (57, 230, 58)]
+    greens = [
+        (x, y) for y in range(plain.height) for x in range(plain.width) if plain.getpixel((x, y)) == (57, 230, 58)
+    ]
     assert bool(greens) == (value > 0)
     assert all(2 <= x < plain.width - 2 and 2 <= y < plain.height - 2 for x, y in greens)
 

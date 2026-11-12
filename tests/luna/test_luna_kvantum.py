@@ -51,10 +51,18 @@ SINGLE_ELEMENTS = [
     "focus-bottom",
     "focus-left",
     "focus-right",
-    *(f"{prefix}-{state}" for prefix in ("menuitem", "menubaritem", "itemview") for state in ("pressed", "toggled", "focused")),
+    *(
+        f"{prefix}-{state}"
+        for prefix in ("menuitem", "menubaritem", "itemview")
+        for state in ("pressed", "toggled", "focused")
+    ),
     *(f"slidercursor-{state}" for state in ("normal", "focused", "pressed", "disabled")),
     *(f"grip-{state}" for state in ("normal", "focused", "pressed")),
-    *(f"arrow-{direction}-{state}" for direction in ("up", "down", "left", "right", "plus", "minus") for state in ("normal", "focused", "pressed", "disabled")),
+    *(
+        f"arrow-{direction}-{state}"
+        for direction in ("up", "down", "left", "right", "plus", "minus")
+        for state in ("normal", "focused", "pressed", "disabled")
+    ),
     *(
         f"{kind}-{state}"
         for kind in ("checkbox", "checkbox-checked", "checkbox-tristate", "radio", "radio-checked")
@@ -64,8 +72,18 @@ SINGLE_ELEMENTS = [
 REQUIRED_IDS = sorted(
     {
         *SINGLE_ELEMENTS,
-        *(f"{prefix}-{state}" for prefix, states in FRAME_STATES.items() for state in states if prefix not in INTERIORLESS),
-        *(f"{prefix}-{state}-{piece}" for prefix, states in FRAME_STATES.items() for state in states for piece in PIECES),
+        *(
+            f"{prefix}-{state}"
+            for prefix, states in FRAME_STATES.items()
+            for state in states
+            if prefix not in INTERIORLESS
+        ),
+        *(
+            f"{prefix}-{state}-{piece}"
+            for prefix, states in FRAME_STATES.items()
+            for state in states
+            for piece in PIECES
+        ),
     }
 )
 ALLOWED_TAGS = {"svg", "defs", "g", "rect", "path", "circle", "polygon", "linearGradient", "stop"}
@@ -136,7 +154,10 @@ def test_corner_pieces_are_drawn_exactly_at_their_frame_size(element_ids):
     renderer = QSvgRenderer(str(COMMITTED / "Chicago95Luna.svg"))
     sizes = {prefix: spec["size"] for prefix, spec in generator.stops.FRAMES.items()}
     drawn = {
-        prefix: (renderer.boundsOnElement(f"{prefix}-{FRAME_STATES[prefix][0]}-bottomright").width(), renderer.boundsOnElement(f"{prefix}-{FRAME_STATES[prefix][0]}-topleft").height())
+        prefix: (
+            renderer.boundsOnElement(f"{prefix}-{FRAME_STATES[prefix][0]}-bottomright").width(),
+            renderer.boundsOnElement(f"{prefix}-{FRAME_STATES[prefix][0]}-topleft").height(),
+        )
         for prefix in sizes
     }
 
@@ -152,7 +173,23 @@ def test_every_required_element_renders_in_qt(element_ids):
 def test_svg_carries_the_measured_luna_colours():
     text = (COMMITTED / "Chicago95Luna.svg").read_text()
 
-    assert [colour in text for colour in ("#003C74", "#FFC73C", "#7F9DB9", "#919B9C", "#ACA899", "#316AC5", "#FFFFE1", "#ECE9D8", "#1C5180", "#21A121", "#0058EE", "#E68B2C")] == [True] * 12
+    assert [
+        colour in text
+        for colour in (
+            "#003C74",
+            "#FFC73C",
+            "#7F9DB9",
+            "#919B9C",
+            "#ACA899",
+            "#316AC5",
+            "#FFFFE1",
+            "#ECE9D8",
+            "#1C5180",
+            "#21A121",
+            "#0058EE",
+            "#E68B2C",
+        )
+    ] == [True] * 12
 
 
 def test_button_gradient_runs_from_white_to_the_bottom_row_colour(svg_root):
@@ -163,7 +200,10 @@ def test_button_gradient_runs_from_white_to_the_bottom_row_colour(svg_root):
 
 
 def test_kvconfig_names_the_theme_and_turns_effects_off(kvconfig):
-    assert {key: kvconfig["%General"][key] for key in ("comment", "composite", "animate_states", "translucent_windows", "menu_shadow_depth")} == {
+    assert {
+        key: kvconfig["%General"][key]
+        for key in ("comment", "composite", "animate_states", "translucent_windows", "menu_shadow_depth")
+    } == {
         "comment": "Windows XP Luna",
         "composite": "false",
         "animate_states": "false",
@@ -183,7 +223,10 @@ def test_kvconfig_sizes_are_the_measured_ones(kvconfig):
 
 
 def test_kvconfig_palette_is_the_luna_one(kvconfig):
-    assert {key: kvconfig["GeneralColors"][key] for key in ("window.color", "base.color", "highlight.color", "tooltip.base.color", "highlight.text.color")} == {
+    assert {
+        key: kvconfig["GeneralColors"][key]
+        for key in ("window.color", "base.color", "highlight.color", "tooltip.base.color", "highlight.text.color")
+    } == {
         "window.color": "#ECE9D8",
         "base.color": "#FFFFFF",
         "highlight.color": "#316AC5",
@@ -193,7 +236,35 @@ def test_kvconfig_palette_is_the_luna_one(kvconfig):
 
 
 def test_kvconfig_sections_cover_every_styled_widget(kvconfig):
-    widgets = {"PanelButtonCommand", "PanelButtonTool", "LineEdit", "ComboBox", "DropDownButton", "IndicatorSpinBox", "Tab", "TabFrame", "CheckBox", "RadioButton", "Scrollbar", "ScrollbarSlider", "ScrollbarGroove", "Slider", "SliderCursor", "Progressbar", "ProgressbarContents", "Menu", "MenuItem", "MenuBarItem", "ToolTip", "HeaderSection", "TitleBar", "GroupBox", "Toolbar", "ItemView", "Focus"}
+    widgets = {
+        "PanelButtonCommand",
+        "PanelButtonTool",
+        "LineEdit",
+        "ComboBox",
+        "DropDownButton",
+        "IndicatorSpinBox",
+        "Tab",
+        "TabFrame",
+        "CheckBox",
+        "RadioButton",
+        "Scrollbar",
+        "ScrollbarSlider",
+        "ScrollbarGroove",
+        "Slider",
+        "SliderCursor",
+        "Progressbar",
+        "ProgressbarContents",
+        "Menu",
+        "MenuItem",
+        "MenuBarItem",
+        "ToolTip",
+        "HeaderSection",
+        "TitleBar",
+        "GroupBox",
+        "Toolbar",
+        "ItemView",
+        "Focus",
+    }
 
     assert widgets - set(kvconfig.sections()) == set()
 
@@ -204,9 +275,18 @@ def test_every_element_a_kvconfig_section_names_exists_in_the_svg(kvconfig, elem
     for section in kvconfig.sections():
         entries = kvconfig[section]
         frame, interior = entries.get("frame.element"), entries.get("interior.element")
-        if frame and entries.get("frame") != "false" and f"{frame}-normal-topleft" not in element_ids and f"{frame}-top" not in element_ids:
+        if (
+            frame
+            and entries.get("frame") != "false"
+            and f"{frame}-normal-topleft" not in element_ids
+            and f"{frame}-top" not in element_ids
+        ):
             missing.append((section, frame))
-        if interior and entries.get("interior") != "false" and not any(f"{interior}-{state}" in element_ids for state in states):
+        if (
+            interior
+            and entries.get("interior") != "false"
+            and not any(f"{interior}-{state}" in element_ids for state in states)
+        ):
             missing.append((section, interior))
 
     assert missing == []

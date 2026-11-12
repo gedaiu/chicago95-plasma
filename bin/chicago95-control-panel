@@ -2197,7 +2197,6 @@ class ShutDownPreview(QWidget):
             arguments.append("--log-off")
         process.start(sys.executable, arguments)
 
-
     def refresh(self, values):
         folder = fresh_scratch(self)
         config = scratch_config(folder)
@@ -2272,7 +2271,6 @@ class LoadingPreview(QmlPreview):
         if self.dialog() is not None:
             self.dialog().setProperty("booting", self.BOOTING)
             self.dialog().setProperty("stage", 3)
-
 
     def open_boot_test(self):
         parent = self.parentWidget()

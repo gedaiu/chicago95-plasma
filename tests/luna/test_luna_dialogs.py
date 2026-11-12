@@ -419,11 +419,18 @@ def test_log_off_names_windows_without_a_system(qt_app):
     assert luna_dialogs.LogOffDialog(commands).title == "Log Off Windows"
 
 
-@pytest.mark.parametrize("dialog_name,command", [
-    ("turn_off", "stand_by"), ("turn_off", "turn_off"), ("turn_off", "restart"),
-    ("log_off", "switch_user"), ("log_off", "log_off"),
-    ("turn_off", "cancel"), ("log_off", "cancel"),
-])
+@pytest.mark.parametrize(
+    "dialog_name,command",
+    [
+        ("turn_off", "stand_by"),
+        ("turn_off", "turn_off"),
+        ("turn_off", "restart"),
+        ("log_off", "switch_user"),
+        ("log_off", "log_off"),
+        ("turn_off", "cancel"),
+        ("log_off", "cancel"),
+    ],
+)
 def test_button_tooltip_is_displayed_without_running_action(request, dialog_name, command, calls, tmp_path):
     from PySide6.QtCore import QEvent
     from PySide6.QtGui import QHelpEvent
@@ -441,8 +448,9 @@ def test_button_tooltip_is_displayed_without_running_action(request, dialog_name
     assert button.toolTip()
     assert QToolTip.isVisible()
     assert QToolTip.text() == button.toolTip()
-    tooltip = next(widget for widget in QApplication.topLevelWidgets() if widget.isVisible()
-                   and widget.windowType() == Qt.ToolTip)
+    tooltip = next(
+        widget for widget in QApplication.topLevelWidgets() if widget.isVisible() and widget.windowType() == Qt.ToolTip
+    )
     image = qimage_to_pil(tooltip.grab().toImage()).convert("RGB")
     image.save(tmp_path / f"{dialog_name}-{command}-tooltip.png")
     assert image.width > 50 and image.height > 10

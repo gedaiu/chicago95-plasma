@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Kubernetes Viewer: a cluster's nodes, pods, services and claims as a Device Manager-style tree (kubectl)."""
+
 import os
 import sys
 

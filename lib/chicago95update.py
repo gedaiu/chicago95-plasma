@@ -2,10 +2,11 @@
 ~/.config/chicago95/setup.conf; one `git ls-remote` asks the repository's origin for the tip of its branch.
 The answer is cached for a day in ~/.cache/chicago95/update-check.json, so Clippy's daily check and the
 Control Panel's Updates page share it."""
+
 import json
 import os
 import subprocess
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QProcess, Signal
@@ -58,14 +59,16 @@ def is_due(cache, now):
 def origin_of(repo, git=GIT):
     """The repository's origin URL; the project's own when the folder has none (a download, not a clone)."""
     try:
-        found = subprocess.run([git, "-C", repo, "remote", "get-url", "origin"], capture_output=True, text=True, timeout=5, check=False)
+        found = subprocess.run(
+            [git, "-C", repo, "remote", "get-url", "origin"], capture_output=True, text=True, timeout=5, check=False
+        )
     except (OSError, subprocess.TimeoutExpired):
         return PROJECT_ORIGIN
     return found.stdout.strip() if found.returncode == 0 and found.stdout.strip() else PROJECT_ORIGIN
 
 
 def utc_now():
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class UpdateCheck(QObject):
@@ -90,8 +93,17 @@ class UpdateCheck(QObject):
             return
         self.reported = True
         output = bytes(self.process.readAllStandardOutput()).decode(errors="replace")
-        error = "" if exit_code == 0 else (bytes(self.process.readAllStandardError()).decode(errors="replace").strip() or f"git exited with {exit_code}")
-        result = check_result(self.settings.get("COMMIT", ""), latest_commit(output) if exit_code == 0 else "", self.now(), error)
+        error = (
+            ""
+            if exit_code == 0
+            else (
+                bytes(self.process.readAllStandardError()).decode(errors="replace").strip()
+                or f"git exited with {exit_code}"
+            )
+        )
+        result = check_result(
+            self.settings.get("COMMIT", ""), latest_commit(output) if exit_code == 0 else "", self.now(), error
+        )
         write_cache(self.cache_path, result)
         self.finished.emit(result)
 
@@ -118,13 +130,21 @@ class DailySchedule(QObject):
 
     def __init__(self, settings_path, on_update, cache_path=CACHE_FILE, git=None, now=utc_now, parent=None):
         super().__init__(parent)
-        self.settings_path, self.on_update, self.cache_path, self.git, self.now = settings_path, on_update, cache_path, git, now
+        self.settings_path, self.on_update, self.cache_path, self.git, self.now = (
+            settings_path,
+            on_update,
+            cache_path,
+            git,
+            now,
+        )
         self.check = None
 
     def tick(self):
         if self.check is not None or not is_due(read_cache(self.cache_path), self.now()):
             return
-        self.check = UpdateCheck(read_settings(self.settings_path), self.cache_path, git=self.git, now=self.now, parent=self)
+        self.check = UpdateCheck(
+            read_settings(self.settings_path), self.cache_path, git=self.git, now=self.now, parent=self
+        )
         self.check.finished.connect(self.handle)
         self.check.start()
 

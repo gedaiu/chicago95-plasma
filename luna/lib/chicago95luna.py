@@ -711,8 +711,11 @@ def paint_progress_chunks(painter, option):
         # bottom for vertical bars, independently of the fill's growing edge.
         start = length - filled if reverse else 0
         position = start + (offset if horizontal else filled - offset - chunk)
-        rect = (QRect(inner.x() + position, inner.y(), chunk, inner.height()) if horizontal else
-                QRect(inner.x(), inner.y() + position, inner.width(), chunk))
+        rect = (
+            QRect(inner.x() + position, inner.y(), chunk, inner.height())
+            if horizontal
+            else QRect(inner.x(), inner.y() + position, inner.width(), chunk)
+        )
         painter.fillRect(rect, QColor(PROGRESS_CHUNK))
     painter.restore()
 
@@ -940,8 +943,11 @@ class LunaStyle(QProxyStyle):
         base = super().sizeFromContents(contents_type, option, size, widget)
         if contents_type == QStyle.CT_ProgressBar:
             thickness = max(PROGRESS_THICKNESS, option.fontMetrics.height() + 4 if option.textVisible else 0)
-            return (QSize(base.width(), thickness) if option.state & QStyle.State_Horizontal
-                    else QSize(thickness, base.height()))
+            return (
+                QSize(base.width(), thickness)
+                if option.state & QStyle.State_Horizontal
+                else QSize(thickness, base.height())
+            )
         adjusters = {
             QStyle.CT_MenuItem: lambda: menu_item_size(option, base),
             QStyle.CT_TabBarTab: lambda: QSize(base.width(), max(base.height(), TAB_HEIGHT)),

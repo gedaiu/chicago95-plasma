@@ -108,5 +108,8 @@ def test_classic_horizontal_channel_has_reference_bevel(classic_ranges, state):
         # A point far from the thumb, including either endpoint state.
         x = 20 if state == "end" else 150
         assert [image.getpixel((x, y)) for y in range(7, 11)] == [
-            (128, 128, 128), (0, 0, 0), (192, 192, 192), (255, 255, 255)
+            (128, 128, 128),
+            (0, 0, 0),
+            (192, 192, 192),
+            (255, 255, 255),
         ]

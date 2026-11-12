@@ -163,7 +163,6 @@ def test_gtk_tab_chrome_matches(gtk_images, classic_gtk_images, look, position, 
         assert ImageChops.subtract(b, high).getbbox() is None, "selected tab has a closing page border"
 
 
-
 @pytest.mark.parametrize("look", ("classic", "luna"))
 def test_selecting_another_tab_changes_chrome(gtk_images, classic_gtk_images, look):
     images = gtk_images if look == "luna" else classic_gtk_images
@@ -218,8 +217,10 @@ def test_gtk_scrollbar_artwork_matches(gtk_images, classic_gtk_images, look, ori
     # GTK4 has no real steppers and cannot disable an individual end cap at range limits.
     # Compare the trough/thumb at limits; all other states also compare both arrow images.
     if state in ("start", "end"):
-        region = (width, 0, a.width - width, a.height) if orientation == "horizontal" else (
-            0, width, a.width, a.height - width
+        region = (
+            (width, 0, a.width - width, a.height)
+            if orientation == "horizontal"
+            else (0, width, a.width, a.height - width)
         )
         a, b = a.crop(region), b.crop(region)
     diff = ImageChops.difference(a, b)
@@ -413,12 +414,19 @@ def test_luna_slider_thumb_matches_qt_and_has_a_smooth_gradient(
         assert (73, 201, 75) in set(qt.get_flattened_data()), "normal thumb must have the reference's green accent"
     for version in ("3.0", "4.0"):
         actual = gtk_images[version, "slider" if point is None else f"slider-{point}", f"{state}-{orientation}"]
-        track_column = ([actual.getpixel((30, y)) for y in range(actual.height)] if horizontal else
-                        [actual.getpixel((x, 30)) for x in range(actual.width)])
+        track_column = (
+            [actual.getpixel((30, y)) for y in range(actual.height)]
+            if horizontal
+            else [actual.getpixel((x, 30)) for x in range(actual.width)]
+        )
         assert track_column.count((157, 156, 150)) == 1, "track must be a single grey line"
         assert (255, 255, 255) not in track_column, "the reference has no white track highlight"
-        border = [(x, y) for y in range(actual.height) for x in range(actual.width)
-                  if actual.getpixel((x, y)) in ((181, 196, 205), (119, 136, 146))]
+        border = [
+            (x, y)
+            for y in range(actual.height)
+            for x in range(actual.width)
+            if actual.getpixel((x, y)) in ((181, 196, 205), (119, 136, 146))
+        ]
         if point:
             ticks = sum(pixel == (172, 168, 153) for pixel in actual.get_flattened_data())
             assert ticks == 15, "five visible ticks required"

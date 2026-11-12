@@ -411,9 +411,17 @@ def test_switch_user_commands_lock_the_session_then_show_the_greeter_of_the_seat
 
     assert shutdown.switch_user_commands() == [
         ["loginctl", "lock-session"],
-        ["gdbus", "call", "--system", "--dest", "org.freedesktop.DisplayManager",
-         "--object-path", "/org/freedesktop/DisplayManager/Seat1",
-         "--method", "org.freedesktop.DisplayManager.Seat.SwitchToGreeter"],
+        [
+            "gdbus",
+            "call",
+            "--system",
+            "--dest",
+            "org.freedesktop.DisplayManager",
+            "--object-path",
+            "/org/freedesktop/DisplayManager/Seat1",
+            "--method",
+            "org.freedesktop.DisplayManager.Seat.SwitchToGreeter",
+        ],
     ]
 
 
@@ -452,9 +460,7 @@ def test_main_opens_konsole_when_dos_mode_is_chosen(shutdown, app_for_main, monk
     assert (exit_code, capsys.readouterr().out) == (0, "dry-run, would run: konsole\n")
 
 
-def test_main_requests_shutdown_without_claiming_power_is_safe(
-    shutdown, app_for_main, monkeypatch, path_with, capsys
-):
+def test_main_requests_shutdown_without_claiming_power_is_safe(shutdown, app_for_main, monkeypatch, path_with, capsys):
     path_with()
     answer_modal_dialog(accept=True)
     monkeypatch.setattr(shutdown, "shutting_down_screen", lambda *a, **k: pytest.fail("Premature safe screen"))

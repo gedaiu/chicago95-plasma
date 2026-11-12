@@ -209,7 +209,7 @@ def test_luna_display_tabs_fit_at_desktop_scales(tmp_path, scale):
 
     from conftest import REPO
 
-    program = r'''
+    program = r"""
 import sys
 from pathlib import Path
 root = Path.cwd()
@@ -243,10 +243,14 @@ for index, (name, tab) in enumerate(entries):
         assert bars == (0, 0), (name, item, bars, tab.minimumSizeHint())
     window.grab().save(str(Path(sys.argv[1]) / f"{name}.png"))
 window.close()
-'''
+"""
     result = subprocess.run(
-        [sys.executable, "-c", program, str(tmp_path), scale], cwd=REPO, check=False,
+        [sys.executable, "-c", program, str(tmp_path), scale],
+        cwd=REPO,
+        check=False,
         env={**os.environ, "QT_QPA_PLATFORM": "offscreen", "QT_SCALE_FACTOR": scale},
-        capture_output=True, text=True, timeout=60,
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr

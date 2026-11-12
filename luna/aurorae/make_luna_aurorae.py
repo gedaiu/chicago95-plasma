@@ -29,12 +29,12 @@ from palette import PALETTE  # noqa: E402
 
 from luna import (  # noqa: E402
     Box,
-    number,
     box_gradient,
     box_path,
     gradient,
     linear_gradient,
     linked_svg,
+    number,
     plain_rect,
     radial_gradient,
     reused_gradient,
@@ -128,7 +128,9 @@ def stair_path(corner_x, right):
 
     far_x = corner_x if right else corner_x + CORNER_W
     points = [(mirrored(0), TOP_H), *((mirrored(x), y) for x, y in CORNER_STAIR), (far_x, 0), (far_x, TOP_H)]
-    moves = [f"V{number(y)}" if x == previous_x else f"H{number(x)}" for (previous_x, _), (x, y) in zip(points, points[1:])]
+    moves = [
+        f"V{number(y)}" if x == previous_x else f"H{number(x)}" for (previous_x, _), (x, y) in zip(points, points[1:])
+    ]
     return f"M{number(points[0][0])},{number(points[0][1])}" + "".join(moves) + "z"
 
 
@@ -297,7 +299,7 @@ def glyph_markup(kind, ink):
         ),
         "alldesktops": (
             f'<circle cx="10.5" cy="8" r="3.5" fill="{ink}"/>'
-            f'{plain_rect(5, 11, 11, 2, ink)}{plain_rect(9.75, 12, 1.5, 5, ink)}'
+            f"{plain_rect(5, 11, 11, 2, ink)}{plain_rect(9.75, 12, 1.5, 5, ink)}"
         ),
         "keepabove": f'<path d="M5,10 L10.5,4.5 L16,10 Z M5,13 H16 V15 H5 Z" fill="{ink}"/>',
         "keepbelow": f'<path d="M5,11 L10.5,16.5 L16,11 Z M5,6 H16 V8 H5 Z" fill="{ink}"/>',
@@ -372,7 +374,9 @@ def face_art(prefix, art, kind):
 def button_svg(kind):
     color = "red" if kind == "close" else "blue"
     arts = stops.BUTTON_ART[color]
-    definitions = [f'<rect id="r" x="1" y="1" width="{BUTTON - 2}" height="{BUTTON - 2}" rx="{stops.BUTTON_RING_RADIUS - 1}"/>']
+    definitions = [
+        f'<rect id="r" x="1" y="1" width="{BUTTON - 2}" height="{BUTTON - 2}" rx="{stops.BUTTON_RING_RADIUS - 1}"/>'
+    ]
     groups = []
     for index, name in enumerate(STATE_NAMES):
         element_id = f"{name}-center"

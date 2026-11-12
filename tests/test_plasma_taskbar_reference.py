@@ -7,8 +7,8 @@ is the bottom 28 rows of the screen (640x480; 2001's is 800x600). Luna's is 30 r
 """
 
 import pytest
-from PIL import Image
 from conftest import needs_ui_font
+from PIL import Image
 from plasma_session import CONTENT, ICON_COLOUR, ICON_SIZE, missing_programs
 from reference import close, screenshot
 from test_taskbar_reference import (
@@ -413,7 +413,12 @@ LUNA_GRIP_WIDTH = 6
 LUNA_GRIP_BUDGET = 0.03
 LUNA_FIRST_TASK = 201  # the second grip's first column and 10px: its 6px and the 4px after it
 LUNA_TASK_WIDTH = 160
-LUNA_CHEVRON_RIM = ((61, 88, 154), (134, 173, 212), (49, 74, 140), (136, 158, 208))  # left, right, top, bottom of the sphere's ring
+LUNA_CHEVRON_RIM = (
+    (61, 88, 154),
+    (134, 173, 212),
+    (49, 74, 140),
+    (136, 158, 208),
+)  # left, right, top, bottom of the sphere's ring
 LUNA_PANEL_BLUE = (36, 92, 215)
 LUNA_CHEVRON_WHITE = 240
 LUNA_HIDDEN_APPLET = "org.kde.plasma.notifications"
@@ -517,7 +522,11 @@ def test_luna_hidden_icons_button_is_a_circle_on_the_notch_spanning_rows_7_to_22
         bar.getpixel((notch - 1, ICON_TOP)),
         bar.getpixel((notch - 1, ICON_TOP + ICON_SIZE - 1)),
     ]
-    beyond = [bar.getpixel((notch - 9, 15)), bar.getpixel((notch - 1, ICON_TOP - 1)), bar.getpixel((notch - 1, ICON_TOP + ICON_SIZE))]
+    beyond = [
+        bar.getpixel((notch - 9, 15)),
+        bar.getpixel((notch - 1, ICON_TOP - 1)),
+        bar.getpixel((notch - 1, ICON_TOP + ICON_SIZE)),
+    ]
     assert (
         [close(colour, expected, 30) for colour, expected in zip(rim, LUNA_CHEVRON_RIM, strict=True)],
         [close(colour, LUNA_PANEL_BLUE, 16) for colour in beyond],

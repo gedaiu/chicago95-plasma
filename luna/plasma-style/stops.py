@@ -64,9 +64,15 @@ START = {
         (28, "#338B30"),
     ],
     "glow": [
-        {"centre": (20.236, 3.916), "radii": (106.835, 8.107), "opacity": 0.325, "pieces": ('center',)},
-        {"centre": (-11.604, 32.888), "radii": (46.287, 26.934), "opacity": 0.334, "colour": '#000000', "pieces": ('left', 'center')},
-        {"centre": (-0.701, 8.565), "radii": (46.678, 12.543), "opacity": 0.236, "pieces": ('left', 'center')},
+        {"centre": (20.236, 3.916), "radii": (106.835, 8.107), "opacity": 0.325, "pieces": ("center",)},
+        {
+            "centre": (-11.604, 32.888),
+            "radii": (46.287, 26.934),
+            "opacity": 0.334,
+            "colour": "#000000",
+            "pieces": ("left", "center"),
+        },
+        {"centre": (-0.701, 8.565), "radii": (46.678, 12.543), "opacity": 0.236, "pieces": ("left", "center")},
     ],
     "shade": ((81, 0), (86, 0.121), (91, 0.22), (94, 0.327), (96, 0.471)),
     "ring": {

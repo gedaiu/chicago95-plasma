@@ -18,7 +18,9 @@ def notebook_css(theme):
         for state in ("", ":checked", ":hover")
     )
     reset += " { margin: 0; padding: 1px; outline: none; }\n"
-    return reset + """/* Chicago95 GTK4 notebook parity: retain GTK3's original bitmap borders. */
+    return (
+        reset
+        + """/* Chicago95 GTK4 notebook parity: retain GTK3's original bitmap borders. */
 notebook > header > tabs > tab {
   min-width: 0; min-height: 0; margin: 0; padding: 1px;
   border-width: 0; box-shadow: none; background-image: none;
@@ -30,7 +32,9 @@ notebook > header > tabs > tab label { padding: 0; margin: 0; }
 notebook > header > tabs > arrow {
   border: none; box-shadow: none; padding: 0; margin: 0;
 }
-""" + css + """
+"""
+        + css
+        + """
 /* Paint the page's leading edge behind the tabs, not over the selected tab.
    GTK4 snapshots the stack after the header, so a stack border otherwise closes the gap. */
 notebook > header.top {
@@ -52,3 +56,4 @@ notebook > header > tabs > tab:checked:focus {
   outline: 1px dotted @outline_color; outline-offset: -5px;
 }
 """
+    )

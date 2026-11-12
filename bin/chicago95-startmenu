@@ -621,8 +621,15 @@ ICON_SET_DIRS = [Path.home() / ".local/share/icons", Path.home() / ".icons", Pat
 # Only prefer archive artwork verified against the XP menus. Other archive entries include
 # older, palette-limited variants and should retain the selected desktop theme's artwork.
 XP_MENU_ORIGINALS = {
-    "applications-other", "document-open-recent", "preferences-system", "system-search",
-    "help-browser", "help-contents", "system-run", "system-log-out", "system-shutdown",
+    "applications-other",
+    "document-open-recent",
+    "preferences-system",
+    "system-search",
+    "help-browser",
+    "help-contents",
+    "system-run",
+    "system-log-out",
+    "system-shutdown",
     "system-software-update",
 }
 

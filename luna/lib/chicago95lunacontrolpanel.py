@@ -196,8 +196,9 @@ class LunaAppearancePreview(QWidget):
         for index, renderer in enumerate(self.button_renderers[-count:][::-1]):
             left = title.right() - 4 - PREVIEW_BUTTON_SIZE * (index + 1) - 2 * index
             renderer.render(
-                painter, "active-center" if active else "inactive-center",
-                QRectF(left, title.top() + 2, PREVIEW_BUTTON_SIZE, PREVIEW_BUTTON_SIZE)
+                painter,
+                "active-center" if active else "inactive-center",
+                QRectF(left, title.top() + 2, PREVIEW_BUTTON_SIZE, PREVIEW_BUTTON_SIZE),
             )
 
     def menu_and_text(self, painter, rect):

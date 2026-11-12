@@ -97,8 +97,7 @@ def test_luna_menu_frame_is_1px_aca899_all_round(luna_screen):
     left, top, right, bottom = menu_box(luna_screen)
     middle = (left + right) // 2
     around = [
-        luna_screen.getpixel(point)
-        for point in ((left, top + 30), (right, top + 30), (middle, top), (middle, bottom))
+        luna_screen.getpixel(point) for point in ((left, top + 30), (right, top + 30), (middle, top), (middle, bottom))
     ]
     inside = [luna_screen.getpixel((left + 1, top + 30)), luna_screen.getpixel((middle, top + 1))]
     assert (around, inside) == ([FRAME] * 4, [WHITE] * 2)
@@ -142,9 +141,7 @@ def test_luna_separators_are_aca899_over_white_starting_after_the_icon_column(lu
 def test_luna_submenu_arrow_is_black_in_the_right_gutter(luna_screen):
     left, top, right, _ = menu_box(luna_screen)
     arrow = [
-        luna_screen.getpixel((x, y))
-        for x in range(right - ARROW_ZONE, right)
-        for y in range(top + 3, top + 3 + ROW)
+        luna_screen.getpixel((x, y)) for x in range(right - ARROW_ZONE, right) for y in range(top + 3, top + 3 + ROW)
     ]
     assert BLACK in arrow
 

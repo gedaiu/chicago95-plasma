@@ -6,8 +6,9 @@ from pathlib import Path
 def input_css(theme, version, luna=False):
     theme = Path(theme)
     size = 17 if luna else 16
-    face, border, disabled = (("#ECE9D8", "#7F9DB9", "#ACA899") if luna else
-                              ("@bg_color", "@border_shade", "@border_shade"))
+    face, border, disabled = (
+        ("#ECE9D8", "#7F9DB9", "#ACA899") if luna else ("@bg_color", "@border_shade", "@border_shade")
+    )
 
     def image(direction, insensitive=False):
         if luna:
@@ -18,7 +19,8 @@ def input_css(theme, version, luna=False):
 
     # Repeated states outrank the base themes' toggle-button, entry, and disabled rules.
     buttons = "combobox button.combo, combobox button, dropdown > button.toggle"
-    rules = [f'''/* Shared native dropdown/spin-box geometry; GTK retains its native button arrangement. */
+    rules = [
+        f"""/* Shared native dropdown/spin-box geometry; GTK retains its native button arrangement. */
 combobox, dropdown {{ padding: 0; margin: 0; border: none; background: transparent; }}
 {buttons}, spinbutton:not(.vertical) {{
   min-height: {size}px; min-width: 0; padding: 1px; margin: 0;
@@ -58,12 +60,13 @@ combobox arrow, combobox > box > button > box > arrow, dropdown arrow {{
   border: none; background-repeat: no-repeat; background-position: center;
   background-size: {size}px {size}px; -gtk-icon-source: none;
 }}
-''']
+"""
+    ]
     for state, insensitive in (("", False), (":disabled", True)):
-        rules.append(f'''combobox{state} arrow, combobox{state} > box > button > box > arrow{state},
-dropdown{state} arrow {{ background-image: {image('down', insensitive)}; }}
-spinbutton:not(.vertical){state} button.up {{ background-image: {image('up', insensitive)}; }}
-spinbutton:not(.vertical){state} button.down {{ background-image: {image('down', insensitive)}; }}''')
+        rules.append(f"""combobox{state} arrow, combobox{state} > box > button > box > arrow{state},
+dropdown{state} arrow {{ background-image: {image("down", insensitive)}; }}
+spinbutton:not(.vertical){state} button.up {{ background-image: {image("up", insensitive)}; }}
+spinbutton:not(.vertical){state} button.down {{ background-image: {image("down", insensitive)}; }}""")
     if not luna:
         rules.append(f"""{buttons}, combobox button:active, combobox button:checked,
 dropdown > button.toggle:active, dropdown > button.toggle:checked, spinbutton:not(.vertical) {{
@@ -79,6 +82,6 @@ combobox:active button, dropdown:active > button.toggle, spinbutton:not(.vertica
   border-color: #6F8DDB;
 }""")
     if version == "4.0":
-        rules.append('''spinbutton > button > image { -gtk-icon-size: 0; min-width: 0; min-height: 0; opacity: 0; }
-combobox arrow, dropdown arrow { -gtk-icon-size: 0; }''')
+        rules.append("""spinbutton > button > image { -gtk-icon-size: 0; min-width: 0; min-height: 0; opacity: 0; }
+combobox arrow, dropdown arrow { -gtk-icon-size: 0; }""")
     return "\n".join(rules) + "\n"

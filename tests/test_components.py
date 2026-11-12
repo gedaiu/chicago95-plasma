@@ -64,9 +64,7 @@ def test_every_start_menu_style_has_a_banner_style_and_a_root_icon_set(control_p
     assert (styles - set(startmenu.STYLES), styles - set(startmenu.ROOT_ICON_SETS)) == (set(), set())
 
 
-def test_every_start_menu_style_has_a_system_properties_tab_set_and_shutdown_dialogs(
-    control_panel, sysprops, shutdown
-):
+def test_every_start_menu_style_has_a_system_properties_tab_set_and_shutdown_dialogs(control_panel, sysprops, shutdown):
     styles = flat_menu_styles(control_panel)
 
     assert (

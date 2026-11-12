@@ -23,7 +23,9 @@ def differing_pixels(first, second):
 def test_sddm_main_qml_draws_the_luna_screen_when_login_style_is_luna(qt_app, tmp_path):
     theme_with_luna_trees(tmp_path)
 
-    themed = render_login(qt_app, tmp_path, size=SCREEN, user="Administrator", users=("Administrator",), loginStyle="luna")
+    themed = render_login(
+        qt_app, tmp_path, size=SCREEN, user="Administrator", users=("Administrator",), loginStyle="luna"
+    )
 
     assert differing_pixels(themed, render_luna_login(qt_app)) < 0.02
 

@@ -1,4 +1,5 @@
 """9x shutdown uses a screen-wide black checker, never desaturating the desktop."""
+
 import pytest
 from conftest import load_script
 from PySide6.QtCore import QTimer
@@ -55,7 +56,7 @@ def test_dots_remain_one_physical_pixel_at_desktop_scaling(scale):
 
     from conftest import REPO
 
-    program = '''
+    program = """
 import sys, os
 sys.path.insert(0, str(__import__('pathlib').Path.cwd() / 'tests'))
 import conftest
@@ -70,10 +71,14 @@ assert image.devicePixelRatio() == float(sys.argv[1])
 for y in range(image.height()):
     for x in range(image.width()):
         assert image.pixelColor(x, y).alpha() == (255 if (x + y) % 2 == 0 else 0), (x, y)
-'''
+"""
     result = subprocess.run(
-        [sys.executable, "-c", program, scale], cwd=REPO,
+        [sys.executable, "-c", program, scale],
+        cwd=REPO,
         env={**os.environ, "QT_QPA_PLATFORM": "offscreen"},
-        capture_output=True, text=True, check=False, timeout=30,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
     )
     assert result.returncode == 0, result.stdout + result.stderr

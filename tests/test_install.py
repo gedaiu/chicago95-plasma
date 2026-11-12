@@ -1986,3 +1986,9 @@ def control_panel_dry_run(tmp_path_factory):
 @pytest.mark.parametrize("tool, module", lib_imports_of_the_tools())
 def test_setup_installs_every_lib_module_a_tool_imports(control_panel_dry_run, tool, module):
     assert f"lib/{module}.py ->" in control_panel_dry_run
+
+
+def test_a_9x_install_gives_the_control_panel_the_xp_modules_its_previews_load(tmp_path):
+    """Its Log On, Booting Screen and Distro Setup previews draw XP's screens whatever the look."""
+    run_setup(tmp_path, "--components=controlpanel", "--look=1995")
+    assert (tmp_path / ".local/lib/chicago95/chicago95lunapreviews.py").is_file()

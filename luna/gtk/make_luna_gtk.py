@@ -146,7 +146,7 @@ def stepper_svg(direction, disabled=False):
 
 def stepper_image(direction, disabled=False):
     suffix = "-disabled" if disabled else ""
-    return f'url("assets/stepper-{direction}{suffix}.svg")' 
+    return f'url("assets/stepper-{direction}{suffix}.svg")'
 
 
 def data_uri(svg):
@@ -182,8 +182,24 @@ def tab_png(selected, hovered, position, fill=False, edge=False):
     from PIL import Image
 
     image = Image.new("RGBA", (5, 21))
-    gradient = ["#FFFFFF", "#FEFEFE", "#FCFCFB", "#FAFAF9", "#F8F8F6", "#F6F6F3", "#F6F6F2", "#F5F5F1",
-                "#F4F4F0", "#F3F3EF", "#F3F3EE", "#F2F2ED", "#F1F1ED", "#F1F1EC", "#F0F0EB", "#F0F0EA"]
+    gradient = [
+        "#FFFFFF",
+        "#FEFEFE",
+        "#FCFCFB",
+        "#FAFAF9",
+        "#F8F8F6",
+        "#F6F6F3",
+        "#F6F6F2",
+        "#F5F5F1",
+        "#F4F4F0",
+        "#F3F3EF",
+        "#F3F3EE",
+        "#F2F2ED",
+        "#F1F1ED",
+        "#F1F1EC",
+        "#F0F0EB",
+        "#F0F0EA",
+    ]
     for y in range(21):
         for x in range(5):
             colour = None
@@ -201,8 +217,11 @@ def tab_png(selected, hovered, position, fill=False, edge=False):
                 image.putpixel((x, y), (*bytes.fromhex(colour[1:]), 255))
     if fill or edge:
         image = image.crop((0, 0, 1, 21) if edge else (2, 0, 3, 21))
-    transforms = {"bottom": Image.Transpose.FLIP_TOP_BOTTOM, "left": Image.Transpose.ROTATE_90,
-                  "right": Image.Transpose.ROTATE_270}
+    transforms = {
+        "bottom": Image.Transpose.FLIP_TOP_BOTTOM,
+        "left": Image.Transpose.ROTATE_90,
+        "right": Image.Transpose.ROTATE_270,
+    }
     if position in transforms:
         image = image.transpose(transforms[position])
     buffer = io.BytesIO()
@@ -211,48 +230,91 @@ def tab_png(selected, hovered, position, fill=False, edge=False):
 
 
 def notebook_rules():
-    yield block("notebook, notebook > header, notebook > header > tabs", padding="0", margin="0",
-                border="0", box_shadow="none", background_image="none")
-    yield block("notebook > stack, notebook > .frame", background_image=vertical("tab-page"),
-                border="1px solid " + stops.PAGE_BORDER)
-    yield block("notebook > header > tabs > tab", padding="0 5px", margin="0", min_height="16px",
-                min_width="0", border_style="solid", border_color="transparent", border_radius="0",
-                background_image="none", background_color="transparent", box_shadow="none", color="#000000")
+    yield block(
+        "notebook, notebook > header, notebook > header > tabs",
+        padding="0",
+        margin="0",
+        border="0",
+        box_shadow="none",
+        background_image="none",
+    )
+    yield block(
+        "notebook > stack, notebook > .frame",
+        background_image=vertical("tab-page"),
+        border="1px solid " + stops.PAGE_BORDER,
+    )
+    yield block(
+        "notebook > header > tabs > tab",
+        padding="0 5px",
+        margin="0",
+        min_height="16px",
+        min_width="0",
+        border_style="solid",
+        border_color="transparent",
+        border_radius="0",
+        background_image="none",
+        background_color="transparent",
+        box_shadow="none",
+        color="#000000",
+    )
     yield block("notebook > header > tabs > tab label", padding="0", margin="0")
     for position, edge in (("top", "bottom"), ("bottom", "top"), ("left", "right"), ("right", "left")):
         header = f"notebook > header.{position}"
         horizontal = position in ("top", "bottom")
-        yield block(header, background_image="linear-gradient(#919B9C, #919B9C)",
-                    background_repeat="no-repeat", background_position=edge,
-                    background_size="100% 1px" if horizontal else "1px 100%")
+        yield block(
+            header,
+            background_image="linear-gradient(#919B9C, #919B9C)",
+            background_repeat="no-repeat",
+            background_position=edge,
+            background_size="100% 1px" if horizontal else "1px 100%",
+        )
         yield block(header + " + stack", **{f"border-{position}-width": "0"})
         for state, selected, hovered in (("", False, False), (":hover", False, True), (":checked", True, False)):
             artwork = f"{position}-{int(selected)}-{int(hovered)}.png"
-            yield block(header + " > tabs > tab" + state,
-                        border_width="0", border_image_source="none",
-                        background_image=(f'url("assets/tab-edge-{artwork}"), url("assets/tab-edge-{artwork}"), '
-                                          f'url("assets/tab-fill-{artwork}")'),
-                        background_size="1px 100%, 1px 100%, 1px 100%" if horizontal else "100% 1px, 100% 1px, 100% 1px",
-                        background_repeat="no-repeat, no-repeat, " + ("repeat-x" if horizontal else "repeat-y"),
-                        background_position="left top, right top, center" if horizontal else "left top, left bottom, center",
-                        background_origin="border-box", background_clip="border-box",
-                        min_height="21px" if horizontal else "14px", min_width="0" if horizontal else "21px",
-                        padding="0 6px" if horizontal else "6px 0")
+            yield block(
+                header + " > tabs > tab" + state,
+                border_width="0",
+                border_image_source="none",
+                background_image=(
+                    f'url("assets/tab-edge-{artwork}"), url("assets/tab-edge-{artwork}"), '
+                    f'url("assets/tab-fill-{artwork}")'
+                ),
+                background_size="1px 100%, 1px 100%, 1px 100%" if horizontal else "100% 1px, 100% 1px, 100% 1px",
+                background_repeat="no-repeat, no-repeat, " + ("repeat-x" if horizontal else "repeat-y"),
+                background_position="left top, right top, center" if horizontal else "left top, left bottom, center",
+                background_origin="border-box",
+                background_clip="border-box",
+                min_height="21px" if horizontal else "14px",
+                min_width="0" if horizontal else "21px",
+                padding="0 6px" if horizontal else "6px 0",
+            )
             if not horizontal:
                 direction = "right" if position == "left" else "left"
                 if selected:
                     edge_fill = "#E68B2C 0px, #E68B2C 1px, #919B9C 1px, #919B9C 100%"
-                    body_fill = "#E68B2C 0px, #E68B2C 1px, #FFC83C 1px, #FFC83C 2px, #FFC73C 2px, #FFC73C 3px, #FCFCFE 3px"
+                    body_fill = (
+                        "#E68B2C 0px, #E68B2C 1px, #FFC83C 1px, #FFC83C 2px, #FFC73C 2px, #FFC73C 3px, #FCFCFE 3px"
+                    )
                 else:
-                    edge_fill = ("transparent 0px, transparent 2px, #919B9C 2px, #919B9C calc(100% - 1px), "
-                                 "transparent calc(100% - 1px)")
-                    accent = "#FFC73C 2px, #FFC73C 4px, #FFFFFF 4px" if hovered else "#91A7B4 2px, #91A7B4 3px, #FFFFFF 3px"
-                    body_fill = (f"transparent 0px, transparent 2px, {accent}, #F0F0EA calc(100% - 2px), "
-                                 "#ECEBE6 calc(100% - 2px), #ECEBE6 calc(100% - 1px), transparent calc(100% - 1px)")
-                yield block(header + " > tabs > tab" + state,
-                            background_image=(f"linear-gradient(to {direction}, {edge_fill}), "
-                                              f"linear-gradient(to {direction}, {edge_fill}), "
-                                              f"linear-gradient(to {direction}, {body_fill})"))
+                    edge_fill = (
+                        "transparent 0px, transparent 2px, #919B9C 2px, #919B9C calc(100% - 1px), "
+                        "transparent calc(100% - 1px)"
+                    )
+                    accent = (
+                        "#FFC73C 2px, #FFC73C 4px, #FFFFFF 4px" if hovered else "#91A7B4 2px, #91A7B4 3px, #FFFFFF 3px"
+                    )
+                    body_fill = (
+                        f"transparent 0px, transparent 2px, {accent}, #F0F0EA calc(100% - 2px), "
+                        "#ECEBE6 calc(100% - 2px), #ECEBE6 calc(100% - 1px), transparent calc(100% - 1px)"
+                    )
+                yield block(
+                    header + " > tabs > tab" + state,
+                    background_image=(
+                        f"linear-gradient(to {direction}, {edge_fill}), "
+                        f"linear-gradient(to {direction}, {edge_fill}), "
+                        f"linear-gradient(to {direction}, {body_fill})"
+                    ),
+                )
     yield block("notebook > header.top > tabs > tab:not(:checked) label", transform="translateY(1px)")
     yield block("notebook > header.bottom > tabs > tab:not(:checked) label", transform="translateY(-1px)")
     yield block("notebook > header > tabs > tab:disabled", color=stops.DISABLED_TEXT)
@@ -280,8 +342,10 @@ def switch_png(part, active=False, state="normal"):
             for (left, first), (right, last) in zip(gradient, gradient[1:], strict=False):
                 if left <= t <= right:
                     weight = (t - left) / max(right - left, 1e-9)
-                    colour = tuple(round(a + (b - a) * weight)
-                                   for a, b in zip(ImageColor.getrgb(first), ImageColor.getrgb(last), strict=True))
+                    colour = tuple(
+                        round(a + (b - a) * weight)
+                        for a, b in zip(ImageColor.getrgb(first), ImageColor.getrgb(last), strict=True)
+                    )
                     draw.line((1, y, width - 2, y), fill=colour)
                     break
     else:
@@ -304,22 +368,57 @@ def switch_png(part, active=False, state="normal"):
 
 
 def switch_rules():
-    yield block("switch", min_width="34px", min_height="17px", padding="1px", margin="0",
-                border="0", border_radius="0", box_shadow="none", outline="none",
-                color="transparent", background_color="transparent", background_size="100% 100%",
-                background_repeat="no-repeat", **{"-gtk-icon-source": "none", "-gtk-icon-shadow": "none"})
+    yield block(
+        "switch",
+        min_width="34px",
+        min_height="17px",
+        padding="1px",
+        margin="0",
+        border="0",
+        border_radius="0",
+        box_shadow="none",
+        outline="none",
+        color="transparent",
+        background_color="transparent",
+        background_size="100% 100%",
+        background_repeat="no-repeat",
+        **{"-gtk-icon-source": "none", "-gtk-icon-shadow": "none"},
+    )
     yield block("switch image, switch image:disabled", color="transparent", opacity="0", min_width="0", min_height="0")
-    yield block("switch slider", min_width="17px", min_height="17px", padding="0", margin="0",
-                border="0", border_radius="0", box_shadow="none", background_color="transparent",
-                background_size="100% 100%", background_repeat="no-repeat")
+    yield block(
+        "switch slider",
+        min_width="17px",
+        min_height="17px",
+        padding="0",
+        margin="0",
+        border="0",
+        border_radius="0",
+        box_shadow="none",
+        background_color="transparent",
+        background_size="100% 100%",
+        background_repeat="no-repeat",
+    )
     for active in (False, True):
         selector = "switch:checked" if active else "switch:not(:checked)"
-        for state, pseudo in (("normal", ""), ("hovered", ":hover"), ("pressed", ":active"),
-                              ("focused", ":focus"), ("disabled", ":disabled")):
-            yield block(selector + pseudo, color="transparent",
-                        background_image=f'url("assets/switch-{int(active)}-{state}.png")')
-    for state, pseudo in (("normal", ""), ("hovered", ":hover"), ("pressed", ":active"),
-                          ("focused", ":focus"), ("disabled", ":disabled")):
+        for state, pseudo in (
+            ("normal", ""),
+            ("hovered", ":hover"),
+            ("pressed", ":active"),
+            ("focused", ":focus"),
+            ("disabled", ":disabled"),
+        ):
+            yield block(
+                selector + pseudo,
+                color="transparent",
+                background_image=f'url("assets/switch-{int(active)}-{state}.png")',
+            )
+    for state, pseudo in (
+        ("normal", ""),
+        ("hovered", ":hover"),
+        ("pressed", ":active"),
+        ("focused", ":focus"),
+        ("disabled", ":disabled"),
+    ):
         yield block(f"switch{pseudo} slider", background_image=f'url("assets/switch-thumb-{state}.png")')
 
 
@@ -330,8 +429,13 @@ def slider_png(horizontal, state, point=None):
 
     width, height = slider.THUMB_SIZE if horizontal else slider.THUMB_SIZE[::-1]
     image = Image.new("RGBA", (width, height))
-    image.putdata([(*bytes.fromhex(pixel[1:]), 255) if pixel else (0, 0, 0, 0)
-                   for row in slider.thumb_pixels(width, height, horizontal, state, point) for pixel in row])
+    image.putdata(
+        [
+            (*bytes.fromhex(pixel[1:]), 255) if pixel else (0, 0, 0, 0)
+            for row in slider.thumb_pixels(width, height, horizontal, state, point)
+            for pixel in row
+        ]
+    )
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
     return buffer.getvalue()
@@ -346,36 +450,68 @@ def scale_rules():
     yield block("scale.horizontal marks.top", padding_bottom="2px")
     yield block("scale.vertical marks.bottom", padding_left="2px")
     yield block("scale.vertical marks.top", padding_right="2px")
-    yield block("scale mark indicator", color="#ACA899", background_color="#ACA899", background_image="none",
-                border="0", padding="0", margin="0")
+    yield block(
+        "scale mark indicator",
+        color="#ACA899",
+        background_color="#ACA899",
+        background_image="none",
+        border="0",
+        padding="0",
+        margin="0",
+    )
     yield block("scale.horizontal mark indicator", min_width="1px", min_height="3px")
     yield block("scale.vertical mark indicator", min_width="3px", min_height="1px")
-    yield block("scale trough", padding="0", margin="0", border="0", border_radius="0",
-                box_shadow="none", min_width="0", min_height="0")
+    yield block(
+        "scale trough",
+        padding="0",
+        margin="0",
+        border="0",
+        border_radius="0",
+        box_shadow="none",
+        min_width="0",
+        min_height="0",
+    )
     yield block("scale highlight, scale fill", background="none", border="0", box_shadow="none")
-    yield block("scale slider", padding="0", border="0", border_radius="0", box_shadow="none",
-                background_color="transparent", background_repeat="no-repeat", background_size="100% 100%")
+    yield block(
+        "scale slider",
+        padding="0",
+        border="0",
+        border_radius="0",
+        box_shadow="none",
+        background_color="transparent",
+        background_repeat="no-repeat",
+        background_size="100% 100%",
+    )
     for orientation, direction in (("horizontal", "bottom"), ("vertical", "right")):
         horizontal = orientation == "horizontal"
-        bands = ", ".join(f"{colour} {i}px, {colour} {i + 1}px"
-                          for i, colour in enumerate(slider.GROOVE_ROWS))
-        yield block(f"scale.{orientation} trough",
-                    min_height="1px" if horizontal else "0", min_width="0" if horizontal else "1px",
-                    background_image=f"linear-gradient(to {direction}, {bands})",
-                    background_size="100% 1px" if horizontal else "1px 100%",
-                    background_position="center", background_repeat="no-repeat")
-        yield block(f"scale.{orientation} slider", min_width="11px" if horizontal else "21px",
-                    min_height="21px" if horizontal else "11px",
-                    margin="-8px 0" if horizontal else "0 -8px")
+        bands = ", ".join(f"{colour} {i}px, {colour} {i + 1}px" for i, colour in enumerate(slider.GROOVE_ROWS))
+        yield block(
+            f"scale.{orientation} trough",
+            min_height="1px" if horizontal else "0",
+            min_width="0" if horizontal else "1px",
+            background_image=f"linear-gradient(to {direction}, {bands})",
+            background_size="100% 1px" if horizontal else "1px 100%",
+            background_position="center",
+            background_repeat="no-repeat",
+        )
+        yield block(
+            f"scale.{orientation} slider",
+            min_width="11px" if horizontal else "21px",
+            min_height="21px" if horizontal else "11px",
+            margin="-8px 0" if horizontal else "0 -8px",
+        )
         yield block(f"scale.{orientation}.marks-before slider, scale.{orientation}.marks-after slider", margin="0")
-        for state, pseudo in (("normal", ""), ("hover", ":hover"), ("pressed", ":active"),
-                              ("disabled", ":disabled")):
-            yield block(f"scale.{orientation} slider{pseudo}",
-                        background_image=f'url("assets/slider-{orientation}-{state}.png")')
+        for state, pseudo in (("normal", ""), ("hover", ":hover"), ("pressed", ":active"), ("disabled", ":disabled")):
+            yield block(
+                f"scale.{orientation} slider{pseudo}",
+                background_image=f'url("assets/slider-{orientation}-{state}.png")',
+            )
             for point in ("before", "after"):
                 other = "after" if point == "before" else "before"
-                yield block(f"scale.{orientation}.marks-{point}:not(.marks-{other}) slider{pseudo}",
-                            background_image=f'url("assets/slider-{orientation}-{state}-{point}.png")')
+                yield block(
+                    f"scale.{orientation}.marks-{point}:not(.marks-{other}) slider{pseudo}",
+                    background_image=f'url("assets/slider-{orientation}-{state}-{point}.png")',
+                )
 
 
 def scale_backend_rules(version):
@@ -391,13 +527,22 @@ def scale_backend_rules(version):
         if version == "3.0":
             rules.append(block(f"scale.{orientation}", padding="0 5px" if horizontal else "5px 0"))
             # GTK3 draws its indicator line with inclusive endpoints (2 CSS pixels become 3).
-            rules.append(block(f"scale.{orientation} mark indicator",
-                               min_height="2px" if horizontal else "1px",
-                               min_width="1px" if horizontal else "2px"))
+            rules.append(
+                block(
+                    f"scale.{orientation} mark indicator",
+                    min_height="2px" if horizontal else "1px",
+                    min_width="1px" if horizontal else "2px",
+                )
+            )
         else:
-            rules.append(block(f"scale.{orientation} trough",
-                               background_size="calc(100% - 10px) 1px" if horizontal else "1px calc(100% - 10px)",
-                               background_position="center", background_repeat="no-repeat"))
+            rules.append(
+                block(
+                    f"scale.{orientation} trough",
+                    background_size="calc(100% - 10px) 1px" if horizontal else "1px calc(100% - 10px)",
+                    background_position="center",
+                    background_repeat="no-repeat",
+                )
+            )
     return "\n".join(rules)
 
 
@@ -485,38 +630,80 @@ def caption_image(kind, index):
 
 
 def caption_controls():
-    rules = [block("headerbar", min_height="26px", padding="2px 4px"),
-             block("headerbar button", min_width="21px", min_height="21px", padding="0 3px", margin="0 1px",
-                   border="1px solid " + stops.BORDER, border_radius="3px", color="#000000",
-                   background_color=FACE, background_image=vertical("button-body"), box_shadow="none"),
-             block("headerbar button:hover", background_image=vertical("button-body"), box_shadow=HOVER_SHADOW),
-             block("headerbar button:active", background_image=vertical("button-pressed"), box_shadow="none"),
-             block("headerbar windowcontrols", padding="0", margin="0"),
-             block("headerbar windowcontrols button image", opacity="0")]
+    rules = [
+        block("headerbar", min_height="26px", padding="2px 4px"),
+        block(
+            "headerbar button",
+            min_width="21px",
+            min_height="21px",
+            padding="0 3px",
+            margin="0 1px",
+            border="1px solid " + stops.BORDER,
+            border_radius="3px",
+            color="#000000",
+            background_color=FACE,
+            background_image=vertical("button-body"),
+            box_shadow="none",
+        ),
+        block("headerbar button:hover", background_image=vertical("button-body"), box_shadow=HOVER_SHADOW),
+        block("headerbar button:active", background_image=vertical("button-pressed"), box_shadow="none"),
+        block("headerbar windowcontrols", padding="0", margin="0"),
+        block("headerbar windowcontrols button image", opacity="0"),
+    ]
     for kind in ("minimize", "maximize", "close"):
         bases = (f"headerbar button.titlebutton.{kind}", f"headerbar windowcontrols button.{kind}")
-        rules.append(block(", ".join(bases), min_width="21px", min_height="21px", padding="0", margin="0 1px",
-                           border="none", border_radius="0", background_color="transparent",
-                           background_repeat="no-repeat", background_position="center", background_size="21px 21px",
-                           box_shadow="none"))
+        rules.append(
+            block(
+                ", ".join(bases),
+                min_width="21px",
+                min_height="21px",
+                padding="0",
+                margin="0 1px",
+                border="none",
+                border_radius="0",
+                background_color="transparent",
+                background_repeat="no-repeat",
+                background_position="center",
+                background_size="21px 21px",
+                box_shadow="none",
+            )
+        )
         for state, index in (("", 0), (":backdrop", 4), (":hover", 1), (":active", 2), (":disabled", 3)):
-            rules.append(block(", ".join(base + state for base in bases),
-                               background_image=caption_image(kind, index), box_shadow="none"))
+            rules.append(
+                block(
+                    ", ".join(base + state for base in bases),
+                    background_image=caption_image(kind, index),
+                    box_shadow="none",
+                )
+            )
             # GTK3 cannot paint these caption SVG backgrounds reliably; use the
             # same measured face stops with its native symbolic glyph instead.
             colour = "red" if kind == "close" else "blue"
             art = aurorae_stops.BUTTON_ART[colour][index]
-            gradient = "linear-gradient(to bottom, " + ", ".join(
-                f"{colour} {offset / 21 * 100:.2f}%" for offset, colour in art["face"]) + ")"
-            rules.append(block(bases[0] + state, background_image=gradient, background_size="auto",
-                               color="#FFFFFF", border="1px solid white", border_radius="3px"))
+            gradient = (
+                "linear-gradient(to bottom, "
+                + ", ".join(f"{colour} {offset / 21 * 100:.2f}%" for offset, colour in art["face"])
+                + ")"
+            )
+            rules.append(
+                block(
+                    bases[0] + state,
+                    background_image=gradient,
+                    background_size="auto",
+                    color="#FFFFFF",
+                    border="1px solid white",
+                    border_radius="3px",
+                )
+            )
     return "\n".join(rules)
 
 
 def titlebar_block(active, inactive, caption):
-    return (titlebar_state("", active, aurorae_stops.SIDE_OVERLAY, "#FFFFFF") + titlebar_state(
-        ":backdrop", inactive, aurorae_stops.INACTIVE_SIDE_OVERLAY, caption
-    ) + caption_controls())
+    return (
+        titlebar_state("", active, aurorae_stops.SIDE_OVERLAY, "#FFFFFF")
+        + titlebar_state(":backdrop", inactive, aurorae_stops.INACTIVE_SIDE_OVERLAY, caption)
+        + caption_controls()
+    )
 
 
 def widget_rules():
@@ -758,15 +945,26 @@ def widget_rules():
         block("progressbar", padding="0", border="none", background_image="none"),
         block(
             "progressbar > trough",
-            min_width="0", min_height="0", padding="1px", margin="0",
+            min_width="0",
+            min_height="0",
+            padding="1px",
+            margin="0",
             border="1px solid #68A3C6",
-            background_color="#FFFFFF", background_image="none", border_radius="2px",
+            background_color="#FFFFFF",
+            background_image="none",
+            border_radius="2px",
         ),
         block(
             "progressbar > trough > progress",
-            min_width="0", min_height="0", padding="0", margin="0",
-            border="none", border_radius="0", background_color="transparent",
-            background_repeat="repeat", background_position="left top",
+            min_width="0",
+            min_height="0",
+            padding="0",
+            margin="0",
+            border="none",
+            border_radius="0",
+            background_color="transparent",
+            background_repeat="repeat",
+            background_position="left top",
         ),
         block("progressbar.horizontal > trough > progress", min_height="13px"),
         block("progressbar.vertical > trough > progress", min_width="13px"),
@@ -781,15 +979,20 @@ def widget_rules():
                     f"transparent {stops.PROGRESS_CHUNK_WIDTH}px, "
                     f"transparent {stops.PROGRESS_CHUNK_WIDTH + stops.PROGRESS_CHUNK_GAP}px)"
                 ),
-                background_size=(f"{stops.PROGRESS_CHUNK_WIDTH + stops.PROGRESS_CHUNK_GAP}px 100%"
-                                 if orientation == "horizontal" else
-                                 f"100% {stops.PROGRESS_CHUNK_WIDTH + stops.PROGRESS_CHUNK_GAP}px"),
+                background_size=(
+                    f"{stops.PROGRESS_CHUNK_WIDTH + stops.PROGRESS_CHUNK_GAP}px 100%"
+                    if orientation == "horizontal"
+                    else f"100% {stops.PROGRESS_CHUNK_WIDTH + stops.PROGRESS_CHUNK_GAP}px"
+                ),
                 background_position="left top" if orientation == "horizontal" else "left bottom",
             )
             for orientation, direction in (("horizontal", "right"), ("vertical", "top"))
         ],
-        block("progressbar > trough > progress.pulse", background_image="none",
-              background_color=stops.GRADIENTS['progress-chunk'][1][1]),
+        block(
+            "progressbar > trough > progress.pulse",
+            background_image="none",
+            background_color=stops.GRADIENTS["progress-chunk"][1][1],
+        ),
         *scale_rules(),
         block(
             "treeview header button, columnview header button, column-header button",
@@ -910,29 +1113,53 @@ def indicator_backend_rules(version):
 def scrollbar_backend_rules(version):
     rules = []
     if version == "3.0":
-        rules.append(block("scrollbar", **{
-            "_GtkScrollbar_has_backward_stepper": "true",
-            "_GtkScrollbar_has_forward_stepper": "true",
-        }))
-        rules.append(block("scrollbar button, scrollbar button:disabled", min_width="17px", min_height="17px",
-                           padding="0", margin="0", border="none", box_shadow="none",
-                           background_color="transparent", background_repeat="no-repeat",
-                           background_position="center", _gtk_icon_source="none"))
+        rules.append(
+            block(
+                "scrollbar",
+                **{
+                    "_GtkScrollbar_has_backward_stepper": "true",
+                    "_GtkScrollbar_has_forward_stepper": "true",
+                },
+            )
+        )
+        rules.append(
+            block(
+                "scrollbar button, scrollbar button:disabled",
+                min_width="17px",
+                min_height="17px",
+                padding="0",
+                margin="0",
+                border="none",
+                box_shadow="none",
+                background_color="transparent",
+                background_repeat="no-repeat",
+                background_position="center",
+                _gtk_icon_source="none",
+            )
+        )
     for orientation, first, last, across in (
-        ("horizontal", "left", "right", "bottom"), ("vertical", "up", "down", "right")
+        ("horizontal", "left", "right", "bottom"),
+        ("vertical", "up", "down", "right"),
     ):
         rules.append(block(f"scrollbar.{orientation}", background_image=TROUGH_ACROSS % across))
         if version == "3.0":
-            rules.append(block(f"scrollbar.{orientation} trough", padding="0",
-                               background_image=TROUGH_ACROSS % across))
+            rules.append(block(f"scrollbar.{orientation} trough", padding="0", background_image=TROUGH_ACROSS % across))
             for node, direction in (("up", first), ("down", last)):
                 for state, disabled in (("", False), (":disabled", True)):
-                    rules.append(block(f"scrollbar.{orientation} button.{node}{state}",
-                                       background_image=stepper_image(direction, disabled)))
+                    rules.append(
+                        block(
+                            f"scrollbar.{orientation} button.{node}{state}",
+                            background_image=stepper_image(direction, disabled),
+                        )
+                    )
         else:
-            rules.append(block(f"scrollbar.{orientation}:disabled trough",
-                               background_image=f"{stepper_image(first, True)}, {stepper_image(last, True)}, "
-                                                + TROUGH_ACROSS % across))
+            rules.append(
+                block(
+                    f"scrollbar.{orientation}:disabled trough",
+                    background_image=f"{stepper_image(first, True)}, {stepper_image(last, True)}, "
+                    + TROUGH_ACROSS % across,
+                )
+            )
     return "\n".join(rules) + "\n"
 
 
@@ -974,10 +1201,12 @@ def write_theme(out):
         for orientation in ("horizontal", "vertical"):
             for state in ("normal", "hover", "pressed", "disabled"):
                 (assets / f"slider-{orientation}-{state}.png").write_bytes(
-                    slider_png(orientation == "horizontal", state))
+                    slider_png(orientation == "horizontal", state)
+                )
                 for point in ("before", "after"):
                     (assets / f"slider-{orientation}-{state}-{point}.png").write_bytes(
-                        slider_png(orientation == "horizontal", state, point))
+                        slider_png(orientation == "horizontal", state, point)
+                    )
         for state in ("normal", "hovered", "pressed", "focused", "disabled"):
             (assets / f"switch-thumb-{state}.png").write_bytes(switch_png("thumb", state=state))
             for active in (False, True):
@@ -985,9 +1214,11 @@ def write_theme(out):
         for position in ("top", "bottom", "left", "right"):
             for selected, hovered in ((False, False), (False, True), (True, False)):
                 (assets / f"tab-edge-{position}-{int(selected)}-{int(hovered)}.png").write_bytes(
-                    tab_png(selected, hovered, position, edge=True))
+                    tab_png(selected, hovered, position, edge=True)
+                )
                 (assets / f"tab-fill-{position}-{int(selected)}-{int(hovered)}.png").write_bytes(
-                    tab_png(selected, hovered, position, fill=True))
+                    tab_png(selected, hovered, position, fill=True)
+                )
         for direction in STEPPER_ARROWS:
             for disabled in (False, True):
                 suffix = "-disabled" if disabled else ""

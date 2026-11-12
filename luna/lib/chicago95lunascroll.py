@@ -173,8 +173,7 @@ def paint_slider(painter, option, style, widget):
     horizontal = option.orientation == Qt.Horizontal
     groove = style.subControlRect(QStyle.CC_Slider, option, QStyle.SC_SliderGroove, widget)
     handle = style.subControlRect(QStyle.CC_Slider, option, QStyle.SC_SliderHandle, widget)
-    groove.adjust(5 if horizontal else 0, 0 if horizontal else 5,
-                  -5 if horizontal else 0, 0 if horizontal else -5)
+    groove.adjust(5 if horizontal else 0, 0 if horizontal else 5, -5 if horizontal else 0, 0 if horizontal else -5)
     paint_slider_groove(painter, groove, horizontal)
     state = part_state(option, QStyle.SC_SliderHandle)
     point = {QSlider.TicksAbove: "before", QSlider.TicksBelow: "after"}.get(option.tickPosition)
@@ -194,7 +193,10 @@ def paint_slider(painter, option, style, widget):
             centre = start + round(fraction * length) + (handle.width() if horizontal else handle.height()) // 2
             for before, side in ((True, QSlider.TicksAbove), (False, QSlider.TicksBelow)):
                 if option.tickPosition in (side, QSlider.TicksBothSides):
-                    edge = ((handle.top() - 5 if before else handle.bottom() + 3) if horizontal else
-                            (handle.left() - 5 if before else handle.right() + 3))
+                    edge = (
+                        (handle.top() - 5 if before else handle.bottom() + 3)
+                        if horizontal
+                        else (handle.left() - 5 if before else handle.right() + 3)
+                    )
                     tick = QRect(centre, edge, 1, 3) if horizontal else QRect(edge, centre, 3, 1)
                     painter.fillRect(tick, QColor("#ACA899"))

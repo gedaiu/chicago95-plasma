@@ -61,7 +61,9 @@ def test_compositor_is_reachable_when_the_wayland_socket_is_listening(listening_
     assert chicago95ui.compositor_reachable() is True
 
 
-def test_compositor_is_reachable_through_an_absolute_wayland_socket_path(listening_compositor, short_runtime_dir, monkeypatch):
+def test_compositor_is_reachable_through_an_absolute_wayland_socket_path(
+    listening_compositor, short_runtime_dir, monkeypatch
+):
     monkeypatch.setenv("WAYLAND_DISPLAY", os.path.join(short_runtime_dir, "wayland-test"))
     monkeypatch.setenv("XDG_RUNTIME_DIR", "/nonexistent")
 

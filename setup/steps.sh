@@ -813,16 +813,15 @@ step_tools_common() { # shared by every PySide6 component; idempotent
   for lib_module in "$REPO"/lib/*.py; do put_file "$lib_module" ~/.local/lib/chicago95/"$(basename "$lib_module")"; done
   put_file "$REPO/data/2000-logon-banner.png" ~/.local/share/chicago95/2000-logon-banner.png
   put_file "$REPO/data/xp-logon-banner.png" ~/.local/share/chicago95/xp-logon-banner.png
-  if wants_luna || [ "${SETUP_START_MENU_STYLE:-}" = luna ]; then
-    for luna_module in "$REPO"/luna/lib/*.py; do put_file "$luna_module" ~/.local/lib/chicago95/"$(basename "$luna_module")"; done
-    put_tree "$REPO/luna/lib/images" ~/.local/lib/chicago95/images
-    # Keep the interactive boot/login flow test usable without the source checkout.
-    for screen_tree in qml images splash sddm; do
-      put_tree "$REPO/luna/$screen_tree" "$HOME/.local/share/chicago95/luna/$screen_tree"
-    done
-    put_file "$REPO/luna/palette.py" ~/.local/lib/chicago95/chicago95lunapalette.py
-    put_file "$REPO/luna/images/windows-xp-flag.svg" ~/.local/lib/chicago95/images/windows-xp-flag.svg
-  fi
+  # The XP modules and screens whatever the look: the Control Panel previews XP's screens from any look (its log on,
+  # boot and Distro Setup pages), and the interactive boot/login flow test runs without the source checkout.
+  for luna_module in "$REPO"/luna/lib/*.py; do put_file "$luna_module" ~/.local/lib/chicago95/"$(basename "$luna_module")"; done
+  put_tree "$REPO/luna/lib/images" ~/.local/lib/chicago95/images
+  for screen_tree in qml images splash sddm; do
+    put_tree "$REPO/luna/$screen_tree" "$HOME/.local/share/chicago95/luna/$screen_tree"
+  done
+  put_file "$REPO/luna/palette.py" ~/.local/lib/chicago95/chicago95lunapalette.py
+  put_file "$REPO/luna/images/windows-xp-flag.svg" ~/.local/lib/chicago95/images/windows-xp-flag.svg
   put_file "$REPO/setup/animations.conf" ~/.local/lib/chicago95/animations.conf
   put_file "$menus_qss" ~/.local/share/chicago95/plasmashell-menus.qss
   put_file "$REPO/luna/images/menu-arrow.svg" ~/.local/share/chicago95/images/menu-arrow.svg

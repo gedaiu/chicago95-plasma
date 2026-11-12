@@ -283,7 +283,8 @@ def test_prepare_login_theme_adds_the_ui_font_when_installed(theme_source, tmp_p
     ]
 
 
-def test_login_context_gives_the_theme_what_sddm_would(theme_source, qt_app):
+def test_login_context_gives_the_theme_what_sddm_would_marked_as_a_preview(theme_source, qt_app):
+    """previewMode keeps the XP Welcome screen from looking up the real logged-on users."""
     context = login_preview.login_context(theme_source, host_name="BOX", size="7")
 
     assert (
@@ -292,7 +293,7 @@ def test_login_context_gives_the_theme_what_sddm_would(theme_source, qt_app):
         context["userModel"].lastUser,
         context["keyboard"].capsLock,
     ) == (
-        {"font": "Test", "size": "7"},
+        {"font": "Test", "size": "7", "previewMode": True},
         "BOX",
         "user",
         False,

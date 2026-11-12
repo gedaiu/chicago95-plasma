@@ -25,7 +25,11 @@ QML_ROOTS = [Path("/usr/lib64/qt6/qml"), Path("/usr/lib/qt6/qml"), Path("/usr/li
 PACKAGES = ["org.chicago95.start", "org.chicago95.tasks", "org.chicago95.trayframe"]
 # xprunning.png: the Start pill, three task buttons (the last pressed) and the tray box, left edges and widths
 START_PILL = (0, 98)
-TASK_BUTTONS = [(106, 160, "Control Panel", False), (266, 160, "My Computer", False), (426, 160, "Windows XP Tour", True)]
+TASK_BUTTONS = [
+    (106, 160, "Control Panel", False),
+    (266, 160, "My Computer", False),
+    (426, 160, "Windows XP Tour", True),
+]
 TRAY_BOX = (707, SCREEN_WIDTH - 707)
 STRIP = """import QtQuick
 import org.kde.ksvg as KSvg
@@ -50,9 +54,7 @@ Rectangle {
     Tray.TrayBox { x: %(tray_left)d; width: %(tray_width)d; height: %(height)d }
 }
 """
-TASK_ITEM = (
-    '    Tasks.TaskButton { x: %d; width: %d; height: %d; text: "%s"; pressed: %s }'
-)
+TASK_ITEM = '    Tasks.TaskButton { x: %d; width: %d; height: %d; text: "%s"; pressed: %s }'
 
 
 def load_module(name):
@@ -75,10 +77,15 @@ def luna_taskbar(app, scratch, width=SCREEN_WIDTH, tray_width=TRAY_BOX[1]):
     packages, themes = scratch / "plasmoids", scratch / "themes"
     for package in PACKAGES:
         shutil.copytree(REPO / "plasmoids" / package / "contents", packages / package / "contents")
-        shutil.copytree(REPO / "luna/plasmoids" / package / "contents", packages / package / "contents", dirs_exist_ok=True)
+        shutil.copytree(
+            REPO / "luna/plasmoids" / package / "contents", packages / package / "contents", dirs_exist_ok=True
+        )
         shutil.copy(REPO / "luna/plasmoids/family.js", packages / package / "contents/ui/luna/family.js")
     shutil.copytree(REPO / "luna/plasma-style/theme", themes / "Chicago95Luna")
-    folder = {key: (packages / f"org.chicago95.{key}" / "contents/ui/luna").as_uri() for key in ("start", "tasks", "trayframe")}
+    folder = {
+        key: (packages / f"org.chicago95.{key}" / "contents/ui/luna").as_uri()
+        for key in ("start", "tasks", "trayframe")
+    }
     tasks = "\n".join(
         TASK_ITEM % (left + OFF_POINTER, width, PANEL_HEIGHT, text, str(pressed).lower())
         for left, width, text, pressed in TASK_BUTTONS

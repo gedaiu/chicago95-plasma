@@ -2,15 +2,14 @@
 (lib/chicago95update.py), a Check now button, and Install update, which pulls the repository and reruns Setup."""
 
 import stat
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
+import chicago95update
 import pytest
 from conftest import load_script
 
-import chicago95update
-
 OLD, NEW = "a" * 40, "b" * 40
-NOON = datetime(2026, 11, 11, 12, 0, tzinfo=timezone.utc)
+NOON = datetime(2026, 11, 11, 12, 0, tzinfo=UTC)
 
 
 @pytest.fixture(scope="session")

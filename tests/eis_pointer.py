@@ -42,7 +42,9 @@ def resumed_pointer(context):
             kind = LIBEI.ei_event_get_type(ctypes.c_void_p(event))
             device = LIBEI.ei_event_get_device(ctypes.c_void_p(event))
             if kind == SEAT_ADDED:
-                LIBEI.ei_seat_bind_capabilities(ctypes.c_void_p(LIBEI.ei_event_get_seat(ctypes.c_void_p(event))), POINTER_ABSOLUTE, BUTTON, 0)
+                LIBEI.ei_seat_bind_capabilities(
+                    ctypes.c_void_p(LIBEI.ei_event_get_seat(ctypes.c_void_p(event))), POINTER_ABSOLUTE, BUTTON, 0
+                )
             if kind == DEVICE_ADDED:
                 LIBEI.ei_device_ref(ctypes.c_void_p(device))
             if kind == DEVICE_RESUMED and LIBEI.ei_device_has_capability(ctypes.c_void_p(device), POINTER_ABSOLUTE):

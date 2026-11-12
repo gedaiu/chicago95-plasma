@@ -55,7 +55,9 @@ PANE_HUE_RANGES = {"orange": range(10, 30), "yellow": range(42, 58), "green": ra
 def opaque_hues(logo):
     pixels = (logo.getpixel((x, y)) for x in range(logo.width) for y in range(logo.height))
     return {
-        round(colorsys.rgb_to_hsv(*(channel / 255 for channel in pixel[:3]))[0] * 360) for pixel in pixels if pixel[3] > 200
+        round(colorsys.rgb_to_hsv(*(channel / 255 for channel in pixel[:3]))[0] * 360)
+        for pixel in pixels
+        if pixel[3] > 200
     }
 
 

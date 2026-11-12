@@ -32,8 +32,12 @@ def thumb_pixels(width, height, horizontal, state, point=None):
     across, length = (width, height) if horizontal else (height, width)
     shades = thumb_shades(state, length)
     pixels = [[None] * across for _ in range(length)]
-    accent = {"normal": ("#81DC83", "#49C94B"), "hover": THUMB_HOVER_ACCENT,
-              "pressed": ("#409D42", "#2D8F30"), "disabled": ("#DAD8CD", "#C9C7BA")}[state]
+    accent = {
+        "normal": ("#81DC83", "#49C94B"),
+        "hover": THUMB_HOVER_ACCENT,
+        "pressed": ("#409D42", "#2D8F30"),
+        "disabled": ("#DAD8CD", "#C9C7BA"),
+    }[state]
     taper = across // 2
     for y in range(length):
         inset = max(0, y - (length - taper - 1)) if point else 0
