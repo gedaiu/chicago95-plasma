@@ -199,3 +199,54 @@ def test_without_a_compositor_the_screen_is_unknown_and_kscreen_doctor_is_never_
     monkeypatch.delenv("DISPLAY", raising=False)
 
     assert (control_panel.live_screen(), called.exists()) == (None, False)
+
+
+@pytest.mark.parametrize("scale", ["1", "1.5", "2"])
+def test_luna_display_tabs_fit_at_desktop_scales(tmp_path, scale):
+    import os
+    import subprocess
+    import sys
+
+    from conftest import REPO
+
+    program = r'''
+import sys
+from pathlib import Path
+root = Path.cwd()
+sys.path[:0] = [str(root / "tests"), str(root / "lib"), str(root / "luna/lib")]
+import conftest, chicago95luna
+import os
+os.environ["QT_SCALE_FACTOR"] = sys.argv[2]
+from PySide6.QtWidgets import QApplication
+app = QApplication([])
+assert app.devicePixelRatio() == float(sys.argv[2])
+app.setStyle(chicago95luna.LunaStyle())
+app.setPalette(chicago95luna.luna_palette())
+app.setFont(chicago95luna.luna_font())
+panel = conftest.load_script("chicago95-control-panel")
+panel.chicago95ui.luna_widgets = lambda: True
+settings = {**panel.LOOK_PRESETS["luna"], "LOOK": "luna"}
+names = ("Background", "Screen Saver", "Appearance", "Effects", "Settings")
+actions = panel.Actions(list_screensavers=lambda: [], lock_timeout_minutes=lambda: 60)
+entries = [(name, panel.build_tab("Display", name, settings, actions)) for name in names]
+page = panel.PropertiesPage("Display", entries, lambda _: True)
+window = panel.PropertySheetWindow(page, None)
+window.show()
+for index, (name, tab) in enumerate(entries):
+    page.tabs.setCurrentIndex(index)
+    for item in range(tab.items.count()) if name == "Appearance" else [None]:
+        if item is not None:
+            tab.items.setCurrentIndex(item)
+        app.processEvents()
+        area = page.tabs.widget(index)
+        bars = (area.horizontalScrollBar().maximum(), area.verticalScrollBar().maximum())
+        assert bars == (0, 0), (name, item, bars, tab.minimumSizeHint())
+    window.grab().save(str(Path(sys.argv[1]) / f"{name}.png"))
+window.close()
+'''
+    result = subprocess.run(
+        [sys.executable, "-c", program, str(tmp_path), scale], cwd=REPO, check=False,
+        env={**os.environ, "QT_QPA_PLATFORM": "offscreen", "QT_SCALE_FACTOR": scale},
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

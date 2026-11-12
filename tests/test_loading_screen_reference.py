@@ -6,6 +6,7 @@ the logo must match in colour block by block (the original dithers them to 256 c
 """
 
 import shutil
+from contextlib import contextmanager
 
 import pytest
 from conftest import REPO, needs_ui_font
@@ -38,8 +39,10 @@ def reference():
     return screenshot("w2kboot")
 
 
-def render_splash(qt_app, folder, **settings):
-    """Our loading screen at stage 3 of 6, 640x480, with the given settings.js values."""
+@contextmanager
+def splash_view(qt_app, folder, booting=True, **settings):
+    """Our loading screen at stage 3 of 6, 640x480, with the given settings.js values, shown 300ms: the boot
+    page while booting, else the screen KSplash shows after log on."""
     from PySide6.QtCore import QTimer, QUrl
     from PySide6.QtQuick import QQuickView
 
@@ -63,12 +66,20 @@ def render_splash(qt_app, folder, **settings):
     view.setSource(QUrl.fromLocalFile(str(folder / "Splash.qml")))
     assert [error.toString() for error in view.errors()] == []
     view.rootObject().setProperty("stage", 3)
+    view.rootObject().setProperty("booting", booting)
     view.show()
     QTimer.singleShot(300, qt_app.quit)
     qt_app.exec()
-    image = qimage_to_pil(view.grabWindow())
-    view.close()
-    return image
+    try:
+        yield view
+    finally:
+        view.close()
+
+
+def render_splash(qt_app, folder, **options):
+    """splash_view's screen as a PIL image."""
+    with splash_view(qt_app, folder, **options) as view:
+        return qimage_to_pil(view.grabWindow())
 
 
 @pytest.fixture(scope="module")

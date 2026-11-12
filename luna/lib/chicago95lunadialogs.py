@@ -316,7 +316,7 @@ class LunaDialog(QDialog):
     SPECS = []
 
     def __init__(self, commands, parent=None):
-        super().__init__(parent, Qt.Dialog | Qt.FramelessWindowHint)
+        super().__init__(parent, Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.commands = commands
         self.luna_style = LunaStyle()
         self.setWindowTitle(self.TITLE)

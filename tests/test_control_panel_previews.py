@@ -4,6 +4,7 @@ the branding preview is the 2000 banner the Shut Down tool draws for the log-on 
 
 import pytest
 from conftest import REPO, load_script
+from login_theme import shown_texts
 from PySide6.QtCore import QObject
 
 
@@ -12,10 +13,9 @@ def control_panel():
     return load_script("chicago95-control-panel")
 
 
-def preview_of(control_panel, tab_name, applet="Passwords"):
+def preview_of(control_panel, tab_name, applet="Passwords", index=0):
     tab = control_panel.build_tab(applet, tab_name, {}, control_panel.Actions())
-    (preview,) = tab.previews
-    return preview
+    return tab.previews[index]
 
 
 def texts(root):
@@ -111,7 +111,7 @@ def test_the_boot_screen_preview_follows_its_own_style_as_soon_as_the_radio_chan
 
 def test_the_boot_screen_preview_defaults_to_the_saved_login_style_until_a_boot_style_is_chosen(control_panel, qt_app):
     tab = control_panel.build_tab("Booting Screen", "Boot Screen", {"LOGIN_STYLE": "2000"}, control_panel.Actions())
-    (preview,) = tab.previews
+    preview = tab.previews[0]
     preview.refresh({"LOGIN_STYLE": "2000", **tab.values()})
     qt_app.processEvents()
 
@@ -182,3 +182,33 @@ def test_the_control_panel_installed_outside_the_checkout_opens_passwords_with_w
     qml_errors = [error.toString() for preview in previews if hasattr(preview, "errors") for error in preview.errors()]
 
     assert (module.REPO_DIR, len(previews), qml_errors) == (tmp_path / "local", 2, [])
+
+
+def test_the_boot_screen_tab_previews_the_boot_page_and_the_screen_after_log_on(control_panel, qt_app):
+    tab = control_panel.build_tab("Booting Screen", "Boot Screen", {}, control_panel.Actions())
+    assert [type(preview).__name__ for preview in tab.previews] == ["LoadingPreview", "AfterLogOnPreview"]
+
+
+def test_the_after_log_on_preview_of_a_2000_login_is_the_desktop_colour(control_panel, qt_app):
+    preview = preview_of(control_panel, "Boot Screen", "Booting Screen", index=1)
+    preview.refresh({"LOOK": "2000", "LOGIN_STYLE": "2000", "BOOT_STYLE": "2000"})
+    qt_app.processEvents()
+    assert preview.dialog().property("color").name() == "#3a6ea5"
+
+
+def test_the_after_log_on_preview_of_an_xp_welcome_login_is_the_welcome_screen(control_panel, qt_app):
+    preview = preview_of(control_panel, "Boot Screen", "Booting Screen", index=1)
+    preview.refresh({"LOOK": "luna", "LOGIN_STYLE": "luna", "BOOT_STYLE": "luna"})
+    qt_app.processEvents()
+    assert (errors(preview), "Loading your personal settings..." in shown_texts(preview.dialog())) == ([], True)
+
+
+def test_the_after_log_on_preview_takes_the_desktop_colour_chosen(control_panel, qt_app):
+    preview = preview_of(control_panel, "Boot Screen", "Booting Screen", index=1)
+    preview.refresh({"LOOK": "2000", "LOGIN_STYLE": "classic", "BACKGROUND_COLOR": "#123456"})
+    qt_app.processEvents()
+    assert preview.dialog().property("color").name() == "#123456"
+
+
+def test_a_desktop_colour_change_reinstalls_the_loading_screen(control_panel):
+    assert "splash" in control_panel.COMPONENTS_BY_KEY["BACKGROUND_COLOR"]

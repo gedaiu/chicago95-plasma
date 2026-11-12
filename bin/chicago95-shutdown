@@ -16,6 +16,8 @@ import chicago95ui  # noqa: E401,E702
 from PySide6.QtCore import QPoint, QPointF, QRect, Qt, QTimer
 from PySide6.QtGui import (
     QColor,
+    QBrush,
+    QGuiApplication,
     QFont,
     QFontDatabase,
     QFontMetrics,
@@ -249,6 +251,7 @@ class LogOffDialog(chicago95ui.ClassicDialog):
     def __init__(self, look=None):
         look = {**chicago95ui.look_settings(), **(look or {})}
         super().__init__(f"Log Off {chicago95ui.short_os_name(look['osName'])}", look["style"], (300, 110))
+        self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
 
         upper = QHBoxLayout()
         upper.setSpacing(12)
@@ -434,6 +437,7 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         self.style = self.look["style"] if self.look["style"] in CHOICES else "1995"
         body, inset = self.BODIES[self.style]
         super().__init__(f"Shut Down {chicago95ui.short_os_name(self.look['osName'])}", self.style, body, inset)
+        self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
         self.choices = CHOICES[self.style]
         self.choice = None
         {"combo": self.build_combo_list, "radio": self.build_radio_list}[LAYOUT[self.style]]()
@@ -517,10 +521,58 @@ def run_command(argv, dry_run):
     subprocess.Popen(argv)
 
 
+class ShutdownStipple(QWidget):
+    """9x dims the desktop with alternating black pixels, preserving its colours."""
+
+    def __init__(self, screen):
+        super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+                         | Qt.WindowDoesNotAcceptFocus)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setWindowTitle("Chicago95 shutdown backdrop")
+        self.winId()
+        self.windowHandle().setScreen(screen)
+        self.setGeometry(screen.geometry())
+        tile = QImage(2, 2, QImage.Format_ARGB32_Premultiplied)
+        tile.fill(Qt.transparent)
+        tile.setPixelColor(0, 0, QColor(Qt.black))
+        tile.setPixelColor(1, 1, QColor(Qt.black))
+        self.pattern = QBrush(QPixmap.fromImage(tile))
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        # A dot is one physical pixel, including at fractional desktop scaling.
+        ratio = self.devicePixelRatioF()
+        painter.scale(1 / ratio, 1 / ratio)
+        painter.fillRect(QRect(0, 0, round(self.width() * ratio), round(self.height() * ratio)), self.pattern)
+
+
+def shutdown_backdrops(dialog):
+    if not isinstance(dialog, ShutDownDialog) or dialog.style not in ("1995", "1998"):
+        return []
+    overlays = [ShutdownStipple(screen) for screen in QGuiApplication.screens()]
+    for overlay in overlays:
+        overlay.showFullScreen()
+    dialog.winId()
+    for overlay in overlays:
+        if overlay.screen() == dialog.screen():
+            dialog.windowHandle().setTransientParent(overlay.windowHandle())
+            break
+    return overlays
+
+
 def ask(dialog):
-    dialog.show()
-    centre_on_screen(dialog)
-    return dialog.exec() == QDialog.Accepted
+    overlays = shutdown_backdrops(dialog)
+    try:
+        dialog.show()
+        centre_on_screen(dialog)
+        dialog.raise_()
+        return dialog.exec() == QDialog.Accepted
+    finally:
+        if overlays:
+            dialog.windowHandle().setTransientParent(None)
+        for overlay in overlays:
+            overlay.close()
+            overlay.deleteLater()
 
 
 def ask_luna_choice(dialog_class, choices_by_command):

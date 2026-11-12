@@ -18,6 +18,8 @@ Item {
     property string name
     property url picture
     property bool selected
+    property string status: ""  // in place of the password box, while Windows logs the user on
+    readonly property bool askingPassword: selected && status === ""
     property int failureCount
     property string family: "Trebuchet MS"
     readonly property alias password: passwordInput.text
@@ -29,11 +31,15 @@ Item {
     width: 365 * unit
     height: (selected ? 70 : 63) * unit
 
-    onSelectedChanged: if (selected)
-        passwordInput.forceActiveFocus()
+    onSelectedChanged: {
+        passwordInput.text = "";
+        if (selected)
+            passwordInput.forceActiveFocus();
+    }
     onFailureCountChanged: {
         passwordInput.text = "";
-        passwordInput.forceActiveFocus();
+        if (selected)
+            passwordInput.forceActiveFocus();
     }
 
     Rectangle {
@@ -78,10 +84,11 @@ Item {
     }
 
     Rectangle {
+        objectName: "avatarFrame"
         x: 10 * tile.unit
         y: 10 * tile.unit
         width: 52 * tile.unit
-        height: 50 * tile.unit
+        height: 52 * tile.unit
         radius: 3 * tile.unit
         color: "#ffb600"
         Rectangle {
@@ -126,6 +133,7 @@ Item {
                 color: "#ffffff"
             }
             Image {
+                objectName: "avatarImage"
                 anchors.fill: parent
                 source: tile.picture
                 fillMode: Image.PreserveAspectCrop
@@ -145,14 +153,14 @@ Item {
         visible: tile.selected
         x: 75 * tile.unit
         y: 34 * tile.unit
-        text: "Type your password"
+        text: tile.status || "Type your password"
         color: "#ffffff"
         font.family: tile.family
         font.pixelSize: 11 * tile.unit
     }
 
     Rectangle {
-        visible: tile.selected
+        visible: tile.askingPassword
         x: 72 * tile.unit
         y: 52 * tile.unit
         width: 161 * tile.unit
@@ -162,7 +170,7 @@ Item {
         opacity: 0.49
     }
     Rectangle {
-        visible: tile.selected
+        visible: tile.askingPassword
         x: 72 * tile.unit
         y: 51 * tile.unit
         width: 161 * tile.unit
@@ -173,7 +181,7 @@ Item {
     }
     Rectangle {
         id: field
-        visible: tile.selected
+        visible: tile.askingPassword
         x: 71 * tile.unit
         y: 50 * tile.unit
         width: 161 * tile.unit
@@ -182,6 +190,7 @@ Item {
         color: "#ffffff"
         TextInput {
             id: passwordInput
+            objectName: "passwordInput"
             anchors.fill: parent
             anchors.margins: 4 * tile.unit
             verticalAlignment: TextInput.AlignVCenter
@@ -196,7 +205,7 @@ Item {
         }
     }
     Rectangle {
-        visible: tile.selected
+        visible: tile.askingPassword
         x: 246 * tile.unit
         y: 53 * tile.unit
         width: 24 * tile.unit
@@ -206,7 +215,7 @@ Item {
         opacity: 0.65
     }
     Rectangle {
-        visible: tile.selected
+        visible: tile.askingPassword
         x: 245 * tile.unit
         y: 52 * tile.unit
         width: 24 * tile.unit
@@ -217,7 +226,7 @@ Item {
     }
     Rectangle {
         id: goButton
-        visible: tile.selected
+        visible: tile.askingPassword
         x: 244 * tile.unit
         y: 51 * tile.unit
         width: 24 * tile.unit

@@ -98,6 +98,7 @@ def test_an_events_effects_are_its_choices_and_the_installed_ones_of_its_categor
         ("ANIM_MENUS", "both", ("slidingpopups", "fadingpopups")),
         ("ANIM_WINDOWS", "kwin6_effect_fire", ("kwin6_effect_fire",)),
         ("ANIM_WINDOWS", "none", ()),
+        ("ANIM_SESSION", "fade", ("login",)),
     ],
 )
 def test_a_choice_turns_on_its_effects_and_an_installed_effects_choice_turns_on_that_effect(table, key, value, effects):
@@ -141,6 +142,13 @@ def test_the_classic_button_gives_the_looks_windows_choices(table):
         "ANIM_MINIMIZE": "zoom",
         "ANIM_MAXIMIZE": "zoom",
         "ANIM_MENUS": "slide",
+        "ANIM_SESSION": "fade",
+    }
+
+
+def test_every_looks_classic_choices_fade_the_screen_after_log_on_into_the_desktop(table):
+    assert {look: choices["ANIM_SESSION"] for look, choices in table.classic.items()} == {
+        look: "fade" for look in table.classic
     }
 
 

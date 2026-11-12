@@ -1,6 +1,7 @@
 import importlib.machinery
 import importlib.util
 import os
+import socket
 import subprocess
 import sys
 import tempfile
@@ -146,3 +147,22 @@ def desktops():
     yield desktop
     for folder in folders:
         shutil.rmtree(folder, ignore_errors=True)
+
+
+@pytest.fixture
+def short_runtime_dir(monkeypatch):
+    """A runtime folder under /tmp: unix socket paths stop at 108 bytes, too short for pytest's tmp_path."""
+    with tempfile.TemporaryDirectory(dir="/tmp") as runtime_dir:
+        monkeypatch.setenv("XDG_RUNTIME_DIR", runtime_dir)
+        yield runtime_dir
+
+
+@pytest.fixture
+def listening_compositor(short_runtime_dir, monkeypatch):
+    """A Wayland socket somebody listens on, so the tools believe a compositor is there to ask."""
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-test")
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as compositor:
+        compositor.bind(os.path.join(short_runtime_dir, "wayland-test"))
+        compositor.listen()
+        yield compositor

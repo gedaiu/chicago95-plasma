@@ -542,6 +542,7 @@ def loading_details(app, scratch):
     view.resize(640, 480)
     view.setSource(QUrl.fromLocalFile(str(splash / "Splash.qml")))
     view.rootObject().setProperty("stage", 3)
+    view.rootObject().setProperty("booting", True)
     view.show()
     QTimer.singleShot(300, app.quit)
     app.exec()

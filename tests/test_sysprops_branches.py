@@ -25,11 +25,10 @@ def sysprops():
 
 
 @pytest.fixture
-def commands_on_path(tmp_path, monkeypatch):
+def commands_on_path(tmp_path, monkeypatch, listening_compositor):
     bin_directory = tmp_path / "bin"
     bin_directory.mkdir()
     monkeypatch.setenv("PATH", str(bin_directory))
-    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-test")  # a compositor to ask; without one nothing is run
 
     def install(name, output):
         script = bin_directory / name

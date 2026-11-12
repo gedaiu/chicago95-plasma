@@ -10,6 +10,7 @@ import glob
 import os
 import re
 import signal
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -23,9 +24,32 @@ def luna_widgets():
     return settings.get("Look", "widgetStyle", fallback="classic") == "luna"
 
 
+def display_socket_paths(environ):
+    """The unix sockets the Wayland and X displays named in environ listen on."""
+    paths = []
+    wayland = environ.get("WAYLAND_DISPLAY")
+    if wayland:
+        paths.append(wayland if os.path.isabs(wayland) else os.path.join(environ.get("XDG_RUNTIME_DIR", ""), wayland))
+    local_x = re.fullmatch(r"(?:unix)?:(\d+)(?:\.\d+)?", environ.get("DISPLAY", ""))
+    if local_x:
+        paths.append(f"/tmp/.X11-unix/X{local_x.group(1)}")
+    return paths
+
+
+def socket_listening(path):
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as probe:
+        try:
+            probe.connect(path)
+        except OSError:
+            return False
+    return True
+
+
 def compositor_reachable():
-    """Whether a display server is there to ask: kscreen-doctor aborts without one, and each abort is a crash report."""
-    return bool(os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY"))
+    """Whether a display server is there to ask: kscreen-doctor aborts without one, and each abort is a crash report.
+    The variables being set is not enough: a sandbox keeps them but blocks the sockets they name."""
+    remote_x = re.fullmatch(r"(?!unix:)[^:/]+:\d+(?:\.\d+)?", os.environ.get("DISPLAY", ""))
+    return bool(remote_x) or any(socket_listening(path) for path in display_socket_paths(os.environ))
 
 
 def detect_scale():

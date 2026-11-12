@@ -2,7 +2,12 @@ pragma ComponentBehavior: Bound
 import QtQuick 2.15
 import "settings.js" as Settings
 
-// Plasma loading screen. "luna": the Windows XP start-up screen (luna/splash/LunaSplash.qml), loaded
+// Plasma loading screen. KSplash shows it after log on, while Plasma starts: then it continues the login
+// screen the user came from, as the originals do. A Welcome (luna) log on keeps the XP Welcome screen with
+// "Loading your personal settings..." (luna/splash/LunaWelcome.qml); any other is the desktop's colour.
+// Both show the hourglass pointer; KWin's log on effect fades them into the desktop.
+// booting: the boot page instead, for the boot screen's picture (chicago95-splash-image) and the
+// Control Panel's preview. "luna": the Windows XP start-up screen (luna/splash/LunaSplash.qml), loaded
 // in place of the two below. "classic": a picture filling the screen. "2000": the 2000 start-up screen,
 // laid out in the original's 640x480 pixels (measured by tests/test_loading_screen_reference.py) and scaled to the
 // screen height: logo and name on a near-white page, a three-tone blue strip, a grey bar with a
@@ -11,9 +16,12 @@ import "settings.js" as Settings
 Rectangle {
     id: root
     property int stage
+    property bool booting: false
 
-    readonly property bool modern: Settings.style === "2000"
-    readonly property bool luna: Settings.style === "luna"
+    readonly property bool modern: booting && Settings.style === "2000"
+    readonly property bool luna: booting && Settings.style === "luna"
+    readonly property bool classic: booting && !modern && !luna
+    readonly property bool welcome: !booting && Settings.logonStyle === "luna"
     readonly property real unit: height / 480
     readonly property real layoutX: (width - 640 * unit) / 2  // the 640-wide layout, centred ("left" is taken by Item)
     readonly property int stages: 6
@@ -22,10 +30,10 @@ Rectangle {
         return Math.round(value * unit);
     }
 
-    color: "#f7f7f7"
+    color: booting ? "#f7f7f7" : Settings.desktopColor || "#008080"
 
     Image {
-        visible: !root.modern && !root.luna
+        visible: root.classic
         anchors.fill: parent
         source: Settings.picture.startsWith("/") ? "file://" + Settings.picture : Settings.picture
         fillMode: Image.PreserveAspectCrop
@@ -42,6 +50,22 @@ Rectangle {
             item.brandLogo = Settings.brandLogo || "";
             item.company = Settings.company || "";
             item.stage = Qt.binding(() => root.stage);
+        }
+    }
+
+    Loader {
+        anchors.fill: parent
+        active: root.welcome
+        source: "luna/splash/LunaWelcome.qml"
+        onLoaded: {
+            item.userName = Settings.userName || "";
+            item.userPicture = Settings.userPicture ? "file://" + Settings.userPicture : "";
+            item.branding = {
+                brandText: Settings.brandText || "",
+                brandLogo: Settings.brandLogo || "",
+                company: Settings.company || "",
+                edition: Settings.edition || ""
+            };
         }
     }
 
@@ -331,4 +355,10 @@ Rectangle {
         smooth: false
     }
 
+    MouseArea {
+        objectName: "waitPointer"
+        visible: !root.booting
+        anchors.fill: parent
+        cursorShape: Qt.WaitCursor
+    }
 }

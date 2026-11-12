@@ -184,7 +184,12 @@ Launch, the Start button and menu, the login screen, the booting screen, sounds,
 fonts, the mouse and the file manager, most with live previews. Booting Screen
 picks the start-up screen on its own: the classic picture or the 2000 page with
 its progress bar, whatever the login style; it is `BOOT_STYLE` in `setup.conf`
-and `--boot-style=classic|2000` for Setup. Display opens its own
+and `--boot-style=classic|2000|luna` for Setup. After log on, while Plasma
+starts, the loading screen follows the login instead, as the originals did: the
+desktop's colour under the hourglass pointer for 9x and 2000 logins, XP's Welcome
+screen with "Loading your personal settings..." for the Welcome login. KWin's
+log on fade (Effects, "Log on and log off") then fades it into the desktop.
+Display opens its own
 Display Properties window with the original's tabs, and its Effects tab picks the
 animation of each event with a speed slider from Off to Slow. Classic sets every
 list to what the look's Windows did, and the choices live in `setup/animations.conf`.

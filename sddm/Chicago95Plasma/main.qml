@@ -48,10 +48,15 @@ Rectangle {
 
     Connections {
         target: root.greeter
+        enabled: !root.luna
         function onLoginFailed() {
-            failure.text = "The password is incorrect. Try again.";
             passwordField.text = "";
-            passwordField.forceActiveFocus();
+            if (root.modern) {
+                logonMessage.visible = true;
+                return;
+            }
+            failure.text = "The password is incorrect. Try again.";
+            passwordField.input.forceActiveFocus();
         }
     }
 
@@ -120,6 +125,47 @@ Rectangle {
         }
         Keys.onSpacePressed: button.clicked()
         Keys.onReturnPressed: button.clicked()
+    }
+
+    // A window's title bar: the colour scheme's selection colour (navy in the classic schemes); theme.conf
+    // can pin a colour, or start,end for a gradient, with titleActive. 9x ends the gradient early.
+    component TitleBar: Rectangle {
+        id: titleBar
+        property alias title: titleText.text
+        x: 3
+        y: 3
+        width: parent.width - 6
+        height: 18
+        SystemPalette {
+            id: scheme
+            colorGroup: SystemPalette.Active
+        }
+        readonly property var colors: root.theme.titleActive ? String(root.theme.titleActive).split(",") : [scheme.highlight]
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop {
+                position: 0
+                color: titleBar.colors[0]
+            }
+            GradientStop {
+                position: root.modern ? 1 : 0.95
+                color: titleBar.colors[titleBar.colors.length - 1]
+            }
+        }
+        Rectangle {
+            visible: !root.modern
+            anchors.right: parent.right
+            width: 36
+            height: parent.height
+            color: titleBar.colors[titleBar.colors.length - 1]
+        }
+        RetroLabel {
+            id: titleText
+            x: 4
+            anchors.verticalCenter: parent.verticalCenter
+            color: "#ffffff"
+            font.bold: true
+        }
     }
 
     // A sunken list of names under whatever opens it: the dropdowns' lists and the Shutdown... choices.
@@ -342,7 +388,9 @@ Rectangle {
 
     Bevel {
         id: dialog
+        objectName: "logonDialog"
         visible: !root.luna
+        enabled: !logonMessage.visible
         // 2000's top edge sits a third of the way down the free space above its expanded size, like the
         // original, and stays there while Options grows the dialog; classic is centred.
         anchors.horizontalCenter: parent.horizontalCenter
@@ -371,44 +419,8 @@ Rectangle {
         }
         readonly property int bottomButtonsY: height - 37
 
-        Rectangle {
-            id: titleBar
-            x: 3
-            y: 3
-            width: parent.width - 6
-            height: 18
-            // The colour scheme's selection colour (navy in the classic schemes); theme.conf can pin
-            // a colour, or start,end for a gradient, with titleActive.
-            SystemPalette {
-                id: scheme
-                colorGroup: SystemPalette.Active
-            }
-            readonly property var colors: root.theme.titleActive ? String(root.theme.titleActive).split(",") : [scheme.highlight]
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop {
-                    position: 0
-                    color: titleBar.colors[0]
-                }
-                GradientStop {
-                    position: root.modern ? 1 : 0.95
-                    color: titleBar.colors[titleBar.colors.length - 1]
-                }
-            }
-            Rectangle {
-                visible: !root.modern
-                anchors.right: parent.right
-                width: 36
-                height: parent.height
-                color: titleBar.colors[titleBar.colors.length - 1]
-            }
-            RetroLabel {
-                x: 4
-                anchors.verticalCenter: parent.verticalCenter
-                text: String(root.theme.loginTitle || "Log On to %h").replace("%h", root.greeter.hostName || "this computer")
-                color: "#ffffff"
-                font.bold: true
-            }
+        TitleBar {
+            title: String(root.theme.loginTitle || "Log On to %h").replace("%h", root.greeter.hostName || "this computer")
         }
 
         Row {
@@ -507,6 +519,8 @@ Rectangle {
         }
         RetroField {
             id: passwordField
+            objectName: "passwordField"
+            Component.onCompleted: input.objectName = "passwordInput"
             x: dialog.fieldX
             y: dialog.rowY(1)
             width: dialog.fieldWidth
@@ -560,10 +574,13 @@ Rectangle {
             }
         }
 
+        // 9x: a line of its own under the fields; the dialog grows by its row. 2000 opens the Logon Message box.
         RetroLabel {
             id: failure
+            objectName: "failureLine"
+            visible: !root.modern
             x: dialog.labelX
-            y: root.modern ? dialog.bottomButtonsY + 5 : dialog.height - 18
+            y: dialog.height - 18
             color: "#800000"
         }
 
@@ -696,6 +713,64 @@ Rectangle {
                 onToggled: root.showPassword = !root.showPassword
                 KeyNavigation.tab: userField.input
             }
+        }
+    }
+
+    // 2000's answer to a wrong password: a modal message box over the disabled dialog, its text as Windows
+    // 2000 words it (Microsoft KB 258289). OK, Return, Space or Escape close it and the password is typed again.
+    Bevel {
+        id: logonMessage
+        objectName: "logonMessage"
+        readonly property alias title: messageTitle.title
+        readonly property alias text: messageText.text
+        readonly property int textX: 52
+        readonly property int textWidth: 380
+        visible: false
+        z: 10
+        anchors.centerIn: parent
+        width: textX + textWidth + 14
+        height: messageOk.y + messageOk.height + 11
+        scale: root.pixelScale
+        style: "window"
+        function close() {
+            visible = false;
+            passwordField.input.forceActiveFocus();
+        }
+        onVisibleChanged: {
+            if (visible)
+                messageOk.forceActiveFocus();
+        }
+        TitleBar {
+            id: messageTitle
+            title: "Logon Message"
+        }
+        Image {
+            id: messageIcon
+            x: 11
+            y: 32
+            width: 32
+            height: 32
+            source: "error.svg"
+            sourceSize.width: 32 * root.pixelScale
+            sourceSize.height: 32 * root.pixelScale
+        }
+        RetroLabel {
+            id: messageText
+            x: logonMessage.textX
+            y: 32 + Math.max(0, (messageIcon.height - implicitHeight) / 2)
+            width: logonMessage.textWidth
+            wrapMode: Text.WordWrap
+            text: "The system could not log you on. Make sure your User name and domain are correct, then type your password again. Letters in passwords must be typed using the correct case. Make sure that Caps Lock is not accidentally on."
+        }
+        RetroButton {
+            id: messageOk
+            objectName: "logonMessageOk"
+            x: Math.round((logonMessage.width - width) / 2)
+            y: Math.max(messageIcon.y + messageIcon.height, messageText.y + messageText.height) + 12
+            label: "OK"
+            isDefault: true
+            onClicked: logonMessage.close()
+            Keys.onEscapePressed: logonMessage.close()
         }
     }
 

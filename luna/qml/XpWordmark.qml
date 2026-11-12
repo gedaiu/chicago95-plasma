@@ -61,7 +61,7 @@ Item {
     Text {
         visible: wordmark.branded && wordmark.edition !== ""
         x: brandName.x + brandName.contentWidth - width
-        y: 62 * wordmark.unit - baselineOffset
+        y: brandName.y + brandName.height  // right under the name, never into it
         text: wordmark.edition
         color: wordmark.textColor
         font.family: wordmark.family

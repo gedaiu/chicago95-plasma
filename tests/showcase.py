@@ -88,7 +88,7 @@ def boot(app, look, scratch):
         'var brandText = "Chicago95"', f'var brandText = "Windows {"XP" if look == "2001" else "2000"}"'
     )
     (folder / "settings.js").write_text(settings)
-    return qml_image(app, folder / "Splash.qml", SIZE, properties={"stage": 3})
+    return qml_image(app, folder / "Splash.qml", SIZE, properties={"stage": 3, "booting": True})
 
 
 def login(app, look, scratch):

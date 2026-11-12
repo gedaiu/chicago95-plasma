@@ -145,7 +145,7 @@ def title_gradient(rows, top, height):
 
 class LunaAppearancePreview(QWidget):
     SIZE = QSize(358, 178)
-    INACTIVE, ACTIVE, MESSAGE = QRect(10, 9, 302, 112), QRect(16, 29, 300, 126), QRect(22, 104, 212, 66)
+    INACTIVE, ACTIVE, MESSAGE = QRect(10, 9, 302, 112), QRect(16, 29, 300, 126), QRect(22, 90, 212, 80)
 
     def __init__(self):
         super().__init__()
@@ -189,14 +189,15 @@ class LunaAppearancePreview(QWidget):
         font.setBold(True)
         painter.setFont(font)
         painter.drawText(title.adjusted(8, 0, 0, 0), Qt.AlignVCenter, caption)
-        self.paint_buttons(painter, title, buttons)
+        self.paint_buttons(painter, title, buttons, active)
         return title
 
-    def paint_buttons(self, painter, title, count):
+    def paint_buttons(self, painter, title, count, active=True):
         for index, renderer in enumerate(self.button_renderers[-count:][::-1]):
             left = title.right() - 4 - PREVIEW_BUTTON_SIZE * (index + 1) - 2 * index
             renderer.render(
-                painter, "active-center", QRectF(left, title.top() + 2, PREVIEW_BUTTON_SIZE, PREVIEW_BUTTON_SIZE)
+                painter, "active-center" if active else "inactive-center",
+                QRectF(left, title.top() + 2, PREVIEW_BUTTON_SIZE, PREVIEW_BUTTON_SIZE)
             )
 
     def menu_and_text(self, painter, rect):

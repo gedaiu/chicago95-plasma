@@ -171,7 +171,7 @@ COMPONENTS_BY_KEY = {
     "CLIPPY_AUTOSTART": ("clippy",),
     "EXPLORER": ("explorer",),
     "BACKGROUND_MODE": ("background",),
-    "BACKGROUND_COLOR": ("background",),
+    "BACKGROUND_COLOR": ("background", "splash"),  # the screen after log on is the desktop's colour
     "BACKGROUND_PATTERN": ("background",),
     "BACKGROUND_IMAGE": ("background",),
     "BACKGROUND_FILL": ("background",),
@@ -1638,6 +1638,13 @@ def luna_root_of(values):
     return repo_of(values) / "luna"
 
 
+def desktop_color(values):
+    """The desktop's colour: the one chosen, else the look's."""
+    chosen = values.get("BACKGROUND_COLOR", "")
+    look = LOOK_PRESETS.get(values.get("LOOK", ""), {})
+    return chosen if valid_colors(chosen) else look.get("BACKGROUND_COLOR", "#008080")
+
+
 def add_luna_screen(values, destination, screen, style):
     """The Luna QML trees beside a screen that loads them, when the screen's style is luna."""
     if style == "luna":
@@ -1774,10 +1781,13 @@ class LogOnPreview(QmlPreview):
     SIZE, SCALE = (440, 250), 0.6  # the dialog's own size, shrunk to fit the property sheet
     LUNA_SIZE, LUNA_SCALE = (800, 600), 0.33  # the XP welcome screen fills the screen
 
-    def __init__(self):
+    def __init__(self, interactive=False):
         super().__init__(self.SIZE, self.SCALE)
+        self.interactive = interactive
+        self.values = {}
 
     def refresh(self, values):
+        self.values = dict(values)
         folder = fresh_scratch(self)
         style = values.get("LOGIN_STYLE", "classic")
         theme = sddm_theme_of(values)
@@ -1787,6 +1797,8 @@ class LogOnPreview(QmlPreview):
         add_luna_screen(values, folder / "theme", "sddm", style)
         branding = luna_login_branding(values, folder / "theme") if style == "luna" else {}
         self.fit(*{"luna": (self.LUNA_SIZE, self.LUNA_SCALE)}.get(style, (self.SIZE, self.SCALE)))
+        if self.interactive:
+            self.fit((800, 600), 1.0)
         self.engine().addImportPath(str(folder / "imports"))
         settings = {
             "loginStyle": style,
@@ -1797,7 +1809,62 @@ class LogOnPreview(QmlPreview):
             "scale": "1",
             **branding,
         }
-        self.load(main_qml, login_preview.login_context(theme, host_name=socket.gethostname(), **settings))
+        examples = {}
+        if self.interactive:
+            users = []
+            for name, icon_name in zip(("Alex", "Sam", "Taylor"),
+                                       ("user-identity", "user-home", "computer"), strict=True):
+                avatar = folder / f"avatar-{name}.png"
+                QIcon.fromTheme(icon_name).pixmap(48, 48).save(str(avatar))
+                source = QUrl.fromLocalFile(str(avatar)).toString() if avatar.exists() else ""
+                users.append({"name": name, "icon": source})
+            examples = {"user": "Alex", "users": users, "sessions": ("Plasma (Wayland)", "Plasma (X11)")}
+        self.load(main_qml, login_preview.login_context(theme, host_name=socket.gethostname(), **examples, **settings))
+
+    def open_test(self):
+        parent = self.parentWidget()
+        while parent is not None and not isinstance(parent, PropertiesPage):
+            parent = parent.parentWidget()
+        if parent is not None:
+            parent.refresh_previews()
+        self.test_window = LoginTestDialog(self.values, self.window())
+        self.test_window.show()
+
+
+class LoginTestDialog(QDialog):
+    """Exercise the real theme with mock accounts; never authenticates or invokes power actions."""
+
+    def __init__(self, values, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Test login")
+        self.preview = LogOnPreview(interactive=True)
+        self.preview.refresh(values)
+        self.fail_login = QCheckBox("Simulate incorrect password")
+        self.fail_login.setChecked(True)
+        self.status = QLabel("Test only — use any dummy password. No login or power action will be performed.")
+        self.status.setWordWrap(True)
+        close = chicago95ui.dialog_button("Close")
+        close.setAutoDefault(False)
+        close.setDefault(False)
+        close.clicked.connect(self.close)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.preview)
+        layout.addWidget(self.status)
+        buttons = QHBoxLayout()
+        buttons.addWidget(self.fail_login)
+        buttons.addStretch(1)
+        buttons.addWidget(close)
+        layout.addLayout(buttons)
+        greeter = self.preview.context["sddm"]
+        greeter.loginAttempted.connect(self.login_attempted)
+        greeter.powerRequested.connect(lambda action: self.status.setText(f"{action} requested (simulation only)."))
+
+    def login_attempted(self, user, session):
+        if self.fail_login.isChecked():
+            self.preview.context["sddm"].loginFailed.emit()
+            self.status.setText(f"Simulated incorrect password for {user}.")
+        else:
+            self.status.setText(f"Simulated successful login for {user}, session {session + 1}.")
 
 
 MENU_STYLES = ("1995", "1998", "2000", "2001", "luna")
@@ -2000,17 +2067,38 @@ class LoadingPreview(QmlPreview):
             "loadingText": values.get("LOADING_TEXT", "Starting up..."),
             "footer": values.get("LOADING_FOOTER", "Chicago95 for KDE Plasma").replace("%h", socket.gethostname()),
             "picture": str(picture_file(values.get("SPLASH_IMAGE", "classic"), repo_of(values))),
+            "logonStyle": values.get("LOGIN_STYLE", "classic"),
+            "desktopColor": desktop_color(values),
+            "userName": os.environ.get("USER", ""),
+            "userPicture": str(chicago95ui.user_picture_path(Path.home(), os.environ.get("USER", "")) or ""),
         }
         return ".pragma library\n" + "".join(f"var {name} = {json.dumps(value)}\n" for name, value in entries.items())
+
+    BOOTING = True
+
+    def add_screens(self, values, folder):
+        add_luna_screen(values, folder, "splash", boot_style(values))
 
     def refresh(self, values):
         folder = fresh_scratch(self) / "splash"
         shutil.copytree(splash_of(values), folder)
-        add_luna_screen(values, folder, "splash", boot_style(values))
+        self.add_screens(values, folder)
         (folder / "settings.js").write_text(self.settings_js(values))
         self.load(folder / "Splash.qml")
         if self.dialog() is not None:
+            self.dialog().setProperty("booting", self.BOOTING)
             self.dialog().setProperty("stage", 3)
+
+
+class AfterLogOnPreview(LoadingPreview):
+    """The same screen as Plasma shows it after log on, in the login's style: the desktop's colour, or XP's
+    Welcome screen loading the user's settings."""
+
+    BOOTING = False
+
+    def add_screens(self, values, folder):
+        for screen in ("splash", "sddm"):
+            add_luna_screen(values, folder, screen, values.get("LOGIN_STYLE", "classic"))
 
 
 def swatch_icon(colour):
@@ -2401,6 +2489,20 @@ from chicago95ui import (
     paint_tab_caption,
     tab_width,
 )
+
+
+class CurrentPageStack(QStackedWidget):
+    """Hidden editors must not force every Appearance item to their minimum size."""
+
+    def __init__(self):
+        super().__init__()
+        self.currentChanged.connect(lambda _index: self.updateGeometry())
+
+    def minimumSizeHint(self):
+        return self.currentWidget().minimumSizeHint() if self.currentWidget() else QSize()
+
+    def sizeHint(self):
+        return self.currentWidget().sizeHint() if self.currentWidget() else QSize()
 
 
 class AppearanceSwitch(QStackedWidget):
@@ -3198,7 +3300,10 @@ def log_on_tab(settings, actions):
         default="start",
     )
     tab.group("Preview")
-    tab.preview(LogOnPreview())
+    preview = tab.preview(LogOnPreview())
+    test = chicago95ui.dialog_button("Test login…")
+    test.clicked.connect(preview.open_test)
+    tab.form.addRow("", test)
     return tab
 
 
@@ -3221,8 +3326,10 @@ def boot_style(values):
 
 @tab_builder("Booting Screen", "Boot Screen")
 def boot_screen_tab(settings, actions):
-    """The screen shown while the computer boots and while Plasma loads: a picture, as 1995 and 1998 had, or
-    the 2000 page with the progress bar. Applying rebuilds the boot image, which asks for the administrator password."""
+    """The screen shown while the computer boots: a picture, as 1995 and 1998 had, the 2000 page with the progress
+    bar, or XP's black screen. After log on, while Plasma loads, the login's own: the desktop's colour under the
+    hourglass, or XP's Welcome screen loading the user's settings. Applying rebuilds the boot image, which asks
+    for the administrator password."""
     tab = SettingsTab(settings, actions)
     tab.radios(
         "BOOT_STYLE",
@@ -3241,6 +3348,8 @@ def boot_screen_tab(settings, actions):
     tab.text("LOADING_FOOTER", "Bottom line:", default="Chicago95 for KDE Plasma")
     tab.group("Preview")
     tab.preview(LoadingPreview())
+    tab.group("After log on")
+    tab.preview(AfterLogOnPreview())
     return tab
 
 
@@ -3287,7 +3396,7 @@ def appearance_tab(settings, actions):
     tab.save_as_button = chicago95ui.dialog_button("Sa&ve As...", enabled=False)
     tab.delete_button = chicago95ui.dialog_button("&Delete", enabled=False)
     tab.items = chicago95ui.classic_combo(QComboBox())
-    tab.item_editors = QStackedWidget()
+    tab.item_editors = CurrentPageStack()
     tab.color_edits = {}
     component_combos = {}
     for label, key, most, stops in APPEARANCE_ITEMS:
@@ -3306,7 +3415,19 @@ def appearance_tab(settings, actions):
             form.addRow("Style:", component_combos[key])
         else:
             tab.color_edits[key] = ColorListField(lambda current: actions.choose_color(tab, current), most, stops)
-            form.addRow("Color:", tab.color_edits[key])
+            if stops:
+                dialog = QDialog(editor)
+                dialog.setWindowTitle("Start menu banner colours")
+                layout = QVBoxLayout(dialog)
+                layout.addWidget(tab.color_edits[key])
+                close = chicago95ui.dialog_button("Close")
+                close.clicked.connect(dialog.close)
+                layout.addWidget(close, 0, Qt.AlignRight)
+                edit = chicago95ui.dialog_button("Edit gradient…")
+                edit.clicked.connect(dialog.show)
+                form.addRow("Color:", edit)
+            else:
+                form.addRow("Color:", tab.color_edits[key])
         tab.items.addItem(label, key)
         tab.item_editors.addWidget(editor)
     tab.items.currentIndexChanged.connect(tab.item_editors.setCurrentIndex)
@@ -3728,7 +3849,12 @@ def effects_tab(settings, actions):
     installed = actions.installed_effects()
     live = actions.live_animations()
     tab.combos, tab.settings_buttons = {}, {}
-    tab.choice("DESKTOP_ICONS", "Desktop icons:", DESKTOP_ICON_CHOICES, default="auto")
+    icons = tab.choice("DESKTOP_ICONS", "Desktop icons:", DESKTOP_ICON_CHOICES, default="auto")
+    icons.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+    icons.setMinimumContentsLength(12)
+    if chicago95ui.luna_widgets():
+        tab.outer.setContentsMargins(10, 6, 10, 6)
+        tab.outer.setSpacing(3)
     tab.classic_button = chicago95ui.dialog_button("&Classic")
     tab.classic_button.clicked.connect(
         lambda: (
@@ -3746,6 +3872,8 @@ def effects_tab(settings, actions):
         box = QGroupBox(group)
         grid = QGridLayout(box)
         grid.setVerticalSpacing(2)
+        if chicago95ui.luna_widgets():
+            grid.setContentsMargins(6, 2, 6, 2)
         events = [event for event in table.events if event.group == group]
         for index, event in enumerate(events):
             current = chicago95animations.current_choice(table, event.key, installed, live)

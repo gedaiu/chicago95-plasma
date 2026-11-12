@@ -359,7 +359,9 @@ def test_effects_tab_offers_installed_burn_my_windows_effects_for_opening_and_cl
     ]
 
 
-def test_classic_button_on_the_1998_look_zooms_title_bars_slides_menus_and_turns_the_rest_off(control_panel, qt_app):
+def test_classic_button_on_the_1998_look_zooms_title_bars_slides_menus_fades_in_the_desktop_and_turns_the_rest_off(
+    control_panel, qt_app
+):
     tab = effects_tab(control_panel, {"LOOK": "1998"})
     tab.classic_button.click()
 
@@ -368,6 +370,7 @@ def test_classic_button_on_the_1998_look_zooms_title_bars_slides_menus_and_turns
         "ANIM_MINIMIZE": "zoom",
         "ANIM_MAXIMIZE": "zoom",
         "ANIM_MENUS": "slide",
+        "ANIM_SESSION": "fade",
         "ANIM_SPEED": "1",
     }
 

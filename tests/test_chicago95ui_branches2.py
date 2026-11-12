@@ -1,8 +1,8 @@
 import importlib.util
 import os
 import subprocess
-import tempfile
 import time
+from pathlib import Path
 
 import chicago95ui
 import pytest
@@ -49,39 +49,55 @@ def click_event(kind, point, buttons=Qt.LeftButton):
     return QMouseEvent(kind, position, position, Qt.LeftButton, buttons, Qt.NoModifier)
 
 
-@pytest.fixture
-def short_runtime_dir(monkeypatch):
-    with tempfile.TemporaryDirectory(dir="/tmp") as runtime_dir:
-        monkeypatch.setenv("XDG_RUNTIME_DIR", runtime_dir)
-        yield runtime_dir
+def test_compositor_is_unreachable_when_nobody_listens_on_the_wayland_socket(short_runtime_dir, monkeypatch):
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-gone")
+    (Path(short_runtime_dir) / "wayland-gone").touch()
+
+    assert chicago95ui.compositor_reachable() is False
 
 
-def test_detect_scale_is_1_when_kscreen_doctor_times_out(monkeypatch):
+def test_compositor_is_reachable_when_the_wayland_socket_is_listening(listening_compositor):
+    assert chicago95ui.compositor_reachable() is True
+
+
+def test_compositor_is_reachable_through_an_absolute_wayland_socket_path(listening_compositor, short_runtime_dir, monkeypatch):
+    monkeypatch.setenv("WAYLAND_DISPLAY", os.path.join(short_runtime_dir, "wayland-test"))
+    monkeypatch.setenv("XDG_RUNTIME_DIR", "/nonexistent")
+
+    assert chicago95ui.compositor_reachable() is True
+
+
+def test_compositor_is_unreachable_when_the_x_display_has_no_socket(monkeypatch):
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    monkeypatch.setenv("DISPLAY", ":9999")
+
+    assert chicago95ui.compositor_reachable() is False
+
+
+def test_detect_scale_is_1_when_kscreen_doctor_times_out(monkeypatch, listening_compositor):
     fresh = fresh_ui_module()
 
     def hang(*_arguments, **_options):
         raise subprocess.TimeoutExpired("kscreen-doctor", 3)
 
-    monkeypatch.setenv("DISPLAY", ":99")
     monkeypatch.setattr(fresh.subprocess, "run", hang)
 
     assert fresh.detect_scale() == "1"
 
 
-def test_detect_scale_is_1_when_kscreen_doctor_is_missing_from_path(monkeypatch, tmp_path):
+def test_detect_scale_is_1_when_kscreen_doctor_is_missing_from_path(monkeypatch, tmp_path, listening_compositor):
     fresh = fresh_ui_module()
-    monkeypatch.setenv("DISPLAY", ":99")
     monkeypatch.setenv("PATH", str(tmp_path))
 
     assert fresh.detect_scale() == "1"
 
 
-def test_detect_scale_reads_the_scale_from_kscreen_doctor_output(monkeypatch, tmp_path):
+def test_detect_scale_reads_the_scale_from_kscreen_doctor_output(monkeypatch, tmp_path, listening_compositor):
     fresh = fresh_ui_module()
     tool = tmp_path / "kscreen-doctor"
     tool.write_text("#!/bin/sh\nprintf '\\033[32mScale: 1.5\\033[0m\\n'\n")
     tool.chmod(0o755)
-    monkeypatch.setenv("DISPLAY", ":99")
     monkeypatch.setenv("PATH", f"{tmp_path}:/usr/bin:/bin")
 
     assert fresh.detect_scale() == "1.5"

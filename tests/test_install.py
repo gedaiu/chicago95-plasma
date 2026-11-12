@@ -574,7 +574,7 @@ def dry_run_log(tmp_path, *arguments):
         capture_output=True,
         text=True,
         stdin=subprocess.DEVNULL,
-        timeout=60,
+        timeout=120,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
         check=False,
     )
@@ -1282,21 +1282,8 @@ def test_screensaver_with_a_new_menu_style_sheet_clears_plasma_caches(tmp_path):
     assert "qmlcache" in dry_run_log(tmp_path, "--components=screensaver")
 
 
-def dry_run_log(tmp_path, *arguments):
-    subprocess.run(
-        [str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", "--components=look,taskbar,fonts", *arguments],
-        capture_output=True,
-        text=True,
-        stdin=subprocess.DEVNULL,
-        timeout=120,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "TMPDIR": str(tmp_path)},
-        check=False,
-    )
-    return next(tmp_path.glob("chicago95-setup-*.log")).read_text()
-
-
 def test_look_luna_installs_the_luna_themes_and_selects_them(tmp_path):
-    log = dry_run_log(tmp_path, "--look=luna")
+    log = dry_run_log(tmp_path, "--components=look,taskbar,fonts", "--look=luna")
     home = str(tmp_path)
 
     assert (
@@ -1306,14 +1293,14 @@ def test_look_luna_installs_the_luna_themes_and_selects_them(tmp_path):
         "plasma-apply-desktoptheme Chicago95Luna" in log,
         "plasma-apply-colorscheme Chicago95Luna" in log,
         " panel=30 " in log,
-        f"cp {REPO}/luna/fontconfig/61-chicago95-luna-fonts.conf {home}/.config/fontconfig/conf.d/61-chicago95-luna-fonts.conf"
-        in log,
+        f"cp {REPO}/luna/fontconfig/61-chicago95-luna-fonts.conf "
+        f"{home}/.config/fontconfig/conf.d/61-chicago95-luna-fonts.conf" in log,
         "--key activeFont Trebuchet MS,10,-1,5,75,0,0,0,0,0" in log,
     ) == (True,) * 8
 
 
 def test_look_luna_writes_the_component_keys_to_chicago95rc(tmp_path):
-    log = dry_run_log(tmp_path, "--look=luna")
+    log = dry_run_log(tmp_path, "--components=look,taskbar,fonts", "--look=luna")
 
     assert [
         line.split("--file chicago95rc ", 1)[1]
@@ -1329,7 +1316,7 @@ def test_look_luna_writes_the_component_keys_to_chicago95rc(tmp_path):
 
 
 def test_look_1995_with_taskbar_style_luna_selects_the_luna_plasma_theme_and_the_flat_decoration(tmp_path):
-    log = dry_run_log(tmp_path, "--look=1995", "--taskbar-style=luna")
+    log = dry_run_log(tmp_path, "--components=look,taskbar,fonts", "--look=1995", "--taskbar-style=luna")
 
     assert (
         "plasma-apply-desktoptheme Chicago95Luna" in log,
@@ -1340,7 +1327,7 @@ def test_look_1995_with_taskbar_style_luna_selects_the_luna_plasma_theme_and_the
 
 
 def test_look_1995_installs_only_the_flat_themes(tmp_path):
-    log = dry_run_log(tmp_path, "--look=1995")
+    log = dry_run_log(tmp_path, "--components=look,taskbar,fonts", "--look=1995")
 
     assert (
         "--key theme __aurorae__svg__Chicago95\n" in log,
@@ -1352,7 +1339,7 @@ def test_look_1995_installs_only_the_flat_themes(tmp_path):
 
 
 def test_decoration_flag_overrides_the_preset_decoration(tmp_path):
-    log = dry_run_log(tmp_path, "--look=2000", "--decoration=luna")
+    log = dry_run_log(tmp_path, "--components=look,taskbar,fonts", "--look=2000", "--decoration=luna")
 
     assert (
         "--key theme __aurorae__svg__Chicago95Luna" in log,
@@ -1664,8 +1651,8 @@ def test_look_1995_after_luna_restores_the_classic_gtk_theme_font_and_pixel_rule
         f"--file {tmp_path}/.config/gtk-3.0/settings.ini --group Settings --key gtk-theme-name Chicago95\n" in log,
         'Net/ThemeName "Chicago95"| ' in log,
         'Gtk/FontName "MS W98 UI,  9"| ' in log,
-        f"would: cp {REPO}/config/fontconfig/60-chicago95-pixel-font.conf {tmp_path}/.config/fontconfig/conf.d/60-chicago95-pixel-font.conf"
-        in log,
+        f"would: cp {REPO}/config/fontconfig/60-chicago95-pixel-font.conf "
+        f"{tmp_path}/.config/fontconfig/conf.d/60-chicago95-pixel-font.conf" in log,
         "would: gsettings set org.gnome.desktop.interface gtk-theme Chicago95\n" in log,
         "would: gsettings set org.gnome.desktop.interface font-name MS W98 UI,  9\n" in log,
     ) == (True,) * 6
@@ -1674,7 +1661,8 @@ def test_look_1995_after_luna_restores_the_classic_gtk_theme_font_and_pixel_rule
 def test_classic_title_labels_take_the_caption_colour_without_restarting_the_gradient(tmp_path):
     lines = run_bash_with_steps(
         tmp_path,
-        'SETUP_DECORATION=classic; write_gtk_titlebar_css "#000080,#1084D0" "#808080" "#C0C0C0"; cat ~/.config/gtk-3.0/gtk.css',
+        'SETUP_DECORATION=classic; write_gtk_titlebar_css "#000080,#1084D0" "#808080" "#C0C0C0"; '
+        "cat ~/.config/gtk-3.0/gtk.css",
     )
 
     rules = [rule.split("{") for rule in "\n".join(lines).split("}") if "{" in rule]
@@ -1702,16 +1690,17 @@ def test_luna_decoration_writes_the_vertical_title_gradient_into_the_gtk_css(tmp
 def test_classic_decoration_keeps_the_horizontal_title_gradient_in_the_gtk_css(tmp_path):
     lines = run_bash_with_steps(
         tmp_path,
-        'SETUP_DECORATION=classic; write_gtk_titlebar_css "#000080,#1084D0" "#808080" "#C0C0C0"; cat ~/.config/gtk-3.0/gtk.css',
+        'SETUP_DECORATION=classic; write_gtk_titlebar_css "#000080,#1084D0" "#808080" "#C0C0C0"; '
+        "cat ~/.config/gtk-3.0/gtk.css",
     )
 
     assert "linear-gradient(to right, #000080, #1084D0)" in "\n".join(lines) and "to bottom" not in "\n".join(lines)
 
 
 def test_xsettingsd_luna_variant_differs_from_the_classic_file_only_in_theme_and_font():
-    classic = (REPO / "config/xsettingsd/xsettingsd.conf").read_text().splitlines()
-    luna = (REPO / "config/xsettingsd/xsettingsd-luna.conf").read_text().splitlines()
-    changed = [(before, after) for before, after in zip(classic, luna) if before != after]
+    classic = (REPO / "config/xsettingsd/xsettingsd.conf").read_text().rstrip().splitlines()
+    luna = (REPO / "config/xsettingsd/xsettingsd-luna.conf").read_text().rstrip().splitlines()
+    changed = [(before, after) for before, after in zip(classic, luna, strict=True) if before != after]
 
     assert changed == [
         ('Net/ThemeName "Chicago95"', 'Net/ThemeName "Chicago95Luna"'),
@@ -1782,3 +1771,43 @@ def test_windows_98_boot_has_its_own_artwork_and_retains_password_prompts(tmp_pa
     for frame in target.glob("win95_boot_*.png"):
         assert Image.open(frame).crop((0, 0, 640, 472)).tobytes() == Image.open(art).crop((0, 0, 640, 472)).tobytes()
     assert len(list(target.glob("win95_boot_*.png"))) == 20
+
+
+def test_the_users_picture_is_their_face_file_when_they_have_one(tmp_path):
+    assert run_bash_with_steps(tmp_path, "touch ~/.face; user_picture; echo") == [str(tmp_path / ".face")]
+
+
+def test_the_users_picture_falls_back_to_their_accounts_service_icon(tmp_path):
+    (tmp_path / "icons").mkdir()
+    (tmp_path / "icons/ada").touch()
+    script = f"ACCOUNTS_ICONS={tmp_path}/icons; USER=ada; user_picture; echo"
+    assert run_bash_with_steps(tmp_path, script) == [str(tmp_path / "icons/ada")]
+
+
+def test_the_loading_screen_settings_carry_the_login_style_desktop_colour_and_user(tmp_path):
+    script = (
+        "ensure_waving_flag() { :; }; put_company_logo() { :; }; mkdir -p splash; touch ~/.face; USER=ada; "
+        "SETUP_LOGIN_STYLE=luna; SETUP_START_MENU_STYLE=luna; write_splash_settings splash >/dev/null; "
+        "grep -E '^var (logonStyle|desktopColor|userName|userPicture) ' splash/settings.js"
+    )
+    assert run_bash_with_steps(tmp_path, script) == [
+        'var logonStyle = "luna"',
+        'var desktopColor = "#004E98"',
+        'var userName = "ada"',
+        f'var userPicture = "{tmp_path}/.face"',
+    ]
+
+
+def test_dry_run_of_an_xp_welcome_login_copies_the_welcome_screen_into_the_loading_screen(tmp_path):
+    run_setup(tmp_path, "--dry-run", "--login-style=luna", "--boot-style=classic", "--components=splash")
+    log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+    assert "contents/splash/luna/sddm" in log
+
+
+def test_shutdown_dialogs_are_forced_above_other_windows_on_wayland(tmp_path):
+    run_setup(tmp_path, "--components=startmenu", "--look=luna", "--screen=1920x1080@1")
+    rules = (tmp_path / ".config/kwinrulesrc").read_text()
+    rule = rules.split("[chicago95-shutdown]")[1].split("\n[")[0]
+    assert "wmclass=chicago95-shutdown\n" in rule
+    assert "above=true\n" in rule
+    assert "aboverule=3\n" in rule

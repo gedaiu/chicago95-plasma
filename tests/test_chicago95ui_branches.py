@@ -25,8 +25,7 @@ def test_detect_scale_is_1_without_a_display(monkeypatch):
     assert chicago95ui.detect_scale() == "1"
 
 
-def test_detect_scale_is_1_when_kscreen_doctor_is_not_installed(monkeypatch, tmp_path):
-    monkeypatch.setenv("DISPLAY", ":99")
+def test_detect_scale_is_1_when_kscreen_doctor_is_not_installed(monkeypatch, tmp_path, listening_compositor):
     monkeypatch.setenv("PATH", str(tmp_path))
 
     assert chicago95ui.detect_scale() == "1"

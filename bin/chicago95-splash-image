@@ -23,6 +23,7 @@ def render(splash, size, stage, out):
     if view.errors():
         raise SystemExit("\n".join(error.toString() for error in view.errors()))
     view.rootObject().setProperty("stage", stage)
+    view.rootObject().setProperty("booting", True)
     view.show()
     QTimer.singleShot(300, app.quit)
     app.exec()

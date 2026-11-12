@@ -11,3 +11,7 @@ var companyLogo = "";
 var loadingText = "Starting up...";
 var footer = "Chicago95 for KDE Plasma";
 var picture = "images/background.png";
+var logonStyle = "classic";
+var desktopColor = "#008080";
+var userName = "";
+var userPicture = "";

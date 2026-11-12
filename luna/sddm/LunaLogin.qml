@@ -20,6 +20,7 @@ import "../qml"
 
 Item {
     id: root
+    objectName: "lunaWelcome"
 
     property var greeter
     property var users
@@ -27,6 +28,9 @@ Item {
     property var theme: ({})
     property var keyboardState: null
     property bool shuttingDown: false
+    // After log on (luna/splash/LunaWelcome.qml): the chosen user's tile says this, the rest is put away.
+    property string loadingStatus: ""
+    readonly property bool loggingOn: loadingStatus !== ""
     property bool locked: false
     property string family: "Trebuchet MS"
 
@@ -38,10 +42,11 @@ Item {
     readonly property color skyBlue: "#5a7edc"
     readonly property color bandBlue: "#00309c"
 
-    property string selectedName: users ? users.lastUser : ""
+    property string selectedName: users && userRepeater.count === 1 ? users.lastUser : ""
     property int sessionIndex: sessions ? Math.max(0, sessions.lastIndex) : 0
     property int failureCount: 0
     property string message: ""
+    onSelectedNameChanged: message = ""
     readonly property var sessionNames: namesOf(sessionRepeater)
 
     function namesOf(repeater) {
@@ -297,7 +302,8 @@ Item {
 
     Text {
         x: (root.shuttingDown ? root.width / 2 + 33 * root.unit : root.dividerX - 171.5 * root.unit) - width / 2
-        y: root.middleCenterY + (root.shuttingDown ? 44 : 44) * root.unit
+        y: root.middleCenterY + 44 * root.unit
+        visible: !root.loggingOn
         text: root.shuttingDown ? "Windows is shutting down..." : root.locked ? "To unlock, type your password" : "To begin, click your user name"
         color: "#ffffff"
         font.family: root.family
@@ -319,16 +325,19 @@ Item {
         visible: !root.shuttingDown
         readonly property real unit: root.unit
         x: root.dividerX + 27 * root.unit
-        y: root.middleCenterY - 39.5 * root.unit
+        y: root.middleCenterY - height / 2 - 4.5 * root.unit
         spacing: 10 * root.unit
         Repeater {
             model: root.shuttingDown ? null : root.users
             delegate: LunaUserTile {
                 id: userTile
+                objectName: "userTile-" + model.name
                 required property var model
                 name: model.realName || model.name
                 picture: model.icon || ""
                 selected: model.name === root.selectedName
+                visible: !root.loggingOn || selected
+                status: root.loadingStatus
                 failureCount: root.failureCount
                 family: root.family
                 onChosen: root.selectedName = model.name
@@ -338,18 +347,18 @@ Item {
     }
 
     Text {
-        visible: !root.shuttingDown && root.message !== ""
+        visible: !root.shuttingDown && !root.loggingOn && root.message !== ""
         x: tiles.x + 75 * root.unit
-        y: root.middleCenterY + 48 * root.unit
+        y: tiles.y + tiles.height + 10 * root.unit
         text: root.message
         color: "#ffffff"
         font.family: root.family
         font.pixelSize: 11 * root.unit
     }
     Text {
-        visible: !root.shuttingDown && !!root.keyboardState && root.keyboardState.capsLock
+        visible: !root.shuttingDown && !root.loggingOn && !!root.keyboardState && root.keyboardState.capsLock
         x: tiles.x + 75 * root.unit
-        y: root.middleCenterY + 64 * root.unit
+        y: tiles.y + tiles.height + 26 * root.unit
         text: "Caps Lock is on"
         color: "#ffffff"
         font.family: root.family
@@ -358,7 +367,7 @@ Item {
 
     Item {
         id: bottomContent
-        visible: !root.shuttingDown
+        visible: !root.shuttingDown && !root.loggingOn
         readonly property bool hasPowerActions: powerChoices.names.length > 0
         y: root.bottomBandTop
 
@@ -512,6 +521,6 @@ Item {
         onPicked: index => root.sessionIndex = index
     }
 
-    Component.onCompleted: if (selectedName === "" && userRepeater.count > 0)
+    Component.onCompleted: if (selectedName === "" && userRepeater.count === 1)
         selectedName = userRepeater.itemAt(0).label
 }

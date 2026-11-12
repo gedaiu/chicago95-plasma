@@ -133,3 +133,13 @@ def test_appearance_preview_close_button_is_the_luna_red(control_panel, qt_app):
     box = preview.ACTIVE
     reds = [image.getpixel((x, box.top() + 11)) for x in range(box.right() - 24, box.right() - 4)]
     assert any(red > 180 and green < 110 for red, green, _blue in reds)
+
+
+def test_appearance_message_text_fits_above_its_ok_button(qt_app):
+    from chicago95lunacontrolpanel import PREVIEW_TITLE_HEIGHT, LunaAppearancePreview
+    from PySide6.QtGui import QFont, QFontMetrics
+
+    message = LunaAppearancePreview.MESSAGE
+    text_bottom = message.top() + PREVIEW_TITLE_HEIGHT + 6 + QFontMetrics(QFont("Tahoma", 8)).height()
+    button_top = message.bottom() - 30
+    assert text_bottom < button_top

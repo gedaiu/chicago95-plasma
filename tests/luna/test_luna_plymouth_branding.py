@@ -26,7 +26,7 @@ def test_the_branded_logo_pictures_hold_the_users_logo_at_1x_and_2x(tmp_path):
         check=True,
     )
     pictures = [Image.open(tmp_path / name).convert("RGB") for name in ("logo.png", "logo@2x.png")]
-    reds = [sum(pixel == (255, 0, 0) for pixel in picture.getdata()) for picture in pictures]
+    reds = [sum(pixel == (255, 0, 0) for pixel in picture.get_flattened_data()) for picture in pictures]
 
     assert ([picture.size for picture in pictures], reds[0] > 1000, reds[1] > 4000) == (
         [(round(220 * 1.85), int(68 * 1.85)), (round(220 * 3.7), int(68 * 3.7))],  # Qt floors the heights

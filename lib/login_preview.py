@@ -16,6 +16,8 @@ class Greeter(QObject):
     """sddm: the host name, what the machine can do, login() and the power actions, the loginFailed signal."""
 
     loginFailed = Signal()
+    loginAttempted = Signal(str, int)
+    powerRequested = Signal(str)
 
     def __init__(self, host_name, can_sleep):
         super().__init__()
@@ -35,23 +37,23 @@ class Greeter(QObject):
 
     @Slot()
     def suspend(self):
-        pass
+        self.powerRequested.emit("Suspend")
 
     @Slot()
     def hibernate(self):
-        pass
+        self.powerRequested.emit("Hibernate")
 
     @Slot(str, str, int)
     def login(self, _user, _password, _session):
-        pass
+        self.loginAttempted.emit(_user, _session)
 
     @Slot()
     def powerOff(self):
-        pass
+        self.powerRequested.emit("Power off")
 
     @Slot()
     def reboot(self):
-        pass
+        self.powerRequested.emit("Restart")
 
 
 class Users(QStandardItemModel):
@@ -60,10 +62,13 @@ class Users(QStandardItemModel):
     def __init__(self, names, last_user):
         super().__init__()
         self._last_user = last_user
-        self.setItemRoleNames({NAME_ROLE: b"name"})
-        for name in names:
+        self.setItemRoleNames({NAME_ROLE: b"name", NAME_ROLE + 1: b"realName", NAME_ROLE + 2: b"icon"})
+        for entry in names:
+            values = entry if isinstance(entry, dict) else {"name": entry}
             item = QStandardItem()
-            item.setData(name, NAME_ROLE)
+            item.setData(values["name"], NAME_ROLE)
+            item.setData(values.get("realName", values["name"]), NAME_ROLE + 1)
+            item.setData(values.get("icon", ""), NAME_ROLE + 2)
             self.appendRow(item)
 
     @Property(str, constant=True)
@@ -175,6 +180,7 @@ def login_context(
     layouts=(("us", "English (US)"),),
     caps_lock=False,
     can_sleep=True,
+    sessions=("Plasma (Wayland)",),
     **settings,
 ):
     """The context objects SDDM gives the theme, as {name: object}; the caller keeps them alive."""
@@ -182,6 +188,6 @@ def login_context(
         "config": theme_settings(theme_source, **settings),
         "sddm": Greeter(host_name, can_sleep),
         "userModel": Users(users, user),
-        "sessionModel": Sessions(["Plasma (Wayland)"]),
+        "sessionModel": Sessions(sessions),
         "keyboard": Keyboard(layouts, caps_lock),
     }

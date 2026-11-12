@@ -833,6 +833,13 @@ step_startmenu() {
   put_file "$REPO/bin/chicago95-startmenu" ~/.local/bin/chicago95-startmenu
   run chmod +x ~/.local/bin/chicago95-startmenu
   put_file "$REPO/bin/chicago95-shutdown" ~/.local/bin/chicago95-shutdown
+  put_tree "$REPO/kwin-effects/chicago95shutdown" ~/.local/share/kwin/effects/chicago95shutdown
+  kconf kwinrc Plugins chicago95shutdownEnabled true
+  # Wayland clients cannot enforce their own stacking order; KWin keeps every
+  # shutdown/log-off dialog above ordinary windows, regardless of the chosen look.
+  kwin_rule chicago95-shutdown "Description=Chicago95 shutdown and log-off dialogs" \
+    "wmclass=chicago95-shutdown" "wmclassmatch=1" "above=true" "aboverule=3"
+  kwin_reconfigure
   run chmod +x ~/.local/bin/chicago95-shutdown
   put_file "$REPO/bin/chicago95-run" ~/.local/bin/chicago95-run
   run chmod +x ~/.local/bin/chicago95-run
@@ -1161,6 +1168,15 @@ step_lockscreen() {
 # The boot and loading screens' style, chosen on its own (Control Panel: Booting Screen); until then, the login's.
 boot_style() { printf '%s' "${SETUP_BOOT_STYLE:-${SETUP_LOGIN_STYLE:-classic}}"; }
 
+# The user's picture, as the Start menu finds it (lib/chicago95ui.py user_picture_path); nothing when there is none.
+user_picture() {
+  local picture
+  for picture in ~/.face ~/.face.icon "${ACCOUNTS_ICONS:-/var/lib/AccountsService/icons}/${USER:-$(id -un)}"; do
+    [ -f "$picture" ] && printf '%s' "$picture" && return 0
+  done
+  return 0
+}
+
 write_splash_settings() { # <dir>  settings.js: the loading screen's style, texts and pictures
   local dir="$1" logo image
   ensure_waving_flag
@@ -1180,18 +1196,23 @@ write_splash_settings() { # <dir>  settings.js: the loading screen's style, text
       echo "var loadingText = $(js_string "${SETUP_LOADING_TEXT:-Starting up...}")"
       echo "var footer = $(js_string "$(printf '%s' "${SETUP_LOADING_FOOTER:-Chicago95 for KDE Plasma}" | sed "s/%h/$(hostname)/g")")"
       echo "var picture = $(js_string "$image")"
+      echo "var logonStyle = $(js_string "${SETUP_LOGIN_STYLE:-classic}")"
+      echo "var desktopColor = $(js_string "$(background_color)")"
+      echo "var userName = $(js_string "${USER:-$(id -un)}")"
+      echo "var userPicture = $(js_string "$(user_picture)")"
     } >"$dir/settings.js"
   fi
   show_copy "(loading screen: $(boot_style), ${SETUP_BANNER_TEXT:-Chicago95})" "$dir/settings.js"
 }
 
-step_splash() { # the loading screen in the boot style; its texts and pictures go into settings.js
+step_splash() { # the loading screen: KSplash shows it after log on, in the login style; its texts and pictures go into settings.js
   local dir=~/.local/share/plasma/look-and-feel/chicago95.splashscreen/contents/splash
   put_tree "$REPO/splash/chicago95.splashscreen" ~/.local/share/plasma/look-and-feel/chicago95.splashscreen
-  if [ "$(boot_style)" = luna ]; then
+  if [ "$(boot_style)" = luna ] || xp_login; then
     put_tree "$REPO/luna/qml" "$dir/luna/qml"
     put_tree "$REPO/luna/images" "$dir/luna/images"
     put_tree "$REPO/luna/splash" "$dir/luna/splash"
+    put_tree "$REPO/luna/sddm" "$dir/luna/sddm"
   fi
   write_splash_settings "$dir"
   kconf ksplashrc KSplash Theme chicago95.splashscreen
