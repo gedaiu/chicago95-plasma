@@ -452,15 +452,28 @@ def test_main_opens_konsole_when_dos_mode_is_chosen(shutdown, app_for_main, monk
     assert (exit_code, capsys.readouterr().out) == (0, "dry-run, would run: konsole\n")
 
 
-def test_main_shows_the_safe_screen_then_powers_off_when_shut_down_is_chosen(
+def test_main_requests_shutdown_without_claiming_power_is_safe(
     shutdown, app_for_main, monkeypatch, path_with, capsys
 ):
     path_with()
     answer_modal_dialog(accept=True)
-    QTimer.singleShot(
-        2900, lambda: next(w for w in QApplication.topLevelWidgets() if isinstance(w, shutdown.SafeScreen)).close()
-    )
+    monkeypatch.setattr(shutdown, "shutting_down_screen", lambda *a, **k: pytest.fail("Premature safe screen"))
 
     exit_code = run_main(shutdown, monkeypatch, "--dry-run")
 
     assert (exit_code, capsys.readouterr().out) == (0, "dry-run, would run: systemctl poweroff\n")
+
+
+@pytest.mark.parametrize("choice", [0, 1])
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_classic_power_request_never_displays_safe_before_services_stop(
+    shutdown, app_for_main, monkeypatch, choice, dry_run
+):
+    requests = []
+    monkeypatch.setattr(shutdown, "turn_off_choice", lambda: choice)
+    monkeypatch.setattr(shutdown, "luna_dialogs_wanted", lambda: False)
+    monkeypatch.setattr(shutdown, "play_shutdown_sound", lambda dry: None)
+    monkeypatch.setattr(shutdown, "shutting_down_screen", lambda *a, **kw: pytest.fail("Premature safe screen"))
+    monkeypatch.setattr(shutdown, "run_command", lambda command, dry: requests.append((command, dry)))
+    assert run_main(shutdown, monkeypatch, *(["--dry-run"] if dry_run else [])) == 0
+    assert requests == [(shutdown.shutdown_command(choice, shutdown.dbus_caller()), dry_run)]

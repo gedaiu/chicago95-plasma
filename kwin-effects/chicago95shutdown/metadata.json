@@ -9,6 +9,6 @@
     "License": "GPL",
     "Name": "Shutdown Grayscale (Chicago95)"
   },
-  "X-KDE-Ordering": 65,
+  "X-KDE-Ordering": 50,
   "X-Plasma-API": "javascript"
 }

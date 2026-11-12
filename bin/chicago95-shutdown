@@ -578,6 +578,7 @@ class ShutdownStipple(QWidget):
 def shutdown_backdrops(dialog):
     if not isinstance(dialog, ShutDownDialog) or dialog.style not in ("1995", "1998"):
         return []
+    ensure_luna_grayscale_effect()  # also owns the backdrop animation exclusion
     overlays = [ShutdownStipple(screen) for screen in QGuiApplication.screens()]
     for overlay in overlays:
         overlay.showFullScreen()
@@ -781,6 +782,13 @@ def main():
 
     command = shutdown_command(choice, dbus_caller())
     if choice in (DOS_MODE, LOG_OFF, STAND_BY, HIBERNATE):
+        run_command(command, args.dry_run)
+        return 0
+
+    # This process runs inside the user's session. It cannot know when all
+    # services have stopped, and must never announce that power is safe to cut.
+    if not luna_dialogs_wanted():
+        play_shutdown_sound(args.dry_run)
         run_command(command, args.dry_run)
         return 0
 

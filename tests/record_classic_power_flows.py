@@ -49,7 +49,7 @@ def main():
                         "Backend intercepted",
                         "One-second stills, not measured timing",
                         "Widget captures do not validate compositor backdrops",
-                        "2000/2001 still use the legacy safe-to-turn-off screen",
+                        "Shutdown completion is owned by the system; no premature safe-to-turn-off screen",
                     ],
                 },
                 indent=2,

@@ -88,3 +88,18 @@ def test_title_arriving_after_window_added_activates_effect(effect):
     assert evaluate(effect, 'starts.length') == 0
     evaluate(effect, "dialog.caption = 'Turn off computer'; handlers['Turn off computerCaption']();")
     assert evaluate(effect, 'starts.length') == 2
+
+
+def test_stipple_claims_open_and_close_animation_without_desaturating(effect):
+    evaluate(effect, '''
+var grabs = [];
+var effect = {grab: function(window, role) {grabs.push([window.caption, role]); return true;}};
+Effect.WindowAddedGrabRole = "added";
+Effect.WindowClosedGrabRole = "closed";
+var backdrop = win("Chicago95 shutdown backdrop", "python3 chicago95-shutdown");
+handlers.added(backdrop);
+''')
+    grabs = evaluate(effect, 'grabs')
+    assert ["Chicago95 shutdown backdrop", "added"] in grabs
+    assert ["Chicago95 shutdown backdrop", "closed"] in grabs
+    assert evaluate(effect, 'starts.length') == 0

@@ -505,6 +505,11 @@ SETUP_BANNER_TEXT=${OPT_BANNER_TEXT:-${SETUP_BANNER_TEXT:-$(default_banner_text)
 [[ " $COMPONENTS " == *" startmenu "* || " $COMPONENTS " == *" taskbar "* ]] && choose_start_menu
 SETUP_LOGIN_STYLE=${OPT_LOGIN_STYLE:-${SETUP_LOGIN_STYLE:-classic}}
 [[ " $COMPONENTS " == *" sddm "* || " $COMPONENTS " == *" splash "* ]] && [ -z "${OPT_LOGIN_STYLE:-}" ] && choose_login_style
+# An explicit login style historically selects its matching boot style when no
+# look or boot override was requested. Preserve that after resetting look defaults.
+if [ -n "${OPT_LOGIN_STYLE:-}" ] && [ -z "${OPT_LOOK:-}${OPT_BOOT_STYLE:-}" ]; then
+  SETUP_BOOT_STYLE=$OPT_LOGIN_STYLE
+fi
 SETUP_BOOT_STYLE=${OPT_BOOT_STYLE:-${SETUP_BOOT_STYLE:-$SETUP_LOGIN_STYLE}}
 SETUP_LOGIN_TITLE=${SETUP_LOGIN_TITLE:-"$([ "$SETUP_LOGIN_STYLE" = classic ] && echo 'Welcome to Windows' || echo 'Log On to %h')"}
 SETUP_LOGIN_MESSAGE=${SETUP_LOGIN_MESSAGE:-"Type a user name and password to log on to Windows."}

@@ -350,8 +350,7 @@ differs from the supplied video's; visual tests explicitly exclude that artwork.
 
 For 1995, 1998, 2000 and 2001, **Distro Setup → Names and Logos → Shut Down**
 has **Test shutdown…** and **Test logoff…** buttons. They use the unapplied preview
-settings and always pass `--dry-run`: no session or power command runs. Click or
-press a key to dismiss the safe-to-turn-off screen. Action options and confirmation
+settings and always pass `--dry-run`: no session or power command runs. The classic dry run prints the requested command and exits. Action options and confirmation
 buttons provide tooltips; combo-box help follows the selected action.
 
 ```sh
@@ -361,8 +360,9 @@ python3 tests/record_classic_power_flows.py --output /tmp/classic-power-review
 This runs all supported action/cancellation paths with backend commands intercepted,
 checks tooltip display and saves per-theme PNG captures and MP4 review reels. Reels
 hold each capture for one second; they are not recordings of native animation timing.
-The 2000/2001 path currently shares the legacy safe-to-turn-off screen, so passing
-these behavior tests does not establish original-OS shutdown-screen fidelity.
+The session app never announces that power is safe to cut: it cannot observe completion
+after its own session ends. Real shutdown is handed to the system. Passing these
+behavior tests does not establish original-OS shutdown-screen fidelity.
 
 Video-reference visual regressions run with:
 

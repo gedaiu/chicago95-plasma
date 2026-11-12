@@ -136,6 +136,9 @@ apply_look() {
   SETUP_START_MENU_STYLE=1995
   SETUP_FACE=""
   SETUP_SELECTION=""
+  SETUP_BOOT_STYLE=classic
+  SETUP_LOGIN_STYLE=classic
+  SETUP_SPLASH_IMAGE=classic
   SETUP_ICONS=${OPT_ICONS:-chicago95}
   case "$1" in
   1995) set -- "#000080;#808080;#808080;#C0C0C0" ;;
@@ -795,7 +798,7 @@ menus_qss_differs() {
 }
 
 step_tools_common() { # shared by every PySide6 component; idempotent
-  local luna_module
+  local luna_module lib_module
   [ "${TOOLS_COMMON_DONE:-0}" = 1 ] && return
   TOOLS_COMMON_DONE=1
   local drop_in=~/.config/systemd/user/plasma-plasmashell.service.d/chicago95-menus.conf
@@ -806,14 +809,10 @@ step_tools_common() { # shared by every PySide6 component; idempotent
     installed_differs "$REPO/data/qml" ~/.local/share/chicago95/qml; then
     SHELL_CHANGED=1
   fi
-  put_file "$REPO/lib/chicago95ui.py" ~/.local/lib/chicago95/chicago95ui.py
-  put_file "$REPO/lib/gtk_palette.py" ~/.local/lib/chicago95/gtk_palette.py
+  # Every module of lib/: the tools import them from here, and one left out stops them at start.
+  for lib_module in "$REPO"/lib/*.py; do put_file "$lib_module" ~/.local/lib/chicago95/"$(basename "$lib_module")"; done
   put_file "$REPO/data/2000-logon-banner.png" ~/.local/share/chicago95/2000-logon-banner.png
   put_file "$REPO/data/xp-logon-banner.png" ~/.local/share/chicago95/xp-logon-banner.png
-  put_file "$REPO/lib/login_preview.py" ~/.local/lib/chicago95/login_preview.py
-  put_file "$REPO/lib/login_flow.py" ~/.local/lib/chicago95/login_flow.py
-  put_file "$REPO/lib/chicago95update.py" ~/.local/lib/chicago95/chicago95update.py
-  put_file "$REPO/lib/chicago95animations.py" ~/.local/lib/chicago95/chicago95animations.py
   if wants_luna || [ "${SETUP_START_MENU_STYLE:-}" = luna ]; then
     for luna_module in "$REPO"/luna/lib/*.py; do put_file "$luna_module" ~/.local/lib/chicago95/"$(basename "$luna_module")"; done
     put_tree "$REPO/luna/lib/images" ~/.local/lib/chicago95/images

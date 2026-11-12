@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -1934,7 +1935,13 @@ def test_luna_install_includes_the_flow_test_without_needing_source_checkout(tmp
     assert result.returncode == 0
     assert (tmp_path / ".local/lib/chicago95/login_flow.py").is_file()
     root = tmp_path / ".local/share/chicago95/luna"
-    for relative in ("splash/LunaFlow.qml", "splash/LunaSplash.qml", "splash/LunaStatus.qml", "sddm/LunaLogin.qml", "sddm/ActiveSessions.qml"):
+    for relative in (
+        "splash/LunaFlow.qml",
+        "splash/LunaSplash.qml",
+        "splash/LunaStatus.qml",
+        "sddm/LunaLogin.qml",
+        "sddm/ActiveSessions.qml",
+    ):
         assert (root / relative).is_file()
 
 
@@ -1943,3 +1950,39 @@ def test_2000_splash_install_renders_a_banner_for_live_session_status(tmp_path):
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
     assert "--login-banner" in log
     assert "contents/splash/brand-banner.png" in log
+
+
+@pytest.mark.parametrize("previous", ["luna", "2000", "2001", "1998"])
+@pytest.mark.parametrize("look", ["1995", "1998"])
+def test_selecting_9x_resets_stale_boot_and_login_styles(tmp_path, previous, look):
+    result = run_bash_with_steps(
+        tmp_path,
+        f'apply_look {previous}; apply_look {look}; echo "$SETUP_BOOT_STYLE $SETUP_LOGIN_STYLE"; echo "$SETUP_SPLASH_IMAGE"',
+    )
+    assert result[0] == "classic classic"
+    assert result[1] == (
+        "classic"
+        if look == "1995"
+        else str(REPO / "splash/chicago95.splashscreen/contents/splash/images/windows98.png")
+    )
+
+
+def lib_imports_of_the_tools():
+    """(tool, module) for each top-level import of one of lib/'s modules in bin/: Setup must install them all."""
+    modules = {path.stem for path in (REPO / "lib").glob("*.py")}
+    pairs = set()
+    for tool in sorted((REPO / "bin").glob("chicago95-*")):
+        for match in re.finditer(r"^(?:import|from) (\w+)", tool.read_text(errors="replace"), re.MULTILINE):
+            if match.group(1) in modules:
+                pairs.add((tool.name, match.group(1)))
+    return sorted(pairs)
+
+
+@pytest.fixture(scope="module")
+def control_panel_dry_run(tmp_path_factory):
+    return dry_run_log(tmp_path_factory.mktemp("tools"), "--components=controlpanel")
+
+
+@pytest.mark.parametrize("tool, module", lib_imports_of_the_tools())
+def test_setup_installs_every_lib_module_a_tool_imports(control_panel_dry_run, tool, module):
+    assert f"lib/{module}.py ->" in control_panel_dry_run
