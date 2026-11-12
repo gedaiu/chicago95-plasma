@@ -309,16 +309,15 @@ def test_committed_theme_equals_the_generator_output(theme):
     }
 
 
+def white_glyph_pixels(button):
+    """The near-white pixels of a 21x21 title bar button, inside its 13x13 glyph box."""
+    return {(x, y) for x in range(4, 17) for y in range(4, 17) if min(button.getpixel((x, y))[:3]) > 235}
+
+
 def test_close_glyph_white_pixels_equal_the_xpnotepad_x_pixel_for_pixel(notepad):
-    white = (
-        lambda image: {  # noqa: E731
-            (x, y) for x in range(21) for y in range(21) if min(image.getpixel((x, y))[:3]) > 235
-        }
-    )
     ours = button_crop(over_white(notepad), "close")
     reference = button_crop(screenshot("xpnotepad"), "close")
-    glyph_only = lambda pixels: {(x, y) for x, y in pixels if 4 <= x <= 16 and 4 <= y <= 16}  # noqa: E731
-    assert glyph_only(white(ours)) == glyph_only(white(reference))
+    assert white_glyph_pixels(ours) == white_glyph_pixels(reference)
 
 
 def test_inactive_left_border_columns_equal_xpfulldesktop_help_window_border(theme):

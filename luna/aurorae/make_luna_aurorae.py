@@ -19,6 +19,7 @@ Fitted geometry:
 """
 
 import argparse
+import itertools
 import sys
 from pathlib import Path
 
@@ -129,7 +130,8 @@ def stair_path(corner_x, right):
     far_x = corner_x if right else corner_x + CORNER_W
     points = [(mirrored(0), TOP_H), *((mirrored(x), y) for x, y in CORNER_STAIR), (far_x, 0), (far_x, TOP_H)]
     moves = [
-        f"V{number(y)}" if x == previous_x else f"H{number(x)}" for (previous_x, _), (x, y) in zip(points, points[1:])
+        f"V{number(y)}" if x == previous_x else f"H{number(x)}"
+        for (previous_x, _), (x, y) in itertools.pairwise(points)
     ]
     return f"M{number(points[0][0])},{number(points[0][1])}" + "".join(moves) + "z"
 

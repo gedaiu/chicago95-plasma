@@ -3,8 +3,8 @@
     make_luna_gtk.py [--out DIR]
     make_luna_gtk.py --titlebar ACTIVE|INACTIVE
 
-Writes DIR/index.theme, DIR/gtk-3.0/gtk.css and DIR/gtk-4.0/gtk.css (default Chicago95Luna beside this file). The colours
-and gradients are the ones of the Kvantum theme (luna/kvantum/stops.py, LunaStyle's measured values), so the Qt and GTK
+Writes DIR/index.theme, DIR/gtk-3.0/gtk.css and DIR/gtk-4.0/gtk.css (default Chicago95Luna beside this file).
+The colours and gradients are the ones of the Kvantum theme (luna/kvantum/stops.py, LunaStyle's measured values), so the Qt and GTK
 widgets match. --titlebar prints the header bar block for ~/.config/gtk-N.0/gtk.css: the vertical gradient of the Luna
 title bar from luna/palette.py, six pixel rounded top corners and the Trebuchet MS bold caption with its dark shadow.
 """
@@ -27,8 +27,8 @@ TITLE_RADIUS = 6
 INACTIVE_CAPTION = "#D8E4F8"
 VERSIONS = ("3.0", "4.0")
 # A fixed size XP dialog has a 3 pixel frame where a resizable window has 4: per side it keeps these bands of the
-# window frame, counted from the outer edge on the left and from the face on the right and bottom (xprun.png, xpfont.png,
-# xpcolour.png against xpnotepad.png).
+# window frame, counted from the outer edge on the left and from the face on the right and bottom (xprun.png,
+# xpfont.png, xpcolour.png against xpnotepad.png).
 DIALOG_FRAME_BANDS = {"left": (1, 2, 3), "right": (1, 2, 3), "bottom": (0, 2, 3)}
 DIALOG_FRAME = 3
 DIALOG_TITLE_HEIGHT = 29
@@ -68,7 +68,7 @@ def band_shadow(top, bottom, left, right):
     """Inset one pixel bands, each side's colours given from the outer edge in. GTK paints the last shadow on top, so
     the deepest band comes first and every shallower one covers all but its innermost pixel. A side given as None
     gets no bands."""
-    sides = [(colours, offset) for colours, offset in zip((top, bottom, left, right), OFFSETS) if colours]
+    sides = [(colours, offset) for colours, offset in zip((top, bottom, left, right), OFFSETS, strict=True) if colours]
     depth = min(len(colours) for colours, _ in sides)
     return ", ".join(
         f"inset {offset.format(band)} {colours[band - 1]}" for band in range(depth, 0, -1) for colours, offset in sides
@@ -791,7 +791,8 @@ def widget_rules():
             color=stops.DISABLED_TEXT,
         ),
         block(
-            "selection, entry selection, text selection, .view:selected, row:selected, treeview.view:selected, menuitem:hover, modelbutton:hover, "
+            "selection, entry selection, text selection, .view:selected, row:selected, treeview.view:selected, "
+            "menuitem:hover, modelbutton:hover, "
             "iconview:selected, calendar:selected",
             background_color=SELECTION,
             background_image="none",

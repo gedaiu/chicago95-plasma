@@ -52,7 +52,7 @@ def differing_fraction(ours, original, rows=None):
     )
 
 
-def test_taskbar_background_equals_the_sprite_in_its_top_15_and_bottom_11_rows_within_12(theme):
+def test_taskbar_background_equals_the_sprite_in_its_top_15_and_bottom_11_rows_within_12(theme):  # noqa: F811 (the fixtures imported above)
     panel = rendered(theme, "widgets/panel-background.svg", "", 50, 30)
     original = sprite("TASKBARBACKGROUND")
     top, bottom = BACKGROUND_ROWS
@@ -67,7 +67,7 @@ def test_taskbar_background_equals_the_sprite_in_its_top_15_and_bottom_11_rows_w
     ] == [True] * len(pairs)
 
 
-def test_quick_launch_grip_dots_equal_the_sprites_rows_6_to_11_within_12(qt_app, qml_root, installed, tmp_path):
+def test_quick_launch_grip_dots_equal_the_sprites_rows_6_to_11_within_12(qt_app, qml_root, installed, tmp_path):  # noqa: F811 (the fixtures imported above)
     ours = render(qt_app, qml_root, installed, tmp_path, "org.chicago95.tasks", "Separator", 14, {"lead": 0})
     original = sprite("TASKBARGRIPPER")
     assert differing_fraction(ours, original, GRIP_ROWS) < GRIP_BUDGET
@@ -80,7 +80,11 @@ def mean_colour(image, box):
 
 @pytest.mark.parametrize("state", [0, 1, 2])
 def test_hidden_icons_button_body_is_the_sprites_colour_in_every_state_within_36(
-    qt_app, qml_root, installed, tmp_path, state
+    qt_app,
+    qml_root,
+    installed,
+    tmp_path,
+    state,  # noqa: F811 (the fixtures imported above)
 ):
     original = sprite("TRAYCHEVRONHORIZONTAL", state, 3).crop((0, 1, 19, 20)).resize((16, 16), Image.LANCZOS)
     ours = render(
@@ -97,7 +101,7 @@ def test_hidden_icons_button_body_is_the_sprites_colour_in_every_state_within_36
     assert [close(mean_colour(ours, box), mean_colour(original, box), 36) for box in boxes] == [True] * len(boxes)
 
 
-def test_chevron_glyph_pixels_are_the_sprites_7bb6e8_double_arrow(qt_app, qml_root, installed, tmp_path):
+def test_chevron_glyph_pixels_are_the_sprites_7bb6e8_double_arrow(qt_app, qml_root, installed, tmp_path):  # noqa: F811 (the fixtures imported above)
     ours = render(qt_app, qml_root, installed, tmp_path, "org.chicago95.tasks", "Chevron", 13)
     original = sprite("TASKBARCHEVRON", 0, 6)
     shifted = [
@@ -110,7 +114,7 @@ def test_chevron_glyph_pixels_are_the_sprites_7bb6e8_double_arrow(qt_app, qml_ro
     assert sorted(glyph) == sorted(shifted)
 
 
-def test_hot_band_button_resembles_the_sprites_hot_state_within_the_band_budget(qt_app, qml_root, installed, tmp_path):
+def test_hot_band_button_resembles_the_sprites_hot_state_within_the_band_budget(qt_app, qml_root, installed, tmp_path):  # noqa: F811 (the fixtures imported above)
     original = sprite("TASKBANDBUTTONNOEDGE", 1, 6).crop((0, 3, 13, 25))
     ours = render(
         qt_app, qml_root, installed, tmp_path, "org.chicago95.tasks", "QuickLaunchButton", 13, {"hovered": True}

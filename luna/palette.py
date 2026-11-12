@@ -10,7 +10,8 @@ Every value was sampled from a reference image in tests/references (see SOURCES.
   taskbar            xptaskbar-1x.png, column x=1500, rows 0..29
   start_menu.header  xpdesktop.png, column x=300, rows 93..156; header_top and header_bottom are rows 103 and 154
   start_menu.footer  xpdesktop.png, column x=100, rows 530..569 (footer_top is row 530, footer_bottom row 569)
-  start_menu         right_column, divider and orange_rule: xpdesktop.png row 300 (x=250 and x=190) and x=100 rows 157..158
+  start_menu         right_column, divider and orange_rule: xpdesktop.png row 300 (x=250 and x=190) and x=100
+                     rows 157..158
   face, client_edge: xpnotepad.png (window face, client edge); selection: the Luna selection blue, not measured
 """
 

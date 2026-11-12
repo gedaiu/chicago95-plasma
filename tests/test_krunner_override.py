@@ -18,7 +18,8 @@ def test_the_current_results_text_is_the_highlighted_text_colour():
 
     assert (
         delegate.count(
-            "(resultDelegate.down || resultDelegate.isCurrent) ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor"
+            "(resultDelegate.down || resultDelegate.isCurrent) ? Kirigami.Theme.highlightedTextColor : "
+            "Kirigami.Theme.textColor"
         )
         == 3
     )

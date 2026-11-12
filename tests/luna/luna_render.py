@@ -49,7 +49,9 @@ Rectangle {
             Rectangle { required property string modelData; width: %(width)d; height: 1; color: modelData }
         }
     }
-    Start.StartButton { objectName: "start"; x: %(start_left)d; width: %(start_width)d; height: %(height)d; text: "start" }
+    Start.StartButton {
+        objectName: "start"; x: %(start_left)d; width: %(start_width)d; height: %(height)d; text: "start"
+    }
 %(tasks_items)s
     Tray.TrayBox { x: %(tray_left)d; width: %(tray_width)d; height: %(height)d }
 }

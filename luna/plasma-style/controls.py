@@ -77,7 +77,8 @@ def button_face(state):
         f'<stop offset=".15" stop-color="{body[1][1]}"/><stop offset="1" stop-color="{body[-1][1]}"/></linearGradient>'
     )
     layers = (
-        f'<rect width="1" height="17" fill="{TRACK_EDGE}"/><rect x="16" width="1" height="17" fill="{BLUE_RING["right"]}"/>'
+        f'<rect width="1" height="17" fill="{TRACK_EDGE}"/>'
+        f'<rect x="16" width="1" height="17" fill="{BLUE_RING["right"]}"/>'
         f'<rect x="1" width="15" height="17" fill="{WHITE}"/>'
         f'<rect x="2" y="1" width="13" height="15" rx="1" fill="url(#{state}-stepper)"/>'
     )
@@ -153,7 +154,10 @@ def frame_svg():
 
 
 def arrow_triangle(element_id, points, x, y):
-    return f'<path id="{element_id}" d="M{points[0]}L{points[1]}L{points[2]}Z" fill="{ARROW}" transform="translate({x} {y})"/>'
+    return (
+        f'<path id="{element_id}" d="M{points[0]}L{points[1]}L{points[2]}Z" fill="{ARROW}" '
+        f'transform="translate({x} {y})"/>'
+    )
 
 
 def arrows_svg():
@@ -172,7 +176,10 @@ def radio_element(element_id, border):
         f'<radialGradient id="{element_id}-body" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="{WHITE}"/>'
         f'<stop offset="1" stop-color="#D6D0C5"/></radialGradient>'
     )
-    circles = f'<circle cx="6.5" cy="6.5" r="6.5" fill="{border}"/><circle cx="6.5" cy="6.5" r="5.5" fill="url(#{element_id}-body)"/>'
+    circles = (
+        f'<circle cx="6.5" cy="6.5" r="6.5" fill="{border}"/>'
+        f'<circle cx="6.5" cy="6.5" r="5.5" fill="url(#{element_id}-body)"/>'
+    )
     return gradient, circles
 
 

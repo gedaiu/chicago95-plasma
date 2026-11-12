@@ -325,7 +325,7 @@ def test_message_dialog_frame_is_the_three_pixel_frame_of_xp_fixed_dialogs(refer
         [
             within(colour, want)
             for side in ("left", "right", "bottom")
-            for colour, want in zip(frame[side], expected[side])
+            for colour, want in zip(frame[side], expected[side], strict=True)
         ],
     ) == (3, [True] * 9)
 
@@ -378,7 +378,9 @@ gi.require_version("Gtk", sys.argv[1])
 from gi.repository import Gtk
 errors = []
 provider = Gtk.CssProvider()
-provider.connect("parsing-error", lambda _provider, section, error: errors.append((section.get_start_position(), error.message)))
+def record(_provider, section, error):
+    errors.append((section.get_start_position(), error.message))
+provider.connect("parsing-error", record)
 provider.load_from_path(sys.argv[2])
 print(errors)
 """

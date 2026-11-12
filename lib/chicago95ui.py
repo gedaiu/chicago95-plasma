@@ -154,9 +154,9 @@ def look_settings(path=None):
     """The look chosen in Setup, from ~/.config/chicago95rc.
 
     [StartMenu] style is 1995, 1998, 2000, 2001 or luna. [Look] decoration, widgetStyle, taskbarStyle and
-    bevel name the window frames, the controls, the taskbar and the bevel palette (1995 or 2000); a config without them is classic, with
-    the bevel the Start menu style implies. [Branding] describes the "operating system" the screens
-    show: osCompany (the small word above the name), osName ("Windows 2000", "Fedora 44"; its number
+    bevel name the window frames, the controls, the taskbar and the bevel palette (1995 or 2000); a config
+    without them is classic, with the bevel the Start menu style implies. [Branding] describes the "operating
+    system" the screens show: osCompany (the small word above the name), osName ("Windows 2000", "Fedora 44"; its number
     is drawn thin), osEdition, tagline (the login banner's line under the edition), osLogo and
     companyLogo (image paths). Each falls back to the Start menu's
     banner text and logo, so a look without branding still has a name and a logo."""
@@ -189,7 +189,8 @@ def look_settings(path=None):
 
 
 def short_os_name(name):
-    """The name before its first digit or edition tag ("Windows2026", "Windows XP" -> "Windows"); the whole name when there is none."""
+    """The name before its first digit or edition tag ("Windows2026", "Windows XP" -> "Windows"); the whole name when
+    there is none."""
     return re.split(r"\d| XP\b", name, maxsplit=1)[0].strip() or name
 
 
@@ -1464,7 +1465,8 @@ class ClassicDialog(QDialog):
 
 
 def dialog_frame_class(luna=None):
-    """The class of the look's dialogs: one that draws its own classic frame, or under Luna a plain window KWin decorates."""
+    """The class of the look's dialogs: one that draws its own classic frame, or under Luna a plain window KWin
+    decorates."""
     if not (luna_widgets() if luna is None else luna):
         return ClassicDialog
     import chicago95lunaframe

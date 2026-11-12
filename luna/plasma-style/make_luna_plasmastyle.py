@@ -124,7 +124,8 @@ def task_spec(look, body=None, ring=None):
 
 
 def tabbar_svg():
-    """Plasma draws the system tray's current item and its tabs with the active tab: the pressed task pill, in every place."""
+    """Plasma draws the system tray's current item and its tabs with the active tab: the pressed task pill, in every
+    place."""
     pressed = dataclasses.replace(task_spec(stops.TASK_PRESSED), margins=(2, 2, 2, 2))
     prefixes = [f"{place}-active-tab-" for place in ("north", "south", "west", "east")]
     aliases = {prefix: (prefixes[0], None) for prefix in prefixes[1:]}

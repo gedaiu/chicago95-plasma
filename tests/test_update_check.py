@@ -122,7 +122,8 @@ def test_read_settings_takes_key_value_lines_and_ignores_comments(tmp_path):
 
 def test_update_message_names_both_versions_and_the_control_panel_page():
     assert chicago95update.update_message(chicago95update.check_result(OLD, NEW, NOON)) == (
-        "A newer Chicago95 for Plasma is available (bbbbbbb; you have aaaaaaa).\n\nOpen Control Panel, Updates to install it."
+        "A newer Chicago95 for Plasma is available (bbbbbbb; you have aaaaaaa).\n\n"
+        "Open Control Panel, Updates to install it."
     )
 
 

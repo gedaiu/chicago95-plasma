@@ -72,10 +72,10 @@ def test_setup_installs_run_with_its_place_above_the_taskbar_and_the_originals_k
     assert (
         "bin/chicago95-run -> ~/.local/bin/chicago95-run" in log.replace(str(tmp_path), "~"),
         "would: write kwin rule [chicago95-run]" in log,
-        "would: kwriteconfig6 --file kglobalshortcutsrc --group services --group chicago95-run.desktop --key _launch Meta+R"
-        in log,
-        "would: kwriteconfig6 --file kglobalshortcutsrc --group services --group chicago95-startmenu.desktop --key _launch Ctrl+Esc"
-        in log,
+        "would: kwriteconfig6 --file kglobalshortcutsrc --group services --group chicago95-run.desktop "
+        "--key _launch Meta+R" in log,
+        "would: kwriteconfig6 --file kglobalshortcutsrc --group services --group chicago95-startmenu.desktop "
+        "--key _launch Ctrl+Esc" in log,
         "--group chicago95-showdesktop.desktop --key _launch Meta+D\tMeta+M" in log,
         "--group thunar.desktop --key _launch Meta+E" in log,
         kwriteconfig(

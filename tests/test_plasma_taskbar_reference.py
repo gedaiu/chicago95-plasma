@@ -439,7 +439,11 @@ def flag_box(image):
     points = []
     for y in range(4, 27):
         pill = image.getpixel((33, y))
-        points += [(x, y) for x in range(4, 33) if sum(abs(a - b) for a, b in zip(image.getpixel((x, y)), pill)) > 110]
+        points += [
+            (x, y)
+            for x in range(4, 33)
+            if sum(abs(a - b) for a, b in zip(image.getpixel((x, y)), pill, strict=False)) > 110
+        ]
     xs, ys = [x for x, _ in points], [y for _, y in points]
     return (min(xs), min(ys), max(xs), max(ys))
 

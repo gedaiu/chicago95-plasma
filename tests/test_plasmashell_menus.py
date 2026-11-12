@@ -4,6 +4,8 @@ The stylesheet paints the grey panel and the navy selection; the Windows style k
 an entry's icon sits in its gutter with the label clear of it, and a plain entry's label starts in the check gutter.
 """
 
+import itertools
+
 import pytest
 from conftest import REPO
 
@@ -41,7 +43,7 @@ def ink_columns(menu, entry):
 
 def label_start(columns):
     """The first ink column after the first gap: past the icon when there is one."""
-    return next(column for previous, column in zip(columns, columns[1:]) if column - previous > 2)
+    return next(column for previous, column in itertools.pairwise(columns) if column - previous > 2)
 
 
 def test_an_icon_entry_starts_its_icon_at_2px_and_its_label_at_25px(menu):

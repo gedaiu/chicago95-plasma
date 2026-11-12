@@ -1957,7 +1957,8 @@ def test_2000_splash_install_renders_a_banner_for_live_session_status(tmp_path):
 def test_selecting_9x_resets_stale_boot_and_login_styles(tmp_path, previous, look):
     result = run_bash_with_steps(
         tmp_path,
-        f'apply_look {previous}; apply_look {look}; echo "$SETUP_BOOT_STYLE $SETUP_LOGIN_STYLE"; echo "$SETUP_SPLASH_IMAGE"',
+        f'apply_look {previous}; apply_look {look}; echo "$SETUP_BOOT_STYLE $SETUP_LOGIN_STYLE"; '
+        'echo "$SETUP_SPLASH_IMAGE"',
     )
     assert result[0] == "classic classic"
     assert result[1] == (

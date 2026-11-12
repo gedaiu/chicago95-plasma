@@ -126,7 +126,8 @@ def radial_gradient(gradient_id, centre, radii, stops):
         )
     else:
         attributes = (
-            f'gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate({short(centre[0])} {short(centre[1])}) '
+            f'gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" '
+            f'gradientTransform="translate({short(centre[0])} {short(centre[1])}) '
             f'scale({short(radii[0])} {short(radii[1])})"'
         )
     return gradient_markup("radialGradient", gradient_id, attributes, stops)

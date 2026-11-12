@@ -369,7 +369,8 @@ XP_DESCRIPTIONS = {
     "Log off {user}": "Ends your session, leaving the computer running on full power.",
     "Shut down": "Ends your session and shuts down Windows so that you can safely turn off power.",
     "Restart": "Ends your session, shuts down Windows, and starts Windows again.",
-    "Stand by": "Keeps your session in memory and puts the computer in a low-power state so that you can quickly resume working.",
+    "Stand by": "Keeps your session in memory and puts the computer in a low-power state so that you can quickly "
+    "resume working.",
 }
 
 

@@ -131,13 +131,15 @@ def corner_shapes(corner, size, radius, sides, fill):
         py = (lambda y: size - y) if flip_y else (lambda y: y)
         if fill:
             shapes.append(
-                f'<path d="M{px(0)} {py(size)}A{size} {size} 0 0 {sweep} {px(size)} {py(0)}L{px(size)} {py(size)}z" fill="{fill}"/>'
+                f'<path d="M{px(0)} {py(size)}A{size} {size} 0 0 {sweep} {px(size)} {py(0)}'
+                f'L{px(size)} {py(size)}z" fill="{fill}"/>'
             )
         for level, colour in enumerate(colours):
             outer, inner = radius - level, radius - level - 1
             shapes.append(
                 f'<path d="M{px(level)} {py(size)}A{outer} {outer} 0 0 {sweep} {px(size)} {py(level)}'
-                f'L{px(size)} {py(level + 1)}A{inner} {inner} 0 0 {1 - sweep} {px(level + 1)} {py(size)}z" fill="{colour}"/>'
+                f'L{px(size)} {py(level + 1)}A{inner} {inner} 0 0 {1 - sweep} {px(level + 1)} {py(size)}z" '
+                f'fill="{colour}"/>'
             )
         return "".join(shapes), True
     if fill:
@@ -354,7 +356,10 @@ def add_progress(sheet):
 
 
 def add_default_indicator(sheet):
-    ring = f'<rect x="1" y="1" width="22" height="{stops.SIZES["button_height"] - 2}" rx="2" fill="none" stroke="{sheet.paint("default-ring")}" stroke-width="2"/>'
+    ring = (
+        f'<rect x="1" y="1" width="22" height="{stops.SIZES["button_height"] - 2}" rx="2" fill="none" '
+        f'stroke="{sheet.paint("default-ring")}" stroke-width="2"/>'
+    )
     sheet.place("button-default-indicator", 24, stops.SIZES["button_height"], ring, True)
 
 
