@@ -5,7 +5,7 @@ x then y of the first pixel):
 
   outer border      1px #000000 on x=0 and 313, y=0 and 199
   top band          y=1..43, #003399; title text x=13..162 y=15..32 (white 16px Trebuchet MS, baseline 28)
-  flag              x=270..307 y=7..38 (luna/images/windows-xp-flag-dialog.png, 38x32)
+  flag              x=270..307 y=7..38 (luna/images/windows-xp-flag.svg, 38x32)
   highlight         y=44..45, horizontal gradient (HIGHLIGHT_STOPS)
   middle band       y=46..155, horizontal gradient (MIDDLE_STOPS), flat down the column
   separator         y=156, #0F40A4
@@ -26,7 +26,7 @@ per channel of that average (positions are pixel columns, colours "#RRGGBB"):
 from pathlib import Path
 
 from chicago95luna import LunaStyle, luna_font, luna_palette
-from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt
+from PySide6.QtCore import QPointF, QRect, QRectF, Qt
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -36,9 +36,9 @@ from PySide6.QtGui import (
     QPainter,
     QPainterPath,
     QPen,
-    QPixmap,
     QRadialGradient,
 )
+from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QPushButton, QStyle
 
 DIALOG_SIZE = (314, 200)
@@ -120,20 +120,23 @@ def paint_title(painter, title):
     painter.drawText(QPointF(*TITLE_ORIGIN), title)
 
 
-def flag_picture_path(ratio):
-    suffix = "@2x" if ratio >= 2 else ""
-    name = f"windows-xp-flag-dialog{suffix}.png"
+def flag_picture_path():
     module_folder = Path(__file__).resolve().parent
     return next(
-        path for path in (module_folder / "images" / name, module_folder.parents[1] / "images" / name) if path.is_file()
+        folder / "windows-xp-flag.svg"
+        for folder in (module_folder / "images", module_folder.parent / "images")
+        if (folder / "windows-xp-flag.svg").is_file()
     )
 
 
-def paint_flag(painter):
-    ratio = 2 if painter.device().devicePixelRatio() >= 2 else 1
-    picture = QPixmap(str(flag_picture_path(ratio)))
-    picture.setDevicePixelRatio(ratio)
-    painter.drawPixmap(QPoint(*FLAG_ORIGIN), picture)
+def paint_flag(painter, renderer):
+    painter.save()
+    painter.setRenderHint(QPainter.Antialiasing)
+    # Preserve the flag's aspect ratio inside the original 38x32 slot. Render
+    # paths at the painter's actual device scale, including fractional scales.
+    width = 32 * renderer.viewBoxF().width() / renderer.viewBoxF().height()
+    renderer.render(painter, QRectF(FLAG_ORIGIN[0] + (38 - width) / 2, FLAG_ORIGIN[1], width, 32))
+    painter.restore()
 
 
 def smooth_gradient(top, bottom, height):
@@ -275,6 +278,7 @@ class LunaDialog(QDialog):
     def __init__(self, commands, parent=None):
         super().__init__(parent, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.commands = commands
+        self.flag = QSvgRenderer(str(flag_picture_path()), self)
         self.luna_style = LunaStyle()
         # Smooth dialog-specific faces, with no shadow beneath Cancel.
         button_painter = paint_cancel
@@ -321,7 +325,7 @@ class LunaDialog(QDialog):
         painter = QPainter(self)
         paint_bands(painter)
         paint_title(painter, self.TITLE)
-        paint_flag(painter)
+        paint_flag(painter, self.flag)
         for spec in self.SPECS:
             painter.save()
             painter.translate(spec.centre - BUTTON_AREA.width() // 2, BUTTON_AREA.top())

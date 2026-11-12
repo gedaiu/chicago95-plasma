@@ -358,3 +358,29 @@ def test_cancel_has_no_line_below_button(request, dialog_name, state):
     image = dialog.grab().toImage()
     rect = button.geometry()
     assert all(image.pixelColor(x, rect.bottom()).name() == "#003399" for x in range(rect.left(), rect.right() + 1))
+
+
+@pytest.mark.parametrize("dialog_name", ["turn_off", "log_off"])
+@pytest.mark.parametrize("scale", [1.25, 1.5, 2, 3])
+def test_flag_renders_native_detail_at_display_scale(request, dialog_name, scale):
+    dialog = request.getfixturevalue(dialog_name)
+    assert dialog.flag.isValid()
+    images = []
+    for ratio in (1, scale):
+        image = luna_dialogs.QImage(round(314 * ratio), round(200 * ratio), luna_dialogs.QImage.Format_RGB32)
+        image.setDevicePixelRatio(ratio)
+        dialog.render(image)
+        images.append(image.copy(round(270 * ratio), round(7 * ratio), round(38 * ratio), round(32 * ratio)))
+    enlarged = images[0].scaled(images[1].size(), Qt.IgnoreAspectRatio, Qt.FastTransformation)
+    assert images[1] != enlarged
+    colours = {images[1].pixelColor(x, y).rgb() for x in range(images[1].width()) for y in range(images[1].height())}
+    assert len(colours) > 500
+
+
+def test_installed_dialog_resolves_shipped_vector_flag(tmp_path, monkeypatch):
+    images = tmp_path / "images"
+    images.mkdir()
+    source = REPO / "luna/images/windows-xp-flag.svg"
+    (images / source.name).write_bytes(source.read_bytes())
+    monkeypatch.setattr(luna_dialogs, "__file__", str(tmp_path / "chicago95lunadialogs.py"))
+    assert luna_dialogs.flag_picture_path() == images / source.name

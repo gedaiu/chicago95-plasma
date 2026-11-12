@@ -12,4 +12,4 @@ var picture = "/home/gedaiu/workspace/chicago95-plasma/splash/chicago95.splashsc
 var logonStyle = "luna"
 var desktopColor = "#004E98"
 var userName = "ada"
-var userPicture = "/tmp/pytest-of-gedaiu/pytest-896/test_the_loading_screen_settin0/.face"
+var userPicture = "/tmp/pytest-of-gedaiu/pytest-902/test_the_loading_screen_settin0/.face"
