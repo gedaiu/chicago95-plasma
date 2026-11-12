@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 from clippy_acceptance import MATCH_THRESHOLD
 from clippy_all_catalog import catalog
+from clippy_show import bounds_error
 from export_clippy_video import export
 from PIL import Image, ImageDraw
 from review_clippy_3d import original_frames
@@ -53,6 +54,8 @@ def audit(folder):
                 if clipped:
                     raise ValueError(f"{name}/{index}: opaque artwork clips the render border")
             a = np.asarray(low).astype(float) / 255
+            if name in {"Show", "Hide"} and bounds_error(reference, low) > 1:
+                raise ValueError(f"{name}/{index}: size or position differs from the source by more than one pixel")
             b = np.asarray(reference).astype(float) / 255
             am, bm = a[:, :, 3] > 0.5, b[:, :, 3] > 0.5
             union = am | bm
@@ -133,19 +136,32 @@ EXTRAS
 <label>Animation <select id="clip">OPTIONS</select></label>
 <label>Speed <select id="speed"><option value="1">1×</option><option value="0.5">½×</option>
 <option value="0.25">¼×</option></select></label><p><video id="player" controls loop playsinline></video></p>
-<p id="links"></p>
+<p id="links"></p><p id="transition-note"></p>
 <table><thead><tr><th>Action</th><th>Source frames</th><th>Duration</th><th>Videos</th>
 <th>Low-resolution comparison</th></tr></thead><tbody>ROWS</tbody></table>
 <script>const clip=document.querySelector('#clip'),player=document.querySelector('#player');
-function change(){player.src='videos/'+clip.value+'/clippy-transparent.webm';
+function change(){player.loop=!['Show','Hide'].includes(clip.value);
+player.src='videos/'+clip.value+'/clippy-transparent.webm';
+document.querySelector('#transition-note').textContent=clip.value==='Show'
+?'Show is a 50 ms entrance. Play once or slow playback; it finishes on the rest pose.'
+:clip.value==='Hide'?'Hide is a 50 ms exit. Play once or slow playback; it finishes fully transparent.':'';
 document.querySelector('#links').innerHTML='<a href="videos/'+clip.value+'/clippy-preview.mp4">Opaque MP4</a> · '+
 '<a href="comparisons/'+clip.value+'.png">Original, new and overlay at 124 × 93</a>';}
-clip.onchange=change;document.querySelector('#speed').onchange=event=>player.playbackRate=+event.target.value;
+clip.onchange=()=>{location.hash=clip.value;change();};
+document.querySelector('#speed').onchange=event=>player.playbackRate=+event.target.value;
+player.onloadedmetadata=()=>player.playbackRate=+document.querySelector('#speed').value;
+const requested=location.hash.slice(1);
+if([...clip.options].some(option=>option.value===requested))clip.value=requested;
 change();</script></html>"""
     rates = ", ".join(str(rate) for rate in report["export_frame_rates"])
     extra_links = [
+        ("../preview-getattention/index.html", "GetAttention: corrected collision review and video"),
         ("eye-rims-before-after.png", "Eye rims: before and after"),
         ("eyelid-verification.json", "Eyelid surface-separation regression"),
+        ("show-layout-review.png", "Show: original, corrected and overlay"),
+        ("show-layout-verification.json", "Show size and position check"),
+        ("hide-layout-review.png", "Hide: original, corrected and overlay"),
+        ("hide-layout-verification.json", "Hide size, position and disappearance check"),
         ("wire-collisions.html", "Wire surface audit"),
         ("collisions.html", "All recorded surface contacts"),
         ("validation/repaired-98/index.html", "98% source-match results"),

@@ -707,7 +707,10 @@ blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
   --manifest /tmp/clippy-library-raw/manifest.json --output /tmp/clippy-wire-repaired
 blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
   --python tests/position_clippy_face.py -- \
-  --folder /tmp/clippy-wire-repaired --output /tmp/clippy-library
+  --folder /tmp/clippy-wire-repaired --output /tmp/clippy-face-placed
+blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
+  --python tests/repair_clippy_attention.py -- \
+  --folder /tmp/clippy-face-placed --output /tmp/clippy-library
 blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
   --python tests/render_clippy_library.py -- --folder /tmp/clippy-library
 python3 tests/review_clippy_library.py /tmp/clippy-library
@@ -742,7 +745,12 @@ python3 -m pytest -q tests/test_clippy_library_export.py \
   tests/test_clippy_3d_overlay.py
 ```
 
-The saved [animation preview](data/clippy/3d-prototype/preview-60fps/index.html)
+Generated Clippy previews, videos, reports, and baked Blender masters are local,
+Git-ignored build outputs. The original and calibrated Blender inputs, runtime
+artwork, and build/test scripts remain tracked. The links below refer to the local
+review bundle; a fresh checkout must generate the outputs using the commands above.
+
+The local [animation preview](data/clippy/3d-prototype/preview-60fps/index.html)
 contains all 43 individual clips, the combined video, slow playback controls, and
 native-resolution comparisons. The editable master is
 [`all-animations.blend`](data/clippy/3d-prototype/preview-60fps/all-animations.blend). The preview
@@ -814,5 +822,26 @@ projection and scaling the face lighting consistently. The candidate retains
 both verification reports. Videos exported with `--fps 60` hold those audited
 poses; cumulative boundary rounding limits timing error to half an output frame
 (8.34 ms) without accumulating drift. It does not add interpolated movement.
+Consequently these exports are timing/pose reviews, not finished smooth 60-fps
+animations. True 60-fps motion requires rendering intermediate Blender poses,
+preserving intentional holds and source branch/exit behavior, and auditing the
+evaluated geometry at every output frame rather than only at source keyframes.
 Ten 10-ms source poses receive no frame in the individual 60-fps clips; all source
 poses, including these, remain in the native-resolution comparison sheets.
+
+Show uses the size and centre measured from each original frame, preserving the
+blank start and five 10-ms holds. Its visual audit rejects bounds more than one
+native pixel from the original. The preview plays this entrance once and holds
+the final rest pose instead of continuously looping the 50-ms transition.
+Hide uses the same source sequence in reverse, ending fully transparent. It has
+the same size/position audit and plays once instead of looping the exit.
+
+The local [GetAttention repair review](data/clippy/3d-prototype/preview-getattention/index.html)
+contains the corrected clip and all-frame before/after comparison. Its separate
+candidate master also preserves the pending Hide correction. The older combined
+library video has not been regenerated with these changes.
+`tests/repair_clippy_attention.py` separates the enlarged eye assemblies and places
+the face, original wire, and paper in disjoint depth ranges. It rejects every
+remaining surface contact except internal eye assembly/pupil construction, checks
+all 24 baked poses and all 159 held playback samples, and verifies the other 1,209
+poses are unchanged. This does not validate future interpolated motion.

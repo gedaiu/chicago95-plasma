@@ -12,6 +12,7 @@ import numpy as np
 from bpy_extras.object_utils import world_to_camera_view
 from clippy_3d_motion import apply_blink, point, reset
 from clippy_render_quality import configure
+from clippy_show import world_transform as show_transform
 from mathutils import Matrix, Quaternion, Vector
 
 N = 192
@@ -442,23 +443,17 @@ class Library:
             point(self.rig, 1 if name == "GestureLeft" else -1, POINT_PROGRESS[name][index])
             apply_blink(self.rig, GESTURE_BLINK[name].get(index, 0))
             return
-        if name in ["Hide", "Show"]:
-            value = 1 - 0.85 * t if name == "Hide" else [0, 0.15, 0.4, 0.7, 1][index]
-            value = max(0.001, value)
-            self.body_transform((value, value, value))
-            pivot = self.world(60, 80)
-            self.paper.matrix_world = (
-                Matrix.Translation(pivot)
-                @ Matrix.Diagonal((value, value, value, 1))
-                @ Matrix.Translation(-pivot)
-                @ self.paper.matrix_world
-            )
-            if name == "Show" and index == 0:
+        if name in ["Show", "Hide"]:
+            show_index = index if name == "Show" else 4 - index
+            transform = show_transform(self.scene, show_index)
+            self.rig.matrix_world = transform @ self.rig.matrix_world
+            self.paper.matrix_world = transform @ self.paper.matrix_world
+            if show_index == 0:
                 self.paper.hide_render = True
                 for obj in self.rig.children:
                     obj.hide_render = True
             return
-        # Undo Show's deliberately blank first frame for every other clip/frame.
+        # Restore visible parts for ordinary clips after either transition.
         for obj in self.rig.children:
             if obj != self.original_wire:
                 obj.hide_render = False

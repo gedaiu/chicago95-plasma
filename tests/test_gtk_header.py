@@ -211,11 +211,35 @@ def test_a_maximized_window_loses_its_frame(frame):
 
 
 def test_the_sidebars_header_is_as_tall_as_the_contents(strip):
-    assert "min-height: 30px;" in rule_body(strip, gtk_header.STRIP)
+    assert "min-height: 31px;" in rule_body(strip, gtk_header.STRIP)
 
 
-def test_the_sidebars_buttons_keep_their_height_in_the_taller_row(strip):
-    assert "margin-top: 3px;" in rule_body(strip, f".sidebar-pane {gtk_header.STRIP} button")
+def test_a_toolbar_button_is_a_22px_square_centred_in_the_31px_row(strip):
+    body = rule_body(strip, f"{gtk_header.STRIP} button.image-button")
+
+    assert ("min-width: 22px;" in body, "min-height: 22px;" in body, "margin: 4px 0;" in body) == (True, True, True)
+
+
+def test_the_lifted_title_fills_exactly_the_18px_strip_of_a_31px_row(strip):
+    body = rule_body(strip, f"{gtk_header.STRIP} windowtitle")
+
+    assert ("margin-top: -20px;" in body, "margin-bottom: 33px;" in body) == (True, True)
+
+
+def test_the_lifted_window_buttons_give_back_their_50px_in_the_toolbar_row(strip):
+    assert "margin-left: -50px;" in rule_body(strip, f"{gtk_header.STRIP} windowcontrols.end")
+
+
+def test_the_lifted_window_icon_gives_back_its_20px_in_the_toolbar_row(strip):
+    assert "margin-right: -20px;" in rule_body(strip, f"{gtk_header.STRIP} windowcontrols.start")
+
+
+def test_header_text_is_11px_whatever_the_desktops_font_dpi(strip):
+    assert "font-size: 11px;" in rule_body(strip, f"{gtk_header.STRIP} label")
+
+
+def test_every_arrow_in_the_toolbar_is_black(strip):
+    assert "color: #000000;" in rule_body(strip, f"{gtk_header.STRIP} arrow")
 
 
 def test_the_window_frame_goes_into_gtk_4_only(tmp_path):
@@ -226,3 +250,23 @@ def test_the_window_frame_goes_into_gtk_4_only(tmp_path):
     )
 
     assert [line.rsplit(":", 1)[1] != "0" for line in lines] == [False, True]
+
+
+def test_the_window_buttons_keep_their_16_by_14_size_among_the_squared_toolbar_buttons(strip):
+    assert "min-width: 16px;" in rule_body(strip, f"{gtk_header.STRIP} windowcontrols > button.image-button")
+
+
+def test_the_split_buttons_arrow_names_its_icon_so_a_focused_window_draws_it(strip):
+    assert "pan-down-symbolic" in rule_body(strip, f"{gtk_header.SPLIT_ARROW} > arrow")
+
+
+def test_the_view_split_button_is_squared_like_the_other_toolbar_buttons(strip):
+    assert "min-width: 22px;" in rule_body(strip, f"{gtk_header.STRIP} splitbutton > button")
+
+
+def test_the_address_field_drops_libadwaitas_inner_padding(address):
+    assert "padding-top: 0;" in rule_body(address, ".nautilus-pathbar button")
+
+
+def test_the_sidebars_buttons_sit_1px_lower_to_line_up_with_the_contents(strip):
+    assert "margin-top: 5px;" in rule_body(strip, f".sidebar-pane {gtk_header.STRIP} button.image-button")

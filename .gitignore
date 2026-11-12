@@ -3,3 +3,12 @@ __pycache__/
 *.pre-*
 *.bak*
 node_modules/
+
+# Clippy authoring outputs: keep source assets and runtime artwork tracked.
+/data/clippy/3d-prototype/preview*/
+/data/clippy/3d-prototype/validation/
+/data/clippy/3d-prototype/all-animations.blend
+/data/clippy/3d-prototype/animated.blend
+/data/clippy/3d-prototype/*-candidate.blend
+/data/clippy/3d-prototype/*.blend[0-9]*
+/data/clippy/hd-blink/

@@ -29,8 +29,22 @@ TITLE_H = 18
 # The toolbar starts 2px under the strip; the title and the buttons are lifted from its row by the same amount.
 TOOLBAR_TOP = TITLE_H + 2
 CAPTION_TOP = 2
-TOOLBAR_ROW = 30
-SIDEBAR_BUTTON_GAP = 3
+# Tall enough for the address field (23px with its bevel) and the 22px buttons, 4px around.
+TOOLBAR_ROW = 31
+# 9x toolbar buttons are square; every control in the row is this tall, centred in the row.
+TOOL = 22
+TOOL_GAP = (TOOLBAR_ROW - TOOL) // 2
+# The header's text in pixels, the size of 9x's 8pt at 96 dpi: a desktop that raises the font DPI would otherwise grow
+# the title past the strip and the controls past the row.
+TEXT_SIZE = "11px"
+ICON = 16
+ICON_GAP = 2
+# The window buttons and the icon leave the toolbar row for the strip; these take back the width they held in it.
+CONTROLS_WIDTH = {"end": 3 * CAPTION_W + CLOSE_GAP, "start": ICON + 2 * ICON_GAP}
+# Every icon button in the header, wherever Nautilus nests it (stacks, bins, the title box); the window buttons and
+# the address field's own button are set back below.
+TOOLS = f"{STRIP} button.image-button, {STRIP} splitbutton > button"
+SPLIT_ARROW = f"{STRIP} splitbutton > menubutton > button"
 
 
 def face_url(kind, colours, pressed):
@@ -98,7 +112,8 @@ def gradient(colours):
 
 
 def header_css(active, inactive, inactive_text, face):
-    lifted = dict(margin_top=f"-{TOOLBAR_TOP}px", margin_bottom=f"{TOOLBAR_TOP}px")
+    # Lifted into a box exactly the strip's height: from the strip's top, ending TITLE_H below it.
+    lifted = dict(margin_top=f"-{TOOLBAR_TOP}px", margin_bottom=f"{TOOLBAR_ROW + TOOLBAR_TOP - TITLE_H}px")
     first = {colours: colours.partition(",")[0] for colours in (active, inactive)}
     return "".join(
         [
@@ -118,19 +133,56 @@ def header_css(active, inactive, inactive_text, face):
             # content's gradient starts from it, so the strip runs on unbroken.
             rule(f".sidebar-pane {STRIP}", background_image=gradient(first[active])),
             rule(f"window:backdrop .sidebar-pane {STRIP}", background_image=gradient(first[inactive])),
-            # The address field makes the content's row taller than the sidebar's: both rows take its height, and
-            # the sidebar's buttons keep theirs in the middle of it.
+            rule(f"{STRIP} label, {STRIP} text", font_size=TEXT_SIZE),
+            rule(TOOLS, min_width=f"{TOOL}px", min_height=f"{TOOL}px", padding="0", margin=f"{TOOL_GAP}px 0"),
+            # Measured: the content header's row starts 1px lower than the sidebar's at every row height and font size,
+            # so the sidebar's buttons sit 1px lower in theirs to line up with back and forward.
             rule(
-                f".sidebar-pane {STRIP} button",
-                margin_top=f"{SIDEBAR_BUTTON_GAP}px",
-                margin_bottom=f"{SIDEBAR_BUTTON_GAP}px",
+                f".sidebar-pane {STRIP} button.image-button",
+                margin_top=f"{TOOL_GAP + 1}px",
+                margin_bottom=f"{TOOL_GAP - 1}px",
+            ),
+            # A split button's arrow half is narrow, as on 9x's Views button. The theme leaves its arrow without an
+            # icon in a focused window.
+            rule(SPLIT_ARROW, min_height=f"{TOOL}px", padding="0 2px", margin=f"{TOOL_GAP}px 0"),
+            rule(
+                f"{SPLIT_ARROW} > arrow",
+                color="#000000",
+                min_width="8px",
+                min_height="8px",
+                _gtk_icon_source='-gtk-icontheme("pan-down-symbolic")',
+            ),
+            rule(f"{STRIP} arrow", color="#000000"),
+            rule(
+                f"{STRIP} windowcontrols > button.image-button",
+                min_width=f"{CAPTION_W}px",
+                min_height=f"{CAPTION_H}px",
+                margin="0",
+            ),
+            rule(f"{STRIP} windowcontrols > button.image-button.close", margin_left=f"{CLOSE_GAP}px"),
+            rule(
+                f"{STRIP} .nautilus-pathbar button.image-button",
+                min_width="0",
+                min_height="0",
+                margin="0",
+                padding="0 3px",
             ),
             rule(f"{STRIP} windowcontrols", **lifted),
+            rule(f"{STRIP} windowcontrols.end", margin_left=f"-{CONTROLS_WIDTH['end']}px"),
+            rule(f"{STRIP} windowcontrols.start", margin_right=f"-{CONTROLS_WIDTH['start']}px"),
+            rule(
+                f"{STRIP} windowcontrols > .icon",
+                min_width=f"{ICON}px",
+                min_height=f"{ICON}px",
+                margin=f"0 {ICON_GAP}px",
+                _gtk_icon_size=f"{ICON}px",
+            ),
             # Lifted, a button reaches from the strip's top down into the toolbar row, however tall that row is: its
             # face goes 2px under the strip's top, where 9x drew it, not at the button's middle.
             rule(f"{STRIP} windowcontrols > button", background_position=f"center {CAPTION_TOP}px"),
             rule(f"{STRIP} windowtitle", **lifted),
-            rule(f"{STRIP} windowtitle > .title", color="#FFFFFF", font_weight="bold"),
+            # Left-aligned after the icon as 9x drew it is out of CSS's reach: GTK centres a header's title.
+            rule(f"{STRIP} windowtitle > .title", color="#FFFFFF", font_weight="bold", font_size=TEXT_SIZE),
             rule(f"window:backdrop {STRIP} windowtitle > .title", color=inactive_text),
             rule("toolbarview > .top-bar:backdrop > windowhandle", filter="none"),
             # The theme paints flat header buttons white for the navy bar; under the strip they sit on the face.
@@ -179,7 +231,8 @@ def path_bar_css(light, shadow, dark):
         [
             rule(
                 ".nautilus-pathbar",
-                padding="2px",
+                margin=f"{TOOL_GAP}px 0",
+                padding="1px 2px",
                 border_radius="0",
                 border_style="solid",
                 border_width="1px",
@@ -198,6 +251,15 @@ def path_bar_css(light, shadow, dark):
             # libadwaita dims every folder but the current one, and the theme bolds some: the Address bar did neither.
             rule(f"{PATH_BUTTON} label, {PATH_BUTTON} image", opacity="1", color="#000000", font_weight="normal"),
             rule(f"{PATH_BUTTON} > box", border_spacing="4px"),
+            # libadwaita pads the field's insides for a rounded pill; the Address bar was one line of text.
+            rule(
+                ", ".join(f".nautilus-pathbar {part}" for part in ("scrolledwindow", "box", "button", "menubutton")),
+                min_height="0",
+                padding_top="0",
+                padding_bottom="0",
+                margin_top="0",
+                margin_bottom="0",
+            ),
             rule(f"{PATH_BUTTON}:hover", box_shadow=f"inset 1px 1px #FFFFFF, inset -1px -1px {shadow}"),
             rule(f"{PATH_BUTTON}:active", box_shadow=f"inset 1px 1px {shadow}, inset -1px -1px #FFFFFF"),
         ]

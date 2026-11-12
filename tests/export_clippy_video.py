@@ -8,7 +8,6 @@ from functools import reduce
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
 
 
 def frame_schedule(durations, fps):
@@ -28,6 +27,8 @@ def frame_schedule(durations, fps):
 
 
 def export(folder, output, actions=None, fps=None):
+    from PIL import Image
+
     manifest = json.loads((folder / "manifest.json").read_text())
     names = list(manifest["sequences"]) if actions is None else actions
     frames = [item for name in names for item in manifest["sequences"][name]]
@@ -191,7 +192,7 @@ def export(folder, output, actions=None, fps=None):
         "source_duration_ms": sum(item["duration_ms"] for item in frames),
         "max_boundary_error_ms": max(map(abs, timing_errors), default=0),
         "source_frame_repeats": repeats,
-        "sampling": "Source poses held; no invented or untested interpolated geometry.",
+        "sampling": manifest.get("sampling", "Source poses held; no invented or untested interpolated geometry."),
         "dimensions": [width, height],
         "webm_decoded_frames": decoded,
         "max_alpha_error": max_alpha_error,
