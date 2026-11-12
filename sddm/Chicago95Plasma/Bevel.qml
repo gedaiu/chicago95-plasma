@@ -15,8 +15,8 @@ Rectangle {
         colorGroup: SystemPalette.Active
     }
     // qmllint disable unqualified
-    // "config" is the SDDM theme configuration, injected by the greeter.
-    readonly property bool modern: config.loginStyle === "2000"
+    // "config" is the SDDM theme configuration, injected by the greeter; the lock screen sets modern itself.
+    property bool modern: typeof config !== "undefined" && config.loginStyle === "2000"
     // qmllint enable unqualified
     readonly property color face: scheme.window
     readonly property color white: "#ffffff"

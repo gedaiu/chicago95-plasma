@@ -1,0 +1,731 @@
+{
+  "source_atlas_sha256": "880b63ac4d3fa84c78eceb02674c9eaedae032b2d85887539a7f6d107e5801e9",
+  "coordinate_system": "124x93, origin top-left, pixel coordinates; no alignment",
+  "review": "Reference-only contact sheet inspected by assistant; not user approval. Five ambiguous/missing detections were explicitly selected from the original pupil components. No candidate coordinates used.",
+  "frames": {
+    "RestPose/0": {
+      "rgba_sha256": "b6309d84b3222f6cf63a8904e37117727da8398a4c396ef2e40d07984b49a51a",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            46.84615384615385,
+            27.615384615384617
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            64.73913043478261,
+            32.565217391304344
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "Blink/0": {
+      "rgba_sha256": "b6309d84b3222f6cf63a8904e37117727da8398a4c396ef2e40d07984b49a51a",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            46.84615384615385,
+            27.615384615384617
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            64.73913043478261,
+            32.565217391304344
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "Blink/1": {
+      "rgba_sha256": "2739653c9e7cad25b1f38dc8990a294b12c78449ede1d118c5a3a1fe8d42fa39",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            44.565217391304344,
+            27.043478260869566
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            62.47826086956522,
+            32.434782608695656
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "Blink/2": {
+      "rgba_sha256": "847f52299212cfc51fe3f1d00e2de6da64dd4928809150a31b457b89d549053e",
+      "landmarks": {
+        "left_pupil": {
+          "point": null,
+          "method": "Closed eyes in original; no pupil landmark."
+        },
+        "right_pupil": {
+          "point": null,
+          "method": "Closed eyes in original; no pupil landmark."
+        }
+      }
+    },
+    "Blink/3": {
+      "rgba_sha256": "a3428a8e4bd672fdd85c220a820b7926f9fac4e2f2b9f2addc6ceea8eaaa295b",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            44.27272727272727,
+            28.09090909090909
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            62.111111111111114,
+            33.666666666666664
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "Blink/4": {
+      "rgba_sha256": "ca8bd304748f95e500d92cb7c8c1f36d32709ba0bc1899db9259f3efadbc7be7",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            44.565217391304344,
+            27.043478260869566
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            62.47826086956522,
+            32.434782608695656
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureLeft/0": {
+      "rgba_sha256": "b6309d84b3222f6cf63a8904e37117727da8398a4c396ef2e40d07984b49a51a",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            46.84615384615385,
+            27.615384615384617
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            64.73913043478261,
+            32.565217391304344
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureLeft/1": {
+      "rgba_sha256": "313d6bb880ecd1dff0c4cb834535dbce0f7ac7586a668386e32af3f94bbe0fb7",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            46.666666666666664,
+            28.166666666666668
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            64.31818181818181,
+            34.18181818181818
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureLeft/2": {
+      "rgba_sha256": "e3f699e21d6e3f3e9ee4c9d66e3a517131ad3b5da91cc7dc550d839f969a3c76",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            46.68421052631579,
+            29.57894736842105
+          ],
+          "method": "Visually selected pupil component; automatic detector was missing/ambiguous."
+        },
+        "right_pupil": {
+          "point": [
+            64.77777777777777,
+            34.833333333333336
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureLeft/3": {
+      "rgba_sha256": "1df769a1763106201c5ba52e56073454562eb30913585df0963f44469b303671",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            48.73684210526316,
+            29.157894736842106
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            66.21052631578948,
+            34.94736842105263
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureLeft/4": {
+      "rgba_sha256": "5be659ea89ccd60ccd668d4a2b44012ff57275b506a74ba244423fe9285edd1c",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            49.95,
+            29.5
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            67.73684210526315,
+            35.368421052631575
+          ],
+          "method": "Visually selected pupil component; automatic detector was missing/ambiguous."
+        }
+      }
+    },
+    "GestureLeft/5": {
+      "rgba_sha256": "6555795e5437e5f932f64099e18902bf289a494b81c279366bdd985fa2c1113b",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            49.94444444444444,
+            29.38888888888889
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            67.73684210526315,
+            35.368421052631575
+          ],
+          "method": "Visually selected pupil component; automatic detector was missing/ambiguous."
+        }
+      }
+    },
+    "GestureLeft/6": {
+      "rgba_sha256": "b40ebe9b455118e3019a53cbd62b881d2a8213fbae41192c275453b11e9515c6",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            49.94444444444444,
+            29.38888888888889
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            67.73684210526315,
+            35.368421052631575
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureLeft/7": {
+      "rgba_sha256": "05694a92a2a2654a3974e1fe180fdf34e346a9888ec6e29bafe41f3bd5683eda",
+      "landmarks": {
+        "left_pupil": {
+          "point": null,
+          "method": "Closed eyes in original; no pupil landmark."
+        },
+        "right_pupil": {
+          "point": null,
+          "method": "Closed eyes in original; no pupil landmark."
+        }
+      }
+    },
+    "GestureLeft/8": {
+      "rgba_sha256": "ebb7e7aca8c092d2783d253154e546dbbe452e3933288e191efe2d60dff1ebc2",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            45.68181818181818,
+            28.0
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            63.54545454545455,
+            33.95454545454545
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureLeft/9": {
+      "rgba_sha256": "bb3e7f97b3331a02b78ecd5f414b11b9efedbe38f736a0a25ba0096938965827",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            44.916666666666664,
+            27.916666666666668
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            62.65217391304348,
+            33.73913043478261
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureLeft/10": {
+      "rgba_sha256": "36c16f96d621e8d3dc2a5e22816a12de8839dd7aad3258217a244f50a38dd9dc",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            46.519999999999996,
+            28.2
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            64.53846153846153,
+            34.15384615384615
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureLeft/11": {
+      "rgba_sha256": "55fff352ac61db89a0aec3208485219243d2327d68aadb448ce7a9c0ee35663b",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            50.05263157894737,
+            29.473684210526315
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            67.73684210526315,
+            35.368421052631575
+          ],
+          "method": "Visually selected pupil component; automatic detector was missing/ambiguous."
+        }
+      }
+    },
+    "GestureLeft/12": {
+      "rgba_sha256": "1df769a1763106201c5ba52e56073454562eb30913585df0963f44469b303671",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            48.73684210526316,
+            29.157894736842106
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            66.21052631578948,
+            34.94736842105263
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureLeft/13": {
+      "rgba_sha256": "e3f699e21d6e3f3e9ee4c9d66e3a517131ad3b5da91cc7dc550d839f969a3c76",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            46.68421052631579,
+            29.57894736842105
+          ],
+          "method": "Visually selected pupil component; automatic detector was missing/ambiguous."
+        },
+        "right_pupil": {
+          "point": [
+            64.77777777777777,
+            34.833333333333336
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureLeft/14": {
+      "rgba_sha256": "313d6bb880ecd1dff0c4cb834535dbce0f7ac7586a668386e32af3f94bbe0fb7",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            46.666666666666664,
+            28.166666666666668
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            64.31818181818181,
+            34.18181818181818
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureLeft/15": {
+      "rgba_sha256": "b6309d84b3222f6cf63a8904e37117727da8398a4c396ef2e40d07984b49a51a",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            46.84615384615385,
+            27.615384615384617
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            64.73913043478261,
+            32.565217391304344
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureRight/0": {
+      "rgba_sha256": "b6309d84b3222f6cf63a8904e37117727da8398a4c396ef2e40d07984b49a51a",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            46.84615384615385,
+            27.615384615384617
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            64.73913043478261,
+            32.565217391304344
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureRight/1": {
+      "rgba_sha256": "b8ac91452413c9d1424b8e51e10a9943bb5686562fb347a584ff1de20b406aad",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            50.32,
+            30.04
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            69.25925925925927,
+            32.0
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureRight/2": {
+      "rgba_sha256": "44e69ca76090f23faac28106509967cb7307a4ed05a43e68f5ab67c076527943",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            48.23809523809524,
+            31.57142857142857
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            66.61904761904762,
+            30.42857142857143
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureRight/3": {
+      "rgba_sha256": "e9a1b76226907d53d4d4bc17aabc15b356f27f2ae09f2a55dae7055b2d5c6f40",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            53.19047619047619,
+            33.61904761904762
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            71.2,
+            28.65
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureRight/4": {
+      "rgba_sha256": "e99ec620424cb4403590837250f31fc6b6b5695becfb824a60fcfce8db03d467",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            50.1578947368421,
+            34.1578947368421
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            67.76190476190476,
+            28.476190476190474
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureRight/5": {
+      "rgba_sha256": "654e81a8c5fae665274ba02fbc8aea7da25633ac14190df44c4afefade0a321c",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            49.15,
+            34.75
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            66.94736842105263,
+            29.05263157894737
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureRight/6": {
+      "rgba_sha256": "bec56eafd0b65358c557752c5a32e8895ba4d43c1e05af3a9d60b3d51421acbf",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            49.04761904761905,
+            34.80952380952381
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            67.05555555555556,
+            29.11111111111111
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureRight/7": {
+      "rgba_sha256": "1a5454d103c8f237a348fe71b03618e3a8ebc0ce928609a869a915a1b0fbd4c2",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            49.15,
+            34.75
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            66.94736842105263,
+            29.05263157894737
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureRight/8": {
+      "rgba_sha256": "3b114088ddf49deaca32fbd41f2130d897e369ef59d97170d25483f572150abe",
+      "landmarks": {
+        "left_pupil": {
+          "point": null,
+          "method": "Closed eyes in original; no pupil landmark."
+        },
+        "right_pupil": {
+          "point": null,
+          "method": "Closed eyes in original; no pupil landmark."
+        }
+      }
+    },
+    "GestureRight/9": {
+      "rgba_sha256": "c232ea39f3e3add764d2355bbd9432e9a53290b497023bf36818fe684c4a6fe3",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            54.14285714285714,
+            32.0
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            72.28,
+            26.2
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureRight/10": {
+      "rgba_sha256": "4bc8867248b8d078fc4c8f238272222015483ec4c36377e9621e526a12ad7495",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            52.34782608695652,
+            33.30434782608695
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            69.95833333333333,
+            27.25
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureRight/11": {
+      "rgba_sha256": "654e81a8c5fae665274ba02fbc8aea7da25633ac14190df44c4afefade0a321c",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            49.15,
+            34.75
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            66.94736842105263,
+            29.05263157894737
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureRight/12": {
+      "rgba_sha256": "e99ec620424cb4403590837250f31fc6b6b5695becfb824a60fcfce8db03d467",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            50.1578947368421,
+            34.1578947368421
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            67.76190476190476,
+            28.476190476190474
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureRight/13": {
+      "rgba_sha256": "e9a1b76226907d53d4d4bc17aabc15b356f27f2ae09f2a55dae7055b2d5c6f40",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            53.19047619047619,
+            33.61904761904762
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            71.2,
+            28.65
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureRight/14": {
+      "rgba_sha256": "44e69ca76090f23faac28106509967cb7307a4ed05a43e68f5ab67c076527943",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            48.23809523809524,
+            31.57142857142857
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            66.61904761904762,
+            30.42857142857143
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureRight/15": {
+      "rgba_sha256": "b8ac91452413c9d1424b8e51e10a9943bb5686562fb347a584ff1de20b406aad",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            50.32,
+            30.04
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            69.25925925925927,
+            32.0
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    },
+    "GestureRight/16": {
+      "rgba_sha256": "b6309d84b3222f6cf63a8904e37117727da8398a4c396ef2e40d07984b49a51a",
+      "landmarks": {
+        "left_pupil": {
+          "point": [
+            46.84615384615385,
+            27.615384615384617
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        },
+        "right_pupil": {
+          "point": [
+            64.73913043478261,
+            32.565217391304344
+          ],
+          "method": "Dark-component centroid; inspected in original-only contact sheet."
+        }
+      }
+    }
+  },
+  "source_agent_sha256": "d583546a74d9c1d29d7b014e1537169ed9a3e6bd386f9b6220eda88d3a974dad"
+}

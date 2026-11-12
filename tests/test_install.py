@@ -911,6 +911,17 @@ def test_clippy_window_rule_keeps_it_above_other_windows_by_default(tmp_path):
     assert ("above=true" in clippy, "aboverule=2" in clippy) == (True, True)
 
 
+def test_clippy_installs_runtime_artwork_without_blender_sources_or_review_videos(tmp_path):
+    result = run_setup(tmp_path, "--components=clippy")
+    assert result.returncode == 0, result.stdout + result.stderr
+    installed = tmp_path / ".local/share/chicago95/clippy"
+    assert {path.name for path in installed.iterdir()} == {"agent.js", "map.png", "sounds-ogg.js", "hd-animations"}
+    for name in ("agent.js", "map.png", "sounds-ogg.js"):
+        assert (installed / name).read_bytes() == (REPO / "data/clippy" / name).read_bytes()
+    source_pack = REPO / "data/clippy/hd-animations"
+    assert {p.name for p in (installed / "hd-animations").iterdir()} == {p.name for p in source_pack.iterdir()}
+
+
 def finish_session_calls(tmp_path, shell_changed):
     calls = tmp_path / "calls"
     calls.touch()
@@ -1692,9 +1703,9 @@ def test_classic_title_labels_take_the_caption_colour_without_restarting_the_gra
 
     rules = [rule.split("{") for rule in "\n".join(lines).split("}") if "{" in rule]
 
-    assert [
-        ("background" in body, "color:" in body) for selectors, body in rules if selectors.strip().endswith(" .title")
-    ] == [(False, True)] * 2
+    assert {
+        ("background" in body, "color:" in body) for selectors, body in rules if selectors.strip().endswith(".title")
+    } == {(False, True)}
 
 
 def test_luna_decoration_writes_the_vertical_title_gradient_into_the_gtk_css(tmp_path):

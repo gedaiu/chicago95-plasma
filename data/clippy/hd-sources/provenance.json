@@ -1,0 +1,69 @@
+{
+  "tool": "image_gen.imagegen (built-in)",
+  "reference": "../hd-reference/rest-pose-v1.png",
+  "sources": {
+    "gaze": {
+      "prompt": "Use the supplied HD Clippy master as the EXACT character/style reference. Produce a production animation sprite sheet on a genuinely transparent background. Exactly 2 columns by 2 rows of equal cells, overall 1448x1086 canvas (each cell 724x543). No grid lines, borders, labels, text, or backgrounds. Each cell contains the COMPLETE same silver Clippy with white eyes, black pupils, eyebrows and curled ruled yellow paper, same scale and camera as the reference scaled to one cell, consistent soft metallic shading. Leave margins so nothing clips at cell borders. Identical paper alignment and character center across cells except intentional gesture. Smooth high-resolution contours; no pixel-art effect. Read cells row-major. Animation poses: eyes look LEFT in top-left cell, RIGHT in top-right, UP in bottom-left, DOWN in bottom-right. Only move the black pupils; keep eyelids open. Body, paper, eyebrows and eye-sphere positions stay completely stationary.",
+      "output": "/home/gedaiu/.codex/generated_images/01a1cee6-c5c4-7ea1-89a7-0bb15ffcb272/exec-50c38845-822c-46ff-b515-cac316227e33.png",
+      "file": "gaze.png"
+    },
+    "eyebrow": {
+      "prompt": "Use the supplied HD Clippy master as the EXACT character/style reference. Produce a production animation sprite sheet on a genuinely transparent background. Exactly 2 columns by 2 rows of equal cells, overall 1448x1086 canvas (each cell 724x543). No grid lines, borders, labels, text, or backgrounds. Each cell contains the COMPLETE same silver Clippy with white eyes, black pupils, eyebrows and curled ruled yellow paper, same scale and camera as the reference scaled to one cell, consistent soft metallic shading. Leave margins so nothing clips at cell borders. Identical paper alignment and character center across cells except intentional gesture. Smooth high-resolution contours; no pixel-art effect. Read cells row-major. Animation poses: a four-pose eyebrow raise: top-left eyebrows at rest, top-right eyebrows beginning to raise, bottom-left eyebrows fully raised in curiosity, bottom-right eyebrows halfway lowering. Keep the eyes, body and paper exactly stationary.",
+      "output": "/home/gedaiu/.codex/generated_images/01a1cee6-c5c4-7ea1-89a7-0bb15ffcb272/exec-7ea34e1e-794c-4e8a-a140-04b16e73b989.png",
+      "former_file": "eyebrow.png",
+      "retired": "Superseded source image removed; generation history retained."
+    },
+    "pointing": {
+      "prompt": "Use the supplied HD Clippy master as the EXACT character/style reference. Produce a production animation sprite sheet on a genuinely transparent background. Exactly 2 columns by 2 rows of equal cells, overall 1448x1086 canvas (each cell 724x543). No grid lines, borders, labels, text, or backgrounds. Each cell contains the COMPLETE same silver Clippy with white eyes, black pupils, eyebrows and curled ruled yellow paper, same scale and camera as the reference scaled to one cell, consistent soft metallic shading. Leave margins so nothing clips at cell borders. Identical paper alignment and character center across cells except intentional gesture. Smooth high-resolution contours; no pixel-art effect. Read cells row-major. Animation poses: four pointing gestures with the FREE OUTER END OF HIS PAPERCLIP WIRE (not a human hand): point LEFT in top-left, RIGHT in top-right, UP in bottom-left, DOWN in bottom-right. The one free wire end bends into the pointing gesture; preserve a single continuous metallic paperclip, no extra limbs or hands. Eyes glance toward the pointing direction. Keep the paper stationary.",
+      "output": "/home/gedaiu/.codex/generated_images/01a1cee6-c5c4-7ea1-89a7-0bb15ffcb272/exec-aa299a67-7b23-4d9f-bb71-2ed5c325c5cc.png",
+      "former_file": "pointing.png",
+      "retired": "Superseded source image removed; generation history retained."
+    },
+    "wave": {
+      "prompt": "Create a clean production animation sprite sheet based on this exact silver Clippy on curled yellow ruled paper. 2 columns and 2 rows, four equal cells, overall 1448x1086. Each complete character fits within its cell with generous 12% transparent margins. Same camera, framing, size and paper location in all cells. Keep the entire paper identical. Transparent background: absolutely NO haze, glow, shadow outside the paper, mist, grain, or halos. Crisp smooth opaque silver and paper surfaces, antialiased edges. No grid, text, captions or borders. Read row-major: Four consecutive wave poses. Free outer wire tip raised to the right, bent inward, bent outward, returning inward. Warm friendly expression. One continuous wire with two ends, no human hands. Preserve identity of reference.",
+      "output": "/home/gedaiu/.codex/generated_images/01a1cee6-c5c4-7ea1-89a7-0bb15ffcb272/exec-845d43ea-87c1-4f77-9347-53514f64d13b.png",
+      "file": "wave.png"
+    },
+    "thinking": {
+      "prompt": "Create a clean production animation sprite sheet based on this exact silver Clippy on curled yellow ruled paper. 2 columns and 2 rows, four equal cells, overall 1448x1086. Each complete character fits within its cell with generous 12% transparent margins. Same camera, framing, size and paper location in all cells. Keep the entire paper identical. Transparent background: absolutely NO haze, glow, shadow outside the paper, mist, grain, or halos. Crisp smooth opaque silver and paper surfaces, antialiased edges. No grid, text, captions or borders. Read row-major: Four consecutive thoughtful poses: look up, tilt head slightly left, lift one eyebrow, thoughtful gaze down. Body stays planted. Preserve identity of reference.",
+      "output": "/home/gedaiu/.codex/generated_images/01a1cee6-c5c4-7ea1-89a7-0bb15ffcb272/exec-451de828-a995-4061-b312-eade7f1f30a0.png",
+      "file": "thinking.png"
+    },
+    "scratch": {
+      "prompt": "Create a clean production animation sprite sheet based on this exact silver Clippy on curled yellow ruled paper. 2 columns and 2 rows, four equal cells, overall 1448x1086. Each complete character fits within its cell with generous 12% transparent margins. Same camera, framing, size and paper location in all cells. Keep the entire paper identical. Transparent background: absolutely NO haze, glow, shadow outside the paper, mist, grain, or halos. Crisp smooth opaque silver and paper surfaces, antialiased edges. No grid, text, captions or borders. Read row-major: Four consecutive head-scratching poses: free outer wire end lifts toward top of head, touches head on left, scratches toward right, lowers slightly. No additional limbs. Preserve identity of reference.",
+      "output": "/home/gedaiu/.codex/generated_images/01a1cee6-c5c4-7ea1-89a7-0bb15ffcb272/exec-10ce4ebd-01d6-40f0-8843-2625c69a1c70.png",
+      "file": "scratch.png"
+    },
+    "celebrate": {
+      "prompt": "Create a clean production animation sprite sheet based on this exact silver Clippy on curled yellow ruled paper. 2 columns and 2 rows, four equal cells, overall 1448x1086. Each complete character fits within its cell with generous 12% transparent margins. Same camera, framing, size and paper location in all cells. Keep the entire paper identical. Transparent background: absolutely NO haze, glow, shadow outside the paper, mist, grain, or halos. Crisp smooth opaque silver and paper surfaces, antialiased edges. No grid, text, captions or borders. Read row-major: Four consecutive happy celebration poses: crouch slightly, stretch upward with eyes wide, lean left excitedly, lean right excitedly. Keep feet/body bottom on paper, complete character visible. Preserve identity of reference.",
+      "output": "/home/gedaiu/.codex/generated_images/01a1cee6-c5c4-7ea1-89a7-0bb15ffcb272/exec-88fa46b1-4c4b-4d99-a942-73f4e6076146.png",
+      "file": "celebrate.png"
+    },
+    "writing": {
+      "prompt": "Create a clean production animation sprite sheet based on this exact silver Clippy on curled yellow ruled paper. 2 columns and 2 rows, four equal cells, overall 1448x1086. Each complete character fits within its cell with generous 12% transparent margins. Same camera, framing, size and paper location in all cells. Keep the entire paper identical. Transparent background: absolutely NO haze, glow, shadow outside the paper, mist, grain, or halos. Crisp smooth opaque silver and paper surfaces, antialiased edges. No grid, text, captions or borders. Read row-major: Four consecutive writing poses: lean toward paper, free wire tip touches paper at left, moves to center, moves right. Eyes follow tip. No hands and no extra pen. Preserve identity of reference.",
+      "output": "/home/gedaiu/.codex/generated_images/01a1cee6-c5c4-7ea1-89a7-0bb15ffcb272/exec-b96db1be-168f-479b-9691-f2fb0a469659.png",
+      "file": "writing.png"
+    },
+    "reading": {
+      "prompt": "Create a clean production animation sprite sheet based on this exact silver Clippy on curled yellow ruled paper. 2 columns and 2 rows, four equal cells, overall 1448x1086. Each complete character fits within its cell with generous 12% transparent margins. Same camera, framing, size and paper location in all cells. Keep the entire paper identical. Transparent background: absolutely NO haze, glow, shadow outside the paper, mist, grain, or halos. Crisp smooth opaque silver and paper surfaces, antialiased edges. No grid, text, captions or borders. Read row-major: Four consecutive reading poses: lean forward looking down at left side of ruled paper, eyes track center, eyes track right, look down at beginning of next line. Paper remains identical. Preserve identity of reference.",
+      "output": "/home/gedaiu/.codex/generated_images/01a1cee6-c5c4-7ea1-89a7-0bb15ffcb272/exec-6c0fb3e9-ec1e-414f-955a-acd715d49c8d.png",
+      "file": "reading.png"
+    },
+    "sleep": {
+      "prompt": "Create a clean production animation sprite sheet based on this exact silver Clippy on curled yellow ruled paper. 2 columns and 2 rows, four equal cells, overall 1448x1086. Each complete character fits within its cell with generous 12% transparent margins. Same camera, framing, size and paper location in all cells. Keep the entire paper identical. Transparent background: absolutely NO haze, glow, shadow outside the paper, mist, grain, or halos. Crisp smooth opaque silver and paper surfaces, antialiased edges. No grid, text, captions or borders. Read row-major: Four consecutive falling-asleep poses: eyelids droop, half closed eyes with head slightly lowered, closed eyes with head lowered, closed eyes resting gently. No letters or symbols. Preserve identity of reference.",
+      "output": "/home/gedaiu/.codex/generated_images/01a1cee6-c5c4-7ea1-89a7-0bb15ffcb272/exec-27c90521-a40b-4ef9-bc66-393470d82435.png",
+      "file": "sleep.png"
+    },
+    "eyebrow_clean": {
+      "prompt": "Edit this four-cell animation sprite sheet: REMOVE ALL of the gray-white haze, checkerboard pattern, glow, yellow fringe, shadows and stray pixels outside the actual silver wire, eyebrows, eyes and yellow paper. Make all negative space COMPLETELY TRANSPARENT including inside the paperclip loop. Preserve each pose and paper exactly. Retain smooth opaque metallic shading ON the wire only. No semi-transparent fog whatsoever. Maintain exact 2x2 cell geometry and dimensions. Transparent clean production sprites.",
+      "output": "/home/gedaiu/.codex/generated_images/01a1cee6-c5c4-7ea1-89a7-0bb15ffcb272/exec-716dc55c-6347-40b2-bbcc-903da5732ce0.png",
+      "file": "eyebrow-clean.png"
+    },
+    "pointing_clean": {
+      "prompt": "Edit this four-cell animation sprite sheet: REMOVE ALL of the gray-white haze, checkerboard pattern, glow, yellow fringe, shadows and stray pixels outside the actual silver wire, eyebrows, eyes and yellow paper. Make all negative space COMPLETELY TRANSPARENT including inside the paperclip loop. Preserve each pose and paper exactly. Retain smooth opaque metallic shading ON the wire only. No semi-transparent fog whatsoever. Maintain exact 2x2 cell geometry and dimensions. Transparent clean production sprites.",
+      "output": "/home/gedaiu/.codex/generated_images/01a1cee6-c5c4-7ea1-89a7-0bb15ffcb272/exec-b6e538a9-bdfc-43d0-931e-01c576c19b8c.png",
+      "former_file": "pointing-clean.png",
+      "retired": "Superseded source image removed; generation history retained."
+    }
+  }
+}

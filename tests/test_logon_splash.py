@@ -10,9 +10,9 @@ W2K_BLUE = (0x3A, 0x6E, 0xA5)
 LUNA_BLUE = (0x00, 0x4E, 0x98)
 
 
-def test_after_a_2000_log_on_the_screen_is_the_desktop_colour(qt_app, tmp_path):
+def test_after_a_2000_log_on_the_screen_around_the_please_wait_box_is_the_desktop_colour(qt_app, tmp_path):
     image = render_splash(qt_app, tmp_path, booting=False, logonStyle="2000", desktopColor="#3A6EA5")
-    assert {image.convert("RGB").getpixel(point) for point in [(10, 10), (320, 240), (320, 420)]} == {W2K_BLUE}
+    assert {image.convert("RGB").getpixel(point) for point in [(10, 10), (630, 10), (320, 470)]} == {W2K_BLUE}
 
 
 def test_after_a_classic_log_on_the_xp_boot_style_gives_way_to_the_desktop_colour(qt_app, tmp_path):

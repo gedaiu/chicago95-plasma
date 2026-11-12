@@ -500,6 +500,10 @@ class ClippyWindow(QWidget):
         menu.addAction("Options...").setEnabled(False)
         menu.addAction("Choose Assistant...").setEnabled(False)
         menu.addAction("Animate!", self.play_random_action)
+        if hasattr(self.sprites, "manifest"):
+            animations = menu.addMenu("HD animations")
+            for name in self.sprites.manifest["animations"]:
+                animations.addAction(name, lambda name=name: self.play(name))
         menu.addSeparator()
         menu.addAction("Exit", self.exit_application)
         return menu
@@ -547,6 +551,10 @@ def parse_args():
     parser.add_argument("--mute", action="store_true", help="never play sounds")
     parser.add_argument("--screenshot", metavar="PATH", help="render Greeting frame plus a balloon to PNG and exit")
     parser.add_argument("--once", metavar="ANIMATION", help="play one animation then exit")
+    parser.add_argument("--artwork", choices=("original", "hd"), default="original", help="assistant artwork pack")
+    parser.add_argument(
+        "--preview", action="store_true", help="open an independent preview without changing the resident assistant"
+    )
     return parser.parse_args()
 
 
@@ -570,13 +578,20 @@ def main():
     args = parse_args()
     if args.screenshot or args.once:
         os.environ["QT_QPA_PLATFORM"] = "offscreen"
-    elif signal_running_instance():
+    elif not args.preview and signal_running_instance():
         return 0
 
     app = chicago95ui.make_app("chicago95-clippy")
     font = chicago95ui.ui_font()
-    animations = parse_agent_js((ASSET_DIR / "agent.js").read_text())
-    sprites = SpriteSheet(QPixmap(str(ASSET_DIR / "map.png")), QSize(124, 93))
+    if args.artwork == "hd":
+        from clippy_hd_pack import HDPack
+
+        source_pack = Path(__file__).resolve().parents[1] / "data/clippy/hd-animations"
+        sprites = HDPack(source_pack if source_pack.is_dir() else ASSET_DIR / "hd-animations")
+        animations = sprites.animations(Animation, Frame)
+    else:
+        animations = parse_agent_js((ASSET_DIR / "agent.js").read_text())
+        sprites = SpriteSheet(QPixmap(str(ASSET_DIR / "map.png")), QSize(124, 93))
 
     if args.screenshot:
         render_screenshot(animations, sprites, font, Path(args.screenshot))
@@ -590,6 +605,12 @@ def main():
     if args.once:
         clippy.show()
         clippy.play(args.once, on_finished=app.quit)
+        return app.exec()
+
+    if args.preview:
+        clippy.show()
+        clippy.move_to_corner()
+        clippy.start_schedule()
         return app.exec()
 
     PID_FILE.write_text(str(os.getpid()))

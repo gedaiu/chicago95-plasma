@@ -1,0 +1,9 @@
+{
+  "tool": "image_gen.imagegen (built-in)",
+  "reference": "../../hd-reference/rest-pose-v1.png",
+  "prompt": "Correct this HD Clippy character's pointing animation. Reference image is the rest character. Create exactly four equal cells in a 2x2 sprite sheet, transparent background, 1448x1086. Each cell same full character and same ruled yellow paper, same camera, scale and center, generous clear margins. Row-major point LEFT, RIGHT, UP, DOWN. CRITICAL ANATOMY: Clippy is ONE continuous bent silver paperclip wire with exactly TWO free ends. The short INNER end stays inside the clip. ONLY the outer free end on the viewer's right bends to point. For left, that same outer right end extends leftward ACROSS the front of the clip; do not grow a third branch from the left edge. For right it bends right; up it extends up; down it curls down outside the right edge. No branching junctions, detached pieces, extra hands, extra arms or extra tips. Maintain the original U-shaped body and its top arch. Restrained small gestures and eye glances. The body and paper must not change scale, perspective, color or position between cells. Smooth metal. Clean alpha, no fog or shadows outside paper.",
+  "generated_original": "/home/gedaiu/.codex/generated_images/01a1cee6-c5c4-7ea1-89a7-0bb15ffcb272/exec-a76e9702-ac6a-45d4-869c-1dee4dd8ba88.png",
+  "file": "pointing.png",
+  "postprocessing": "User-authorized deterministic alpha cleanup in lib/clippy_hd_matte.py. Other animation poses retained from existing sheets; generative matte cleanup candidates rejected.",
+  "review": "Left gesture uses the outer free end across the body instead of growing a third branch."
+}

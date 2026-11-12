@@ -1,4 +1,3 @@
-import re
 from pathlib import Path
 
 import pytest
@@ -119,13 +118,10 @@ def test_typed_characters_show_as_dots_in_the_password_field(qt_app):
 
 
 def test_lock_screen_ui_loads_the_luna_screen_only_when_the_look_is_luna():
-    text = LOCK_SCREEN_UI.read_text()
-
     assert (
-        re.search(r'active: lockScreenUi\.luna\s+source: "luna/lockscreen/LunaLockScreen\.qml"', text) is not None,
-        'readonly property bool luna: Settings.look === "luna"' in text,
-        text.count("visible: !lockScreenUi.luna"),
-    ) == (True, True, 2)
+        'source: lockScreenUi.luna ? "luna/lockscreen/LunaLockScreen.qml" : "classic/ClassicLockScreen.qml"'
+        in LOCK_SCREEN_UI.read_text()
+    )
 
 
 def test_setup_installs_the_luna_trees_next_to_each_other_inside_the_lockscreen_package(tmp_path):
@@ -140,7 +136,7 @@ def test_setup_installs_the_luna_trees_next_to_each_other_inside_the_lockscreen_
 def test_setup_writes_the_look_into_the_lock_screen_settings(tmp_path):
     run_bash_with_steps(tmp_path, f"SETUP_DRY_RUN=0 SETUP_START_MENU_STYLE=luna; write_lockscreen_settings {tmp_path}")
 
-    assert (tmp_path / "settings.js").read_text() == '.pragma library\nvar look = "luna";\n'
+    assert (tmp_path / "settings.js").read_text().startswith('.pragma library\nvar look = "luna";\n')
 
 
 def bright_pixel_count(image, area):

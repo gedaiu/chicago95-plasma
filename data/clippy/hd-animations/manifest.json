@@ -1,0 +1,505 @@
+{
+  "version": 1,
+  "status": "HD keyframe artwork for the requested action set; not a redraw of all 43 original clips",
+  "logical_size": [
+    124,
+    93
+  ],
+  "pixel_size": [
+    496,
+    372
+  ],
+  "scale": 4,
+  "animations": {
+    "RestPose": [
+      {
+        "file": "blink-0.png",
+        "duration_ms": 1000
+      }
+    ],
+    "IdleBlink": [
+      {
+        "file": "blink-0.png",
+        "duration_ms": 1400
+      },
+      {
+        "file": "blink-1.png",
+        "duration_ms": 60
+      },
+      {
+        "file": "blink-2.png",
+        "duration_ms": 100
+      },
+      {
+        "file": "blink-1.png",
+        "duration_ms": 60
+      },
+      {
+        "file": "blink-0.png",
+        "duration_ms": 600
+      }
+    ],
+    "LookLeft": [
+      {
+        "file": "blink-0.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "gaze-0.png",
+        "duration_ms": 1200
+      },
+      {
+        "file": "blink-0.png",
+        "duration_ms": 400
+      }
+    ],
+    "GestureLeft": [
+      {
+        "file": "blink-0.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "pointing-0.png",
+        "duration_ms": 1200
+      },
+      {
+        "file": "blink-0.png",
+        "duration_ms": 400
+      }
+    ],
+    "LookRight": [
+      {
+        "file": "blink-0.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "gaze-1.png",
+        "duration_ms": 1200
+      },
+      {
+        "file": "blink-0.png",
+        "duration_ms": 400
+      }
+    ],
+    "GestureRight": [
+      {
+        "file": "blink-0.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "pointing-1.png",
+        "duration_ms": 1200
+      },
+      {
+        "file": "blink-0.png",
+        "duration_ms": 400
+      }
+    ],
+    "LookUp": [
+      {
+        "file": "blink-0.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "gaze-2.png",
+        "duration_ms": 1200
+      },
+      {
+        "file": "blink-0.png",
+        "duration_ms": 400
+      }
+    ],
+    "GestureUp": [
+      {
+        "file": "blink-0.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "pointing-2.png",
+        "duration_ms": 1200
+      },
+      {
+        "file": "blink-0.png",
+        "duration_ms": 400
+      }
+    ],
+    "LookDown": [
+      {
+        "file": "blink-0.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "gaze-3.png",
+        "duration_ms": 1200
+      },
+      {
+        "file": "blink-0.png",
+        "duration_ms": 400
+      }
+    ],
+    "GestureDown": [
+      {
+        "file": "blink-0.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "pointing-3.png",
+        "duration_ms": 1200
+      },
+      {
+        "file": "blink-0.png",
+        "duration_ms": 400
+      }
+    ],
+    "IdleEyeBrowRaise": [
+      {
+        "file": "eyebrow-0.png",
+        "duration_ms": 500
+      },
+      {
+        "file": "eyebrow-1.png",
+        "duration_ms": 150
+      },
+      {
+        "file": "eyebrow-2.png",
+        "duration_ms": 650
+      },
+      {
+        "file": "eyebrow-3.png",
+        "duration_ms": 150
+      },
+      {
+        "file": "eyebrow-0.png",
+        "duration_ms": 500
+      }
+    ],
+    "Wave": [
+      {
+        "file": "wave-0.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-1.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-2.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-3.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-2.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-3.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-1.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-0.png",
+        "duration_ms": 250
+      }
+    ],
+    "Greeting": [
+      {
+        "file": "wave-0.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-1.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-2.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-3.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-2.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-1.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-0.png",
+        "duration_ms": 250
+      }
+    ],
+    "GoodBye": [
+      {
+        "file": "wave-0.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-1.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-3.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-2.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-3.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-2.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-1.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "wave-0.png",
+        "duration_ms": 250
+      }
+    ],
+    "Thinking": [
+      {
+        "file": "thinking-0.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "thinking-1.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "thinking-2.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "thinking-3.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "thinking-2.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "thinking-1.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "thinking-0.png",
+        "duration_ms": 400
+      }
+    ],
+    "IdleHeadScratch": [
+      {
+        "file": "scratch-0.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "scratch-1.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "scratch-2.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "scratch-1.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "scratch-2.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "scratch-3.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "scratch-0.png",
+        "duration_ms": 250
+      }
+    ],
+    "Congratulate": [
+      {
+        "file": "celebrate-0.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "celebrate-1.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "celebrate-2.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "celebrate-3.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "celebrate-2.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "celebrate-3.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "celebrate-1.png",
+        "duration_ms": 250
+      },
+      {
+        "file": "celebrate-0.png",
+        "duration_ms": 250
+      }
+    ],
+    "Writing": [
+      {
+        "file": "writing-0.png",
+        "duration_ms": 300
+      },
+      {
+        "file": "writing-1.png",
+        "duration_ms": 300
+      },
+      {
+        "file": "writing-2.png",
+        "duration_ms": 300
+      },
+      {
+        "file": "writing-3.png",
+        "duration_ms": 300
+      },
+      {
+        "file": "writing-1.png",
+        "duration_ms": 300
+      },
+      {
+        "file": "writing-2.png",
+        "duration_ms": 300
+      },
+      {
+        "file": "writing-3.png",
+        "duration_ms": 300
+      },
+      {
+        "file": "writing-0.png",
+        "duration_ms": 300
+      }
+    ],
+    "Reading": [
+      {
+        "file": "reading-0.png",
+        "duration_ms": 500
+      },
+      {
+        "file": "reading-1.png",
+        "duration_ms": 500
+      },
+      {
+        "file": "reading-2.png",
+        "duration_ms": 500
+      },
+      {
+        "file": "reading-3.png",
+        "duration_ms": 500
+      },
+      {
+        "file": "reading-0.png",
+        "duration_ms": 500
+      }
+    ],
+    "Sleep": [
+      {
+        "file": "sleep-0.png",
+        "duration_ms": 500
+      },
+      {
+        "file": "sleep-1.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "sleep-2.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "sleep-3.png",
+        "duration_ms": 1200
+      }
+    ],
+    "Wake": [
+      {
+        "file": "sleep-3.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "sleep-2.png",
+        "duration_ms": 300
+      },
+      {
+        "file": "sleep-1.png",
+        "duration_ms": 300
+      },
+      {
+        "file": "sleep-0.png",
+        "duration_ms": 500
+      }
+    ],
+    "IdleSnooze": [
+      {
+        "file": "sleep-0.png",
+        "duration_ms": 400
+      },
+      {
+        "file": "sleep-1.png",
+        "duration_ms": 300
+      },
+      {
+        "file": "sleep-2.png",
+        "duration_ms": 300
+      },
+      {
+        "file": "sleep-3.png",
+        "duration_ms": 1200
+      },
+      {
+        "file": "sleep-2.png",
+        "duration_ms": 300
+      },
+      {
+        "file": "sleep-1.png",
+        "duration_ms": 300
+      },
+      {
+        "file": "sleep-0.png",
+        "duration_ms": 400
+      }
+    ]
+  },
+  "aliases": {
+    "GetAttention": "Wave",
+    "Explain": "GestureRight",
+    "Searching": "Reading",
+    "Alert": "IdleEyeBrowRaise",
+    "Show": "Greeting",
+    "Hide": "GoodBye"
+  },
+  "notes": [
+    "Greeting and goodbye share wave artwork with different timing/order.",
+    "Wake reverses the sleep poses; IdleSnooze completes the sleep/wake cycle.",
+    "Runtime aliases reuse named clips; they are not additional newly drawn actions.",
+    "Four generated key poses per group, no synthetic crossfades or interpolated frames."
+  ]
+}

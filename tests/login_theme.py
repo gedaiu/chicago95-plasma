@@ -73,8 +73,17 @@ def render_login(app, folder, **options):
         return qimage_to_pil(view.grabWindow())
 
 
-CONTROLS = ("RetroButton", "RetroField", "RetroCombo", "RetroCheck", "ArrowButton", "PopupList")
-LEAVES = ("RetroLabel", "QQuickText", "QQuickImage", "QQuickCanvasItem")
+CONTROLS = (
+    "RetroButton",
+    "RetroField",
+    "ClassicButton",
+    "ClassicField",
+    "RetroCombo",
+    "RetroCheck",
+    "ArrowButton",
+    "PopupList",
+)
+LEAVES = ("RetroLabel", "ClassicText", "QQuickText", "QQuickImage", "QQuickCanvasItem")
 
 
 def shown_items(item):
@@ -88,7 +97,7 @@ def shown_items(item):
         if kind.startswith(CONTROLS):
             found.append(child)
         elif kind.startswith(LEAVES):
-            if not kind.startswith(("RetroLabel", "QQuickText")) or child.property("text"):
+            if not kind.startswith(("RetroLabel", "ClassicText", "QQuickText")) or child.property("text"):
                 found.append(child)
         else:
             found += shown_items(child)

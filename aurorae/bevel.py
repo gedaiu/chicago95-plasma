@@ -98,3 +98,55 @@ def nine_slice(prefix, x0, y0, size, border, rings, interior, margin, tile_cente
     if tile_center:
         parts.append(hidden(f"{prefix}hint-tile-center", x0, y0 + size + 8, 1, 1))
     return "\n".join(parts)
+
+
+CAPTION_W, CAPTION_H = 16, 14
+
+
+def caption_face(x, y, colours, pressed):
+    """A caption button's 16x14 face at (x, y); colours are (face, light, shadow, dark)."""
+    face, light, shadow, dark = colours
+    tl1, br1, tl2, br2 = (dark, HILIGHT, shadow, light) if pressed else (HILIGHT, dark, light, shadow)
+    w, h = CAPTION_W, CAPTION_H
+    return (
+        rect(x, y, w, h, face)
+        + rect(x, y, w, 1, tl1)
+        + rect(x, y, 1, h, tl1)
+        + rect(x, y + h - 1, w, 1, br1)
+        + rect(x + w - 1, y, 1, h, br1)
+        + rect(x + 1, y + 1, w - 2, 1, tl2)
+        + rect(x + 1, y + 1, 1, h - 2, tl2)
+        + rect(x + 1, y + h - 2, w - 2, 1, br2)
+        + rect(x + w - 2, y + 1, 1, h - 2, br2)
+    )
+
+
+# Glyphs as (x, y, width, height) runs on the 16x14 face, measured from the originals' buttons.
+GLYPHS = {
+    "close": [
+        (4, 3, 2, 1),
+        (10, 3, 2, 1),
+        (5, 4, 2, 1),
+        (9, 4, 2, 1),
+        (6, 5, 4, 1),
+        (7, 6, 2, 1),
+        (6, 7, 4, 1),
+        (5, 8, 2, 1),
+        (9, 8, 2, 1),
+        (4, 9, 2, 1),
+        (10, 9, 2, 1),
+    ],
+    "minimize": [(4, 9, 6, 2)],
+    "maximize": [(3, 2, 9, 2), (3, 2, 1, 9), (11, 2, 1, 9), (3, 10, 9, 1)],
+    "restore": [(5, 1, 6, 2), (10, 1, 1, 6), (8, 6, 3, 1), (2, 4, 6, 2), (2, 4, 1, 6), (7, 4, 1, 6), (2, 9, 6, 1)],
+    "help": [(6, 2, 4, 1), (5, 3, 2, 2), (9, 3, 2, 2), (8, 5, 2, 1), (7, 6, 2, 2), (7, 9, 2, 2)],
+    "alldesktops": [(7, 2, 2, 3), (4, 5, 8, 2), (5, 7, 6, 1), (7, 8, 2, 4)],
+    "keepabove": [(7, 2, 2, 2), (5, 4, 6, 2), (3, 6, 10, 2), (4, 9, 8, 2)],
+    "keepbelow": [(4, 2, 8, 2), (3, 5, 10, 2), (5, 7, 6, 2), (7, 9, 2, 2)],
+    "shade": [(3, 3, 10, 2), (3, 6, 10, 2)],
+}
+
+
+def caption_glyph(kind, color, x, y):
+    """The glyph's runs on a face whose corner is (x, y)."""
+    return "".join(rect(x + gx, y + gy, w, h, color) for gx, gy, w, h in GLYPHS[kind])

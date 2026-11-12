@@ -16,7 +16,7 @@ in from the title's end, the window icon 16px square 1px below the title's top.
 import argparse
 from pathlib import Path
 
-from bevel import rect, ring_color, run_length_rows, svg
+from bevel import caption_face, caption_glyph, rect, ring_color, run_length_rows, svg
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("--out", type=Path, default=Path.home() / ".local/share/aurorae/themes/Chicago95")
@@ -147,50 +147,11 @@ def maximized_pieces(prefix, title_colors, x0):
 
 
 def button_face(pressed):
-    tl1, br1, tl2, br2 = (DARK, HILIGHT, SHADOW, LIGHT) if pressed else (HILIGHT, DARK, LIGHT, SHADOW)
-    w, h, y = BTN_W, FACE_H, BTN_H - FACE_H - 1
-    return (
-        rect(0, y, w, h, FACE)
-        + rect(0, y, w, 1, tl1)
-        + rect(0, y, 1, h, tl1)
-        + rect(0, y + h - 1, w, 1, br1)
-        + rect(w - 1, y, 1, h, br1)
-        + rect(1, y + 1, w - 2, 1, tl2)
-        + rect(1, y + 1, 1, h - 2, tl2)
-        + rect(1, y + h - 2, w - 2, 1, br2)
-        + rect(w - 2, y + 1, 1, h - 2, br2)
-    )
-
-
-# Glyphs as (x, y, width, height) runs on the 16x14 face, measured from the originals' buttons.
-GLYPHS = {
-    "close": [
-        (4, 3, 2, 1),
-        (10, 3, 2, 1),
-        (5, 4, 2, 1),
-        (9, 4, 2, 1),
-        (6, 5, 4, 1),
-        (7, 6, 2, 1),
-        (6, 7, 4, 1),
-        (5, 8, 2, 1),
-        (9, 8, 2, 1),
-        (4, 9, 2, 1),
-        (10, 9, 2, 1),
-    ],
-    "minimize": [(4, 9, 6, 2)],
-    "maximize": [(3, 2, 9, 2), (3, 2, 1, 9), (11, 2, 1, 9), (3, 10, 9, 1)],
-    "restore": [(5, 1, 6, 2), (10, 1, 1, 6), (8, 6, 3, 1), (2, 4, 6, 2), (2, 4, 1, 6), (7, 4, 1, 6), (2, 9, 6, 1)],
-    "help": [(6, 2, 4, 1), (5, 3, 2, 2), (9, 3, 2, 2), (8, 5, 2, 1), (7, 6, 2, 2), (7, 9, 2, 2)],
-    "alldesktops": [(7, 2, 2, 3), (4, 5, 8, 2), (5, 7, 6, 1), (7, 8, 2, 4)],
-    "keepabove": [(7, 2, 2, 2), (5, 4, 6, 2), (3, 6, 10, 2), (4, 9, 8, 2)],
-    "keepbelow": [(4, 2, 8, 2), (3, 5, 10, 2), (5, 7, 6, 2), (7, 9, 2, 2)],
-    "shade": [(3, 3, 10, 2), (3, 6, 10, 2)],
-}
+    return caption_face(0, BTN_H - FACE_H - 1, (FACE, LIGHT, SHADOW, DARK), pressed)
 
 
 def glyph(kind, color, dx=0, dy=0):
-    top = BTN_H - FACE_H - 1
-    return "".join(rect(x + dx, top + y + dy, w, h, color) for x, y, w, h in GLYPHS[kind])
+    return caption_glyph(kind, color, dx, BTN_H - FACE_H - 1 + dy)
 
 
 CLOSE_GAP = 2

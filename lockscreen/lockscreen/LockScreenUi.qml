@@ -100,7 +100,11 @@ Item {
         }
         function onPromptForSecretChanged() {
             mainBlock.showPassword = false;
-            mainBlock.mainPasswordBox.forceActiveFocus();
+            if (screenLoader.item && screenLoader.item.focusPassword) {
+                screenLoader.item.focusPassword();
+            } else {
+                mainBlock.mainPasswordBox.forceActiveFocus();
+            }
             if (lockScreenUi.showPrompt) {
                 lockScreenUi.handleMessage(authenticator.promptForSecret);
             }
@@ -164,9 +168,9 @@ Item {
             authenticator.startAuthenticating();
         }
 
-        Timer { // heart beat keeping the backend active for as long as we are in visible state
+        Timer { // heart beat keeping the backend active; the Chicago95 screens show their password box from the start
             interval: 1000
-            running: !authenticator.unlocked && parent.uiVisible
+            running: !authenticator.unlocked
             repeat: true
             onTriggered: authenticator.startAuthenticating()
         }
@@ -242,140 +246,25 @@ Item {
             Component.onCompleted: source = wallpaper
         }
 
-        Rectangle {
-            anchors.fill: parent
-            color: "#008080"
-            visible: !lockScreenUi.luna
-        }
-
         Loader {
-            id: lunaLoader
+            id: screenLoader
             anchors.fill: parent
-            active: lockScreenUi.luna
-            source: "luna/lockscreen/LunaLockScreen.qml"
+            source: lockScreenUi.luna ? "luna/lockscreen/LunaLockScreen.qml" : "classic/ClassicLockScreen.qml"
             onLoaded: {
                 item.authenticator = authenticator;
                 item.userName = Qt.binding(() => users.count > 0 ? users.get(0).realName : "");
-                item.userPicture = Qt.binding(() => users.count > 0 ? users.get(0).icon : "");
+                if (lockScreenUi.luna) {
+                    item.userPicture = Qt.binding(() => users.count > 0 ? users.get(0).icon : "");
+                    return;
+                }
+                item.modern = Settings.look === "2000";
+                item.desktopColor = Settings.desktopColor;
             }
         }
         Connections {
-            target: lunaLoader.item
+            target: screenLoader.item
             function onPasswordEntered(password) { mainBlock.passwordResult(password); }
             function onSuspendRequested() { sessionManagement.suspend(); }
-        }
-
-        Rectangle {
-            id: retroDialog
-            visible: !lockScreenUi.luna
-            width: Math.min(parent.width - 40, 520)
-            height: 350
-            anchors.centerIn: parent
-            anchors.verticalCenterOffset: -30
-            color: "#C0C0C0"
-
-            Rectangle {
-                anchors {
-                    top: parent.top
-                    left: parent.left
-                    right: parent.right
-                }
-                height: 1
-                color: "#DFDFDF"
-            }
-            Rectangle {
-                anchors {
-                    top: parent.top
-                    left: parent.left
-                    bottom: parent.bottom
-                }
-                width: 1
-                color: "#DFDFDF"
-            }
-            Rectangle {
-                anchors {
-                    top: parent.top
-                    left: parent.left
-                    right: parent.right
-                    topMargin: 1
-                    leftMargin: 1
-                }
-                height: 1
-                color: "#FFFFFF"
-            }
-            Rectangle {
-                anchors {
-                    top: parent.top
-                    left: parent.left
-                    bottom: parent.bottom
-                    topMargin: 1
-                    leftMargin: 1
-                }
-                width: 1
-                color: "#FFFFFF"
-            }
-            Rectangle {
-                anchors {
-                    bottom: parent.bottom
-                    left: parent.left
-                    right: parent.right
-                }
-                height: 1
-                color: "#000000"
-            }
-            Rectangle {
-                anchors {
-                    top: parent.top
-                    right: parent.right
-                    bottom: parent.bottom
-                }
-                width: 1
-                color: "#000000"
-            }
-            Rectangle {
-                anchors {
-                    bottom: parent.bottom
-                    left: parent.left
-                    right: parent.right
-                    bottomMargin: 1
-                    rightMargin: 1
-                }
-                height: 1
-                color: "#808080"
-            }
-            Rectangle {
-                anchors {
-                    top: parent.top
-                    right: parent.right
-                    bottom: parent.bottom
-                    rightMargin: 1
-                    bottomMargin: 1
-                }
-                width: 1
-                color: "#808080"
-            }
-
-            Rectangle {
-                anchors {
-                    top: parent.top
-                    left: parent.left
-                    right: parent.right
-                    margins: 4
-                }
-                height: 24
-                color: "#000080"
-                Text {
-                    anchors {
-                        left: parent.left
-                        leftMargin: 6
-                        verticalCenter: parent.verticalCenter
-                    }
-                    text: "Unlock Computer"
-                    color: "#FFFFFF"
-                    font.bold: true
-                    font.pointSize: 10
-                }
-            }
         }
 
         DropShadow {
@@ -438,8 +327,8 @@ Item {
             height: lockScreenRoot.height + Kirigami.Units.gridUnit * 3
             focus: true //StackView is an implicit focus scope, so we need to give this focus so the item inside will have it
 
-            // this isn't implicit, otherwise items still get processed for the scenegraph
-            visible: opacity > 0 && !lockScreenUi.luna
+            // Breeze's prompt keeps the authenticator's plumbing; the loaded screen draws the lock screen.
+            visible: false
 
             initialItem: MainBlock {
                 id: mainBlock
@@ -588,6 +477,7 @@ Item {
         // Note for contributors: Keep this in sync with SDDM Main.qml footer.
         RowLayout {
             id: footer
+            visible: false
             anchors {
                 bottom: parent.bottom
                 left: parent.left

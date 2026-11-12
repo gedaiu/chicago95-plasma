@@ -60,112 +60,24 @@ Rectangle {
         }
     }
 
-    component RetroLabel: Text {
+    component RetroLabel: ClassicText {
         font.family: root.uiFamily
-        font.pixelSize: 11
-        color: "#000000"
     }
 
-    component RetroField: Bevel {
-        property alias text: input.text
-        property alias echoMode: input.echoMode
-        property alias input: input
-        property int arrowSpace: 0  // room on the right for a dropdown arrow button
-        style: "sunken"
-        width: 170
-        height: 21
-        TextInput {
-            id: input
-            anchors.fill: parent
-            anchors.leftMargin: 4
-            anchors.rightMargin: 4 + parent.arrowSpace
-            verticalAlignment: TextInput.AlignVCenter
-            font.family: root.uiFamily
-            font.pixelSize: 11
-            color: "#000000"
-            selectionColor: "#000080"
-            selectedTextColor: "#ffffff"
-            selectByMouse: true
-            clip: true
-            passwordCharacter: "*"
-            Keys.onReturnPressed: root.logIn()
-            Keys.onEnterPressed: root.logIn()
-        }
+    component RetroField: ClassicField {
+        family: root.uiFamily
+        onAccepted: root.logIn()
     }
 
-    component RetroButton: Bevel {
-        id: button
-        property alias label: caption.text
-        property bool held: mouse.pressed && mouse.containsMouse
-        signal clicked
-        width: 75
-        height: 23
-        style: held ? "pressed" : "raised"
-        activeFocusOnTab: true
-        RetroLabel {
-            id: caption
-            anchors.centerIn: parent
-            anchors.horizontalCenterOffset: button.held ? 1 : 0
-            anchors.verticalCenterOffset: button.held ? 1 : 0
-        }
-        // The classic desktop draws a dotted rectangle inside the focused button.
-        Rectangle {
-            visible: button.activeFocus
-            anchors.fill: parent
-            anchors.margins: 4
-            color: "transparent"
-            border.width: 1
-            border.color: "#000000"
-            opacity: 0.6
-        }
-        MouseArea {
-            id: mouse
-            anchors.fill: parent
-            onClicked: button.clicked()
-        }
-        Keys.onSpacePressed: button.clicked()
-        Keys.onReturnPressed: button.clicked()
+    component RetroButton: ClassicButton {
+        family: root.uiFamily
     }
 
-    // A window's title bar: the colour scheme's selection colour (navy in the classic schemes); theme.conf
-    // can pin a colour, or start,end for a gradient, with titleActive. 9x ends the gradient early.
-    component TitleBar: Rectangle {
-        id: titleBar
-        property alias title: titleText.text
-        x: 3
-        y: 3
-        width: parent.width - 6
-        height: 18
-        SystemPalette {
-            id: scheme
-            colorGroup: SystemPalette.Active
-        }
-        readonly property var colors: root.theme.titleActive ? String(root.theme.titleActive).split(",") : [scheme.highlight]
-        gradient: Gradient {
-            orientation: Gradient.Horizontal
-            GradientStop {
-                position: 0
-                color: titleBar.colors[0]
-            }
-            GradientStop {
-                position: root.modern ? 1 : 0.95
-                color: titleBar.colors[titleBar.colors.length - 1]
-            }
-        }
-        Rectangle {
-            visible: !root.modern
-            anchors.right: parent.right
-            width: 36
-            height: parent.height
-            color: titleBar.colors[titleBar.colors.length - 1]
-        }
-        RetroLabel {
-            id: titleText
-            x: 4
-            anchors.verticalCenter: parent.verticalCenter
-            color: "#ffffff"
-            font.bold: true
-        }
+    // theme.conf can pin the title bar's colour, or start,end for a gradient, with titleActive.
+    component TitleBar: ClassicTitleBar {
+        family: root.uiFamily
+        modern: root.modern
+        pinned: root.theme.titleActive ? String(root.theme.titleActive) : ""
     }
 
     // A sunken list of names under whatever opens it: the dropdowns' lists and the Shutdown... choices.

@@ -974,7 +974,14 @@ step_clippy() {
   step_tools_common
   put_file "$REPO/bin/chicago95-clippy" ~/.local/bin/chicago95-clippy
   run chmod +x ~/.local/bin/chicago95-clippy
-  put_tree "$REPO/data/clippy" ~/.local/share/chicago95/clippy
+  local clippy_asset
+  for clippy_asset in agent.js map.png sounds-ogg.js; do
+    put_file "$REPO/data/clippy/$clippy_asset" ~/.local/share/chicago95/clippy/"$clippy_asset"
+  done
+  # Blender sources, source sheets and review videos are authoring assets.
+  if [ -d "$REPO/data/clippy/hd-animations" ]; then
+    put_tree "$REPO/data/clippy/hd-animations" ~/.local/share/chicago95/clippy/hd-animations
+  fi
   put_file "$REPO/config/applications/chicago95-clippy.desktop" ~/.local/share/applications/chicago95-clippy.desktop
   case "${SETUP_CLIPPY_AUTOSTART:-yes}" in y* | Y*) put_file "$REPO/config/autostart/chicago95-clippy.desktop" ~/.config/autostart/chicago95-clippy.desktop ;; esac
   substitute_home ~/.local/share/applications ~/.config/autostart
@@ -1089,14 +1096,19 @@ headerbar.titlebar:backdrop, .titlebar.default-decoration:backdrop {
   background-image: $(gtk_gradient "$2"); background-color: ${2%%,*}; color: $3; }
 headerbar.titlebar:backdrop .title, .titlebar.default-decoration:backdrop .title { color: $3; }
 RULES
+  if [ "${SETUP_BEVEL:-1995}" = 2000 ]; then
+    python3 "$REPO/lib/gtk_header.py" --gtk "${GTK_VERSION:-4.0}" --active "$1" --inactive "$2" --inactive-text "$3" --face "$(face_hex)" --light "$(face_hex)" --dark "#404040"
+  else
+    python3 "$REPO/lib/gtk_header.py" --gtk "${GTK_VERSION:-4.0}" --active "$1" --inactive "$2" --inactive-text "$3"
+  fi
 }
 
 write_gtk_titlebar_css() {
   local begin="/* >>> Chicago95 title bars BEGIN */" end="/* <<< Chicago95 title bars END */" version target block
-  block="$begin
-$(gtk_titlebar_rules "$@")
-$end"
   for version in 3.0 4.0; do
+    block="$begin
+$(GTK_VERSION=$version gtk_titlebar_rules "$@")
+$end"
     target=~/.config/gtk-$version/gtk.css
     backup "$target"
     if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then
@@ -1158,10 +1170,10 @@ step_explorer() {
   run xdg-mime default thunar.desktop inode/directory
 }
 
-write_lockscreen_settings() { # <dir>  settings.js: the look the lock screen is drawn in
+write_lockscreen_settings() { # <dir>  settings.js: the look the lock screen is drawn in, on the desktop colour
   local dir="$1"
   if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run tee "$dir/settings.js"; else
-    printf '.pragma library\nvar look = %s;\n' "$(js_string "${SETUP_START_MENU_STYLE:-1995}")" >"$dir/settings.js"
+    printf '.pragma library\nvar look = %s;\nvar desktopColor = %s;\n' "$(js_string "${SETUP_START_MENU_STYLE:-1995}")" "$(js_string "$(background_color)")" >"$dir/settings.js"
   fi
   show_copy "(lock screen look ${SETUP_START_MENU_STYLE:-1995})" "$dir/settings.js"
 }
@@ -1184,7 +1196,11 @@ step_lockscreen() {
     show_copy "$entry" "$dst/contents/$(basename "$entry")"
   }; done
   put_tree "$REPO/lockscreen/lockscreen" "$dst/contents/lockscreen"
-  [ "${SETUP_START_MENU_STYLE:-1995}" = luna ] && for luna_tree in qml sddm images lockscreen; do put_tree "$REPO/luna/$luna_tree" "$dst/contents/lockscreen/luna/$luna_tree"; done
+  if [ "${SETUP_START_MENU_STYLE:-1995}" = luna ]; then
+    for luna_tree in qml sddm images lockscreen; do put_tree "$REPO/luna/$luna_tree" "$dst/contents/lockscreen/luna/$luna_tree"; done
+  else
+    put_tree "$SDDM_THEME_SRC" "$dst/contents/lockscreen/classic"
+  fi
   write_lockscreen_settings "$dst/contents/lockscreen"
   record "$dst"
 }
