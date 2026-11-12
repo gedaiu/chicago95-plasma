@@ -12,6 +12,7 @@ title bar from luna/palette.py, six pixel rounded top corners and the Trebuchet 
 import argparse
 import base64
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -475,10 +476,47 @@ def titlebar_state(state, gradient, overlay, caption):
     ) + block(", ".join(f"{bar} .title" for bar in bars), **text)
 
 
+def caption_image(kind, index):
+    # Reuse the same vector faces and glyphs as the actual Luna window decoration.
+    svg = (LUNA_ROOT / "aurorae/theme" / f"{kind}.svg").read_text()
+    svg = svg.replace('width="192"', 'width="21"', 1)
+    svg = re.sub(r'viewBox="[^"]+"', f'viewBox="{index * 24} 0 21 21"', svg, count=1)
+    return 'url("data:image/svg+xml;base64,' + base64.b64encode(svg.encode()).decode() + '")'
+
+
+def caption_controls():
+    rules = [block("headerbar", min_height="26px", padding="2px 4px"),
+             block("headerbar button", min_width="21px", min_height="21px", padding="0 3px", margin="0 1px",
+                   border="1px solid " + stops.BORDER, border_radius="3px", color="#000000",
+                   background_color=FACE, background_image=vertical("button-body"), box_shadow="none"),
+             block("headerbar button:hover", background_image=vertical("button-body"), box_shadow=HOVER_SHADOW),
+             block("headerbar button:active", background_image=vertical("button-pressed"), box_shadow="none"),
+             block("headerbar windowcontrols", padding="0", margin="0"),
+             block("headerbar windowcontrols button image", opacity="0")]
+    for kind in ("minimize", "maximize", "close"):
+        bases = (f"headerbar button.titlebutton.{kind}", f"headerbar windowcontrols button.{kind}")
+        rules.append(block(", ".join(bases), min_width="21px", min_height="21px", padding="0", margin="0 1px",
+                           border="none", border_radius="0", background_color="transparent",
+                           background_repeat="no-repeat", background_position="center", background_size="21px 21px",
+                           box_shadow="none"))
+        for state, index in (("", 0), (":backdrop", 4), (":hover", 1), (":active", 2), (":disabled", 3)):
+            rules.append(block(", ".join(base + state for base in bases),
+                               background_image=caption_image(kind, index), box_shadow="none"))
+            # GTK3 cannot paint these caption SVG backgrounds reliably; use the
+            # same measured face stops with its native symbolic glyph instead.
+            colour = "red" if kind == "close" else "blue"
+            art = aurorae_stops.BUTTON_ART[colour][index]
+            gradient = "linear-gradient(to bottom, " + ", ".join(
+                f"{colour} {offset / 21 * 100:.2f}%" for offset, colour in art["face"]) + ")"
+            rules.append(block(bases[0] + state, background_image=gradient, background_size="auto",
+                               color="#FFFFFF", border="1px solid white", border_radius="3px"))
+    return "\n".join(rules)
+
+
 def titlebar_block(active, inactive, caption):
-    return titlebar_state("", active, aurorae_stops.SIDE_OVERLAY, "#FFFFFF") + titlebar_state(
+    return (titlebar_state("", active, aurorae_stops.SIDE_OVERLAY, "#FFFFFF") + titlebar_state(
         ":backdrop", inactive, aurorae_stops.INACTIVE_SIDE_OVERLAY, caption
-    )
+    ) + caption_controls())
 
 
 def widget_rules():

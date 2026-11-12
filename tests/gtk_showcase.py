@@ -184,6 +184,26 @@ def switch_widgets():
 
 
 def consistency_widgets():
+    for state, flag in (("normal", None), ("hovered", Gtk.StateFlags.PRELIGHT),
+                        ("pressed", Gtk.StateFlags.ACTIVE), ("backdrop", Gtk.StateFlags.BACKDROP)):
+        bar = Gtk.HeaderBar()
+        if V4:
+            bar.set_show_title_buttons(False)
+        bar.get_style_context().add_class("titlebar")
+        for kind in ("minimize", "maximize", "close"):
+            button = Gtk.Button()
+            button.get_style_context().add_class("titlebutton")
+            button.get_style_context().add_class(kind)
+            button.set_child(Gtk.Image.new_from_icon_name(f"window-{kind}-symbolic")) if V4 else button.add(
+                Gtk.Image.new_from_icon_name(f"window-{kind}-symbolic", Gtk.IconSize.BUTTON))
+            button._caption_flag = flag
+            if flag is not None:
+                button.set_state_flags(flag, False)
+            bar.pack_end(button)
+        if not V4:
+            bar.show_all()
+        yield "Window decorations", "caption " + state, [bar]
+
     # Empty labels isolate the indicator pixels from font rasterisation and label padding.
     for kind in ("checkbox", "radio"):
         for state in (
@@ -362,7 +382,12 @@ def main():
             add(box, child)
         for edge in ("top", "bottom", "start", "end"):
             getattr(box, f"set_margin_{edge}")(12)
-        window = Gtk.Window() if V4 else Gtk.OffscreenWindow()
+        native_caption = not V4 and label.startswith("caption ")
+        if native_caption:
+            box.remove(children[0])
+        window = Gtk.Window() if V4 or native_caption else Gtk.OffscreenWindow()
+        if native_caption:
+            window.set_titlebar(children[0])
         window.set_child(box) if V4 else window.add(box)
         window.present() if V4 else window.show_all()
         for child in children:
@@ -471,6 +496,11 @@ def main():
                 "size": description.get_size() / Pango.SCALE,
                 "absolute": description.get_size_is_absolute(),
             }))
+        if not V4 and label.startswith("caption "):
+            for button in children[0].get_children():
+                flag = getattr(button, "_caption_flag", None)
+                if flag is not None:
+                    button.set_state_flags(flag, False)
         path = output / f"{position}.png"
         if V4:
             # Snapshot the real widget tree, including the native theme's state styling.
@@ -489,6 +519,12 @@ def main():
             texture = renderer.render_texture(node, None)
             texture.save_to_png(str(path))
             renderer.unrealize()
+        elif label.startswith("caption "):
+            import cairo
+            surface = cairo.ImageSurface(
+                cairo.FORMAT_ARGB32, window.get_allocated_width(), window.get_allocated_height())
+            window.draw(cairo.Context(surface))
+            surface.write_to_png(str(path))
         else:
             window.get_pixbuf().savev(str(path), "png", [], [])
         manifest.append([group, label, path.name])
