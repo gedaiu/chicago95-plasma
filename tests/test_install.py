@@ -1811,9 +1811,9 @@ def test_the_users_picture_falls_back_to_their_accounts_service_icon(tmp_path):
 
 def test_the_loading_screen_settings_carry_the_login_style_desktop_colour_and_user(tmp_path):
     script = (
-        "ensure_waving_flag() { :; }; put_company_logo() { :; }; mkdir -p splash; touch ~/.face; USER=ada; "
-        "SETUP_LOGIN_STYLE=luna; SETUP_START_MENU_STYLE=luna; write_splash_settings splash >/dev/null; "
-        "grep -E '^var (logonStyle|desktopColor|userName|userPicture) ' splash/settings.js"
+        "ensure_waving_flag() { :; }; put_company_logo() { :; }; mkdir -p ~/splash; touch ~/.face; USER=ada; "
+        "SETUP_LOGIN_STYLE=luna; SETUP_START_MENU_STYLE=luna; write_splash_settings ~/splash >/dev/null; "
+        "grep -E '^var (logonStyle|desktopColor|userName|userPicture) ' ~/splash/settings.js"
     )
     assert run_bash_with_steps(tmp_path, script) == [
         'var logonStyle = "luna"',

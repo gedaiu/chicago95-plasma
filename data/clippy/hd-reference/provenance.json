@@ -1,0 +1,26 @@
+{
+  "status": "reference artwork only; not a complete animation atlas",
+  "source": "../map.png, top-left pose",
+  "tool": "built-in image_gen",
+  "image": "rest-pose-v1.png",
+  "size": [
+    1448,
+    1086
+  ],
+  "remaining": "43 animations, 902 distinct source cells require consistent reconstruction and motion validation before replacing runtime assets",
+  "prompt": "Faithful high-resolution reconstruction of the top-left Clippy pose: silver paperclip, two white eyes, dark pupils, eyebrows and curled yellow ruled paper. Preserve original pose and proportions, smooth antialiased contours and continuous metallic shading, transparent background, no redesign, extra limbs or text.",
+  "blink_layers": {
+    "blink-half-source.png": {
+      "tool": "built-in image_gen",
+      "reference": "rest-pose-v1.png",
+      "prompt": "Precise animation-frame edit: keep exact 1448x1086 canvas, pose, paper, wire, eyebrows and lighting. Change only the two eyes to half-closed metallic upper eyelids with the lower white eye and pupil visible. Preserve transparent alpha and antialiasing; no redesign."
+    },
+    "blink-closed-source.png": {
+      "tool": "built-in image_gen",
+      "reference": "rest-pose-v1.png",
+      "prompt": "Precise animation-frame edit: keep exact 1448x1086 canvas, camera, wire, paper, eyebrows, shadows and silhouette. Change only the eyeballs to fully closed soft silver-gray eyelids with a curved seam; no visible pupils. Transparent RGBA, no redesign."
+    }
+  },
+  "assembly": "lib/clippy_hd.py clips generated eye layers onto the rest master; body and paper never use regenerated pixels. Output pack is 496x372 RGBA, four times original frame dimensions.",
+  "completed": "One independent blink cycle; original 43-animation atlas remains unchanged."
+}

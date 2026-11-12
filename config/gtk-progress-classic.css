@@ -1,26 +1,68 @@
 /* Chicago95 progress bars: shared GTK3/GTK4 geometry and segmented fill. */
-progressbar { padding: 0; border: none; background-image: none; box-shadow: none; }
+progressbar {
+  padding: 0;
+  border: none;
+  background-image: none;
+  box-shadow: none;
+}
 progressbar > trough {
-  min-width: 0; min-height: 0; padding: 3px; margin: 0;
-  border: none; border-radius: 0; background-color: @bg_color; background-image: none;
-  box-shadow: inset 1px 1px @border_shade, inset -1px -1px @border_bright;
+  min-width: 0;
+  min-height: 0;
+  padding: 3px;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background-color: @bg_color;
+  background-image: none;
+  box-shadow:
+    inset 1px 1px @border_shade,
+    inset -1px -1px @border_bright;
 }
 progressbar > trough > progress {
-  min-width: 0; min-height: 0; padding: 0; margin: 0;
-  border: none; border-radius: 0; box-shadow: none;
-  background-color: transparent; background-repeat: repeat; background-position: left top;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background-color: transparent;
+  background-repeat: repeat;
+  background-position: left top;
 }
 progressbar.horizontal > trough,
-progressbar.horizontal > trough > progress { min-height: 13px; }
-progressbar.vertical > trough,
-progressbar.vertical > trough > progress { min-width: 13px; }
 progressbar.horizontal > trough > progress {
-  background-image: linear-gradient(to right, @selected_bg_color 0px, @selected_bg_color 8px, transparent 8px, transparent 10px);
+  min-height: 13px;
+}
+progressbar.vertical > trough,
+progressbar.vertical > trough > progress {
+  min-width: 13px;
+}
+progressbar.horizontal > trough > progress {
+  background-image: linear-gradient(
+    to right,
+    @selected_bg_color 0px,
+    @selected_bg_color 8px,
+    transparent 8px,
+    transparent 10px
+  );
   background-size: 10px 100%;
 }
 progressbar.vertical > trough > progress {
-  background-image: linear-gradient(to top, @selected_bg_color 0px, @selected_bg_color 8px, transparent 8px, transparent 10px);
-  background-size: 100% 10px; background-position: left bottom;
+  background-image: linear-gradient(
+    to top,
+    @selected_bg_color 0px,
+    @selected_bg_color 8px,
+    transparent 8px,
+    transparent 10px
+  );
+  background-size: 100% 10px;
+  background-position: left bottom;
 }
-progressbar:disabled > trough > progress { background-color: transparent; }
-progressbar > trough > progress.pulse { background-image: none; background-color: @selected_bg_color; }
+progressbar:disabled > trough > progress {
+  background-color: transparent;
+}
+progressbar > trough > progress.pulse {
+  background-image: none;
+  background-color: @selected_bg_color;
+}

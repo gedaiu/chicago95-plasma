@@ -81,10 +81,10 @@ def mean_colour(image, box):
 @pytest.mark.parametrize("state", [0, 1, 2])
 def test_hidden_icons_button_body_is_the_sprites_colour_in_every_state_within_36(
     qt_app,
-    qml_root,
-    installed,
+    qml_root,  # noqa: F811 (the fixtures imported above)
+    installed,  # noqa: F811 (the fixtures imported above)
     tmp_path,
-    state,  # noqa: F811 (the fixtures imported above)
+    state,
 ):
     original = sprite("TRAYCHEVRONHORIZONTAL", state, 3).crop((0, 1, 19, 20)).resize((16, 16), Image.LANCZOS)
     ours = render(

@@ -76,10 +76,10 @@ function outerSeparator(dock) {
   return dock === "right" ? "rightSeparatorX" : "leftSeparatorX";
 }
 
-// The chevron sits at the band's far end from its dock, so docked right it holds the first launchers.
-function chevronLaunchers(count, size, dock, metrics = METRICS) {
-  const chevronCount = count - shownCount(count, size, metrics);
-  const first = dock === "right" ? 0 : count - chevronCount;
+// The chevron sits at the band's far end from its dock (band: {count, size, dock}): docked right, the first launchers.
+function chevronLaunchers(band, metrics = METRICS) {
+  const chevronCount = band.count - shownCount(band.count, band.size, metrics);
+  const first = band.dock === "right" ? 0 : band.count - chevronCount;
   const launchers = [];
 
   for (let index = first; index < first + chevronCount; index++) launchers.push(index);

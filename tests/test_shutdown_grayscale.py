@@ -107,3 +107,15 @@ handlers.added(backdrop);
     assert ["Chicago95 shutdown backdrop", "added"] in grabs
     assert ["Chicago95 shutdown backdrop", "closed"] in grabs
     assert evaluate(effect, "starts.length") == 0
+
+
+def test_a_log_off_dialog_naming_the_branded_system_fades_the_background_too(effect):
+    evaluate(
+        effect, "dialog.caption = 'Log Off Fedora Linux'; effects.stackingOrder.push(dialog); handlers.added(dialog);"
+    )
+    assert evaluate(effect, "starts.map(s => s.window.caption)") == ["Desktop", "Panel"]
+
+
+def test_another_chicago95_shutdown_window_is_not_taken_for_the_dialog(effect):
+    evaluate(effect, "dialog.caption = 'Log Offline'; effects.stackingOrder.push(dialog); handlers.added(dialog);")
+    assert evaluate(effect, "starts.length") == 0

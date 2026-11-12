@@ -52,6 +52,7 @@ def run_bash_with_steps(tmp_path, script):
         text=True,
         timeout=30,
         env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path)},
+        cwd=tmp_path,  # a relative path in the script lands in the test's home, never in the checkout
         check=False,
     ).stdout.splitlines()
 

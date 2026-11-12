@@ -211,7 +211,7 @@ def test_the_chevron_holds_the_launchers_on_its_side_of_the_shown_cells(
     band, metrics, cells_width, dock, size_cells, behind_chevron
 ):
     size = FIT if size_cells is None else metrics["chevronWidth"] + cells_width(size_cells)
-    assert call(band, "chevronLaunchers", LAUNCHERS, size, dock) == behind_chevron
+    assert call(band, "chevronLaunchers", {"count": LAUNCHERS, "size": size, "dock": dock}) == behind_chevron
 
 
 @pytest.mark.parametrize("unknown_size", [None, "", "wide"])

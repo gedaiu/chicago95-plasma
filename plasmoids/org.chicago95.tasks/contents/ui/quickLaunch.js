@@ -8,8 +8,7 @@ function shown(setting, look) {
   return look !== "1995";
 }
 
-// The launchers the task model shows: none while Setup's list has not loaded yet (Plasma hands over undefined
-// right after a restart) or when Quick Launch is off.
+// None while Setup's list has not loaded (Plasma hands over undefined after a restart) or Quick Launch is off.
 function launchers(shown, configured) {
   return shown && loaded(configured) ? configured : [];
 }

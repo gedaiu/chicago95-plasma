@@ -28,17 +28,17 @@ installs from the checkout with `install.sh`; the installed copies live under `~
 
 ## Map
 
-| Path | What it is |
-| --- | --- |
-| `bin/chicago95-*` | PySide6 tools: `control-panel`, `startmenu`, `shutdown`, `notifyd`, `clippy`, `screensaver`, `sysprops`, `devmgr` (Device Manager), `k8sview`, `dialup`, `askpass`, `sync-colors`, `splash-image`. Loaded in tests with `load_script("chicago95-name")`. |
-| `lib/chicago95ui.py` | The shared Qt style (`ClassicStyle`, a `QProxyStyle` over "Windows") and helpers: bitmaps for check boxes/radios/arrows, tab drawing, `dialog_button`, `make_app`, `quit_on_signals`, `SingleInstance`. Every pixel rule for Qt controls lives here. |
-| `lib/chicago95update.py`, `lib/login_preview.py` | Update check (git ls-remote, daily cache); the SDDM theme outside SDDM for previews and tests. |
-| `plasmoids/org.chicago95.*` | Plasma applets (taskbar `tasks`, `start`, `trayframe`). Pure logic goes in `.pragma library` JS files beside the QML so it can be unit-tested. |
-| `plasma-style/`, `aurorae/` | Generators for the Plasma SVG theme and the KWin decoration. Edit the Python, never the generated SVG. |
-| `data/qml/` | QML modules that shadow Plasma's through `QML_IMPORT_PATH` (KRunner results, Plasma's `ButtonContent`). Setup completes a shadowed module from the system copy (`complete_qml_module`). |
-| `setup/steps.sh`, `install.sh`, `uninstall.sh` | Setup: one `step_<component>` per component, `kconf`/`put_file`/`put_tree`/`record` helpers, dry-run support, `save_settings` to `~/.config/chicago95/setup.conf`. |
-| `tests/` | pytest. `conftest.py` (fixtures, `load_script`, `run_bash_with_steps`, `needs_ui_font`), `reference.py` (screenshots, pixel helpers), `js_library.py` (runs QML JS libraries in a bare engine), `plasma_session.py` (real nested desktops), `controls_gallery.py` and `render_report.py` (the showcase pictures in `docs/compare`). |
-| `tests/references/` | The original screenshots, each listed with its source in `SOURCES.md`. Add the line when you add a picture. |
+| Path                                             | What it is                                                                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bin/chicago95-*`                                | PySide6 tools: `control-panel`, `startmenu`, `shutdown`, `notifyd`, `clippy`, `screensaver`, `sysprops`, `devmgr` (Device Manager), `k8sview`, `dialup`, `askpass`, `sync-colors`, `splash-image`. Loaded in tests with `load_script("chicago95-name")`.                                                                            |
+| `lib/chicago95ui.py`                             | The shared Qt style (`ClassicStyle`, a `QProxyStyle` over "Windows") and helpers: bitmaps for check boxes/radios/arrows, tab drawing, `dialog_button`, `make_app`, `quit_on_signals`, `SingleInstance`. Every pixel rule for Qt controls lives here.                                                                                |
+| `lib/chicago95update.py`, `lib/login_preview.py` | Update check (git ls-remote, daily cache); the SDDM theme outside SDDM for previews and tests.                                                                                                                                                                                                                                      |
+| `plasmoids/org.chicago95.*`                      | Plasma applets (taskbar `tasks`, `start`, `trayframe`). Pure logic goes in `.pragma library` JS files beside the QML so it can be unit-tested.                                                                                                                                                                                      |
+| `plasma-style/`, `aurorae/`                      | Generators for the Plasma SVG theme and the KWin decoration. Edit the Python, never the generated SVG.                                                                                                                                                                                                                              |
+| `data/qml/`                                      | QML modules that shadow Plasma's through `QML_IMPORT_PATH` (KRunner results, Plasma's `ButtonContent`). Setup completes a shadowed module from the system copy (`complete_qml_module`).                                                                                                                                             |
+| `setup/steps.sh`, `install.sh`, `uninstall.sh`   | Setup: one `step_<component>` per component, `kconf`/`put_file`/`put_tree`/`record` helpers, dry-run support, `save_settings` to `~/.config/chicago95/setup.conf`.                                                                                                                                                                  |
+| `tests/`                                         | pytest. `conftest.py` (fixtures, `load_script`, `run_bash_with_steps`, `needs_ui_font`), `reference.py` (screenshots, pixel helpers), `js_library.py` (runs QML JS libraries in a bare engine), `plasma_session.py` (real nested desktops), `controls_gallery.py` and `render_report.py` (the showcase pictures in `docs/compare`). |
+| `tests/references/`                              | The original screenshots, each listed with its source in `SOURCES.md`. Add the line when you add a picture.                                                                                                                                                                                                                         |
 
 ## How a change is proven
 
@@ -52,7 +52,7 @@ Pick the strongest kind of test that applies; often two of them.
   focus-rectangle grey (`#3F3F3F`) shows as black; map before comparing.
 - **Layout against an original**: measure the original once (a short PIL script dumping rows as
   characters is the fastest way), put the numbers in a constant with the picture's name, and write a
-  *differential* probe that runs the same measurement on both pictures (see `tests/test_mouse_page.py`).
+  _differential_ probe that runs the same measurement on both pictures (see `tests/test_mouse_page.py`).
 - **QML components**: load them in a `QQuickView`/`QQmlComponent` under the offscreen platform and drive
   them with `QTest.mousePress/mouseMove/mouseRelease` after `QTest.qWaitForWindowExposed(view)`
   (see `tests/test_drag_sort.py`). Plain-QtQuick components only; Plasma imports do not load there.

@@ -18,6 +18,7 @@ export default tseslint.config(
       // QML JavaScript libraries begin with ".pragma library", which no JavaScript parser accepts.
       "**/clockFormat.js",
       "**/dragSort.js",
+      "**/family.js",
       "**/launchers.js",
       "**/quickLaunch.js",
       "**/quickLaunchBand.js",

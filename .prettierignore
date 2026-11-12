@@ -10,3 +10,11 @@ plasmoids/org.chicago95.tasks/contents/ui/launchers.js
 plasmoids/org.chicago95.tasks/contents/ui/quickLaunch.js
 plasmoids/org.chicago95.tasks/contents/ui/sizing.js
 splash/chicago95.splashscreen/contents/splash/settings.js
+kwin-tabbox/chicago95/contents/ui/settings.js
+lockscreen/lockscreen/settings.js
+luna/plasmoids/family.js
+plasmoids/org.chicago95.tasks/contents/ui/dragSort.js
+plasmoids/org.chicago95.tasks/contents/ui/quickLaunchBand.js
+plasmoids/org.chicago95.tasks/contents/ui/windowMenu.js
+# Written by luna/gtk/make_luna_gtk.py; tests/luna/test_luna_gtk.py keeps them equal to its output
+luna/gtk/Chicago95Luna/

@@ -279,7 +279,7 @@ PlasmoidItem {
     }
     function openChevronMenu() {
         chevronMenu.clearMenuItems();
-        Band.chevronLaunchers(launcherCount, size, dock, metrics).forEach(index => {
+        Band.chevronLaunchers({ count: launcherCount, size: size, dock: dock }, metrics).forEach(index => {
             const modelIndex = tasksModel.makeModelIndex(index);
             chevronMenu.addMenuItem(chevronEntry.createObject(chevronMenu, {
                 launcher: index,

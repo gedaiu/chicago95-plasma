@@ -1,7 +1,6 @@
 "use strict";
 
-// Setup turns each event on through kwinrc [Effect-chicago95zoom] Minimize and Maximize (setup/animations.conf), and the
-// title bar's height (TitleBarHeight) when the window decoration's is not the classic 18 (Luna's is 29).
+// kwinrc [Effect-chicago95zoom]: Minimize, Maximize (setup/animations.conf) and TitleBarHeight (Luna's is 29).
 const METRICS = { titleBarHeight: 18, durationMs: 260 };
 const UNCHOSEN = false;
 
@@ -31,12 +30,20 @@ class ZoomEffect {
 
   zoomToButton(window) {
     if (!this.zoomsMinimize || !hasButton(window) || effects.hasActiveFullScreenEffect) return;
-    this.play(window, minimizeKeyframes(window.geometry, window.iconGeometry, this.titleBarHeight), QEasingCurve.InCubic);
+    this.play(
+      window,
+      minimizeKeyframes(window.geometry, window.iconGeometry, this.titleBarHeight),
+      QEasingCurve.InCubic,
+    );
   }
 
   zoomFromButton(window) {
     if (!this.zoomsMinimize || !hasButton(window) || effects.hasActiveFullScreenEffect) return;
-    this.play(window, restoreKeyframes(window.geometry, window.iconGeometry, this.titleBarHeight), QEasingCurve.OutCubic);
+    this.play(
+      window,
+      restoreKeyframes(window.geometry, window.iconGeometry, this.titleBarHeight),
+      QEasingCurve.OutCubic,
+    );
   }
 
   zoomBetweenFrames(window) {

@@ -4,9 +4,10 @@
     make_luna_gtk.py --titlebar ACTIVE|INACTIVE
 
 Writes DIR/index.theme, DIR/gtk-3.0/gtk.css and DIR/gtk-4.0/gtk.css (default Chicago95Luna beside this file).
-The colours and gradients are the ones of the Kvantum theme (luna/kvantum/stops.py, LunaStyle's measured values), so the Qt and GTK
-widgets match. --titlebar prints the header bar block for ~/.config/gtk-N.0/gtk.css: the vertical gradient of the Luna
-title bar from luna/palette.py, six pixel rounded top corners and the Trebuchet MS bold caption with its dark shadow.
+The colours and gradients are the ones of the Kvantum theme (luna/kvantum/stops.py, LunaStyle's measured
+values), so the Qt and GTK widgets match. --titlebar prints the header bar block for ~/.config/gtk-N.0/gtk.css:
+the vertical gradient of the Luna title bar from luna/palette.py, six pixel rounded top corners and the Trebuchet
+MS bold caption with its dark shadow.
 """
 
 import argparse

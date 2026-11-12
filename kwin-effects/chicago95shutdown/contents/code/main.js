@@ -1,10 +1,16 @@
 "use strict";
 
-// Run in the compositor: this includes wallpaper and panels on Wayland, and keeps
-// the shutdown dialog itself in colour. set() holds the final saturation until Cancel.
+// In the compositor, so wallpaper and panels grey too; set() holds the grey until Cancel.
+const FADE_MS = 2000;
+
+// "Log Off Windows", or the branded system's name ("Log Off Fedora Linux").
 function isShutdownDialog(window) {
-  return ["Turn off computer", "Log Off Windows"].includes(window.caption) &&
-    String(window.windowClass).split(" ").includes("chicago95-shutdown");
+  const caption = String(window.caption);
+
+  return (
+    (caption === "Turn off computer" || caption.startsWith("Log Off ")) &&
+    String(window.windowClass).split(" ").includes("chicago95-shutdown")
+  );
 }
 
 class ShutdownEffect {
@@ -23,17 +29,21 @@ class ShutdownEffect {
     this.protectBackdrop(window);
     // Wayland can announce a window before its final title or visibility arrives.
     if (window.captionChanged) window.captionChanged.connect(() => this.shown(window));
+
     if (window.visibleChanged) {
-      window.visibleChanged.connect(() => window.visible ? this.shown(window) : this.removed(window));
+      window.visibleChanged.connect(() => (window.visible ? this.shown(window) : this.removed(window)));
     }
+
     this.shown(window);
   }
 
   protectBackdrop(window) {
-    if (window.caption !== "Chicago95 shutdown backdrop" ||
-        !String(window.windowClass).split(" ").includes("chicago95-shutdown")) return;
-    // Claim both transitions before generic scale/fade effects can animate this
-    // full-screen pattern. KWin cancels an existing animation if the role arrives late.
+    if (
+      window.caption !== "Chicago95 shutdown backdrop" ||
+      !String(window.windowClass).split(" ").includes("chicago95-shutdown")
+    )
+      return;
+    // Grabbed before scale/fade effects animate it: KWin ignores a role that arrives late.
     effect.grab(window, Effect.WindowAddedGrabRole);
     effect.grab(window, Effect.WindowClosedGrabRole);
   }
@@ -41,19 +51,22 @@ class ShutdownEffect {
   shown(window) {
     this.protectBackdrop(window);
     if (!window.visible) return;
+
     if (isShutdownDialog(window)) {
       this.dialogs.add(window);
       effects.stackingOrder.forEach((background) => this.fade(background));
-    } else if (this.dialogs.size) {
-      this.fade(window);
+
+      return;
     }
+
+    if (this.dialogs.size) this.fade(window);
   }
 
   fade(window) {
     if (!window.visible || isShutdownDialog(window) || window.chicago95ShutdownFade) return;
     window.chicago95ShutdownFade = set({
       window: window,
-      duration: animationTime(2000),
+      duration: animationTime(FADE_MS),
       curve: QEasingCurve.Linear,
       keepAlive: false,
       animations: [{ type: Effect.Saturation, from: 1.0, to: 0.0 }],

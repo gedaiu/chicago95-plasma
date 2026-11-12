@@ -73,7 +73,7 @@ A Luna taskbar is 30 pixels high and switches Plasma's desktop theme, so tooltip
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `aurorae/`             | `make_chicago95_aurorae.py`, `bevel.py`, Start button images, and the generated theme under `theme/`                                                                                                                                                                                                                                                                                    |
 | `plasma-style/`        | `make_chicago95_plasmastyle.py` and the generated style under `theme/`                                                                                                                                                                                                                                                                                                                  |
-| `luna/`                | The Windows XP Luna components: `aurorae/` decoration, `plasma-style/`, `plasmoids/` overlays (Start button, task buttons, tray box), `lib/` (widget style, Start menu, Turn Off dialog), `sddm/`, `splash/`, `plymouth/`, `palette.py`; nothing in it is shared with the flat looks (see `luna/README.md`) |
+| `luna/`                | The Windows XP Luna components: `aurorae/` decoration, `plasma-style/`, `plasmoids/` overlays (Start button, task buttons, tray box), `lib/` (widget style, Start menu, Turn Off dialog), `sddm/`, `splash/`, `plymouth/`, `palette.py`; nothing in it is shared with the flat looks (see `luna/README.md`)                                                                             |
 | `plasmoids/`           | `org.chicago95.start`, `org.chicago95.tasks` (Quick Launch and task buttons), `org.chicago95.trayframe`, `org.chicago95.clock`                                                                                                                                                                                                                                                          |
 | `bin/`                 | `chicago95-startmenu`, `chicago95-notifyd`, `chicago95-clippy`, `chicago95-shutdown`, `chicago95-screensaver`, `chicago95-sysprops`, `chicago95-devmgr` (Device Manager, read-only, from lshw), `chicago95-k8sview` (the Kubernetes cluster as a device tree), `chicago95-dialup`, `chicago95-deezer`, `chicago95-control-panel`, `chicago95-askpass`, `chicago95-run` (the Run dialog) |
 | `lib/`                 | `chicago95ui.py`, the shared PySide6 look module                                                                                                                                                                                                                                                                                                                                        |
@@ -497,3 +497,18 @@ schemes are Microsoft's; they are converted to Ogg for the sound themes.
 
 GPL-3.0, matching Chicago95, whose artwork the generated files derive from.
 See `LICENSE`.
+
+
+Experimental HD Clippy artwork is in `data/clippy/hd-reference`; its first blink
+pack is in `data/clippy/hd-blink`. The 496×372 transparent frames are four times
+the original logical resolution. Eye layers are composited onto one fixed master
+to prevent body/paper flicker. This is not yet a replacement for all 43 animations.
+The normal assistant continues to use the original complete atlas.
+
+```sh
+python3 -m pytest tests/test_clippy_hd.py
+python3 tests/render_clippy_hd.py --output /tmp/clippy-hd-review
+```
+
+The renderer saves transparent frames, timing metadata and a two-loop MP4 showing
+large and normal-size previews. The output directory must be new.

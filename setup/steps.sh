@@ -1608,7 +1608,13 @@ look_background_color() { # the desktop colour of each look's Windows
   *) printf '#008080' ;;
   esac
 }
-background_color() { [[ "${SETUP_BACKGROUND_COLOR:-}" =~ ^#[0-9A-Fa-f]{6}$ ]] && printf '%s' "$SETUP_BACKGROUND_COLOR" || look_background_color; }
+background_color() { # the colour chosen when it is a #RRGGBB, else the look's
+  if [[ "${SETUP_BACKGROUND_COLOR:-}" =~ ^#[0-9A-Fa-f]{6}$ ]]; then
+    printf '%s' "$SETUP_BACKGROUND_COLOR"
+  else
+    look_background_color
+  fi
+}
 
 background_pattern() { case "${SETUP_BACKGROUND_PATTERN:-}" in checks | diagonal | grid | dots) printf '%s' "$SETUP_BACKGROUND_PATTERN" ;; *) printf 'checks' ;; esac }
 
