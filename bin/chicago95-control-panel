@@ -2266,6 +2266,8 @@ class LoadingPreview(QmlPreview):
         shutil.copytree(splash_of(values), folder)
         self.add_screens(values, folder)
         (folder / "settings.js").write_text(self.settings_js(values))
+        if values.get("LOGIN_STYLE") == "2000":
+            render_banner(values, folder / "brand-banner.png")
         self.load(folder / "Splash.qml")
         if self.dialog() is not None:
             self.dialog().setProperty("booting", self.BOOTING)
@@ -2285,7 +2287,7 @@ class LoadingPreview(QmlPreview):
         preview.fit((800, 600), 1)
         preview.refresh(self.values)
         layout.addWidget(preview)
-        note = QLabel("Preview only: text loader → boot image. No firmware or system boot is performed.")
+        note = QLabel("Preview: text loader → boot image → session loading. No system boot is performed.")
         layout.addWidget(note)
         replay = QPushButton("Replay")
         replay.clicked.connect(lambda: preview.dialog().playBootPreview())

@@ -337,6 +337,17 @@ final desktop stage. Results are in `integration.json`, screenshots/logs, and
 the current desktop, authenticate accounts, or reboot. Dependencies are those of the
 native desktop tests below, plus `ksplashqml` and ffmpeg.
 
+**Booting Screen → Test boot sequence…** rehearses an optional text loader before
+the graphical boot screen. The text-loader preview fills over 2.5 seconds by default;
+this timing is adjustable in the QML and is not a measured boot duration. It does not
+emulate firmware, run DOS, or alter the installed Plymouth sequence.
+
+With the Windows 2000 login style, the installed post-login splash displays a
+“Please wait” dialog. Its text follows actual KSplash session stages; it stays up
+until the session completes instead of playing timed network/service messages.
+Individual systemd unit reporting is not connected yet. The current banner variant
+differs from the supplied video's; visual tests explicitly exclude that artwork.
+
 For 1995, 1998, 2000 and 2001, **Distro Setup → Names and Logos → Shut Down**
 has **Test shutdown…** and **Test logoff…** buttons. They use the unapplied preview
 settings and always pass `--dry-run`: no session or power command runs. Click or
@@ -357,7 +368,12 @@ Video-reference visual regressions run with:
 
 ```sh
 python3 -m pytest tests/luna/test_luna_video_flow.py tests/test_login_flow.py
+python3 -m pytest tests/test_boot_visual_states.py tests/test_text_boot.py tests/test_loading_screen_reference.py
 ```
+
+Boot checks cover empty/quarter/half/full loader bars at three resolutions, black
+side margins, removal of the text overlay, uncompressed banner artwork and visible
+status updates. Each comparison retains actual, expected and difference PNGs.
 
 These compare welcome, logoff and shutdown renders against frames from the reference
 video, check logo placement locally, and test fixed control dimensions at three

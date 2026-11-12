@@ -18,17 +18,32 @@ Rectangle {
     property int stage
     property bool booting: false
     property bool textBoot: false
-    property int textBootDuration: 1800
+    property int textBootDuration: 2500
+    property int bitmapDuration: 3000
+    property real textBootProgress: 0
     property string textBootName: Settings.brandText || "Windows 95"
+    property url statusBanner: "brand-banner.png"
+    // KSplash stage is supplied by the session, not a timer or a fabricated service list.
+    property string sessionStatus: stage < 5 ? "Starting your desktop..." : "Waiting for desktop readiness..."
     function playBootPreview() {
+        textFill.stop();
+        bitmapTimer.stop();
         booting = true;
         textBoot = !luna;
-        textBootTimer.restart();
+        textBootProgress = 0;
+        if (textBoot) textFill.start();
+        else bitmapTimer.start();
+    }
+    NumberAnimation {
+        id: textFill
+        target: root; property: "textBootProgress"
+        from: 0; to: 1; duration: root.textBootDuration
+        onFinished: { root.textBoot = false; bitmapTimer.start(); }
     }
     Timer {
-        id: textBootTimer
-        interval: root.textBootDuration
-        onTriggered: root.textBoot = false
+        id: bitmapTimer
+        interval: root.bitmapDuration
+        onTriggered: root.booting = false
     }
     TextBoot {
         anchors.fill: parent
@@ -36,7 +51,16 @@ Rectangle {
         visible: root.booting && root.textBoot
         ntLoader: Settings.style === "2000"
         systemName: root.textBootName
-        progress: root.stage / root.stages
+        progress: root.textBootProgress
+    }
+    Loader {
+        active: !root.booting && Settings.logonStyle === "2000"
+        visible: active
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: parent.height / 2 - 129
+        sourceComponent: Component {
+            StartupStatus { statusText: root.sessionStatus; banner: root.statusBanner }
+        }
     }
 
     readonly property bool modern: booting && Settings.style === "2000"

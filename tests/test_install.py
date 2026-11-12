@@ -1936,3 +1936,10 @@ def test_luna_install_includes_the_flow_test_without_needing_source_checkout(tmp
     root = tmp_path / ".local/share/chicago95/luna"
     for relative in ("splash/LunaFlow.qml", "splash/LunaSplash.qml", "splash/LunaStatus.qml", "sddm/LunaLogin.qml", "sddm/ActiveSessions.qml"):
         assert (root / relative).is_file()
+
+
+def test_2000_splash_install_renders_a_banner_for_live_session_status(tmp_path):
+    run_setup(tmp_path, "--dry-run", "--login-style=2000", "--components=splash")
+    log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+    assert "--login-banner" in log
+    assert "contents/splash/brand-banner.png" in log

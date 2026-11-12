@@ -1241,6 +1241,10 @@ step_splash() { # the loading screen: KSplash shows it after log on, in the logi
     put_tree "$REPO/luna/sddm" "$dir/luna/sddm"
   fi
   write_splash_settings "$dir"
+  if [ "${SETUP_LOGIN_STYLE:-classic}" = 2000 ]; then
+    write_branding
+    run env QT_QPA_PLATFORM=offscreen python3 "$REPO/bin/chicago95-shutdown" --login-banner "$dir/brand-banner.png"
+  fi
   kconf ksplashrc KSplash Theme chicago95.splashscreen
   kconf ksplashrc KSplash Engine KSplashQML
 }
