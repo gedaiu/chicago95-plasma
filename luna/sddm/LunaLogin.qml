@@ -283,10 +283,16 @@ Item {
     }
 
     XpWordmark {
-        x: root.shuttingDown ? root.width / 2 + 39 * root.unit : root.dividerX - 153 * root.unit
+        id: wordmark
+        x: root.shuttingDown ? root.width / 2 + 39 * root.unit : root.dividerX - 21 * root.unit - wordmark.width
         y: root.middleCenterY - 59 * root.unit
         unit: root.unit
         family: root.family
+        // The branding Setup writes into theme.conf; the logo is a file next to the theme (brand-logo.*).
+        name: root.theme.brandText || ""
+        company: root.theme.company || ""
+        edition: root.theme.brandText ? root.theme.edition || "" : ""
+        logo: !root.theme.brandLogo ? "" : String(root.theme.brandLogo).indexOf("/") === 0 ? root.theme.brandLogo : Qt.resolvedUrl("../../" + root.theme.brandLogo)
     }
 
     Text {

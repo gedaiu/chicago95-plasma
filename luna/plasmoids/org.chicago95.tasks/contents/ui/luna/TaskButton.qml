@@ -6,6 +6,7 @@ Item {
     id: task
     property alias text: label.text
     property var icon
+    property bool hovered: pointer.hovered
     property bool pressed
     property string bevel: "1995"
     property color textColor: "#ffffff"
@@ -23,7 +24,7 @@ Item {
     KSvg.FrameSvgItem {
         id: pill
         imagePath: "widgets/tasks"
-        prefix: task.pressed ? "focus" : pointer.hovered ? "hover" : "normal"
+        prefix: task.pressed ? "focus" : task.hovered ? "hover" : "normal"
         y: task.buttonTop
         width: task.width
         height: task.buttonHeight

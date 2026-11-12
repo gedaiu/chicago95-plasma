@@ -89,3 +89,22 @@ def test_the_control_panel_offers_the_windows_xp_icons_and_its_xp_scheme_picks_t
         True,
         "windowsxp",
     )
+
+
+def test_the_xp_sets_scalable_folders_leave_its_index_since_they_hold_16_pixel_bitmaps(tmp_path):
+    """B00merang's scalable/ SVGs wrap 16px bitmaps but claim 8..512 pixels: Qt stretched them into 48px slots."""
+    theme = installed_xp_theme(tmp_path)
+    (theme / "index.theme").write_text(
+        "[Icon Theme]\nName=Windows XP\nDirectories=48x48/apps,scalable/apps,scalable/places\n\n"
+        "[48x48/apps]\nSize=48\nType=Fixed\n\n[scalable/apps]\nSize=16\nMinSize=8\nMaxSize=512\nType=Scalable\n\n"
+        "[scalable/places]\nSize=16\nType=Scalable\n"
+    )
+
+    fallback(tmp_path)
+    index = configparser.ConfigParser(interpolation=None)
+    index.read(theme / "index.theme")
+
+    assert (index["Icon Theme"]["Directories"], [name for name in index.sections() if name.startswith("scalable")]) == (
+        "48x48/apps",
+        [],
+    )

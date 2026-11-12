@@ -15,6 +15,9 @@ Rectangle {
 
     property int stage
     property string edition: "Professional"
+    property string brandText: ""
+    property string brandLogo: ""
+    property string company: ""
     property string footer: "Copyright © 1985-2001\nMicrosoft Corporation"
     property string family: "Trebuchet MS"
     property bool animated: true
@@ -50,12 +53,17 @@ Rectangle {
     }
 
     XpWordmark {
-        x: root.layoutX + 210 * root.unit
+        id: wordmark
+        // The XP wordmark's measured place; a branded mark, wider, is centred where that one's centre is (x 331).
+        x: root.brandText === "" ? root.layoutX + 210 * root.unit : root.layoutX + 331 * root.unit - wordmark.width / 2
         y: root.layoutY + 124 * root.unit
         unit: root.unit * root.wordmarkScale
         edition: root.edition
         textColor: "#efefef"
         family: root.family
+        name: root.brandText
+        logo: root.brandLogo
+        company: root.company
     }
 
     Rectangle {
@@ -183,10 +191,11 @@ Rectangle {
         font.family: root.family
         font.pixelSize: 11 * root.unit
     }
+    // The corner's company: the user's own when the screen carries their branding, ending where "Microsoft" ends.
     Text {
-        x: root.layoutX + 546 * root.unit
+        x: root.brandText === "" ? root.layoutX + 546 * root.unit : root.layoutX + 635 * root.unit - width
         y: root.layoutY + 441 * root.unit
-        text: "Microsoft"
+        text: root.brandText === "" ? "Microsoft" : root.company
         color: "#efefef"
         font.family: root.family
         font.bold: true

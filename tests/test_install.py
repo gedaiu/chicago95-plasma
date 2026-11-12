@@ -111,7 +111,7 @@ def test_login_theme_settings_carry_title_message_and_picture_without_banner_tex
 
     assert (
         {"loginTitle=Welcome to %h", "loginMessage=Hi & welcome", "loginIcon=login-icon.svg"} <= set(settings),
-        [line for line in settings if line.startswith("brand")],
+        [line for line in settings if line.startswith("brand") and not line.endswith("=")],
     ) == (True, [])
 
 
@@ -1133,8 +1133,13 @@ def test_the_base_theme_greys_gtk_toolbar_icons_until_the_pointer_is_over_them(t
 def test_the_gtk_toolbar_icon_rule_is_appended_once_however_often_setup_runs(tmp_path):
     # This is an installer idempotence test, not a network/Chicago95 download test.
     source = tmp_path / "src/Chicago95"
-    for part in ("Theme/Chicago95/gtk-3.0", "Theme/Chicago95/gtk-4.0", "Icons/Chicago95",
-                 "Cursors/Chicago95_Animated_Hourglass_Cursors_HiDPI", "sounds/Chicago95"):
+    for part in (
+        "Theme/Chicago95/gtk-3.0",
+        "Theme/Chicago95/gtk-4.0",
+        "Icons/Chicago95",
+        "Cursors/Chicago95_Animated_Hourglass_Cursors_HiDPI",
+        "sounds/Chicago95",
+    ):
         (source / part).mkdir(parents=True)
     for version in ("3.0", "4.0"):
         (source / f"Theme/Chicago95/gtk-{version}/gtk.css").write_text("@define-color bg_color #c0c0c0;\n")
@@ -1389,10 +1394,14 @@ def test_dry_run_of_the_luna_look_copies_the_luna_trees_into_the_loading_screen(
     ]
 
 
-def test_dry_run_of_the_luna_look_installs_the_xp_boot_theme(tmp_path):
+def test_dry_run_of_the_luna_look_installs_the_xp_boot_theme_with_the_branded_logo(tmp_path):
     log = component_dry_run_log(tmp_path, "--look=luna", "--components=plymouth")
+    build = next(line.split()[-1] for line in log.splitlines() if "/luna/plymouth/Chicago95-XP " in line)
 
-    assert f"would: sudo cp -r {REPO}/luna/plymouth/Chicago95-XP /usr/share/plymouth/themes/Chicago95-XP" in log
+    assert (
+        f"luna/plymouth/branded_logo.py --out {build} --name Chicago95" in log,
+        f"would: sudo cp -r {build} /usr/share/plymouth/themes/Chicago95-XP" in log,
+    ) == (True, True)
 
 
 def test_dry_run_of_the_luna_look_installs_the_dialog_flag_pictures_with_the_tools(tmp_path):
@@ -1742,3 +1751,34 @@ def test_progress_override_is_shared_idempotent_and_removed_for_luna(tmp_path):
         assert "progressbar" not in (tmp_path / f".config/gtk-{version}/gtk.css").read_text()
         assert "frame > label" not in (tmp_path / f".config/gtk-{version}/gtk.css").read_text()
         assert "spinbutton" not in (tmp_path / f".config/gtk-{version}/gtk.css").read_text()
+
+
+def test_xp_classic_uses_xp_boot_and_icons_with_classic_logon(tmp_path):
+    assert run_bash_with_steps(
+        tmp_path, 'apply_look 2001; echo "$SETUP_BOOT_STYLE $SETUP_LOGIN_STYLE $SETUP_ICONS"'
+    ) == ["luna 2000 windowsxp"]
+
+
+def test_windows_98_boot_has_its_own_artwork_and_retains_password_prompts(tmp_path):
+    import importlib.util
+
+    from PIL import Image
+
+    spec = importlib.util.spec_from_file_location("boot98", REPO / "setup/make_98_boot.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "Chicago95.plymouth").write_text(
+        "ImageDir=/usr/share/plymouth/themes/Chicago95\n"
+        "ScriptFile=/usr/share/plymouth/themes/Chicago95/Chicago95.script\n"
+    )
+    (source / "Chicago95.script").write_text("Plymouth.SetDisplayPasswordFunction(password_prompt);\n")
+    art = REPO / "splash/chicago95.splashscreen/contents/splash/images/windows98.png"
+    module.build(source, art, tmp_path / "built")
+    target = tmp_path / "built"
+    assert "Chicago95-98/Chicago95-98.script" in (target / "Chicago95-98.plymouth").read_text()
+    assert "SetDisplayPasswordFunction" in (target / "Chicago95-98.script").read_text()
+    for frame in target.glob("win95_boot_*.png"):
+        assert Image.open(frame).crop((0, 0, 640, 472)).tobytes() == Image.open(art).crop((0, 0, 640, 472)).tobytes()
+    assert len(list(target.glob("win95_boot_*.png"))) == 20

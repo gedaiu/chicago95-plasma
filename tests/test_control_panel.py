@@ -40,8 +40,9 @@ def test_components_for_look_are_look_taskbar_and_startmenu(control_panel):
     assert control_panel.components_for(["LOOK"]) == ["look", "taskbar", "startmenu"]
 
 
-def test_components_for_login_style_are_splash_then_sddm_without_repeats(control_panel):
-    assert control_panel.components_for(["LOGIN_STYLE", "LOGIN_LOGO", "EDITION"]) == ["splash", "sddm"]
+def test_components_for_login_style_logo_and_edition_are_splash_plymouth_and_sddm_without_repeats(control_panel):
+    """The logo and edition are drawn on the Plymouth boot screens too (2000's and XP's)."""
+    assert control_panel.components_for(["LOGIN_STYLE", "LOGIN_LOGO", "EDITION"]) == ["splash", "plymouth", "sddm"]
 
 
 def test_components_for_a_key_setup_does_not_know_is_empty(control_panel):

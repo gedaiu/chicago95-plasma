@@ -85,7 +85,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path.cwd() / "tests"))
 import render_report
 import chicago95ui
-from showcase import taskbars, frame, themed, login, boot
+from showcase import taskbars, frame, themed, login, boot, start_menus
 
 app = chicago95ui.make_app("showcase-overflow-test")
 app.setQuitOnLastWindowClosed(False)
@@ -93,7 +93,7 @@ for look in ("1995", "2001", "luna"):
     with themed(app, look):
         folder = Path(sys.argv[1]) / look
         panels = taskbars(app, look, folder)
-        assert len(panels) == 7
+        assert len(panels) == 12
         images = [panel[2] for panel in panels]
         assert all(image.size == (800, 30 if look == "luna" else 28) for image in images)
         normal, overflow = images[0].info["geometry"], images[3].info["geometry"]
@@ -108,7 +108,11 @@ for look in ("1995", "2001", "luna"):
             assert login(app, look, folder).size == (800, 600)
             assert (folder / "login/theme/brand-banner.png").is_file()
             assert boot(app, look, folder).size == (800, 600)
-            assert 'var brandLogo = ""' not in (folder / "boot/settings.js").read_text()
+            assert boot(app, look, folder).getpixel((0, 0)) == (0, 0, 0)
+        if look == "luna":
+            menus = start_menus(app, look, folder)
+            assert len(menus) == 4
+            assert len({image.tobytes() for _, _, image in menus}) == 4
         # Hovered and held chevrons must actually change the rendered pixels.
         assert images[3].tobytes() != images[4].tobytes()
         assert images[4].tobytes() != images[5].tobytes()

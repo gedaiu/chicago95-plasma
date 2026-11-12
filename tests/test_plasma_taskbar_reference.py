@@ -564,7 +564,8 @@ def test_luna_band_resized_by_a_separator_drag_keeps_the_luna_grips_cells_chevro
     assert (classic, len(glyph) > 0, [left for left, *_ in icons]) == ([], True, LUNA_QUICK_LAUNCH_ICONS[:2])
 
 
-LUNA_TRAY_HIGHLIGHT = (25, 81, 185)  # the pressed task pill's body, which Plasma lays behind the tray while its popup is open
+# Opening Plasma's hidden-items popup must not repaint the notification area as a
+# pressed task. The original's tray retains its cyan gradient (xprunning.png).
 LUNA_OPEN_TRAY_STEPS = ("move:700,580", "wait:0.3", "move:706,585", "wait:0.5", "click:left", "wait:2")
 
 
@@ -574,7 +575,7 @@ def luna_open_tray_bar(desktops):
     return bottom_rows(screen, LUNA_PANEL_HEIGHT)
 
 
-def test_luna_tray_under_its_open_popup_is_pressed_blue_beside_the_button_and_the_icon_with_no_white(
+def test_luna_tray_under_its_open_popup_keeps_the_original_cyan_gradient(
     luna_open_tray_bar,
 ):
     bar, notch = luna_open_tray_bar, LUNA_NOTCH_X
@@ -583,5 +584,5 @@ def test_luna_tray_under_its_open_popup_is_pressed_blue_beside_the_button_and_th
     assert (
         [colour for colour in pixels if min(colour) > 200],
         all(colour[2] > colour[1] + 20 and colour[2] > colour[0] + 60 for colour in pixels),
-        close(bar.getpixel((notch + 12, 4)), LUNA_TRAY_HIGHLIGHT, 12),
-    ) == ([], True, True)
+        close(bar.getpixel((notch + 12, 4)), screenshot("xprunning").getpixel((notch + 12, 4)), 12),
+    ) == ([], True, True), bar.getpixel((notch + 12, 4))

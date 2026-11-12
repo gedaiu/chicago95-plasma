@@ -177,3 +177,41 @@ def test_progress_for_a_command_that_cannot_start_fails_instead_of_waiting_forev
         progress.details_button.text(),
         "missing-install.sh" in progress.log.toPlainText() or "No such file" in progress.log.toPlainText(),
     ) == (QDialog.Rejected, "Close", True)
+
+
+@pytest.mark.parametrize("scrollable", [False, True])
+def test_luna_scroll_pages_preserve_the_tab_gradient(control_panel, qt_app, monkeypatch, scrollable, tmp_path):
+    from luna.luna_gallery import style_tree
+    from luna.test_luna_style import luna_style
+    from PySide6.QtWidgets import QTabWidget, QWidget
+
+    monkeypatch.setattr(control_panel.chicago95ui, "luna_widgets", lambda: True)
+    tabs = QTabWidget()
+    style = luna_style.LunaStyle()
+    page = QWidget()
+    if scrollable:
+        page.setMinimumHeight(900)
+    area = control_panel.scrolling(page)
+    tabs.addTab(area, "Quick Launch")
+    tabs.addTab(QWidget(), "Other")
+    style_tree(tabs, style)
+    tabs.setPalette(luna_style.luna_palette())
+    tabs.resize(500, 400)
+    tabs.show()
+    qt_app.processEvents()
+    if scrollable:
+        area.verticalScrollBar().setValue(100)
+    for height in (400, 520):
+        tabs.resize(500, height)
+        tabs.setCurrentIndex(1)
+        tabs.setCurrentIndex(0)
+        qt_app.processEvents()
+        image = tabs.grab().toImage()
+        image.save(str(tmp_path / f"tab-page-{height}.png"))
+        # The viewport must preserve the frame's gradient after scrolling, resizing
+        # and switching tabs, rather than replacing it with the beige window face.
+        for y in (60, 180, 320):
+            assert image.pixelColor(2, y) == image.pixelColor(250, y)
+            assert image.pixelColor(250, y).name().upper() != "#ECE9D8"
+        assert image.pixelColor(250, 60) != image.pixelColor(250, 320)
+    tabs.close()

@@ -499,6 +499,19 @@ def paint_submenu_arrow(painter, row, colour):
     painter.drawPolygon(QPolygon([QPoint(right - 3, middle - 4), QPoint(right, middle), QPoint(right - 3, middle + 3)]))
 
 
+SUBMENU_ARROW_ROOM = 8  # the arrow's 3 pixels, 4 in from the row's right edge, and a pixel between it and the text
+
+
+def row_room(row):
+    """The width the row's text may take: up to the submenu arrow, else the row's own margin."""
+    return (
+        row.rect.right()
+        + 1
+        - (row.rect.left() + row.look.text_x)
+        - (SUBMENU_ARROW_ROOM if row.submenu is not None else TEXT_MARGIN)
+    )
+
+
 def row_title(row, metrics, room):
     """The row's text, cut to its room; the footer's two buttons are sized to their text and always show it whole,
     whatever the fonts measure at the screen's scale."""
@@ -516,7 +529,7 @@ def paint_row(painter, row, hovered):
     font = ui_font(row.bold)
     painter.setFont(font)
     text_x = row.rect.left() + look.text_x
-    room = row.rect.right() + 1 - text_x - (14 if row.submenu is not None else TEXT_MARGIN)
+    room = row_room(row)
     metrics = QFontMetrics(font)
     baseline = row.rect.top() + look.baseline
     title = row_title(row, metrics, room)
@@ -621,7 +634,7 @@ class LunaMenu(QWidget):
 
     def fill_recent_menu(self, menu):
         for location in self.recent:
-            action = menu.addAction(self.icon("text-x-generic"), os.path.basename(location))
+            action = menu.addAction(self.icon("text-x-generic"), os.path.basename(location.rstrip("/")))
             action.triggered.connect(lambda _checked=False, loc=location: self.launch(["xdg-open", loc]))
 
     def open_submenu(self, row):

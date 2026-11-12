@@ -137,3 +137,38 @@ def test_caps_lock_balloon_shows_under_the_password_only_while_caps_lock_is_on(q
     image = render_login(qt_app, tmp_path, caps_lock=caps_lock, loginStyle="2000")
     balloon = bounding_box(image, lambda c: c == (255, 255, 225), (DIALOG[0], DIALOG[2]), (DIALOG[1], DIALOG[3] + 60))
     assert (balloon is not None) == expected
+
+
+@pytest.mark.parametrize("look", ("95", "98"))
+def test_9x_login_geometry_icon_and_bevels_match_original(qt_app, tmp_path, look):
+    from PIL import ImageChops, ImageDraw
+
+    original = screenshot(f"win{look}login")
+    ours = render_login(
+        qt_app, tmp_path, users=(), loginStyle="classic", loginTitle="Welcome to Windows",
+        loginMessage="Type a user name and password to log on to Windows.",
+        titleActive="#000080" if look == "95" else "#000080,#1084d0",
+    )
+    difference = ImageChops.difference(original, ours.convert("RGB"))
+    # Dynamic username/caret and font glyphs have separate typography requirements.
+    # Keep all window, field and button edges, key artwork and surrounding backdrop.
+    for box in [(94, 93, 507, 110), (183, 122, 445, 145), (180, 155, 245, 216),
+                (257, 159, 388, 177), (257, 189, 388, 208), (478, 125, 523, 143),
+                (473, 155, 524, 173), (511, 95, 543, 107)]:
+        ImageDraw.Draw(difference).rectangle(box, fill=(0, 0, 0))
+    difference.save(tmp_path / "9x-login-difference.png")
+    # GDI's 98 caption gradient is quantised differently from Qt Quick (at most
+    # two channel levels). The window/control edges and key remain exact to one.
+    assert max(high for _, high in difference.crop((93, 92, 546, 110)).getextrema()) <= 2
+    ImageDraw.Draw(difference).rectangle((93, 92, 545, 109), fill=(0, 0, 0))
+    assert max(high for _, high in difference.getextrema()) <= 1
+
+
+def test_xp_classic_logon_uses_the_xp_banner_not_the_2000_banner(qt_app, shutdown, tmp_path):
+    from PIL import Image
+
+    path = tmp_path / "banner.png"
+    assert shutdown.render_login_banner({"style": "2001", "osName": "Windows XP", "osCompany": "Microsoft"}, path)
+    expected = screenshot("xpclassiclogin").crop((71, 131, 482, 224))
+    actual = Image.open(path).convert("RGB").resize(expected.size, Image.Resampling.NEAREST)
+    assert actual.tobytes() == expected.tobytes()

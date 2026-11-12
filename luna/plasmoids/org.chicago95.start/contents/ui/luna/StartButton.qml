@@ -5,6 +5,7 @@ Item {
     id: button
     property string text
     property url logoSource
+    property bool hovered: pointer.hovered
     property bool held
     property string bevel: "1995"
     property color face: "#ece9d8"
@@ -37,19 +38,26 @@ Item {
     KSvg.FrameSvgItem {
         anchors.fill: parent
         imagePath: "widgets/startbutton"
-        prefix: button.held ? "pressed" : pointer.hovered ? "hover" : "normal"
+        prefix: button.held ? "pressed" : button.hovered ? "hover" : "normal"
     }
 
     // The original's flag casts a soft dark green shadow below and to the right (xprunning.png, rows 20..24),
     // baked from the flag's own outline by luna/images/render_logo.py.
-    Image {
-        x: button.flagLeft - button.flagShadowPadding
-        y: button.flagTop - button.flagShadowPadding
-        width: button.flagInk.width + 2 * button.flagShadowPadding
-        height: button.flagInk.height + 2 * button.flagShadowPadding
-        source: "../../images/logo-flag-xp-shadow.png"
-        smooth: true
+    Item {
+        width: button.width
+        height: button.flagTop + button.flagInk.height + 1
+        clip: true
+        // The reference shadow ends one row below the flag, not in the pill's bottom rim.
+        Image {
+            x: button.flagLeft - button.flagShadowPadding
+            y: button.flagTop - button.flagShadowPadding
+            width: button.flagInk.width + 2 * button.flagShadowPadding
+            height: button.flagInk.height + 2 * button.flagShadowPadding
+            source: "../../images/logo-flag-xp-shadow.png"
+            smooth: true
+        }
     }
+
     Image {
         x: button.flagLeft
         y: button.flagTop

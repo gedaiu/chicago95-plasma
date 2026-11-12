@@ -20,7 +20,8 @@ Rectangle {
     // qmllint enable unqualified
     readonly property color face: scheme.window
     readonly property color white: "#ffffff"
-    readonly property color light: modern ? face : Qt.tint(face, "#80ffffff")  // halfway to white
+    readonly property color light: modern ? face : Qt.rgba(Math.floor((face.r * 255 + 255) / 2) / 255,
+        Math.floor((face.g * 255 + 255) / 2) / 255, Math.floor((face.b * 255 + 255) / 2) / 255, 1)
     readonly property color shadow: modern ? "#808080" : Qt.darker(face, 1.5)  // two thirds of the face
     readonly property color dark: modern ? "#404040" : "#000000"
     readonly property bool sunken: style === "sunken" || style === "pressed"

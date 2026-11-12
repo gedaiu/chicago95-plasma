@@ -1,0 +1,95 @@
+{
+  "status": "incomplete",
+  "pixel_exact_replica": false,
+  "date": "2026-11-12",
+  "looks": [
+    "1995",
+    "1998",
+    "2000",
+    "2001",
+    "luna"
+  ],
+  "visually_reviewed": [
+    "boot screens",
+    "login screens",
+    "root Start menus",
+    "Start buttons",
+    "task buttons",
+    "Quick Launch icons and grips",
+    "Quick Launch overflow chevrons",
+    "tray icons and chevrons",
+    "clock placement"
+  ],
+  "fixes": [
+    "XP Classic selects XP boot instead of Windows 2000 boot",
+    "Windows 98 uses its own boot artwork with corrected DOS pixel aspect ratio",
+    "95/98 login geometry, frame bevels, fields, key icon, caption controls and title gradient",
+    "XP Classic login uses the original XP blue banner",
+    "XP Classic Start flag and icon-family selection",
+    "Luna Start flag shadow extent",
+    "Start menus and additional hover/pressed taskbar variants included in showcases",
+    "Original Windows 2000 static boot/logon branding, retaining live progress and input controls",
+    "XP Classic and Luna menus prefer verified original menu icons from user-provided archives, including the yellow Log Off key",
+    "Luna showcase includes hovered application, system-folder and All Programs rows"
+  ],
+  "verified_suites": {
+    "shell_components": "101 passed, 8 skipped (reference rows absent from particular screenshots)",
+    "installer": "140 passed",
+    "login_including_new_originals": "16 passed",
+    "native_plasma_regressions": "2 passed",
+    "login_and_boot_after_original_branding": "27 passed",
+    "installer_and_showcase_final": "142 passed",
+    "xp_menu_originals_and_showcase": "92 passed"
+  },
+  "comparison_limits": [
+    {
+      "component": "95/98 login",
+      "verified": "Geometry, key artwork and bevel pixels within one channel level; 98 caption gradient within two.",
+      "excluded": "Dynamic field text, font glyphs and caption-button glyphs."
+    },
+    {
+      "component": "XP classic logon banner",
+      "verified": "411x93 original banner pixels, nearest-neighbour scale round trip.",
+      "excluded": "The source has Luna window decoration; it does not establish the Classic frame or Linux-specific session controls."
+    }
+  ],
+  "remaining_gaps": [
+    {
+      "component": "XP typography",
+      "detail": "Original Microsoft Tahoma and Trebuchet MS remain unavailable to Fontconfig. Local Proton Tahoma copies are Wine replacements, not verified Microsoft originals. Fallback fonts remain in previews."
+    },
+    {
+      "component": "Tray overflow",
+      "detail": "Native Plasma uses a hidden-items popup; original XP expands its notification area inline. This audit checks the visible tray components, not equivalent overflow behavior."
+    },
+    {
+      "component": "Windows 98 boot animation",
+      "detail": "Original screenshot establishes one frame. The Plymouth strip movement is reconstructed; its timing and all palette phases are unverified."
+    },
+    {
+      "component": "Artwork and text",
+      "detail": "Verified original menu icons are preferred when built from user archives. Windows Catalog and other unmapped artwork still use theme approximations. Boot footer typography depends on local fonts. Program names and user pictures are sample content."
+    },
+    {
+      "component": "State coverage",
+      "detail": "Hover/pressed showcase variants are rendered; original screenshots do not cover every component in every state. No universal exact-match claim is supported."
+    }
+  ],
+  "sources": [
+    "https://www.guidebookgallery.org/screenshots/win95/",
+    "https://www.guidebookgallery.org/screenshots/win98/",
+    "https://www.guidebookgallery.org/screenshots/winxppro/",
+    "http://toastytech.com/guis/w2kboot.png",
+    "http://toastytech.com/guis/w2klogon.png",
+    "http://toastytech.com/guis/wxpclassic.png",
+    "https://mann4world.blogspot.com/2012/12/how-to-disableenable-windows-xp-welcome.html",
+    "https://learn.microsoft.com/en-us/windows/win32/uxguide/winenv-notification"
+  ],
+  "reference_provenance": "tests/references/SOURCES.md",
+  "system_installation_performed": false,
+  "original_icon_preview_build": {
+    "source": "User-provided ~/Downloads/ICON.zip and High-Res_XP_Icons.zip",
+    "temporary_theme": "/tmp/xp-menu-review/icons/Windows-XP-Originals",
+    "installation": "Setup rebuilds the original-icon theme from the archives; the live desktop was not changed"
+  }
+}

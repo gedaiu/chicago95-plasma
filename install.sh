@@ -481,8 +481,8 @@ SETUP_BANNER_TEXT=${OPT_BANNER_TEXT:-${SETUP_BANNER_TEXT:-$(default_banner_text)
 SETUP_LOGIN_STYLE=${OPT_LOGIN_STYLE:-${SETUP_LOGIN_STYLE:-classic}}
 [[ " $COMPONENTS " == *" sddm "* || " $COMPONENTS " == *" splash "* ]] && [ -z "${OPT_LOGIN_STYLE:-}" ] && choose_login_style
 SETUP_BOOT_STYLE=${OPT_BOOT_STYLE:-${SETUP_BOOT_STYLE:-$SETUP_LOGIN_STYLE}}
-SETUP_LOGIN_TITLE=${SETUP_LOGIN_TITLE:-"Log On to %h"}
-SETUP_LOGIN_MESSAGE=${SETUP_LOGIN_MESSAGE:-"Type a user name and password to log on."}
+SETUP_LOGIN_TITLE=${SETUP_LOGIN_TITLE:-"$([ "$SETUP_LOGIN_STYLE" = classic ] && echo 'Welcome to Windows' || echo 'Log On to %h')"}
+SETUP_LOGIN_MESSAGE=${SETUP_LOGIN_MESSAGE:-"Type a user name and password to log on to Windows."}
 SETUP_LOGIN_ICON=${SETUP_LOGIN_ICON:-keys}
 SETUP_SPLASH_IMAGE=${SETUP_SPLASH_IMAGE:-classic}
 # The 2000 look's logo is the waving flag of its start-up screen; the others repeat the Start button's logo.

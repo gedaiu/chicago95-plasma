@@ -136,7 +136,7 @@ COMPONENTS_BY_KEY = {
     },
     "BANNER_BG": ("startmenu",),
     "BANNER_FG": ("startmenu",),
-    "BANNER_TEXT": ("startmenu", "splash"),
+    "BANNER_TEXT": ("startmenu", "splash", "sddm", "plymouth"),
     "CURSOR": ("base",),
     "MOUSE_HAND": ("mouse",),
     "DOUBLE_CLICK_MS": ("mouse",),
@@ -154,10 +154,10 @@ COMPONENTS_BY_KEY = {
     "SAVER": ("screensaver",),
     "IDLE_MIN": ("screensaver",),
     "LOGIN_STYLE": ("splash", "sddm"),
-    "LOGIN_LOGO": ("splash", "sddm"),
-    "EDITION": ("splash", "sddm"),
+    "LOGIN_LOGO": ("splash", "sddm", "plymouth"),
+    "EDITION": ("splash", "sddm", "plymouth"),
     "TAGLINE": ("splash", "sddm"),
-    "COMPANY": ("splash", "sddm"),
+    "COMPANY": ("splash", "sddm", "plymouth"),
     "COMPANY_LOGO": ("splash", "sddm"),
     "LOGIN_TITLE": ("sddm",),
     "LOGIN_MESSAGE": ("sddm",),
@@ -1753,6 +1753,21 @@ Item {{
         return root.property("dialog") if root is not None and self.scale != 1.0 else root
 
 
+def luna_login_branding(values, theme):
+    """The XP welcome screen's branding as Setup writes it into theme.conf (sddm_theme_conf), with the logo copied
+    next to the theme as brand-logo.*."""
+    logo = picture_file(values.get("LOGIN_LOGO", "start"), repo_of(values))
+    copied = theme / f"brand-logo{logo.suffix}"
+    if logo.is_file():
+        shutil.copy(logo, copied)
+    return {
+        "brandText": values.get("BANNER_TEXT", "Chicago95"),
+        "brandLogo": copied.name if logo.is_file() else "",
+        "company": values.get("COMPANY", "KDE"),
+        "edition": values.get("EDITION", "Professional"),
+    }
+
+
 class LogOnPreview(QmlPreview):
     """The log-on dialog as the theme draws it, with the texts, pictures and style chosen."""
 
@@ -1770,6 +1785,7 @@ class LogOnPreview(QmlPreview):
         icon = picture_file(values.get("LOGIN_ICON", "keys"), repo_of(values))
         main_qml = login_preview.prepare_login_theme(theme, folder, banner=banner, icon=icon)
         add_luna_screen(values, folder / "theme", "sddm", style)
+        branding = luna_login_branding(values, folder / "theme") if style == "luna" else {}
         self.fit(*{"luna": (self.LUNA_SIZE, self.LUNA_SCALE)}.get(style, (self.SIZE, self.SCALE)))
         self.engine().addImportPath(str(folder / "imports"))
         settings = {
@@ -1779,6 +1795,7 @@ class LogOnPreview(QmlPreview):
             "loginIcon": f"login-icon{icon.suffix}",
             "titleActive": values.get("TITLE_ACTIVE", "") if style == "2000" else "",
             "scale": "1",
+            **branding,
         }
         self.load(main_qml, login_preview.login_context(theme, host_name=socket.gethostname(), **settings))
 
@@ -2586,6 +2603,12 @@ def scrolling(tab):
     # Luna's tab page is the near-white XP page the style paints; the viewport stays clear so it shows through.
     area.viewport().setAutoFillBackground(not chicago95ui.luna_widgets())
     area.setWidget(tab)
+    # setWidget() enables auto-fill on its child. Undo that for Luna so the
+    # tab frame's gradient remains visible through the entire scrolling page.
+    if chicago95ui.luna_widgets():
+        tab.setAutoFillBackground(False)
+        area.setAutoFillBackground(False)
+        area.viewport().setAutoFillBackground(False)
     return area
 
 

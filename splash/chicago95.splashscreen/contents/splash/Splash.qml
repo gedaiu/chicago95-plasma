@@ -38,6 +38,9 @@ Rectangle {
         onLoaded: {
             item.edition = Settings.edition;
             item.footer = Settings.footer;
+            item.brandText = Settings.brandText || "";
+            item.brandLogo = Settings.brandLogo || "";
+            item.company = Settings.company || "";
             item.stage = Qt.binding(() => root.stage);
         }
     }
@@ -315,4 +318,17 @@ Rectangle {
             text: Settings.footer
         }
     }
+    // Static original wordmark/frame artwork. Progress remains a live component;
+    // renamed products and custom logos retain the configurable drawn banner.
+    Image {
+        visible: root.modern && Settings.brandText === "Windows 2000" && Settings.company === "Microsoft"
+            && (!Settings.brandLogo || /(?:waving-flag|logo-flag-16)\.png$/.test(Settings.brandLogo))
+        x: root.layoutX + root.px(100)
+        y: 0
+        width: 540 * root.unit
+        height: 365 * root.unit
+        source: "images/windows2000-brand.png"
+        smooth: false
+    }
+
 }

@@ -9,6 +9,7 @@ Item {
     id: button
     property string text
     property url logoSource
+    property bool hovered: false
     property bool held
     // 2000's lettering is wider than this font's: its button has a pixel more face after the text.
     property string bevel: "1995"

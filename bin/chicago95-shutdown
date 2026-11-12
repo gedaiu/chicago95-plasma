@@ -598,6 +598,20 @@ LOGIN_BANNER_SIZE = (411, 93)
 def render_login_banner(look, path, scale=4):
     """The login screen's 2000 banner as a PNG, scale times the original's pixels: the login theme can't
     run this code, so Setup draws the banner here and copies the picture next to the theme."""
+    original = {"2000": ("Windows 2000", "2000-logon-banner.png"),
+                "2001": ("Windows XP", "xp-logon-banner.png")}.get(look.get("style"))
+    default_logos = ("", "waving-flag.png", "logo-flag-16.png", "logo-xp-16.png")
+    if (original and look.get("osName", "").startswith(original[0])
+            and look.get("osCompany", "Microsoft") == "Microsoft"
+            and os.path.basename(look.get("osLogo", "")) in default_logos):
+        # Original static banner artwork; custom branding still uses the drawn layout.
+        candidates = [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "data", original[1]),
+                      os.path.expanduser("~/.local/share/chicago95/" + original[1])]
+        for candidate in candidates:
+            image = QImage(candidate)
+            if not image.isNull():
+                return image.scaled(image.width() * scale, image.height() * scale,
+                                    Qt.IgnoreAspectRatio, Qt.FastTransformation).save(str(path))
     banner = BrandBanner(look, login=True)
     banner.resize(*LOGIN_BANNER_SIZE)
     image = QImage(LOGIN_BANNER_SIZE[0] * scale, LOGIN_BANNER_SIZE[1] * scale, QImage.Format_ARGB32)

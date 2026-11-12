@@ -46,8 +46,10 @@ def render_paused(app, harness_name, size, context_objects, properties, wait_ms)
     return image
 
 
-def render_luna_login(app, size=(800, 600), user="Administrator", users=("Administrator",), properties=None):
-    context = login_context(SDDM_THEME, user=user, users=users)
+def render_luna_login(
+    app, size=(800, 600), user="Administrator", users=("Administrator",), properties=None, settings=None
+):
+    context = login_context(SDDM_THEME, user=user, users=users, **(settings or {}))
     return render_qml(app, "LunaLoginHarness.qml", size, context, properties)
 
 

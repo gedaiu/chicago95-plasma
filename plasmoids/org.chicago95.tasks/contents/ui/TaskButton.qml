@@ -10,6 +10,7 @@ Item {
     id: task
     property alias text: label.text
     property var icon
+    property bool hovered: false
     property bool pressed
     property string bevel: "1995"
     property string look: "1995"

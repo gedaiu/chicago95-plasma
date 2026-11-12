@@ -49,9 +49,11 @@ def is_blue(name):
     return blue > 150 and red < 120 and green < 160
 
 
-def test_loading_preview_is_the_black_xp_splash_with_the_flag_when_the_style_is_luna(control_panel, qt_app):
+def test_loading_preview_is_the_black_xp_splash_with_the_flag_when_the_style_is_luna_and_no_name_is_set(
+    control_panel, qt_app
+):
     preview = preview_of(control_panel, "Booting Screen", "Boot Screen")
-    preview.refresh({"BOOT_STYLE": "luna"})
+    preview.refresh({"BOOT_STYLE": "luna", "BANNER_TEXT": ""})
     image = shown(preview, qt_app)
     colours = colours_of(image)
 
@@ -220,3 +222,34 @@ def test_the_tab_page_shows_through_the_scroll_area_only_under_luna(control_pane
     monkeypatch.setattr(control_panel.chicago95ui, "luna_widgets", lambda: luna)
 
     assert control_panel.scrolling(QWidget()).viewport().autoFillBackground() is filled
+
+
+@pytest.fixture
+def red_logo(tmp_path):
+    from PIL import Image
+
+    path = tmp_path / "logo.png"
+    Image.new("RGB", (64, 64), (255, 0, 0)).save(path)
+    return path
+
+
+def red_pixels(image):
+    return sum(image.pixelColor(x, y).name() == "#ff0000" for x in range(image.width()) for y in range(image.height()))
+
+
+def xp_branding(red_logo):
+    return {"BANNER_TEXT": "Windows2026", "LOGIN_LOGO": str(red_logo), "COMPANY": "KDE", "EDITION": "Professional"}
+
+
+def test_the_xp_boot_screen_preview_shows_the_users_logo(control_panel, qt_app, red_logo):
+    preview = control_panel.LoadingPreview()
+    preview.refresh({"BOOT_STYLE": "luna", **xp_branding(red_logo)})
+
+    assert red_pixels(shown(preview, qt_app)) > 30
+
+
+def test_the_xp_log_on_preview_shows_the_users_logo(control_panel, qt_app, red_logo):
+    preview = control_panel.LogOnPreview()
+    preview.refresh({"LOGIN_STYLE": "luna", **xp_branding(red_logo)})
+
+    assert red_pixels(shown(preview, qt_app)) > 30

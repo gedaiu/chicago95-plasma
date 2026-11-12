@@ -633,3 +633,23 @@ def test_a_submenu_opens_with_the_menu_animation_chosen_on_the_effects_tab(
     menu.hide()
 
     assert properties == animated
+
+
+@pytest.mark.parametrize("style", ["2001", "luna"])
+def test_xp_menus_prefer_original_artwork_to_theme_approximations(startmenu, qt_app, tmp_path, monkeypatch, style):
+    from PySide6.QtGui import QColor
+
+    for theme, colour in (("Windows-XP-Originals", "#ffd000"), ("Windows-XP", "#00aa00")):
+        folder = tmp_path / theme / "24x24/actions"
+        folder.mkdir(parents=True)
+        image = QPixmap(24, 24)
+        image.fill(QColor(colour))
+        image.save(str(folder / "system-log-out.png"))
+    monkeypatch.setattr(startmenu, "ICON_SET_DIRS", [tmp_path])
+    icon = startmenu.luna_icon("system-log-out") if style == "luna" else startmenu.root_icon("log_off", style)
+    assert icon.pixmap(24, 24).toImage().pixelColor(12, 12).name() == "#ffd000"
+
+
+def test_luna_icon_keeps_theme_fallback_when_original_is_absent(startmenu, qt_app, tmp_path, monkeypatch):
+    monkeypatch.setattr(startmenu, "ICON_SET_DIRS", [tmp_path])
+    assert startmenu.luna_icon("system-log-out").name() == startmenu.themed_icon("system-log-out").name()

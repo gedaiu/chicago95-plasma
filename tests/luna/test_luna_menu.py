@@ -111,6 +111,18 @@ def make_menu(launched, commands_run=None, recent_path=None, programs_filler=Non
     )
 
 
+@pytest.fixture(autouse=True)
+def menus_closed(qt_app):
+    """Each test's menus are top-level windows: they go when it ends. Left open, they piled up until a later test's
+    window crashed Qt while it attached to the screen."""
+    yield
+    for widget in QApplication.topLevelWidgets():
+        if isinstance(widget, lunamenu.LunaMenu):
+            widget.close()
+            widget.deleteLater()
+    QApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+
+
 @pytest.fixture
 def menu(qt_app):
     launched = []
@@ -481,3 +493,17 @@ def test_the_all_programs_arrow_is_drawn_at_the_screens_own_resolution(qt_app):
     )
 
     assert split_blocks >= 30
+
+
+def test_my_recent_documents_shows_its_title_in_full_beside_its_arrow(qt_app):
+    row = next(row for row in make_menu([]).rows if row.text == "My Recent Documents")
+
+    assert lunamenu.row_title(row, QFontMetrics(lunamenu.ui_font(row.bold)), lunamenu.row_room(row)) == row.text
+
+
+def test_a_recent_folder_is_listed_by_its_own_name(qt_app):
+    menu = lunamenu.LunaMenu([], ["/home/user/Pictures/", "/home/user/a.txt"], [].append, fake_icon, QMenu, FakeShield)
+    recent = QMenu()
+    menu.fill_recent_menu(recent)
+
+    assert [action.text() for action in recent.actions()] == ["Pictures", "a.txt"]

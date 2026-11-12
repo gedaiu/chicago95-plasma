@@ -5,7 +5,7 @@ import pytest
 from conftest import REPO
 from PIL import Image
 from PySide6.QtCore import QRect, QSize
-from PySide6.QtGui import QColor, QImage, QPainter
+from PySide6.QtGui import QColor, QIcon, QImage, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
@@ -408,3 +408,22 @@ def test_spin_button_column_has_no_divider_between_arrows(style, enabled):
     assert [hex_at(spin_image, x, y) for y in range(column.top(), column.bottom() + 1)] == [
         hex_at(combo_image, x, y) for y in range(column.top(), column.bottom() + 1)
     ]
+
+
+def test_menu_item_icon_at_one_and_a_half_scale_sits_in_the_middle_of_its_row(style):
+    small, large = QPixmap(16, 16), QPixmap(24, 24)
+    small.fill(QColor("#0000FF"))
+    large.fill(QColor("#FF0000"))
+    icon = QIcon(small)
+    icon.addPixmap(large)
+    option = QStyleOptionMenuItem()
+    option.rect = QRect(0, 0, 160, 21)
+    option.state = QStyle.State_Enabled
+    option.palette = luna_style.luna_palette()
+    option.menuItemType = QStyleOptionMenuItem.MenuItemType.Normal
+    option.text = "ICON.zip"
+    option.icon = icon
+    image = painted_at_scale(1.5, 160, 21, lambda painter: style.drawControl(QStyle.CE_MenuItem, option, painter))
+    red_rows = [y for y in range(image.height()) if hex_at(image, 12, y) == "#FF0000"]
+
+    assert (red_rows[0], red_rows[-1]) == (4, 27)  # the 24 pixel picture, 2.5 logical pixels from the top

@@ -569,7 +569,7 @@ def themed_icon(name, *fallbacks):
 # by comparing every icon in Chicago95, SE98 and ClassicOS-2000 with them (tests/test_startmenu_icons_reference.py).
 # SE98 matches both 98 and 2000. When that set isn't installed the names go to the desktop's icon theme,
 # with the last name of each tuple as the generic fallback.
-ROOT_ICON_SETS = {"1995": "Chicago95", "1998": "SE98", "2000": "SE98", "2001": "SE98"}
+ROOT_ICON_SETS = {"1995": "Chicago95", "1998": "SE98", "2000": "SE98", "2001": "Windows-XP"}
 ROOT_ICONS = {
     "1995": {
         "programs": ("applications-all", "folder-open"),
@@ -603,20 +603,58 @@ ROOT_ICONS = {
     },
 }
 ROOT_ICONS["2001"] = {
-    **ROOT_ICONS["2000"],
+    "programs": ("applications-other", "folder-open"),
+    "documents": ("document-open-recent", "folder-documents"),
+    "settings": ("preferences-system", "preferences-desktop"),
+    "find": ("system-search",),
+    "help": ("help-browser",),
+    "run": ("system-run",),
+    "log_off": ("system-log-out",),
+    "shut_down": ("system-shutdown",),
     "catalog": ("system-software-install",),
-    "update": ("software-update-available", "system-software-update"),
+    "update": ("system-software-update", "software-update-available"),
 }
+
 ICON_SET_DIRS = [Path.home() / ".local/share/icons", Path.home() / ".icons", Path("/usr/share/icons")]
+
+
+# Only prefer archive artwork verified against the XP menus. Other archive entries include
+# older, palette-limited variants and should retain the selected desktop theme's artwork.
+XP_MENU_ORIGINALS = {
+    "applications-other", "document-open-recent", "preferences-system", "system-search",
+    "help-browser", "help-contents", "system-run", "system-log-out", "system-shutdown",
+    "system-software-update",
+}
+
+
+def original_xp_icon(name):
+    """Prefer the user's original artwork to approximations in the desktop icon pack."""
+    if name not in XP_MENU_ORIGINALS:
+        return None
+    for base in ICON_SET_DIRS:
+        files = sorted((base / "Windows-XP-Originals").glob(f"*/*/{name}.png"))
+        if files:
+            icon = QIcon()
+            for path in files:
+                icon.addFile(str(path))
+            return icon
+    return None
 
 
 def root_icon(item, style):
     """The item's icon from the style's matched icon set, or from the desktop's icon theme."""
     names = ROOT_ICONS.get(style, ROOT_ICONS["1995"])[item]
+    if style == "2001":
+        for name in names:
+            original = original_xp_icon(name)
+            if original is not None:
+                return original
     icon_set = ROOT_ICON_SETS.get(style)
     for base in ICON_SET_DIRS:
         for name in names[:-1] or names:
             files = sorted((base / icon_set).glob(f"*/*/{name}.png")) if icon_set else []
+            if not files and style == "2001":
+                files = sorted((base / icon_set).glob(f"scalable/*/{name}.svg"))
             if files:
                 icon = QIcon()
                 for path in files:
@@ -822,7 +860,9 @@ def launch_luna_item(item):
 
 
 def luna_icon(item):
-    return themed_icon(item["icon"] if isinstance(item, dict) else item)
+    name = item["icon"] if isinstance(item, dict) else item
+    original = original_xp_icon(name)
+    return original if original is not None else themed_icon(name)
 
 
 def build_luna_menu():

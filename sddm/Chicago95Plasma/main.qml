@@ -18,6 +18,7 @@ Rectangle {
     readonly property string uiFamily: uiFont.status === FontLoader.Ready ? uiFont.name : "sans-serif"
     property int sessionIndex: Math.max(0, sessionModel.lastIndex)
     property bool showOptions: false
+    readonly property bool classicOptions: !modern && (showOptions || sessionNames.length > 1)
 
     // qmllint disable unqualified
     // The SDDM greeter injects these as context properties, which qmllint cannot see; every other use goes through them.
@@ -345,23 +346,23 @@ Rectangle {
         // 2000's top edge sits a third of the way down the free space above its expanded size, like the
         // original, and stays there while Options grows the dialog; classic is centred.
         anchors.horizontalCenter: parent.horizontalCenter
-        y: root.modern ? Math.round((parent.height - 256 * root.pixelScale) * 0.33) : (parent.height - height) / 2
+        y: root.modern ? Math.round((parent.height - 256 * root.pixelScale) * 0.33) : Math.round((parent.height - 142 * root.pixelScale) * 0.2633)
         transformOrigin: root.modern ? Item.Top : Item.Center
-        width: root.modern ? 417 : 420
-        height: root.modern ? 229 + 27 * root.optionRows : 162
+        width: root.modern ? 417 : 459
+        height: root.modern ? 229 + 27 * root.optionRows : 142 + (root.classicOptions ? 30 : 0) + (failure.text ? 20 : 0)
         scale: root.pixelScale
-        style: root.modern ? "window" : "raised"
+        style: "window"
 
         // One grid for every row: labels at labelX, controls at fieldX, rows rowPitch apart,
         // each label centred on its control. Classic puts OK and Cancel beside the first two rows,
         // 2000 puts four buttons along the bottom under its banner. 2000's numbers are the original's
         // (tests/test_login_reference.py).
-        readonly property int labelX: root.modern ? 12 : 76
-        readonly property int fieldX: root.modern ? 87 : 152
-        readonly property int fieldWidth: root.modern ? 243 : 172
-        readonly property int rowHeight: root.modern ? 20 : 21
-        readonly property int firstRowY: root.modern ? 130 : 56
-        readonly property int rowPitch: root.modern ? 27 : 28
+        readonly property int labelX: root.modern ? 12 : 93
+        readonly property int fieldX: root.modern ? 87 : 165
+        readonly property int fieldWidth: root.modern ? 243 : 135
+        readonly property int rowHeight: root.modern ? 20 : 23
+        readonly property int firstRowY: root.modern ? 130 : 68
+        readonly property int rowPitch: root.modern ? 27 : 30
         function rowY(row) {
             return firstRowY + row * rowPitch;
         }
@@ -390,9 +391,16 @@ Rectangle {
                     color: titleBar.colors[0]
                 }
                 GradientStop {
-                    position: 1
+                    position: root.modern ? 1 : 0.95
                     color: titleBar.colors[titleBar.colors.length - 1]
                 }
+            }
+            Rectangle {
+                visible: !root.modern
+                anchors.right: parent.right
+                width: 36
+                height: parent.height
+                color: titleBar.colors[titleBar.colors.length - 1]
             }
             RetroLabel {
                 x: 4
@@ -403,21 +411,39 @@ Rectangle {
             }
         }
 
+        Row {
+            visible: !root.modern
+            x: parent.width - 39
+            y: 5
+            spacing: 2
+            RetroButton {
+                width: 16
+                height: 14
+                label: "?"
+                onClicked: root.showOptions = !root.showOptions
+            }
+            RetroButton {
+                width: 16
+                height: 14
+                label: "×"
+                onClicked: cancelButton.clicked()
+            }
+        }
+
         Image {
             visible: !root.modern
-            x: 14
-            y: 30
-            width: 48
+            x: 25
+            y: 33
+            width: 45
             height: 48
-            source: root.theme.loginIcon || "key.svg"
-            sourceSize.width: 192
-            sourceSize.height: 192
+            source: root.theme.loginIcon || "key-9x.png"
+            smooth: false
         }
 
         RetroLabel {
             visible: !root.modern
             x: dialog.labelX
-            y: 32
+            y: 34
             text: root.theme.loginMessage || "Type a user name and password to log on."
         }
 
@@ -439,7 +465,7 @@ Rectangle {
         RetroLabel {
             x: dialog.labelX
             anchors.verticalCenter: userField.verticalCenter
-            text: "User name:"
+            text: root.modern ? "User name:" : "<u>U</u>ser name:"
         }
         RetroField {
             id: userField
@@ -449,10 +475,10 @@ Rectangle {
             height: dialog.rowHeight
             text: root.users.lastUser
             KeyNavigation.tab: passwordField.input
-            arrowSpace: root.userNames.length > 0 ? 18 : 0
+            arrowSpace: root.userNames.length > 1 ? 18 : 0
             // The users of this computer, like an editable dropdown: type a name or pick one.
             ArrowButton {
-                visible: root.userNames.length > 0
+                visible: root.userNames.length > 1
                 open: userList.visible
                 MouseArea {
                     anchors.fill: parent
@@ -477,14 +503,14 @@ Rectangle {
         RetroLabel {
             x: dialog.labelX
             anchors.verticalCenter: passwordField.verticalCenter
-            text: "Password:"
+            text: root.modern ? "Password:" : "<u>P</u>assword:"
         }
         RetroField {
             id: passwordField
             x: dialog.fieldX
             y: dialog.rowY(1)
             width: dialog.fieldWidth
-            height: dialog.rowHeight
+            height: dialog.rowHeight + (root.modern ? 0 : 1)
             echoMode: root.showPassword ? TextInput.Normal : TextInput.Password
             KeyNavigation.tab: okButton
         }
@@ -537,14 +563,14 @@ Rectangle {
         RetroLabel {
             id: failure
             x: dialog.labelX
-            y: root.modern ? dialog.bottomButtonsY + 5 : dialog.rowY(3) + 4
+            y: root.modern ? dialog.bottomButtonsY + 5 : dialog.height - 18
             color: "#800000"
         }
 
         RetroButton {
             id: okButton
-            x: root.modern ? 86 : parent.width - 89
-            y: root.modern ? dialog.bottomButtonsY : dialog.besideRow(0)
+            x: root.modern ? 86 : 371
+            y: root.modern ? dialog.bottomButtonsY : 33
             label: "OK"
             isDefault: true
             KeyNavigation.tab: cancelButton
@@ -552,10 +578,11 @@ Rectangle {
         }
         RetroButton {
             id: cancelButton
-            x: root.modern ? 167 : parent.width - 89
-            y: root.modern ? dialog.bottomButtonsY : dialog.besideRow(1)
+            width: root.modern ? 75 : 74
+            x: root.modern ? 167 : 372
+            y: root.modern ? dialog.bottomButtonsY : 63
             label: "Cancel"
-            KeyNavigation.tab: root.modern ? shutDownButton : sessionCombo
+            KeyNavigation.tab: root.modern ? shutDownButton : sessionCombo.visible ? sessionCombo : userField.input
             onClicked: {
                 passwordField.text = "";
                 failure.text = "";
@@ -621,7 +648,7 @@ Rectangle {
         }
         RetroCombo {
             id: sessionCombo
-            visible: !root.modern || root.showOptions
+            visible: root.modern ? root.showOptions : root.classicOptions
             x: dialog.fieldX
             y: dialog.rowY(2)
             width: dialog.fieldWidth

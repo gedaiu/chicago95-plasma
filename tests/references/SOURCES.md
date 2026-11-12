@@ -115,3 +115,31 @@ Windows XP (Luna and XP Classic), from Toasty Technology, GUIdebook, Wikipedia a
 | `xpcrash.png` | http://toastytech.com/guis/wxpcrash.png (Toasty Technology, Windows XP: an error dialog) |
 | `xpquicklaunch.png` | http://hitanykey.x10host.com/images/quick-launch-bar-win-xp.png (a Windows XP Quick Launch bar screenshot, 492x241 true colour at 2x: every pixel doubled, so the 30px taskbar is rows 181..240; downscale by 2 for 1x. Used for the grip, icon pitch and band gaps) |
 | `xpquicklaunchchevron.png` | https://avatars.dzeninfra.ru (a Windows XP Quick Launch overflow chevron and menu, 334x233, from a palette-quantised GIF: geometry only, not for colours) |
+
+Additional shell audit references (2026-11-12):
+
+| File | Source |
+| --- | --- |
+| `win95login.png` | https://www.guidebookgallery.org/pics/gui/startupshutdown/login/win95.png (640×480, Windows 95 Welcome to Windows dialog) |
+| `win98login.png` | https://www.guidebookgallery.org/pics/gui/startupshutdown/login/win98.png (640×480, Windows 98 Welcome to Windows dialog) |
+| `win98boot.png` | https://www.guidebookgallery.org/pics/gui/startupshutdown/splash/win98-1-1.png (640×400 DOS pixel aspect ratio; displayed at 4:3) |
+
+The shipped `sddm/Chicago95Plasma/key-9x.png` is the isolated 45×48 key icon at
+(115, 122) in `win95login.png`, with the face colour made transparent.
+`splash/chicago95.splashscreen/contents/splash/images/windows98.png` is the Windows 98
+boot artwork corrected from 640×400 to 640×480 with nearest-neighbour sampling.
+The Plymouth strip animation is reconstructed; the source establishes one frame,
+not its timing or every animated palette state.
+
+| File | Source |
+| --- | --- |
+| `xpclassiclogin.png` | https://1.bp.blogspot.com/-gGn3zA_2-pI/T-FDJMwAATI/AAAAAAAAAFs/YWVIkH_q6Iw/s1600/user_account_24b.png (published at https://mann4world.blogspot.com/2012/12/how-to-disableenable-windows-xp-welcome.html; classic logon form with Luna window decoration) |
+
+`data/xp-logon-banner.png` is only the 411×93 banner at (71, 131) in that capture.
+It validates the XP banner, not the Classic window frame or the Linux session controls.
+
+`data/2000-logon-banner.png` isolates the original 411×93 banner at (114, 96)
+in `w2klogon.png`. `images/windows2000-brand.png` in the splash theme isolates
+(100, 0)–(640, 365) of `w2kboot.png`, containing the static logo and wordmarks.
+The boot progress and login fields remain live components; these assets apply
+only to the original product branding, with custom logos retaining the drawn layout.

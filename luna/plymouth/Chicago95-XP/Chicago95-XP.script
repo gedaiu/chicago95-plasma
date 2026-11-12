@@ -22,7 +22,8 @@ else
   }
 
 logo = Sprite(logo_image.Scale(Math.Int(logo_image.GetWidth() * fit), Math.Int(logo_image.GetHeight() * fit)));
-logo.SetPosition(Math.Int(layout_x + 209 * unit), Math.Int(123 * unit), 1);
+# Centred on the XP wordmark's centre: the 244 pixel wordmark lands at x 209; a branded logo, wider, around it.
+logo.SetPosition(Math.Int(layout_x + 331 * unit - logo_image.GetWidth() * fit / 2), Math.Int(123 * unit), 1);
 
 trough = Sprite(trough_image.Scale(Math.Int(trough_image.GetWidth() * fit), Math.Int(trough_image.GetHeight() * fit)));
 trough.SetPosition(Math.Int(layout_x + 255 * unit), Math.Int(351 * unit), 1);

@@ -125,6 +125,7 @@ apply_look() {
   1995) set -- "#000080;#808080;#808080;#C0C0C0" ;;
   1998)
     SETUP_START_MENU_STYLE=1998
+    SETUP_SPLASH_IMAGE="$REPO/splash/chicago95.splashscreen/contents/splash/images/windows98.png"
     SETUP_ICONS=${OPT_ICONS:-se98}
     set -- "#000080,#1084D0;#808080,#C0C0C0;#00007B,#00007B@95,#0000B0@70,#0000F8@45,#0000EE@20,#0000A9@0;#FFFFFF"
     ;;
@@ -136,7 +137,9 @@ apply_look() {
     SETUP_ICONS=${OPT_ICONS:-classicos2000}
     SETUP_START_LOGO=$(default_start_logo)
     SETUP_BANNER_TEXT=$(default_banner_text)
-    [ "$1" = 2001 ] && SETUP_LOGIN_STYLE=2000 SETUP_BOOT_STYLE=2000
+    SETUP_LOGIN_STYLE=2000
+    SETUP_BOOT_STYLE=2000
+    [ "$1" = 2001 ] && SETUP_BOOT_STYLE=luna SETUP_ICONS=${OPT_ICONS:-windowsxp} SETUP_COMPANY=Microsoft
     set -- "#0A246A,#A6CAF0;#808080,#C0C0C0;#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0;#FFFFFF"
     ;;
   luna)
@@ -477,8 +480,29 @@ xp_icon_fallback() {
   [ "${SETUP_DRY_RUN:-0}" = 1 ] || [ ! -f "$icons/Windows-XP/index.theme" ] || {
     sed -i '/^Inherits=/d' "$icons/Windows-XP/index.theme"
     sed -i "/^\[Icon Theme\]/a Inherits=$inherits" "$icons/Windows-XP/index.theme"
+    drop_scalable_folders "$icons/Windows-XP/index.theme"
   }
   show_copy "(Inherits=$inherits)" "$icons/Windows-XP/index.theme"
+}
+
+# The B00merang pack's scalable/ SVGs wrap 16px bitmaps yet claim 8..512 pixels, so Qt stretched them into every
+# size between the pack's PNGs (the Control Panel's 48px icons at 1.5x): the index lists the PNG folders alone.
+drop_scalable_folders() { # drop_scalable_folders <index.theme>
+  python3 -I - "$1" <<'PY'
+import sys
+from pathlib import Path
+
+index = Path(sys.argv[1])
+kept, skipping = [], False
+for line in index.read_text().splitlines():
+    if line.startswith("["):
+        skipping = line.startswith("[scalable/")
+    if line.startswith("Directories="):
+        line = "Directories=" + ",".join(d for d in line[12:].split(",") if not d.startswith("scalable/"))
+    if not skipping:
+        kept.append(line)
+index.write_text("\n".join(kept) + "\n")
+PY
 }
 
 apply_icon_set() {
@@ -768,6 +792,8 @@ step_tools_common() { # shared by every PySide6 component; idempotent
   fi
   put_file "$REPO/lib/chicago95ui.py" ~/.local/lib/chicago95/chicago95ui.py
   put_file "$REPO/lib/gtk_palette.py" ~/.local/lib/chicago95/gtk_palette.py
+  put_file "$REPO/data/2000-logon-banner.png" ~/.local/share/chicago95/2000-logon-banner.png
+  put_file "$REPO/data/xp-logon-banner.png" ~/.local/share/chicago95/xp-logon-banner.png
   put_file "$REPO/lib/login_preview.py" ~/.local/lib/chicago95/login_preview.py
   put_file "$REPO/lib/chicago95update.py" ~/.local/lib/chicago95/chicago95update.py
   put_file "$REPO/lib/chicago95animations.py" ~/.local/lib/chicago95/chicago95animations.py
@@ -1241,7 +1267,7 @@ image_source() {
   flag) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-flag.png" ;;
   penguin) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-penguin.svg" ;;
   waving-flag) printf '%s' "$WAVING_FLAG" ;;
-  keys) printf '%s' "$SDDM_THEME_SRC/key.svg" ;;
+  keys) printf '%s' "$SDDM_THEME_SRC/key-9x.png" ;;
   padlock) printf '%s' "$SDDM_THEME_SRC/padlock.svg" ;;
   classic) printf '%s' "$REPO/splash/chicago95.splashscreen/contents/splash/images/background.png" ;;
   *) printf '%s' "$1" ;;
@@ -1259,15 +1285,22 @@ start_logo_file() {
 
 # The login theme's settings. Values travel through the environment into awk, so any text the user
 # typed (slashes, ampersands, quotes) lands in theme.conf as written.
+xp_login() { [ "${SETUP_LOGIN_STYLE:-classic}" = luna ]; }
+
 sddm_theme_conf() {
   LOGIN_STYLE="${SETUP_LOGIN_STYLE:-classic}" \
     LOGIN_TITLE="${SETUP_LOGIN_TITLE:-Log On to %h}" LOGIN_MESSAGE="${SETUP_LOGIN_MESSAGE:-Type a user name and password to log on.}" \
     LOGIN_ICON="login-icon.$(extension "$(image_source "${SETUP_LOGIN_ICON:-keys}")")" \
     TITLE_ACTIVE="$([ "${SETUP_LOGIN_STYLE:-classic}" = 2000 ] && echo '#0A246A,#A6CAF0')" \
+    BRAND_TEXT="$(xp_login && printf '%s' "${SETUP_BANNER_TEXT:-Chicago95}")" \
+    BRAND_LOGO="$(xp_login && printf 'brand-logo.%s' "$(extension "$(login_logo)")")" \
+    COMPANY="$(xp_login && printf '%s' "${SETUP_COMPANY:-KDE}")" EDITION="$(xp_login && printf '%s' "${SETUP_EDITION:-Professional}")" \
     awk -F= 'BEGIN {
             value["loginStyle"] = ENVIRON["LOGIN_STYLE"]; value["loginTitle"] = ENVIRON["LOGIN_TITLE"]
             value["loginMessage"] = ENVIRON["LOGIN_MESSAGE"]; value["loginIcon"] = ENVIRON["LOGIN_ICON"]
             value["titleActive"] = ENVIRON["TITLE_ACTIVE"]
+            value["brandText"] = ENVIRON["BRAND_TEXT"]; value["brandLogo"] = ENVIRON["BRAND_LOGO"]
+            value["company"] = ENVIRON["COMPANY"]; value["edition"] = ENVIRON["EDITION"]
         }
         /^[A-Za-z]+=/ && ($1 in value) { print $1 "=" value[$1]; next }
         { print }' "$SDDM_THEME_SRC/theme.conf"
@@ -1287,8 +1320,11 @@ step_sddm() { # login screen; system files, so it asks for the administrator pas
     record "$banner"
     commands+=("sudo cp $banner $SDDM_THEME_DIR/brand-banner.png")
   fi
-  if [ "${SETUP_LOGIN_STYLE:-classic}" = luna ]; then
+  local brand_logo
+  if xp_login; then
+    brand_logo=$(login_logo)
     commands+=("sudo cp -r $REPO/luna/qml $SDDM_THEME_DIR/luna/qml" "sudo cp -r $REPO/luna/sddm $SDDM_THEME_DIR/luna/sddm" "sudo cp -r $REPO/luna/images $SDDM_THEME_DIR/luna/images")
+    commands+=("sudo cp $brand_logo $SDDM_THEME_DIR/brand-logo.$(extension "$brand_logo")")
   fi
   commands+=("sudo tee $SDDM_THEME_DIR/theme.conf   (writes: login style ${SETUP_LOGIN_STYLE:-classic})")
   commands+=("sudo tee $SDDM_OVERRIDE   (writes: [Theme] Current=Chicago95Plasma)")
@@ -1318,6 +1354,8 @@ step_sddm() { # login screen; system files, so it asks for the administrator pas
       run sudo cp -r "$REPO/luna/$luna_tree" "$SDDM_THEME_DIR/luna/$luna_tree"
       while IFS= read -r file; do show_copy "$file" "$SDDM_THEME_DIR/luna/${file#"$REPO"/luna/}"; done < <(find "$REPO/luna/$luna_tree" -type f | sort)
     done
+    run sudo cp "$brand_logo" "$SDDM_THEME_DIR/brand-logo.$(extension "$brand_logo")"
+    show_copy "$brand_logo" "$SDDM_THEME_DIR/brand-logo.$(extension "$brand_logo")"
   fi
   if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run sudo tee "$SDDM_THEME_DIR/theme.conf"; else sddm_theme_conf | sudo tee "$SDDM_THEME_DIR/theme.conf" >/dev/null; fi
   show_copy "(login style: ${SETUP_LOGIN_STYLE:-classic})" "$SDDM_THEME_DIR/theme.conf"
@@ -1328,7 +1366,7 @@ step_sddm() { # login screen; system files, so it asks for the administrator pas
 }
 
 step_plymouth() { # boot screen; system files and a rebuilt boot image, so it asks for the administrator password
-  local theme_src="${SETUP_CHICAGO95_SRC:-$HOME/src/Chicago95}/Plymouth/Chicago95" name=Chicago95 current build
+  local theme_src="${SETUP_CHICAGO95_SRC:-$HOME/src/Chicago95}/Plymouth/Chicago95" name=Chicago95 current build=""
   command -v plymouth-set-default-theme >/dev/null 2>&1 || {
     ui_status "Plymouth is not installed; skipping the boot screen"
     return
@@ -1336,6 +1374,21 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
   if [ "$(boot_style)" = luna ]; then
     name=Chicago95-XP
     theme_src="$REPO/luna/plymouth/Chicago95-XP"
+    if [ -n "${SETUP_BANNER_TEXT-Chicago95}" ]; then # the user's branding in place of the XP wordmark
+      build="${TMPDIR:-/tmp}/chicago95-plymouth-$$"
+      run rm -rf "$build"
+      run cp -r "$theme_src" "$build"
+      run env QT_QPA_PLATFORM=offscreen python3 "$REPO/luna/plymouth/branded_logo.py" --out "$build" \
+        --name "${SETUP_BANNER_TEXT-Chicago95}" --company "${SETUP_COMPANY:-KDE}" --edition "${SETUP_EDITION:-Professional}" \
+        --logo "$(login_logo)"
+      theme_src="$build"
+    fi
+  elif [ "$(boot_style)" = classic ] && [ "${SETUP_LOOK:-}" = 1998 ]; then
+    name=Chicago95-98
+    build="${TMPDIR:-/tmp}/chicago95-plymouth-$$"
+    run python3 "$REPO/setup/make_98_boot.py" "$theme_src" \
+      "$REPO/splash/chicago95.splashscreen/contents/splash/images/windows98.png" "$build"
+    theme_src="$build"
   elif [ "$(boot_style)" = 2000 ]; then
     # The 2000 start-up screen: our loading screen, rendered at the monitor's size, under the Plymouth
     # script's progress blocks (plymouth/Chicago95-2000); the classic look keeps Chicago95's own theme.
@@ -1373,7 +1426,7 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
   ui_status "Rebuilding the boot image; this takes a minute or two..."
   run sudo plymouth-set-default-theme -R "$name" >>"$SETUP_LOG" 2>&1
   [ "$current" = "$name" ] || record "plymouth:$current"
-  [ "$name" = Chicago95-2000 ] && run rm -rf "$build"
+  [ -z "$build" ] || run rm -rf "$build"
 }
 
 plasma_script() { gdbus call --session --dest org.kde.plasmashell --object-path /PlasmaShell --method org.kde.PlasmaShell.evaluateScript "$1"; }

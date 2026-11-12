@@ -15,12 +15,20 @@ SIZE = (800, 600)
 @contextmanager
 def themed(app, look):
     import chicago95ui
+    from PySide6.QtGui import QIcon
     from render_report import KDEGLOBALS
+
+    previous_icons = QIcon.themeName()
 
     settings = f"[StartMenu]\nstyle={look}\n[Look]\nwidgetStyle={look if look == 'luna' else 'classic'}\n"
     with installed_look(app, settings, KDEGLOBALS.get(look, "")):
         chicago95ui.apply_style(app)
-        yield
+        QIcon.setThemeName({"1995": "Chicago95", "1998": "SE98", "2000": "ClassicOS-2000",
+                            "2001": "Windows-XP", "luna": "Windows-XP"}[look])
+        try:
+            yield
+        finally:
+            QIcon.setThemeName(previous_icons)
     chicago95ui.apply_style(app)
 
 
@@ -56,11 +64,12 @@ def boot(app, look, scratch):
     from plasma_session import CHICAGO95_SRC
 
     if look in ("1995", "1998"):
-        asset = CHICAGO95_SRC / "Plymouth/Chicago95/win95_boot_10.png"
+        asset = (REPO / "splash/chicago95.splashscreen/contents/splash/images/windows98.png"
+                 if look == "1998" else CHICAGO95_SRC / "Plymouth/Chicago95/win95_boot_10.png")
         if not asset.exists():
             return None
         return Image.open(asset).convert("RGB").resize(SIZE, Image.Resampling.NEAREST)
-    if look == "luna":
+    if look in ("2001", "luna"):
         from luna_qml import render_luna_splash
 
         return render_luna_splash(app, size=SIZE)
@@ -71,6 +80,10 @@ def boot(app, look, scratch):
     settings = (folder / "settings.js").read_text().replace('var style = "classic"', 'var style = "2000"')
     logo = WAVING_FLAG if WAVING_FLAG.exists() else DEFAULT_LOGO
     settings = settings.replace('var brandLogo = ""', f"var brandLogo = {json.dumps(str(logo))}")
+    settings = settings.replace('var company = ""', 'var company = "Microsoft"')
+    settings = settings.replace('var tagline = "Built on Linux Technology"', 'var tagline = "Built on NT Technology"')
+    settings = settings.replace('var footer = "Chicago95 for KDE Plasma"',
+                                'var footer = "Copyright © 1985-1999 Microsoft Corporation"')
     settings = settings.replace(
         'var brandText = "Chicago95"', f'var brandText = "Windows {"XP" if look == "2001" else "2000"}"'
     )
@@ -110,7 +123,9 @@ def login(app, look, scratch):
         size=SIZE,
         user="Alex",
         users=("Alex",),
-        host_name="CHICAGO95",
+        host_name="WINDOWS",
+        loginTitle="Log On to Windows" if look in ("2000", "2001") else "Welcome to Windows",
+        loginMessage="Type a user name and password to log on to Windows.",
         banner=banner,
         loginStyle="2000" if look in ("2000", "2001") else "classic",
         titleActive={"1995": "#000080", "1998": "#000080,#1084d0"}.get(look, "#0a246a,#a6caf0"),
@@ -122,6 +137,8 @@ def taskbars(app, look, scratch):
     from aurorae_model import LOOKS
     from render_report import DEFAULT_LOGO
 
+    start_logo = (REPO / "plasmoids/org.chicago95.start/contents/images/logo-xp-16.png"
+                  if look == "2001" else DEFAULT_LOGO)
     scratch.mkdir(parents=True, exist_ok=True)
     luna = look == "luna"
     themes = scratch / "themes"
@@ -185,6 +202,11 @@ def taskbars(app, look, scratch):
         ("Overflow · chevrons hovered", tasks, True, "left", "hovered"),
         ("Overflow · chevrons pressed", tasks, True, "left", "held"),
         ("Overflow · Quick Launch docked right", tasks, True, "right", "normal"),
+        ("Start hovered", tasks, False, "left", "start-hovered"),
+        ("Start pressed", tasks, False, "left", "start-held"),
+        ("Quick Launch hovered", tasks, False, "left", "launch-hovered"),
+        ("Quick Launch pressed", tasks, False, "left", "launch-held"),
+        ("Task button hovered", tasks, False, "left", "task-hovered"),
     ]
     launchers = [
         "folder",
@@ -206,7 +228,8 @@ def taskbars(app, look, scratch):
                 + json.dumps(PALETTE["taskbar"])
                 + "; Rectangle { required property string modelData; width: 800; height: 1; color: modelData } } }"
             )
-            start = f'Start.StartButton {{ id: startButton; width: {start_width}; height: 30; text: "start" }}'
+            start = (f'Start.StartButton {{ id: startButton; width: {start_width}; height: 30; text: "start"; '
+                     'hovered: root.variant === "start-hovered"; held: root.variant === "start-held" }')
         else:
             background = (
                 f'color: "{LOOKS[look]["face"]}"\n'
@@ -215,7 +238,8 @@ def taskbars(app, look, scratch):
             )
             start = (
                 'Start.StartButton { id: startButton; x: 2; y: 2; width: implicitWidth; height: 24; text: "Start"; '
-                f'logoSource: "{DEFAULT_LOGO.as_uri()}"; look: "{look}"; '
+                'hovered: root.variant === "start-hovered"; held: root.variant === "start-held"; '
+                f'logoSource: "{start_logo.as_uri()}"; look: "{look}"; '
                 f'bevel: "{"2000" if look in ("2000", "2001") else "1995"}"; face: "{LOOKS[look]["face"]}" }}'
             )
         band_size = "2 * metrics.cellWidth + metrics.chevronWidth" if overflow else "Band.fitAll()"
@@ -239,6 +263,7 @@ def taskbars(app, look, scratch):
                 f"Rectangle {{ id: root; width: 800; height: {bar_height}",
                 f'Component.onCompleted: {{ KSvg.ImageSet.basePath = "{themes}"; '
                 f'KSvg.ImageSet.imageSetName = "{name}" }}',
+                f'property string variant: "{state}"',
                 f"property bool hovered: {str(state == 'hovered').lower()}",
                 f"property bool held: {str(state == 'held').lower()}",
                 f"property var launchers: {json.dumps(launchers if overflow else launchers[:3])}",
@@ -264,7 +289,9 @@ def taskbars(app, look, scratch):
                 "Repeater { model: root.band.shown; Tasks.QuickLaunchButton { required property int index; "
                 f"x: root.band.cellsX + index * root.metrics.cellWidth; y: {applet_y}; "
                 f"width: root.metrics.cellWidth; height: {applet_height}; "
-                "icon: root.launchers[root.band.firstShown + index] } }",
+                "icon: root.launchers[root.band.firstShown + index]; "
+                'hovered: index === 0 && root.variant === "launch-hovered"; '
+                'held: index === 0 && root.variant === "launch-held" } }',
                 f"Tasks.Chevron {{ visible: root.band.chevronX >= 0; x: root.band.chevronX; y: {applet_y}; "
                 f"width: root.metrics.chevronWidth; height: {applet_height}; "
                 f"pointsRight: {str(dock == 'left').lower()}; "
@@ -276,7 +303,7 @@ def taskbars(app, look, scratch):
                 f"width: root.taskWidth; height: {applet_height}; "
                 'text: modelData; icon: ["folder", "preferences-desktop-display", "text-x-generic"][index % 3]; '
                 + task_settings
-                + " pressed: index === 1 } }",
+                + ' hovered: index === 0 && root.variant === "task-hovered"; pressed: index === 1 } }',
                 f"Tray.TrayBox {{ x: root.trayLeft; y: {applet_y}; "
                 f"width: root.width - x - {0 if luna else 2}; height: {applet_height} }}",
                 tray_chevron,
@@ -373,7 +400,45 @@ def scenes(app, look, scratch):
         print(f"{look}: boot omitted — Chicago95 Plymouth assets unavailable")
     panels.append(("Login · Alex", None, login(app, look, scratch)))
     panels.append(("Desktop · composed native-widget preview", None, desktop(app, look, scratch, bars[1][2])))
+    panels.extend(start_menus(app, look, scratch))
     return panels + bars
+
+
+def start_menus(app, look, scratch):
+    """Real root menus, with installed icon artwork and a highlighted item."""
+    from conftest import load_script
+    from reference import render_start_menu
+    from render_report import MENU_SETTINGS
+
+    startmenu = load_script("chicago95-startmenu")
+    rows = []
+    if look == "luna":
+        import chicago95lunamenu
+        from luna_render import sample_apps
+
+        apps = sample_apps()
+        apps[0].update(icon="internet-web-browser", categories=["WebBrowser"])
+        apps[1].update(icon="internet-mail", categories=["Email"])
+        for entry, name, icon in zip(apps[2:], ("Documents", "Pictures", "Music", "Calculator", "Notepad", "Terminal"),
+                                     ("folder-documents", "folder-pictures", "folder-music", "accessories-calculator",
+                                      "text-editor", "utilities-terminal"), strict=False):
+            entry.update(name=name, icon=icon)
+        menu = chicago95lunamenu.LunaMenu(apps, [], lambda _: None, startmenu.luna_icon, None, None, user_name="Alex")
+        menu.adjustSize()
+        rows.append(("Start menu · normal", None, qimage_to_pil(menu.grab().toImage())))
+        for title in ("Internet", "My Documents", "All Programs"):
+            menu.hovered = next(row for row in menu.rows if row.text == title)
+            menu.update()
+            rows.append((f"Start menu · hovered {title}", None, qimage_to_pil(menu.grab().toImage())))
+        menu.close()
+    else:
+        for label, active in (("normal", None), ("selected item", 0)):
+            folder = scratch / f"start-menu-{label}"
+            folder.mkdir()
+            settings, colours = MENU_SETTINGS[look]
+            image = render_start_menu(startmenu, app, folder, settings, colours, without=(), active=active)
+            rows.append((f"Start menu · {label}", None, image))
+    return rows
 
 
 def controls(app, look, scratch):

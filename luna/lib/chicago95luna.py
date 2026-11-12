@@ -489,8 +489,14 @@ def paint_menu_icon(painter, option, colour):
     column = QRect(option.rect.left(), option.rect.top(), MENU_ICON_COLUMN, option.rect.height())
     if not option.icon.isNull():
         mode = QIcon.Normal if option.state & QStyle.State_Enabled else QIcon.Disabled
-        pixmap = option.icon.pixmap(QSize(16, 16), mode)
-        painter.drawPixmap(column.left() + 4, column.top() + (column.height() - pixmap.height()) // 2, pixmap)
+        # A 16 pixel logical box, centred: the icon picks the picture for the screen's own resolution
+        # (a pixmap's height is in device pixels, so centring on it put the icon high at 1.5x).
+        scale = painter.device().devicePixelRatioF()
+        top = round((column.top() + (column.height() - 16) / 2) * scale) / scale  # on a whole device pixel: sharp
+        painter.save()
+        painter.translate(QPointF(column.left() + 4, top))
+        option.icon.paint(painter, QRect(0, 0, 16, 16), Qt.AlignCenter, mode)
+        painter.restore()
         return
     if option.checked:
         paint_centred_pixels(painter, column, CHECK_TICK, colour.name())
