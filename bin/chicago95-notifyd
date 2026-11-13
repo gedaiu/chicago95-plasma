@@ -11,6 +11,7 @@ import argparse
 import os
 import re
 import sys
+import time
 from collections import namedtuple
 from configparser import ConfigParser
 from dataclasses import dataclass
@@ -550,6 +551,13 @@ class PopupHost(QWidget):
         self.setFixedSize(POPUP_WIDTH + 2 * SCREEN_MARGIN, self.column_height)
 
 
+# Cancel on the "Logging off..." notice (chicago95ui.SESSION_END_HINT) stops the logout by answering KWin's own prompt,
+# which comes when a program will not close, with that prompt's Cancel Logout action.
+LOGOUT_PROMPT_EVENT = "cancellogout"
+CANCEL_LOGOUT_ACTION = "1"
+LOGOUT_CANCEL_SECONDS = 60
+
+
 class PopupStack(QObject):
     closed = Signal(int, int)
     action_invoked = Signal(int, str)
@@ -558,6 +566,9 @@ class PopupStack(QObject):
         super().__init__()
         self.popups = {}
         self.host = PopupHost()
+        self.session_end_ids = set()
+        self.logout_prompt_id = None
+        self.logout_cancelled_at = None
 
     def sync_host(self):
         if self.popups and not self.host.isVisible():
@@ -577,6 +588,15 @@ class PopupStack(QObject):
         self.invoke(popup.notification_id, key, popup.resident)
 
     def show(self, notification):
+        if notification.hints.get("x-kde-eventId") == LOGOUT_PROMPT_EVENT:
+            self.logout_prompt_id = notification.notification_id
+            if self.logout_cancel_pending():
+                # After Notify has returned: KWin only knows the prompt's id from that reply.
+                self.logout_cancelled_at = None
+                QTimer.singleShot(0, lambda: self.answer_cancel_logout(notification.notification_id))
+                return
+        if notification.hints.get(chicago95ui.SESSION_END_HINT):
+            self.session_end_ids.add(notification.notification_id)
         existing = self.popups.get(notification.notification_id)
         if existing:
             existing.update_content(notification)
@@ -595,6 +615,7 @@ class PopupStack(QObject):
         self.relayout(targets)
 
     def close(self, notification_id, reason):
+        self.session_end_ids.discard(notification_id)
         popup = self.popups.pop(notification_id, None)
         if popup is None:
             return
@@ -603,7 +624,27 @@ class PopupStack(QObject):
         self.sync_host()
         self.closed.emit(notification_id, reason)
 
+    def answer_cancel_logout(self, notification_id):
+        self.action_invoked.emit(notification_id, CANCEL_LOGOUT_ACTION)
+        self.closed.emit(notification_id, CLOSED_DISMISSED)
+
+    def logout_cancel_pending(self):
+        return (
+            self.logout_cancelled_at is not None and time.monotonic() - self.logout_cancelled_at < LOGOUT_CANCEL_SECONDS
+        )
+
+    def cancel_logout(self):
+        if self.logout_prompt_id in self.popups:
+            self.invoke(self.logout_prompt_id, CANCEL_LOGOUT_ACTION, False)
+        else:
+            self.logout_cancelled_at = time.monotonic()
+
     def invoke(self, notification_id, key, resident):
+        if key == "cancel" and notification_id in self.session_end_ids:
+            self.cancel_logout()
+        if key == CANCEL_LOGOUT_ACTION and notification_id == self.logout_prompt_id:
+            for session_end_id in list(self.session_end_ids):
+                self.close(session_end_id, CLOSED_BY_CALL)
         self.action_invoked.emit(notification_id, key)
         if not resident:
             self.close(notification_id, CLOSED_DISMISSED)

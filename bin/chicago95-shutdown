@@ -8,12 +8,14 @@ sys.path[:0] = [
     os.path.expanduser("~/.local/lib/chicago95"),
 ]
 import argparse
+import functools
 import re
 import shutil
 import subprocess
 
 import chicago95ui  # noqa: E401,E702
-from PySide6.QtCore import QPoint, QPointF, QRect, Qt, QTimer
+import dbus
+from PySide6.QtCore import QObject, QPoint, QPointF, QRect, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QBrush,
     QColor,
@@ -106,6 +108,18 @@ SYSTEMCTL_FALLBACKS = {
     RESTART: ["systemctl", "reboot"],
     LOG_OFF: ["loginctl", "terminate-session", os.environ.get("XDG_SESSION_ID", "self")],
 }
+
+# Log off, shut down and restart announce themselves at the screen's corner, with Cancel (SessionEndNotice).
+SESSION_END_SUMMARIES = {
+    LOG_OFF: "Logging off...",
+    SHUT_DOWN: "{os} is shutting down...",
+    RESTART: "{os} is restarting...",
+}
+SESSION_END_BODY = "Waiting for your programs to close."
+NOTIFICATIONS = "org.freedesktop.Notifications"
+NOTIFICATIONS_PATH = "/org/freedesktop/Notifications"
+# Outlasts KWin's two minutes before it logs out anyway; the daemon closes it sooner when the logout is cancelled.
+NOTICE_TIMEOUT_MS = 180_000
 
 SAFE_TEXT = "It's now safe to turn off\nyour computer."
 SAFE_ORANGE = QColor("#FFA500")
@@ -727,6 +741,67 @@ def log_off(choice, dry_run, dbus_prefix):
         run_command(command, dry_run)
 
 
+def session_end_text(choice, look):
+    return SESSION_END_SUMMARIES[choice].format(os=os_name(look)), SESSION_END_BODY
+
+
+class SessionEndNotice(QObject):
+    """A notification saying the session is ending, with Cancel, that runs the action after delay_ms unless Cancel
+    came first. Cancel later is the notification daemon's: it answers KWin's Cancel Logout prompt for the user.
+    Finishes once the action ran, was cancelled, or its notification closed."""
+
+    finished = Signal()
+
+    def __init__(self, bus, choice, look, action, delay_ms=0):
+        super().__init__()
+        self.bus, self.choice, self.look, self.action, self.delay_ms = bus, choice, look, action, delay_ms
+        self.notification_id = None
+        self.cancelled = False
+
+    def start(self):
+        summary, body = session_end_text(self.choice, self.look)
+        self.bus.add_signal_receiver(self.action_invoked, "ActionInvoked", NOTIFICATIONS)
+        self.bus.add_signal_receiver(self.notification_closed, "NotificationClosed", NOTIFICATIONS)
+        hints = dbus.Dictionary({chicago95ui.SESSION_END_HINT: dbus.Boolean(True)}, signature="sv")
+        dbus.Interface(self.bus.get_object(NOTIFICATIONS, NOTIFICATIONS_PATH), NOTIFICATIONS).Notify(
+            "Chicago95",
+            dbus.UInt32(0),
+            "system-shutdown",
+            summary,
+            body,
+            ["cancel", "Cancel"],
+            hints,
+            dbus.Int32(NOTICE_TIMEOUT_MS),
+            reply_handler=self.shown,
+            error_handler=lambda _error: None,
+        )
+        QTimer.singleShot(self.delay_ms, self.run)
+
+    def shown(self, notification_id):
+        self.notification_id = int(notification_id)
+
+    def run(self):
+        if not self.cancelled:
+            self.action()
+        self.finished.emit()
+
+    def action_invoked(self, notification_id, key):
+        if int(notification_id) == self.notification_id and key == "cancel":
+            self.cancelled = True
+
+    def notification_closed(self, notification_id, _reason):
+        if int(notification_id) == self.notification_id:
+            self.finished.emit()
+
+
+def end_session(app, bus, choice, look, action, delay_ms=0):
+    """Announces the choice (SessionEndNotice), runs action after delay_ms unless cancelled, then returns."""
+    notice = SessionEndNotice(bus, choice, look, action, delay_ms)
+    notice.finished.connect(app.quit)
+    notice.start()
+    return app.exec()
+
+
 def play_shutdown_sound(dry_run):
     sound_file, player = shutdown_sound_file(), sound_player()
     if sound_file and player:
@@ -778,6 +853,29 @@ def grab_widget(widget, path):
     print("saved", path)
 
 
+def luna_screen(app, hold_until_input, status, later_status=None):
+    """The Luna look's full-screen "Logging off..." screen, its status turning to later_status halfway through the
+    wait; None in the classic looks, which have none."""
+    if not luna_dialogs_wanted():
+        return None
+    screen = shutting_down_screen(virtual_screen_geometry(app), hold_until_input=hold_until_input)
+    screen.set_status(status)
+    if later_status:
+        QTimer.singleShot(SAFE_SCREEN_DELAY_MS // 2, lambda: screen.set_status(later_status))
+    screen.showFullScreen()
+    return screen
+
+
+def screen_delay(screen):
+    return SAFE_SCREEN_DELAY_MS if screen else 0
+
+
+def session_bus():
+    from dbus.mainloop.glib import DBusGMainLoop
+
+    return dbus.SessionBus(mainloop=DBusGMainLoop())
+
+
 def main():
     parser = argparse.ArgumentParser(description="Chicago95 Shut Down dialog for KDE")
     parser.add_argument("--log-off", action="store_true", help="ask to log off instead of the Shut Down choices")
@@ -801,19 +899,18 @@ def main():
 
     if args.log_off:
         choice = log_off_choice()
+        if choice == LOG_OFF and not args.dry_run:
+            screen = luna_screen(app, False, "Logging off...")
+            action = functools.partial(log_off, choice, False, dbus_caller())
+            return end_session(app, session_bus(), choice, chicago95ui.look_settings(), action, screen_delay(screen))
         if choice == LOG_OFF and luna_dialogs_wanted():
-            screen = shutting_down_screen(virtual_screen_geometry(app), hold_until_input=args.dry_run)
-            screen.set_status("Logging off...")
-            screen.showFullScreen()
+            screen = luna_screen(app, True, "Logging off...")
 
             def finish_logoff():
                 log_off(choice, args.dry_run, dbus_caller())
-                if not args.dry_run:
-                    app.quit()
 
             QTimer.singleShot(SAFE_SCREEN_DELAY_MS, finish_logoff)
-            if args.dry_run:
-                screen.destroyed.connect(app.quit)
+            screen.destroyed.connect(app.quit)
             return app.exec()
         log_off(choice, args.dry_run, dbus_caller())
         return 0
@@ -823,32 +920,27 @@ def main():
         return 0
 
     command = shutdown_command(choice, dbus_caller())
-    if choice in (DOS_MODE, LOG_OFF, STAND_BY, HIBERNATE):
+    if choice in (DOS_MODE, STAND_BY, HIBERNATE) or (choice == LOG_OFF and args.dry_run):
         run_command(command, args.dry_run)
         return 0
 
     # This process runs inside the user's session. It cannot know when all
     # services have stopped, and must never announce that power is safe to cut.
+    if not args.dry_run:
+        screen = luna_screen(app, False, "Logging off...", "Windows is shutting down...") if choice != LOG_OFF else None
+        if choice != LOG_OFF:
+            play_shutdown_sound(False)
+        action = functools.partial(run_command, command, False)
+        return end_session(app, session_bus(), choice, chicago95ui.look_settings(), action, screen_delay(screen))
     if not luna_dialogs_wanted():
         play_shutdown_sound(args.dry_run)
         run_command(command, args.dry_run)
         return 0
 
-    safe_screen = shutting_down_screen(virtual_screen_geometry(app), hold_until_input=args.dry_run)
-    if luna_dialogs_wanted():
-        safe_screen.set_status("Logging off...")
-        QTimer.singleShot(SAFE_SCREEN_DELAY_MS // 2, lambda: safe_screen.set_status("Windows is shutting down..."))
-    safe_screen.showFullScreen()
+    safe_screen = luna_screen(app, True, "Logging off...", "Windows is shutting down...")
     play_shutdown_sound(args.dry_run)
-
-    def power_off():
-        run_command(command, args.dry_run)
-        if not args.dry_run:
-            app.quit()
-
-    QTimer.singleShot(SAFE_SCREEN_DELAY_MS, power_off)
-    if args.dry_run:
-        safe_screen.destroyed.connect(app.quit)
+    QTimer.singleShot(SAFE_SCREEN_DELAY_MS, lambda: run_command(command, args.dry_run))
+    safe_screen.destroyed.connect(app.quit)
     return app.exec()
 
 

@@ -188,6 +188,11 @@ def look_settings(path=None):
     }
 
 
+# The hint on the "Logging off..." notice (bin/chicago95-shutdown) whose Cancel the notification daemon turns into
+# KWin's Cancel Logout (bin/chicago95-notifyd).
+SESSION_END_HINT = "x-chicago95-session-end"
+
+
 def short_os_name(name):
     """The name before its first digit or edition tag ("Windows2026", "Windows XP" -> "Windows"); the whole name when
     there is none."""
