@@ -603,3 +603,27 @@ contacts are still reported separately; these checks do not certify all animatio
 using the existing paper texture, with no source-image projection. The review can
 select a deliberate unfinished authoring stage using `--candidate after-wire-detail`;
 this makes metric tradeoffs explicit and does not override any acceptance gate.
+
+### Approved smooth-HD color comparison
+
+The user approved a separate smoothed-reference color comparison. The fixed
+policy is `alpha-normalized-gaussian-sigma-0.5-native-pixels-v1`: a 0.5-pixel
+Gaussian with radius 3, applied only to reference RGB using alpha-normalized
+weights. Source alpha is copied exactly. Candidate images are never blurred,
+aligned, cropped, or rescaled beyond the existing full-canvas downsampling.
+Raw-source color scores remain in every new rest-fit report alongside the
+approved comparison. Both original-silhouette IoU and approved color similarity
+must still reach 98% for each source pose; this does not waive choreography,
+local-region, timing, branch, blink, or collision requirements.
+
+The library validator exposes this policy explicitly with
+`--smooth-color-reference`. Legacy raw-source validation remains available;
+its results must not be relabeled as smoothed-reference results. Tests cover
+hidden-RGB isolation, exact alpha preservation, and rejection of shifted frames
+and incorrect timing under the new color policy.
+
+The filter's impulse response is pinned by a regression test, preventing a
+stronger blur from silently changing this agreement. Rest-pose review reports
+include the pupil, paper UV, smooth procedural paper field, and separate-light
+experiments. These remain isolated calibration candidates: a passing silhouette
+does not mean passing color, and neither substitutes for animation validation.

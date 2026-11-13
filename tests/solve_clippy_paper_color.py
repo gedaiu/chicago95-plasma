@@ -36,14 +36,17 @@ def solve(folder):
         penalty = 0.01
         matrix = np.vstack([jac / normalization, penalty * np.eye(n), penalty * edges])
         rhs = np.r_[
-            residual / normalization, -penalty * (current[:, channel] - 1), -penalty * edges @ current[:, channel]
+            residual / normalization,
+            -penalty * (current[:, channel] - spec.get("neutral_value", 1)),
+            -penalty * edges @ current[:, channel],
         ]
         steps.append(np.linalg.lstsq(matrix, rhs, rcond=1e-6)[0])
     step = np.stack(steps, axis=1)
     maximum = float(np.max(abs(step)))
-    if maximum > 0.2:
-        step *= 0.2 / maximum
-    step = np.clip(current + step, 0.5, 1.5) - current
+    maximum_step = spec.get("maximum_step", 0.2)
+    if maximum > maximum_step:
+        step *= maximum_step / maximum
+    step = np.clip(current + step, spec.get("minimum_value", 0.5), spec.get("maximum_value", 1.5)) - current
     return dict(step=step.tolist())
 
 

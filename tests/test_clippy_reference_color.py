@@ -31,6 +31,25 @@ def test_constant_color_survives_partial_alpha_edges():
     np.testing.assert_array_equal(b[:, :, :3], a[:, :, :3])
 
 
+def test_approved_filter_has_fixed_impulse_response():
+    # Pin the approved amount of smoothing independently of implementation
+    # constants, so increasing the blur to improve scores fails this test.
+    source = np.zeros((9, 9, 4), dtype=np.uint8)
+    source[:, :, 3] = 255
+    source[4, 4, :3] = 255
+    result = np.asarray(smooth_reference_color(Image.fromarray(source)))
+    np.testing.assert_array_equal(
+        result[3:6, 3:6, 0], [[3, 21, 3], [21, 158, 21], [3, 21, 3]]
+    )
+
+
+def test_reference_filter_does_not_mutate_source():
+    source = Image.fromarray(np.random.default_rng(7).integers(0, 256, (9, 9, 4), dtype=np.uint8))
+    before = source.tobytes()
+    smooth_reference_color(source)
+    assert source.tobytes() == before
+
+
 def test_approved_reference_passes_without_erasing_raw_failure():
     from review_clippy_3d import original_frames
     from validate_clippy_fidelity import spatial

@@ -10,8 +10,10 @@ import bpy
 import numpy as np
 
 
-def fit(folder, python):
-    bpy.ops.wm.open_mainfile(filepath=str(folder / "rest-after-wire-color.blend"))
+def fit(folder, python, resume=False, iterations=3):
+    bpy.ops.wm.open_mainfile(
+        filepath=str(folder / ("rest-after-paper-color.blend" if resume else "rest-after-wire-color.blend"))
+    )
     s = bpy.context.scene
     s.render.use_persistent_data = True
     s.cycles.samples = 64
@@ -20,19 +22,24 @@ def fit(folder, python):
         raise ValueError("RGB-separated response solve requires Standard color management")
     paper = bpy.data.objects["Plane"]
     mesh = paper.data
-    attribute = mesh.color_attributes.new(name="Paper color calibration", type="FLOAT_COLOR", domain="POINT")
-    values = np.ones((len(mesh.vertices), 3))
+    attribute = mesh.color_attributes.get("Paper color calibration")
+    if attribute is None:
+        attribute = mesh.color_attributes.new(name="Paper color calibration", type="FLOAT_COLOR", domain="POINT")
+        values = np.ones((len(mesh.vertices), 3))
+    else:
+        values = np.array([list(v.color[:3]) for v in attribute.data])
     material = bpy.data.materials["paper"]
     nodes = material.node_tree.nodes
-    paint = nodes.new("ShaderNodeVertexColor")
-    paint.layer_name = attribute.name
-    multiply = nodes.new("ShaderNodeMixRGB")
-    multiply.name = "Interpolated paper color calibration"
-    multiply.blend_type = "MULTIPLY"
-    multiply.inputs[0].default_value = 1
-    material.node_tree.links.new(nodes["Classic paper calibration"].outputs[0], multiply.inputs[1])
-    material.node_tree.links.new(paint.outputs["Color"], multiply.inputs[2])
-    material.node_tree.links.new(multiply.outputs[0], nodes["Principled BSDF"].inputs["Base Color"])
+    if nodes.get("Interpolated paper color calibration") is None:
+        paint = nodes.new("ShaderNodeVertexColor")
+        paint.layer_name = attribute.name
+        multiply = nodes.new("ShaderNodeMixRGB")
+        multiply.name = "Interpolated paper color calibration"
+        multiply.blend_type = "MULTIPLY"
+        multiply.inputs[0].default_value = 1
+        material.node_tree.links.new(nodes["Classic paper calibration"].outputs[0], multiply.inputs[1])
+        material.node_tree.links.new(paint.outputs["Color"], multiply.inputs[2])
+        material.node_tree.links.new(multiply.outputs[0], nodes["Principled BSDF"].inputs["Base Color"])
     history = []
 
     def apply(v):
@@ -61,7 +68,7 @@ def fit(folder, python):
     apply(values)
     render("paper-color-baseline.png")
     initial = best = measure("paper-color-baseline.png")
-    for iteration in range(3):
+    for iteration in range(iterations):
         probes = []
         for i in range(len(values)):
             v = values.copy()
@@ -113,5 +120,7 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--folder", type=Path, required=True)
     p.add_argument("--python", required=True)
+    p.add_argument("--resume", action="store_true")
+    p.add_argument("--iterations", type=int, default=3)
     a = p.parse_args(sys.argv[sys.argv.index("--") + 1 :])
-    fit(a.folder, a.python)
+    fit(a.folder, a.python, a.resume, a.iterations)

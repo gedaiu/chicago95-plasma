@@ -30,6 +30,17 @@ STAGES = [
     ("after-face-shape", "rest-after-face-shape", "Eye and eyebrow outlines"),
     ("after-wire-detail", "rest-after-wire-detail", "Posed wire geometry refinement"),
     ("after-paper-ruling", "rest-after-paper-ruling", "Paper ruling frequency and contrast"),
+    ("after-surface-hd", "rest-after-surface-hd", "Paper curvature from render differences"),
+    ("after-wire-color", "rest-after-wire-color", "Internal wire pose from color evidence"),
+    ("after-shadow", "rest-after-shadow", "Wider cast-shadow lighting search"),
+    ("after-paper-color", "rest-after-paper-color", "Interpolated paper vertex colors"),
+    ("after-metal", "rest-after-metal", "Joint metal material calibration"),
+    ("after-paper-field", "rest-after-paper-field", "Smooth procedural paper color field"),
+    ("after-paper-uv", "rest-after-paper-uv", "Paper ruling placement"),
+    ("after-pupils", "rest-after-pupils", "Independent pupil placement"),
+    ("after-paper-fine-field", "rest-after-paper-fine-field", "Refined smooth paper color field"),
+    ("after-wire-light", "rest-after-wire-light", "Separate wire lighting experiment"),
+    ("after-face-light", "rest-after-face-light", "Face lighting experiment"),
 ]
 
 
