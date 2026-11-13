@@ -109,7 +109,7 @@ def build(folder, landmarks_path, output):
             obj.data.animation_data_clear()
     # New native mesh, using the existing approved lined-paper material.
     mesh = bpy.data.meshes.new("Writing source paper")
-    mesh.from_pydata([(0, 0, 0)] * 64, [], [tuple(range(64))])
+    mesh.from_pydata([(0, 0, 0)] * 65, [], [(0, i + 1, (i + 1) % 64 + 1) for i in range(64)])
     paper = bpy.data.objects.new("WritingPaper", mesh)
     scene.collection.objects.link(paper)
     mesh.materials.append(old_paper.data.materials[0])
@@ -207,7 +207,18 @@ def build(folder, landmarks_path, output):
         # early disappearing-sheet / blank-notepad shortcut.
         if not paper.hide_render:
             perimeter = resample(np.column_stack([np.vstack([poly, poly[0]]), np.zeros(len(poly) + 1)]), 65)[:-1, :2]
-            pixels = perimeter
+            if index == 56:
+                # Preserve the curl without enlarging the source's one-pixel
+                # contour noise into visible saw teeth in the HD mesh.
+                for _ in range(3):
+                    perimeter = (
+                        0.25 * np.roll(perimeter, 1, axis=0) + 0.5 * perimeter + 0.25 * np.roll(perimeter, -1, axis=0)
+                    )
+            pixels = np.vstack([perimeter.mean(0), perimeter])
+            faces = [tuple(range(1, 65))] if index == 56 else [(0, i + 1, (i + 1) % 64 + 1) for i in range(64)]
+            mesh.clear_geometry()
+            mesh.from_pydata([(0, 0, 0)] * 65, [], faces)
+            uv = mesh.uv_layers.active or mesh.uv_layers.new(name="UVMap")
             for vertex, p in zip(mesh.vertices, pixels, strict=True):
                 vertex.co = world(p[0], p[1], far + 0.2)
             # Ruled lines follow the top edge, including perspective shear.
@@ -260,6 +271,7 @@ def build(folder, landmarks_path, output):
                 },
                 [v.co.copy() for v in mesh.vertices],
                 [v.uv.copy() for v in uv.data],
+                [tuple(p.vertices) for p in mesh.polygons],
             )
         )
         rows.append({"source_index": index, "paper_present": True, "pencil_visible": pencil is not None, **contacts})
@@ -276,6 +288,10 @@ def build(folder, landmarks_path, output):
         obj.name = f"WritingPaper{index:03d}"
         scene.collection.objects.link(obj)
         papers.append(obj)
+        obj.data.clear_geometry()
+        obj.data.from_pydata(pose[4], [], pose[6])
+        if not obj.data.uv_layers.active:
+            obj.data.uv_layers.new(name="UVMap")
         for v, co in zip(obj.data.vertices, pose[4], strict=True):
             v.co = co
         for v, co in zip(obj.data.uv_layers.active.data, pose[5], strict=True):

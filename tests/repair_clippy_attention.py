@@ -1,4 +1,4 @@
-"""Repair GetAttention/Wave eye spacing and eye/wire/paper depth intersections.
+"""Repair GetAttention/Wave/IdleSnooze eye spacing and eye/wire/paper depth intersections.
 
 Run after position_clippy_face.py. Output is an isolated candidate; source files
 are untouched. Checks actual evaluated triangle contacts, including the original
@@ -51,7 +51,7 @@ def verify_playback(scene, items, state):
 
 
 def repair(folder, output, action="GetAttention"):
-    if action not in {"GetAttention", "Wave"}:
+    if action not in {"GetAttention", "Wave", "IdleSnooze"}:
         raise ValueError(f"Unsupported action: {action}")
     output.mkdir(parents=True, exist_ok=False)
     manifest = json.loads((folder / "manifest.json").read_text())
@@ -226,9 +226,14 @@ def repair(folder, output, action="GetAttention"):
         "pass": True,
         "rows": rows,
     }
-    (output / ("attention-collisions.json" if action == "GetAttention" else "wave-collisions.json")).write_text(
-        json.dumps(report, indent=2) + "\n"
-    )
+    (
+        output
+        / {
+            "GetAttention": "attention-collisions.json",
+            "Wave": "wave-collisions.json",
+            "IdleSnooze": "snooze-collisions.json",
+        }[action]
+    ).write_text(json.dumps(report, indent=2) + "\n")
     for name in ["bake-verification.json", "wire-repair.json", "face-placement.json"]:
         if (folder / name).is_file():
             shutil.copy2(folder / name, output / name)
@@ -238,6 +243,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--folder", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--action", choices=["GetAttention", "Wave"], default="GetAttention")
+    parser.add_argument("--action", choices=["GetAttention", "Wave", "IdleSnooze"], default="GetAttention")
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
     repair(args.folder, args.output, args.action)

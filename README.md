@@ -713,7 +713,10 @@ blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
   --folder /tmp/clippy-face-placed --output /tmp/clippy-attention-repaired
 blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
   --python tests/repair_clippy_attention.py -- --action Wave \
-  --folder /tmp/clippy-attention-repaired --output /tmp/clippy-library
+  --folder /tmp/clippy-attention-repaired --output /tmp/clippy-wave-repaired
+blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
+  --python tests/repair_clippy_attention.py -- --action IdleSnooze \
+  --folder /tmp/clippy-wave-repaired --output /tmp/clippy-library
 blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
   --python tests/render_clippy_library.py -- --folder /tmp/clippy-library
 python3 tests/review_clippy_library.py /tmp/clippy-library
@@ -856,6 +859,14 @@ master for a second contact audit, and verifies 294 held playback samples; 1,206
 other keyed poses remain unchanged. This clip preserves the source holds and
 does not yet add smooth intermediate motion.
 
+The local [IdleSnooze review](data/clippy/3d-prototype/preview-snooze/index.html)
+uses the same repair with `--action IdleSnooze`. All 88 source poses are checked
+again after reopening the saved master; the 816 held playback samples retain
+the original 13.6-second linear sequence. The repair separates the wire from the
+paper and the face, while preserving the other 1,145 keyed poses. Internal eye
+construction remains recorded. This is a collision repair, not a source-fidelity
+certification or a smooth-motion update; the older combined video is unchanged.
+
 ```sh
 blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
   --python tests/repair_clippy_attention.py -- --action Wave \
@@ -888,3 +899,43 @@ This review checks matching endpoint geometry and pixels within one 8-bit level,
 intermediate renders, and decoded video transparency. The animation keeps the
 original 6.64-second linear sequence to within one 60-fps sample; branch-driven
 interactive playback and the older combined library video are not updated here.
+
+The local [GetArtsy transition review](data/clippy/3d-prototype/preview-artsy/index.html)
+is an isolated 4.9-second candidate with 294 independently rendered 60-fps poses.
+It reconstructs the idle wire before interpolation, fades the paper and reveals
+the mobile continuously over 600 ms, and returns to the identical idle pose.
+Every saved output pose is checked for intersections; intended mobile joints and
+internal eye construction remain. This repairs continuity, not original-image
+fidelity, and does not replace the installed assistant or combined library.
+
+```sh
+blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
+  --python tests/repair_clippy_artsy.py -- \
+  --folder /tmp/clippy-library --output /tmp/clippy-artsy
+blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
+  --python tests/render_clippy_library.py -- --folder /tmp/clippy-artsy
+python3 tests/review_clippy_artsy.py /tmp/clippy-artsy
+```
+
+The local [Writing source comparison](data/clippy/3d-prototype/preview-writing/index.html)
+contains an original/previous/candidate video, every-frame overlays, and the strict
+source-match report. This candidate replaces the early disappearing sheet and
+blank notepad with reference-derived paper outlines, follows the source pencil
+positions, and fits a smooth wire toward the original metal outline. The curl,
+depth and facial acting remain reconstructed: it is **not a finished 98% match**.
+
+```sh
+python3 tests/clippy_writing_reference.py --output /tmp/clippy-writing-reference.json
+blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
+  --python tests/repair_clippy_writing.py -- --folder /tmp/clippy-library \
+  --landmarks /tmp/clippy-writing-reference.json --output /tmp/clippy-writing
+blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
+  --python tests/render_clippy_library.py -- --folder /tmp/clippy-writing
+python3 tests/review_clippy_writing.py /tmp/clippy-writing --before /tmp/clippy-library
+```
+
+The review writes its artifacts and exits nonzero if any source frame fails the
+98% visual/motion gate. Geometry checks separately reopen all 61 poses and verify
+surface contacts, continuous paper visibility, source pencil placement, and the
+original 8.4-second timing and branch metadata. Exports hold source poses; smooth
+intermediate motion, branch playback, and the old combined video are not updated.

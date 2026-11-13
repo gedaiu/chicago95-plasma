@@ -734,7 +734,25 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
     show_copy "(Xft.dpi: $SETUP_DPI)" ~/.Xresources
     record ~/.Xresources
     kconf kcmfonts General forceFontDPI "$SETUP_DPI"
+    scale_x11_programs
   fi
+}
+
+# Wine and Steam draw their own interfaces and follow neither Xft.dpi nor the desktop's scale: Wine keeps its own DPI
+# (96 unless set) in its registry, and Steam reads its scale from its environment.
+scale_x11_programs() {
+  local steam_env=~/.config/environment.d/chicago95-scale.conf
+  if [ -d ~/.wine ] && command -v wine >/dev/null; then
+    run env WINEDEBUG=-all wine reg add 'HKCU\Control Panel\Desktop' /v LogPixels /t REG_DWORD /d "$SETUP_DPI" /f >>"${SETUP_LOG:-/dev/null}" 2>&1
+  fi
+  backup "$steam_env"
+  if [ "${SETUP_DRY_RUN:-0}" != 1 ]; then
+    mkdir -p "$(dirname "$steam_env")"
+    printf 'STEAM_FORCE_DESKTOPUI_SCALING=%s\n' "$SETUP_SCALE" >"$steam_env"
+  fi
+  record "$steam_env"
+  show_copy "(STEAM_FORCE_DESKTOPUI_SCALING=$SETUP_SCALE)" "$steam_env"
+  run systemctl --user set-environment "STEAM_FORCE_DESKTOPUI_SCALING=$SETUP_SCALE"
 }
 
 install_luna_plasmoid_files() {

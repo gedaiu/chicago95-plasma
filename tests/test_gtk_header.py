@@ -288,3 +288,40 @@ def test_the_location_entry_is_the_same_sunken_field_as_the_address_bar(address)
 
 def test_the_current_folders_heading_label_is_regular_weight_like_the_rest(address):
     assert "font-weight: normal;" in rule_body(address, ".nautilus-pathbar .nautilus-path-button label.heading")
+
+
+def test_the_toolbar_reaches_the_panes_edges_like_the_sidebars_selected_row(strip):
+    assert "padding-left: 0;" in rule_body(strip, gtk_header.STRIP)
+
+
+def test_the_button_after_the_lifted_icon_takes_back_libadwaitas_6px_gap(strip):
+    assert "margin-left: -6px;" in rule_body(strip, f"{gtk_header.STRIP} windowcontrols.start + button")
+
+
+def test_the_button_before_the_lifted_window_buttons_takes_back_libadwaitas_6px_gap(strip):
+    assert "margin-right: -6px;" in rule_body(strip, f"{gtk_header.STRIP} box.end > :nth-last-child(2)")
+
+
+@pytest.fixture(scope="module")
+def details():
+    return gtk_header.list_view_css()
+
+
+def test_the_list_views_column_headers_start_at_the_views_left_edge(details):
+    assert "padding-left: 0;" in rule_body(details, ".nautilus-list-view columnview")
+
+
+def test_the_list_views_rows_lose_the_inset_that_matched_the_old_padding(details):
+    assert "margin-left: 0;" in rule_body(details, ".nautilus-list-view columnview > listview > row")
+
+
+def test_files_stacked_top_bars_lose_libadwaitas_3px_so_both_headers_start_together(strip):
+    assert "padding-top: 0;" in rule_body(strip, "toolbarview > .top-bar .collapse-spacing")
+
+
+def test_the_sidebars_buttons_are_inset_6px_like_its_selected_row(strip):
+    assert "padding-left: 6px;" in rule_body(strip, f".sidebar-pane {gtk_header.STRIP}")
+
+
+def test_the_location_entrys_clear_icon_is_16px_so_it_keeps_the_row_at_the_fields_height(strip):
+    assert "-gtk-icon-size: 16px;" in rule_body(strip, f"{gtk_header.STRIP} entry > image")

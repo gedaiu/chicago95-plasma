@@ -40,6 +40,8 @@ TEXT_SIZE = "11px"
 ICON = 16
 ICON_GAP = 2
 # The window buttons and the icon leave the toolbar row for the strip; these take back the width they held in it.
+BOX_SPACING = 6
+SIDEBAR_INSET = 6
 CONTROLS_WIDTH = {"end": 3 * CAPTION_W + CLOSE_GAP, "start": ICON + 2 * ICON_GAP}
 # Every icon button in the header, wherever Nautilus nests it (stacks, bins, the title box); the window buttons and
 # the address field's own button are set back below.
@@ -120,6 +122,9 @@ def header_css(active, inactive, inactive_text, face):
             rule(
                 f"{STRIP}, {STRIP}:backdrop",
                 padding_top=f"{TOOLBAR_TOP}px",
+                # The toolbar reaches the pane's edges, as the sidebar's selected row does.
+                padding_left="0",
+                padding_right="0",
                 min_height=f"{TOOLBAR_ROW}px",
                 color="#000000",
                 background_color=face,
@@ -133,6 +138,22 @@ def header_css(active, inactive, inactive_text, face):
             # content's gradient starts from it, so the strip runs on unbroken.
             rule(f".sidebar-pane {STRIP}", background_image=gradient(first[active])),
             rule(f"window:backdrop .sidebar-pane {STRIP}", background_image=gradient(first[inactive])),
+            # libadwaita insets the sidebar's rows 6px from its edges: the sidebar's buttons line up with them.
+            rule(
+                f".sidebar-pane {STRIP}, .sidebar-pane {STRIP}:backdrop",
+                padding_left=f"{SIDEBAR_INSET}px",
+                padding_right=f"{SIDEBAR_INSET}px",
+            ),
+            # The location entry's clear icon takes a large icon size from libadwaita: it would make the location page,
+            # and with it every page of Files' header and the row, taller than the address field.
+            rule(
+                f"{STRIP} entry > image",
+                min_width=f"{ICON}px",
+                min_height=f"{ICON}px",
+                margin="0",
+                padding="0",
+                _gtk_icon_size=f"{ICON}px",
+            ),
             rule(f"{STRIP} label, {STRIP} text", font_size=TEXT_SIZE),
             rule(TOOLS, min_width=f"{TOOL}px", min_height=f"{TOOL}px", padding="0", margin=f"{TOOL_GAP}px 0"),
             # A split button's arrow half is narrow, as on 9x's Views button. The row's gap goes around the split button
@@ -178,6 +199,13 @@ def header_css(active, inactive, inactive_text, face):
             rule(f"{STRIP} windowcontrols", **lifted),
             rule(f"{STRIP} windowcontrols.end", margin_left=f"-{CONTROLS_WIDTH['end']}px"),
             rule(f"{STRIP} windowcontrols.start", margin_right=f"-{CONTROLS_WIDTH['start']}px"),
+            # libadwaita spaces the header's boxes from code, which CSS cannot undo, and GTK stops a negative margin at
+            # a widget's own width: the buttons beside the lifted controls take back the gap instead.
+            rule(
+                f"{STRIP} windowcontrols.start + button, {STRIP} windowcontrols.start + menubutton",
+                margin_left=f"-{BOX_SPACING}px",
+            ),
+            rule(f"{STRIP} box.end > :nth-last-child(2)", margin_right=f"-{BOX_SPACING}px"),
             rule(
                 f"{STRIP} windowcontrols > .icon",
                 min_width=f"{ICON}px",
@@ -193,6 +221,9 @@ def header_css(active, inactive, inactive_text, face):
             rule(f"{STRIP} windowtitle > .title", color="#FFFFFF", font_weight="bold", font_size=TEXT_SIZE),
             rule(f"window:backdrop {STRIP} windowtitle > .title", color=inactive_text),
             rule("toolbarview > .top-bar:backdrop > windowhandle", filter="none"),
+            # Files stacks its toolbar over a tab bar, and libadwaita pads stacked bars 3px a side: the content's header
+            # would start 3px under the sidebar's, and its row would grow 6px.
+            rule("toolbarview > .top-bar .collapse-spacing", padding_top="0", padding_bottom="0"),
             # The theme paints flat header buttons white for the navy bar; under the strip they sit on the face.
             rule(
                 ", ".join(
@@ -280,6 +311,18 @@ def path_bar_css(light, shadow, dark):
     )
 
 
+def list_view_css():
+    """GNOME Files' list view as Explorer's Details view: the column headers run edge to edge. Files pads the view 24px
+    a side, which left a white cell before the first header and after the last, and moves the rows back over it."""
+    return "".join(
+        [
+            rule(".nautilus-list-view columnview", padding_left="0", padding_right="0"),
+            rule(".nautilus-list-view columnview > listview", margin_left="0", margin_right="0"),
+            rule(".nautilus-list-view columnview > listview > row", margin_left="0", margin_right="0"),
+        ]
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--gtk", default="4.0", help="the GTK version the sheet is for: 3.0 draws its own frames")
@@ -294,6 +337,7 @@ def main():
     sys.stdout.write(caption_css(args.face, args.light, args.shadow, args.dark))
     sys.stdout.write(header_css(args.active, args.inactive, args.inactive_text, args.face))
     sys.stdout.write(path_bar_css(args.light, args.shadow, args.dark))
+    sys.stdout.write(list_view_css())
     if args.gtk == "4.0":
         sys.stdout.write(frame_css(args.face, args.light, args.shadow, args.dark))
 

@@ -2015,3 +2015,28 @@ def test_the_pixel_font_rule_keeps_its_unsmoothed_bands_only_on_whole_pixel_scal
     )
 
     assert lines[-1] == str(unsmoothed_bands)
+
+
+def scaled_x11_home(tmp_path):
+    (tmp_path / ".wine").mkdir()
+    (tmp_path / "stubs").mkdir()
+    (tmp_path / "stubs/wine").write_text('#!/bin/sh\necho "$@" >> "$HOME/wine.log"\n')
+    (tmp_path / "stubs/wine").chmod(0o755)
+    run_bash_with_steps(
+        tmp_path,
+        f'PATH="$HOME/stubs:$PATH"; SETUP_DRY_RUN=0; MANIFEST={tmp_path}/manifest; STATE_DIR={tmp_path}; '
+        "SETUP_SCALE=1.5; SETUP_DPI=144; scale_x11_programs",
+    )
+    return tmp_path
+
+
+def test_wine_draws_at_the_screens_dpi_on_a_scaled_screen(tmp_path):
+    log = (scaled_x11_home(tmp_path) / "wine.log").read_text()
+
+    assert log == "reg add HKCU\\Control Panel\\Desktop /v LogPixels /t REG_DWORD /d 144 /f\n"
+
+
+def test_steam_scales_its_interface_by_the_screens_scale(tmp_path):
+    conf = (scaled_x11_home(tmp_path) / ".config/environment.d/chicago95-scale.conf").read_text()
+
+    assert conf == "STEAM_FORCE_DESKTOPUI_SCALING=1.5\n"
