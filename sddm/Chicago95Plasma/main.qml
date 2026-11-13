@@ -14,7 +14,11 @@ Rectangle {
     readonly property bool luna: config.loginStyle === "luna"
     color: modern ? "#3A6EA5" : "#008080"
 
-    readonly property int pixelScale: config.scale > 0 ? config.scale : Math.max(1, Math.floor(Math.min(width / 640, height / 720)))
+    // A classic pixel is `scale` screen pixels (Setup writes the session's scale rounded), or as many as fit the
+    // screen; the greeter may run at a device pixel ratio of its own (X11 HiDPI), which the item scale divides out.
+    property real screenScale: Screen.devicePixelRatio
+    readonly property int screenPixels: config.scale > 0 ? config.scale : Math.max(1, Math.floor(Math.min(width * screenScale / 640, height * screenScale / 720)))
+    readonly property real pixelScale: screenPixels / screenScale
     readonly property string uiFamily: uiFont.status === FontLoader.Ready ? uiFont.name : "sans-serif"
     property int sessionIndex: Math.max(0, sessionModel.lastIndex)
     property bool showOptions: false
@@ -663,8 +667,8 @@ Rectangle {
             width: 32
             height: 32
             source: "error.svg"
-            sourceSize.width: 32 * root.pixelScale
-            sourceSize.height: 32 * root.pixelScale
+            sourceSize.width: Math.round(32 * root.pixelScale)
+            sourceSize.height: Math.round(32 * root.pixelScale)
         }
         RetroLabel {
             id: messageText
