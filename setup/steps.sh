@@ -1089,6 +1089,17 @@ step_winamp() {
     "noborder=true" "noborderrule=2" "types=1"
   run mkdir -p ~/.qmmp/skins
   [ -n "$SETUP_CHICAGO95_SRC" ] && [ -d "$SETUP_CHICAGO95_SRC/Extras/qmmp" ] && put_tree "$SETUP_CHICAGO95_SRC/Extras/qmmp" ~/.qmmp/skins/chicago95 || true
+  size_winamp
+}
+
+# qmmp runs unscaled under X11, so on a screen scaled 1.5x or more the player gets Winamp's own Double Size
+# (lib/qmmp_double_size.py). qmmp rewrites its settings when it quits, so a running player keeps its size until then.
+size_winamp() {
+  awk -v scale="${SETUP_SCALE:-1}" 'BEGIN { exit !(scale >= 1.5) }' || return 0
+  local conf=~/.config/qmmp/qmmp.conf
+  backup "$conf"
+  run python3 "$REPO/lib/qmmp_double_size.py" "$conf"
+  show_copy "(Winamp at Double Size)" "$conf"
 }
 
 gtk_gradient() { # gtk_gradient <colour[,colour]>   a CSS background for a title bar colour or left-to-right pair

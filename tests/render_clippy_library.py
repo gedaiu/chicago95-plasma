@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -15,6 +16,8 @@ def render(folder, preview=False, shard=0, shards=1, actions=None):
     target = folder / "preview" if preview else folder
     target.mkdir(exist_ok=True)
     scene.cycles.samples = 64 if preview else manifest["samples"]
+    scene.render.use_persistent_data = True
+    scene.render.resolution_x, scene.render.resolution_y = manifest["pixel_size"]
     scene.render.resolution_percentage = 50 if preview else 100
     queue = {}
     for name in actions or manifest["sequences"]:
@@ -22,6 +25,12 @@ def render(folder, preview=False, shard=0, shards=1, actions=None):
         selected = [items[round((len(items) - 1) * t)] for t in [0.2, 0.5, 0.8]] if preview else items
         for item in selected:
             queue.setdefault(item["file"], item["frame"])
+    if not preview:
+        for name, items in manifest.get("reference_anchors", {}).items():
+            if actions is not None and name not in actions:
+                continue
+            for item in items:
+                queue.setdefault(item["file"], item["frame"])
     completed = 0
     for index, (filename, frame) in enumerate(queue.items()):
         if index % shards != shard:
@@ -31,7 +40,7 @@ def render(folder, preview=False, shard=0, shards=1, actions=None):
         if path.exists() and path.stat().st_size > 0:
             completed += 1
             continue
-        scene.frame_set(frame)
+        scene.frame_set(math.floor(frame), subframe=frame - math.floor(frame))
         bpy.context.view_layer.update()
         # Export workers may watch this directory while Blender is rendering.
         # Publish only complete PNGs; interrupted writes stay resumable.

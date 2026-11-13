@@ -436,3 +436,65 @@ The review writes its artifacts and exits nonzero if any source frame fails the
 surface contacts, continuous paper visibility, source pencil placement, and the
 original 8.4-second timing and branch metadata. Exports hold source poses; smooth
 intermediate motion, branch playback, and the old combined video are not updated.
+
+## Source-driven playback and 60-fps timing
+
+The [source-timed review](../data/clippy/3d-prototype/preview-source-timed/index.html)
+replaces linear frame-list playback for timing review. `agent.js` durations are
+**display holds**. Its weighted branches and exit branches determine which pose
+comes next; summing every listed duration is not generally an animation's length.
+For example, Wave has unconditional jumps that skip frames, and Writing contains
+loops. Microsoft documents [frame holds, branches and return animations](https://learn.microsoft.com/en-us/windows/win32/lwef/creating-animations).
+Clippy.js [draws each frame before its duration timer](https://github.com/clippyjs/clippy.js/blob/master/src/animator.js)
+and its [ordinary play method requests exit after five seconds by default](https://github.com/clippyjs/clippy.js/blob/master/src/agent.js).
+That timeout is player policy, not an intrinsic animation length.
+
+`clippy_playback_timeline.py` creates deterministic branch traces with explicit
+source indices, timestamps, branch choices, sound cues and stop requests. The
+review uses one reproducible path per action, requesting a graceful stop at
+5000 ms. It never silently truncates a nonterminating path. Unit tests also exercise
+multiple random paths and stop requests at every visited boundary. These tests
+cannot prove equivalence with every historical Office/Agent host.
+
+`retime_clippy_library.py` places source poses at their exact timestamp on a
+60-fps Blender timeline, retaining fractional keyframe positions. For example,
+110 ms is frame 7.6 with frame 1 at time zero. Numeric channels interpolate during
+the last at most 100 ms of a display interval; longer intervals retain a still
+prefix. Visibility stays discrete. This interpolation policy is reconstructed,
+not encoded in the original sprite data. It deliberately avoids stretching a
+short movement across a multi-second hold. Repeated self-loop poses remain still.
+The last pose holds until the traced end; no invented return-to-idle is appended.
+
+All 1,233 source poses remain in a separate reference bank, including alternatives
+not visited by the chosen path and the zero-duration control frame. The saved
+master is reopened to check every source anchor, every playback occurrence, and
+hold interiors against the input channel values. The image review uses source
+indices from the trace, never dense output indices, to select original atlas
+images. A 10-ms pose may fall between 60-fps samples; its exact subframe key and
+separate comparison remain available. Video lengths are rounded to the nearest
+60-fps sample, at most 8.34 ms from the traced duration.
+
+```sh
+blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
+  --python tests/retime_clippy_library.py -- \
+  --folder /tmp/clippy-library --output /tmp/clippy-source-timed
+blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
+  --python tests/prepare_clippy_timing_review.py -- \
+  --folder /tmp/clippy-source-timed --output /tmp/clippy-source-timed-review
+blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
+  --python tests/render_clippy_library.py -- --folder /tmp/clippy-source-timed-review
+python3 tests/review_clippy_timing.py /tmp/clippy-source-timed-review
+```
+
+The small review uses 248×186 renders and 16 samples. Its cache reuses only
+identical complete animation-channel states, preserving genuine still holds;
+other output frames are rendered at their own Blender time. The original-size
+master manifest retains 744×558/64-sample settings for a full-resolution export.
+Review PNGs, videos and Blender masters remain ignored authoring outputs.
+
+Timing acceptance is separate from art acceptance. This retiming reuses the full
+source-pose library; it does not merge the standalone CheckingSomething, Writing
+or GetArtsy art candidates. Those earlier videos use different reconstructed
+motion and must not be treated as source-playback timing references. Native-size
+image comparisons still expose the unfinished 98% fidelity requirement, and
+new intermediate geometry requires collision review before runtime integration.

@@ -155,6 +155,7 @@ if([...clip.options].some(option=>option.value===requested))clip.value=requested
 change();</script></html>"""
     rates = ", ".join(str(rate) for rate in report["export_frame_rates"])
     extra_links = [
+        ("../preview-source-timed/index.html", "All 43 actions: source-driven timing and 60-fps comparisons"),
         ("../preview-snooze/index.html", "IdleSnooze: corrected collision review and video"),
         ("../preview-writing/index.html", "Writing: original / before / source-guided candidate"),
         ("../preview-wave/index.html", "Wave: corrected collision review and video"),
