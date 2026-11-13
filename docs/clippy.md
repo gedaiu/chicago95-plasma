@@ -582,3 +582,24 @@ rejects trials with evaluated paper/body triangle intersections. The selected
 rest pose had no detected paper/body surface contacts; this says nothing about
 other contacts, containment, or animation intermediates. Collision-rejected
 trials and fitting parameters are retained in the review reports.
+
+### Detailed rest-pose geometry fitting
+
+`fit_clippy_rest_shape.py` fits actual paper/wire control vertices and optional
+local Skin radii using rendered alpha. A one-sample emission override speeds up
+shape trials; it is removed before saving, and reported scores always come from
+fully shaded 64-sample renders of the reopened master. Armature deformation is
+applied before fine wire fitting so camera-space displacements refer to the posed
+wire. This is an isolated authoring model, not an animation-rig replacement.
+
+`fit_clippy_rest_face_depth.py` moves the face and its linked lights toward the
+camera while preserving its projection. It bakes the full affine into the mesh
+because unparented object transforms otherwise discard parent-derived shear.
+The audit rejects remaining face/wire surface contacts. `fit_clippy_rest_face_shape.py`
+then fits eye and eyebrow outlines. Existing internal eye/pupil construction
+contacts are still reported separately; these checks do not certify all animations.
+
+`fit_clippy_rest_paper_ruling.py` searches UV frequency, phase and ruling contrast
+using the existing paper texture, with no source-image projection. The review can
+select a deliberate unfinished authoring stage using `--candidate after-wire-detail`;
+this makes metric tradeoffs explicit and does not override any acceptance gate.

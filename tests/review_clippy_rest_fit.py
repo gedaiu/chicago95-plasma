@@ -8,9 +8,11 @@ import shutil
 from pathlib import Path
 
 from clippy_acceptance import MATCH_THRESHOLD
-from overlay_clippy_3d import downsample, metrics, panels, presentation
+from clippy_reference_color import COLOR_REFERENCE_POLICY, smooth_reference_color
+from overlay_clippy_3d import downsample, panels, presentation
 from PIL import Image
 from review_clippy_3d import original_frames
+from score_clippy_rest_fit import score
 
 STAGES = [
     ("before", "rest-before", "Original 3D candidate"),
@@ -22,18 +24,27 @@ STAGES = [
     ("after-materials-hd", "rest-after-materials-hd", "Materials, full-resolution fitting"),
     ("after-lighting", "rest-after-lighting", "Body light direction, softness and energy"),
     ("after-paper-depth", "rest-after-paper-depth", "Paper distance and cast shadows"),
+    ("after-shape", "rest-after-shape", "Paper and wire vertex fitting"),
+    ("after-shape-detail", "rest-after-shape-detail", "Local wire thickness fitting"),
+    ("after-face-depth", "rest-after-face-depth", "Face/wire intersection correction"),
+    ("after-face-shape", "rest-after-face-shape", "Eye and eyebrow outlines"),
+    ("after-wire-detail", "rest-after-wire-detail", "Posed wire geometry refinement"),
+    ("after-paper-ruling", "rest-after-paper-ruling", "Paper ruling frequency and contrast"),
 ]
 
 
-def review(folder, output):
+def review(folder, output, requested_stage=None):
     output.mkdir(parents=True, exist_ok=True)
     reference = Image.open(folder / "reference.png").convert("RGBA")
     actual_source = original_frames("RestPose")[0][0].convert("RGBA")
     if reference.size != actual_source.size or reference.tobytes() != actual_source.tobytes():
         raise ValueError("Reference must be the unmodified RestPose source frame")
     reference.save(output / "reference.png")
+    color_reference = smooth_reference_color(reference)
+    color_reference.save(output / "reference-smoothed-color.png")
     rows, sections, best = [], [], None
     selected_master = None
+    candidate_master = None
     for stem, master, label in STAGES:
         source = folder / (stem + ".png")
         if not source.exists():
@@ -42,14 +53,18 @@ def review(folder, output):
         if full_render.size != (744, 558):
             raise ValueError(f"Independent full-resolution render required: {source}")
         candidate = downsample(full_render)
-        measured = metrics(reference, candidate)
+        measured = score(folder / "reference.png", source)
         improvement = best is None or all(
-            measured[key] >= best[key] for key in ("silhouette_iou", "foreground_color_similarity")
+            measured[key] >= best[key] for key in ("silhouette_iou", "smoothed_reference_color_similarity")
         )
         if improvement:
             best = measured
             selected_master = folder / (master + ".blend")
-        image_gate = all(measured[key] >= MATCH_THRESHOLD for key in ("silhouette_iou", "foreground_color_similarity"))
+        if stem == requested_stage:
+            candidate_master = folder / (master + ".blend")
+        image_gate = all(
+            measured[key] >= MATCH_THRESHOLD for key in ("silhouette_iou", "smoothed_reference_color_similarity")
+        )
         row = dict(
             stage=stem,
             label=label,
@@ -66,14 +81,19 @@ def review(folder, output):
             shutil.copy2(fit_report, output / fit_report.name)
             row["fitting_report"] = fit_report.name
         presentation(panels(reference, candidate), label).save(output / (stem + "-comparison.png"))
+        presentation(panels(color_reference, candidate), label + " — approved smoothed-color reference").save(
+            output / (stem + "-color-comparison.png")
+        )
         shutil.copy2(source, output / source.name)
         candidate.save(output / (stem + "-native.png"))
         status = "FAIL" if not image_gate else "Image metrics only; other gates unverified"
         sections.append(
             f"<h2>{html.escape(label)}</h2><p>Shape {measured['silhouette_iou']:.2%}; "
-            f"color {measured['foreground_color_similarity']:.2%}. {status}. "
-            f"{'' if improvement else 'Regresses a measured metric; excluded.'}</p>"
+            f"smoothed-reference color {measured['smoothed_reference_color_similarity']:.2%}; "
+            f"raw color {measured['foreground_color_similarity']:.2%}. {status}. "
+            f"{'' if improvement else 'Trades off a measured metric; not an acceptance pass.'}</p>"
             f'<a href="{stem}.png">Full-resolution render</a>'
+            f' · <a href="{stem}-color-comparison.png">Smoothed-color comparison</a>'
             f'<img src="{stem}-comparison.png" alt="Original, candidate, overlay, difference">'
         )
     report = dict(
@@ -82,7 +102,13 @@ def review(folder, output):
         total_animations=43,
         scope="Isolated RestPose calibration; no runtime or library replacement.",
         stages=rows,
+        color_reference_policy=COLOR_REFERENCE_POLICY,
     )
+    if requested_stage is not None:
+        if candidate_master is None:
+            raise ValueError(f"Missing requested authoring candidate: {requested_stage}")
+        selected_master = candidate_master
+        report["authoring_candidate"] = requested_stage
     if selected_master is not None:
         shutil.copy2(selected_master, output / "rest-candidate.blend")
         report["selected_master"] = selected_master.name
@@ -95,7 +121,9 @@ def review(folder, output):
         "<p>0/43 animations accepted. This page covers one shared source pose only. "
         "Every image is independently rendered at 744×558 then reduced to 124×93. "
         "No registration, crop, sprite projection, or threshold reduction. "
-        "Silhouette and foreground-color scores must both reach 98%; "
+        "Original silhouette and smoothed-reference color scores must both reach 98%. "
+        "The approved color reference uses a fixed alpha-normalized Gaussian sigma of 0.5 native pixels; "
+        "source alpha is unchanged and candidates are never blurred. Raw color scores remain visible. "
         "choreography, timing, blinks, and collisions remain separate requirements.</p>"
         '<a href="measurements.json">Measurements and artifact hashes</a> · '
         '<a href="rest-candidate.blend">Unfinished Blender candidate</a>' + "".join(sections)
@@ -107,5 +135,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("folder", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--candidate", help="Explicit unfinished authoring stage; does not override acceptance gates")
     args = parser.parse_args()
-    review(args.folder, args.output)
+    review(args.folder, args.output, args.candidate)

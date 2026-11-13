@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 from clippy_acceptance import CHANNEL_TOLERANCE, MATCH_THRESHOLD
 from clippy_geometry_audit import measure_reference
+from clippy_reference_color import COLOR_REFERENCE_POLICY, smooth_reference_color
 from overlay_clippy_3d import downsample
 from PIL import Image, ImageDraw
 from review_clippy_3d import original_frames
@@ -57,16 +58,19 @@ def distances(a, b):
     return result
 
 
-def spatial(original, candidate):
-    a, b = pixels(original), pixels(candidate)
+def spatial(original, candidate, smooth_color=False):
+    raw = pixels(original)
+    a, b = pixels(smooth_reference_color(original)) if smooth_color else raw, pixels(candidate)
     active = (a[:, :, 3] > 0) | (b[:, :, 3] > 0)
     good = np.max(abs(a - b), axis=2) <= CHANNEL_TOLERANCE
+    raw_good = np.max(abs(raw - b), axis=2) <= CHANNEL_TOLERANCE
     regions = {}
     for name, (x0, y0, x1, y1) in {"whole_foreground": (0, 0, 124, 93), **REGIONS}.items():
         mask = active[y0:y1, x0:x1]
         fraction = float(good[y0:y1, x0:x1][mask].mean()) if mask.any() else 1.0
         regions[name] = {
             "matching_pixel_fraction": fraction,
+            "raw_matching_pixel_fraction": float(raw_good[y0:y1, x0:x1][mask].mean()) if mask.any() else 1.0,
             "foreground_pixels": int(mask.sum()),
             "pass": fraction >= THRESHOLD,
         }
@@ -84,6 +88,7 @@ def spatial(original, candidate):
     edge_pass = edge95 is not None and edge95 <= 1.0 and edge_max <= 2.0
     return {
         "regions": regions,
+        "color_reference_policy": COLOR_REFERENCE_POLICY if smooth_color else "raw-source",
         "silhouette_iou": iou,
         "boundary_p95_pixels": edge95,
         "boundary_max_pixels": edge_max,
@@ -92,8 +97,11 @@ def spatial(original, candidate):
     }
 
 
-def motion(previous_reference, reference, previous_candidate, candidate):
+def motion(previous_reference, reference, previous_candidate, candidate, smooth_color=False):
     # Signed per-pixel changes catch frozen frames, reverse motion and extra gestures.
+    if smooth_color:
+        reference = smooth_reference_color(reference)
+        previous_reference = smooth_reference_color(previous_reference)
     da = pixels(reference) - pixels(previous_reference)
     db = pixels(candidate) - pixels(previous_candidate)
     moving = (np.max(abs(da), axis=2) > 8) | (np.max(abs(db), axis=2) > 8)
@@ -110,13 +118,17 @@ def motion(previous_reference, reference, previous_candidate, candidate):
     return {"regions": regions, "pass": all(r["pass"] for r in regions.values())}
 
 
-def validate_sequence(refs, images, durations):
+def validate_sequence(refs, images, durations, smooth_color=False):
     expected = [duration for _, duration in refs]
     timing = durations == expected and len(images) == len(refs)
     rows = []
     for index in range(min(len(images), len(refs))):
-        result = spatial(refs[index][0], images[index])
-        temporal = motion(refs[index - 1][0], refs[index][0], images[index - 1], images[index]) if index else None
+        result = spatial(refs[index][0], images[index], smooth_color=smooth_color)
+        temporal = (
+            motion(refs[index - 1][0], refs[index][0], images[index - 1], images[index], smooth_color=smooth_color)
+            if index
+            else None
+        )
         rows.append(
             {
                 "frame": index,

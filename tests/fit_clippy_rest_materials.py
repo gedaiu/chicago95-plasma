@@ -14,8 +14,11 @@ import bpy
 import numpy as np
 
 
-def fit(folder, reference, hd_python=None):
-    bpy.ops.wm.open_mainfile(filepath=str(folder / ("rest-after-eyes.blend" if hd_python else "rest-after-wire.blend")))
+def fit(folder, reference, hd_python=None, source=None, output_suffix=None):
+    bpy.ops.wm.open_mainfile(
+        filepath=str(folder / (source or ("rest-after-eyes.blend" if hd_python else "rest-after-wire.blend")))
+    )
+    suffix = output_suffix or ("materials-hd" if hd_python else "materials")
     scene = bpy.context.scene
     scene.render.resolution_x = 744 if hd_python else 124
     scene.render.resolution_y = 558 if hd_python else 93
@@ -71,7 +74,7 @@ def fit(folder, reference, hd_python=None):
                     text=True,
                 )
             )
-            return 1 - measured["foreground_color_similarity"]
+            return 1 - measured["smoothed_reference_color_similarity"]
         image = bpy.data.images.load(str(path), check_existing=False)
         image.colorspace_settings.name = "Non-Color"
         pixels = np.empty(124 * 93 * 4, dtype=np.float32)
@@ -108,13 +111,14 @@ def fit(folder, reference, hd_python=None):
                 changed += int(choice != old)
             history.append(dict(step_scale=scale, cycle=cycle, loss=best, changed=changed))
             print("MATERIAL FIT", history[-1], flush=True)
+            apply(values)
+            bpy.ops.wm.save_as_mainfile(filepath=str(folder / f"rest-after-{suffix}-checkpoint.blend"), compress=True)
             if not changed:
                 break
     apply(values)
     scene.render.resolution_x = 744
     scene.render.resolution_y = 558
     scene.cycles.samples = 64
-    suffix = "materials-hd" if hd_python else "materials"
     bpy.ops.wm.save_as_mainfile(filepath=str(folder / f"rest-after-{suffix}.blend"), compress=True)
     scene.render.filepath = str(folder / f"after-{suffix}.png")
     bpy.ops.render.render(write_still=True)
@@ -126,6 +130,7 @@ def fit(folder, reference, hd_python=None):
                 fit_loss_before=before,
                 fit_loss_after=best,
                 fit_uses_independent_hd_render=bool(hd_python),
+                color_reference="approved-smoothed-reference" if hd_python else "raw-native-proxy",
                 renders=count,
                 history=history,
                 scope="Real material/exposure parameters only. "
@@ -142,5 +147,7 @@ if __name__ == "__main__":
     p.add_argument("--folder", type=Path, required=True)
     p.add_argument("--reference", type=Path, required=True)
     p.add_argument("--hd-python", help="Host Python for normal HD-to-native scoring; starts from fitted eyes.")
+    p.add_argument("--source", help="Alternative input Blender file in the calibration folder")
+    p.add_argument("--suffix", help="Distinct output stage name")
     a = p.parse_args(sys.argv[sys.argv.index("--") + 1 :])
-    fit(a.folder, a.reference, a.hd_python)
+    fit(a.folder, a.reference, a.hd_python, a.source, a.suffix)

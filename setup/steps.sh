@@ -723,6 +723,7 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   fi
   apply_title_colors
   widget_style_is_luna || theme_wine
+  theme_firefox
   run plasma-apply-desktoptheme "$([ "${SETUP_TASKBAR_STYLE:-classic}" = luna ] && echo Chicago95Luna || echo Chicago95)" >>"$SETUP_LOG" 2>&1 || true
   if [ "$SETUP_SCALE" != 1 ]; then
     backup ~/.Xresources
@@ -1833,12 +1834,38 @@ step_firefox() {
   backup "$target"
   if [ "${SETUP_DRY_RUN:-0}" != 1 ]; then
     {
-      [ -f "$target" ] && grep -v 'Chicago95' "$target"
+      [ -f "$target" ] && grep -vxF -f "$REPO/config/firefox-user.js" "$target"
       cat "$REPO/config/firefox-user.js"
     } >"$target.chicago95" && mv "$target.chicago95" "$target"
   fi
   record "$target"
   show_copy "$REPO/config/firefox-user.js" "$target"
+  theme_firefox
+}
+
+# Firefox draws its own controls whatever the GTK theme; a sheet of the look's (lib/firefox_chrome.py), imported first
+# thing from the profile's userChrome.css, where an @import is valid ahead of the user's own rules. Luna takes it out.
+theme_firefox() {
+  [ -n "$SETUP_FIREFOX_PROFILE" ] || return 0
+  local chrome="$SETUP_FIREFOX_PROFILE/chrome" import='@import url("chicago95-controls.css");'
+  backup "$chrome/userChrome.css"
+  if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then
+    printf '  would: draw Firefox'"'"'s controls in the look from %s\n' "$chrome/userChrome.css" >>"$SETUP_LOG"
+    return 0
+  fi
+  mkdir -p "$chrome"
+  {
+    widget_style_is_luna || printf '%s\n' "$import"
+    [ -f "$chrome/userChrome.css" ] && grep -vxF "$import" "$chrome/userChrome.css" || true
+  } >"$chrome/userChrome.css.chicago95" && mv "$chrome/userChrome.css.chicago95" "$chrome/userChrome.css"
+  if widget_style_is_luna; then
+    rm -f "$chrome/chicago95-controls.css"
+  else
+    python3 "$REPO/lib/firefox_chrome.py" "$chrome/chicago95-controls.css"
+    record "$chrome/chicago95-controls.css"
+  fi
+  record "$chrome/userChrome.css"
+  show_copy "(Firefox's controls in the look)" "$chrome/userChrome.css"
 }
 
 # Runs before the components, so the login screen copies the repaired font too.
