@@ -1406,12 +1406,14 @@ sddm_theme_conf() {
     BRAND_TEXT="$(xp_login && printf '%s' "${SETUP_BANNER_TEXT:-Chicago95}")" \
     BRAND_LOGO="$(xp_login && printf 'brand-logo.%s' "$(extension "$(login_logo)")")" \
     COMPANY="$(xp_login && printf '%s' "${SETUP_COMPANY:-KDE}")" EDITION="$(xp_login && printf '%s' "${SETUP_EDITION:-Professional}")" \
+    SCALE="$(awk -v s="${SETUP_SCALE:-0}" 'BEGIN { print int(s + 0.5) }')" \
     awk -F= 'BEGIN {
             value["loginStyle"] = ENVIRON["LOGIN_STYLE"]; value["loginTitle"] = ENVIRON["LOGIN_TITLE"]
             value["loginMessage"] = ENVIRON["LOGIN_MESSAGE"]; value["loginIcon"] = ENVIRON["LOGIN_ICON"]
             value["titleActive"] = ENVIRON["TITLE_ACTIVE"]
             value["brandText"] = ENVIRON["BRAND_TEXT"]; value["brandLogo"] = ENVIRON["BRAND_LOGO"]
             value["company"] = ENVIRON["COMPANY"]; value["edition"] = ENVIRON["EDITION"]
+            value["scale"] = ENVIRON["SCALE"]
         }
         /^[A-Za-z]+=/ && ($1 in value) { print $1 "=" value[$1]; next }
         { print }' "$SDDM_THEME_SRC/theme.conf"

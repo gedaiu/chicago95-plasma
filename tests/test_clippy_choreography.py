@@ -20,4 +20,4 @@ def test_major_actions_require_prop_choreography():
     assert study("Save")[-1][:2] == (40, 41)
     assert study("Idle1_1")[-2][:2] == (37, 41)
     assert catalog()["Idle1_1"]["frames"][39]["duration"] == 900
-    assert study("Writing") is None  # Unreviewed actions must not silently inherit a generic study.
+    assert all(study(name) is not None for name in catalog())

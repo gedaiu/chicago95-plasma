@@ -1,0 +1,111 @@
+"""Publish measured calibration candidates, including regressions and failures."""
+
+import argparse
+import hashlib
+import html
+import json
+import shutil
+from pathlib import Path
+
+from clippy_acceptance import MATCH_THRESHOLD
+from overlay_clippy_3d import downsample, metrics, panels, presentation
+from PIL import Image
+from review_clippy_3d import original_frames
+
+STAGES = [
+    ("before", "rest-before", "Original 3D candidate"),
+    ("after", "rest-after", "Paper outline"),
+    ("after-wire", "rest-after-wire", "Wire outline and thickness"),
+    ("after-materials", "rest-after-materials", "Materials"),
+    ("after-surface", "rest-after-surface", "Paper surface experiment"),
+    ("after-eyes", "rest-after-eyes", "Eye geometry, full-resolution fitting"),
+    ("after-materials-hd", "rest-after-materials-hd", "Materials, full-resolution fitting"),
+    ("after-lighting", "rest-after-lighting", "Body light direction, softness and energy"),
+    ("after-paper-depth", "rest-after-paper-depth", "Paper distance and cast shadows"),
+]
+
+
+def review(folder, output):
+    output.mkdir(parents=True, exist_ok=True)
+    reference = Image.open(folder / "reference.png").convert("RGBA")
+    actual_source = original_frames("RestPose")[0][0].convert("RGBA")
+    if reference.size != actual_source.size or reference.tobytes() != actual_source.tobytes():
+        raise ValueError("Reference must be the unmodified RestPose source frame")
+    reference.save(output / "reference.png")
+    rows, sections, best = [], [], None
+    selected_master = None
+    for stem, master, label in STAGES:
+        source = folder / (stem + ".png")
+        if not source.exists():
+            continue
+        full_render = Image.open(source)
+        if full_render.size != (744, 558):
+            raise ValueError(f"Independent full-resolution render required: {source}")
+        candidate = downsample(full_render)
+        measured = metrics(reference, candidate)
+        improvement = best is None or all(
+            measured[key] >= best[key] for key in ("silhouette_iou", "foreground_color_similarity")
+        )
+        if improvement:
+            best = measured
+            selected_master = folder / (master + ".blend")
+        image_gate = all(measured[key] >= MATCH_THRESHOLD for key in ("silhouette_iou", "foreground_color_similarity"))
+        row = dict(
+            stage=stem,
+            label=label,
+            measurements=measured,
+            nonregressing_candidate=improvement,
+            image_gate_pass=image_gate,
+            animation_accepted=False,
+            render_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
+            master_sha256=hashlib.sha256((folder / (master + ".blend")).read_bytes()).hexdigest(),
+        )
+        rows.append(row)
+        fit_report = folder / ("fitted-" + stem.removeprefix("after-") + ".json")
+        if fit_report.exists():
+            shutil.copy2(fit_report, output / fit_report.name)
+            row["fitting_report"] = fit_report.name
+        presentation(panels(reference, candidate), label).save(output / (stem + "-comparison.png"))
+        shutil.copy2(source, output / source.name)
+        candidate.save(output / (stem + "-native.png"))
+        status = "FAIL" if not image_gate else "Image metrics only; other gates unverified"
+        sections.append(
+            f"<h2>{html.escape(label)}</h2><p>Shape {measured['silhouette_iou']:.2%}; "
+            f"color {measured['foreground_color_similarity']:.2%}. {status}. "
+            f"{'' if improvement else 'Regresses a measured metric; excluded.'}</p>"
+            f'<a href="{stem}.png">Full-resolution render</a>'
+            f'<img src="{stem}-comparison.png" alt="Original, candidate, overlay, difference">'
+        )
+    report = dict(
+        threshold=MATCH_THRESHOLD,
+        accepted_animations=0,
+        total_animations=43,
+        scope="Isolated RestPose calibration; no runtime or library replacement.",
+        stages=rows,
+    )
+    if selected_master is not None:
+        shutil.copy2(selected_master, output / "rest-candidate.blend")
+        report["selected_master"] = selected_master.name
+    (output / "measurements.json").write_text(json.dumps(report, indent=2) + "\n")
+    (output / "index.html").write_text(
+        '<!doctype html><meta charset="utf-8"><title>Clippy rest calibration — unfinished</title>'
+        "<style>body{background:#202020;color:#eee;font:16px sans-serif;margin:24px}"
+        "img{display:block;max-width:100%}a{color:#9df}</style>"
+        "<h1>Rest-pose calibration — unfinished</h1>"
+        "<p>0/43 animations accepted. This page covers one shared source pose only. "
+        "Every image is independently rendered at 744×558 then reduced to 124×93. "
+        "No registration, crop, sprite projection, or threshold reduction. "
+        "Silhouette and foreground-color scores must both reach 98%; "
+        "choreography, timing, blinks, and collisions remain separate requirements.</p>"
+        '<a href="measurements.json">Measurements and artifact hashes</a> · '
+        '<a href="rest-candidate.blend">Unfinished Blender candidate</a>' + "".join(sections)
+    )
+    return report
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("folder", type=Path)
+    parser.add_argument("output", type=Path)
+    args = parser.parse_args()
+    review(args.folder, args.output)

@@ -15,7 +15,10 @@ Rectangle {
     property bool modern: false
     property color desktopColor: modern ? "#3A6EA5" : "#008080"
     readonly property int interactiveFailure: 0
-    readonly property int pixelScale: Math.max(1, Math.floor(Math.min(width / 640, height / 720)))
+    // The session's sizes are already multiplied by the screen's scale; a classic pixel is drawn as that scale
+    // rounded to whole screen pixels, so its lines stay crisp, as Winamp's Double Size does.
+    property real screenScale: Screen.devicePixelRatio
+    readonly property real pixelScale: Math.max(1, Math.round(screenScale)) / screenScale
     readonly property string title: modern ? "Unlock Computer" : "Windows Screen Saver"
 
     signal passwordEntered(string password)
@@ -84,8 +87,8 @@ Rectangle {
             width: root.modern ? 32 : 45
             height: root.modern ? 32 : 48
             source: root.modern ? "padlock.svg" : "key-9x.png"
-            sourceSize.width: width * root.pixelScale
-            sourceSize.height: height * root.pixelScale
+            sourceSize.width: Math.round(width * root.pixelScale)
+            sourceSize.height: Math.round(height * root.pixelScale)
             smooth: root.modern
         }
 
@@ -184,8 +187,8 @@ Rectangle {
             width: 32
             height: 32
             source: "error.svg"
-            sourceSize.width: width * root.pixelScale
-            sourceSize.height: height * root.pixelScale
+            sourceSize.width: Math.round(width * root.pixelScale)
+            sourceSize.height: Math.round(height * root.pixelScale)
         }
 
         ClassicText {

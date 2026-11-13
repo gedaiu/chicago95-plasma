@@ -498,3 +498,87 @@ or GetArtsy art candidates. Those earlier videos use different reconstructed
 motion and must not be treated as source-playback timing references. Native-size
 image comparisons still expose the unfinished 98% fidelity requirement, and
 new intermediate geometry requires collision review before runtime integration.
+
+## Choreography rebuild status
+
+All 43 animations remain **unfinished**. The [original-source study](../data/clippy/3d-prototype/preview-choreography/index.html)
+now records the observed action beats and inclusive original frame ranges for every
+sequence, with complete native-size storyboards. These are source observations,
+not certification of the existing 3D recipes. Important omissions include the
+SendMail folds/boarding/flight/puff, Save packing and unpacking, Searching's rolled
+paper telescope, GetArtsy's edge-on rotation, asymmetric idle eyelids, and alternate
+head-down/appearance/exit paths. A generic shape morph or paper fade cannot replace
+those actions.
+
+`clippy_branch_coverage.py` finds legal normal/stop routes covering every reachable
+source frame. Stop state is monotonic, each edge is checked against the playback
+rules, and unreachable source frames are explicitly listed instead of inventing
+transitions. A single seeded demonstration may omit a complete transformation;
+IdleAtom's immediate exit and Wave's head-down alternative are regression cases.
+All original frames, including unreachable alternatives, remain in the study.
+
+`audit_clippy_timed.py` audits actual evaluated triangle surfaces for every 60-fps
+output sample. The initial source-timed candidate has been checked at all 9,227
+samples. The report retains contacts requiring classification; it does not treat
+all detected contacts as unintended penetration or claim containment safety.
+Cache entries are tied to the exact Blender file hash. Source indices in this
+report come from playback metadata, not the dense output index.
+
+`completion_status` in `clippy_acceptance.py` requires all six gates for **every**
+source action: source image match, choreography, branch coverage, blink/gaze,
+intermediate collisions, and playback. Missing evidence is failure. Timing or
+video-export success alone cannot make an animation or the library complete.
+The current completion ledger is 0/43; no keyframes were changed during this
+source-study/audit pass.
+
+```sh
+blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
+  --python tests/audit_clippy_timed.py -- \
+  --folder /tmp/clippy-source-timed-review --output /tmp/clippy-timed-collisions
+blender -b --factory-startup --disable-autoexec --python-exit-code 1 \
+  --python tests/audit_clippy_timed.py -- \
+  --folder /tmp/clippy-source-timed-review --output /tmp/clippy-timed-collisions --summarize
+python3 tests/review_clippy_choreography.py \
+  --output data/clippy/3d-prototype/preview-choreography \
+  --collisions /tmp/clippy-timed-collisions/report.json
+```
+
+
+## Shared rest-pose calibration (unfinished)
+
+The isolated calibration now changes actual paper vertices, wire dimensions,
+eye geometry, and material parameters. It does not replace animation keyframes or
+runtime assets. `fit_clippy_rest_eyes.py` evaluates each trial as a 744×558 Blender
+render through the same premultiplied-alpha Lanczos reduction used by the normal
+124×93 comparison. `fit_clippy_rest_materials.py --hd-python /usr/bin/python3`
+uses that same full-resolution path for material fitting. Native-resolution
+proxy optimization alone is insufficient: the paper-surface experiment improved
+its fitting loss but regressed the independently measured color score.
+
+`review_clippy_rest_fit.py` records independent measurements and render/master
+hashes, publishes original/candidate/overlay/difference panels, and explicitly
+marks regressions. All stages remain experiments until the full acceptance gates
+pass; no score is averaged across animations to hide failed frames.
+
+```sh
+python3 tests/review_clippy_rest_fit.py /tmp/clippy-rest-fit \
+  data/clippy/3d-prototype/preview-rest-fit
+```
+
+The authoring Blender files and generated comparison images remain ignored.
+The review reports the 98% image threshold separately from animation acceptance.
+
+Body-light calibration uses `fit_clippy_rest_lighting.py --folder
+/tmp/clippy-rest-fit --python /usr/bin/python3` under Blender. It adjusts the
+body key light's position, size and energy and the body fill energy, while keeping
+the separate eye lights, camera, geometry and source fixed. Trials use full-size
+renders and native comparisons. The published final image is rendered after
+reopening the saved Blender file, rather than copied from the fitting cache.
+This rest-pose experiment does not certify lighting across other source poses.
+
+The optional `--paper-depth` pass starts from that lighting candidate. It changes
+paper distance with a camera-centred scale, preserving projected placement, and
+rejects trials with evaluated paper/body triangle intersections. The selected
+rest pose had no detected paper/body surface contacts; this says nothing about
+other contacts, containment, or animation intermediates. Collision-rejected
+trials and fitting parameters are retained in the review reports.

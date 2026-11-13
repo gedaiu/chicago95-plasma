@@ -20,6 +20,7 @@ ClassicLockScreen {
     userName: "Nathan"
     modern: %s
     desktopColor: "#112233"
+    %s
     authenticator: lockAuthenticator
     onPasswordEntered: password => lockAuthenticator.respond(password)
 }
@@ -44,14 +45,15 @@ def wait(app, milliseconds):
 
 
 @contextmanager
-def lock_screen(app, tmp_path, modern=False):
+def lock_screen(app, tmp_path, modern=False, screen_scale=None, size=(800, 600)):
     harness = tmp_path / "harness.qml"
-    harness.write_text(HARNESS % (THEME.as_uri(), str(modern).lower()))
+    scale_line = f"screenScale: {screen_scale}" if screen_scale else ""
+    harness.write_text(HARNESS % (THEME.as_uri(), str(modern).lower(), scale_line))
     authenticator = Authenticator()
     view = QQuickView()
     view.rootContext().setContextProperty("lockAuthenticator", authenticator)
     view.setResizeMode(QQuickView.SizeRootObjectToView)
-    view.resize(800, 600)
+    view.resize(*size)
     view.setSource(QUrl.fromLocalFile(str(harness)))
     assert [error.toString() for error in view.errors()] == []
     view.show()
@@ -111,6 +113,19 @@ def test_screen_around_the_dialog_is_the_desktop_colour(qt_app, tmp_path):
     with lock_screen(qt_app, tmp_path) as (view, _):
         image = qimage_to_pil(view.grabWindow()).convert("RGB")
         assert {image.getpixel(point) for point in [(10, 10), (790, 10), (10, 590), (790, 590)]} == {(0x11, 0x22, 0x33)}
+
+
+@pytest.mark.parametrize(("screen_scale", "screen_pixels"), [(1, 1), (1.25, 1), (1.5, 2), (2, 2), (3, 3)])
+def test_dialog_draws_a_classic_pixel_as_the_screen_scale_rounded_to_whole_screen_pixels(
+    qt_app, tmp_path, screen_scale, screen_pixels
+):
+    with lock_screen(qt_app, tmp_path, screen_scale=screen_scale) as (view, _):
+        assert named(view, "lockDialog").scale() * screen_scale == pytest.approx(screen_pixels)
+
+
+def test_dialog_on_a_large_unscaled_screen_keeps_its_classic_size(qt_app, tmp_path):
+    with lock_screen(qt_app, tmp_path, screen_scale=1, size=(2560, 1440)) as (view, _):
+        assert named(view, "lockDialog").scale() == 1
 
 
 def test_typing_a_password_and_enter_hands_it_to_the_authenticator(qt_app, tmp_path):

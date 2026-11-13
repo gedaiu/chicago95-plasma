@@ -280,6 +280,19 @@ def test_load_settings_with_saved_login_title_puts_it_in_the_login_theme_conf(tm
     assert "loginTitle=Hello from settings" in theme_conf
 
 
+@pytest.mark.parametrize(
+    ("screen_scale", "line"), [("1", "scale=1"), ("1.25", "scale=1"), ("1.5", "scale=2"), ("3", "scale=3")]
+)
+def test_login_theme_conf_draws_a_classic_pixel_as_the_screen_scale_rounded(tmp_path, screen_scale, line):
+    theme_conf = run_bash_with_steps(tmp_path, f"SETUP_SCALE={screen_scale}; sddm_theme_conf")
+    assert line in theme_conf
+
+
+def test_login_theme_conf_without_a_known_scale_leaves_the_theme_to_pick_one(tmp_path):
+    theme_conf = run_bash_with_steps(tmp_path, "unset SETUP_SCALE; sddm_theme_conf")
+    assert "scale=0" in theme_conf
+
+
 def test_dry_run_with_settings_file_applies_the_saved_sound_theme(tmp_path):
     saved = tmp_path / "setup.conf"
     saved.write_text("SOUND_THEME=Windows2000\n")

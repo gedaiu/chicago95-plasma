@@ -7,7 +7,9 @@ import json
 import math
 from pathlib import Path
 
+from clippy_acceptance import completion_status
 from clippy_all_catalog import ROOT, catalog
+from clippy_branch_coverage import routes
 from clippy_choreography import study, validate_studies
 from PIL import Image, ImageDraw
 from review_clippy_3d import original_frames
@@ -56,6 +58,7 @@ def build(output, collisions):
             semantic_acceptance=False,
             beats=rows,
             collision_summary=collision["summary"][name],
+            branch_coverage=routes(actions[name]),
         )
         body = "".join(
             f"<tr><td>{a}–{b}</td><td>{html.escape(t)}</td><td>{html.escape(o)}</td></tr>" for a, b, t, o in beats
@@ -83,6 +86,7 @@ def build(output, collisions):
             "Source-frame image comparisons and intermediate collision checks pass",
         ],
     )
+    (output / "completion.json").write_text(json.dumps(completion_status(actions, {}), indent=2) + "\n")
     (output / "choreography.json").write_text(json.dumps(report, indent=2) + "\n")
     (output / "collisions.json").write_text(json.dumps(collision, indent=2) + "\n")
     (output / "index.html").write_text(
@@ -91,10 +95,11 @@ def build(output, collisions):
         "<h1>Original choreography, before keyframe changes</h1>"
         "<p>The current 3D recipes omit major transformations and prop interactions. Correct timing "
         "does not repair those gaps. "
-        "No animations have passed semantic acceptance. Six source entries are studied here; "
-        "the rest remain explicitly unreviewed.</p>"
+        "No animations have passed semantic acceptance. All 43 source entries are studied here; "
+        "none has passed reconstruction acceptance.</p>"
         "<ul>" + "".join(links) + '</ul><p><a href="choreography.json">Source beats and acceptance gaps</a> · '
-        '<a href="collisions.json">All 9,227 output-sample surface checks</a></p>'
+        '<a href="collisions.json">All 9,227 output-sample surface checks</a> · '
+        '<a href="completion.json">Completion gates: 0/43 accepted</a></p>'
         "<p>Collision counts include contacts still requiring classification, not only "
         "confirmed unintended penetrations. "
         "These checks do not certify containment or motion between samples.</p>"
