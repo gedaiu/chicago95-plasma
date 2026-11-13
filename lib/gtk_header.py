@@ -144,6 +144,9 @@ def header_css(active, inactive, inactive_text, face):
                 padding_left=f"{SIDEBAR_INSET}px",
                 padding_right=f"{SIDEBAR_INSET}px",
             ),
+            # The location entry stretches to the row while the address field keeps its own 22px: 1px more gap a side
+            # makes them the same height.
+            rule(f"{STRIP} .linked > entry", margin=f"{TOOL_GAP + 1}px 0"),
             # The location entry's clear icon takes a large icon size from libadwaita: it would make the location page,
             # and with it every page of Files' header and the row, taller than the address field.
             rule(

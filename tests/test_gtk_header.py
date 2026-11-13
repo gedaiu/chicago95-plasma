@@ -325,3 +325,7 @@ def test_the_sidebars_buttons_are_inset_6px_like_its_selected_row(strip):
 
 def test_the_location_entrys_clear_icon_is_16px_so_it_keeps_the_row_at_the_fields_height(strip):
     assert "-gtk-icon-size: 16px;" in rule_body(strip, f"{gtk_header.STRIP} entry > image")
+
+
+def test_the_stretched_location_entry_keeps_the_address_fields_height(strip):
+    assert "margin: 5px 0;" in rule_body(strip, f"{gtk_header.STRIP} .linked > entry")
