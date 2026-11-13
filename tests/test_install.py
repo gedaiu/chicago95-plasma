@@ -2033,7 +2033,10 @@ def scaled_x11_home(tmp_path):
 def test_wine_draws_at_the_screens_dpi_on_a_scaled_screen(tmp_path):
     log = (scaled_x11_home(tmp_path) / "wine.log").read_text()
 
-    assert log == "reg add HKCU\\Control Panel\\Desktop /v LogPixels /t REG_DWORD /d 144 /f\n"
+    assert log == (
+        "reg add HKCC\\Software\\Fonts /v LogPixels /t REG_DWORD /d 144 /f\n"
+        "reg add HKCU\\Control Panel\\Desktop /v LogPixels /t REG_DWORD /d 144 /f\n"
+    )
 
 
 def test_steam_scales_its_interface_by_the_screens_scale(tmp_path):

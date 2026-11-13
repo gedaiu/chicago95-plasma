@@ -722,6 +722,7 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
     run python3 "$REPO/lib/gtk_palette.py"
   fi
   apply_title_colors
+  widget_style_is_luna || theme_wine
   run plasma-apply-desktoptheme "$([ "${SETUP_TASKBAR_STYLE:-classic}" = luna ] && echo Chicago95Luna || echo Chicago95)" >>"$SETUP_LOG" 2>&1 || true
   if [ "$SETUP_SCALE" != 1 ]; then
     backup ~/.Xresources
@@ -738,12 +739,27 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   fi
 }
 
+# Wine's classic controls in the look's colours, its own visual theme off (lib/wine_look.py). Only the default
+# prefix: Wine creates it on first run, and a later Setup run themes it then.
+theme_wine() {
+  local reg=~/.local/share/chicago95/wine-look.reg
+  [ -d ~/.wine ] && command -v wine >/dev/null || return 0
+  run mkdir -p "$(dirname "$reg")"
+  run python3 "$REPO/lib/wine_look.py" "$reg"
+  record "$reg"
+  run env WINEDEBUG=-all wine regedit "$reg" >>"${SETUP_LOG:-/dev/null}" 2>&1
+  show_copy "(Wine controls in the look's colours)" ~/.wine/user.reg
+}
+
 # Wine and Steam draw their own interfaces and follow neither Xft.dpi nor the desktop's scale: Wine keeps its own DPI
-# (96 unless set) in its registry, and Steam reads its scale from its environment.
+# (96 unless set) in its registry, and Steam reads its scale from its environment. Wine 11 reads the DPI from the
+# machine's current configuration (what winecfg's Graphics tab sets); older Wines read the user's desktop settings.
 scale_x11_programs() {
-  local steam_env=~/.config/environment.d/chicago95-scale.conf
+  local steam_env=~/.config/environment.d/chicago95-scale.conf key
   if [ -d ~/.wine ] && command -v wine >/dev/null; then
-    run env WINEDEBUG=-all wine reg add 'HKCU\Control Panel\Desktop' /v LogPixels /t REG_DWORD /d "$SETUP_DPI" /f >>"${SETUP_LOG:-/dev/null}" 2>&1
+    for key in 'HKCC\Software\Fonts' 'HKCU\Control Panel\Desktop'; do
+      run env WINEDEBUG=-all wine reg add "$key" /v LogPixels /t REG_DWORD /d "$SETUP_DPI" /f >>"${SETUP_LOG:-/dev/null}" 2>&1
+    done
   fi
   backup "$steam_env"
   if [ "${SETUP_DRY_RUN:-0}" != 1 ]; then
@@ -1092,14 +1108,15 @@ step_winamp() {
   size_winamp
 }
 
-# qmmp runs unscaled under X11, so on a screen scaled 1.5x or more the player gets Winamp's own Double Size
-# (lib/qmmp_double_size.py). qmmp rewrites its settings when it quits, so a running player keeps its size until then.
+# qmmp runs unscaled under X11: the player's skin pixel follows the screen's scale, single or Winamp's own Double
+# Size (lib/qmmp_double_size.py). qmmp rewrites its settings when it quits, so a running player keeps its size until
+# then. A player never started has no settings to change.
 size_winamp() {
-  awk -v scale="${SETUP_SCALE:-1}" 'BEGIN { exit !(scale >= 1.5) }' || return 0
   local conf=~/.config/qmmp/qmmp.conf
+  [ -f "$conf" ] || [ "${SETUP_SCALE:-1}" != 1 ] || return 0
   backup "$conf"
-  run python3 "$REPO/lib/qmmp_double_size.py" "$conf"
-  show_copy "(Winamp at Double Size)" "$conf"
+  run python3 "$REPO/lib/qmmp_double_size.py" "$conf" "${SETUP_SCALE:-1}"
+  show_copy "(Winamp at the screen's scale, ${SETUP_SCALE:-1}x)" "$conf"
 }
 
 gtk_gradient() { # gtk_gradient <colour[,colour]>   a CSS background for a title bar colour or left-to-right pair
