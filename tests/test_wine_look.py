@@ -3,6 +3,7 @@
 import wine_look
 from conftest import run_bash_with_steps
 from PySide6.QtGui import QColor
+from test_install import install_stub_wine_inf, make_wine_prefix
 
 SCHEME_1998 = {
     "face": QColor("#C0C0C0"),
@@ -50,8 +51,22 @@ def test_wines_visual_theme_is_off_so_the_classic_controls_show():
     )
 
 
+def test_setup_imports_the_look_into_every_wine_prefix_in_the_home(tmp_path):
+    make_wine_prefix(tmp_path / ".wine")
+    make_wine_prefix(tmp_path / "Games/worms")
+    install_stub_wine_inf(tmp_path)
+    (tmp_path / "stubs").mkdir()
+    (tmp_path / "stubs/wine").write_text('#!/bin/sh\necho "${WINEPREFIX#$HOME/} $1" >> "$HOME/wine.log"\n')
+    (tmp_path / "stubs/wine").chmod(0o755)
+    run_bash_with_steps(
+        tmp_path, f'PATH="$HOME/stubs:$PATH"; SETUP_DRY_RUN=0; MANIFEST={tmp_path}/manifest; theme_wine'
+    )
+    assert sorted((tmp_path / "wine.log").read_text().splitlines()) == [".wine regedit", "Games/worms regedit"]
+
+
 def test_setup_imports_the_look_into_the_wine_prefix(tmp_path):
-    (tmp_path / ".wine").mkdir()
+    make_wine_prefix(tmp_path / ".wine")
+    install_stub_wine_inf(tmp_path)
     (tmp_path / "stubs").mkdir()
     (tmp_path / "stubs/wine").write_text('#!/bin/sh\necho "$1 $2" >> "$HOME/wine.log"; cp "$2" "$HOME/imported.reg"\n')
     (tmp_path / "stubs/wine").chmod(0o755)

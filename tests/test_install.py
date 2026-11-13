@@ -2030,10 +2030,31 @@ def test_the_pixel_font_rule_keeps_its_unsmoothed_bands_only_on_whole_pixel_scal
     assert lines[-1] == str(unsmoothed_bands)
 
 
+WINE_INF_TIME = 1792368000
+
+
+def make_wine_prefix(path, update_timestamp=WINE_INF_TIME):
+    """A prefix as Wine leaves it, last updated by the Wine whose wine.inf dates from update_timestamp (which Wine
+    writes with a Windows line end)."""
+    (path / "drive_c").mkdir(parents=True)
+    (path / "system.reg").write_text("WINE REGISTRY Version 2\n")
+    (path / ".update-timestamp").write_bytes(f"{update_timestamp}\r\n".encode())
+    return path
+
+
+def install_stub_wine_inf(home):
+    """The stub wine's own wine.inf, where Wine keeps it next to its binary (bin/../share/wine)."""
+    inf = home / "share/wine/wine.inf"
+    inf.parent.mkdir(parents=True)
+    inf.write_text("")
+    os.utime(inf, (WINE_INF_TIME, WINE_INF_TIME))
+
+
 def scaled_x11_home(tmp_path):
-    (tmp_path / ".wine").mkdir()
+    make_wine_prefix(tmp_path / ".wine")
+    install_stub_wine_inf(tmp_path)
     (tmp_path / "stubs").mkdir()
-    (tmp_path / "stubs/wine").write_text('#!/bin/sh\necho "$@" >> "$HOME/wine.log"\n')
+    (tmp_path / "stubs/wine").write_text('#!/bin/sh\necho "${WINEPREFIX#$HOME/} $*" >> "$HOME/wine.log"\n')
     (tmp_path / "stubs/wine").chmod(0o755)
     run_bash_with_steps(
         tmp_path,
@@ -2047,9 +2068,91 @@ def test_wine_draws_at_the_screens_dpi_on_a_scaled_screen(tmp_path):
     log = (scaled_x11_home(tmp_path) / "wine.log").read_text()
 
     assert log == (
-        "reg add HKCC\\Software\\Fonts /v LogPixels /t REG_DWORD /d 144 /f\n"
-        "reg add HKCU\\Control Panel\\Desktop /v LogPixels /t REG_DWORD /d 144 /f\n"
+        ".wine reg add HKCC\\Software\\Fonts /v LogPixels /t REG_DWORD /d 144 /f\n"
+        ".wine reg add HKCU\\Control Panel\\Desktop /v LogPixels /t REG_DWORD /d 144 /f\n"
     )
+
+
+def test_wine_draws_at_the_screens_dpi_in_every_prefix_in_the_home(tmp_path):
+    make_wine_prefix(tmp_path / "Games/worms")
+    make_wine_prefix(tmp_path / ".wine-other")
+    (tmp_path / "Games/not-a-prefix").mkdir(parents=True)
+    log = (scaled_x11_home(tmp_path) / "wine.log").read_text()
+    assert {line.split(" ")[0] for line in log.splitlines()} == {".wine", ".wine-other", "Games/worms"}
+
+
+def test_wine_leaves_alone_a_prefix_another_wine_version_made(tmp_path):
+    make_wine_prefix(tmp_path / "Games/lutris-game", update_timestamp=1707016173)
+    log = (scaled_x11_home(tmp_path) / "wine.log").read_text()
+    assert "Games/lutris-game" not in log
+
+
+def test_wine_scales_a_prefix_whose_updates_are_turned_off(tmp_path):
+    make_wine_prefix(tmp_path / "Games/pinned", update_timestamp="disable")
+    log = (scaled_x11_home(tmp_path) / "wine.log").read_text()
+    assert "Games/pinned reg add" in log
+
+
+def test_setup_carries_on_when_the_last_wine_prefix_found_is_another_wines(tmp_path):
+    make_wine_prefix(tmp_path / ".wine")
+    make_wine_prefix(tmp_path / "zz-lutris-game", update_timestamp=1707016173)
+    install_stub_wine_inf(tmp_path)
+    (tmp_path / "stubs").mkdir()
+    (tmp_path / "stubs/wine").write_text("#!/bin/sh\n")
+    (tmp_path / "stubs/wine").chmod(0o755)
+    lines = run_bash_with_steps(
+        tmp_path, 'set -euo pipefail; PATH="$HOME/stubs:$PATH"; prefixes=$(wine_prefixes); echo "found $prefixes"'
+    )
+    assert lines == [f"found {tmp_path}/.wine"]
+
+
+def test_setup_carries_on_when_a_folder_in_the_home_cannot_be_read(tmp_path):
+    make_wine_prefix(tmp_path / ".wine")
+    install_stub_wine_inf(tmp_path)
+    (tmp_path / "stubs").mkdir()
+    (tmp_path / "stubs/wine").write_text("#!/bin/sh\n")
+    (tmp_path / "stubs/wine").chmod(0o755)
+    (tmp_path / "private").mkdir(mode=0o000)
+    lines = run_bash_with_steps(
+        tmp_path, 'set -euo pipefail; PATH="$HOME/stubs:$PATH"; prefixes=$(wine_prefixes); echo "found $prefixes"'
+    )
+    (tmp_path / "private").chmod(0o755)
+    assert lines == [f"found {tmp_path}/.wine"]
+
+
+def home_with_stub_wine(tmp_path, script, wine_inf=True):
+    make_wine_prefix(tmp_path / ".wine")
+    if wine_inf:
+        install_stub_wine_inf(tmp_path)
+    (tmp_path / "stubs").mkdir()
+    for name, body in (("wine", script), ("systemctl", "#!/bin/sh\n")):
+        (tmp_path / "stubs" / name).write_text(body)
+        (tmp_path / "stubs" / name).chmod(0o755)
+
+
+def run_strict(tmp_path, steps):
+    """The steps under install.sh's own shell options and copy counters."""
+    return run_bash_with_steps(
+        tmp_path,
+        f'set -euo pipefail; PATH="$HOME/stubs:$PATH"; SETUP_DRY_RUN=0; SETUP_LOG=/dev/null; '
+        "COPIED=0; TO_COPY=0; ui_progress() { :; }; "
+        f"MANIFEST={tmp_path}/manifest; STATE_DIR={tmp_path}; SETUP_SCALE=1.5; SETUP_DPI=144; {steps}; echo carried on",
+    )
+
+
+def test_setup_carries_on_when_wine_keeps_no_wine_inf_beside_it(tmp_path):
+    home_with_stub_wine(tmp_path, "#!/bin/sh\n", wine_inf=False)
+    assert run_strict(tmp_path, "wine_prefixes") == ["carried on"]
+
+
+def test_setup_carries_on_when_wine_fails_in_a_prefix_while_theming_it(tmp_path):
+    home_with_stub_wine(tmp_path, "#!/bin/sh\nexit 1\n")
+    assert run_strict(tmp_path, "theme_wine")[-1] == "carried on"
+
+
+def test_setup_carries_on_when_wine_fails_in_a_prefix_while_scaling_it(tmp_path):
+    home_with_stub_wine(tmp_path, "#!/bin/sh\nexit 1\n")
+    assert run_strict(tmp_path, "scale_x11_programs")[-1] == "carried on"
 
 
 def test_steam_scales_its_interface_by_the_screens_scale(tmp_path):

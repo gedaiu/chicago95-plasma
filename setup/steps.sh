@@ -743,25 +743,50 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
 # Wine's classic controls in the look's colours, its own visual theme off (lib/wine_look.py). Only the default
 # prefix: Wine creates it on first run, and a later Setup run themes it then.
 theme_wine() {
-  local reg=~/.local/share/chicago95/wine-look.reg
-  [ -d ~/.wine ] && command -v wine >/dev/null || return 0
+  local reg=~/.local/share/chicago95/wine-look.reg prefix prefixes
+  prefixes=$(wine_prefixes)
+  [ -n "$prefixes" ] || return 0
   run mkdir -p "$(dirname "$reg")"
   run python3 "$REPO/lib/wine_look.py" "$reg"
   record "$reg"
-  run env WINEDEBUG=-all wine regedit "$reg" >>"${SETUP_LOG:-/dev/null}" 2>&1
-  show_copy "(Wine controls in the look's colours)" ~/.wine/user.reg
+  while IFS= read -r prefix; do
+    run env WINEPREFIX="$prefix" WINEDEBUG=-all wine regedit "$reg" >>"${SETUP_LOG:-/dev/null}" 2>&1 || wine_failed "$prefix"
+    show_copy "(Wine controls in the look's colours)" "$prefix/user.reg"
+  done <<<"$prefixes"
+}
+
+# Every Wine prefix in the home, ~/.wine and the ones games and stores make (~/.wine-*, ~/Games/*): a folder with a
+# registry next to its C: drive. Each starts at Wine's 96 DPI and its own theme. Only the installed Wine's own
+# prefixes: one made by another Wine (Lutris' runners) would be "updated" to this Wine's system files on its first
+# run here; Wine tells by the prefix's .update-timestamp, its wine.inf's time ("disable" turns updates off). Steam's
+# Proton prefixes lie deeper, and Steam manages them.
+wine_failed() { printf '  Wine failed in %s; it keeps its own settings\n' "$1" >>"${SETUP_LOG:-/dev/null}"; }
+
+wine_prefixes() {
+  local wine inf_time registry prefix stamp
+  wine=$(command -v wine) || return 0
+  inf_time=$(stat -c %Y "$(dirname "$(readlink -f "$wine")")/../share/wine/wine.inf" 2>/dev/null) || inf_time=""
+  { find ~ -maxdepth 4 -name system.reg -not -path '*/.cache/*' 2>/dev/null || true; } | sort | while IFS= read -r registry; do
+    prefix=$(dirname "$registry")
+    stamp=$(head -n 1 "$prefix/.update-timestamp" 2>/dev/null | tr -d '\r')
+    if [ -d "$prefix/drive_c" ] && { [ "$stamp" = disable ] || [ "$stamp" = "$inf_time" ]; }; then
+      printf '%s\n' "$prefix"
+    fi
+  done
 }
 
 # Wine and Steam draw their own interfaces and follow neither Xft.dpi nor the desktop's scale: Wine keeps its own DPI
 # (96 unless set) in its registry, and Steam reads its scale from its environment. Wine 11 reads the DPI from the
 # machine's current configuration (what winecfg's Graphics tab sets); older Wines read the user's desktop settings.
 scale_x11_programs() {
-  local steam_env=~/.config/environment.d/chicago95-scale.conf key
-  if [ -d ~/.wine ] && command -v wine >/dev/null; then
+  local steam_env=~/.config/environment.d/chicago95-scale.conf key prefix
+  while IFS= read -r prefix; do
+    [ -n "$prefix" ] || continue
     for key in 'HKCC\Software\Fonts' 'HKCU\Control Panel\Desktop'; do
-      run env WINEDEBUG=-all wine reg add "$key" /v LogPixels /t REG_DWORD /d "$SETUP_DPI" /f >>"${SETUP_LOG:-/dev/null}" 2>&1
+      run env WINEPREFIX="$prefix" WINEDEBUG=-all wine reg add "$key" /v LogPixels /t REG_DWORD /d "$SETUP_DPI" /f >>"${SETUP_LOG:-/dev/null}" 2>&1 ||
+        wine_failed "$prefix"
     done
-  fi
+  done <<<"$(wine_prefixes)"
   backup "$steam_env"
   if [ "${SETUP_DRY_RUN:-0}" != 1 ]; then
     mkdir -p "$(dirname "$steam_env")"
