@@ -344,8 +344,8 @@ checks.
 
 ## Clippy
 
-The Office Assistant plays the original sprite atlas by default. The HD artwork and the Blender 3D prototype, with
-their build, review and validation tools, are described in [docs/clippy.md](docs/clippy.md).
+The Office Assistant plays the original sprite atlas by default. Artwork reconstruction and Blender authoring
+now live in the sibling `clippy-upscale` workspace; [docs/clippy.md](docs/clippy.md) describes the split.
 
 ## Credits
 
