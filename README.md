@@ -114,6 +114,9 @@ cd ~/src/chicago95-plasma
 ./install.sh
 ```
 
+To install parts without Setup, or to see what goes where, follow
+[Setting up Chicago95 by hand](docs/manual-setup.md).
+
 Setup runs as a full-screen text installer in the classic
 style: it collects information about the computer, lets you pick
 components and options, copies files with a progress bar, and reloads
