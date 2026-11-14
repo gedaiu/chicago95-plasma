@@ -22,7 +22,10 @@ fun progress_callback(duration, progress)
   {
     shown = Math.Int(progress * 18);
     for (i = 0; i < 18; i++)
-      blocks[i].SetOpacity(i < shown ? 1 : 0);
+      if (i < shown)
+        blocks[i].SetOpacity(1);
+      else
+        blocks[i].SetOpacity(0);
   }
 Plymouth.SetBootProgressFunction(progress_callback);
 

@@ -2,7 +2,9 @@ screen_width = Window.GetWidth();
 screen_height = Window.GetHeight();
 unit = screen_height / 480;
 layout_x = (screen_width - 640 * unit) / 2;
-asset_scale = screen_height >= 960 ? 2 : 1;
+asset_scale = 1;
+if (screen_height >= 960)
+  asset_scale = 2;
 fit = unit / asset_scale;
 
 Window.SetBackgroundTopColor(0, 0, 0);
@@ -52,7 +54,10 @@ fun refresh_callback()
         block_left = group_left + i * block_pitch;
         fits = block_left >= inner_left && block_left + 6 <= inner_left + inner_width;
         blocks[i].SetPosition(Math.Int(layout_x + block_left * unit), Math.Int(354 * unit), 2);
-        blocks[i].SetOpacity(fits ? 1 : 0);
+        if (fits)
+          blocks[i].SetOpacity(1);
+        else
+          blocks[i].SetOpacity(0);
       }
     frame++;
   }
