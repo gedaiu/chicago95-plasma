@@ -1317,6 +1317,14 @@ write_splash_settings() { # <dir>  settings.js: the loading screen's style, text
   show_copy "(loading screen: $(boot_style), ${SETUP_BANNER_TEXT:-Chicago95})" "$dir/settings.js"
 }
 
+PLYMOUTH_RETAIN_DROPIN=/etc/systemd/system/plymouth-quit.service.d/zz-chicago95.conf
+
+retain_boot_screen() { # Plymouth leaves its last frame up until the login screen draws, not seconds of black
+  run sudo mkdir -p "${PLYMOUTH_RETAIN_DROPIN%/*}"
+  printf '[Service]\nExecStart=\nExecStart=-/usr/bin/plymouth quit --retain-splash\n' | run sudo tee "$PLYMOUTH_RETAIN_DROPIN" >/dev/null
+  run sudo systemctl daemon-reload
+}
+
 step_splash() { # the loading screen: KSplash shows it after log on, in the login style; its texts and pictures go into settings.js
   local dir=~/.local/share/plasma/look-and-feel/chicago95.splashscreen/contents/splash
   put_tree "$REPO/splash/chicago95.splashscreen" ~/.local/share/plasma/look-and-feel/chicago95.splashscreen
@@ -1540,6 +1548,8 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
     write_splash_settings "$build/splash"
     run env QT_QPA_PLATFORM=offscreen python3 "$REPO/bin/chicago95-splash-image" --splash "$build/splash" \
       --size "${SETUP_WIDTH:-1920}x${SETUP_HEIGHT:-1080}" --scale "${SETUP_SCALE:-1}" --out "$build/screen.png"
+    run env QT_QPA_PLATFORM=offscreen python3 "$REPO/bin/chicago95-splash-image" --splash "$build/splash" \
+      --size "${SETUP_WIDTH:-1920}x${SETUP_HEIGHT:-1080}" --scale "${SETUP_SCALE:-1}" --text "Shutting down" --out "$build/shutdown.png"
     run rm -rf "$build/splash"
     theme_src="$build"
   else
@@ -1554,7 +1564,8 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
     return
   }
   if ! ui_sudo "To change the boot screen, Setup must copy the theme to a system folder and rebuild the boot image. That takes a minute or two." \
-    "sudo rm -rf /usr/share/plymouth/themes/$name" "sudo cp -r $theme_src /usr/share/plymouth/themes/$name" "sudo plymouth-set-default-theme -R $name"; then
+    "sudo rm -rf /usr/share/plymouth/themes/$name" "sudo cp -r $theme_src /usr/share/plymouth/themes/$name" "sudo plymouth-set-default-theme -R $name" \
+    "sudo tee $PLYMOUTH_RETAIN_DROPIN"; then
     ui_message "Boot screen not changed" "No administrator password was accepted, so Setup skipped the boot screen." \
       "Everything else is installed. Run ./install.sh --components=plymouth to try again."
     return
@@ -1564,6 +1575,7 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
   show_copy "$theme_src" "/usr/share/plymouth/themes/$name"
   ui_status "Rebuilding the boot image; this takes a minute or two..."
   run sudo plymouth-set-default-theme -R "$name" >>"$SETUP_LOG" 2>&1
+  retain_boot_screen
   [ "$current" = "$name" ] || record "plymouth:$current"
   [ -z "$build" ] || run rm -rf "$build"
 }

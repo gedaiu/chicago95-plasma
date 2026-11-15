@@ -2159,3 +2159,56 @@ def test_steam_scales_its_interface_by_the_screens_scale(tmp_path):
     conf = (scaled_x11_home(tmp_path) / ".config/environment.d/chicago95-scale.conf").read_text()
 
     assert conf == "STEAM_FORCE_DESKTOPUI_SCALING=1.5\n"
+
+
+def test_dry_run_of_the_2000_boot_screen_renders_a_shutting_down_picture_for_shutdown(tmp_path):
+    plymouth_stub(tmp_path)
+    run_setup(tmp_path, "--dry-run", "--login-style=2000", "--components=plymouth")
+    log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+    assert "--text Shutting down --out" in log
+
+
+def test_the_2000_plymouth_script_shows_the_shutdown_picture_when_shutting_down_or_rebooting():
+    script = (REPO / "plymouth/Chicago95-2000/Chicago95-2000.script").read_text()
+    assert (
+        'Plymouth.GetMode() == "shutdown" || Plymouth.GetMode() == "reboot"' in script,
+        'Image("shutdown.png")' in script,
+    ) == (True, True)
+
+
+def test_the_splash_picture_with_shutting_down_as_its_text_differs_from_the_starting_up_one(tmp_path):
+    from PIL import Image
+
+    splash = tmp_path / "splash"
+    shutil.copytree(REPO / "splash/chicago95.splashscreen/contents/splash", splash)
+    (splash / "settings.js").write_text('.pragma library\nvar style = "2000"\nvar loadingText = "Starting up..."\n')
+
+    def render(name, *text):
+        out = tmp_path / name
+        subprocess.run(
+            [
+                sys.executable,
+                str(REPO / "bin/chicago95-splash-image"),
+                "--splash",
+                str(splash),
+                "--size",
+                "640x480",
+                *text,
+                "--out",
+                str(out),
+            ],
+            check=True,
+            capture_output=True,
+            env={**os.environ, "QT_QPA_PLATFORM": "offscreen"},
+            timeout=60,
+        )
+        return Image.open(out).convert("RGB").crop((200, 430, 274, 450)).tobytes()
+
+    assert render("start.png") != render("stop.png", "--text", "Shutting down...")
+
+
+def test_dry_run_of_the_boot_screen_keeps_its_last_frame_until_the_login_screen_draws(tmp_path):
+    plymouth_stub(tmp_path)
+    run_setup(tmp_path, "--dry-run", "--login-style=2000", "--components=plymouth")
+    log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+    assert "/etc/systemd/system/plymouth-quit.service.d/zz-chicago95.conf" in log

@@ -7,7 +7,10 @@ screen_height = Window.GetHeight();
 unit = screen_height / 480;
 layout_x = (screen_width - 640 * unit) / 2;
 
-background = Sprite(Image("screen.png").Scale(screen_width, screen_height));
+picture = Image("screen.png");
+if (Plymouth.GetMode() == "shutdown" || Plymouth.GetMode() == "reboot")
+  picture = Image("shutdown.png");
+background = Sprite(picture.Scale(screen_width, screen_height));
 background.SetPosition(0, 0, 0);
 
 block_image = Image("block.png").Scale(Math.Int(8 * unit), Math.Int(8 * unit));

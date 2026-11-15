@@ -17,6 +17,7 @@ Rectangle {
     id: root
     property int stage
     property bool booting: false
+    property string loadingText: Settings.loadingText
     property bool textBoot: false
     property int textBootDuration: 2500
     property int bitmapDuration: 3000
@@ -318,7 +319,7 @@ Rectangle {
             font.pixelSize: root.px(11)
             renderType: Text.NativeRendering
             color: "#000000"
-            text: Settings.loadingText
+            text: root.loadingText
         }
 
         // Sunken progress bar: grey shadow on top, darker on the left, white bottom-right, the bar's own grey
