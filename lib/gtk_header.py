@@ -13,6 +13,7 @@ background, so the face keeps its size in any bar, and the symbolic glyph is hid
 
 import argparse
 import base64
+import re
 import sys
 from pathlib import Path
 
@@ -58,6 +59,14 @@ def face_url(kind, colours, pressed):
 
 def buttons(suffix="", ancestor=""):
     return ", ".join(f"{ancestor}{side}{suffix}" for side in SIDES)
+
+
+GTK4_ONLY = re.compile(r"(?<![\w-])(?:filter|-gtk-icon-size|border-spacing):[^;}]*;?\n?")
+
+
+def without_gtk4_properties(css):
+    """GTK 3 warns on every start about the properties only GTK 4 knows; the sheets shared by both drop them."""
+    return GTK4_ONLY.sub("", css)
 
 
 def rule(selector, **properties):
@@ -265,6 +274,24 @@ def frame_css(face, light, shadow, dark):
     ) + rule(", ".join(f"window.csd.{state}" for state in WHOLE_SCREEN), padding="0", border="none", box_shadow="none")
 
 
+def unified_frame_css(face, light, shadow, dark):
+    """libhandy's windows (GNOME Boxes among them) skip GTK 3's decoration frame and lay an overlay over their content
+    instead: the same raised rings are drawn on it. GTK 3 paints the last inset shadow on top."""
+    whole_screen = "".join(f":not(.{state})" for state in WHOLE_SCREEN)
+    rings = [
+        f"inset 4px 4px {face}",
+        f"inset -4px -4px {face}",
+        "inset 2px 2px #FFFFFF",
+        f"inset -2px -2px {shadow}",
+        f"inset 1px 1px {light}",
+        f"inset -1px -1px {dark}",
+    ]
+    # A VM's screen draws on a surface of its own, above the overlay: the content steps inside the frame instead.
+    return rule(f"window.unified{whole_screen} > decoration-overlay", box_shadow=", ".join(rings)) + rule(
+        f"window.unified{whole_screen} > deck > *", margin="4px"
+    )
+
+
 def path_bar_css(light, shadow, dark):
     """GNOME Files' path bar as Explorer's Address bar: one sunken white field with the folders as plain text in it,
     not a row of raised buttons crowding the slashes between them."""
@@ -337,12 +364,18 @@ def main():
     parser.add_argument("--shadow", default="#808080")
     parser.add_argument("--dark", default="#000000")
     args = parser.parse_args()
-    sys.stdout.write(caption_css(args.face, args.light, args.shadow, args.dark))
-    sys.stdout.write(header_css(args.active, args.inactive, args.inactive_text, args.face))
-    sys.stdout.write(path_bar_css(args.light, args.shadow, args.dark))
-    sys.stdout.write(list_view_css())
+    sheet = (
+        caption_css(args.face, args.light, args.shadow, args.dark)
+        + header_css(args.active, args.inactive, args.inactive_text, args.face)
+        + path_bar_css(args.light, args.shadow, args.dark)
+        + list_view_css()
+    )
     if args.gtk == "4.0":
-        sys.stdout.write(frame_css(args.face, args.light, args.shadow, args.dark))
+        sys.stdout.write(sheet + frame_css(args.face, args.light, args.shadow, args.dark))
+    else:
+        sys.stdout.write(
+            without_gtk4_properties(sheet) + unified_frame_css(args.face, args.light, args.shadow, args.dark)
+        )
 
 
 if __name__ == "__main__":

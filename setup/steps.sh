@@ -340,14 +340,16 @@ target, source = map(Path, sys.argv[1:3])
 sys.path.insert(0, str(source.parent.parent / "lib"))
 from gtk_inputs import input_css
 from gtk_sliders import slider_css
+from gtk_header import without_gtk4_properties
 begin, end = "/* Chicago95 progress BEGIN */", "/* Chicago95 progress END */"
 text = target.read_text() if target.exists() else ""
 text = re.sub(re.escape(begin) + r".*?" + re.escape(end) + r"\n?", "", text, flags=re.S)
 if sys.argv[3] == "Chicago95":
-    text = (text.rstrip() + "\n" + begin + "\n" + source.read_text()
-            + source.with_name("gtk-frames-classic.css").read_text()
-            + input_css(Path.home() / ".themes/Chicago95", sys.argv[4])
-            + slider_css(sys.argv[4]) + end + "\n")
+    block = (source.read_text() + source.with_name("gtk-frames-classic.css").read_text()
+             + input_css(Path.home() / ".themes/Chicago95", sys.argv[4]) + slider_css(sys.argv[4]))
+    if sys.argv[4] == "3.0":  # GTK 3 warns on every start about properties only GTK 4 knows
+        block = without_gtk4_properties(block)
+    text = text.rstrip() + "\n" + begin + "\n" + block + end + "\n"
 target.write_text(text)
 PYPROGRESS
     record "$target"
