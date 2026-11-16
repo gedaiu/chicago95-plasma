@@ -2212,3 +2212,14 @@ def test_dry_run_of_the_boot_screen_keeps_its_last_frame_until_the_login_screen_
     run_setup(tmp_path, "--dry-run", "--login-style=2000", "--components=plymouth")
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
     assert "/etc/systemd/system/plymouth-quit.service.d/zz-chicago95.conf" in log
+
+
+def test_moving_a_window_shows_the_grabbing_hand_in_every_move_cursor_name(tmp_path):
+    cursors = tmp_path / ".icons/Chicago95_Animated_Hourglass_Cursors_HiDPI/cursors"
+    cursors.mkdir(parents=True)
+    (cursors / "grabbing").write_bytes(b"hand")
+    for name in ("move", "fleur", "size_all", "all-scroll"):
+        (cursors / name).write_bytes(b"plus")
+    run_bash_with_steps(tmp_path, "SETUP_LOG=/dev/null; grab_hand_for_moves")
+    names = ("move", "fleur", "size_all", "all-scroll")
+    assert [(cursors / name).read_bytes() for name in names] == [b"hand"] * 4

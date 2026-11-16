@@ -316,6 +316,14 @@ set_gtk_theme() { # set_gtk_theme <theme name>   GTK 3 and GTK 4 settings
 }
 
 # Keep shared classic progress/frame rules in both GTK versions; remove them when selecting Luna.
+grab_hand_for_moves() { # KWin draws its move pointer while it drags a window (Clippy among them): the grabbing hand
+  local cursors=~/.icons/Chicago95_Animated_Hourglass_Cursors_HiDPI/cursors name
+  [ -f "$cursors/grabbing" ] || return 0
+  for name in move fleur size_all all-scroll; do
+    run cp "$cursors/grabbing" "$cursors/$name"
+  done
+}
+
 import_gtk_progress() {
   local version target
   [ "${SETUP_DRY_RUN:-0}" = 1 ] && return 0
@@ -424,6 +432,7 @@ step_base() {
   done
   run fc-cache -f ~/.local/share/fonts >/dev/null 2>&1 || true
   put_file "$(xsettingsd_source)" ~/.config/xsettingsd/xsettingsd.conf
+  grab_hand_for_moves
   run plasma-apply-cursortheme Chicago95_Animated_Hourglass_Cursors_HiDPI --size "${SETUP_CURSOR:-32}" >>"$SETUP_LOG" 2>&1 || true
   pkill -HUP xsettingsd 2>/dev/null || true
 }

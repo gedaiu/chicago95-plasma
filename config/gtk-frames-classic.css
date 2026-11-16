@@ -24,3 +24,10 @@ frame > label {
   margin: 0 0 0 6px;
   padding: 0 4px 0 0;
 }
+/* Message dialogs (Electron's native ones among them) pack their buttons edge to edge; the originals kept them apart. */
+messagedialog .dialog-action-area {
+  padding: 6px;
+}
+messagedialog .dialog-action-area button + button {
+  margin-left: 6px;
+}
