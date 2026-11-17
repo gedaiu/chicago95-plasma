@@ -108,7 +108,7 @@ SETTINGS_KEYS="LOOK DECORATION WIDGET_STYLE TASKBAR_STYLE START_MENU_STYLE BEVEL
 # A look: menu style, title bars, Start menu banner and, for 2000, the warm grey face. Colours are
 # #RRGGBB, two separated by a comma for a gradient; banner stops with @N sit N pixels above its bottom.
 # The 1998 and 2000 banners are measured from the originals (tests/test_startmenu_styles_reference.py).
-default_start_logo() { [ "${SETUP_START_MENU_STYLE:-1995}" = 2001 ] && printf xp || printf flag; }
+default_start_logo() { case "${SETUP_START_MENU_STYLE:-1995}" in 2001 | luna) printf xp ;; *) printf flag ;; esac; }
 # The running distribution's branding (lib/chicago95distro.py): KEY<TAB>value lines, read as data; nothing when
 # there is no os-release. SETUP_OS_RELEASE and SETUP_DATA_DIRS point it elsewhere (tests).
 DISTRO_BRANDING_KEYS="BANNER_TEXT EDITION COMPANY LOADING_FOOTER START_LOGO LOGIN_LOGO COMPANY_LOGO"
@@ -166,6 +166,7 @@ apply_look() {
     SETUP_WIDGET_STYLE=luna
     SETUP_TASKBAR_STYLE=luna
     SETUP_START_MENU_STYLE=luna
+    SETUP_START_LOGO=$(default_start_logo)
     SETUP_LOGIN_STYLE=luna
     SETUP_BOOT_STYLE=luna
     SETUP_BEVEL=2000

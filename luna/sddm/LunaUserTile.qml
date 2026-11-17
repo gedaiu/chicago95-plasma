@@ -19,6 +19,8 @@ Item {
     property url picture
     property bool loggedIn: false
     property bool selected
+    readonly property bool hovered: hover.hovered
+    readonly property bool highlighted: selected || hovered
     property string status: ""  // in place of the password box, while Windows logs the user on
     readonly property bool askingPassword: selected && status === ""
     property int failureCount
@@ -30,7 +32,16 @@ Item {
     signal passwordAccepted(string password)
 
     width: 365 * unit
-    height: (selected ? 70 : 63) * unit
+    height: 70 * unit
+
+    // XP fades idle accounts; hovering restores the portrait and lettering,
+    // while the blue selection panel only appears after clicking an account.
+    opacity: highlighted || status !== "" ? 1 : 0.5
+    Behavior on opacity {
+        NumberAnimation {
+            duration: 120
+        }
+    }
 
     onSelectedChanged: {
         passwordInput.text = "";
@@ -45,9 +56,15 @@ Item {
 
     Rectangle {
         id: edge
+        objectName: "selectionEdge"
         anchors.fill: parent
         radius: 8 * tile.unit
-        opacity: tile.status !== "" ? 0 : tile.selected || hover.hovered ? 1 : 0
+        opacity: tile.status === "" && tile.selected ? 1 : 0
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 120
+            }
+        }
         gradient: Gradient {
             orientation: Gradient.Horizontal
             GradientStop {
@@ -66,7 +83,13 @@ Item {
         width: parent.width - tile.unit
         height: parent.height - 2 * tile.unit
         radius: 8 * tile.unit
-        opacity: tile.status !== "" ? 0 : tile.selected ? 1 : hover.hovered ? 0.55 : 0
+        objectName: "selectionFill"
+        opacity: tile.status === "" && tile.selected ? 1 : 0
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 120
+            }
+        }
         gradient: Gradient {
             orientation: Gradient.Horizontal
             GradientStop {
@@ -91,14 +114,14 @@ Item {
         width: 52 * tile.unit
         height: 52 * tile.unit
         radius: 3 * tile.unit
-        color: tile.status !== "" ? "#a6b6ce" : "#ffb600"
+        color: tile.status !== "" || !tile.highlighted ? "#a6b6ce" : "#ffb600"
         Rectangle {
             x: tile.unit
             y: tile.unit
             width: parent.width - 2 * tile.unit
             height: parent.height - tile.unit
             radius: 2 * tile.unit
-            color: tile.status !== "" ? "#ffffff" : "#ffee00"
+            color: tile.status !== "" || !tile.highlighted ? "#ffffff" : "#ffee00"
         }
         Rectangle {
             id: face
@@ -143,8 +166,11 @@ Item {
     }
 
     Text {
+        objectName: "userName"
         x: 75 * tile.unit
-        y: (tile.selected || tile.loggedIn ? 8 : 22) * tile.unit
+        // The name stays aligned with the portrait's top in idle, hover and
+        // selected states (EEuBC6NcOnA, 0:38); only the password row appears.
+        y: 8 * tile.unit
         text: tile.name
         color: "#ffffff"
         font.family: tile.family
@@ -541,6 +567,8 @@ Item {
 
     HoverHandler {
         id: hover
+        enabled: tile.enabled && tile.status === ""
+        cursorShape: tile.selected ? Qt.ArrowCursor : Qt.PointingHandCursor
     }
     TapHandler {
         enabled: !tile.selected

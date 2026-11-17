@@ -241,6 +241,7 @@ LOOK_PRESETS["luna"] = {
     "WIDGET_STYLE": "luna",
     "TASKBAR_STYLE": "luna",
     "START_MENU_STYLE": "luna",
+    "START_LOGO": "xp",
     "ICONS": "windowsxp",
     "TITLE_ACTIVE": "#0054E3,#3F97FF",
     "TITLE_INACTIVE": "#7A96DF,#9DB9EB",

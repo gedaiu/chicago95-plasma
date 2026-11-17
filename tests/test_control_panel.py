@@ -161,6 +161,13 @@ def test_look_presets_match_what_setup_applies_for_that_look(control_panel, tmp_
     assert [preset[key] for key in ("TITLE_ACTIVE", "TITLE_INACTIVE", "BANNER_BG", "BANNER_FG", "ICONS")] == applied
 
 
+@pytest.mark.parametrize("look, logo", [("1995", "flag"), ("2001", "xp"), ("luna", "xp")])
+def test_look_start_logo_is_the_same_in_setup_and_the_control_panel(control_panel, tmp_path, look, logo):
+    applied = run_bash_with_steps(tmp_path, f'SETUP_START_LOGO=flag; apply_look {look}; echo "$SETUP_START_LOGO"')[0]
+
+    assert (applied, control_panel.LOOK_PRESETS[look].get("START_LOGO", "flag")) == (logo, logo)
+
+
 @pytest.mark.parametrize("idle, lock, hidden", [(5, 5, True), (6, 5, True), (4, 5, False)])
 def test_screensaver_is_hidden_by_the_lock_screen_unless_it_starts_first(control_panel, idle, lock, hidden):
     assert control_panel.screensaver_hidden_by_lock(idle, lock) is hidden
