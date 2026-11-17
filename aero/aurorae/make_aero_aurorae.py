@@ -80,3 +80,60 @@ def face_svg(face, prefix="f", origin=(0, 0)):
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">'
         f"<defs>{''.join(definitions)}</defs>{''.join(shapes)}</svg>"
     )
+
+
+def rect(x, y, width, height):
+    return f"M{x},{y}h{width}v{height}h{-width}z"
+
+
+# Glyph shapes in their 96 DPI sprite's pixel coordinates (BUTTON<KIND>GLYPH96): (box, layers drawn in order), each
+# layer an "outline" or "body" path, filled even-odd so a ring is an outer and an inner rectangle.
+CLOSE_ARMS = ("M2.1,3H4.9L10.9,11H8.1z", "M8.1,3H10.9L4.9,11H2.1z")
+GLYPH_SHAPES = {
+    "close": ((13, 14), [("stroke", arm) for arm in CLOSE_ARMS] + [("body", arm) for arm in CLOSE_ARMS]),
+    "minimize": ((14, 14), [("outline", rect(0, 7, 14, 5)), ("body", rect(2, 8, 10, 3))]),
+    "maximize": (
+        (16, 14),
+        [("outline", rect(3, 2, 13, 10) + rect(7, 6, 4, 2)), ("body", rect(4, 3, 10, 8) + rect(6, 5, 6, 4))],
+    ),
+    "restore": (
+        (14, 14),
+        [
+            ("outline", rect(3, 0, 11, 11)),
+            ("body", rect(4, 2, 8, 8)),
+            ("outline", rect(0, 3, 11, 11) + rect(5, 7, 2, 2)),
+            ("body", rect(2, 4, 8, 8) + rect(4, 6, 4, 4)),
+        ],
+    ),
+}
+CLOSE_OUTLINE_WIDTH = 2
+
+
+def glyph_markup(kind, colours, prefix="g"):
+    """A glyph's shapes: dark outline under a white body that darkens towards its foot."""
+    (width, height), layers = GLYPH_SHAPES[kind]
+    outline, outline_alpha = colours["outline"]
+    body_id = f"{prefix}{kind}"
+    gradient = (
+        f'<linearGradient id="{body_id}" x1="0" y1="0" x2="0" y2="{height}" gradientUnits="userSpaceOnUse">'
+        f'<stop offset="0" {paint(*colours["top"])}/><stop offset="1" {paint(*colours["bottom"])}/></linearGradient>'
+    )
+    opacity = number(round(outline_alpha / 255, 3))
+    shapes = {
+        "outline": lambda path: f'<path d="{path}" fill="{outline}" fill-opacity="{opacity}" fill-rule="evenodd"/>',
+        "stroke": lambda path: (
+            f'<path d="{path}" fill="none" stroke="{outline}" stroke-opacity="{opacity}" '
+            f'stroke-width="{CLOSE_OUTLINE_WIDTH}" stroke-linejoin="round"/>'
+        ),
+        "body": lambda path: f'<path d="{path}" fill="url(#{body_id})" fill-rule="evenodd"/>',
+    }
+    return gradient, "".join(shapes[layer](path) for layer, path in layers)
+
+
+def glyph_svg(kind, colours):
+    (width, height), _ = GLYPH_SHAPES[kind]
+    gradient, shapes = glyph_markup(kind, colours)
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">'
+        f"<defs>{gradient}</defs>{shapes}</svg>"
+    )

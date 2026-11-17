@@ -1,6 +1,32 @@
 """Aero caption button faces fitted to aero.msstyles by tests/aero/fit_aero_stops.py; do not edit by hand."""
 
 EDGE = 3
+GLYPHS = {
+    "close": {
+        "disabled": {"bottom": ("#FFFFFF", 102), "outline": ("#7F7F7F", 102), "top": ("#FFFFFF", 102)},
+        "hot": {"bottom": ("#DADADA", 255), "outline": ("#535666", 255), "top": ("#FFFFFF", 255)},
+        "normal": {"bottom": ("#DADADA", 255), "outline": ("#535666", 255), "top": ("#FFFFFF", 255)},
+        "pressed": {"bottom": ("#DADADA", 255), "outline": ("#535666", 255), "top": ("#FFFFFF", 255)},
+    },
+    "maximize": {
+        "disabled": {"bottom": ("#FFFFFF", 102), "outline": ("#7F7F7F", 102), "top": ("#FFFFFF", 102)},
+        "hot": {"bottom": ("#DADADA", 255), "outline": ("#535666", 255), "top": ("#FFFFFF", 255)},
+        "normal": {"bottom": ("#DADADA", 255), "outline": ("#535666", 255), "top": ("#FFFFFF", 255)},
+        "pressed": {"bottom": ("#DADADA", 255), "outline": ("#535666", 255), "top": ("#FFFFFF", 255)},
+    },
+    "minimize": {
+        "disabled": {"bottom": ("#FFFFFF", 102), "outline": ("#7F7F7F", 102), "top": ("#FFFFFF", 102)},
+        "hot": {"bottom": ("#E4E4E4", 255), "outline": ("#535666", 255), "top": ("#FFFFFF", 255)},
+        "normal": {"bottom": ("#E4E4E4", 255), "outline": ("#535666", 255), "top": ("#FFFFFF", 255)},
+        "pressed": {"bottom": ("#E4E4E4", 255), "outline": ("#535666", 255), "top": ("#FFFFFF", 255)},
+    },
+    "restore": {
+        "disabled": {"bottom": ("#FCFCFC", 102), "outline": ("#7F7F7F", 102), "top": ("#FCFCFC", 102)},
+        "hot": {"bottom": ("#D9D9D9", 255), "outline": ("#535666", 255), "top": ("#FFFFFF", 255)},
+        "normal": {"bottom": ("#D9D9D9", 255), "outline": ("#535666", 255), "top": ("#FFFFFF", 255)},
+        "pressed": {"bottom": ("#D9D9D9", 255), "outline": ("#535666", 255), "top": ("#FFFFFF", 255)},
+    },
+}
 FACES = {
     "caption": {
         "active": {

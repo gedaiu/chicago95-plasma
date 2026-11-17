@@ -5,7 +5,7 @@ import importlib.util
 import pytest
 from aero_sprites import requires_sprites
 from conftest import REPO
-from fit_aero_stops import FACES, STATES, state_image
+from fit_aero_stops import FACES, STATES, glyph_image, state_image
 from PIL import Image
 
 spec = importlib.util.spec_from_file_location("make_aero_aurorae", REPO / "aero/aurorae/make_aero_aurorae.py")
@@ -50,3 +50,19 @@ def test_vector_face_matches_its_sprite_over_glass_within_six_levels(qt_app, fac
     ]
 
     assert sum(differences) / len(differences) < 6
+
+
+@requires_sprites
+@pytest.mark.parametrize("state", range(len(STATES)))
+@pytest.mark.parametrize("glyph", ["close", "minimize", "maximize", "restore"])
+def test_vector_glyph_matches_its_96_dpi_sprite_over_glass_within_twelve_levels(qt_app, glyph, state):
+    sprite = glyph_image(glyph, state)
+    ours = over_glass(rendered(generator.glyph_svg(glyph, generator.stops.GLYPHS[glyph][STATES[state]]), sprite.size))
+    theirs = over_glass(sprite)
+    differences = [
+        abs(a - b)
+        for p, q in zip(ours.get_flattened_data(), theirs.get_flattened_data(), strict=True)
+        for a, b in zip(p, q, strict=True)
+    ]
+
+    assert sum(differences) / len(differences) < 12

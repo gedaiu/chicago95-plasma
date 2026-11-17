@@ -26,6 +26,7 @@ FACES = {
     "close": ("BUTTONACTIVECLOSE", "BUTTONINACTIVECLOSE"),
 }
 STATES = ("normal", "hot", "pressed", "disabled")
+GLYPH_PARTS = {"close": "CLOSE", "minimize": "MIN", "maximize": "MAX", "restore": "RESTORE"}
 
 
 def state_image(part_name, state):
@@ -34,6 +35,26 @@ def state_image(part_name, state):
     rows = (bottom - top) // piece.image_count
     atlas = Image.open(sprite_dir() / piece.image_file).convert("RGBA")
     return atlas.crop((left, top + state * rows, right, top + (state + 1) * rows))
+
+
+def glyph_image(glyph, state, dpi=96):
+    piece = part("DWMWindow", f"BUTTON{GLYPH_PARTS[glyph]}GLYPH{dpi}")
+    left, top, right, bottom = piece.atlas_rect
+    rows = (bottom - top) // piece.image_count
+    atlas = Image.open(sprite_dir() / piece.image_file).convert("RGBA")
+    return atlas.crop((left, top + state * rows, right, top + (state + 1) * rows))
+
+
+def glyph_colours(image):
+    """The outline (the darkest of the most opaque pixels) and the body's top and bottom (its lightest rows)."""
+    pixels = [[image.getpixel((x, y)) for x in range(image.width)] for y in range(image.height)]
+    solid = max(pixel[3] for row in pixels for pixel in row)
+    outline = min((pixel for row in pixels for pixel in row if pixel[3] == solid), key=lambda pixel: sum(pixel[:3]))
+    lightest = [
+        max((pixel for pixel in row if pixel[3] == solid), key=sum) for row in pixels if solid in [p[3] for p in row]
+    ]
+    body = [pixel for pixel in lightest if sum(pixel[:3]) > sum(outline[:3]) + 60]
+    return {"outline": stop(outline), "top": stop(body[0]), "bottom": stop(body[-1])}
 
 
 def stop(pixel):
@@ -93,11 +114,19 @@ def fitted_faces():
     }
 
 
+def fitted_glyphs():
+    return {
+        glyph: {state: glyph_colours(glyph_image(glyph, number)) for number, state in enumerate(STATES)}
+        for glyph in GLYPH_PARTS
+    }
+
+
 if __name__ == "__main__":
     text = (
         '"""Aero caption button faces fitted to aero.msstyles by tests/aero/fit_aero_stops.py; '
         'do not edit by hand."""\n\n'
         f"EDGE = {EDGE}\n"
+        f"GLYPHS = {pprint.pformat(fitted_glyphs(), width=120, compact=True)}\n"
         f"FACES = {pprint.pformat(fitted_faces(), width=120, compact=True)}\n"
     )
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
