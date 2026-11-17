@@ -153,9 +153,11 @@ class Window:
         painter.setFont(title_font())
         painter.drawText(self.caption_rect(), Qt.AlignLeft | Qt.AlignVCenter, self.caption)
 
-    def render(self):
-        """The window's frame as a PIL image (the client area is the frame's centre: plain face)."""
-        image = QImage(self.width, self.height, QImage.Format_RGB32)
+    def render(self, scale=1):
+        """The window's frame as a PIL image at scale device pixels per logical pixel, painted in logical
+        coordinates as KWin does (the client area is the frame's centre: plain face)."""
+        image = QImage(self.width * scale, self.height * scale, QImage.Format_RGB32)
+        image.setDevicePixelRatio(scale)
         image.fill(Qt.white)
         painter = QPainter(image)
         self.paint_frame(painter)

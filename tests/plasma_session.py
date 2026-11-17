@@ -309,8 +309,15 @@ def window_commands(work, applications, windows):
     return "\n".join(commands)
 
 
-def run_session(work, script, environment, screen, xwayland=False):
+def run_session(work, script, environment, screen, xwayland=False, scale=1):
+    """Run script in a nested KWin whose logical screen is screen, at scale device pixels per logical pixel."""
     (work / script.name).chmod(0o755)
+    if scale != 1:
+        # --scale only enlarges a virtual output; the output's own scale comes from KScreen.
+        scaled = work / f"scaled-{script.name}"
+        scaled.write_text(f"#!/bin/sh\nkscreen-doctor output.Virtual-0.scale.{scale} >/dev/null 2>&1\nexec {script}\n")
+        scaled.chmod(0o755)
+        script = scaled
     command = [
         "timeout",
         "240",
@@ -318,9 +325,9 @@ def run_session(work, script, environment, screen, xwayland=False):
         "kwin_wayland",
         "--virtual",
         "--width",
-        str(screen[0]),
+        str(screen[0] * scale),
         "--height",
-        str(screen[1]),
+        str(screen[1] * scale),
         "--no-lockscreen",
         *(["--xwayland"] if xwayland else []),
         "--exit-with-session",

@@ -107,11 +107,12 @@ def test_avatar_image_stays_inside_its_square_frame(dialog, tmp_path, qt_app):
     image = user.findChild(QObject, "avatarImage")
     assert (frame.width(), frame.height()) == (52, 52)
     assert (image.width(), image.height()) == (48, 48)
+    # An idle tile is drawn at half opacity; selected, it is opaque and the picture's own colour shows.
+    QTest.mouseClick(dialog.preview, Qt.LeftButton, pos=user.mapToScene(QPointF(30, 30)).toPoint())
+    QTest.qWait(400)
     point = image.mapToScene(QPointF(24, 24)).toPoint()
     screen = dialog.preview.grabFramebuffer()
-    assert screen.pixelColor(point).name() == "#cc3388"
-    QTest.mouseClick(dialog.preview, Qt.LeftButton, pos=user.mapToScene(QPointF(30, 30)).toPoint())
-    assert (frame.width(), frame.height()) == (52, 52)
+    assert ((frame.width(), frame.height()), screen.pixelColor(point).name()) == ((52, 52), "#cc3388")
 
 
 def test_logged_on_status_tracks_session_model_without_changing_selection(dialog, qt_app):

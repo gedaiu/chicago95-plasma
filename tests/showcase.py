@@ -343,6 +343,11 @@ def taskbars(app, look, scratch):
     return rows
 
 
+def device_scale(app):
+    """Device pixels per logical pixel of the showcase, set by QT_SCALE_FACTOR before the application starts."""
+    return round(app.devicePixelRatio())
+
+
 def frame(look, scratch, width, height, active=True, caption="Display Properties", **kwargs):
     from aurorae_model import Window, build_theme
     from PySide6.QtGui import QIcon, QImage
@@ -357,7 +362,8 @@ def frame(look, scratch, width, height, active=True, caption="Display Properties
         if not folder.exists():
             build_theme(folder, look)
         window = Window(folder, width, height, active=active, caption=caption, **kwargs)
-    image = window.render()
+    scale = device_scale(QApplication.instance())
+    image = window.render(scale)
     rect = window.button_rects().get("M")
     if rect is not None:
         name = "folder" if caption == "Documents" else "preferences-desktop-display"
@@ -368,7 +374,7 @@ def frame(look, scratch, width, height, active=True, caption="Display Properties
         pixels = Image.frombytes(
             "RGBA", (icon.width(), icon.height()), bytes(icon.constBits()), "raw", "RGBA", icon.bytesPerLine()
         )
-        image.paste(pixels, (round(rect.center().x() - 8), round(rect.center().y() - 8)), pixels)
+        image.paste(pixels, (round((rect.center().x() - 8) * scale), round((rect.center().y() - 8) * scale)), pixels)
     return image
 
 
@@ -378,7 +384,8 @@ def desktop(app, look, scratch, bar):
 
     import controls_gallery as gallery
 
-    scene = Image.new("RGB", SIZE, "#008080" if look in ("1995", "1998") else "#3a6ea5")
+    scale = device_scale(app)
+    scene = Image.new("RGB", (SIZE[0] * scale, SIZE[1] * scale), "#008080" if look in ("1995", "1998") else "#3a6ea5")
     for active, position, title in ((False, (45, 55), "Documents"), (True, (285, 190), "Display Properties")):
         content = QWidget()
         content.setAutoFillBackground(True)
@@ -393,10 +400,11 @@ def desktop(app, look, scratch, bar):
         body = qimage_to_pil(content.grab().toImage())
         content.close()
         border, top = (4, 30) if look == "luna" else (4, 22)
-        window = frame(look, scratch, body.width + border * 2, body.height + top + border, active, title)
-        window.paste(body, (border, top))
-        scene.paste(window, position, window if window.mode == "RGBA" else None)
-    scene.paste(bar, (0, SIZE[1] - bar.height))
+        width, height = body.width // scale + border * 2, body.height // scale + top + border
+        window = frame(look, scratch, width, height, active, title)
+        window.paste(body, (border * scale, top * scale))
+        scene.paste(window, (position[0] * scale, position[1] * scale), window if window.mode == "RGBA" else None)
+    scene.paste(bar, (0, scene.height - bar.height))
     return scene
 
 
@@ -498,14 +506,15 @@ def controls(app, look, scratch):
             except FileNotFoundError:
                 pass
         ours = frame(look, scratch, 340, 80, active)
+        caption_buttons = (260 if look == "luna" else 270, 0, 340, 32 if look == "luna" else 26)
         rows.append(
             (
                 f"Windows · Aurorae · {'active' if active else 'inactive'} caption buttons",
                 counterpart,
-                ours.crop((260 if look == "luna" else 270, 0, 340, 32 if look == "luna" else 26)),
+                ours.crop(tuple(edge * device_scale(app) for edge in caption_buttons)),
             )
         )
-    rows.extend(gtk_controls(look, scratch))
+    rows.extend(gtk_controls(look, scratch, scale=device_scale(app)))
     return sorted(rows, key=lambda row: CONTROL_GROUPS.index(row[0].split(" · ")[0]))
 
 
@@ -560,7 +569,7 @@ def group(name):
     return "Containers and text"
 
 
-def gtk_controls(look, scratch, audit=False, audit_kinds=()):
+def gtk_controls(look, scratch, audit=False, audit_kinds=(), scale=1):
     """Run both GTK versions in one isolated compositor; absent runtimes are recorded, never faked."""
     import os
     import subprocess
@@ -678,7 +687,7 @@ def gtk_controls(look, scratch, audit=False, audit_kinds=()):
         environment.pop("QT_QPA_PLATFORMTHEME", None)
         environment.pop("DISPLAY", None)
         environment.pop("WAYLAND_DISPLAY", None)
-        run_session(work, script, environment, SIZE)
+        run_session(work, script, environment, SIZE, scale=scale)
         if commands and not any((work / f"{v}.log").exists() for v in ("3.0", "4.0")):
             raise RuntimeError((work / "kwin-gtk.log").read_text())
         for version in ("3.0", "4.0"):

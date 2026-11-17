@@ -1034,7 +1034,9 @@ def controls_panels(sections, look, app):
 
 def compose_showcase(title, panels, path, grouped=False):
     heading, caption = label_font(24), label_font(15)
-    inner = SHOWCASE_WIDTH - 4 * GAP
+    # Never shrink: HiDPI captures are checked pixel for pixel, so a wide one widens the sheet instead.
+    sheet_width = max([SHOWCASE_WIDTH] + [ours.width + 4 * GAP for _, _, ours in panels])
+    inner = sheet_width - 4 * GAP
     laid_out = []
     for component, original_shot, ours in panels:
         sources = [("Chicago95 for Plasma", ours)]
@@ -1060,7 +1062,7 @@ def compose_showcase(title, panels, path, grouped=False):
             else sum(image.height + 24 for image in images) + GAP
         )
         height += 40 + body + 3 * GAP
-    sheet = Image.new("RGB", (SHOWCASE_WIDTH, height), SHOWCASE_BACKGROUND)
+    sheet = Image.new("RGB", (sheet_width, height), SHOWCASE_BACKGROUND)
     draw = ImageDraw.Draw(sheet)
     draw.text((2 * GAP, 20), title, fill=INK, font=heading)
     y = 70
@@ -1078,7 +1080,7 @@ def compose_showcase(title, panels, path, grouped=False):
             if side_by_side
             else sum(image.height + 24 for image in images) + GAP
         )
-        draw.rectangle((GAP, y, SHOWCASE_WIDTH - GAP, y + 40 + body + GAP), fill=CARD)
+        draw.rectangle((GAP, y, sheet_width - GAP, y + 40 + body + GAP), fill=CARD)
         draw.text((2 * GAP, y + 10), card_title + (f"  (enlarged x{zoom})" if zoom > 1 else ""), fill=INK, font=caption)
         x, top = 2 * GAP, y + 40
         for name, image in zip(names, images, strict=True):
@@ -1182,15 +1184,21 @@ def main(output, looks):
                 )
 
 
-if __name__ == "__main__":
+def cli(argv):
     import argparse
 
     parser = argparse.ArgumentParser(description="Render reference-independent showcase sheets.")
     parser.add_argument("output", nargs="?", type=Path, default=Path("report"))
     parser.add_argument("looks", nargs="*", choices=list(LOOK_NAMES))
     parser.add_argument("--details", action="store_true", help="Also generate the historical pixel comparison reports")
-    args = parser.parse_args()
+    parser.add_argument("--scale", type=int, default=1, help="Device pixels per logical pixel, as on a HiDPI screen")
+    args = parser.parse_args(argv)
+    os.environ["QT_SCALE_FACTOR"] = str(args.scale)
     looks = args.looks or list(LOOK_NAMES)
     if args.details:
         comparison_main(args.output, looks)
     main(args.output, looks)
+
+
+if __name__ == "__main__":
+    cli(sys.argv[1:])

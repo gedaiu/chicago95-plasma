@@ -1,5 +1,6 @@
 """Contract checks for showcase coverage, optional references and theme isolation."""
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -134,3 +135,127 @@ for look in ("1995", "2001", "luna"):
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Cannot open" not in result.stderr and "No such file" not in result.stderr, result.stderr
+
+
+def test_gtk_controls_at_scale_two_are_rendered_at_double_size(tmp_path):
+    program = r"""
+import sys
+from pathlib import Path
+sys.path[:0] = [str(Path.cwd() / "tests"), str(Path.cwd() / "lib"), str(Path.cwd() / "luna/lib")]
+import conftest  # noqa: F401
+import showcase
+
+out = Path(sys.argv[1])
+(out / "1").mkdir()
+(out / "2").mkdir()
+single = showcase.gtk_controls("luna", out / "1")
+double = showcase.gtk_controls("luna", out / "2", scale=2)
+assert single, "no GTK controls rendered"
+print(sorted({(b.width - 2 * a.width, b.height - 2 * a.height) for (_, _, a), (_, _, b) in zip(single, double)}))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", program, str(tmp_path)],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=600,
+    )
+
+    assert (result.returncode, result.stdout.strip().splitlines()[-1:]) == (0, ["[(0, 0)]"]), result.stderr[-2000:]
+
+
+def showcase_sizes(tmp_path, scale, part="controls"):
+    program = r"""
+import json
+import os
+import sys
+from pathlib import Path
+sys.path[:0] = [str(Path.cwd() / "tests"), str(Path.cwd() / "lib"), str(Path.cwd() / "luna/lib")]
+import conftest  # noqa: F401
+os.environ["QT_SCALE_FACTOR"] = sys.argv[2]
+import chicago95ui
+import showcase
+
+scratch = Path(sys.argv[1])
+app = chicago95ui.make_app("showcase-scale-test")
+app.setQuitOnLastWindowClosed(False)
+with showcase.themed(app, "luna"):
+    rows = getattr(showcase, sys.argv[3])(app, "luna", scratch)
+print(json.dumps({name: image.size for name, _, image in rows}))
+"""
+    scratch = tmp_path / f"{part}-{scale}"
+    scratch.mkdir()
+    result = subprocess.run(
+        [sys.executable, "-c", program, str(scratch), str(scale), part],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=600,
+    )
+    assert result.returncode == 0, result.stderr[-2000:]
+    return json.loads(result.stdout.strip().splitlines()[-1])
+
+
+def test_every_luna_control_in_a_scale_two_showcase_is_double_the_scale_one_size(tmp_path):
+    single, double = showcase_sizes(tmp_path, 1), showcase_sizes(tmp_path, 2)
+
+    assert {
+        name: (single[name], double.get(name))
+        for name in single
+        if double.get(name) != [2 * side for side in single[name]]
+    } == {}
+
+
+def test_every_luna_scene_in_a_scale_two_showcase_is_double_the_scale_one_size(tmp_path):
+    single, double = showcase_sizes(tmp_path, 1, "scenes"), showcase_sizes(tmp_path, 2, "scenes")
+
+    assert {
+        name: (single[name], double.get(name))
+        for name in single
+        if double.get(name) != [2 * side for side in single[name]]
+    } == {}
+
+
+def test_render_report_scale_option_sets_the_qt_scale_factor_before_the_application_starts():
+    program = r"""
+import os
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path.cwd() / "tests"))
+import render_report
+render_report.main = lambda output, looks: print(os.environ["QT_SCALE_FACTOR"])
+render_report.cli(["unused", "luna", "--scale", "2"])
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", program], cwd=REPO, capture_output=True, text=True, check=False, timeout=60
+    )
+
+    assert result.stdout.strip().splitlines()[-1:] == ["2"], result.stderr[-2000:]
+
+
+def test_showcase_sheet_widens_to_show_a_1600_pixel_image_whole_at_one_to_one(tmp_path):
+    program = r"""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path.cwd() / "tests"))
+import render_report as report
+from PIL import Image
+
+wide = Image.new("RGB", (1600, 40), "blue")
+wide.paste((255, 0, 0), (1599, 0, 1600, 40))
+report.compose_showcase("Wide", [("Boot", None, wide)], Path(sys.argv[1]) / "wide.png")
+sheet = Image.open(Path(sys.argv[1]) / "wide.png")
+print(sheet.width >= 1600 + 4 * report.GAP, sheet.getpixel((2 * report.GAP + 1599, 130)))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", program, str(tmp_path)],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+
+    assert result.stdout.strip().splitlines()[-1:] == ["True (255, 0, 0)"], result.stderr[-2000:]

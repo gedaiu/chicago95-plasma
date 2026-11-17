@@ -18,7 +18,8 @@ from gi.repository import GLib, Gtk  # noqa: E402
 V4 = VERSION == "4.0"
 if V4:
     gi.require_version("Gsk", "4.0")
-    from gi.repository import Gsk
+    gi.require_version("Graphene", "1.0")
+    from gi.repository import Graphene, Gsk
 
 
 def add(box, widget):
@@ -423,9 +424,12 @@ def main():
         native_caption = not V4 and label.startswith("caption ")
         if native_caption:
             box.remove(children[0])
-        window = Gtk.Window() if V4 or native_caption else Gtk.OffscreenWindow()
+        # A real window, never Gtk.OffscreenWindow: only a real one follows the screen's scale.
+        window = Gtk.Window()
         if native_caption:
             window.set_titlebar(children[0])
+        elif not V4:
+            window.set_decorated(False)
         window.set_child(box) if V4 else window.add(box)
         window.present() if V4 else window.show_all()
         for child in children:
@@ -558,6 +562,8 @@ def main():
             # Snapshot the real widget tree, including the native theme's state styling.
             paintable = Gtk.WidgetPaintable.new(window.get_child())
             snapshot = Gtk.Snapshot()
+            device_scale = window.get_scale_factor()
+            snapshot.scale(device_scale, device_scale)
             paintable.snapshot(snapshot, window.get_child().get_width(), window.get_child().get_height())
             node = snapshot.to_node()
             if node is None:
@@ -568,19 +574,26 @@ def main():
                 raise RuntimeError(f"GTK4 did not paint {label} after repeated capture attempts")
             renderer = Gsk.CairoRenderer.new()
             renderer.realize(window.get_surface())
-            texture = renderer.render_texture(node, None)
+            # The widget's whole allocation, not the node's bounds: text can leave those fractional,
+            # which rounds differently at each scale.
+            viewport = Graphene.Rect().init(
+                0, 0, window.get_child().get_width() * device_scale, window.get_child().get_height() * device_scale
+            )
+            texture = renderer.render_texture(node, viewport)
             texture.save_to_png(str(path))
             renderer.unrealize()
-        elif label.startswith("caption "):
+        else:
             import cairo
 
+            device_scale = window.get_scale_factor()
             surface = cairo.ImageSurface(
-                cairo.FORMAT_ARGB32, window.get_allocated_width(), window.get_allocated_height()
+                cairo.FORMAT_ARGB32,
+                window.get_allocated_width() * device_scale,
+                window.get_allocated_height() * device_scale,
             )
+            surface.set_device_scale(device_scale, device_scale)
             window.draw(cairo.Context(surface))
             surface.write_to_png(str(path))
-        else:
-            window.get_pixbuf().savev(str(path), "png", [], [])
         manifest.append([group, label, path.name])
         window.destroy()
         position += 1
