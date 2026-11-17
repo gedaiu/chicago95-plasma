@@ -154,32 +154,64 @@ def data_uri(svg):
     return 'url("data:image/svg+xml;base64,' + base64.b64encode(svg.encode()).decode() + '")'
 
 
-def indicator_png(kind, colour):
-    # PNG works with GTK3 even on systems whose GdkPixbuf has no SVG loader.
+# The measured CHECK_TICK pattern traced through its pixel centres: down the short arm, up the long one.
+TICK_PATH = ((0.5, 3.0), (3.5, 6.0), (6.5, 1.0))
+TICK_WIDTH = 2.2
+TICK_SUPERSAMPLE = 4
+
+
+def png_bytes(image):
     import io
 
-    from PIL import Image, ImageDraw
-
-    image = Image.new("RGBA", (stops.INDICATOR_SIZE, stops.INDICATOR_SIZE))
-    draw = ImageDraw.Draw(image)
-    if kind == "tick":
-        offset = (stops.INDICATOR_SIZE - len(stops.CHECK_TICK[0])) // 2
-        for y, row in enumerate(stops.CHECK_TICK):
-            for x, pixel in enumerate(row):
-                if pixel == "#":
-                    draw.point((x + offset, y + offset), fill=colour)
-    elif kind == "mixed":
-        draw.rectangle((3, 3, 9, 9), fill=colour)
-    else:
-        draw.ellipse((4, 4, 8, 8), fill=colour)
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
     return buffer.getvalue()
 
 
-def tab_png(selected, hovered, position, fill=False, edge=False):
-    import io
+def magnified(image, scale):
+    """Only for artwork made of axis-aligned bands, where doubling is the exact larger shape."""
+    from PIL import Image
 
+    return image.resize((image.width * scale, image.height * scale), Image.Resampling.NEAREST)
+
+
+def device_box(left, top, right, bottom, scale):
+    """Inclusive logical pixel box to the inclusive device pixel box that covers the same area."""
+    return (left * scale, top * scale, (right + 1) * scale - 1, (bottom + 1) * scale - 1)
+
+
+def tick_stroke(draw, offset, colour, scale):
+    """The measured 7x7 tick as a stroke, for scales where its pixel pattern would show stairs."""
+    magnification = scale * TICK_SUPERSAMPLE
+    points = [((x + offset) * magnification, (y + offset) * magnification) for x, y in TICK_PATH]
+    draw.line(points, fill=colour, width=round(TICK_WIDTH * magnification), joint="curve")
+
+
+def indicator_png(kind, colour, scale=1):
+    # PNG works with GTK3 even on systems whose GdkPixbuf has no SVG loader.
+    from PIL import Image, ImageDraw
+
+    size = stops.INDICATOR_SIZE * scale
+    image = Image.new("RGBA", (size, size))
+    draw = ImageDraw.Draw(image)
+    offset = (stops.INDICATOR_SIZE - len(stops.CHECK_TICK[0])) // 2
+    if kind == "tick" and scale == 1:
+        for y, row in enumerate(stops.CHECK_TICK):
+            for x, pixel in enumerate(row):
+                if pixel == "#":
+                    draw.point((x + offset, y + offset), fill=colour)
+    elif kind == "tick":
+        stroke = Image.new("RGBA", (size * TICK_SUPERSAMPLE, size * TICK_SUPERSAMPLE))
+        tick_stroke(ImageDraw.Draw(stroke), offset, colour, scale)
+        image = stroke.resize((size, size), Image.Resampling.LANCZOS)
+    elif kind == "mixed":
+        draw.rectangle(device_box(3, 3, 9, 9, scale), fill=colour)
+    else:
+        draw.ellipse(device_box(4, 4, 8, 8, scale), fill=colour)
+    return png_bytes(image)
+
+
+def tab_png(selected, hovered, position, fill=False, edge=False, scale=1):
     from PIL import Image
 
     image = Image.new("RGBA", (5, 21))
@@ -225,9 +257,7 @@ def tab_png(selected, hovered, position, fill=False, edge=False):
     }
     if position in transforms:
         image = image.transpose(transforms[position])
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
-    return buffer.getvalue()
+    return png_bytes(magnified(image, scale))
 
 
 def notebook_rules():
@@ -271,14 +301,14 @@ def notebook_rules():
         )
         yield block(header + " + stack", **{f"border-{position}-width": "0"})
         for state, selected, hovered in (("", False, False), (":hover", False, True), (":checked", True, False)):
-            artwork = f"{position}-{int(selected)}-{int(hovered)}.png"
+            artwork = f"{position}-{int(selected)}-{int(hovered)}"
             yield block(
                 header + " > tabs > tab" + state,
                 border_width="0",
                 border_image_source="none",
                 background_image=(
-                    f'url("assets/tab-edge-{artwork}"), url("assets/tab-edge-{artwork}"), '
-                    f'url("assets/tab-fill-{artwork}")'
+                    f"{scaled_asset(f'tab-edge-{artwork}')}, {scaled_asset(f'tab-edge-{artwork}')}, "
+                    f"{scaled_asset(f'tab-fill-{artwork}')}"
                 ),
                 background_size="1px 100%, 1px 100%, 1px 100%" if horizontal else "100% 1px, 100% 1px, 100% 1px",
                 background_repeat="no-repeat, no-repeat, " + ("repeat-x" if horizontal else "repeat-y"),
@@ -321,25 +351,24 @@ def notebook_rules():
     yield block("notebook > header > tabs > tab:disabled", color=stops.DISABLED_TEXT)
 
 
-def switch_png(part, active=False, state="normal"):
+def switch_png(part, active=False, state="normal", scale=1):
     """Shared pixel artwork avoids different GTK built-in icons and corner rasterisation."""
-    import io
-
     from PIL import Image, ImageColor, ImageDraw
 
     thumb = part == "thumb"
-    width, height = (17, 17) if thumb else (36, 19)
+    logical_width, logical_height = (17, 17) if thumb else (36, 19)
+    width, height = logical_width * scale, logical_height * scale
     image = Image.new("RGBA", (width, height))
     draw = ImageDraw.Draw(image)
     border = stops.DISABLED_BORDER if state == "disabled" else stops.CHECK_BORDER
     if thumb and state == "hovered":
         border = "#E59700"
-    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=2, fill=border)
+    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=2 * scale, fill=border)
     if thumb:
         name = {"pressed": "check-pressed", "disabled": "white-disabled"}.get(state, "button-body")
         gradient = GRADIENTS[name]
-        for y in range(1, height - 1):
-            t = (y - 1) / (height - 3)
+        for y in range(scale, height - scale):
+            t = (y - scale) / (height - 2 * scale - 1)
             for (left, first), (right, last) in zip(gradient, gradient[1:], strict=False):
                 if left <= t <= right:
                     weight = (t - left) / max(right - left, 1e-9)
@@ -347,25 +376,26 @@ def switch_png(part, active=False, state="normal"):
                         round(a + (b - a) * weight)
                         for a, b in zip(ImageColor.getrgb(first), ImageColor.getrgb(last), strict=True)
                     )
-                    draw.line((1, y, width - 2, y), fill=colour)
+                    draw.line((scale, y, width - 1 - scale, y), fill=colour)
                     break
     else:
-        draw.rectangle((1, 1, width - 2, height - 2), fill=SELECTION if active and state != "disabled" else FACE)
+        draw.rectangle(
+            (scale, scale, width - 1 - scale, height - 1 - scale),
+            fill=SELECTION if active and state != "disabled" else FACE,
+        )
         colour = stops.DISABLED_TEXT if state == "disabled" else "#FFFFFF" if active else "#000000"
         # Put the mark in both halves; the thumb covers one. GTK4 mirrors its
         # thumb in RTL, while GTK3 retains its physical left/right placement.
         for offset in (0, 17):
             if active:
-                draw.rectangle((8 + offset, 5, 9 + offset, 13), fill=colour)
+                draw.rectangle(device_box(8 + offset, 5, 9 + offset, 13, scale), fill=colour)
             else:
-                draw.ellipse((5 + offset, 5, 13 + offset, 13), outline=colour, width=2)
+                draw.ellipse(device_box(5 + offset, 5, 13 + offset, 13, scale), outline=colour, width=2 * scale)
         if state == "focused":
-            for x in range(2, width - 2, 2):
-                draw.point((x, 2), fill="#000000")
-                draw.point((x, height - 3), fill="#000000")
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
-    return buffer.getvalue()
+            for x in range(2, logical_width - 2, 2):
+                draw.rectangle(device_box(x, 2, x, 2, scale), fill="#000000")
+                draw.rectangle(device_box(x, logical_height - 3, x, logical_height - 3, scale), fill="#000000")
+    return png_bytes(image)
 
 
 def switch_rules():
@@ -411,7 +441,7 @@ def switch_rules():
             yield block(
                 selector + pseudo,
                 color="transparent",
-                background_image=f'url("assets/switch-{int(active)}-{state}.png")',
+                background_image=scaled_asset(f"switch-{int(active)}-{state}"),
             )
     for state, pseudo in (
         ("normal", ""),
@@ -420,26 +450,22 @@ def switch_rules():
         ("focused", ":focus"),
         ("disabled", ":disabled"),
     ):
-        yield block(f"switch{pseudo} slider", background_image=f'url("assets/switch-thumb-{state}.png")')
+        yield block(f"switch{pseudo} slider", background_image=scaled_asset(f"switch-thumb-{state}"))
 
 
-def slider_png(horizontal, state, point=None):
-    import io
-
+def slider_png(horizontal, state, point=None, scale=1):
     from PIL import Image
 
     width, height = slider.THUMB_SIZE if horizontal else slider.THUMB_SIZE[::-1]
-    image = Image.new("RGBA", (width, height))
+    image = Image.new("RGBA", (width * scale, height * scale))
     image.putdata(
         [
             (*bytes.fromhex(pixel[1:]), 255) if pixel else (0, 0, 0, 0)
-            for row in slider.thumb_pixels(width, height, horizontal, state, point)
+            for row in slider.thumb_pixels(width, height, horizontal, state, point, scale)
             for pixel in row
         ]
     )
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
-    return buffer.getvalue()
+    return png_bytes(image)
 
 
 def scale_rules():
@@ -505,13 +531,13 @@ def scale_rules():
         for state, pseudo in (("normal", ""), ("hover", ":hover"), ("pressed", ":active"), ("disabled", ":disabled")):
             yield block(
                 f"scale.{orientation} slider{pseudo}",
-                background_image=f'url("assets/slider-{orientation}-{state}.png")',
+                background_image=scaled_asset(f"slider-{orientation}-{state}"),
             )
             for point in ("before", "after"):
                 other = "after" if point == "before" else "before"
                 yield block(
                     f"scale.{orientation}.marks-{point}:not(.marks-{other}) slider{pseudo}",
-                    background_image=f'url("assets/slider-{orientation}-{state}-{point}.png")',
+                    background_image=scaled_asset(f"slider-{orientation}-{state}-{point}"),
                 )
 
 
@@ -547,10 +573,8 @@ def scale_backend_rules(version):
     return "\n".join(rules)
 
 
-def scrollbar_grip_png(horizontal):
+def scrollbar_grip_png(horizontal, scale=1):
     """Four alternating dark/light ridges, with a transparent trailing pixel for centring."""
-    import io
-
     from PIL import Image
 
     image = Image.new("RGBA", (9, 11) if horizontal else (11, 9))
@@ -558,9 +582,7 @@ def scrollbar_grip_png(horizontal):
         colour = (152, 186, 233, 255) if band % 2 == 0 else (236, 242, 251, 255)
         for across in range(11):
             image.putpixel((band, across) if horizontal else (across, band), colour)
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
-    return buffer.getvalue()
+    return png_bytes(magnified(image, scale))
 
 
 def scrollbar_thumb_rules():
@@ -569,7 +591,7 @@ def scrollbar_thumb_rules():
             fill = vertical(gradient).replace("to bottom", f"to {direction}")
             yield block(
                 f"scrollbar.{orientation} slider{state}",
-                background_image=f'url("assets/scroll-grip-{orientation}.png"), {fill}',
+                background_image=f"{scaled_asset(f'scroll-grip-{orientation}')}, {fill}",
                 background_repeat="no-repeat, no-repeat",
                 background_position="center, center",
                 background_size="9px 11px, 100% 100%" if orientation == "horizontal" else "11px 9px, 100% 100%",
@@ -577,8 +599,12 @@ def scrollbar_thumb_rules():
         yield block(f"scrollbar.{orientation} slider:disabled", background_image="none")
 
 
+def scaled_asset(name):
+    return f'-gtk-scaled(url("assets/{name}.png"), url("assets/{name}@2.png"))'
+
+
 def indicator_icon(kind, colour):
-    return f'url("assets/{kind}-{colour.lstrip("#")}.png")'
+    return scaled_asset(f"{kind}-{colour.lstrip('#')}")
 
 
 def tick_icon(colour):
@@ -1194,41 +1220,48 @@ def build_index():
     )
 
 
+def png_assets():
+    """Every PNG asset by name, as a function of the device scale."""
+    assets = {}
+    for orientation in ("horizontal", "vertical"):
+        horizontal = orientation == "horizontal"
+        assets[f"scroll-grip-{orientation}"] = lambda scale, h=horizontal: scrollbar_grip_png(h, scale)
+        for state in ("normal", "hover", "pressed", "disabled"):
+            assets[f"slider-{orientation}-{state}"] = lambda scale, h=horizontal, s=state: slider_png(h, s, None, scale)
+            for point in ("before", "after"):
+                assets[f"slider-{orientation}-{state}-{point}"] = lambda scale, h=horizontal, s=state, p=point: (
+                    slider_png(h, s, p, scale)
+                )
+    for state in ("normal", "hovered", "pressed", "focused", "disabled"):
+        assets[f"switch-thumb-{state}"] = lambda scale, s=state: switch_png("thumb", state=s, scale=scale)
+        for active in (False, True):
+            assets[f"switch-{int(active)}-{state}"] = lambda scale, a=active, s=state: switch_png("track", a, s, scale)
+    for position in ("top", "bottom", "left", "right"):
+        for selected, hovered in ((False, False), (False, True), (True, False)):
+            artwork = f"{position}-{int(selected)}-{int(hovered)}"
+            assets[f"tab-edge-{artwork}"] = lambda scale, p=position, s=selected, h=hovered: tab_png(
+                s, h, p, edge=True, scale=scale
+            )
+            assets[f"tab-fill-{artwork}"] = lambda scale, p=position, s=selected, h=hovered: tab_png(
+                s, h, p, fill=True, scale=scale
+            )
+    for kind in ("tick", "mixed", "dot"):
+        for colour in (stops.CHECK_MARK, stops.CHECK_MARK_DISABLED):
+            assets[f"{kind}-{colour.lstrip('#')}"] = lambda scale, k=kind, c=colour: indicator_png(k, c, scale)
+    return assets
+
+
 def write_theme(out):
     for version in VERSIONS:
         assets = out / f"gtk-{version}" / "assets"
         assets.mkdir(parents=True, exist_ok=True)
-        for orientation in ("horizontal", "vertical"):
-            (assets / f"scroll-grip-{orientation}.png").write_bytes(scrollbar_grip_png(orientation == "horizontal"))
-        for orientation in ("horizontal", "vertical"):
-            for state in ("normal", "hover", "pressed", "disabled"):
-                (assets / f"slider-{orientation}-{state}.png").write_bytes(
-                    slider_png(orientation == "horizontal", state)
-                )
-                for point in ("before", "after"):
-                    (assets / f"slider-{orientation}-{state}-{point}.png").write_bytes(
-                        slider_png(orientation == "horizontal", state, point)
-                    )
-        for state in ("normal", "hovered", "pressed", "focused", "disabled"):
-            (assets / f"switch-thumb-{state}.png").write_bytes(switch_png("thumb", state=state))
-            for active in (False, True):
-                (assets / f"switch-{int(active)}-{state}.png").write_bytes(switch_png("track", active, state))
-        for position in ("top", "bottom", "left", "right"):
-            for selected, hovered in ((False, False), (False, True), (True, False)):
-                (assets / f"tab-edge-{position}-{int(selected)}-{int(hovered)}.png").write_bytes(
-                    tab_png(selected, hovered, position, edge=True)
-                )
-                (assets / f"tab-fill-{position}-{int(selected)}-{int(hovered)}.png").write_bytes(
-                    tab_png(selected, hovered, position, fill=True)
-                )
+        for name, draw in png_assets().items():
+            (assets / f"{name}.png").write_bytes(draw(1))
+            (assets / f"{name}@2.png").write_bytes(draw(2))
         for direction in STEPPER_ARROWS:
             for disabled in (False, True):
                 suffix = "-disabled" if disabled else ""
                 (assets / f"stepper-{direction}{suffix}.svg").write_text(stepper_svg(direction, disabled))
-        for kind in ("tick", "mixed", "dot"):
-            for colour in (stops.CHECK_MARK, stops.CHECK_MARK_DISABLED):
-                (assets / f"{kind}-{colour.lstrip('#')}.png").write_bytes(indicator_png(kind, colour))
-        (out / f"gtk-{version}").mkdir(parents=True, exist_ok=True)
         (out / f"gtk-{version}" / "gtk.css").write_text(build_css(version))
     (out / "index.theme").write_text(build_index())
 

@@ -260,17 +260,17 @@ check:active, radio:active {
 }
 
 check:checked, check:indeterminate {
-  background-image: url("assets/tick-21A121.png"), linear-gradient(to bottom, #DCDCD7 0%, #FFFFFF 100%);
+  background-image: -gtk-scaled(url("assets/tick-21A121.png"), url("assets/tick-21A121@2.png")), linear-gradient(to bottom, #DCDCD7 0%, #FFFFFF 100%);
   background-repeat: no-repeat;
   background-position: center;
 }
 
 check:indeterminate {
-  background-image: url("assets/mixed-21A121.png"), linear-gradient(to bottom, #DCDCD7 0%, #FFFFFF 100%);
+  background-image: -gtk-scaled(url("assets/mixed-21A121.png"), url("assets/mixed-21A121@2.png")), linear-gradient(to bottom, #DCDCD7 0%, #FFFFFF 100%);
 }
 
 radio:checked {
-  background-image: url("assets/dot-21A121.png"), linear-gradient(to bottom, #DCDCD7 0%, #FFFFFF 100%);
+  background-image: -gtk-scaled(url("assets/dot-21A121.png"), url("assets/dot-21A121@2.png")), linear-gradient(to bottom, #DCDCD7 0%, #FFFFFF 100%);
   background-repeat: no-repeat;
   background-position: center;
 }
@@ -281,15 +281,15 @@ check:disabled, radio:disabled {
 }
 
 check:checked:disabled, check:indeterminate:disabled {
-  background-image: url("assets/tick-CAC8BB.png"), linear-gradient(to bottom, #FFFFFF 0%, #FFFFFF 100%);
+  background-image: -gtk-scaled(url("assets/tick-CAC8BB.png"), url("assets/tick-CAC8BB@2.png")), linear-gradient(to bottom, #FFFFFF 0%, #FFFFFF 100%);
 }
 
 check:indeterminate:disabled {
-  background-image: url("assets/mixed-CAC8BB.png"), linear-gradient(to bottom, #FFFFFF, #FFFFFF);
+  background-image: -gtk-scaled(url("assets/mixed-CAC8BB.png"), url("assets/mixed-CAC8BB@2.png")), linear-gradient(to bottom, #FFFFFF, #FFFFFF);
 }
 
 radio:checked:disabled {
-  background-image: url("assets/dot-CAC8BB.png"), linear-gradient(to bottom, #FFFFFF 0%, #FFFFFF 100%);
+  background-image: -gtk-scaled(url("assets/dot-CAC8BB.png"), url("assets/dot-CAC8BB@2.png")), linear-gradient(to bottom, #FFFFFF 0%, #FFFFFF 100%);
 }
 
 notebook, notebook > header, notebook > header > tabs {
@@ -338,7 +338,7 @@ notebook > header.top + stack {
 notebook > header.top > tabs > tab {
   border-width: 0;
   border-image-source: none;
-  background-image: url("assets/tab-edge-top-0-0.png"), url("assets/tab-edge-top-0-0.png"), url("assets/tab-fill-top-0-0.png");
+  background-image: -gtk-scaled(url("assets/tab-edge-top-0-0.png"), url("assets/tab-edge-top-0-0@2.png")), -gtk-scaled(url("assets/tab-edge-top-0-0.png"), url("assets/tab-edge-top-0-0@2.png")), -gtk-scaled(url("assets/tab-fill-top-0-0.png"), url("assets/tab-fill-top-0-0@2.png"));
   background-size: 1px 100%, 1px 100%, 1px 100%;
   background-repeat: no-repeat, no-repeat, repeat-x;
   background-position: left top, right top, center;
@@ -352,7 +352,7 @@ notebook > header.top > tabs > tab {
 notebook > header.top > tabs > tab:hover {
   border-width: 0;
   border-image-source: none;
-  background-image: url("assets/tab-edge-top-0-1.png"), url("assets/tab-edge-top-0-1.png"), url("assets/tab-fill-top-0-1.png");
+  background-image: -gtk-scaled(url("assets/tab-edge-top-0-1.png"), url("assets/tab-edge-top-0-1@2.png")), -gtk-scaled(url("assets/tab-edge-top-0-1.png"), url("assets/tab-edge-top-0-1@2.png")), -gtk-scaled(url("assets/tab-fill-top-0-1.png"), url("assets/tab-fill-top-0-1@2.png"));
   background-size: 1px 100%, 1px 100%, 1px 100%;
   background-repeat: no-repeat, no-repeat, repeat-x;
   background-position: left top, right top, center;
@@ -366,7 +366,7 @@ notebook > header.top > tabs > tab:hover {
 notebook > header.top > tabs > tab:checked {
   border-width: 0;
   border-image-source: none;
-  background-image: url("assets/tab-edge-top-1-0.png"), url("assets/tab-edge-top-1-0.png"), url("assets/tab-fill-top-1-0.png");
+  background-image: -gtk-scaled(url("assets/tab-edge-top-1-0.png"), url("assets/tab-edge-top-1-0@2.png")), -gtk-scaled(url("assets/tab-edge-top-1-0.png"), url("assets/tab-edge-top-1-0@2.png")), -gtk-scaled(url("assets/tab-fill-top-1-0.png"), url("assets/tab-fill-top-1-0@2.png"));
   background-size: 1px 100%, 1px 100%, 1px 100%;
   background-repeat: no-repeat, no-repeat, repeat-x;
   background-position: left top, right top, center;
@@ -391,7 +391,7 @@ notebook > header.bottom + stack {
 notebook > header.bottom > tabs > tab {
   border-width: 0;
   border-image-source: none;
-  background-image: url("assets/tab-edge-bottom-0-0.png"), url("assets/tab-edge-bottom-0-0.png"), url("assets/tab-fill-bottom-0-0.png");
+  background-image: -gtk-scaled(url("assets/tab-edge-bottom-0-0.png"), url("assets/tab-edge-bottom-0-0@2.png")), -gtk-scaled(url("assets/tab-edge-bottom-0-0.png"), url("assets/tab-edge-bottom-0-0@2.png")), -gtk-scaled(url("assets/tab-fill-bottom-0-0.png"), url("assets/tab-fill-bottom-0-0@2.png"));
   background-size: 1px 100%, 1px 100%, 1px 100%;
   background-repeat: no-repeat, no-repeat, repeat-x;
   background-position: left top, right top, center;
@@ -405,7 +405,7 @@ notebook > header.bottom > tabs > tab {
 notebook > header.bottom > tabs > tab:hover {
   border-width: 0;
   border-image-source: none;
-  background-image: url("assets/tab-edge-bottom-0-1.png"), url("assets/tab-edge-bottom-0-1.png"), url("assets/tab-fill-bottom-0-1.png");
+  background-image: -gtk-scaled(url("assets/tab-edge-bottom-0-1.png"), url("assets/tab-edge-bottom-0-1@2.png")), -gtk-scaled(url("assets/tab-edge-bottom-0-1.png"), url("assets/tab-edge-bottom-0-1@2.png")), -gtk-scaled(url("assets/tab-fill-bottom-0-1.png"), url("assets/tab-fill-bottom-0-1@2.png"));
   background-size: 1px 100%, 1px 100%, 1px 100%;
   background-repeat: no-repeat, no-repeat, repeat-x;
   background-position: left top, right top, center;
@@ -419,7 +419,7 @@ notebook > header.bottom > tabs > tab:hover {
 notebook > header.bottom > tabs > tab:checked {
   border-width: 0;
   border-image-source: none;
-  background-image: url("assets/tab-edge-bottom-1-0.png"), url("assets/tab-edge-bottom-1-0.png"), url("assets/tab-fill-bottom-1-0.png");
+  background-image: -gtk-scaled(url("assets/tab-edge-bottom-1-0.png"), url("assets/tab-edge-bottom-1-0@2.png")), -gtk-scaled(url("assets/tab-edge-bottom-1-0.png"), url("assets/tab-edge-bottom-1-0@2.png")), -gtk-scaled(url("assets/tab-fill-bottom-1-0.png"), url("assets/tab-fill-bottom-1-0@2.png"));
   background-size: 1px 100%, 1px 100%, 1px 100%;
   background-repeat: no-repeat, no-repeat, repeat-x;
   background-position: left top, right top, center;
@@ -444,7 +444,7 @@ notebook > header.left + stack {
 notebook > header.left > tabs > tab {
   border-width: 0;
   border-image-source: none;
-  background-image: url("assets/tab-edge-left-0-0.png"), url("assets/tab-edge-left-0-0.png"), url("assets/tab-fill-left-0-0.png");
+  background-image: -gtk-scaled(url("assets/tab-edge-left-0-0.png"), url("assets/tab-edge-left-0-0@2.png")), -gtk-scaled(url("assets/tab-edge-left-0-0.png"), url("assets/tab-edge-left-0-0@2.png")), -gtk-scaled(url("assets/tab-fill-left-0-0.png"), url("assets/tab-fill-left-0-0@2.png"));
   background-size: 100% 1px, 100% 1px, 100% 1px;
   background-repeat: no-repeat, no-repeat, repeat-y;
   background-position: left top, left bottom, center;
@@ -462,7 +462,7 @@ notebook > header.left > tabs > tab {
 notebook > header.left > tabs > tab:hover {
   border-width: 0;
   border-image-source: none;
-  background-image: url("assets/tab-edge-left-0-1.png"), url("assets/tab-edge-left-0-1.png"), url("assets/tab-fill-left-0-1.png");
+  background-image: -gtk-scaled(url("assets/tab-edge-left-0-1.png"), url("assets/tab-edge-left-0-1@2.png")), -gtk-scaled(url("assets/tab-edge-left-0-1.png"), url("assets/tab-edge-left-0-1@2.png")), -gtk-scaled(url("assets/tab-fill-left-0-1.png"), url("assets/tab-fill-left-0-1@2.png"));
   background-size: 100% 1px, 100% 1px, 100% 1px;
   background-repeat: no-repeat, no-repeat, repeat-y;
   background-position: left top, left bottom, center;
@@ -480,7 +480,7 @@ notebook > header.left > tabs > tab:hover {
 notebook > header.left > tabs > tab:checked {
   border-width: 0;
   border-image-source: none;
-  background-image: url("assets/tab-edge-left-1-0.png"), url("assets/tab-edge-left-1-0.png"), url("assets/tab-fill-left-1-0.png");
+  background-image: -gtk-scaled(url("assets/tab-edge-left-1-0.png"), url("assets/tab-edge-left-1-0@2.png")), -gtk-scaled(url("assets/tab-edge-left-1-0.png"), url("assets/tab-edge-left-1-0@2.png")), -gtk-scaled(url("assets/tab-fill-left-1-0.png"), url("assets/tab-fill-left-1-0@2.png"));
   background-size: 100% 1px, 100% 1px, 100% 1px;
   background-repeat: no-repeat, no-repeat, repeat-y;
   background-position: left top, left bottom, center;
@@ -509,7 +509,7 @@ notebook > header.right + stack {
 notebook > header.right > tabs > tab {
   border-width: 0;
   border-image-source: none;
-  background-image: url("assets/tab-edge-right-0-0.png"), url("assets/tab-edge-right-0-0.png"), url("assets/tab-fill-right-0-0.png");
+  background-image: -gtk-scaled(url("assets/tab-edge-right-0-0.png"), url("assets/tab-edge-right-0-0@2.png")), -gtk-scaled(url("assets/tab-edge-right-0-0.png"), url("assets/tab-edge-right-0-0@2.png")), -gtk-scaled(url("assets/tab-fill-right-0-0.png"), url("assets/tab-fill-right-0-0@2.png"));
   background-size: 100% 1px, 100% 1px, 100% 1px;
   background-repeat: no-repeat, no-repeat, repeat-y;
   background-position: left top, left bottom, center;
@@ -527,7 +527,7 @@ notebook > header.right > tabs > tab {
 notebook > header.right > tabs > tab:hover {
   border-width: 0;
   border-image-source: none;
-  background-image: url("assets/tab-edge-right-0-1.png"), url("assets/tab-edge-right-0-1.png"), url("assets/tab-fill-right-0-1.png");
+  background-image: -gtk-scaled(url("assets/tab-edge-right-0-1.png"), url("assets/tab-edge-right-0-1@2.png")), -gtk-scaled(url("assets/tab-edge-right-0-1.png"), url("assets/tab-edge-right-0-1@2.png")), -gtk-scaled(url("assets/tab-fill-right-0-1.png"), url("assets/tab-fill-right-0-1@2.png"));
   background-size: 100% 1px, 100% 1px, 100% 1px;
   background-repeat: no-repeat, no-repeat, repeat-y;
   background-position: left top, left bottom, center;
@@ -545,7 +545,7 @@ notebook > header.right > tabs > tab:hover {
 notebook > header.right > tabs > tab:checked {
   border-width: 0;
   border-image-source: none;
-  background-image: url("assets/tab-edge-right-1-0.png"), url("assets/tab-edge-right-1-0.png"), url("assets/tab-fill-right-1-0.png");
+  background-image: -gtk-scaled(url("assets/tab-edge-right-1-0.png"), url("assets/tab-edge-right-1-0@2.png")), -gtk-scaled(url("assets/tab-edge-right-1-0.png"), url("assets/tab-edge-right-1-0@2.png")), -gtk-scaled(url("assets/tab-fill-right-1-0.png"), url("assets/tab-fill-right-1-0@2.png"));
   background-size: 100% 1px, 100% 1px, 100% 1px;
   background-repeat: no-repeat, no-repeat, repeat-y;
   background-position: left top, left bottom, center;
@@ -676,21 +676,21 @@ scrollbar slider:disabled {
 }
 
 scrollbar.horizontal slider {
-  background-image: url("assets/scroll-grip-horizontal.png"), linear-gradient(to bottom, #DCE6FD 0%, #C0D0F8 45%, #A9BEF2 100%);
+  background-image: -gtk-scaled(url("assets/scroll-grip-horizontal.png"), url("assets/scroll-grip-horizontal@2.png")), linear-gradient(to bottom, #DCE6FD 0%, #C0D0F8 45%, #A9BEF2 100%);
   background-repeat: no-repeat, no-repeat;
   background-position: center, center;
   background-size: 9px 11px, 100% 100%;
 }
 
 scrollbar.horizontal slider:hover {
-  background-image: url("assets/scroll-grip-horizontal.png"), linear-gradient(to bottom, #EAF0FE 0%, #D1DDFA 45%, #B7CAF5 100%);
+  background-image: -gtk-scaled(url("assets/scroll-grip-horizontal.png"), url("assets/scroll-grip-horizontal@2.png")), linear-gradient(to bottom, #EAF0FE 0%, #D1DDFA 45%, #B7CAF5 100%);
   background-repeat: no-repeat, no-repeat;
   background-position: center, center;
   background-size: 9px 11px, 100% 100%;
 }
 
 scrollbar.horizontal slider:active {
-  background-image: url("assets/scroll-grip-horizontal.png"), linear-gradient(to bottom, #B7C9F3 0%, #A5B9EE 50%, #93A9E8 100%);
+  background-image: -gtk-scaled(url("assets/scroll-grip-horizontal.png"), url("assets/scroll-grip-horizontal@2.png")), linear-gradient(to bottom, #B7C9F3 0%, #A5B9EE 50%, #93A9E8 100%);
   background-repeat: no-repeat, no-repeat;
   background-position: center, center;
   background-size: 9px 11px, 100% 100%;
@@ -701,21 +701,21 @@ scrollbar.horizontal slider:disabled {
 }
 
 scrollbar.vertical slider {
-  background-image: url("assets/scroll-grip-vertical.png"), linear-gradient(to right, #DCE6FD 0%, #C0D0F8 45%, #A9BEF2 100%);
+  background-image: -gtk-scaled(url("assets/scroll-grip-vertical.png"), url("assets/scroll-grip-vertical@2.png")), linear-gradient(to right, #DCE6FD 0%, #C0D0F8 45%, #A9BEF2 100%);
   background-repeat: no-repeat, no-repeat;
   background-position: center, center;
   background-size: 11px 9px, 100% 100%;
 }
 
 scrollbar.vertical slider:hover {
-  background-image: url("assets/scroll-grip-vertical.png"), linear-gradient(to right, #EAF0FE 0%, #D1DDFA 45%, #B7CAF5 100%);
+  background-image: -gtk-scaled(url("assets/scroll-grip-vertical.png"), url("assets/scroll-grip-vertical@2.png")), linear-gradient(to right, #EAF0FE 0%, #D1DDFA 45%, #B7CAF5 100%);
   background-repeat: no-repeat, no-repeat;
   background-position: center, center;
   background-size: 11px 9px, 100% 100%;
 }
 
 scrollbar.vertical slider:active {
-  background-image: url("assets/scroll-grip-vertical.png"), linear-gradient(to right, #B7C9F3 0%, #A5B9EE 50%, #93A9E8 100%);
+  background-image: -gtk-scaled(url("assets/scroll-grip-vertical.png"), url("assets/scroll-grip-vertical@2.png")), linear-gradient(to right, #B7C9F3 0%, #A5B9EE 50%, #93A9E8 100%);
   background-repeat: no-repeat, no-repeat;
   background-position: center, center;
   background-size: 11px 9px, 100% 100%;
@@ -887,51 +887,51 @@ scale.horizontal.marks-before slider, scale.horizontal.marks-after slider {
 }
 
 scale.horizontal slider {
-  background-image: url("assets/slider-horizontal-normal.png");
+  background-image: -gtk-scaled(url("assets/slider-horizontal-normal.png"), url("assets/slider-horizontal-normal@2.png"));
 }
 
 scale.horizontal.marks-before:not(.marks-after) slider {
-  background-image: url("assets/slider-horizontal-normal-before.png");
+  background-image: -gtk-scaled(url("assets/slider-horizontal-normal-before.png"), url("assets/slider-horizontal-normal-before@2.png"));
 }
 
 scale.horizontal.marks-after:not(.marks-before) slider {
-  background-image: url("assets/slider-horizontal-normal-after.png");
+  background-image: -gtk-scaled(url("assets/slider-horizontal-normal-after.png"), url("assets/slider-horizontal-normal-after@2.png"));
 }
 
 scale.horizontal slider:hover {
-  background-image: url("assets/slider-horizontal-hover.png");
+  background-image: -gtk-scaled(url("assets/slider-horizontal-hover.png"), url("assets/slider-horizontal-hover@2.png"));
 }
 
 scale.horizontal.marks-before:not(.marks-after) slider:hover {
-  background-image: url("assets/slider-horizontal-hover-before.png");
+  background-image: -gtk-scaled(url("assets/slider-horizontal-hover-before.png"), url("assets/slider-horizontal-hover-before@2.png"));
 }
 
 scale.horizontal.marks-after:not(.marks-before) slider:hover {
-  background-image: url("assets/slider-horizontal-hover-after.png");
+  background-image: -gtk-scaled(url("assets/slider-horizontal-hover-after.png"), url("assets/slider-horizontal-hover-after@2.png"));
 }
 
 scale.horizontal slider:active {
-  background-image: url("assets/slider-horizontal-pressed.png");
+  background-image: -gtk-scaled(url("assets/slider-horizontal-pressed.png"), url("assets/slider-horizontal-pressed@2.png"));
 }
 
 scale.horizontal.marks-before:not(.marks-after) slider:active {
-  background-image: url("assets/slider-horizontal-pressed-before.png");
+  background-image: -gtk-scaled(url("assets/slider-horizontal-pressed-before.png"), url("assets/slider-horizontal-pressed-before@2.png"));
 }
 
 scale.horizontal.marks-after:not(.marks-before) slider:active {
-  background-image: url("assets/slider-horizontal-pressed-after.png");
+  background-image: -gtk-scaled(url("assets/slider-horizontal-pressed-after.png"), url("assets/slider-horizontal-pressed-after@2.png"));
 }
 
 scale.horizontal slider:disabled {
-  background-image: url("assets/slider-horizontal-disabled.png");
+  background-image: -gtk-scaled(url("assets/slider-horizontal-disabled.png"), url("assets/slider-horizontal-disabled@2.png"));
 }
 
 scale.horizontal.marks-before:not(.marks-after) slider:disabled {
-  background-image: url("assets/slider-horizontal-disabled-before.png");
+  background-image: -gtk-scaled(url("assets/slider-horizontal-disabled-before.png"), url("assets/slider-horizontal-disabled-before@2.png"));
 }
 
 scale.horizontal.marks-after:not(.marks-before) slider:disabled {
-  background-image: url("assets/slider-horizontal-disabled-after.png");
+  background-image: -gtk-scaled(url("assets/slider-horizontal-disabled-after.png"), url("assets/slider-horizontal-disabled-after@2.png"));
 }
 
 scale.vertical trough {
@@ -954,51 +954,51 @@ scale.vertical.marks-before slider, scale.vertical.marks-after slider {
 }
 
 scale.vertical slider {
-  background-image: url("assets/slider-vertical-normal.png");
+  background-image: -gtk-scaled(url("assets/slider-vertical-normal.png"), url("assets/slider-vertical-normal@2.png"));
 }
 
 scale.vertical.marks-before:not(.marks-after) slider {
-  background-image: url("assets/slider-vertical-normal-before.png");
+  background-image: -gtk-scaled(url("assets/slider-vertical-normal-before.png"), url("assets/slider-vertical-normal-before@2.png"));
 }
 
 scale.vertical.marks-after:not(.marks-before) slider {
-  background-image: url("assets/slider-vertical-normal-after.png");
+  background-image: -gtk-scaled(url("assets/slider-vertical-normal-after.png"), url("assets/slider-vertical-normal-after@2.png"));
 }
 
 scale.vertical slider:hover {
-  background-image: url("assets/slider-vertical-hover.png");
+  background-image: -gtk-scaled(url("assets/slider-vertical-hover.png"), url("assets/slider-vertical-hover@2.png"));
 }
 
 scale.vertical.marks-before:not(.marks-after) slider:hover {
-  background-image: url("assets/slider-vertical-hover-before.png");
+  background-image: -gtk-scaled(url("assets/slider-vertical-hover-before.png"), url("assets/slider-vertical-hover-before@2.png"));
 }
 
 scale.vertical.marks-after:not(.marks-before) slider:hover {
-  background-image: url("assets/slider-vertical-hover-after.png");
+  background-image: -gtk-scaled(url("assets/slider-vertical-hover-after.png"), url("assets/slider-vertical-hover-after@2.png"));
 }
 
 scale.vertical slider:active {
-  background-image: url("assets/slider-vertical-pressed.png");
+  background-image: -gtk-scaled(url("assets/slider-vertical-pressed.png"), url("assets/slider-vertical-pressed@2.png"));
 }
 
 scale.vertical.marks-before:not(.marks-after) slider:active {
-  background-image: url("assets/slider-vertical-pressed-before.png");
+  background-image: -gtk-scaled(url("assets/slider-vertical-pressed-before.png"), url("assets/slider-vertical-pressed-before@2.png"));
 }
 
 scale.vertical.marks-after:not(.marks-before) slider:active {
-  background-image: url("assets/slider-vertical-pressed-after.png");
+  background-image: -gtk-scaled(url("assets/slider-vertical-pressed-after.png"), url("assets/slider-vertical-pressed-after@2.png"));
 }
 
 scale.vertical slider:disabled {
-  background-image: url("assets/slider-vertical-disabled.png");
+  background-image: -gtk-scaled(url("assets/slider-vertical-disabled.png"), url("assets/slider-vertical-disabled@2.png"));
 }
 
 scale.vertical.marks-before:not(.marks-after) slider:disabled {
-  background-image: url("assets/slider-vertical-disabled-before.png");
+  background-image: -gtk-scaled(url("assets/slider-vertical-disabled-before.png"), url("assets/slider-vertical-disabled-before@2.png"));
 }
 
 scale.vertical.marks-after:not(.marks-before) slider:disabled {
-  background-image: url("assets/slider-vertical-disabled-after.png");
+  background-image: -gtk-scaled(url("assets/slider-vertical-disabled-after.png"), url("assets/slider-vertical-disabled-after@2.png"));
 }
 
 treeview header button, columnview header button, column-header button {
@@ -1070,72 +1070,72 @@ switch slider {
 
 switch:not(:checked) {
   color: transparent;
-  background-image: url("assets/switch-0-normal.png");
+  background-image: -gtk-scaled(url("assets/switch-0-normal.png"), url("assets/switch-0-normal@2.png"));
 }
 
 switch:not(:checked):hover {
   color: transparent;
-  background-image: url("assets/switch-0-hovered.png");
+  background-image: -gtk-scaled(url("assets/switch-0-hovered.png"), url("assets/switch-0-hovered@2.png"));
 }
 
 switch:not(:checked):active {
   color: transparent;
-  background-image: url("assets/switch-0-pressed.png");
+  background-image: -gtk-scaled(url("assets/switch-0-pressed.png"), url("assets/switch-0-pressed@2.png"));
 }
 
 switch:not(:checked):focus {
   color: transparent;
-  background-image: url("assets/switch-0-focused.png");
+  background-image: -gtk-scaled(url("assets/switch-0-focused.png"), url("assets/switch-0-focused@2.png"));
 }
 
 switch:not(:checked):disabled {
   color: transparent;
-  background-image: url("assets/switch-0-disabled.png");
+  background-image: -gtk-scaled(url("assets/switch-0-disabled.png"), url("assets/switch-0-disabled@2.png"));
 }
 
 switch:checked {
   color: transparent;
-  background-image: url("assets/switch-1-normal.png");
+  background-image: -gtk-scaled(url("assets/switch-1-normal.png"), url("assets/switch-1-normal@2.png"));
 }
 
 switch:checked:hover {
   color: transparent;
-  background-image: url("assets/switch-1-hovered.png");
+  background-image: -gtk-scaled(url("assets/switch-1-hovered.png"), url("assets/switch-1-hovered@2.png"));
 }
 
 switch:checked:active {
   color: transparent;
-  background-image: url("assets/switch-1-pressed.png");
+  background-image: -gtk-scaled(url("assets/switch-1-pressed.png"), url("assets/switch-1-pressed@2.png"));
 }
 
 switch:checked:focus {
   color: transparent;
-  background-image: url("assets/switch-1-focused.png");
+  background-image: -gtk-scaled(url("assets/switch-1-focused.png"), url("assets/switch-1-focused@2.png"));
 }
 
 switch:checked:disabled {
   color: transparent;
-  background-image: url("assets/switch-1-disabled.png");
+  background-image: -gtk-scaled(url("assets/switch-1-disabled.png"), url("assets/switch-1-disabled@2.png"));
 }
 
 switch slider {
-  background-image: url("assets/switch-thumb-normal.png");
+  background-image: -gtk-scaled(url("assets/switch-thumb-normal.png"), url("assets/switch-thumb-normal@2.png"));
 }
 
 switch:hover slider {
-  background-image: url("assets/switch-thumb-hovered.png");
+  background-image: -gtk-scaled(url("assets/switch-thumb-hovered.png"), url("assets/switch-thumb-hovered@2.png"));
 }
 
 switch:active slider {
-  background-image: url("assets/switch-thumb-pressed.png");
+  background-image: -gtk-scaled(url("assets/switch-thumb-pressed.png"), url("assets/switch-thumb-pressed@2.png"));
 }
 
 switch:focus slider {
-  background-image: url("assets/switch-thumb-focused.png");
+  background-image: -gtk-scaled(url("assets/switch-thumb-focused.png"), url("assets/switch-thumb-focused@2.png"));
 }
 
 switch:disabled slider {
-  background-image: url("assets/switch-thumb-disabled.png");
+  background-image: -gtk-scaled(url("assets/switch-thumb-disabled.png"), url("assets/switch-thumb-disabled@2.png"));
 }
 
 frame {

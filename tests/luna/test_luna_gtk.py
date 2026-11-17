@@ -399,3 +399,23 @@ def test_gtk_parses_the_css_without_errors(version):
         pytest.skip(f"GTK {version} is not available to PyGObject")
 
     assert result.stdout.strip() == "[]"
+
+
+@pytest.mark.parametrize("version", ["3.0", "4.0"])
+def test_every_png_asset_is_served_through_gtk_scaled_with_a_double_size_twin(version):
+    text = css(version)
+    scaled_pair = r'-gtk-scaled\(url\("assets/([^"]+)\.png"\), url\("assets/\1@2\.png"\)\)'
+    scaled = re.findall(scaled_pair, text)
+    plain = re.findall(r'url\("assets/([^"]+\.png)"\)', re.sub(scaled_pair, "", text))
+    assets = COMMITTED / f"gtk-{version}" / "assets"
+
+    assert (
+        plain,
+        [
+            name
+            for name in sorted(set(scaled))
+            if Image.open(assets / f"{name}@2.png").size
+            != tuple(side * 2 for side in Image.open(assets / f"{name}.png").size)
+        ],
+        len(scaled) > 0,
+    ) == ([], [], True)
