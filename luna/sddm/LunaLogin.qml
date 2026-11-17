@@ -15,6 +15,7 @@
  */
 pragma ComponentBehavior: Bound
 import QtQuick 2.15
+import Qt.labs.folderlistmodel 2.15
 import QtQuick.Shapes 1.15
 import "../qml"
 
@@ -62,6 +63,36 @@ Item {
         for (let index = 0; index < repeater.count; index++)
             names.push(repeater.itemAt(index).label);
         return names;
+    }
+
+    // XP hands each account without its own picture one of its stock pictures, no two alike while there are enough.
+    FolderListModel {
+        id: stockPictures
+        folder: Qt.resolvedUrl("../images/account-pictures")
+        nameFilters: ["*.png", "*.jpg", "*.jpeg", "*.bmp", "*.svg"]
+        showDirs: false
+    }
+    readonly property var stockPictureOrder: shuffled(stockPictures.count)
+
+    function shuffled(count) {
+        const order = Array.from({ length: count }, (_, index) => index);
+        for (let index = count - 1; index > 0; index--) {
+            const other = Math.floor(Math.random() * (index + 1));
+            [order[index], order[other]] = [order[other], order[index]];
+        }
+        return order;
+    }
+
+    // SDDM fills in its own generic face for an account without one; that is not the user's picture.
+    function ownPicture(icon) {
+        return !!icon && !String(icon).endsWith("/faces/.face.icon");
+    }
+
+    function pictureFor(icon, index) {
+        if (ownPicture(icon))
+            return icon;
+        const count = stockPictureOrder.length;
+        return count === 0 ? "" : stockPictures.get(stockPictureOrder[index % count], "fileUrl");
     }
 
     function logIn(userName, password) {
@@ -366,7 +397,8 @@ Item {
                 objectName: "userTile-" + model.name
                 required property var model
                 name: model.realName || model.name
-                picture: model.icon || ""
+                required property int index
+                picture: root.pictureFor(model.icon, index)
                 selected: model.name === root.selectedName
                 loggedIn: !!root.loggedOnUsers[model.name] || (!!root.theme.previewMode && !!model.loggedIn)
                 visible: !root.loggingOn || selected
