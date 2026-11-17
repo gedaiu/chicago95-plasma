@@ -30,6 +30,7 @@ import chicago95distro
 import chicago95ui  # noqa: E401,E702
 import chicago95update  # noqa: E402
 import login_preview
+import post_xp_boot
 from PySide6.QtCore import QEvent, QPoint, QProcess, QProcessEnvironment, QRect, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import (
     QAction,
@@ -2239,6 +2240,7 @@ class LoadingPreview(QmlPreview):
         company_logo = values.get("COMPANY_LOGO", "text")
         entries = {
             "style": boot_style(values),
+            "postXp": post_xp_boot.options(values),
             "brandText": values.get("BANNER_TEXT", "Chicago95"),
             "brandLogo": str(picture_file(values.get("LOGIN_LOGO", "start"), repo_of(values))),
             "edition": values.get("EDITION", "Professional"),
@@ -2286,7 +2288,7 @@ class LoadingPreview(QmlPreview):
         preview.fit((800, 600), 1)
         preview.refresh(self.values)
         layout.addWidget(preview)
-        note = QLabel("Preview: text loader → boot image → session loading. No system boot is performed.")
+        note = QLabel("Preview: boot screen → session loading. No system boot is performed.")
         layout.addWidget(note)
         replay = QPushButton("Replay")
         replay.clicked.connect(lambda: preview.dialog().playBootPreview())
@@ -3518,6 +3520,11 @@ def branding_tab(settings, actions):
     return tab
 
 
+POST_XP_FIELDS = post_xp_boot.FIELDS
+for _boot_key in POST_XP_FIELDS:
+    COMPONENTS_BY_KEY[_boot_key] = ("splash", "plymouth")
+
+
 def boot_style(values):
     """The boot and loading screens' style: chosen on its own, or the login's until it is (as setup/steps.sh)."""
     return values.get("BOOT_STYLE") or values.get("LOGIN_STYLE", "classic")
@@ -3526,22 +3533,39 @@ def boot_style(values):
 @tab_builder("Booting Screen", "Boot Screen")
 def boot_screen_tab(settings, actions):
     """The screen shown while the computer boots: a picture, as 1995 and 1998 had, the 2000 page with the progress
-    bar, or XP's black screen. After log on, while Plasma loads, the login's own: the desktop's colour under the
-    hourglass, or XP's Welcome screen loading the user's settings. Applying rebuilds the boot image, which asks
+    bar, XP's black screen, or Vista–11. After log on, Plasma uses the login's own screen: the desktop's colour
+    under the hourglass, or XP's Welcome screen. Applying rebuilds the boot image, which asks
     for the administrator password."""
     tab = SettingsTab(settings, actions)
-    tab.radios(
+    tab.choice(
         "BOOT_STYLE",
         "Style",
         [
             ("Classic (1995 and 1998): a picture", "classic"),
             ("Windows 2000: the page with its progress bar", "2000"),
             ("Windows XP: the black screen with its sliding bar", "luna"),
+            *post_xp_boot.STYLES,
         ],
         default=boot_style(settings),
     )
     tab.group("Classic picture")
     branding_field(tab, "SPLASH_IMAGE", "Picture:", settings)
+    tab.group("Vista and later: content")
+    tab.picture("BOOT_LOGO", "Logo:", [("Original", "default"), ("Hidden", "none")], "default")
+    tab.text("BOOT_NAME", "Product name:")
+    tab.text("BOOT_TEXT", "Loading text (default = original):", "default")
+    tab.text("BOOT_FOOTER", "Footer (default = original):", "default")
+    tab.font_family("BOOT_FONT", "Font (default = original):", "default")
+    tab.color("BOOT_BACKGROUND", "Background:", "#000000", most=1)
+    tab.picture("BOOT_BACKGROUND_IMAGE", "Background picture:", [("None", "")], "")
+    tab.color("BOOT_FOREGROUND", "Text and dots:", "#ffffff", most=1)
+    tab.text("BOOT_ACCENT", "Logo/bar color (default = original):", "default")
+    tab.text("BOOT_LOGO_SIZE", "Logo size (default = original):", "default")
+    tab.group("Vista and later: animation")
+    tab.picture("BOOT_ANIMATION", "Vertical sprite sheet:", [("Original", ""), ("Hidden", "none")], "")
+    tab.text("BOOT_FRAMES", "Frame count (default = original):", "default")
+    tab.text("BOOT_LOOP_START", "First loop frame (default = original):", "default")
+    tab.text("BOOT_FPS", "Frames per second (default = original):", "default")
     tab.group("2000 texts")
     branding_field(tab, "LOADING_TEXT", "Text beside the progress bar:", settings)
     branding_field(tab, "LOADING_FOOTER", "Bottom line:", settings)

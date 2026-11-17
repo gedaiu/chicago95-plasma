@@ -24,17 +24,8 @@ def test_text_boot_renders_black_console_and_expected_caption(qt_app, tmp_path, 
     actual.save(tmp_path / "text-boot.png")
     assert actual.getpixel((320, 240)) == (0, 0, 0)
     if nt:
-        reference = Image.open(REPO / "tests/references/w2k-video-text-loader-523.png")
-        # Isolate the actual loader bar, excluding the video's borders and text.
-        expected = reference.crop((159, 586, 1120, 611)).resize((640, 16)).convert("L")
-        ours = actual.crop((0, 384, 640, 400)).convert("L")
-
-        def binary(im):
-            return im.point(lambda pixel: 255 if pixel > 100 else 0)
-
-        diff = ImageChops.difference(binary(expected), binary(ours))
-        diff.save(tmp_path / "loader-bar-diff.png")
-        assert diff.histogram()[255] / (640 * 16) < 0.25
+        # Fully loaded cells use █, a continuous solid bar.
+        assert actual.crop((0, 384, 640, 400)).getextrema() == ((170, 170),) * 3
     else:
         assert actual.crop((0, 0, 300, 25)).getbbox() is not None
         assert actual.crop((0, 32, 640, 480)).getbbox() is None

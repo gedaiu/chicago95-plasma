@@ -15,3 +15,5 @@ var logonStyle = "classic";
 var desktopColor = "#008080";
 var userName = "";
 var userPicture = "";
+
+var postXp = {};

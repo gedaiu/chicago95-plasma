@@ -30,14 +30,20 @@ Rectangle {
             objectName: "loaderProgress"
             visible: root.ntLoader
             y: 384 * root.unit
-            spacing: 4 * root.unit
+            spacing: 0
             Repeater {
                 model: 72
-                Rectangle {
+                Item {
                     required property int index
-                    width: 5 * root.unit
+                    readonly property bool filled: index < Math.floor(root.progress * 72)
+                    width: 9 * root.unit
                     height: 16 * root.unit
-                    color: index < Math.floor(root.progress * 72) ? "#aaaaaa" : "#333333"
+                    // Full block character (█): fill the entire cell without font-dependent gaps.
+                    Rectangle {
+                        width: (parent.filled ? 9 : 5) * root.unit
+                        height: parent.height
+                        color: parent.filled ? "#aaaaaa" : "#333333"
+                    }
                 }
             }
         }

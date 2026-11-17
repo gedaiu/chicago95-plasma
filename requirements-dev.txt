@@ -6,3 +6,4 @@ ruff
 shellcheck-py
 shfmt-py
 pytest-cov
+fonttools

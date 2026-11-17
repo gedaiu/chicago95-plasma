@@ -276,6 +276,20 @@ def test_branding_tab_defaults_to_professional_kde_text_logo_and_the_tagline(con
 def test_boot_screen_tab_defaults_to_the_classic_style_picture_and_texts(control_panel, qt_app):
     assert built(control_panel, "Booting Screen", "Boot Screen").values() == {
         "BOOT_STYLE": "classic",
+        "BOOT_LOGO": "default",
+        "BOOT_NAME": "",
+        "BOOT_TEXT": "default",
+        "BOOT_FOOTER": "default",
+        "BOOT_BACKGROUND": "#000000",
+        "BOOT_FOREGROUND": "#ffffff",
+        "BOOT_ACCENT": "default",
+        "BOOT_FONT": "default",
+        "BOOT_BACKGROUND_IMAGE": "",
+        "BOOT_ANIMATION": "",
+        "BOOT_FRAMES": "default",
+        "BOOT_LOOP_START": "default",
+        "BOOT_FPS": "default",
+        "BOOT_LOGO_SIZE": "default",
         "SPLASH_IMAGE": "classic",
         "LOADING_TEXT": "Starting up...",
         "LOADING_FOOTER": "Chicago95 for KDE Plasma",
@@ -786,7 +800,10 @@ def appearance(control_panel, settings=None):
 
 def preset_values(control_panel, look):
     branding = control_panel.branding_defaults({})
-    return {"LOOK": look, **{key: value for key, value in control_panel.LOOK_PRESETS[look].items() if key not in branding}}
+    return {
+        "LOOK": look,
+        **{key: value for key, value in control_panel.LOOK_PRESETS[look].items() if key not in branding},
+    }
 
 
 def test_appearance_tab_defaults_to_the_windows_95_scheme_with_all_its_settings(control_panel, qt_app):
@@ -1093,7 +1110,6 @@ def test_two_and_three_way_choices_are_radio_buttons_as_in_the_originals(control
     counts = {}
     for applet, tab_name, key in (
         ("Passwords", "Log On", "LOGIN_STYLE"),
-        ("Booting Screen", "Boot Screen", "BOOT_STYLE"),
         ("Mouse", "Pointers", "CURSOR"),
         ("Explorer", "General", "EXPLORER"),
         ("Fonts", "Font", "FONT_SCOPE"),
@@ -1101,7 +1117,7 @@ def test_two_and_three_way_choices_are_radio_buttons_as_in_the_originals(control
         tab = built(control_panel, applet, tab_name, None, program_installed=lambda name: f"/usr/bin/{name}")
         counts[key] = len(tab.findChildren(QRadioButton))
 
-    assert counts == {"LOGIN_STYLE": 3, "BOOT_STYLE": 3, "CURSOR": 3, "EXPLORER": 2, "FONT_SCOPE": 3}
+    assert counts == {"LOGIN_STYLE": 3, "CURSOR": 3, "EXPLORER": 2, "FONT_SCOPE": 3}
 
 
 def preview_image(control_panel, qt_app, look="1998"):

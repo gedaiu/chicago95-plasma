@@ -289,6 +289,10 @@ cp -r plymouth/Chicago95-2000/. "$build"
 cp -r splash/chicago95.splashscreen/contents/splash "$build/splash"
 QT_QPA_PLATFORM=offscreen python3 bin/chicago95-splash-image --splash "$build/splash" \
   --size 1920x1080 --scale 1 --out "$build/screen.png"
+QT_QPA_PLATFORM=offscreen python3 bin/chicago95-splash-image --splash "$build/splash" \
+  --size 1920x1080 --scale 1 --text-loader --out "$build/loader.png"
+QT_QPA_PLATFORM=offscreen python3 bin/chicago95-splash-image --splash "$build/splash" \
+  --size 1920x1080 --scale 1 --text "Shutting down" --out "$build/shutdown.png"
 rm -rf "$build/splash"
 sudo cp -r "$build" /usr/share/plymouth/themes/Chicago95-2000
 sudo plymouth-set-default-theme -R Chicago95-2000

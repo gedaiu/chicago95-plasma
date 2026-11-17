@@ -8,13 +8,13 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QTimer, QUrl
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QColor, QGuiApplication, QImage
 from PySide6.QtQuick import QQuickView
 
 SPLASH = Path.home() / ".local/share/plasma/look-and-feel/chicago95.splashscreen/contents/splash"
 
 
-def render(splash, size, stage, text, out):
+def render(splash, size, stage, text, out, text_loader=False):
     app = QGuiApplication(sys.argv[:1])
     view = QQuickView()
     view.setResizeMode(QQuickView.SizeRootObjectToView)
@@ -24,12 +24,19 @@ def render(splash, size, stage, text, out):
         raise SystemExit("\n".join(error.toString() for error in view.errors()))
     view.rootObject().setProperty("stage", stage)
     view.rootObject().setProperty("booting", True)
+    if text_loader:
+        view.rootObject().setProperty("textBoot", True)
     if text:
         view.rootObject().setProperty("loadingText", text)
     view.show()
     QTimer.singleShot(300, app.quit)
     app.exec()
     image = view.grabWindow()
+    if text_loader:
+        block = QImage(1, 1, QImage.Format_RGB32)
+        block.fill(QColor("#aaaaaa"))
+        if not block.save(str(Path(out).with_name("loader-block.png"))):
+            raise SystemExit("could not write loader-block.png")
     view.close()
     if not image.save(str(out)):
         raise SystemExit(f"could not write {out}")
@@ -42,6 +49,9 @@ def main():
     parser.add_argument("--scale", type=float, default=1, help="the screen's scale: the picture is size times scale")
     parser.add_argument("--stage", type=int, default=0, help="how many of Plasma's start-up stages the bar shows done")
     parser.add_argument("--text", help="the text beside the progress bar, in place of the loading text")
+    parser.add_argument(
+        "--text-loader", action="store_true", help="render the initial text loader and its progress block"
+    )
     parser.add_argument("--out", required=True, help="the PNG to write")
     arguments = parser.parse_args()
     width, height = (int(part) for part in arguments.size.lower().split("x"))
@@ -51,6 +61,7 @@ def main():
         arguments.stage,
         arguments.text,
         arguments.out,
+        arguments.text_loader,
     )
 
 

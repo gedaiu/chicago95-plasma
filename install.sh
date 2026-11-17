@@ -14,7 +14,7 @@
 #     --look=1995|1998|2000|2001|luna|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
 #     --decoration=classic|luna  --widget-style=classic|luna  --taskbar-style=classic|luna  (each overrides the look's choice)
 #     --start-menu-style=1995|1998|2000|2001|luna
-#     --login-style=classic|2000|luna  --boot-style=classic|2000|luna  --icons=chicago95|se98|classicos2000|windowsxp
+#     --login-style=classic|2000|luna  --boot-style=classic|2000|luna|vista|7|8|8.1|10|11  --icons=chicago95|se98|classicos2000|windowsxp
 #     --sounds=Chicago95|Windows98|Windows2000|Plus98-Jungle|...  (data/sound-themes/)
 #     --branding=distro|windows  name the screens after this computer's distribution (detected) or keep the look's Windows names
 #     --settings=FILE  choices saved by the Control Panel (KEY=value lines), applied over the defaults

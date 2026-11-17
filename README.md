@@ -182,7 +182,7 @@ Launch, the Start button and menu, the login screen, the booting screen, sounds,
 fonts, the mouse and the file manager, most with live previews. Booting Screen
 picks the start-up screen on its own: the classic picture or the 2000 page with
 its progress bar, whatever the login style; it is `BOOT_STYLE` in `setup.conf`
-and `--boot-style=classic|2000|luna` for Setup. After log on, while Plasma
+and `--boot-style=classic|2000|luna|vista|7|8|8.1|10|11` for Setup. Vista through Windows 11 also support editable logos, text, colors, fonts and animation sheets; see [post-XP boot themes](docs/post-xp-boot.md). After log on, while Plasma
 starts, the loading screen follows the login instead, as the originals did: the
 desktop's colour under the hourglass pointer for 9x and 2000 logins, XP's Welcome
 screen with "Loading your personal settings..." for the Welcome login. KWin's

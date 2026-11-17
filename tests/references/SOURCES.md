@@ -163,3 +163,11 @@ Boot flow videos supplied by the user:
 - https://www.youtube.com/watch?v=SQC1Wb-susU — MiSTer/ao486 Windows 95. Firmware/FreeDOS menu at 2–4s is platform-specific; bitmap at 6–26s, black at 28s, plain desktop 30–36s, shell at 38s, shutdown dialog at 44s. No password prompt in this recording.
 - https://www.youtube.com/watch?v=iG61OiM1tzA — Windows 98 password-bypass demonstration. Bitmap around 5s, login around 10s. Subsequent help/mail/file-dialog detour is not the normal startup sequence.
 - https://www.youtube.com/watch?v=GOZcfOFQK-s — Windows 2000 from 8:40. `w2k-video-text-loader-523.png` is the unchanged 1280×720 frame at 8:43. `w2k-video-startup-dialog-544.png` is at 9:04. Text loader precedes graphical boot; status dialog says “Preparing network connections...” then “Applying your personal settings...”. Firmware branding and video capture artifacts are not OS UI. The dialog's banner differs from the currently bundled login-banner variant; tests explicitly mask that artwork and text while comparing frame/body.
+
+Post-XP boot references `boot-vista-video.png`, `boot-7-video.png`,
+`boot-8-video.png`, `boot-8.1-video.png`, `boot-10-video.png` and `boot-11-video.png`
+are unchanged 1920×1080 frames at 296s, 338.5s, 370s, 396s, 422s and 454s from
+[the user's Windows startup/shutdown video](https://www.youtube.com/watch?v=Z1ZHVuCi14E).
+They validate the stock geometry and lettering. Complete Windows 7 and dot
+animations come from original resources rather than the video's shortened loops;
+provenance is in `splash/chicago95.splashscreen/contents/splash/postxp/SOURCES.md`.

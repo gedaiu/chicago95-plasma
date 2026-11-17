@@ -63,7 +63,7 @@ def test_loader_fill_pixels_and_letterboxing(qt_app, tmp_path, size, progress):
             row.putpixel((index, 0), actual.getpixel((round(left + (index * 9 + 2) * scale), round(top + 392 * scale))))
             expected.putpixel((index, 0), (170, 170, 170) if index < int(progress * 72) else (51, 51, 51))
             gap = actual.getpixel((round(left + (index * 9 + 7) * scale), round(top + 392 * scale)))
-            assert gap == (0, 0, 0), f"Filled gap after segment {index}"
+            assert gap == ((170, 170, 170) if index < int(progress * 72) else (0, 0, 0))
         assert_image(row, expected, tmp_path, "segment-faces")
         if left:
             assert actual.crop((0, 0, int(left), size[1])).getbbox() is None

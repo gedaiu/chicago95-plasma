@@ -1018,6 +1018,8 @@ def test_dry_run_of_the_2000_boot_screen_renders_our_loading_screen_into_a_plymo
         "/usr/share/plymouth/themes/Chicago95-2000" in log,
         "would: sudo plymouth-set-default-theme -R Chicago95-2000" in log,
     ) == (True, True, True, True)
+    assert "--text-loader --out" in log
+    assert "/loader.png" in log
 
 
 @pytest.mark.parametrize(
@@ -1054,7 +1056,8 @@ def test_dry_run_of_the_classic_boot_screen_keeps_chicago95s_own_plymouth_theme(
     assert ("would: sudo plymouth-set-default-theme -R Chicago95\n" in log, "Chicago95-2000" in log) == (True, False)
 
 
-def test_splash_image_tool_draws_the_2000_loading_screen_at_the_size_asked(tmp_path):
+@pytest.mark.parametrize("text_loader", [False, True])
+def test_splash_image_tool_draws_the_2000_loading_screen_at_the_size_asked(tmp_path, text_loader):
     from PIL import Image
 
     splash = tmp_path / "splash"
@@ -1072,6 +1075,7 @@ def test_splash_image_tool_draws_the_2000_loading_screen_at_the_size_asked(tmp_p
             str(splash),
             "--size",
             "640x480",
+            *(["--text-loader"] if text_loader else []),
             "--out",
             str(tmp_path / "screen.png"),
         ],
@@ -1081,11 +1085,20 @@ def test_splash_image_tool_draws_the_2000_loading_screen_at_the_size_asked(tmp_p
         timeout=60,
     )
     image = Image.open(tmp_path / "screen.png").convert("RGB")
-    assert (image.size, image.getpixel((10, 10)), image.getpixel((320, 420))) == (
-        (640, 480),
-        (247, 247, 247),
-        (0, 37, 160),
-    )
+    if text_loader:
+        assert image.size == (640, 480)
+        assert image.getpixel((10, 10)) == (0, 0, 0)
+        assert image.getpixel((0, 384)) == (51, 51, 51)
+        # The caption is baked into the loader; Plymouth supplies the moving blocks.
+        assert image.crop((180, 368, 460, 384)).getbbox() is not None
+        block = Image.open(tmp_path / "loader-block.png").convert("RGB")
+        assert block.getpixel((0, 0)) == (170, 170, 170)
+    else:
+        assert (image.size, image.getpixel((10, 10)), image.getpixel((320, 420))) == (
+            (640, 480),
+            (247, 247, 247),
+            (0, 37, 160),
+        )
 
 
 def test_the_2000_plymouth_script_places_the_originals_18_blocks_in_the_640_by_480_layout():

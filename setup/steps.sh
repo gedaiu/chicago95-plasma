@@ -100,6 +100,8 @@ kconf() {
 SETTINGS_KEYS="LOOK DECORATION WIDGET_STYLE TASKBAR_STYLE START_MENU_STYLE BEVEL TITLE_ACTIVE TITLE_INACTIVE BANNER_BG BANNER_FG ICONS FONT FONT_SCOPE CURSOR PANEL MOUSE_HAND DOUBLE_CLICK_MS POINTER_SPEED
     TASK_BUTTON_WIDTH QUICK_LAUNCH LAUNCHERS TASKBAR_AUTOHIDE TASKBAR_ON_TOP CLOCK_SHOW CLOCK_HOURS START_TEXT START_LOGO BANNER_TEXT
     SAVER IDLE_MIN LOGIN_STYLE LOGIN_TITLE LOGIN_MESSAGE LOGIN_ICON LOGIN_LOGO EDITION TAGLINE COMPANY COMPANY_LOGO
+    BOOT_LOGO BOOT_NAME BOOT_TEXT BOOT_FOOTER BOOT_BACKGROUND BOOT_FOREGROUND BOOT_ACCENT BOOT_FONT
+    BOOT_BACKGROUND_IMAGE BOOT_ANIMATION BOOT_FRAMES BOOT_LOOP_START BOOT_FPS BOOT_LOGO_SIZE
     BOOT_STYLE SPLASH_IMAGE LOADING_TEXT LOADING_FOOTER BRANDING SOUND_THEME CLIPPY_AUTOSTART EXPLORER
     BACKGROUND_MODE BACKGROUND_COLOR BACKGROUND_PATTERN BACKGROUND_IMAGE BACKGROUND_FILL DESKTOP_ICONS PREVIEW_SIZE
     $(sed -n 's/^EVENT|\([^|]*\)|.*/\1/p' "$REPO/setup/animations.conf" | tr '\n' ' ')"
@@ -895,6 +897,7 @@ step_tools_common() { # shared by every PySide6 component; idempotent
   put_file "$REPO/luna/palette.py" ~/.local/lib/chicago95/chicago95lunapalette.py
   put_file "$REPO/luna/images/windows-xp-flag.svg" ~/.local/lib/chicago95/images/windows-xp-flag.svg
   put_file "$REPO/setup/animations.conf" ~/.local/lib/chicago95/animations.conf
+  put_file "$REPO/setup/post_xp_boot.script.in" ~/.local/share/chicago95/post_xp_boot.script.in
   put_file "$menus_qss" ~/.local/share/chicago95/plasmashell-menus.qss
   put_file "$REPO/luna/images/menu-arrow.svg" ~/.local/share/chicago95/images/menu-arrow.svg
   put_file "$REPO/luna/images/menu-arrow-selected.svg" ~/.local/share/chicago95/images/menu-arrow-selected.svg
@@ -1301,6 +1304,23 @@ user_picture() {
   return 0
 }
 
+write_post_xp_options() { # a JS object; values are quoted data, never evaluated
+  local entry key property variable
+  printf 'var postXp = {'
+  for entry in BOOT_LOGO:logo BOOT_NAME:name BOOT_TEXT:text BOOT_FOOTER:footer \
+    BOOT_BACKGROUND:background BOOT_FOREGROUND:foreground BOOT_ACCENT:accent BOOT_FONT:font \
+    BOOT_BACKGROUND_IMAGE:backgroundImage BOOT_ANIMATION:animation BOOT_FRAMES:frames \
+    BOOT_LOOP_START:loopStart BOOT_FPS:fps BOOT_LOGO_SIZE:logoSize; do
+    key=${entry%%:*}
+    property=${entry#*:}
+    variable=SETUP_$key
+    if [[ -v $variable ]]; then
+      printf '%s:%s,' "$(js_string "$property")" "$(js_string "${!variable}")"
+    fi
+  done
+  printf '}\n'
+}
+
 write_splash_settings() { # <dir>  settings.js: the loading screen's style, texts and pictures
   local dir="$1" logo image
   ensure_waving_flag
@@ -1311,6 +1331,7 @@ write_splash_settings() { # <dir>  settings.js: the loading screen's style, text
     {
       echo ".pragma library"
       echo "var style = $(js_string "$(boot_style)")"
+      write_post_xp_options
       echo "var brandText = $(js_string "${SETUP_BANNER_TEXT:-Chicago95}")"
       echo "var brandLogo = $(js_string "$logo")"
       echo "var edition = $(js_string "${SETUP_EDITION:-Professional}")"
@@ -1530,7 +1551,18 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
     ui_status "Plymouth is not installed; skipping the boot screen"
     return
   }
-  if [ "$(boot_style)" = luna ]; then
+  if [[ " vista 7 8 8.1 10 11 " == *" $(boot_style) "* ]]; then
+    name="Chicago95-$(boot_style)"
+    [ "$(boot_style)" = vista ] && name=Chicago95-Vista
+    build="${TMPDIR:-/tmp}/chicago95-plymouth-$$"
+    run mkdir -p "$build/splash"
+    run cp -r "$REPO/splash/chicago95.splashscreen/contents/splash/." "$build/splash"
+    write_splash_settings "$build/splash"
+    run env QT_QPA_PLATFORM=offscreen python3 "$REPO/bin/chicago95-post-xp-boot" \
+      --splash "$build/splash" --out "$build" --size "${SETUP_WIDTH:-1920}x${SETUP_HEIGHT:-1080}" || return 1
+    run rm -rf "$build/splash"
+    theme_src="$build"
+  elif [ "$(boot_style)" = luna ]; then
     name=Chicago95-XP
     theme_src="$REPO/luna/plymouth/Chicago95-XP"
     if [ -n "${SETUP_BANNER_TEXT-Chicago95}" ]; then # the user's branding in place of the XP wordmark
@@ -1562,6 +1594,8 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
       --size "${SETUP_WIDTH:-1920}x${SETUP_HEIGHT:-1080}" --scale "${SETUP_SCALE:-1}" --out "$build/screen.png"
     run env QT_QPA_PLATFORM=offscreen python3 "$REPO/bin/chicago95-splash-image" --splash "$build/splash" \
       --size "${SETUP_WIDTH:-1920}x${SETUP_HEIGHT:-1080}" --scale "${SETUP_SCALE:-1}" --text "Shutting down" --out "$build/shutdown.png"
+    run env QT_QPA_PLATFORM=offscreen python3 "$REPO/bin/chicago95-splash-image" --splash "$build/splash" \
+      --size "${SETUP_WIDTH:-1920}x${SETUP_HEIGHT:-1080}" --scale "${SETUP_SCALE:-1}" --text-loader --out "$build/loader.png"
     run rm -rf "$build/splash"
     theme_src="$build"
   else

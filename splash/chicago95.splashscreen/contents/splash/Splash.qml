@@ -30,7 +30,7 @@ Rectangle {
         textFill.stop();
         bitmapTimer.stop();
         booting = true;
-        textBoot = !luna;
+        textBoot = !luna && !postXp;
         textBootProgress = 0;
         if (textBoot) textFill.start();
         else bitmapTimer.start();
@@ -66,7 +66,8 @@ Rectangle {
 
     readonly property bool modern: booting && Settings.style === "2000"
     readonly property bool luna: booting && Settings.style === "luna"
-    readonly property bool classic: booting && !modern && !luna
+    readonly property bool postXp: booting && ["vista", "7", "8", "8.1", "10", "11"].indexOf(Settings.style) !== -1
+    readonly property bool classic: booting && !modern && !luna && !postXp
     readonly property bool welcome: !booting && Settings.logonStyle === "luna"
     readonly property real unit: height / 480
     readonly property real layoutX: (width - 640 * unit) / 2  // the 640-wide layout, centred ("left" is taken by Item)
@@ -77,6 +78,16 @@ Rectangle {
     }
 
     color: booting ? "#f7f7f7" : Settings.desktopColor || "#008080"
+
+    Loader {
+        anchors.fill: parent
+        active: root.postXp
+        source: "PostXpBoot.qml"
+        onLoaded: {
+            item.style = Settings.style;
+            item.options = Settings.postXp || {};
+        }
+    }
 
     Image {
         visible: root.classic
