@@ -171,3 +171,13 @@ are unchanged 1920×1080 frames at 296s, 338.5s, 370s, 396s, 422s and 454s from
 They validate the stock geometry and lettering. Complete Windows 7 and dot
 animations come from original resources rather than the video's shortened loops;
 provenance is in `splash/chicago95.splashscreen/contents/splash/postxp/SOURCES.md`.
+
+Windows 7 (Aero), from Toasty Technology (http://toastytech.com/guis/win7.html): lossless 1024x768 true-colour
+captures at 96 DPI over the plain blue background, so the glass tint is measured without a wallpaper behind it.
+
+| File | Source |
+| --- | --- |
+| `win7screenres.png` | http://toastytech.com/guis/win7screenres.png (Screen Resolution: the active glass frame and caption buttons at 1:1, an Explorer address bar, buttons and drop-downs, a context menu, the superbar with the orb, pinned and active tasks, the tray and two-line clock) |
+| `win7dragedge.png` | http://toastytech.com/guis/win7dragedge.png (Notepad in the active glass frame with its red Close button, menu bar and scroll bar, beside the Aero Snap preview and its glass streaks) |
+| `win7peek.png` | http://toastytech.com/guis/win7peek.png (Aero Peek over the desktop) |
+| `win7gadgets.png` | http://toastytech.com/guis/win7gadgets.png (desktop gadgets) |
