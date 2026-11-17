@@ -130,33 +130,41 @@ Item {
             width: 48 * tile.unit
             height: 48 * tile.unit
             clip: true
-            gradient: Gradient {
-                GradientStop {
-                    position: 0
-                    color: "#4c9be6"
-                }
-                GradientStop {
-                    position: 1
-                    color: "#1b4fa8"
-                }
-            }
+            color: "transparent"
             Rectangle {
-                x: 15 * tile.unit
-                y: 8 * tile.unit
-                width: 18 * tile.unit
-                height: 18 * tile.unit
-                radius: width / 2
-                color: "#ffffff"
-            }
-            Rectangle {
-                x: 8 * tile.unit
-                y: 30 * tile.unit
-                width: 32 * tile.unit
-                height: 30 * tile.unit
-                radius: 14 * tile.unit
-                color: "#ffffff"
+                objectName: "defaultPicture"
+                anchors.fill: parent
+                // The idle tile's opacity reaches each child, so a silhouette left under the photo shows through.
+                visible: avatarImage.status !== Image.Ready
+                gradient: Gradient {
+                    GradientStop {
+                        position: 0
+                        color: "#4c9be6"
+                    }
+                    GradientStop {
+                        position: 1
+                        color: "#1b4fa8"
+                    }
+                }
+                Rectangle {
+                    x: 15 * tile.unit
+                    y: 8 * tile.unit
+                    width: 18 * tile.unit
+                    height: 18 * tile.unit
+                    radius: width / 2
+                    color: "#ffffff"
+                }
+                Rectangle {
+                    x: 8 * tile.unit
+                    y: 30 * tile.unit
+                    width: 32 * tile.unit
+                    height: 30 * tile.unit
+                    radius: 14 * tile.unit
+                    color: "#ffffff"
+                }
             }
             Image {
+                id: avatarImage
                 objectName: "avatarImage"
                 anchors.fill: parent
                 source: tile.picture
