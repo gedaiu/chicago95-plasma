@@ -51,6 +51,10 @@ Canvas {
         ctx.reset();
         if (!palette.length) sample(ctx);
         ctx.clearRect(0, 0, 200, 200);
+        var reveal = Math.max(0, Math.min(1, (frame-48)/12));
+        reveal = reveal*reveal*(3-2*reveal);
+        // A continuous loop, including its first frame at the end of the reveal.
+        var phase = 2*Math.PI*(frame-60)/45;
         if (frame < 60) {
             var f = Math.min(55, frame);
             ctx.drawImage(atlas, (f%15)*200, Math.floor(f/15)*200, 200, 200, 0, 0, 200, 200);
@@ -62,29 +66,36 @@ Canvas {
                 var bright=Math.max(r,g,b)/255;
                 var white=Math.min(r,g,b)/255;
                 for (var k=0; k<3; k++) pixels[p+k]=Math.min(255, c[k]*bright*(1-white)+255*white);
-                pixels[p+3] *= Math.min(1, (60-frame)/5);
+                pixels[p+3] *= 1-reveal;
             }
             ctx.clearRect(0, 0, 200, 200);
             ctx.putImageData(data, 0, 0, 0, 0, 200, 200);
         }
-        if (frame >= 55) {
+        if (reveal > 0) {
             var ratio = original.implicitWidth / Math.max(1, original.implicitHeight);
-            var w=ratio >= 1 ? 160 : 160*ratio, h=ratio >= 1 ? 160/ratio : 160;
-            var reveal=Math.min(1, (frame-55)/5);
+            var size = 160*(0.94+0.06*reveal);
+            var w=ratio >= 1 ? size : size*ratio, h=ratio >= 1 ? size/ratio : size;
+            var x=(200-w)/2, y=(200-h)/2;
+            // Blur the actual alpha silhouette, so open and irregular logos glow
+            // along their edges instead of acquiring a rectangular backdrop.
+            var halo = palette[0];
             ctx.globalAlpha=reveal;
-            ctx.drawImage(logoSource, (200-w)/2, (200-h)/2, w, h);
+            ctx.shadowColor="rgba("+halo.join(",")+",0.85)";
+            ctx.shadowBlur=10+3*Math.sin(phase);
+            ctx.drawImage(logoSource, x, y, w, h);
+            ctx.shadowBlur=0;
+            ctx.shadowColor="transparent";
+            // A soft travelling specular light. White brightens the image without
+            // replacing its original colors with a flat sampled-color wash.
             ctx.globalCompositeOperation="source-atop";
-            // The 45-frame loop closes exactly when playback returns to frame 60.
-            var phase=2*Math.PI*(frame-60)/45;
-            ctx.globalAlpha=reveal*(0.16+0.10*Math.sin(phase));
-            for (var i=0; i<4; i++) {
-                var color=palette[i];
-                var x=70+(i%2)*60+12*Math.sin(phase+i), y=70+Math.floor(i/2)*60;
-                var glow=ctx.createRadialGradient(x,y,0,x,y,65);
-                glow.addColorStop(0, "rgba("+color.join(",")+",1)");
-                glow.addColorStop(1, "rgba("+color.join(",")+",0)");
-                ctx.fillStyle=glow; ctx.fillRect(0,0,200,200);
-            }
+            var center=100+65*Math.sin(phase);
+            var highlight=ctx.createLinearGradient(center-45,0,center+45,200);
+            highlight.addColorStop(0,"rgba(255,255,255,0)");
+            highlight.addColorStop(0.5,"rgba(255,255,255,0.32)");
+            highlight.addColorStop(1,"rgba(255,255,255,0)");
+            ctx.fillStyle=highlight;
+            ctx.globalAlpha=reveal;
+            ctx.fillRect(0,0,200,200);
         }
     }
 }

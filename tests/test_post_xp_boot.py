@@ -114,7 +114,12 @@ def test_all_content_and_palette_overrides_are_live(qt_app, tmp_path, style):
         assert root.findChild(QObject, "bootText").property("text") == "Starting My OS"
         assert root.findChild(QObject, "bootFooter").property("text") == "My company"
         assert not root.property("referenceFooter")
-        assert picture.getpixel((480, 270) if style in ("vista", "7") else (485, 207)) == (255, 0, 0)
+        pixel = picture.getpixel((480, 270) if style in ("vista", "7") else (485, 207))
+        if style == "7":
+            # The travelling white highlight brightens the custom logo.
+            assert pixel[0] == 255 and pixel[1] == pixel[2] and pixel[1] < 90
+        else:
+            assert pixel == (255, 0, 0)
 
 
 def test_seven_original_artwork_has_no_black_box_on_custom_background(qt_app):
@@ -335,3 +340,20 @@ def test_custom_seven_samples_svg_quadrants_and_resamples_replacement(qt_app, tm
         QTest.qWait(50)
         image_at(view, root, 3200)
         assert canvas.property("palette").toVariant() == [[255, 255, 255]] * 4
+
+
+def test_custom_seven_glows_around_open_logo_without_filling_its_hole(qt_app, tmp_path):
+    from PIL import ImageDraw
+
+    logo = tmp_path / "open-logo.png"
+    artwork = Image.new("RGBA", (80, 80))
+    ImageDraw.Draw(artwork).ellipse((10, 10, 70, 70), outline=(70, 200, 255, 255), width=4)
+    artwork.save(logo)
+    with boot_view("7", {"logo": str(logo)}) as (view, root):
+        formed = image_at(view, root, 4000)
+        assert formed.getpixel((480, 270)) == (0, 0, 0)
+        # Outside the opaque ring, a genuine silhouette halo is visible.
+        assert max(formed.getpixel((435, 270))) > 0
+        assert formed.getpixel((410, 200)) == (0, 0, 0)
+        assert ImageChops.difference(formed, image_at(view, root, 5000)).getbbox() is not None
+        assert formed == image_at(view, root, 7000)
