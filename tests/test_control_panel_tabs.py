@@ -785,7 +785,8 @@ def appearance(control_panel, settings=None):
 
 
 def preset_values(control_panel, look):
-    return {"LOOK": look, **control_panel.LOOK_PRESETS[look]}
+    branding = control_panel.branding_defaults({})
+    return {"LOOK": look, **{key: value for key, value in control_panel.LOOK_PRESETS[look].items() if key not in branding}}
 
 
 def test_appearance_tab_defaults_to_the_windows_95_scheme_with_all_its_settings(control_panel, qt_app):
