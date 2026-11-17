@@ -42,3 +42,30 @@ def test_native_slider_shape_and_marks_follow_tick_position(qt_app, orientation,
     marks = sum(pixel == (172, 168, 153) for pixel in image.get_flattened_data())
     assert marks == (0 if ticks == QSlider.NoTicks else 30 if ticks == QSlider.TicksBothSides else 15)
     slider.close()
+
+
+@pytest.mark.parametrize("point", (None, "before", "after"))
+def test_thumb_on_a_scale_two_device_is_the_scale_two_pixel_art(qt_app, point):
+    from chicago95lunascroll import paint_thumb
+    from chicago95lunaslider import THUMB_SIZE, thumb_pixels
+    from PySide6.QtCore import QRect
+    from PySide6.QtGui import QImage, QPainter
+
+    width, height = THUMB_SIZE
+    image = QImage(width * 2, height * 2, QImage.Format_ARGB32)
+    image.setDevicePixelRatio(2)
+    image.fill(Qt.transparent)
+    painter = QPainter(image)
+    paint_thumb(painter, QRect(0, 0, width, height), True, "normal", point)
+    painter.end()
+
+    assert [
+        [
+            image.pixelColor(x, y).name().upper() if image.pixelColor(x, y).alpha() else None
+            for x in range(image.width())
+        ]
+        for y in range(image.height())
+    ] == [
+        [colour.upper() if colour else None for colour in row]
+        for row in thumb_pixels(width, height, True, "normal", point, scale=2)
+    ]

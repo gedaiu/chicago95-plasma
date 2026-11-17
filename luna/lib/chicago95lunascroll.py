@@ -17,7 +17,7 @@ Measured from the B00merang Windows XP Luna theme's bitmaps (averaged, not copie
 from chicago95luna import blend_rows, fill_rows, rounded_path, stroke_rounded
 from chicago95lunaslider import GROOVE_ROWS, thumb_pixels
 from PySide6.QtCore import QPointF, QRect, Qt
-from PySide6.QtGui import QColor, QPainter, QPolygonF
+from PySide6.QtGui import QColor, QImage, QPainter, QPolygonF
 from PySide6.QtWidgets import QSlider, QStyle
 
 SCROLL_EXTENT = 17
@@ -160,13 +160,17 @@ def paint_slider_groove(painter, rect, horizontal):
 
 
 def paint_thumb(painter, rect, horizontal, state, point=None):
-    painter.save()
-    painter.setRenderHint(QPainter.Antialiasing, False)
-    for y, row in enumerate(thumb_pixels(rect.width(), rect.height(), horizontal, state, point)):
+    """The thumb's pixel art at the device's own scale, so a HiDPI pointer is a straight diagonal."""
+    scale = max(1, round(painter.device().devicePixelRatio()))
+    pixels = thumb_pixels(rect.width(), rect.height(), horizontal, state, point, scale)
+    art = QImage(len(pixels[0]), len(pixels), QImage.Format_ARGB32)
+    art.fill(Qt.transparent)
+    for y, row in enumerate(pixels):
         for x, colour in enumerate(row):
             if colour is not None:
-                painter.fillRect(rect.left() + x, rect.top() + y, 1, 1, QColor(colour))
-    painter.restore()
+                art.setPixelColor(x, y, QColor(colour))
+    art.setDevicePixelRatio(scale)
+    painter.drawImage(rect.topLeft(), art)
 
 
 def paint_slider(painter, option, style, widget):
