@@ -1251,7 +1251,7 @@ step_explorer() {
     show_copy "$REPO/config/gtk-3.0/gtk.css" ~/.config/gtk-3.0/gtk.css
   fi
   put_file "$REPO/config/dolphin/dolphinui.rc" ~/.local/share/kxmlgui6/dolphin/dolphinui.rc
-  run xdg-mime default thunar.desktop inode/directory
+  run kwriteconfig6 --file mimeapps.list --group "Default Applications" --key inode/directory thunar.desktop
 }
 
 write_lockscreen_settings() { # <dir>  settings.js: the look the lock screen is drawn in, on the desktop colour

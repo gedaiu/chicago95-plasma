@@ -2223,3 +2223,13 @@ def test_moving_a_window_shows_the_grabbing_hand_in_every_move_cursor_name(tmp_p
     run_bash_with_steps(tmp_path, "SETUP_LOG=/dev/null; grab_hand_for_moves")
     names = ("move", "fleur", "size_all", "all-scroll")
     assert [(cursors / name).read_bytes() for name in names] == [b"hand"] * 4
+
+
+def test_thunar_opens_folders_through_kwriteconfig6_without_xdg_mime_which_needs_a_qtpaths_fedora_lacks(tmp_path):
+    log = dry_run_log(tmp_path, "--components=explorer", "--explorer=thunar")
+
+    assert (
+        "would: kwriteconfig6 --file mimeapps.list --group Default Applications --key inode/directory thunar.desktop"
+        in log,
+        "xdg-mime" in log,
+    ) == (True, False)
