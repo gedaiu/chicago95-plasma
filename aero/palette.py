@@ -34,3 +34,19 @@ BUTTON_WIDTHS = {"minimize": 30, "maximize": 27, "close": 50}
 BUTTON_RIGHT_INSET = 6
 # Where a caption button's glyph is centred: its face's content margins (left, right, top, bottom) in the atlas.
 BUTTON_CONTENT = {"caption-end": (3, 1, 2, 4), "caption": (2, 3, 2, 4), "close": (1, 2, 2, 4)}
+
+# The superbar, 40 rows: a dark line and a highlight along its top (the composited TaskBand2 BARTOP part and the
+# screenshots agree), then glass. TASKBAR_GLASS is what win7dragedge.png shows at x 600, rows 730..767, over the plain
+# #4395D1 desktop; the generator solves each row's fill at the frame glass' opacity so it shows the same there.
+TASKBAR_HEIGHT = 40
+TASKBAR_EDGE = (("#000000", 153), ("#FFFFFF", 102))
+TASKBAR_GLASS = (
+    ["#437EAF"]
+    + ["#437FB0"] * 7
+    + ["#4480B1"] * 2
+    + ["#4580B1"] * 4
+    + ["#4681B2"]
+    + ["#4783B4"] * 4
+    + ["#4884B5"] * 12
+    + ["#4783B5"] * 7
+)

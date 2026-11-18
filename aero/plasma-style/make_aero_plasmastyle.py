@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+"""Builds the Chicago95Aero Plasma style: the Windows 7 superbar's glass and its task buttons.
+
+usage: python3 aero/plasma-style/make_aero_plasmastyle.py [--out DIR]
+
+With compositing Plasma draws the panel from translucent/widgets/panel-background.svg and blurs behind its mask, as
+DWM blurred behind the taskbar; without it, widgets/panel-background.svg is the same bar over the references'
+desktop. The task buttons are vector faces fitted to aero.msstyles' TASKITEM (stops.py, written by
+tests/aero/fit_aero_stops.py) and drawn with the decoration's face model.
+"""
+
+import importlib.util
+import json
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+
+
+def load(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+palette = load("aero_palette", HERE.parent / "palette.py")
+stops = load("aero_plasma_stops", HERE / "stops.py")
+faces = load("aero_faces", HERE.parent / "aurorae/make_aero_aurorae.py")
+
+PANEL_WIDTH = 10
+GAP = 8
+METADATA = {
+    "KPlugin": {
+        "Authors": [{"Name": "Bending Unit 22"}],
+        "Description": "Chicago95 Windows 7 Aero superbar",
+        "Id": "Chicago95Aero",
+        "License": "GPL-3.0",
+        "Name": "Chicago95 Aero",
+        "Version": "1.0",
+    },
+    "X-Plasma-API": "5.0",
+}
+
+
+def rgb(colour):
+    return bytes.fromhex(colour[1:])
+
+
+def hex_colour(channels):
+    return "#" + "".join(f"{min(255, max(0, round(channel))):02X}" for channel in channels)
+
+
+def solved_fill(seen, alpha):
+    """The fill that, drawn at alpha over the references' desktop, shows as seen there."""
+    desktop, opacity = rgb(palette.REFERENCE_DESKTOP), alpha / 255
+    return hex_colour((s - d * (1 - opacity)) / opacity for s, d in zip(rgb(seen), desktop, strict=True))
+
+
+def over(top, bottom):
+    """A translucent colour drawn over another, as one colour and alpha."""
+    (top_colour, top_alpha), (bottom_colour, bottom_alpha) = top, bottom
+    a, b = top_alpha / 255, bottom_alpha / 255
+    alpha = a + b * (1 - a)
+    colour = hex_colour(
+        (t * a + u * b * (1 - a)) / alpha for t, u in zip(rgb(top_colour), rgb(bottom_colour), strict=True)
+    )
+    return colour, round(alpha * 255)
+
+
+def bar_rows(translucent):
+    """The bar's 40 rows as (colour, alpha): over whatever lies behind, or as the references show it."""
+    _, glass_alpha = palette.GLASS["active"]
+    edge = list(palette.TASKBAR_EDGE)
+    if translucent:
+        glass = [(solved_fill(seen, glass_alpha), glass_alpha) for seen in palette.TASKBAR_GLASS]
+        return [over(line, glass[0]) for line in edge] + glass
+    behind = palette.TASKBAR_GLASS[0]
+    blended = [
+        hex_colour(c * a / 255 + b * (1 - a / 255) for c, b in zip(rgb(colour), rgb(behind), strict=True))
+        for colour, a in edge
+    ]
+    return [(colour, 255) for colour in blended + list(palette.TASKBAR_GLASS)]
+
+
+def hint_margins(prefix):
+    dash = f"{prefix}-" if prefix else ""
+    return "".join(
+        f'<rect id="{dash}hint-{side}-margin" x="0" y="0" width="0" height="0" fill="none"/>'
+        for side in ("top", "bottom", "left", "right")
+    )
+
+
+def panel_svg(translucent):
+    rows = bar_rows(translucent)
+    height = len(rows)
+    gradient = faces.vertical_gradient("bar", rows)
+    mask = (
+        f'<rect id="mask-center" x="{PANEL_WIDTH + GAP}" y="0" width="{PANEL_WIDTH}" height="{height}"/>'
+        + hint_margins("mask")
+        if translucent
+        else ""
+    )
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{2 * PANEL_WIDTH + GAP}" height="{height}">'
+        f"<defs>{gradient}</defs>"
+        f'<rect id="center" x="0" y="0" width="{PANEL_WIDTH}" height="{height}" fill="url(#bar)"/>'
+        f"{hint_margins('')}{mask}</svg>\n"
+    )
+
+
+def task_face_svg(state):
+    return faces.face_svg(stops.TASK_FACES[state])
+
+
+def tasks_svg():
+    """Every task button state as the centre of a frame without borders: the superbar's buttons are 60 by 40."""
+    definitions, groups = [], []
+    width, height = stops.TASK_FACES["normal"]["size"]
+    for index, (state, face) in enumerate(stops.TASK_FACES.items()):
+        face_definitions, shapes = faces.face_markup(face, f"t{index}", (index * (width + GAP), 0))
+        definitions.append(face_definitions)
+        groups.append(f'<g id="{state}-center">{shapes}</g>{hint_margins(state)}')
+    total = len(stops.TASK_FACES) * (width + GAP)
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{total}" height="{height}">'
+        f"<defs>{''.join(definitions)}</defs>\n" + "\n".join(groups) + "\n</svg>\n"
+    )
+
+
+def write_theme(out):
+    (out / "widgets").mkdir(parents=True, exist_ok=True)
+    (out / "translucent/widgets").mkdir(parents=True, exist_ok=True)
+    (out / "widgets/panel-background.svg").write_text(panel_svg(translucent=False))
+    (out / "translucent/widgets/panel-background.svg").write_text(panel_svg(translucent=True))
+    (out / "widgets/tasks.svg").write_text(tasks_svg())
+    (out / "metadata.json").write_text(json.dumps(METADATA, indent=2) + "\n")
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--out", type=Path, default=HERE / "theme")
+    destination = parser.parse_args().out
+    write_theme(destination)
+    print("wrote", destination)

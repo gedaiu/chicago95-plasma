@@ -37,6 +37,35 @@ def state_image(part_name, state):
     return atlas.crop((left, top + state * rows, right, top + (state + 1) * rows))
 
 
+# TaskBand2's TASKITEM strip, in the order the references show: a running task, the focused one, a task calling for
+# attention, and a pinned launcher, each with its pointer states.
+TASK_STATES = (
+    "normal",
+    "hover",
+    "pressed",
+    "focus",
+    "focus-hover",
+    "focus-pressed",
+    "attention",
+    "launcher",
+    "launcher-hover",
+    "launcher-pressed",
+)
+BAR_GLASS = (72, 132, 181)
+TASK_OUTPUT = REPO / "aero/plasma-style/stops.py"
+
+
+def task_image(state):
+    piece = part("TaskBand2", "TASKITEM")
+    strip = Image.open(sprite_dir() / piece.image_file).convert("RGBA")
+    rows = strip.height // piece.image_count
+    return strip.crop((0, state * rows, strip.width, (state + 1) * rows))
+
+
+def fitted_tasks():
+    return {state: fit_state(task_image(index), BAR_GLASS) for index, state in enumerate(TASK_STATES)}
+
+
 def glyph_image(glyph, state, dpi=96):
     piece = part("DWMWindow", f"BUTTON{GLYPH_PARTS[glyph]}GLYPH{dpi}")
     left, top, right, bottom = piece.atlas_rect
@@ -67,23 +96,23 @@ TOP_ROWS, BOTTOM_ROWS = 2, 3
 BAND_ROWS = 2
 
 
-def seen_luminance(pixel):
-    """How bright a pixel looks drawn over the frame glass."""
+def seen_luminance(pixel, glass):
+    """How bright a pixel looks drawn over glass."""
     alpha = pixel[3] / 255
     return sum(
-        weight * (channel * alpha + glass * (1 - alpha))
-        for weight, channel, glass in zip((0.299, 0.587, 0.114), pixel, GLASS, strict=False)
+        weight * (channel * alpha + behind * (1 - alpha))
+        for weight, channel, behind in zip((0.299, 0.587, 0.114), pixel, glass, strict=False)
     )
 
 
-def column_shade(image, x, centre_x, rows):
+def column_shade(image, x, centre_x, rows, glass):
     """How much darker column x looks than the centre across rows, as a black overlay's opacity."""
-    column = sum(seen_luminance(image.getpixel((x, y))) for y in rows)
-    centre = sum(seen_luminance(image.getpixel((centre_x, y))) for y in rows)
+    column = sum(seen_luminance(image.getpixel((x, y)), glass) for y in rows)
+    centre = sum(seen_luminance(image.getpixel((centre_x, y)), glass) for y in rows)
     return round(min(1.0, max(0.0, 1 - column / centre)), 3)
 
 
-def fit_state(image):
+def fit_state(image, glass=GLASS):
     width, height = image.size
     centre_x = width // 2
     return {
@@ -93,7 +122,7 @@ def fit_state(image):
             {
                 "rows": (top, min(top + BAND_ROWS, height - BOTTOM_ROWS)),
                 "shade": [
-                    column_shade(image, x, centre_x, range(top, min(top + BAND_ROWS, height - BOTTOM_ROWS)))
+                    column_shade(image, x, centre_x, range(top, min(top + BAND_ROWS, height - BOTTOM_ROWS)), glass)
                     for x in range(EDGE, width - EDGE)
                 ],
             }
@@ -131,4 +160,10 @@ if __name__ == "__main__":
     )
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(text)
-    print("wrote", OUTPUT)
+    TASK_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    TASK_OUTPUT.write_text(
+        '"""Aero superbar task button faces fitted to aero.msstyles by tests/aero/fit_aero_stops.py; '
+        'do not edit by hand."""\n\n'
+        f"TASK_FACES = {pprint.pformat(fitted_tasks(), width=120, compact=True)}\n"
+    )
+    print("wrote", OUTPUT, TASK_OUTPUT)

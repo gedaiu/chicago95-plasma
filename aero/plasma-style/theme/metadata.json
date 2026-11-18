@@ -1,0 +1,15 @@
+{
+  "KPlugin": {
+    "Authors": [
+      {
+        "Name": "Bending Unit 22"
+      }
+    ],
+    "Description": "Chicago95 Windows 7 Aero superbar",
+    "Id": "Chicago95Aero",
+    "License": "GPL-3.0",
+    "Name": "Chicago95 Aero",
+    "Version": "1.0"
+  },
+  "X-Plasma-API": "5.0"
+}
