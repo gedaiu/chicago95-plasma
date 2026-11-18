@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from aero_sprites import part, sprite_dir  # noqa: E402
+from aero_sprites import part, sprite_dir, straight  # noqa: E402
 from PIL import Image  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
@@ -57,7 +57,7 @@ TASK_OUTPUT = REPO / "aero/plasma-style/stops.py"
 
 def task_image(state):
     piece = part("TaskBand2", "TASKITEM")
-    strip = Image.open(sprite_dir() / piece.image_file).convert("RGBA")
+    strip = straight(Image.open(sprite_dir() / piece.image_file).convert("RGBA"))
     rows = strip.height // piece.image_count
     return strip.crop((0, state * rows, strip.width, (state + 1) * rows))
 

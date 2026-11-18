@@ -49,3 +49,19 @@ def part(class_name, part_name, state="0"):
         properties.get("ATLASRECT"),
         properties,
     )
+
+
+def straight(image):
+    """The image with straight alpha. Some of the theme's PNG resources store premultiplied colours (no channel above
+    its alpha anywhere); read as straight alpha, their white highlights would come out grey."""
+    pixels = list(image.get_flattened_data())
+    if any(max(pixel[:3]) > pixel[3] for pixel in pixels):
+        return image
+    result = image.copy()
+    result.putdata(
+        [
+            (*(round(channel * 255 / alpha) for channel in pixel[:3]), alpha) if (alpha := pixel[3]) else (0, 0, 0, 0)
+            for pixel in pixels
+        ]
+    )
+    return result
