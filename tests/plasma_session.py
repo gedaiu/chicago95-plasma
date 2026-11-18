@@ -351,6 +351,7 @@ def desktop_session(
     windows_first=False,
     launchers=None,
     pointer_steps=(),
+    screen=None,
 ):
     """Runs both sessions for a look in work (a short path: Wayland's socket path is limited to 108
     bytes); returns the screenshot, 640x480 or the look's own size (SCREENS). tray_applets are Plasma applets
@@ -361,10 +362,12 @@ def desktop_session(
     components to install (such as desktop); windows replaces the look's own windows (an empty list: none, for
     the desktop behind them); launchers replaces the number of Quick Launch entries; windows_first opens them
     before Plasma starts, as a login that restores the last session does; pointer_steps (see eis_pointer.py)
-    drive the pointer before the screenshot, to open a context menu (see MENU_OPENERS) and hover one of its rows.
+    drive the pointer before the screenshot, to open a context menu (see MENU_OPENERS) and hover one of its rows;
+    screen (width, height) replaces the look's own size.
     The screenshot's info holds KWin's loaded effects, its log, and Setup's own session's screenshot
     ("setup_screen": the taskbar right after Setup restarted Plasma, before anyone touched it)."""
     work = Path(work)
+    screen_size = screen or screen_of(look)
     home, runtime = work / "home", work / "run"
     for folder in (home / ".config", runtime):
         folder.mkdir(parents=True, exist_ok=True)
@@ -398,7 +401,7 @@ def desktop_session(
     (work / "setup.sh").write_text(
         SETUP.format(
             look=look,
-            screen="x".join(map(str, screen_of(look))),
+            screen="x".join(map(str, screen_size)),
             taskbar_style=f" --taskbar-style={taskbar_style}" if taskbar_style else "",
             launchers=json.dumps(launchers),
             tray_applets=json.dumps(list(tray_applets)),
@@ -441,8 +444,8 @@ def desktop_session(
         "QT_FORCE_STDERR_LOGGING": "1",
     }
     (work / "chosen.conf").write_text("".join(f"{key}={value}\n" for key, value in settings))
-    run_session(work, work / "setup.sh", environment, screen_of(look))
-    run_session(work, work / "desktop.sh", environment, screen_of(look), xwayland=True)
+    run_session(work, work / "setup.sh", environment, screen_size)
+    run_session(work, work / "desktop.sh", environment, screen_size, xwayland=True)
     screen = work / "screen.png"
     if not screen.exists():
         raise RuntimeError(f"the Plasma session took no screenshot; see the logs in {work}")

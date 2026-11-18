@@ -1182,6 +1182,7 @@ def aero_desktop():
             taskbar_style=AERO,
             windows=[("Control Panel", "qt", "minimized")],
             launchers=3,
+            screen=(1024, 768),  # the references' size: DWM's streaks stretch over the screen
         )
     finally:
         shutil.rmtree(work, ignore_errors=True)

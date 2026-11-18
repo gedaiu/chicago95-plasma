@@ -36,12 +36,13 @@ BUTTON_RIGHT_INSET = 6
 BUTTON_CONTENT = {"caption-end": (3, 1, 2, 4), "caption": (2, 3, 2, 4), "close": (1, 2, 2, 4)}
 
 # The superbar, 40 rows: a dark line and a highlight along its top (the composited TaskBand2 BARTOP part and the
-# screenshots agree), then glass. TASKBAR_GLASS is win7dragedge.png's rows 730..767 without DWM's streaks (each
-# row's median over the empty columns, tests/aero/aero_model.plain_bar), over the plain #4395D1 desktop; the
+# screenshots agree), then glass. TASKBAR_GLASS is win7dragedge.png's rows 730..767 under DWM's streaks (each
+# row's median over the empty columns of the glass solved through them, tests/aero/aero_model.bar_under_streaks),
+# over the plain #4395D1 desktop; the
 # generator solves each row's fill at the frame glass' opacity so it shows the same there.
 TASKBAR_HEIGHT = 40
 TASKBAR_EDGE = (("#000000", 153), ("#FFFFFF", 102))
-TASKBAR_GLASS = ["#4580B1"] * 3 + ["#4480B1"] * 10 + ["#4580B1"] * 16 + ["#4581B1"] * 3 + ["#4681B1"] * 6
+TASKBAR_GLASS = ["#4582B4"] * 38
 
 # Windows 7 darkens the bar behind the orb: black over the glass at opacity, below the bar's top line and highlight
 # (rows START_SHADE_TOP..39), within an ellipse anchored at the bar's bottom-left corner whose height is height_scale

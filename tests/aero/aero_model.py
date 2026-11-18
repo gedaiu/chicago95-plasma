@@ -32,3 +32,53 @@ def plain_bar(name):
         if all(sum(abs(a - b) for a, b in zip(pixel(x, y), pixel(x, 20), strict=True)) < 25 for y in range(4, 37))
     ]
     return [tuple(round(statistics.median(pixel(x, y)[c] for x in empty)) for c in range(3)) for y in range(40)]
+
+
+def bar_under_streaks(name, streaks):
+    """Windows 7's bar under DWM's streaks in reference <name>: each row's median over its empty columns of the glass
+    solved through the streaks drawn there (streaks: the reflection map as an RGBA image of the screen's size)."""
+    import statistics
+
+    from reference import screenshot
+
+    image = screenshot(name)
+
+    def pixel(x, y):
+        return image.getpixel((x, 728 + y))
+
+    empty = [
+        x
+        for x in range(320, 800)
+        if all(sum(abs(a - b) for a, b in zip(pixel(x, y), pixel(x, 20), strict=True)) < 25 for y in range(4, 37))
+    ]
+
+    def under(x, y, channel):
+        *colour, alpha = streaks.getpixel((x, 728 + y))
+        opacity = alpha / 255
+        return (pixel(x, y)[channel] - colour[channel] * opacity) / (1 - opacity)
+
+    return [tuple(round(statistics.median(under(x, y, c) for x in empty)) for c in range(3)) for y in range(40)]
+
+
+def streaked_glass(name):
+    """Windows 7's glass at each pixel of the bar in reference <name>, with DWM's streaks over it as the Aero style
+    draws them: a function of (x, y), y counted from the bar's top row. Needs a running Qt application."""
+    import importlib.util
+
+    from conftest import REPO
+    from test_aero_buttons import rendered
+
+    spec = importlib.util.spec_from_file_location(
+        "make_aero_plasmastyle", REPO / "aero/plasma-style/make_aero_plasmastyle.py"
+    )
+    generator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generator)
+    streaks = rendered(generator.reflection_svg(), (1024, 768))
+    rows = bar_under_streaks(name, streaks)
+
+    def at(x, y):
+        *colour, alpha = streaks.getpixel((x, 728 + y))
+        opacity = alpha / 255
+        return tuple(c * opacity + g * (1 - opacity) for c, g in zip(colour, rows[y], strict=True))
+
+    return at

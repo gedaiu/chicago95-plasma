@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import org.kde.ksvg as KSvg
 
 // The Windows 7 Start orb: the Aero style's glass sphere with the logo Setup chose laid over its middle, glowing in
@@ -19,6 +20,40 @@ Item {
 
     HoverHandler {
         id: pointer
+    }
+
+    // DWM's glass streaks (widgets/reflection) lie over the whole screen, stretched to it; the bar shows its own
+    // rows of them. Drawn first, under everything on the bar, from the screen's top-left corner: the panel window's
+    // origin here, less where the window sits on the screen (at its foot).
+    property point screenOrigin: Qt.point(0, 0)
+    function measure() {
+        const window = button.Window.window;
+        if (!window)
+            return;
+        const windowOrigin = button.mapFromItem(null, 0, 0);
+        button.screenOrigin = Qt.point(windowOrigin.x, windowOrigin.y - (Screen.height - window.height));
+    }
+    Timer {
+        interval: 500
+        running: true
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: button.measure()
+    }
+    KSvg.SvgItem {
+        imagePath: "widgets/reflection"
+        x: button.screenOrigin.x
+        y: button.screenOrigin.y
+        width: Screen.width
+        height: Screen.height
+    }
+    // The bar's dark line and highlight lie over the glass and its streaks, along the whole bar.
+    KSvg.SvgItem {
+        imagePath: "widgets/baredge"
+        x: button.screenOrigin.x
+        y: orb.y
+        width: Screen.width
+        height: implicitHeight
     }
 
     // Windows 7 darkens the bar behind the orb, fading out under the first pinned program, past the orb's slot.

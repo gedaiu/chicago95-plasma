@@ -22,14 +22,25 @@ def bar(image):
 WINDOWS_7_BAR = screenshot("win7screenres").crop((0, 728, 1024, 768))
 
 
-def test_empty_superbar_glass_is_windows_7s_without_its_streaks_row_by_row_within_three_levels(desktop):
-    from aero_model import plain_bar
+def test_empty_superbar_is_windows_7s_with_its_streaks_within_a_level_and_a_half_on_average(desktop):
+    # Both screens are 1024 wide, so DWM's streaks, stretched over the screen, fall on the same columns; a band's
+    # sharp edge can land a pixel or two off (tests/aero/test_aero_taskbar.py).
+    ours, theirs = bar(desktop), WINDOWS_7_BAR
+    columns = [
+        x
+        for x in range(320, 800)
+        if all(
+            sum(abs(a - b) for a, b in zip(theirs.getpixel((x, y)), theirs.getpixel((x, 20)), strict=True)) < 25
+            for y in range(4, 37)
+        )
+    ]
+    differences = [
+        max(abs(a - b) for a, b in zip(ours.getpixel((x, y)), theirs.getpixel((x, y)), strict=True))
+        for x in columns
+        for y in range(40)
+    ]
 
-    ours = bar(desktop)
-    column = [ours.getpixel((ours.width - 300, y)) for y in range(40)]  # past the tasks, before the tray
-    windows_7 = plain_bar("win7screenres")
-
-    assert max(abs(a - b) for p, q in zip(column, windows_7, strict=True) for a, b in zip(p, q, strict=True)) <= 3
+    assert (sum(differences) / len(differences) <= 1.5, max(differences) <= 8) == (True, True)
 
 
 def test_start_orb_glass_and_the_bar_behind_it_are_windows_7s_within_six_levels_on_average(desktop):

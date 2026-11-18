@@ -53,15 +53,36 @@ def test_committed_plasma_style_equals_generator_output(tmp_path):
     }
 
 
-def test_translucent_bar_over_the_reference_desktop_is_the_windows_7_taskbar_within_two_levels(qt_app):
-    from aero_model import REFERENCE_DESKTOP, plain_bar
+def test_bar_glass_streaks_and_edge_lines_are_windows_7s_within_a_level_and_a_half_on_average(qt_app):
+    # Built as DWM builds it: the panel's glass over the desktop, the streaks stretched over the screen, and the
+    # bar's dark line and highlight over both; compared on win7dragedge.png's empty columns, all 40 rows. The streaks
+    # are one profile across their bands, so a band's sharp edge can land a pixel or two off: eight levels at most.
+    from aero_model import REFERENCE_DESKTOP
+    from reference import screenshot
 
-    bar = rendered((THEME / "translucent/widgets/panel-background.svg").read_text(), (28, 40)).crop((0, 0, 10, 40))
-    seen = Image.new("RGBA", bar.size, REFERENCE_DESKTOP)
-    seen.alpha_composite(bar)
-    windows_7 = plain_bar("win7dragedge")
+    glass = rendered((THEME / "translucent/widgets/panel-background.svg").read_text(), (28, 40)).crop((0, 0, 10, 40))
+    streaks = rendered(generator.reflection_svg(), (1024, 768)).crop((0, 728, 1024, 768))
+    edges = rendered((THEME / "widgets/baredge.svg").read_text(), (1024, 2))
+    windows_7 = screenshot("win7dragedge").crop((0, 728, 1024, 768))
+    columns = [
+        x
+        for x in range(320, 800)
+        if all(
+            sum(abs(a - b) for a, b in zip(windows_7.getpixel((x, y)), windows_7.getpixel((x, 20)), strict=True)) < 25
+            for y in range(4, 37)
+        )
+    ]
+    seen = Image.new("RGBA", (1024, 40), REFERENCE_DESKTOP)
+    seen.alpha_composite(glass.resize((1024, 40)))
+    seen.alpha_composite(streaks)
+    seen.alpha_composite(edges)
+    differences = [
+        max(abs(a - b) for a, b in zip(seen.getpixel((x, y))[:3], windows_7.getpixel((x, y)), strict=True))
+        for x in columns
+        for y in range(40)
+    ]
 
-    assert max(abs(a - b) for y in range(40) for a, b in zip(seen.getpixel((5, y))[:3], windows_7[y], strict=True)) <= 2
+    assert (sum(differences) / len(differences) <= 1.5, max(differences) <= 8) == (True, True)
 
 
 ORB_CENTRE, ORB_RADIUS = (27.0, 20.0), 19.0  # in the taskbar's rows: win7dragedge.png's orb at x 27, y 748
@@ -160,7 +181,7 @@ def test_tray_shade_over_the_bar_is_windows_7s_darkening_at_the_notification_are
     # cell's median).
     import statistics
 
-    from aero_model import plain_bar
+    from aero_model import streaked_glass
     from reference import screenshot
 
     shade_svg = generator.tray_shade_svg()
@@ -168,7 +189,7 @@ def test_tray_shade_over_the_bar_is_windows_7s_darkening_at_the_notification_are
     top = generator.palette.START_SHADE_TOP
     shade = rendered(shade_svg, (generator.tray_shade.WIDTH, 40 - top))
     windows_7 = screenshot("win7screenres")
-    glass = plain_bar("win7screenres")
+    glass = streaked_glass("win7screenres")
     left = 1024 - 15 - width  # it ends where the Show desktop strip begins
     errors = []
     for y0 in range(top, 40, 2):
@@ -185,12 +206,48 @@ def test_tray_shade_over_the_bar_is_windows_7s_darkening_at_the_notification_are
             if 2 * len(kept) < len(cell):  # mostly icon or lettering, with their smoothed edges: no bar to compare
                 continue
             reference = statistics.median(sum(pixel) for pixel, _ in kept) / 3
-            if not 0 <= 1 - reference * 3 / sum(glass[y0]) <= 0.35:  # an icon's or the lettering's own colours
+            if (
+                not 0 <= 1 - reference * 3 / sum(glass(left + x0, y0)) <= 0.35
+            ):  # an icon's or the lettering's own colours
                 continue
             seen = []
             for _, (x, y) in kept:
                 alpha = shade.getpixel((x, y - top))[3] / 255
-                seen.append(sum(glass[y]) * (1 - alpha) / 3)
+                seen.append(sum(glass(left + x, y)) * (1 - alpha) / 3)
             errors.append(abs(statistics.median(seen) - reference))
 
     assert max(errors) <= 4
+
+
+def test_glass_streaks_stretched_to_the_screen_are_windows_7s_on_the_bar_within_one_level_and_two_and_a_half_at_edges(
+    qt_app,
+):
+    # DWM stretches its reflection map over the screen; on win7screenres.png's bar (rows 4..36, x 320..799, where
+    # no icon or band lies) the streaks drawn over the bar's glass (as palette.TASKBAR_GLASS shows it over the
+    # references' desktop) are Windows 7's, column by column.
+    import statistics
+
+    from aero_model import REFERENCE_DESKTOP
+    from reference import screenshot
+
+    streaks = rendered(generator.reflection_svg(), (1024, 768))
+    bar = rendered((THEME / "translucent/widgets/panel-background.svg").read_text(), (28, 40)).crop((0, 0, 10, 40))
+    seen = Image.new("RGBA", bar.size, REFERENCE_DESKTOP)
+    seen.alpha_composite(bar)
+    windows_7, glass = screenshot("win7screenres"), [seen.getpixel((5, y))[:3] for y in range(40)]
+    rows = range(4, 37)
+    errors = []
+    for x in range(320, 800):
+        theirs = [windows_7.getpixel((x, 728 + y)) for y in rows]
+        if max(abs(sum(pixel) - sum(theirs[16])) for pixel in theirs) > 25:  # an icon or button
+            continue
+        ours = []
+        for y in rows:
+            red, green, blue, alpha = streaks.getpixel((x, 728 + y))
+            ours.append(
+                sum(c * alpha / 255 + g * (1 - alpha / 255) for c, g in zip((red, green, blue), glass[y], strict=True))
+            )
+        errors.append((statistics.mean(ours) - statistics.mean(sum(pixel) for pixel in theirs)) / 3)
+
+    # A streak's sharp edge, placed a fraction of a pixel off, strays most.
+    assert (max(abs(error) for error in errors) <= 2.5, statistics.pstdev(errors) <= 1) == (True, True)

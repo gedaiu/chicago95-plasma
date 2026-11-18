@@ -28,6 +28,7 @@ palette = load("aero_palette", HERE.parent / "palette.py")
 stops = load("aero_plasma_stops", HERE / "stops.py")
 orb = load("aero_orb", HERE / "orb.py")
 tray_shade = load("aero_tray_shade", HERE / "trayshade.py")
+reflection = load("aero_reflection", HERE.parent / "reflection.py")
 faces = load("aero_faces", HERE.parent / "aurorae/make_aero_aurorae.py")
 
 PANEL_WIDTH = 10
@@ -74,9 +75,9 @@ def bar_rows(translucent):
     """The bar's 40 rows as (colour, alpha): over whatever lies behind, or as the references show it."""
     _, glass_alpha = palette.GLASS["active"]
     edge = list(palette.TASKBAR_EDGE)
-    if translucent:
+    if translucent:  # the edge lines are drawn over the streaks, as DWM draws them (bar_edge_svg)
         glass = [(solved_fill(seen, glass_alpha), glass_alpha) for seen in palette.TASKBAR_GLASS]
-        return [over(line, glass[0]) for line in edge] + glass
+        return [glass[0]] * len(edge) + glass
     behind = palette.TASKBAR_GLASS[0]
     blended = [
         hex_colour(c * a / 255 + b * (1 - a / 255) for c, b in zip(rgb(colour), rgb(behind), strict=True))
@@ -341,6 +342,46 @@ def tray_shade_svg():
     )
 
 
+def reflection_svg():
+    """DWM's glass streaks (reflection.py): one gradient across bands leaning ANGLE degrees from vertical, over the
+    map's own size; it stretches to whatever size it is drawn, as DWM stretches the map over the screen."""
+    number = faces.number
+    width, height = reflection.MAP_SIZE
+    lean = math.radians(reflection.ANGLE)
+    first, last = reflection.STOPS[0][0], reflection.STOPS[-1][0]
+
+    def point(position):
+        return f"{number(round(position * math.cos(lean), 3))}", f"{number(round(-position * math.sin(lean), 3))}"
+
+    (x1, y1), (x2, y2) = point(first), point(last)
+    stops_markup = "".join(
+        f'<stop offset="{number(round((position - first) / (last - first), 5))}" '
+        f'stop-color="#{grey:02X}{grey:02X}{grey:02X}" '
+        f'stop-opacity="{number(round(alpha / 255 * reflection.OPACITY / 100, 4))}"/>'
+        for position, grey, alpha in reflection.STOPS
+    )
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+        f'viewBox="0 0 {width} {height}" preserveAspectRatio="none"><defs>'
+        f'<linearGradient id="streaks" x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" gradientUnits="userSpaceOnUse">'
+        f"{stops_markup}</linearGradient></defs>"
+        f'<rect id="streaks" x="0" y="0" width="{width}" height="{height}" fill="url(#streaks)"/></svg>\n'
+    )
+
+
+def bar_edge_svg():
+    """The bar's dark line and highlight along its top, drawn over the glass and its streaks."""
+    lines = "".join(
+        f'<rect x="0" y="{row}" width="{PANEL_WIDTH}" height="1" fill="{colour}" '
+        f'fill-opacity="{faces.number(round(alpha / 255, 3))}"/>'
+        for row, (colour, alpha) in enumerate(palette.TASKBAR_EDGE)
+    )
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{PANEL_WIDTH}" height="{len(palette.TASKBAR_EDGE)}" '
+        f'viewBox="0 0 {PANEL_WIDTH} {len(palette.TASKBAR_EDGE)}" preserveAspectRatio="none">{lines}</svg>\n'
+    )
+
+
 def write_theme(out):
     (out / "widgets").mkdir(parents=True, exist_ok=True)
     (out / "translucent/widgets").mkdir(parents=True, exist_ok=True)
@@ -350,6 +391,8 @@ def write_theme(out):
     (out / "widgets/startbutton.svg").write_text(orb_svg())
     (out / "widgets/startshade.svg").write_text(start_shade_svg())
     (out / "widgets/trayshade.svg").write_text(tray_shade_svg())
+    (out / "widgets/reflection.svg").write_text(reflection_svg())
+    (out / "widgets/baredge.svg").write_text(bar_edge_svg())
     (out / "widgets/showdesktop.svg").write_text(faces_svg(stops.SHOW_DESKTOP_FACES))
     (out / "metadata.json").write_text(json.dumps(METADATA, indent=2) + "\n")
 
