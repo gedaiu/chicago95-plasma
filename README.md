@@ -47,12 +47,14 @@ desktop, then its taskbar idle, with open windows, crowded, and overflowing
 
 ### Windows 7 (Aero, in progress)
 
-The Aero glass window frames are ready, and any look can wear them: choose "Windows 7" for the window frames in
-Setup or under the Control Panel's Window Frames. The showcase puts them beside Windows 7 screenshots, with every
-caption button state, the frame at 2x and a real KWin desktop. The Aero widgets, taskbar and screens are still to
-come; [aero/README.md](aero/README.md) says where every value comes from.
+The Aero glass window frames and the superbar are ready, and any look can wear them: choose "Windows 7" for the
+window frames and the taskbar in Setup, or under the Control Panel's Window Frames and Taskbar style. The superbar
+has the Start orb (with the logo you chose in it), 60-pixel icon buttons for pinned and running programs, a tray
+without a box, the two-line clock and the Show desktop strip. The showcase puts them beside Windows 7 screenshots,
+with every caption button state, the frame at 2x and a real KWin desktop. The Aero widgets, Start menu and screens
+are still to come; [aero/README.md](aero/README.md) says where every value comes from.
 
-![The Windows 7 Aero frames showcase](docs/compare/showcase-aero.jpg)
+![The Windows 7 Aero frames and superbar showcase](docs/compare/showcase-aero.jpg)
 
 The controls of each look (Qt, GTK 3, GTK 4, Plasma and the window
 decoration), beside the originals' where a screenshot shows them, are in

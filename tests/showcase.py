@@ -783,5 +783,12 @@ def aero_panels(app, desktop=None):
         ),
     ]
     if desktop is not None:
-        panels.append(("Real KWin desktop: the Luna look wearing the Windows 7 frames", None, desktop))
+        panels.append(
+            (
+                "Taskbar: the superbar (Windows 7: win7screenres.png)",
+                screenshot("win7screenres").crop((0, 728, 1024, 768)),
+                desktop.crop((0, desktop.height - 40, desktop.width, desktop.height)),
+            )
+        )
+        panels.append(("Real KWin desktop: the Luna look with the Windows 7 frames and superbar", None, desktop))
     return panels

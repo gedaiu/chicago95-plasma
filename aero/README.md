@@ -1,8 +1,8 @@
 # Aero
 
-The Windows 7 "Aero" component set. So far it holds the glass window decoration, chosen as "Windows 7" under the
-Control Panel's Window Frames or with `install.sh --decoration=aero`. The widgets, taskbar, Start menu and screens
-are still to come.
+The Windows 7 "Aero" component set. So far it holds the glass window decoration and the superbar, each chosen as
+"Windows 7" in Setup and the Control Panel (`install.sh --decoration=aero --taskbar-style=aero`). The widgets,
+Start menu and screens are still to come.
 
 Nothing here is shared with the flat 1995, 1998 and 2000 components or with Luna.
 
@@ -45,6 +45,23 @@ generator.
 - **The caption buttons** are vector faces: a centre-column gradient, two-row bands of side shading, and gradient
   edge columns. Each face is within 6 levels of its sprite, and each glyph within 12. They stay sharp at any scale.
 
+## The superbar
+
+`plasma-style/make_aero_plasmastyle.py` writes the Chicago95Aero Plasma style (`plasma-style/theme`, pinned to the
+generator by `tests/aero/test_aero_taskbar.py`):
+
+- **The bar** is the references' 40 rows. Plasma draws `translucent/widgets/panel-background.svg` over KWin's blur
+  when compositing, solved row by row so it shows win7dragedge.png's bar over its desktop.
+- **The task buttons** (`widgets/tasks.svg`) are TaskBand2's ten TASKITEM states as vector faces: running, focused,
+  attention and pinned, each with its pointer states. Those PNG resources store premultiplied colours, which
+  `aero_sprites.straight` reads back to straight alpha.
+- **Show desktop** (`widgets/showdesktop.svg`) comes from ShowDesktop::Button's three states.
+- **The Start orb** (`widgets/startbutton.svg`) is a vector sphere fitted to Windows 7's, outside its logo. The logo
+  is the one Setup's branding chose, never drawn here.
+
+The QML parts live in `plasmoids/*/contents/ui/aero/`, and `styleParts.js` picks them for the taskbar style `aero`.
+Buttons sit on a 62-pixel pitch, 60 wide and 2 apart, as the references' icons do.
+
 ## Known limits
 
 - **Glass colour.** One plain background cannot separate the glass' opacity from its colour. The opacity keeps
@@ -53,5 +70,7 @@ generator.
 - **Streaks and afterglow.** Windows 7's screen-anchored streaks, and its afterglow that follows the background's
   brightness, need a compositor shader; a decoration cannot draw them.
 - **Title glow.** KWin 6's Aurorae draws no halo behind the title.
+- **Superbar grouping.** A pinned program that is running shows twice, pinned and as a task, where Windows 7 merges
+  them; its hover glow does not take the icon's colour; jump lists and thumbnails are Plasma's own.
 - **Blur strength.** It is set low to match the references' roughly 12-pixel softening, but has not yet been measured
   in KWin against them.
