@@ -53,6 +53,10 @@ generator by `tests/aero/test_aero_taskbar.py`):
 - **The bar** is the references' 40 rows. Plasma draws `translucent/widgets/panel-background.svg` over KWin's blur
   when compositing, solved row by row so it shows win7dragedge.png's bar, without DWM's streaks, over its desktop.
   KWin's blur saturates what it blurs above 100%, which DWM's did not, so Setup sets its saturation to 100.
+- **The glass streaks** (`widgets/reflection.svg`) are aero.msstyles' DWMWindow REFLECTIONMAP, straight bands at
+  29 degrees, drawn as one gradient across them (`aero/reflection.py`, by `tests/aero/fit_aero_reflection.py`) and
+  stretched over the screen at 75%, as DWM does: the orb's part draws them under everything on the bar, then the
+  bar's edge lines over them (`widgets/baredge.svg`).
 - **The darkening behind the orb** (`widgets/startshade.svg`) is an ellipse anchored at the bar's bottom-left corner,
   fitted to the references (`palette.START_SHADE`), fading out under the first pinned program.
 - **The task buttons** (`widgets/tasks.svg`) are TaskBand2's TASKITEM states the superbar draws: running, focused and
@@ -81,9 +85,9 @@ Windows 7 pixel for pixel: the bar, the orb, the pinned slots and their pitch, a
 - **Glass colour.** One plain background cannot separate the glass' opacity from its colour. The opacity keeps
   Windows 7's default 49% share for the background, and the colour is solved to give the references' median. A
   screenshot of glass over a varied wallpaper would let both be fitted.
-- **Streaks and afterglow.** Windows 7's screen-anchored streaks, and its afterglow that follows the background's
-  brightness, need a compositor shader; a decoration or a stretched panel cannot draw them. On the bar they are
-  whole columns a few levels lighter or darker than its plain rows.
+- **Streaks on the frames, and afterglow.** The superbar draws DWM's streaks from the screen's corner, but an Aurorae
+  frame cannot know where it lies on the screen, so window frames have none; Windows 7's afterglow, which follows the
+  background's brightness, needs a compositor shader.
 - **Title glow.** KWin 6's Aurorae draws no halo behind the title.
 - **Superbar grouping.** A pinned program that is running shows twice, pinned and as a task, where Windows 7 merges
   them; jump lists and thumbnails are Plasma's own.
