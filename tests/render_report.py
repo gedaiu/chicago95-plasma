@@ -21,6 +21,7 @@ TESTS = Path(__file__).resolve().parent
 sys.path[:0] = [
     str(TESTS),
     str(TESTS / "luna"),
+    str(TESTS / "aero"),
     str(TESTS.parent / "lib"),
     str(TESTS.parent),
     str(TESTS.parent / "luna"),
@@ -1158,14 +1159,37 @@ def comparison_main(output, looks):
             compose(f"{look} {title}", rows, output / f"report-{look}-{key}.png")
 
 
+AERO = "aero"  # Windows 7: components so far, not yet a look
+
+
+def aero_desktop():
+    """A real nested KWin desktop in the Luna look wearing the Aero frames, or None without KWin and Plasma."""
+    from plasma_session import desktop_session, missing_programs
+
+    if missing_programs():
+        return None
+    work = tempfile.mkdtemp(prefix="c95-aero-", dir="/tmp")  # short: Wayland's socket path limit
+    try:
+        return desktop_session("luna", work, settings=[("DECORATION", AERO)])
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
 def main(output, looks):
     import chicago95ui
     from PySide6.QtWidgets import QApplication
-    from showcase import controls, scenes, themed
+    from showcase import aero_panels, controls, scenes, themed
 
     app = QApplication.instance() or chicago95ui.make_app("chicago95-showcase")
     app.setQuitOnLastWindowClosed(False)
     output.mkdir(parents=True, exist_ok=True)
+    if AERO in looks:
+        compose_showcase(
+            "Chicago95 for KDE Plasma · Windows 7 (Aero glass frames)",
+            aero_panels(app, aero_desktop()),
+            output / "showcase-aero.jpg",
+        )
+        looks = [look for look in looks if look != AERO]
     with tempfile.TemporaryDirectory(prefix="chicago95-showcase-") as work:
         for look in looks:
             scratch = Path(work) / look
@@ -1189,14 +1213,14 @@ def cli(argv):
 
     parser = argparse.ArgumentParser(description="Render reference-independent showcase sheets.")
     parser.add_argument("output", nargs="?", type=Path, default=Path("report"))
-    parser.add_argument("looks", nargs="*", choices=list(LOOK_NAMES))
+    parser.add_argument("looks", nargs="*", choices=[*LOOK_NAMES, AERO])
     parser.add_argument("--details", action="store_true", help="Also generate the historical pixel comparison reports")
     parser.add_argument("--scale", type=int, default=1, help="Device pixels per logical pixel, as on a HiDPI screen")
     args = parser.parse_args(argv)
     os.environ["QT_SCALE_FACTOR"] = str(args.scale)
-    looks = args.looks or list(LOOK_NAMES)
+    looks = args.looks or [*LOOK_NAMES, AERO]
     if args.details:
-        comparison_main(args.output, looks)
+        comparison_main(args.output, [look for look in looks if look != AERO])
     main(args.output, looks)
 
 

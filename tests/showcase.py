@@ -718,3 +718,70 @@ def gtk_controls(look, scratch, audit=False, audit_kinds=(), scale=1):
                 counterpart = original_control(look, reference_name)
                 rows.append((f"{group(label)} · GTK {version} · {label}", counterpart, background.convert("RGB")))
     return rows
+
+
+AERO_STATES = (
+    "active",
+    "hover",
+    "pressed",
+    "deactivated",
+    "inactive",
+    "hover-inactive",
+    "pressed-inactive",
+    "deactivated-inactive",
+)
+
+
+def aero_button_strip(button, glass="#5DABE8"):
+    """One caption button's eight Aurorae states side by side, drawn over the glass they sit on."""
+    from aero_model import AERO_THEME
+    from PySide6.QtCore import QRectF
+    from PySide6.QtGui import QColor, QImage, QPainter
+    from PySide6.QtSvg import QSvgRenderer
+    from reference import qimage_to_pil
+
+    renderer = QSvgRenderer(str(AERO_THEME / f"{button}.svg"))
+    size = renderer.boundsOnElement("active-center").size()
+    width, height, gap = round(size.width()), round(size.height()), 6
+    image = QImage((width + gap) * len(AERO_STATES), height, QImage.Format_RGB32)
+    image.fill(QColor(glass))
+    painter = QPainter(image)
+    for index, state in enumerate(AERO_STATES):
+        renderer.render(painter, f"{state}-center", QRectF(index * (width + gap), 0, width, height))
+    painter.end()
+    return qimage_to_pil(image)
+
+
+def aero_panels(app, desktop=None):
+    """The Windows 7 glass decoration beside Windows 7 (tests/references/win7*.png), its buttons and its 2x caption."""
+    from aero_model import REFERENCE_DESKTOP, AeroWindow
+    from PySide6.QtGui import QColor
+    from reference import screenshot
+
+    behind = QColor(REFERENCE_DESKTOP)
+    active = AeroWindow(600, 360, caption="").render(background=behind)
+    inactive = AeroWindow(791, 540, active=False).render(background=behind)
+    panels = [
+        (
+            "Window frame, active (Windows 7: Notepad in win7dragedge.png)",
+            screenshot("win7dragedge").crop((223, 219, 523, 339)),
+            active.crop((300, 0, 600, 120)),
+        ),
+        (
+            "Window frame, inactive (Windows 7: win7screenres.png; its left side is under the desktop menu)",
+            screenshot("win7screenres").crop((152, 100, 943, 640)),
+            inactive,
+        ),
+        *(
+            (f"Caption button: {button}, its 8 states ({', '.join(AERO_STATES)})", None, aero_button_strip(button))
+            for button in ("minimize", "maximize", "restore", "close")
+        ),
+        (
+            "Caption at 2x: the vector frame and buttons on a HiDPI screen",
+            None,
+            AeroWindow(600, 360).render(scale=2, background=behind).crop((920, 0, 1200, 80)),
+        ),
+    ]
+    if desktop is not None:
+        panels.append(("Real KWin desktop: the Luna look wearing the Windows 7 frames", None, desktop))
+    return panels

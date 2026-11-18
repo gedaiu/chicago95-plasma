@@ -18,7 +18,8 @@ Built and tested on Fedora 44, Plasma 6.8.2 (Wayland), 3840x2160 at 1.5x.
 
 ## The five looks
 
-Setup offers five looks: 1995, 1998, 2000, 2001 (Windows XP Classic) and Luna.
+Setup offers five looks: 1995, 1998, 2000, 2001 (Windows XP Classic) and Luna, and Windows 7's Aero frames for
+any of them.
 Each image below shows the look's boot screen, log on and a populated 800×600
 desktop, then its taskbar idle, with open windows, crowded, and overflowing
 (Quick Launch and tray chevrons). They are rendered from the real components by
@@ -43,6 +44,15 @@ desktop, then its taskbar idle, with open windows, crowded, and overflowing
 ### Luna look (Windows XP)
 
 ![The Luna look showcase](docs/compare/showcase-luna.jpg)
+
+### Windows 7 (Aero, in progress)
+
+The Aero glass window frames are ready, and any look can wear them: choose "Windows 7" for the window frames in
+Setup or under the Control Panel's Window Frames. The showcase puts them beside Windows 7 screenshots, with every
+caption button state, the frame at 2x and a real KWin desktop. The Aero widgets, taskbar and screens are still to
+come; [aero/README.md](aero/README.md) says where every value comes from.
+
+![The Windows 7 Aero frames showcase](docs/compare/showcase-aero.jpg)
 
 The controls of each look (Qt, GTK 3, GTK 4, Plasma and the window
 decoration), beside the originals' where a screenshot shows them, are in
