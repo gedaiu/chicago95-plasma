@@ -302,6 +302,33 @@ Rectangle {
         onActivated: root.showOptions = !root.showOptions
     }
 
+    // Setup's full-screen preview (theme.conf closeOnEscape=true) covers the terminal, so it closes itself; the
+    // installed login screen never has the key.
+    readonly property bool closesOnEscape: String(config.closeOnEscape) === "true"
+    Shortcut {
+        sequence: "Escape"
+        context: Qt.ApplicationShortcut
+        enabled: root.closesOnEscape
+        onActivated: Qt.quit()
+    }
+    Rectangle {
+        objectName: "previewCloseHint"
+        visible: root.closesOnEscape
+        z: 1000
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: 8
+        width: hint.implicitWidth + 16
+        height: hint.implicitHeight + 8
+        color: "#000000"
+        opacity: 0.75
+        Text {
+            id: hint
+            anchors.centerIn: parent
+            text: "Preview: press Escape to close"
+            color: "#FFFFFF"
+        }
+    }
+
     Bevel {
         id: dialog
         objectName: "logonDialog"

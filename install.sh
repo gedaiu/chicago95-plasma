@@ -279,7 +279,7 @@ choose_login_style() {
         "$(login_style_description "${styles[$index]}")")")
     done
     lines+=("")
-    [ -n "$greeter" ] && lines+=("Type P and a number (P2) to preview it full screen; close the preview with Alt+F4.")
+    [ -n "$greeter" ] && lines+=("Type P and a number (P2) to preview it full screen; close the preview with Escape.")
     lines+=("Type a number to choose it, or press ENTER to keep the marked one.")
     ui_card "Login and loading screens" "${lines[@]}"
     answer=$(ui_ask "Choice" "")
@@ -299,6 +299,7 @@ preview_login() { # preview_login <greeter> <style>   the theme from the repo, s
   [ -f "$SDDM_FONT" ] && cp "$SDDM_FONT" "$preview/"
   cp "$(start_logo_source)" "$preview/brand-logo.$(start_logo_source | sed 's/.*\.//')"
   SETUP_LOGIN_STYLE=$2 sddm_theme_conf >"$preview/theme.conf"
+  printf 'closeOnEscape=true\n' >>"$preview/theme.conf"
   ui_shell "$1" --test-mode --theme "$preview" 2>/dev/null
   rm -rf "$preview"
 }
