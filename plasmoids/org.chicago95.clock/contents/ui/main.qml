@@ -17,8 +17,9 @@ PlasmoidItem {
     Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground
 
     readonly property bool isLuna: Plasmoid.configuration.taskbarStyle === "luna"
+    readonly property bool isAero: Plasmoid.configuration.taskbarStyle === "aero"  // two lines, then Show desktop
     readonly property bool isXpClassic: Plasmoid.configuration.look === "2001"
-    readonly property int cellWidth: isLuna ? 68 : Plasmoid.configuration.bevel === "2000" && !isXpClassic ? 69 : 60
+    readonly property int cellWidth: isAero ? 80 : isLuna ? 68 : Plasmoid.configuration.bevel === "2000" && !isXpClassic ? 69 : 60
     readonly property int textTop: isXpClassic ? 8 : 9   // the lettering's top row in the applet, which starts 2px into the taskbar
     property date now: new Date()
 
@@ -45,8 +46,28 @@ PlasmoidItem {
         onNewData: (sourceName, data) => disconnectSource(sourceName)
     }
 
+    Loader {
+        id: aeroClock
+        anchors.fill: parent
+        active: root.isAero
+        source: Qt.resolvedUrl("aero/Clock.qml")
+        onLoaded: item.showDesktop.connect(() => runner.connectSource(root.showDesktopCommand))
+    }
+    Binding {
+        target: aeroClock.item
+        property: "now"
+        value: root.now
+    }
+    Binding {
+        target: aeroClock.item
+        property: "hourFormat"
+        value: Plasmoid.configuration.hourFormat
+    }
+    readonly property string showDesktopCommand: "systemd-run --user --quiet --collect gdbus call --session --dest org.kde.kglobalaccel --object-path /component/kwin --method org.kde.kglobalaccel.Component.invokeShortcut 'Show Desktop'"
+
     Text {
         id: clockText
+        visible: !root.isAero
         x: Math.round((root.width - implicitWidth) / 2)
         y: root.textTop
         // Locales put a narrow no-break space before AM and PM; the originals have a full space.

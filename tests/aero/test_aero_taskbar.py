@@ -90,3 +90,20 @@ def test_start_orb_outside_its_logo_is_windows_7s_within_twenty_levels(qt_app):
     ]
 
     assert sum(differences) / len(differences) < 20
+
+
+@requires_sprites
+@pytest.mark.parametrize("state", ["normal", "hover", "pressed"])
+def test_show_desktop_face_matches_its_sprite_over_the_bar_within_six_levels(qt_app, state):
+    from fit_aero_stops import SHOW_DESKTOP_STATES, show_desktop_image
+
+    sprite = show_desktop_image(SHOW_DESKTOP_STATES.index(state))
+    ours = over_bar(rendered(generator.show_desktop_face_svg(state), sprite.size))
+    theirs = over_bar(sprite)
+    differences = [
+        abs(a - b)
+        for p, q in zip(ours.get_flattened_data(), theirs.get_flattened_data(), strict=True)
+        for a, b in zip(p, q, strict=True)
+    ]
+
+    assert sum(differences) / len(differences) < 6

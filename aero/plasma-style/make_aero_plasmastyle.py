@@ -112,19 +112,28 @@ def task_face_svg(state):
     return faces.face_svg(stops.TASK_FACES[state])
 
 
-def tasks_svg():
-    """Every task button state as the centre of a frame without borders: the superbar's buttons are 60 by 40."""
+def show_desktop_face_svg(state):
+    return faces.face_svg(stops.SHOW_DESKTOP_FACES[state])
+
+
+def faces_svg(faces_by_state):
+    """Each state's face as the centre of a frame without borders, laid out side by side."""
     definitions, groups = [], []
-    width, height = stops.TASK_FACES["normal"]["size"]
-    for index, (state, face) in enumerate(stops.TASK_FACES.items()):
+    width, height = next(iter(faces_by_state.values()))["size"]
+    for index, (state, face) in enumerate(faces_by_state.items()):
         face_definitions, shapes = faces.face_markup(face, f"t{index}", (index * (width + GAP), 0))
         definitions.append(face_definitions)
         groups.append(f'<g id="{state}-center">{shapes}</g>{hint_margins(state)}')
-    total = len(stops.TASK_FACES) * (width + GAP)
+    total = len(faces_by_state) * (width + GAP)
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{total}" height="{height}">'
         f"<defs>{''.join(definitions)}</defs>\n" + "\n".join(groups) + "\n</svg>\n"
     )
+
+
+def tasks_svg():
+    """The superbar's buttons are 60 by 40, the TASKITEM states as they are."""
+    return faces_svg(stops.TASK_FACES)
 
 
 # The Start orb's sphere, 39 pixels across at (27.5, 20) in a 58 by 40 bar slot (win7dragedge.png's at x 27.5,
@@ -180,6 +189,7 @@ def write_theme(out):
     (out / "translucent/widgets/panel-background.svg").write_text(panel_svg(translucent=True))
     (out / "widgets/tasks.svg").write_text(tasks_svg())
     (out / "widgets/startbutton.svg").write_text(orb_svg())
+    (out / "widgets/showdesktop.svg").write_text(faces_svg(stops.SHOW_DESKTOP_FACES))
     (out / "metadata.json").write_text(json.dumps(METADATA, indent=2) + "\n")
 
 

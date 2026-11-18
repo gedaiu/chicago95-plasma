@@ -11,7 +11,7 @@ from reference import qimage_to_pil, screenshot
 
 QML_ROOTS = [Path("/usr/lib64/qt6/qml"), Path("/usr/lib/qt6/qml"), Path("/usr/lib/x86_64-linux-gnu/qt6/qml")]
 BAR_TOP = 728  # the references' taskbar: rows 728..767 of a 1024x768 screen
-PACKAGES = ("org.chicago95.tasks", "org.chicago95.start")
+PACKAGES = ("org.chicago95.tasks", "org.chicago95.start", "org.chicago95.clock")
 LEFT = 40  # the strip leaves room on the left so the part never starts under the pointer
 STRIP = """import QtQuick
 import org.kde.ksvg as KSvg
@@ -112,3 +112,49 @@ def test_start_button_draws_the_orb_where_windows_7_has_it(qt_app, qml_root, ins
     ]
 
     assert sum(differences) / len(differences) < 20
+
+
+def light_pixels(image, top, bottom):
+    return sum(1 for x in range(image.width) for y in range(top, bottom) if min(image.getpixel((x, y))) > 200)
+
+
+def test_clock_shows_time_over_date_and_ends_in_windows_7s_show_desktop_strip(
+    qt_app, qml_root, installed, bar, tmp_path
+):
+    """win7screenres.png: the time on rows 733..746, the date on 750..763, then the strip at x 1009..1023."""
+    from PySide6.QtCore import QDate, QDateTime, QTime
+
+    ours = render_part(
+        qt_app,
+        qml_root,
+        installed,
+        bar,
+        tmp_path,
+        "Clock",
+        80,
+        {"now": QDateTime(QDate(2009, 10, 26), QTime(9, 16))},
+        "org.chicago95.clock",
+    )
+    theirs = screenshot("win7screenres").crop((944, BAR_TOP, 1024, BAR_TOP + 40))
+    strip = [(x, y) for x in range(65, 80) for y in range(40)]
+    differences = [
+        abs(a - b) for x, y in strip for a, b in zip(ours.getpixel((x, y)), theirs.getpixel((x, y)), strict=True)
+    ]
+
+    assert (
+        light_pixels(ours, 4, 19) > 20,
+        light_pixels(ours, 21, 36) > 20,
+        sum(differences) / len(differences) < 12,
+    ) == (True, True, True)
+
+
+def test_clock_date_format_spells_the_year_in_full_as_windows_7_does(qt_app):
+    from js_library import call, load_js_library
+
+    clock_format = load_js_library(REPO / "plasmoids/org.chicago95.clock/contents/ui/clockFormat.js")
+
+    assert [call(clock_format, "fullYearDateFormat", short) for short in ("M/d/yy", "dd.MM.yyyy", "yy-MM-dd")] == [
+        "M/d/yyyy",
+        "dd.MM.yyyy",
+        "yyyy-MM-dd",
+    ]

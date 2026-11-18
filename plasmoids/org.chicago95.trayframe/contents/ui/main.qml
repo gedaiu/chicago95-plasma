@@ -22,10 +22,11 @@ PlasmoidItem {
     Layout.fillHeight: true
 
     readonly property bool isLuna: Plasmoid.configuration.taskbarStyle === "luna"
+    readonly property bool isAero: Plasmoid.configuration.taskbarStyle === "aero"  // no box; icons centred on the glass
     readonly property bool bevel2000: Plasmoid.configuration.bevel === "2000"
     readonly property int iconSize: 16
     readonly property int iconPitch: 17
-    readonly property int iconTop: isLuna ? Math.floor((root.height + 2 * panelMargin - iconSize) / 2) : 7
+    readonly property int iconTop: isLuna || isAero ? Math.floor((root.height + 2 * panelMargin - iconSize) / 2) : 7
     readonly property int lunaChevronDiameter: 16
     readonly property int clockGap: bevel2000 ? 4 : 1
     readonly property int boxPadding: isLuna ? 11 : bevel2000 ? 4 : 3
@@ -218,6 +219,6 @@ PlasmoidItem {
         y: root.isLuna ? -root.panelMargin : 0
         width: root.boxRight - root.boxLeft + 1
         height: root.isLuna ? root.height + 2 * root.panelMargin : root.height
-        source: Qt.resolvedUrl(root.isLuna ? "luna/TrayBox.qml" : "TrayBox.qml")
+        source: Qt.resolvedUrl(root.isAero ? "aero/TrayBox.qml" : root.isLuna ? "luna/TrayBox.qml" : "TrayBox.qml")
     }
 }

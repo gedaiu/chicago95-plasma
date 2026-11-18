@@ -62,6 +62,20 @@ def task_image(state):
     return strip.crop((0, state * rows, strip.width, (state + 1) * rows))
 
 
+SHOW_DESKTOP_STATES = ("normal", "hover", "pressed")
+
+
+def show_desktop_image(state):
+    piece = part("ShowDesktop::Button", "Common Properties")
+    strip = straight(Image.open(sprite_dir() / piece.image_file).convert("RGBA"))
+    rows = strip.height // piece.image_count
+    return strip.crop((0, state * rows, strip.width, (state + 1) * rows))
+
+
+def fitted_show_desktop():
+    return {state: fit_state(show_desktop_image(index), BAR_GLASS) for index, state in enumerate(SHOW_DESKTOP_STATES)}
+
+
 def fitted_tasks():
     return {state: fit_state(task_image(index), BAR_GLASS) for index, state in enumerate(TASK_STATES)}
 
@@ -165,5 +179,6 @@ if __name__ == "__main__":
         '"""Aero superbar task button faces fitted to aero.msstyles by tests/aero/fit_aero_stops.py; '
         'do not edit by hand."""\n\n'
         f"TASK_FACES = {pprint.pformat(fitted_tasks(), width=120, compact=True)}\n"
+        f"SHOW_DESKTOP_FACES = {pprint.pformat(fitted_show_desktop(), width=120, compact=True)}\n"
     )
     print("wrote", OUTPUT, TASK_OUTPUT)

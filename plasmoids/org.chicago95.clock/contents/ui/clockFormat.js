@@ -6,3 +6,8 @@ function timeFormat(hourFormat, localeShortFormat) {
 
   return localeShortFormat;
 }
+
+// Windows 7's notification area spells the year in full (10/26/2009) whatever the short format.
+function fullYearDateFormat(localeShortFormat) {
+  return localeShortFormat.includes("yyyy") ? localeShortFormat : localeShortFormat.replace("yy", "yyyy");
+}
