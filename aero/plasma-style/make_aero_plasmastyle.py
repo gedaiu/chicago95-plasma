@@ -190,6 +190,10 @@ def task_face_svg(state):
     return glossy_face_svg(stops.TASK_FACES[state])
 
 
+def group_face_svg(state):
+    return faces.face_svg(stops.GROUP_FACES[state])
+
+
 def show_desktop_face_svg(state):
     return faces.face_svg(stops.SHOW_DESKTOP_FACES[state])
 
@@ -394,6 +398,7 @@ def write_theme(out):
     (out / "widgets/reflection.svg").write_text(reflection_svg())
     (out / "widgets/baredge.svg").write_text(bar_edge_svg())
     (out / "widgets/showdesktop.svg").write_text(faces_svg(stops.SHOW_DESKTOP_FACES))
+    (out / "widgets/taskgroup.svg").write_text(faces_svg(stops.GROUP_FACES))
     (out / "metadata.json").write_text(json.dumps(METADATA, indent=2) + "\n")
 
 

@@ -251,3 +251,28 @@ def test_glass_streaks_stretched_to_the_screen_are_windows_7s_on_the_bar_within_
 
     # A streak's sharp edge, placed a fraction of a pixel off, strays most.
     assert (max(abs(error) for error in errors) <= 2.5, statistics.pstdev(errors) <= 1) == (True, True)
+
+
+GROUP_SPRITES = {"group-2": ("TASKITEMGROUP", 1), "group-3": ("TASKITEMGROUP", 2)}
+GROUP_SPRITES |= {f"group-selected-{n}": ("TASKITEMGROUPSELECTED", state) for n, state in (("2", 1), ("3", 2))}
+
+
+@requires_sprites
+@pytest.mark.parametrize("state", GROUP_SPRITES)
+def test_group_stack_matches_its_sprite_over_the_bar_within_four_levels_in_every_column(qt_app, state):
+    # A combined button's stacked edges: one card for two windows, two for three or more, brighter when focused.
+    from fit_aero_stops import group_image
+
+    sprite = group_image(*GROUP_SPRITES[state])
+    ours = over_bar(rendered(generator.group_face_svg(state), sprite.size))
+    theirs = over_bar(sprite)
+    columns = [
+        sum(
+            max(abs(a - b) for a, b in zip(ours.getpixel((x, y)), theirs.getpixel((x, y)), strict=True))
+            for y in range(sprite.height)
+        )
+        / sprite.height
+        for x in range(sprite.width)
+    ]
+
+    assert max(columns) <= 4

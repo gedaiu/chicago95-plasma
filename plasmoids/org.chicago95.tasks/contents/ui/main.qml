@@ -428,6 +428,12 @@ PlasmoidItem {
                     }
                     Binding {
                         target: face.item
+                        property: "windows" // a combined button's stacked edges (aero/TaskButton.qml)
+                        when: Plasmoid.configuration.taskbarStyle === "aero"
+                        value: entry.model.IsGroupParent ? (entry.model.ChildCount ?? 0) : 1
+                    }
+                    Binding {
+                        target: face.item
                         property: "bevel"
                         value: Plasmoid.configuration.bevel
                     }

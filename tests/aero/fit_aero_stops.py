@@ -86,6 +86,27 @@ def show_desktop_image(state):
     return drawn
 
 
+# A combined button's stacked edges, laid at its right: one card for two windows (the strip's state 1), two for three
+# or more (state 2), from TASKITEMGROUP and, for the focused program, TASKITEMGROUPSELECTED. State 0 is empty.
+GROUP_STATES = {"group-2": ("TASKITEMGROUP", 1), "group-3": ("TASKITEMGROUP", 2)}
+GROUP_STATES |= {f"group-selected-{n}": ("TASKITEMGROUPSELECTED", state) for n, state in (("2", 1), ("3", 2))}
+
+
+def group_image(part_name, state):
+    piece = part("TaskBand2", part_name)
+    strip = straight(Image.open(sprite_dir() / piece.image_file).convert("RGBA"))
+    rows = strip.height // piece.image_count
+    return strip.crop((0, state * rows, strip.width, (state + 1) * rows))
+
+
+def fitted_groups():
+    # A strip this narrow is lines alone: every column its own vertical gradient.
+    return {
+        state: fit_state(image, BAR_GLASS, image.width // 2)
+        for state, image in ((state, group_image(*source)) for state, source in GROUP_STATES.items())
+    }
+
+
 def fitted_show_desktop():
     return {state: fit_state(show_desktop_image(index), BAR_GLASS) for index, state in enumerate(SHOW_DESKTOP_STATES)}
 
@@ -222,7 +243,7 @@ def column_shade(image, x, centre_x, rows, glass):
     return round(min(1.0, max(0.0, 1 - column / centre)), 3)
 
 
-def fit_state(image, glass=GLASS):
+def fit_state(image, glass=GLASS, edge=EDGE):
     width, height = image.size
     centre_x = width // 2
     return {
@@ -233,13 +254,13 @@ def fit_state(image, glass=GLASS):
                 "rows": (top, min(top + BAND_ROWS, height - BOTTOM_ROWS)),
                 "shade": [
                     column_shade(image, x, centre_x, range(top, min(top + BAND_ROWS, height - BOTTOM_ROWS)), glass)
-                    for x in range(EDGE, width - EDGE)
+                    for x in range(edge, width - edge)
                 ],
             }
             for top in range(TOP_ROWS, height - BOTTOM_ROWS, BAND_ROWS)
         ],
-        "left": [[stop(image.getpixel((x, y))) for y in range(height)] for x in range(EDGE)],
-        "right": [[stop(image.getpixel((x, y))) for y in range(height)] for x in range(width - EDGE, width)],
+        "left": [[stop(image.getpixel((x, y))) for y in range(height)] for x in range(edge)],
+        "right": [[stop(image.getpixel((x, y))) for y in range(height)] for x in range(width - edge, width)],
     }
 
 
@@ -280,5 +301,6 @@ if __name__ == "__main__":
         'do not edit by hand."""\n\n'
         f"TASK_FACES = {pprint.pformat(fitted_tasks(), width=120, compact=True)}\n"
         f"SHOW_DESKTOP_FACES = {pprint.pformat(fitted_show_desktop(), width=120, compact=True)}\n"
+        f"GROUP_FACES = {pprint.pformat(fitted_groups(), width=120, compact=True)}\n"
     )
     print("wrote", OUTPUT, TASK_OUTPUT)

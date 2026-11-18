@@ -171,3 +171,22 @@ def two_windows_of_one_program():
 
 def test_two_windows_of_one_program_combine_into_one_superbar_button(two_windows_of_one_program):
     assert len(icon_columns(two_windows_of_one_program)) == 1
+
+
+def test_combined_button_ends_in_one_stacked_card_over_its_last_8_columns(two_windows_of_one_program):
+    # The slot is x 59..118: the face 52 wide, then the card strip (two windows) at x 111..118, drawn over the bar as
+    # it shows just past the button.
+    from test_aero_buttons import rendered
+    from test_aero_taskbar import generator
+
+    ours = bar(two_windows_of_one_program)
+    strip = rendered(generator.group_face_svg("group-2"), (8, 40))
+    differences = []
+    for x in range(8):
+        for y in range(40):
+            *colour, alpha = strip.getpixel((x, y))
+            behind = ours.getpixel((125 + x, y))
+            expected = [c * alpha / 255 + b * (1 - alpha / 255) for c, b in zip(colour, behind, strict=True)]
+            differences.append(max(abs(a - b) for a, b in zip(ours.getpixel((111 + x, y)), expected, strict=True)))
+
+    assert max(differences) <= 8
