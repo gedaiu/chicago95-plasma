@@ -2264,3 +2264,19 @@ def test_thunar_opens_folders_through_kwriteconfig6_without_xdg_mime_which_needs
         in log,
         "xdg-mime" in log,
     ) == (True, False)
+
+
+def test_choosing_windows_7_frames_after_the_luna_look_selects_the_aero_decoration(tmp_path):
+    lines = run_bash_with_steps(
+        tmp_path, 'apply_look luna; ui_choose() { printf 3; }; choose_decoration; echo "$SETUP_DECORATION"'
+    )
+
+    assert lines[-1:] == ["aero"]
+
+
+def test_window_frames_question_marks_the_looks_own_frame_and_keeps_it_on_enter(tmp_path):
+    lines = run_bash_with_steps(
+        tmp_path, 'apply_look luna; ui_choose() { printf "%s" "$3"; }; choose_decoration; echo "$SETUP_DECORATION"'
+    )
+
+    assert lines[-1:] == ["luna"]

@@ -654,6 +654,17 @@ step_animations() { # the saved animation choices into KWin, KDE's speed and our
 
 default_panel_height() { [ "${SETUP_TASKBAR_STYLE:-classic}" = luna ] && echo "$LUNA_PANEL_HEIGHT" || echo 28; }
 
+DECORATIONS=(classic luna aero)
+choose_decoration() { # the window frames, the look's own marked: any look can wear any frame
+  local choice marked=1 index
+  for index in "${!DECORATIONS[@]}"; do [ "${DECORATIONS[$index]}" = "${SETUP_DECORATION:-classic}" ] && marked=$((index + 1)); done
+  choice=$(ui_choose "Window frames" "Which window frames should the windows wear?" "$marked" \
+    "Classic: the look's flat title bars and raised borders" \
+    "Windows XP: Luna's blue rounded frames" \
+    "Windows 7: Aero glass frames (KWin blurs what lies behind them)")
+  SETUP_DECORATION=${DECORATIONS[$((choice - 1))]}
+}
+
 decoration_theme() { # the Aurorae theme of the chosen decoration
   case "${SETUP_DECORATION:-classic}" in
   luna) echo Chicago95Luna ;;

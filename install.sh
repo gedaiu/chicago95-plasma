@@ -486,6 +486,7 @@ SETUP_FONT_SCOPE=${OPT_FONT_SCOPE:-${SETUP_FONT_SCOPE:-everywhere}}
 # A remembered look keeps its saved colours (a custom one has nothing else); a flag or a first run applies the look.
 if [ -n "${OPT_LOOK:-}" ] || [ -z "${SETUP_LOOK:-}" ]; then apply_look "${OPT_LOOK:-1995}"; fi
 [ -n "${OPT_LOOK:-}" ] || choose_look
+[ -n "${OPT_LOOK:-}${OPT_DECORATION:-}" ] || choose_decoration
 SETUP_DECORATION=${OPT_DECORATION:-${SETUP_DECORATION:-classic}}
 SETUP_WIDGET_STYLE=${OPT_WIDGET_STYLE:-${SETUP_WIDGET_STYLE:-classic}}
 SETUP_TASKBAR_STYLE=${OPT_TASKBAR_STYLE:-${SETUP_TASKBAR_STYLE:-classic}}
