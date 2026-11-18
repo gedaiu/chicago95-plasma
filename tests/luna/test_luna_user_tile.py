@@ -46,4 +46,3 @@ def test_default_picture_is_hidden_on_an_idle_tile_with_a_user_picture_and_shown
     with_picture = default_picture_shown(engine, selected=False, picture=picture)
 
     assert (with_picture, default_picture_shown(engine, selected=False)) == (False, True)
-

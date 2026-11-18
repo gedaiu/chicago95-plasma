@@ -1163,7 +1163,7 @@ AERO = "aero"  # Windows 7: components so far, not yet a look
 
 
 def aero_desktop():
-    """A real nested KWin desktop in the Luna look with the Aero frames and superbar, or None without KWin and Plasma."""
+    """A nested KWin desktop in the Luna look, with the Aero frames and superbar; None without KWin and Plasma."""
     from plasma_session import desktop_session, missing_programs
 
     if missing_programs():
