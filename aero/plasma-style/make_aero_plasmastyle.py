@@ -127,12 +127,59 @@ def tasks_svg():
     )
 
 
+# The Start orb's sphere, 39 pixels across at (27.5, 20) in a 58 by 40 bar slot (win7dragedge.png's at x 27.5,
+# y 748): a navy body darkening outwards, cyan light pooling at its foot, a white gloss over its upper half, and a
+# dark ring inside a light rim. The program logo Setup chose is laid over its middle, never drawn here.
+ORB = {"centre": (27.5, 20), "radius": 19.5}
+ORB_BODY = (("#1590CB", 0), ("#117BB9", 0.55), ("#0B4A78", 0.7), ("#02436D", 0.88))
+ORB_GLOW = (("#03DFFD", 1), ("#0BB6E6", 0.6), ("#0B94C1", 0))
+ORB_GLOSS = (("#FFFFFF", 0.85), ("#FFFFFF", 0))
+ORB_GLOSS_SHAPE = {"rise": 7, "inset": 2, "height": 10}  # the gloss ellipse: above the centre, inside the rim, tall
+ORB_GLOW_SHAPE = {"drop": 13, "radius": 16}  # where the cyan light pools below the centre, and how far it spreads
+ORB_RINGS = (("#1D5480", 18), ("#6789A4", 19))
+
+
+def orb_svg():
+    (cx, cy), radius = ORB["centre"], ORB["radius"]
+    number = faces.number
+    body = "".join(f'<stop offset="{number(round(offset, 3))}" stop-color="{colour}"/>' for colour, offset in ORB_BODY)
+    glow = "".join(
+        f'<stop offset="{number(offset)}" stop-color="{colour}" stop-opacity="{number(opacity)}"/>'
+        for (colour, opacity), offset in zip(ORB_GLOW, (0, 0.5, 1), strict=True)
+    )
+    gloss = "".join(
+        f'<stop offset="{number(offset)}" stop-color="{colour}" stop-opacity="{number(opacity)}"/>'
+        for (colour, opacity), offset in zip(ORB_GLOSS, (0, 1), strict=True)
+    )
+    rings = "".join(
+        f'<circle cx="{number(cx)}" cy="{number(cy)}" r="{number(ring - 0.5)}" fill="none" stroke="{colour}"/>'
+        for colour, ring in ORB_RINGS
+    )
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="58" height="40"><defs>'
+        f'<radialGradient id="orb-body" cx="{number(cx)}" cy="{number(cy)}" r="{number(radius)}" '
+        f'gradientUnits="userSpaceOnUse">{body}</radialGradient>'
+        f'<radialGradient id="orb-glow" cx="{number(cx)}" cy="{number(cy + ORB_GLOW_SHAPE["drop"])}" '
+        f'r="{number(ORB_GLOW_SHAPE["radius"])}" '
+        f'gradientUnits="userSpaceOnUse">{glow}</radialGradient>'
+        f'<linearGradient id="orb-gloss" x1="0" y1="{number(cy - radius)}" x2="0" y2="{number(cy)}" '
+        f'gradientUnits="userSpaceOnUse">{gloss}</linearGradient></defs>'
+        f'<g id="orb"><circle cx="{number(cx)}" cy="{number(cy)}" r="{number(radius)}" fill="url(#orb-body)"/>'
+        f'<circle cx="{number(cx)}" cy="{number(cy)}" r="{number(radius - 1)}" fill="url(#orb-glow)"/>'
+        f'<ellipse cx="{number(cx)}" cy="{number(cy - ORB_GLOSS_SHAPE["rise"])}" '
+        f'rx="{number(radius - ORB_GLOSS_SHAPE["inset"])}" ry="{number(ORB_GLOSS_SHAPE["height"])}" '
+        'fill="url(#orb-gloss)"/>'
+        f"{rings}</g></svg>\n"
+    )
+
+
 def write_theme(out):
     (out / "widgets").mkdir(parents=True, exist_ok=True)
     (out / "translucent/widgets").mkdir(parents=True, exist_ok=True)
     (out / "widgets/panel-background.svg").write_text(panel_svg(translucent=False))
     (out / "translucent/widgets/panel-background.svg").write_text(panel_svg(translucent=True))
     (out / "widgets/tasks.svg").write_text(tasks_svg())
+    (out / "widgets/startbutton.svg").write_text(orb_svg())
     (out / "metadata.json").write_text(json.dumps(METADATA, indent=2) + "\n")
 
 

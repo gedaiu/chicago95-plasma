@@ -5,6 +5,7 @@
 
 PANEL_HEIGHT=28
 LUNA_PANEL_HEIGHT=30
+AERO_PANEL_HEIGHT=40 # the Windows 7 superbar
 LUNA_GENERATORS=~/.local/share/chicago95/luna-generators
 MENU_HEIGHT=239 # fallback only; place_start_menu measures the real height
 RUN_HEIGHT=163  # the Run dialog with its frame and title (bin/chicago95-run)
@@ -652,17 +653,43 @@ step_animations() { # the saved animation choices into KWin, KDE's speed and our
   done
 }
 
-default_panel_height() { [ "${SETUP_TASKBAR_STYLE:-classic}" = luna ] && echo "$LUNA_PANEL_HEIGHT" || echo 28; }
+default_panel_height() {
+  case "${SETUP_TASKBAR_STYLE:-classic}" in
+  luna) echo "$LUNA_PANEL_HEIGHT" ;;
+  aero) echo "$AERO_PANEL_HEIGHT" ;;
+  *) echo 28 ;;
+  esac
+}
 
-DECORATIONS=(classic luna aero)
-choose_decoration() { # the window frames, the look's own marked: any look can wear any frame
-  local choice marked=1 index
-  for index in "${!DECORATIONS[@]}"; do [ "${DECORATIONS[$index]}" = "${SETUP_DECORATION:-classic}" ] && marked=$((index + 1)); done
-  choice=$(ui_choose "Window frames" "Which window frames should the windows wear?" "$marked" \
+COMPONENT_STYLES=(classic luna aero)
+choose_component_style() { # choose_component_style <variable> <title> <question> <three descriptions>   the look's own marked
+  local variable=$1 title=$2 question=$3 choice marked=1 index
+  shift 3
+  for index in "${!COMPONENT_STYLES[@]}"; do [ "${COMPONENT_STYLES[$index]}" = "${!variable:-classic}" ] && marked=$((index + 1)); done
+  choice=$(ui_choose "$title" "$question" "$marked" "$@")
+  printf -v "$variable" '%s' "${COMPONENT_STYLES[$((choice - 1))]}"
+}
+
+choose_decoration() { # any look can wear any frames
+  choose_component_style SETUP_DECORATION "Window frames" "Which window frames should the windows wear?" \
     "Classic: the look's flat title bars and raised borders" \
     "Windows XP: Luna's blue rounded frames" \
-    "Windows 7: Aero glass frames (KWin blurs what lies behind them)")
-  SETUP_DECORATION=${DECORATIONS[$((choice - 1))]}
+    "Windows 7: Aero glass frames (KWin blurs what lies behind them)"
+}
+
+choose_taskbar_style() {
+  choose_component_style SETUP_TASKBAR_STYLE "Taskbar" "Which taskbar should the screen have?" \
+    "Classic: the look's grey bar with labelled buttons" \
+    "Windows XP: Luna's blue bar and green Start button" \
+    "Windows 7: the glass superbar, its orb and program icons"
+}
+
+plasma_style_theme() { # the Plasma style of the chosen taskbar
+  case "${SETUP_TASKBAR_STYLE:-classic}" in
+  luna) echo Chicago95Luna ;;
+  aero) echo Chicago95Aero ;;
+  *) echo Chicago95 ;;
+  esac
 }
 
 decoration_theme() { # the Aurorae theme of the chosen decoration
@@ -742,6 +769,7 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   kconf kdeglobals General AccentColor --delete
   kconf kwinrc org.kde.kdecoration2 library org.kde.kwin.aurorae
   wants_luna && install_luna_theme_files
+  [ "${SETUP_TASKBAR_STYLE:-classic}" = aero ] && put_tree "$REPO/aero/plasma-style/theme" ~/.local/share/plasma/desktoptheme/Chicago95Aero
   [ "${SETUP_DECORATION:-classic}" = aero ] && apply_aero_glass
   kconf kwinrc org.kde.kdecoration2 theme "__aurorae__svg__$(decoration_theme)"
   kconf kwinrc org.kde.kdecoration2 BorderSize Normal
@@ -768,7 +796,7 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   apply_title_colors
   widget_style_is_luna || theme_wine
   theme_firefox
-  run plasma-apply-desktoptheme "$([ "${SETUP_TASKBAR_STYLE:-classic}" = luna ] && echo Chicago95Luna || echo Chicago95)" >>"$SETUP_LOG" 2>&1 || true
+  run plasma-apply-desktoptheme "$(plasma_style_theme)" >>"$SETUP_LOG" 2>&1 || true
   if [ "$SETUP_SCALE" != 1 ]; then
     backup ~/.Xresources
     if [ "${SETUP_DRY_RUN:-0}" != 1 ]; then
@@ -841,6 +869,13 @@ scale_x11_programs() {
   run systemctl --user set-environment "STEAM_FORCE_DESKTOPUI_SCALING=$SETUP_SCALE"
 }
 
+install_aero_plasmoid_files() { # the superbar's parts, beside each plasmoid's own (styleParts.js picks them)
+  local part
+  for part in "$REPO"/aero/plasmoids/org.chicago95.*/contents/ui/aero; do
+    put_tree "$part" ~/.local/share/plasma/plasmoids/"${part#"$REPO"/aero/plasmoids/}"
+  done
+}
+
 install_luna_plasmoid_files() {
   local plasmoid installed image
   [ -d "$REPO/luna/plasmoids" ] || return 0
@@ -861,6 +896,7 @@ step_taskbar() {
   SHELL_CHANGED=1
   for plasmoid in "$REPO"/plasmoids/org.chicago95.*; do put_tree "$plasmoid" ~/.local/share/plasma/plasmoids/"$(basename "$plasmoid")"; done
   install_luna_plasmoid_files
+  install_aero_plasmoid_files
   put_file "$REPO/plasmoids/panel-layout.js" ~/.local/share/chicago95/panel-layout.js
   put_file "$REPO/config/applications/chicago95-showdesktop.desktop" ~/.local/share/applications/chicago95-showdesktop.desktop
   put_file "$REPO/data/icons/tray-chevron.png" ~/.local/share/chicago95/icons/tray-chevron.png

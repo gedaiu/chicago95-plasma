@@ -35,3 +35,8 @@ def test_tasks_applet_sizes_its_buttons_with_the_sizing_library():
     main_qml = (TASKS_APPLET / "ui/main.qml").read_text()
 
     assert "Sizing.maxButtonWidth(Plasmoid.configuration.maxButtonWidth, Plasmoid.configuration.look)" in main_qml
+
+
+@pytest.mark.parametrize("configured", [0, 220])
+def test_superbar_buttons_are_sixty_pixels_whatever_width_is_configured(sizing, configured):
+    assert call(sizing, "styledButtonWidth", 160, configured, "aero") == 60

@@ -1303,7 +1303,7 @@ def test_choosing_the_windows_xp_scheme_fills_in_every_setting_of_the_luna_look(
     assert tab.values() == preset_values(control_panel, "luna")
 
 
-def test_component_combos_offer_classic_and_windows_xp_and_the_decoration_also_windows_7(control_panel, qt_app):
+def test_component_combos_offer_classic_and_windows_xp_and_the_frames_and_taskbar_also_windows_7(control_panel, qt_app):
     appearance_tab = appearance(control_panel)
     taskbar_tab = built(control_panel, "Taskbar", "Taskbar Options")
 
@@ -1315,7 +1315,7 @@ def test_component_combos_offer_classic_and_windows_xp_and_the_decoration_also_w
     ) == (
         ["classic", "luna", "aero"],
         ["classic", "luna"],
-        ["classic", "luna"],
+        ["classic", "luna", "aero"],
         ["1995", "1998", "2000", "2001", "luna"],
     )
 

@@ -12,7 +12,7 @@
 #     --idle=5  --cursor=48  --clippy=yes|no  --quick-launch=yes|no|auto  --font="MS W98 UI"  --font-scope=everywhere|desktop|none
 #     --start-text=Start  --start-logo=flag|penguin|/path/to/image  --banner-text=Chicago95
 #     --look=1995|1998|2000|2001|luna|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
-#     --decoration=classic|luna|aero  --widget-style=classic|luna  --taskbar-style=classic|luna  (each overrides the look's choice)
+#     --decoration=classic|luna|aero  --widget-style=classic|luna  --taskbar-style=classic|luna|aero  (each overrides the look's choice)
 #     --start-menu-style=1995|1998|2000|2001|luna
 #     --login-style=classic|2000|luna  --boot-style=classic|2000|luna|vista|7|8|8.1|10|11  --icons=chicago95|se98|classicos2000|windowsxp
 #     --sounds=Chicago95|Windows98|Windows2000|Plus98-Jungle|...  (data/sound-themes/)
@@ -488,6 +488,7 @@ SETUP_FONT_SCOPE=${OPT_FONT_SCOPE:-${SETUP_FONT_SCOPE:-everywhere}}
 if [ -n "${OPT_LOOK:-}" ] || [ -z "${SETUP_LOOK:-}" ]; then apply_look "${OPT_LOOK:-1995}"; fi
 [ -n "${OPT_LOOK:-}" ] || choose_look
 [ -n "${OPT_LOOK:-}${OPT_DECORATION:-}" ] || choose_decoration
+[ -n "${OPT_LOOK:-}${OPT_TASKBAR_STYLE:-}" ] || choose_taskbar_style
 SETUP_DECORATION=${OPT_DECORATION:-${SETUP_DECORATION:-classic}}
 SETUP_WIDGET_STYLE=${OPT_WIDGET_STYLE:-${SETUP_WIDGET_STYLE:-classic}}
 SETUP_TASKBAR_STYLE=${OPT_TASKBAR_STYLE:-${SETUP_TASKBAR_STYLE:-classic}}

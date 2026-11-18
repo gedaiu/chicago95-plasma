@@ -11,6 +11,7 @@ from reference import qimage_to_pil, screenshot
 
 QML_ROOTS = [Path("/usr/lib64/qt6/qml"), Path("/usr/lib/qt6/qml"), Path("/usr/lib/x86_64-linux-gnu/qt6/qml")]
 BAR_TOP = 728  # the references' taskbar: rows 728..767 of a 1024x768 screen
+PACKAGES = ("org.chicago95.tasks", "org.chicago95.start")
 LEFT = 40  # the strip leaves room on the left so the part never starts under the pointer
 STRIP = """import QtQuick
 import org.kde.ksvg as KSvg
@@ -37,12 +38,12 @@ def qml_root():
 def installed(tmp_path_factory):
     """The tasks package with the Aero parts laid over it, and the Chicago95Aero style, as Setup installs them."""
     root = tmp_path_factory.mktemp("plasmoids")
-    package = "org.chicago95.tasks"
-    shutil.copytree(REPO / "plasmoids" / package / "contents", root / package / "contents")
-    shutil.copytree(REPO / "aero/plasmoids" / package / "contents", root / package / "contents", dirs_exist_ok=True)
+    for package in PACKAGES:
+        shutil.copytree(REPO / "plasmoids" / package / "contents", root / package / "contents")
+        shutil.copytree(REPO / "aero/plasmoids" / package / "contents", root / package / "contents", dirs_exist_ok=True)
     themes = tmp_path_factory.mktemp("themes")
     shutil.copytree(REPO / "aero/plasma-style/theme", themes / "Chicago95Aero")
-    return root / package / "contents/ui/aero", themes
+    return root, themes
 
 
 @pytest.fixture(scope="module")
@@ -53,8 +54,9 @@ def bar(tmp_path_factory):
     return path
 
 
-def render_part(qt_app, qml_root, installed, bar, tmp_path, component, width, properties):
-    folder, themes = installed
+def render_part(qt_app, qml_root, installed, bar, tmp_path, component, width, properties, package=PACKAGES[0]):
+    packages, themes = installed
+    folder = packages / package / "contents/ui/aero"
     (tmp_path / "strip.qml").write_text(
         STRIP
         % {
@@ -99,3 +101,14 @@ def test_running_task_button_is_windows_7s_outside_the_icon(qt_app, qml_root, in
     theirs = screenshot("win7screenres").crop((247, BAR_TOP, 307, BAR_TOP + 40))
 
     assert glass_difference(ours, theirs) < 20
+
+
+def test_start_button_draws_the_orb_where_windows_7_has_it(qt_app, qml_root, installed, bar, tmp_path):
+    ours = render_part(qt_app, qml_root, installed, bar, tmp_path, "StartButton", 58, {}, "org.chicago95.start")
+    theirs = screenshot("win7dragedge").crop((0, BAR_TOP, 58, BAR_TOP + 40))
+    ring = [(x, y) for x in range(58) for y in range(40) if 121 <= (x + 0.5 - 27.5) ** 2 + (y + 0.5 - 20) ** 2 <= 361]
+    differences = [
+        abs(a - b) for x, y in ring for a, b in zip(ours.getpixel((x, y)), theirs.getpixel((x, y)), strict=True)
+    ]
+
+    assert sum(differences) / len(differences) < 20

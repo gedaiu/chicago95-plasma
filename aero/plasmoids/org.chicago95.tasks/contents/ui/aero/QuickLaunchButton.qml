@@ -13,6 +13,8 @@ Item {
 
     KSvg.FrameSvgItem {
         anchors.fill: parent
+        anchors.leftMargin: 1 // a slot is the 62-pixel pitch; its button is 60 wide in the middle
+        anchors.rightMargin: 1
         imagePath: "widgets/tasks"
         prefix: cell.held ? "launcher-pressed" : cell.hovered ? "launcher-hover" : "launcher"
     }

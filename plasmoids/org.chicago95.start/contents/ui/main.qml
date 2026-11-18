@@ -72,7 +72,7 @@ PlasmoidItem {
         x: -root.panelMarginOverlap
         width: root.buttonWidth
         height: parent.height
-        source: Qt.resolvedUrl(root.isLuna ? "luna/StartButton.qml" : "StartButton.qml")
+        source: Qt.resolvedUrl(Plasmoid.configuration.taskbarStyle === "aero" ? "aero/StartButton.qml" : root.isLuna ? "luna/StartButton.qml" : "StartButton.qml")
     }
     Binding {
         target: button.item

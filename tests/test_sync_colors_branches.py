@@ -100,3 +100,13 @@ def test_with_the_aero_decoration_succeeds_without_redrawing_the_glass_frame(hom
     result = sync_colors(home)
 
     assert (result.returncode, result.stderr) == (0, "")
+
+
+def test_with_the_aero_taskbar_succeeds_without_redrawing_the_glass_bar(home):
+    (home / "config").mkdir()
+    (home / "config/chicago95rc").write_text("[Look]\ntaskbarStyle=aero\n")
+    (home / ".local/share/plasma/desktoptheme/Chicago95").mkdir(parents=True)
+
+    result = sync_colors(home)
+
+    assert (result.returncode, result.stderr) == (0, "")

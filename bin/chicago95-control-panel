@@ -250,8 +250,9 @@ LOOK_PRESETS["luna"] = {
 }
 
 COMPONENT_STYLES = [("Classic", "classic"), ("Windows XP", "luna")]
-# Windows 7's glass is a decoration so far; its widgets and taskbar come later.
+# Windows 7's glass frames and superbar; its widgets come later.
 DECORATION_STYLES = [*COMPONENT_STYLES, ("Windows 7", "aero")]
+TASKBAR_STYLES = DECORATION_STYLES
 START_MENU_STYLES = [
     ("Windows 95", "1995"),
     ("Windows 98", "1998"),
@@ -3326,7 +3327,7 @@ def taskbar_options_tab(settings, actions):
     taskbar_style = tab.choice(
         "TASKBAR_STYLE",
         "Taskbar style:",
-        COMPONENT_STYLES,
+        TASKBAR_STYLES,
         default=LOOK_PRESETS.get(settings.get("LOOK"), LOOK_PRESETS["1995"])["TASKBAR_STYLE"],
     )
     taskbar_style.setToolTip(TASKBAR_STYLE_HELP)

@@ -234,3 +234,16 @@ def test_luna_band_puts_the_grip_10px_before_the_cells_and_the_next_grip_6px_aft
         shape["tasksX"],
     )
     assert (first_grip, cells, second_grip, window_buttons) == (0, 10, 10 + 3 * 23 + 6, 10 + 3 * 23 + 6 + 10)
+
+
+def test_superbar_slots_repeat_every_62_pixels_like_windows_7s_icons(band):
+    """win7screenres.png's icons sit at x 73, 135, 197 (Media Player's narrower one centred there) and its running
+    task's button at 245..304: 60-pixel buttons two apart, the first one 59 pixels in."""
+    aero = call(band, "metrics", "aero")
+    layout = call(band, "layout", 1024, 58, 0, 3, FIT, "left", aero)
+
+    assert (
+        [layout["cellsX"] + index * aero["cellWidth"] + 1 for index in range(3)],
+        layout["tasksX"],
+        aero["taskButtonGap"],
+    ) == ([59, 121, 183], 245, 2)

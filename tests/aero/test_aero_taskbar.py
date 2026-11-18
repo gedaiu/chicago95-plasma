@@ -66,3 +66,27 @@ def test_translucent_bar_over_the_reference_desktop_is_the_windows_7_taskbar_wit
         )
         <= 2
     )
+
+
+ORB_CENTRE, ORB_RADIUS = (27.5, 20.0), 19.5  # in the taskbar's rows: win7dragedge.png's orb at x 27.5, y 748
+
+
+def test_start_orb_outside_its_logo_is_windows_7s_within_twenty_levels(qt_app):
+    from reference import screenshot
+
+    windows_7 = screenshot("win7dragedge")
+    empty_bar = windows_7.crop((600, 728, 601, 768)).resize((58, 40)).convert("RGBA")
+    ours = Image.alpha_composite(empty_bar, rendered(generator.orb_svg(), (58, 40))).convert("RGB")
+    theirs = windows_7.crop((0, 728, 58, 768))
+    cx, cy = ORB_CENTRE
+    ring = [
+        (x, y)
+        for x in range(58)
+        for y in range(40)
+        if 11**2 <= (x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 <= (ORB_RADIUS - 0.5) ** 2
+    ]
+    differences = [
+        abs(a - b) for x, y in ring for a, b in zip(ours.getpixel((x, y)), theirs.getpixel((x, y)), strict=True)
+    ]
+
+    assert sum(differences) / len(differences) < 20

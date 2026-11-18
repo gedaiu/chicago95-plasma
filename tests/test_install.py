@@ -1374,6 +1374,22 @@ def test_aero_decoration_installs_the_glass_theme_selects_it_and_turns_on_kwins_
     ) == (True,) * 4
 
 
+def test_aero_taskbar_installs_the_superbar_style_and_parts_and_a_40_pixel_panel(tmp_path):
+    log = dry_run_log(tmp_path, "--components=look,taskbar", "--taskbar-style=aero")
+    home = str(tmp_path)
+    plasmoids = f"{home}/.local/share/plasma/plasmoids"
+
+    assert (
+        f"cp -r {REPO}/aero/plasma-style/theme {home}/.local/share/plasma/desktoptheme/Chicago95Aero" in log,
+        "plasma-apply-desktoptheme Chicago95Aero" in log,
+        f"cp -r {REPO}/aero/plasmoids/org.chicago95.tasks/contents/ui/aero "
+        f"{plasmoids}/org.chicago95.tasks/contents/ui/aero" in log,
+        f"cp -r {REPO}/aero/plasmoids/org.chicago95.start/contents/ui/aero "
+        f"{plasmoids}/org.chicago95.start/contents/ui/aero" in log,
+        " panel=40 " in log,
+    ) == (True,) * 5
+
+
 def test_look_luna_writes_the_component_keys_to_chicago95rc(tmp_path):
     log = dry_run_log(tmp_path, "--components=look,taskbar,fonts", "--look=luna")
 
@@ -2280,3 +2296,20 @@ def test_window_frames_question_marks_the_looks_own_frame_and_keeps_it_on_enter(
     )
 
     assert lines[-1:] == ["luna"]
+
+
+def test_choosing_the_windows_7_taskbar_after_the_luna_look_selects_the_superbar(tmp_path):
+    lines = run_bash_with_steps(
+        tmp_path, 'apply_look luna; ui_choose() { printf 3; }; choose_taskbar_style; echo "$SETUP_TASKBAR_STYLE"'
+    )
+
+    assert lines[-1:] == ["aero"]
+
+
+def test_taskbar_question_keeps_the_looks_own_taskbar_on_enter(tmp_path):
+    lines = run_bash_with_steps(
+        tmp_path,
+        'apply_look 1998; ui_choose() { printf "%s" "$3"; }; choose_taskbar_style; echo "$SETUP_TASKBAR_STYLE"',
+    )
+
+    assert lines[-1:] == ["classic"]

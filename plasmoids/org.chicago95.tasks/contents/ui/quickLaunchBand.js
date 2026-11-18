@@ -17,10 +17,23 @@ const LUNA_METRICS = Object.assign({}, METRICS, {
   separatorLead: 4,
   separatorBody: 10,
 });
+// The Windows 7 superbar: 60-pixel buttons two pixels apart (win7screenres.png), pinned programs straight after Start
+// and before the running ones. A pinned slot is a whole pitch with its button one pixel in.
+const AERO_METRICS = Object.assign({}, METRICS, {
+  cellWidth: 62,
+  iconInset: 15,
+  separatorLead: 0,
+  separatorLeadAfterStart2000: 0,
+  separatorBody: 0,
+  gapBeforeRightSeparator: 1,
+  gapWithoutQuickLaunch: 1,
+  taskButtonGap: 2,
+});
+const STYLE_METRICS = { luna: LUNA_METRICS, aero: AERO_METRICS };
 const FIT = -1;
 
 function metrics(taskbarStyle) {
-  return taskbarStyle === "luna" ? LUNA_METRICS : METRICS;
+  return STYLE_METRICS[taskbarStyle] ?? METRICS;
 }
 
 // The band's size when it fits every launcher, for QML: a library's constants are not visible there.

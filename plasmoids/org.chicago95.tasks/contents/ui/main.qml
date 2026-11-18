@@ -12,6 +12,7 @@ import "launchers.js" as Launchers
 import "quickLaunch.js" as QuickLaunch
 import "quickLaunchBand.js" as Band
 import "windowMenu.js" as WindowMenu
+import "styleParts.js" as Parts
 
 // The taskbar between the Start button and the tray, as the originals lay it out
 // (tests/test_plasma_taskbar_reference.py): with Quick Launch entries, a separator, their 23px cells
@@ -242,7 +243,7 @@ PlasmoidItem {
         x: root.band.chevronX + root.bandShift
         z: 5
         height: parent.height
-        source: Qt.resolvedUrl(root.isLuna ? "luna/Chevron.qml" : "Chevron.qml")
+        source: Qt.resolvedUrl(Parts.path(Plasmoid.configuration.taskbarStyle, "Chevron.qml"))
         MouseArea {
             id: chevronArea
             anchors.fill: parent
@@ -327,7 +328,7 @@ PlasmoidItem {
                 Loader {
                     id: cell
                     anchors.fill: parent
-                    source: Qt.resolvedUrl(root.isLuna ? "luna/QuickLaunchButton.qml" : "QuickLaunchButton.qml")
+                    source: Qt.resolvedUrl(Parts.path(Plasmoid.configuration.taskbarStyle, "QuickLaunchButton.qml"))
                     opacity: launcherArea.dragging && Launchers.releasedOffTaskbar(launcherArea.pointer.x, launcherArea.pointer.y, root.width, root.height) ? 0.5 : 1
                     Binding {
                         target: cell.item
@@ -399,7 +400,7 @@ PlasmoidItem {
                     Loader {
                         id: face
                         anchors.fill: parent
-                        source: Qt.resolvedUrl(root.isLuna ? "luna/TaskButton.qml" : "TaskButton.qml")
+                        source: Qt.resolvedUrl(Parts.path(Plasmoid.configuration.taskbarStyle, "TaskButton.qml"))
                     }
                     Binding {
                         target: face.item
@@ -441,7 +442,7 @@ PlasmoidItem {
                             property int previewSize: Plasmoid.configuration.previewSize ?? 0
                             property string bevel: Plasmoid.configuration.bevel
                             property color face: Kirigami.Theme.backgroundColor
-                            source: Qt.resolvedUrl(root.isLuna ? "luna/TaskToolTip.qml" : "TaskToolTip.qml")
+                            source: Qt.resolvedUrl(Parts.path(Plasmoid.configuration.taskbarStyle, "TaskToolTip.qml"))
                             Binding {
                                 target: tip.item
                                 property: "title"

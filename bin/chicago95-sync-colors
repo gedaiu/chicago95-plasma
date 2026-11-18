@@ -115,7 +115,8 @@ def main():
     # Aero's glass has no title colours to follow; the other decorations are drawn in the scheme's.
     if decoration in DECORATION_THEMES:
         subprocess.run(decoration_command(decoration, arguments), check=True, stdout=subprocess.DEVNULL)
-    if PLASMA_STYLE_THEMES[plasma_style][1].exists():
+    # Aero's glass bar, like its frame, follows no title colours.
+    if plasma_style in PLASMA_STYLE_THEMES and PLASMA_STYLE_THEMES[plasma_style][1].exists():
         subprocess.run(plasma_style_command(plasma_style, scheme, bevel), check=True, stdout=subprocess.DEVNULL)
     subprocess.run(
         [
