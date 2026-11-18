@@ -38,10 +38,12 @@ PlasmoidItem {
     // Plasma's panel starts its first applet 3px in; the originals' Start button is 2px from the
     // screen's edge, so the button reaches a pixel left of the applet (tests/test_plasma_taskbar_reference.py).
     readonly property bool isLuna: Plasmoid.configuration.taskbarStyle === "luna"
-    readonly property int panelMarginOverlap: isLuna ? 4 : 1
+    // Luna's Start button and Windows 7's orb slot start at the screen's very edge.
+    readonly property bool fromScreenEdge: isLuna || Plasmoid.configuration.taskbarStyle === "aero"
+    readonly property int panelMarginOverlap: fromScreenEdge ? 4 : 1
     readonly property int buttonWidth: button.item ? button.item.implicitWidth : 0
     readonly property int gapAfterButton: Plasmoid.configuration.look === "2001" ? 1 : 0
-    readonly property int appletWidth: buttonWidth - (isLuna ? 0 : panelMarginOverlap) + gapAfterButton
+    readonly property int appletWidth: buttonWidth - (fromScreenEdge ? 0 : panelMarginOverlap) + gapAfterButton
     Layout.minimumWidth: appletWidth
     Layout.preferredWidth: appletWidth
     Layout.maximumWidth: appletWidth

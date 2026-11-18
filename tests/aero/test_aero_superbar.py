@@ -106,7 +106,7 @@ def test_running_task_button_is_windows_7s_outside_the_icon(qt_app, qml_root, in
 def test_start_button_draws_the_orb_where_windows_7_has_it(qt_app, qml_root, installed, bar, tmp_path):
     ours = render_part(qt_app, qml_root, installed, bar, tmp_path, "StartButton", 58, {}, "org.chicago95.start")
     theirs = screenshot("win7dragedge").crop((0, BAR_TOP, 58, BAR_TOP + 40))
-    ring = [(x, y) for x in range(58) for y in range(40) if 121 <= (x + 0.5 - 27.5) ** 2 + (y + 0.5 - 20) ** 2 <= 361]
+    ring = [(x, y) for x in range(58) for y in range(40) if 121 <= (x + 0.5 - 27) ** 2 + (y + 0.5 - 20) ** 2 <= 361]
     differences = [
         abs(a - b) for x, y in ring for a, b in zip(ours.getpixel((x, y)), theirs.getpixel((x, y)), strict=True)
     ]

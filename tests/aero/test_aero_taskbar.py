@@ -68,28 +68,28 @@ def test_translucent_bar_over_the_reference_desktop_is_the_windows_7_taskbar_wit
     )
 
 
-ORB_CENTRE, ORB_RADIUS = (27.5, 20.0), 19.5  # in the taskbar's rows: win7dragedge.png's orb at x 27.5, y 748
+ORB_CENTRE, ORB_RADIUS = (27.0, 20.0), 19.0  # in the taskbar's rows: win7dragedge.png's orb at x 27, y 748
 
 
-def test_start_orb_outside_its_logo_is_windows_7s_within_eighteen_levels(qt_app):
+def test_start_orb_outside_its_logo_is_windows_7s_within_five_levels(qt_app):
     from reference import screenshot
 
     windows_7 = screenshot("win7dragedge")
-    empty_bar = windows_7.crop((600, 728, 601, 768)).resize((58, 40)).convert("RGBA")
-    ours = Image.alpha_composite(empty_bar, rendered(generator.orb_svg(), (58, 40))).convert("RGB")
+    behind_orb = windows_7.crop((2, 728, 3, 768)).resize((58, 40)).convert("RGBA")  # the bar, darkened there
+    ours = Image.alpha_composite(behind_orb, rendered(generator.orb_svg(), (58, 40))).convert("RGB")
     theirs = windows_7.crop((0, 728, 58, 768))
     cx, cy = ORB_CENTRE
     ring = [
         (x, y)
         for x in range(58)
         for y in range(40)
-        if 11**2 <= (x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 <= (ORB_RADIUS - 0.5) ** 2
+        if 14**2 <= (x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 <= ORB_RADIUS**2  # Windows 7's logo reaches 14
     ]
     differences = [
         abs(a - b) for x, y in ring for a, b in zip(ours.getpixel((x, y)), theirs.getpixel((x, y)), strict=True)
     ]
 
-    assert sum(differences) / len(differences) < 18
+    assert sum(differences) / len(differences) < 5
 
 
 @requires_sprites
@@ -111,7 +111,7 @@ def test_show_desktop_face_matches_its_sprite_over_the_bar_within_six_levels(qt_
 
 @pytest.mark.parametrize("rim", [(8, 20), (27, 1), (27, 38)])
 def test_start_orb_rim_is_white_glass_at_thirty_percent(qt_app, rim):
-    # win7dragedge.png's rim is (112, 143, 170) over a (52, 97, 134) bar: white at 30% on every channel.
+    # win7dragedge.png's rim is (112, 143, 170) over the (52, 97, 134) bar behind the orb: white at 30%.
     red, green, blue, alpha = rendered(generator.orb_svg(), (58, 40)).getpixel(rim)
 
     assert (min(red, green, blue) >= 240, abs(alpha - 77) <= 13) == (True, True)
@@ -128,3 +128,27 @@ def test_start_orb_paints_nothing_outside_its_rim(qt_app):
     ]
 
     assert max(outside) == 0
+
+
+def test_start_shade_over_the_bar_is_windows_7s_darkening_behind_the_orb_within_two_levels(qt_app):
+    # Windows 7 darkens the bar's glass behind the orb and fades it out under the first pinned program;
+    # compared on the bar's last row, where neither the orb nor an icon reaches.
+    from reference import screenshot
+
+    shade = rendered(generator.start_shade_svg(), (palette_shade_width(), 38))
+    windows_7 = screenshot("win7screenres")
+    differences = []
+    for y in (37,):
+        glass = windows_7.getpixel((600, 730 + y))
+        for x in range(shade.width):
+            red, green, blue, alpha = shade.getpixel((x, y))
+            seen = [
+                round(c * alpha / 255 + g * (1 - alpha / 255)) for c, g in zip((red, green, blue), glass, strict=True)
+            ]
+            differences += [abs(a - b) for a, b in zip(seen, windows_7.getpixel((x, 730 + y)), strict=True)]
+
+    assert max(differences) <= 2
+
+
+def palette_shade_width():
+    return len(generator.palette.START_SHADE)

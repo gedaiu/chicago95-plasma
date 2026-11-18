@@ -708,6 +708,7 @@ apply_aero_glass() {
   kconf kwinrc Plugins blurEnabled true
   kconf kwinrc Effect-blur BlurStrength "$AERO_BLUR_STRENGTH"
   kconf kwinrc Effect-blur NoiseStrength 0
+  kconf kwinrc Effect-blur Saturation 100 # a percentage; KWin's default saturates the glass, DWM's did not
 }
 
 wants_luna() { [ "${SETUP_DECORATION:-classic}" = luna ] || [ "${SETUP_TASKBAR_STYLE:-classic}" = luna ] || [ "${SETUP_WIDGET_STYLE:-classic}" = luna ]; }

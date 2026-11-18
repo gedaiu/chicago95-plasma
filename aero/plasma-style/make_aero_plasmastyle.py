@@ -11,6 +11,7 @@ tests/aero/fit_aero_stops.py) and drawn with the decoration's face model.
 
 import importlib.util
 import json
+import math
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -25,6 +26,7 @@ def load(name, path):
 
 palette = load("aero_palette", HERE.parent / "palette.py")
 stops = load("aero_plasma_stops", HERE / "stops.py")
+orb = load("aero_orb", HERE / "orb.py")
 faces = load("aero_faces", HERE.parent / "aurorae/make_aero_aurorae.py")
 
 PANEL_WIDTH = 10
@@ -136,17 +138,18 @@ def tasks_svg():
     return faces_svg(stops.TASK_FACES)
 
 
-# The Start orb's sphere, 39 pixels across at (27.5, 20) in a 58 by 40 bar slot (win7dragedge.png's at x 27.5,
+# The Start orb's sphere, 38 pixels across at (27, 20) in a 58 by 40 bar slot (win7dragedge.png's at x 27,
 # y 748): a navy body darkening outwards, cyan light pooling at its foot, a white gloss over its upper half, and a
-# dark ring inside a rim of white glass. The program logo Setup chose is laid over its middle, never drawn here.
-ORB = {"centre": (27.5, 20)}
+# rim of white glass; outside the logo the glass is orb.py's fitted shell. The program logo Setup chose is laid
+# over its middle, never drawn here.
+ORB = {"centre": (27, 20)}
 ORB_BODY = (("#1590CB", 0), ("#0063A1", 0.07), ("#083E6C", 0.16), ("#024973", 1))
 ORB_GLOW = (("#03E5FF", 1), ("#1DBCFF", 0.6), ("#0094FF", 0))
 ORB_GLOSS = (("#FFFFFF", 0.88), ("#FFFFFF", 0))
-ORB_GLOSS_SHAPE = {"chord": -0.5, "sag": 7}  # the gloss cap ends this far above the centre, bowing down this far
+ORB_GLOSS_SHAPE = {"chord": -0.5, "sag": 7, "fade": 0}  # the cap ends this far above the centre, bowing down
+# this far; its white fades out this far below the centre
 ORB_GLOW_SHAPE = {"drop": 15, "radius": 18}  # where the cyan light pools below the centre, and how far it spreads
-ORB_RIM = {"inner": 18, "outer": 19.5, "opacity": 0.3}  # white glass round the body: the bar shows through it
-ORB_RINGS = (("#1D5480", 18),)
+ORB_RIM = {"inner": 18, "outer": 19, "opacity": 0.3}  # white glass round the body: the bar shows through it
 
 
 def gloss_path(cx, cy, radius):
@@ -161,10 +164,32 @@ def gloss_path(cx, cy, radius):
     )
 
 
+def shell_markup(cx, cy):
+    """The glass outside the logo: rings orb.RING_WIDTH wide, cut into orb.SECTORS arcs of orb.SHELL's colours."""
+    number = faces.number
+    step = math.tau / orb.SECTORS
+
+    def point(radius, angle):
+        return f"{number(round(cx + radius * math.cos(angle), 3))},{number(round(cy + radius * math.sin(angle), 3))}"
+
+    shapes = []
+    for index, colours in enumerate(orb.SHELL):
+        inner, outer = orb.SHELL_FROM + index * orb.RING_WIDTH, orb.SHELL_FROM + (index + 1) * orb.RING_WIDTH
+        for sector, colour in enumerate(colours):
+            start, end = sector * step, (sector + 1) * step
+            shapes.append(
+                f'<path d="M{point(inner, start)}L{point(outer, start)}A{number(outer)},{number(outer)} 0 0 1 '
+                f"{point(outer, end)}L{point(inner, end)}A{number(inner)},{number(inner)} 0 0 0 "
+                f'{point(inner, start)}z" fill="{colour}"/>'
+            )
+    return "", "".join(shapes)
+
+
 def orb_svg():
     (cx, cy) = ORB["centre"]
     radius = ORB_RIM["inner"]
     rim_width = ORB_RIM["outer"] - ORB_RIM["inner"]
+    shell_definitions, shell_shapes = shell_markup(cx, cy)
     number = faces.number
     body = "".join(f'<stop offset="{number(round(offset, 3))}" stop-color="{colour}"/>' for colour, offset in ORB_BODY)
     glow = "".join(
@@ -175,10 +200,6 @@ def orb_svg():
         f'<stop offset="{number(offset)}" stop-color="{colour}" stop-opacity="{number(opacity)}"/>'
         for (colour, opacity), offset in zip(ORB_GLOSS, (0, 1), strict=True)
     )
-    rings = "".join(
-        f'<circle cx="{number(cx)}" cy="{number(cy)}" r="{number(ring - 0.5)}" fill="none" stroke="{colour}"/>'
-        for colour, ring in ORB_RINGS
-    )
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" width="58" height="40"><defs>'
         f'<radialGradient id="orb-body" cx="{number(cx)}" cy="{number(cy)}" r="{number(radius)}" '
@@ -186,15 +207,27 @@ def orb_svg():
         f'<radialGradient id="orb-glow" cx="{number(cx)}" cy="{number(cy + ORB_GLOW_SHAPE["drop"])}" '
         f'r="{number(ORB_GLOW_SHAPE["radius"])}" '
         f'gradientUnits="userSpaceOnUse">{glow}</radialGradient>'
-        f'<linearGradient id="orb-gloss" x1="0" y1="{number(cy - radius)}" x2="0" y2="{number(cy)}" '
-        f'gradientUnits="userSpaceOnUse">{gloss}</linearGradient></defs>'
+        f'<linearGradient id="orb-gloss" x1="0" y1="{number(cy - radius)}" x2="0" '
+        f'y2="{number(cy + ORB_GLOSS_SHAPE["fade"])}" '
+        f'gradientUnits="userSpaceOnUse">{gloss}</linearGradient>{shell_definitions}</defs>'
         f'<g id="orb"><circle cx="{number(cx)}" cy="{number(cy)}" r="{number(radius)}" fill="url(#orb-body)"/>'
         f'<circle cx="{number(cx)}" cy="{number(cy)}" r="{number(radius - 1)}" fill="url(#orb-glow)"/>'
         f'<path d="{gloss_path(cx, cy, radius)}" fill="url(#orb-gloss)"/>'
-        f"{rings}"
+        f"{shell_shapes}"
         f'<circle cx="{number(cx)}" cy="{number(cy)}" r="{number(radius + rim_width / 2)}" fill="none" '
         f'stroke="#FFFFFF" stroke-opacity="{number(ORB_RIM["opacity"])}" stroke-width="{number(rim_width)}"/>'
         "</g></svg>\n"
+    )
+
+
+def start_shade_svg():
+    """The bar's darkening behind the orb, from the screen's edge, below the bar's top line and highlight."""
+    width, height = len(palette.START_SHADE), palette.TASKBAR_HEIGHT - palette.START_SHADE_TOP
+    shade = [round(alpha / 255, 3) for alpha in palette.START_SHADE]
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">'
+        f"<defs>{faces.shade_gradient('shade', shade)}</defs>"
+        f'<rect id="shade" x="0" y="0" width="{width}" height="{height}" fill="url(#shade)"/></svg>\n'
     )
 
 
@@ -205,6 +238,7 @@ def write_theme(out):
     (out / "translucent/widgets/panel-background.svg").write_text(panel_svg(translucent=True))
     (out / "widgets/tasks.svg").write_text(tasks_svg())
     (out / "widgets/startbutton.svg").write_text(orb_svg())
+    (out / "widgets/startshade.svg").write_text(start_shade_svg())
     (out / "widgets/showdesktop.svg").write_text(faces_svg(stops.SHOW_DESKTOP_FACES))
     (out / "metadata.json").write_text(json.dumps(METADATA, indent=2) + "\n")
 

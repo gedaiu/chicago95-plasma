@@ -2313,3 +2313,11 @@ def test_taskbar_question_keeps_the_looks_own_taskbar_on_enter(tmp_path):
     )
 
     assert lines[-1:] == ["classic"]
+
+
+def test_aero_glass_keeps_kwins_blur_from_saturating_the_desktop_behind_it(tmp_path):
+    # KWin's blur saturates what it blurs above 100%; DWM's glass kept its colours, as a session over
+    # win7screenres.png's desktop shows (tests/aero/test_aero_session.py).
+    log = dry_run_log(tmp_path, "--components=look", "--decoration=aero")
+
+    assert "kwriteconfig6 --file kwinrc --group Effect-blur --key Saturation 100" in log

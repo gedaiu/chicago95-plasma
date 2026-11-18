@@ -40,7 +40,7 @@ def test_orb_at_rest_has_no_glow(qt_app, tmp_path):
 
 
 def test_active_orb_glows_in_the_logos_colour_beyond_the_logo(qt_app, tmp_path):
-    # The logo is 20 pixels across the orb's centre (27.5, 20); 13 pixels out is past its edge, still on the orb.
+    # The logo is 20 pixels across the orb's centre (27, 20); 13 pixels out is past its edge, still on the orb.
     red, green, blue, alpha = glow(qt_app, red_logo(tmp_path), True).getpixel((27 + 13, 20))
 
     assert (alpha > 40, red > 2 * green, red > 2 * blue) == (True, True, True)

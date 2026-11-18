@@ -21,6 +21,14 @@ Item {
         id: pointer
     }
 
+    // Windows 7 darkens the bar behind the orb, fading out under the first pinned program, past the orb's slot.
+    KSvg.SvgItem {
+        imagePath: "widgets/startshade"
+        x: 0
+        y: orb.y + 2 // below the bar's top line and highlight (palette.START_SHADE_TOP)
+        width: implicitWidth
+        height: implicitHeight
+    }
     KSvg.SvgItem {
         id: orb
         imagePath: "widgets/startbutton" // the whole picture: the orb sits in it where Windows 7's does
@@ -38,7 +46,7 @@ Item {
         active: button.hovered || button.held
     }
     Image {
-        x: 27.5 - width / 2
+        x: 27 - width / 2
         y: orb.y + 20 - height / 2
         width: button.logoSize
         height: button.logoSize

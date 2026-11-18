@@ -7,7 +7,7 @@ Item {
     id: glow
     property url source
     property bool active
-    property point centre: Qt.point(27.5, 20)
+    property point centre: Qt.point(27, 20)
     property int logoSize: 20
 
     // How far the light spreads past the logo, and how bright it blooms.

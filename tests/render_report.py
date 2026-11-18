@@ -1163,14 +1163,22 @@ AERO = "aero"  # Windows 7: components so far, not yet a look
 
 
 def aero_desktop():
-    """A nested KWin desktop in the Luna look, with the Aero frames and superbar; None without KWin and Plasma."""
+    """A nested KWin desktop in the Luna look, with the Aero frames and superbar, over the plain blue desktop of
+    Windows 7's references so its glass shows what theirs does; None without KWin and Plasma."""
+    from aero_model import REFERENCE_DESKTOP
     from plasma_session import desktop_session, missing_programs
 
     if missing_programs():
         return None
     work = tempfile.mkdtemp(prefix="c95-aero-", dir="/tmp")  # short: Wayland's socket path limit
     try:
-        return desktop_session("luna", work, settings=[("DECORATION", AERO)], taskbar_style=AERO)
+        return desktop_session(
+            "luna",
+            work,
+            settings=[("DECORATION", AERO), ("BACKGROUND_MODE", "color"), ("BACKGROUND_COLOR", REFERENCE_DESKTOP)],
+            components=["background"],
+            taskbar_style=AERO,
+        )
     finally:
         shutil.rmtree(work, ignore_errors=True)
 
