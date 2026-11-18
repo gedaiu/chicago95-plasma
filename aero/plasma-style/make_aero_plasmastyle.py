@@ -138,18 +138,33 @@ def tasks_svg():
 
 # The Start orb's sphere, 39 pixels across at (27.5, 20) in a 58 by 40 bar slot (win7dragedge.png's at x 27.5,
 # y 748): a navy body darkening outwards, cyan light pooling at its foot, a white gloss over its upper half, and a
-# dark ring inside a light rim. The program logo Setup chose is laid over its middle, never drawn here.
-ORB = {"centre": (27.5, 20), "radius": 19.5}
-ORB_BODY = (("#1590CB", 0), ("#117BB9", 0.55), ("#0B4A78", 0.7), ("#02436D", 0.88))
-ORB_GLOW = (("#03DFFD", 1), ("#0BB6E6", 0.6), ("#0B94C1", 0))
-ORB_GLOSS = (("#FFFFFF", 0.85), ("#FFFFFF", 0))
-ORB_GLOSS_SHAPE = {"rise": 7, "inset": 2, "height": 10}  # the gloss ellipse: above the centre, inside the rim, tall
-ORB_GLOW_SHAPE = {"drop": 13, "radius": 16}  # where the cyan light pools below the centre, and how far it spreads
-ORB_RINGS = (("#1D5480", 18), ("#6789A4", 19))
+# dark ring inside a rim of white glass. The program logo Setup chose is laid over its middle, never drawn here.
+ORB = {"centre": (27.5, 20)}
+ORB_BODY = (("#1590CB", 0), ("#0063A1", 0.07), ("#083E6C", 0.16), ("#024973", 1))
+ORB_GLOW = (("#03E5FF", 1), ("#1DBCFF", 0.6), ("#0094FF", 0))
+ORB_GLOSS = (("#FFFFFF", 0.88), ("#FFFFFF", 0))
+ORB_GLOSS_SHAPE = {"chord": -0.5, "sag": 7}  # the gloss cap ends this far above the centre, bowing down this far
+ORB_GLOW_SHAPE = {"drop": 15, "radius": 18}  # where the cyan light pools below the centre, and how far it spreads
+ORB_RIM = {"inner": 18, "outer": 19.5, "opacity": 0.3}  # white glass round the body: the bar shows through it
+ORB_RINGS = (("#1D5480", 18),)
+
+
+def gloss_path(cx, cy, radius):
+    """The gloss: the body's upper arc, closed by a curve bowing down between its ends, so it stays on the body."""
+    chord, sag = ORB_GLOSS_SHAPE["chord"], ORB_GLOSS_SHAPE["sag"]
+    half = (radius**2 - chord**2) ** 0.5
+    number = faces.number
+    left, right, y = number(round(cx - half, 3)), number(round(cx + half, 3)), number(cy - chord)
+    return (
+        f"M{left},{y}A{number(radius)},{number(radius)} 0 0 1 {right},{y}"
+        f"Q{number(cx)},{number(cy - chord + 2 * sag)} {left},{y}z"
+    )
 
 
 def orb_svg():
-    (cx, cy), radius = ORB["centre"], ORB["radius"]
+    (cx, cy) = ORB["centre"]
+    radius = ORB_RIM["inner"]
+    rim_width = ORB_RIM["outer"] - ORB_RIM["inner"]
     number = faces.number
     body = "".join(f'<stop offset="{number(round(offset, 3))}" stop-color="{colour}"/>' for colour, offset in ORB_BODY)
     glow = "".join(
@@ -175,10 +190,11 @@ def orb_svg():
         f'gradientUnits="userSpaceOnUse">{gloss}</linearGradient></defs>'
         f'<g id="orb"><circle cx="{number(cx)}" cy="{number(cy)}" r="{number(radius)}" fill="url(#orb-body)"/>'
         f'<circle cx="{number(cx)}" cy="{number(cy)}" r="{number(radius - 1)}" fill="url(#orb-glow)"/>'
-        f'<ellipse cx="{number(cx)}" cy="{number(cy - ORB_GLOSS_SHAPE["rise"])}" '
-        f'rx="{number(radius - ORB_GLOSS_SHAPE["inset"])}" ry="{number(ORB_GLOSS_SHAPE["height"])}" '
-        'fill="url(#orb-gloss)"/>'
-        f"{rings}</g></svg>\n"
+        f'<path d="{gloss_path(cx, cy, radius)}" fill="url(#orb-gloss)"/>'
+        f"{rings}"
+        f'<circle cx="{number(cx)}" cy="{number(cy)}" r="{number(radius + rim_width / 2)}" fill="none" '
+        f'stroke="#FFFFFF" stroke-opacity="{number(ORB_RIM["opacity"])}" stroke-width="{number(rim_width)}"/>'
+        "</g></svg>\n"
     )
 
 

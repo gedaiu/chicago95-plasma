@@ -1,7 +1,8 @@
 import QtQuick
 import org.kde.ksvg as KSvg
 
-// The Windows 7 Start orb: the Aero style's glass sphere with the logo Setup chose laid over its middle.
+// The Windows 7 Start orb: the Aero style's glass sphere with the logo Setup chose laid over its middle, glowing in
+// the logo's colours under the pointer and while held.
 Item {
     id: button
     property string text // the orb has no lettering
@@ -29,8 +30,12 @@ Item {
         x: 0
         width: implicitWidth
         height: implicitHeight
-        // Windows 7's orb brightens under the pointer and darkens while held.
-        opacity: button.held ? 0.85 : 1
+    }
+    LogoGlow {
+        y: orb.y
+        source: button.logoSource
+        logoSize: button.logoSize
+        active: button.hovered || button.held
     }
     Image {
         x: 27.5 - width / 2

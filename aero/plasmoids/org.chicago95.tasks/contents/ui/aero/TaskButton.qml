@@ -2,7 +2,8 @@ import QtQuick
 import org.kde.ksvg as KSvg
 import org.kde.kirigami as Kirigami
 
-// A Windows 7 superbar button: the program's icon on TaskBand2's glass, lighter while its window has the focus.
+// A Windows 7 superbar button: the program's icon on TaskBand2's glass, lighter while its window has the focus,
+// lit in the icon's colour under the pointer.
 Item {
     id: task
     property string text
@@ -22,6 +23,16 @@ Item {
         anchors.fill: parent
         imagePath: "widgets/tasks"
         prefix: (task.pressed ? "focus" : "") + (task.pressed && task.hovered ? "-" : "") + (task.hovered ? "hover" : "") || "normal"
+    }
+    Kirigami.ImageColors {
+        id: iconColours
+        source: task.icon
+    }
+    HoverGlow {
+        anchors.fill: parent
+        visible: task.hovered
+        tint: iconColours.dominant
+        pointerX: pointer.point.position.x
     }
     Kirigami.Icon {
         anchors.centerIn: parent

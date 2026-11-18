@@ -181,3 +181,9 @@ captures at 96 DPI over the plain blue background, so the glass tint is measured
 | `win7dragedge.png` | http://toastytech.com/guis/win7dragedge.png (Notepad in the active glass frame with its red Close button, menu bar and scroll bar, beside the Aero Snap preview and its glass streaks) |
 | `win7peek.png` | http://toastytech.com/guis/win7peek.png (Aero Peek over the desktop) |
 | `win7gadgets.png` | http://toastytech.com/guis/win7gadgets.png (desktop gadgets) |
+| `win7allprograms.png` | http://toastytech.com/guis/win7allprograms.png (the Start menu open on All Programs: the white program list, the glass right column, the search box and the Shut down button) |
+| `win7shutdown.png` | http://toastytech.com/guis/win7shutdown.png (the Start menu with the Shut down arrow's menu open) |
+
+`win7startmenu-techrepublic.jpg` is https://assets.techrepublic.com/uploads/2010/09/467791.png (446x671, a JPEG
+despite its name): the Start menu's front page with pinned and recent programs and their jump-list arrows. It is lossy,
+so it is for layout and behaviour only, never for colours.

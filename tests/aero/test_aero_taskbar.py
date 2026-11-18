@@ -71,7 +71,7 @@ def test_translucent_bar_over_the_reference_desktop_is_the_windows_7_taskbar_wit
 ORB_CENTRE, ORB_RADIUS = (27.5, 20.0), 19.5  # in the taskbar's rows: win7dragedge.png's orb at x 27.5, y 748
 
 
-def test_start_orb_outside_its_logo_is_windows_7s_within_twenty_levels(qt_app):
+def test_start_orb_outside_its_logo_is_windows_7s_within_eighteen_levels(qt_app):
     from reference import screenshot
 
     windows_7 = screenshot("win7dragedge")
@@ -89,7 +89,7 @@ def test_start_orb_outside_its_logo_is_windows_7s_within_twenty_levels(qt_app):
         abs(a - b) for x, y in ring for a, b in zip(ours.getpixel((x, y)), theirs.getpixel((x, y)), strict=True)
     ]
 
-    assert sum(differences) / len(differences) < 20
+    assert sum(differences) / len(differences) < 18
 
 
 @requires_sprites
@@ -107,3 +107,24 @@ def test_show_desktop_face_matches_its_sprite_over_the_bar_within_six_levels(qt_
     ]
 
     assert sum(differences) / len(differences) < 6
+
+
+@pytest.mark.parametrize("rim", [(8, 20), (27, 1), (27, 38)])
+def test_start_orb_rim_is_white_glass_at_thirty_percent(qt_app, rim):
+    # win7dragedge.png's rim is (112, 143, 170) over a (52, 97, 134) bar: white at 30% on every channel.
+    red, green, blue, alpha = rendered(generator.orb_svg(), (58, 40)).getpixel(rim)
+
+    assert (min(red, green, blue) >= 240, abs(alpha - 77) <= 13) == (True, True)
+
+
+def test_start_orb_paints_nothing_outside_its_rim(qt_app):
+    orb = rendered(generator.orb_svg(), (58, 40))
+    cx, cy = ORB_CENTRE
+    outside = [
+        orb.getpixel((x, y))[3]
+        for x in range(58)
+        for y in range(40)
+        if (x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 > (ORB_RADIUS + 1) ** 2
+    ]
+
+    assert max(outside) == 0
