@@ -383,7 +383,8 @@ def desktop_session(
 
     content = CONTENT[look]
     if windows is not None:
-        content = {**content, "windows": list(windows), "active": windows[0][0] if windows else ""}
+        shown = [title for title, _toolkit, place in windows if place != "minimized"]
+        content = {**content, "windows": list(windows), "active": shown[0] if shown else ""}  # minimized: not active
     if launchers is not None:
         content = {**content, "launchers": launchers}
     applications = home / ".local/share/applications"

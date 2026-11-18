@@ -51,20 +51,30 @@ generator.
 generator by `tests/aero/test_aero_taskbar.py`):
 
 - **The bar** is the references' 40 rows. Plasma draws `translucent/widgets/panel-background.svg` over KWin's blur
-  when compositing, solved row by row so it shows win7dragedge.png's bar over its desktop.
-- **The task buttons** (`widgets/tasks.svg`) are TaskBand2's ten TASKITEM states as vector faces: running, focused,
-  attention and pinned, each with its pointer states. Those PNG resources store premultiplied colours, which
-  `aero_sprites.straight` reads back to straight alpha.
+  when compositing, solved row by row so it shows win7dragedge.png's bar, without DWM's streaks, over its desktop.
+  KWin's blur saturates what it blurs above 100%, which DWM's did not, so Setup sets its saturation to 100.
+- **The darkening behind the orb** (`widgets/startshade.svg`) is an ellipse anchored at the bar's bottom-left corner,
+  fitted to the references (`palette.START_SHADE`), fading out under the first pinned program.
+- **The task buttons** (`widgets/tasks.svg`) are TaskBand2's TASKITEM states the superbar draws: running, focused and
+  attention, with their pointer states. Each is a vector face (a base per row, a white gloss bounded by a curve and
+  fading from an elliptical highlight, and exact edge lines) fitted by drawing it (`fit_aero_stops.py`), every
+  column within four levels of its sprite. A pinned program at rest is its icon alone. Those PNG resources store
+  premultiplied colours, which `aero_sprites.straight` reads back to straight alpha.
 - **Show desktop** (`widgets/showdesktop.svg`) comes from ShowDesktop::Button's three states.
-- **The Start orb** (`widgets/startbutton.svg`) is a vector sphere fitted to Windows 7's, outside its logo, in a rim
-  of white glass at 30% that the bar shows through. The logo is the one Setup's branding chose, never drawn here.
+- **The Start orb** (`widgets/startbutton.svg`) is a vector sphere centred at x 27 in a slot from the screen's edge,
+  in a one-pixel rim of white glass at 30% that the bar shows through. Outside its logo the glass is half-pixel rings
+  of arcs fitted to win7dragedge.png (`orb.py`, by `tests/aero/fit_aero_orb.py`), within five levels. The logo is the one Setup's branding chose, never drawn here.
   Under the pointer it glows in the logo's own colours (`LogoGlow.qml`), as light only, so a dark outline adds
   nothing (win7allprograms.png); at rest there is no glow.
 - **The hover light** (`HoverGlow.qml`) washes a hovered button in its icon's hue at full brightness and paler,
   brightest at its foot under the pointer (win7peek.png).
 
 The QML parts live in `plasmoids/*/contents/ui/aero/`, and `styleParts.js` picks them for the taskbar style `aero`.
-Buttons sit on a 62-pixel pitch, 60 wide and 2 apart, as the references' icons do.
+Buttons sit on a 62-pixel pitch from x 59, 60 wide and 2 apart, with no Quick Launch separators, as the references'.
+
+`tests/aero/test_aero_session.py` runs the superbar in a nested KWin and Plasma session laid out as
+win7screenres.png (three pinned programs and a running task, over its plain blue desktop) and compares it with
+Windows 7 pixel for pixel: the bar, the orb, the pinned slots and their pitch, and the running task's button.
 
 ## Known limits
 
@@ -72,7 +82,8 @@ Buttons sit on a 62-pixel pitch, 60 wide and 2 apart, as the references' icons d
   Windows 7's default 49% share for the background, and the colour is solved to give the references' median. A
   screenshot of glass over a varied wallpaper would let both be fitted.
 - **Streaks and afterglow.** Windows 7's screen-anchored streaks, and its afterglow that follows the background's
-  brightness, need a compositor shader; a decoration cannot draw them.
+  brightness, need a compositor shader; a decoration or a stretched panel cannot draw them. On the bar they are
+  whole columns a few levels lighter or darker than its plain rows.
 - **Title glow.** KWin 6's Aurorae draws no halo behind the title.
 - **Superbar grouping.** A pinned program that is running shows twice, pinned and as a task, where Windows 7 merges
   them; jump lists and thumbnails are Plasma's own.

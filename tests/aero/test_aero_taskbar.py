@@ -5,7 +5,7 @@ import importlib.util
 import pytest
 from aero_sprites import requires_sprites
 from conftest import REPO
-from fit_aero_stops import TASK_STATES, task_image
+from fit_aero_stops import DRAWN_TASK_STATES, TASK_STATES, task_image
 from PIL import Image
 from test_aero_buttons import rendered
 
@@ -24,18 +24,22 @@ def over_bar(image):
 
 
 @requires_sprites
-@pytest.mark.parametrize("state", TASK_STATES)
-def test_task_button_face_matches_its_sprite_over_the_bar_within_six_levels(qt_app, state):
+@pytest.mark.parametrize("state", DRAWN_TASK_STATES)
+def test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column(qt_app, state):
+    # Column by column, so a gloss drawn in the wrong place cannot hide in the whole face's average.
     sprite = task_image(TASK_STATES.index(state))
     ours = over_bar(rendered(generator.task_face_svg(state), sprite.size))
     theirs = over_bar(sprite)
-    differences = [
-        abs(a - b)
-        for p, q in zip(ours.get_flattened_data(), theirs.get_flattened_data(), strict=True)
-        for a, b in zip(p, q, strict=True)
+    columns = [
+        sum(
+            max(abs(a - b) for a, b in zip(ours.getpixel((x, y)), theirs.getpixel((x, y)), strict=True))
+            for y in range(sprite.height)
+        )
+        / sprite.height
+        for x in range(sprite.width)
     ]
 
-    assert sum(differences) / len(differences) < 6
+    assert max(columns) <= 4
 
 
 THEME = REPO / "aero/plasma-style/theme"
@@ -50,22 +54,14 @@ def test_committed_plasma_style_equals_generator_output(tmp_path):
 
 
 def test_translucent_bar_over_the_reference_desktop_is_the_windows_7_taskbar_within_two_levels(qt_app):
-    from aero_model import REFERENCE_DESKTOP
-    from reference import screenshot
+    from aero_model import REFERENCE_DESKTOP, plain_bar
 
     bar = rendered((THEME / "translucent/widgets/panel-background.svg").read_text(), (28, 40)).crop((0, 0, 10, 40))
     seen = Image.new("RGBA", bar.size, REFERENCE_DESKTOP)
     seen.alpha_composite(bar)
-    windows_7 = screenshot("win7dragedge").crop((600, 728, 601, 768))
+    windows_7 = plain_bar("win7dragedge")
 
-    assert (
-        max(
-            abs(a - b)
-            for y in range(40)
-            for a, b in zip(seen.getpixel((5, y))[:3], windows_7.getpixel((0, y)), strict=True)
-        )
-        <= 2
-    )
+    assert max(abs(a - b) for y in range(40) for a, b in zip(seen.getpixel((5, y))[:3], windows_7[y], strict=True)) <= 2
 
 
 ORB_CENTRE, ORB_RADIUS = (27.0, 20.0), 19.0  # in the taskbar's rows: win7dragedge.png's orb at x 27, y 748
@@ -130,25 +126,26 @@ def test_start_orb_paints_nothing_outside_its_rim(qt_app):
     assert max(outside) == 0
 
 
-def test_start_shade_over_the_bar_is_windows_7s_darkening_behind_the_orb_within_two_levels(qt_app):
-    # Windows 7 darkens the bar's glass behind the orb and fades it out under the first pinned program;
-    # compared on the bar's last row, where neither the orb nor an icon reaches.
+def test_start_shade_over_the_bar_is_windows_7s_darkening_behind_the_orb_within_four_levels(qt_app):
+    # Windows 7 darkens the bar's glass behind the orb and fades it out under the first pinned program, sooner in
+    # the upper rows than at the foot. Compared where neither the orb nor Internet Explorer's pinned icon lies, over
+    # the bar as it shows at x 120, past the darkening.
     from reference import screenshot
 
-    shade = rendered(generator.start_shade_svg(), (palette_shade_width(), 38))
+    shade_top = generator.palette.START_SHADE_TOP
+    shade = Image.new("RGBA", (120, 40 - shade_top))
+    shade.paste(rendered(generator.start_shade_svg(), (generator.palette.START_SHADE["reach"], 40 - shade_top)))
     windows_7 = screenshot("win7screenres")
     differences = []
-    for y in (37,):
-        glass = windows_7.getpixel((600, 730 + y))
-        for x in range(shade.width):
-            red, green, blue, alpha = shade.getpixel((x, y))
+    for y in range(shade_top, 40):
+        glass = windows_7.getpixel((120, 728 + y))
+        for x in range(120):
+            if 69 <= x <= 108 and y <= 37 or (x - 27) ** 2 + (y - 20) ** 2 <= 20.5**2:
+                continue
+            red, green, blue, alpha = shade.getpixel((x, y - shade_top))
             seen = [
                 round(c * alpha / 255 + g * (1 - alpha / 255)) for c, g in zip((red, green, blue), glass, strict=True)
             ]
-            differences += [abs(a - b) for a, b in zip(seen, windows_7.getpixel((x, 730 + y)), strict=True)]
+            differences += [abs(a - b) for a, b in zip(seen, windows_7.getpixel((x, 728 + y)), strict=True)]
 
-    assert max(differences) <= 2
-
-
-def palette_shade_width():
-    return len(generator.palette.START_SHADE)
+    assert max(differences) <= 4

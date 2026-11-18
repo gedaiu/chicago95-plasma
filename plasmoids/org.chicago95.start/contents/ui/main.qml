@@ -43,7 +43,8 @@ PlasmoidItem {
     readonly property int panelMarginOverlap: fromScreenEdge ? 4 : 1
     readonly property int buttonWidth: button.item ? button.item.implicitWidth : 0
     readonly property int gapAfterButton: Plasmoid.configuration.look === "2001" ? 1 : 0
-    readonly property int appletWidth: buttonWidth - (fromScreenEdge ? 0 : panelMarginOverlap) + gapAfterButton
+    // Windows 7's first pinned program follows the orb's 58-pixel slot, which begins at the screen's edge.
+    readonly property int appletWidth: buttonWidth - (isLuna ? 0 : panelMarginOverlap) + gapAfterButton
     Layout.minimumWidth: appletWidth
     Layout.preferredWidth: appletWidth
     Layout.maximumWidth: appletWidth

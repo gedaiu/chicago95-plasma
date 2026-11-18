@@ -35,6 +35,8 @@ PlasmoidItem {
     Layout.fillHeight: true
 
     readonly property bool isLuna: Plasmoid.configuration.taskbarStyle === "luna"
+    // Windows 7's superbar has no Quick Launch band to drag: its pinned programs have no separators.
+    readonly property bool showsSeparators: launcherCount > 0 && Plasmoid.configuration.taskbarStyle !== "aero"
     readonly property int contentX: -Kirigami.Units.smallSpacing   // the panel's gap between applets
     readonly property bool showQuickLaunch: QuickLaunch.shown(Plasmoid.configuration.quickLaunch, Plasmoid.configuration.look)
     readonly property int maxButtonWidth: Sizing.maxButtonWidth(Plasmoid.configuration.maxButtonWidth, Plasmoid.configuration.look)
@@ -218,7 +220,7 @@ PlasmoidItem {
     SeparatorSeam {
         id: leftSeparator
         luna: root.isLuna
-        visible: root.launcherCount > 0
+        visible: root.showsSeparators
         x: root.band.leftSeparatorX + root.bandShift
         z: 5
         height: parent.height
@@ -230,7 +232,7 @@ PlasmoidItem {
         id: rightSeparator
         luna: root.isLuna
         lead: root.metrics.separatorLead
-        visible: root.launcherCount > 0
+        visible: root.showsSeparators
         x: root.band.rightSeparatorX + root.bandShift
         z: 5
         height: parent.height

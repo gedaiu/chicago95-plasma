@@ -110,20 +110,94 @@ def panel_svg(translucent):
     )
 
 
+def row_gradient(gradient_id, row, x0):
+    """One row's colours across the face's inner columns, from x0."""
+    return (
+        f'<linearGradient id="{gradient_id}" x1="{x0}" y1="0" x2="{x0 + len(row)}" y2="0" '
+        f'gradientUnits="userSpaceOnUse">{faces.held_stops(row, lambda value: faces.paint(*value))}</linearGradient>'
+    )
+
+
+def glossy_face_markup(face, prefix, origin):
+    """A superbar button face: each inner row's base colour, a white gloss over its top left bounded by a quadratic
+    curve and fading out from an elliptical highlight, the face's top and bottom rows across, and its edge columns
+    down."""
+    number = faces.number
+    width, height = face["size"]
+    edge, top, bottom = len(face["left"]), len(face["top"]), len(face["bottom"])
+    x0, y0 = origin
+    inner_left, inner_right = x0 + edge, x0 + width - edge
+    gloss = face["gloss"]
+    (start, curve_x, curve_y, end), (centre_x, centre_y), (radius_x, radius_y) = (
+        gloss["curve"],
+        gloss["centre"],
+        gloss["radii"],
+    )
+    base = "".join(
+        f'<stop offset="{number(round((top + edge_row) / height, 4))}" {faces.paint(*colour)}/>'
+        for row, colour in enumerate(face["rows"])
+        for edge_row in (row, row + 1)
+    )
+    definitions = [
+        f'<linearGradient id="{prefix}b" x1="0" y1="{y0}" x2="0" y2="{y0 + height}" gradientUnits="userSpaceOnUse">'
+        f"{base}</linearGradient>",
+        f'<radialGradient id="{prefix}g" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" '
+        f'gradientTransform="translate({number(x0 + centre_x)} {number(y0 + centre_y)}) '
+        f'scale({number(radius_x)} {number(radius_y)})">'
+        + "".join(
+            f'<stop offset="{offset}" stop-color="#FFFFFF" stop-opacity="{number(opacity)}"/>'
+            for offset, opacity in zip((0, 0.5, 1), gloss["opacity"], strict=True)
+        )
+        + "</radialGradient>",
+    ]
+    shapes = [
+        f'<rect x="{inner_left}" y="{y0 + top}" width="{inner_right - inner_left}" '
+        f'height="{height - top - bottom}" fill="url(#{prefix}b)"/>',
+        f'<path d="M{inner_left},{y0 + top}H{inner_right}V{number(y0 + end)}'
+        f'Q{number(x0 + curve_x)},{number(y0 + curve_y)} {inner_left},{number(y0 + start)}z" fill="url(#{prefix}g)"/>',
+    ]
+    for index, (row, y) in enumerate(
+        [(row, y0 + y) for y, row in enumerate(face["top"])]
+        + [(row, y0 + height - bottom + y) for y, row in enumerate(face["bottom"])]
+    ):
+        definitions.append(row_gradient(f"{prefix}h{index}", row, inner_left))
+        shapes.append(
+            f'<rect x="{inner_left}" y="{y}" width="{inner_right - inner_left}" height="1" '
+            f'fill="url(#{prefix}h{index})"/>'
+        )
+    for side, offset in (("left", 0), ("right", width - edge)):
+        for index, column in enumerate(face[side]):
+            gradient_id = f"{prefix}{side[0]}{index}"
+            definitions.append(faces.vertical_gradient(gradient_id, column))
+            shapes.append(
+                f'<rect x="{x0 + offset + index}" y="{y0}" width="1" height="{height}" fill="url(#{gradient_id})"/>'
+            )
+    return "".join(definitions), "".join(shapes)
+
+
+def glossy_face_svg(face):
+    width, height = face["size"]
+    definitions, shapes = glossy_face_markup(face, "f", (0, 0))
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">'
+        f"<defs>{definitions}</defs>{shapes}</svg>"
+    )
+
+
 def task_face_svg(state):
-    return faces.face_svg(stops.TASK_FACES[state])
+    return glossy_face_svg(stops.TASK_FACES[state])
 
 
 def show_desktop_face_svg(state):
     return faces.face_svg(stops.SHOW_DESKTOP_FACES[state])
 
 
-def faces_svg(faces_by_state):
+def faces_svg(faces_by_state, markup=faces.face_markup):
     """Each state's face as the centre of a frame without borders, laid out side by side."""
     definitions, groups = [], []
     width, height = next(iter(faces_by_state.values()))["size"]
     for index, (state, face) in enumerate(faces_by_state.items()):
-        face_definitions, shapes = faces.face_markup(face, f"t{index}", (index * (width + GAP), 0))
+        face_definitions, shapes = markup(face, f"t{index}", (index * (width + GAP), 0))
         definitions.append(face_definitions)
         groups.append(f'<g id="{state}-center">{shapes}</g>{hint_margins(state)}')
     total = len(faces_by_state) * (width + GAP)
@@ -135,7 +209,7 @@ def faces_svg(faces_by_state):
 
 def tasks_svg():
     """The superbar's buttons are 60 by 40, the TASKITEM states as they are."""
-    return faces_svg(stops.TASK_FACES)
+    return faces_svg(stops.TASK_FACES, glossy_face_markup)
 
 
 # The Start orb's sphere, 38 pixels across at (27, 20) in a 58 by 40 bar slot (win7dragedge.png's at x 27,
@@ -221,12 +295,19 @@ def orb_svg():
 
 
 def start_shade_svg():
-    """The bar's darkening behind the orb, from the screen's edge, below the bar's top line and highlight."""
-    width, height = len(palette.START_SHADE), palette.TASKBAR_HEIGHT - palette.START_SHADE_TOP
-    shade = [round(alpha / 255, 3) for alpha in palette.START_SHADE]
+    """The bar's darkening behind the orb (palette.START_SHADE), from the screen's edge."""
+    shade = palette.START_SHADE
+    width, height = shade["reach"], palette.TASKBAR_HEIGHT - palette.START_SHADE_TOP
+    number = faces.number
+    opacity = number(round(shade["opacity"] / 255, 3))
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">'
-        f"<defs>{faces.shade_gradient('shade', shade)}</defs>"
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}"><defs>'
+        f'<radialGradient id="shade" cx="0" cy="{height}" r="{shade["reach"]}" gradientUnits="userSpaceOnUse" '
+        f'gradientTransform="translate(0 {height}) scale(1 {number(round(1 / shade["height_scale"], 4))}) '
+        f'translate(0 {-height})">'
+        f'<stop offset="0" stop-color="#000000" stop-opacity="{opacity}"/>'
+        f'<stop offset="{number(round(shade["flat"] / shade["reach"], 4))}" stop-color="#000000" '
+        f'stop-opacity="{opacity}"/><stop offset="1" stop-color="#000000" stop-opacity="0"/></radialGradient></defs>'
         f'<rect id="shade" x="0" y="0" width="{width}" height="{height}" fill="url(#shade)"/></svg>\n'
     )
 

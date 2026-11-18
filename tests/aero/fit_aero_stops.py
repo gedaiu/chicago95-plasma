@@ -13,7 +13,7 @@ import pprint
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path[:0] = [str(Path(__file__).resolve().parent), str(Path(__file__).resolve().parent.parent)]
 from aero_sprites import part, sprite_dir, straight  # noqa: E402
 from PIL import Image  # noqa: E402
 
@@ -76,8 +76,90 @@ def fitted_show_desktop():
     return {state: fit_state(show_desktop_image(index), BAR_GLASS) for index, state in enumerate(SHOW_DESKTOP_STATES)}
 
 
+# The states the superbar draws: a pinned program at rest shows no face, and under the pointer a running task's.
+DRAWN_TASK_STATES = ("normal", "hover", "pressed", "focus", "focus-hover", "focus-pressed", "attention")
+GLOSS_TOP, GLOSS_BOTTOM = 2, 3  # the face's top and bottom rows, drawn across as they are
+GLOSS_EDGE = 4  # and its columns down each side: the outline, the highlight and the border's shading
+GLOSS_ROUNDS = 10
+
+
+def plasma_style():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "make_aero_plasmastyle", REPO / "aero/plasma-style/make_aero_plasmastyle.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def over_bar_glass(image):
+    base = Image.new("RGBA", image.size, (*BAR_GLASS, 255))
+    base.alpha_composite(image)
+    return base.convert("RGB")
+
+
+def fit_glossy_state(image, generator):
+    """A superbar face: exact edge columns and top and bottom rows; each inner row's base, the faintest colour in it;
+    and the gloss's curve, direction and opacities searched until the drawn face over the bar is closest to the
+    sprite's."""
+    from test_aero_buttons import rendered
+
+    width, height = image.size
+    inner = range(GLOSS_EDGE, width - GLOSS_EDGE)
+    face = {
+        "size": (width, height),
+        "rows": [
+            stop(min((image.getpixel((x, y)) for x in inner), key=lambda pixel: pixel[3]))
+            for y in range(GLOSS_TOP, height - GLOSS_BOTTOM)
+        ],
+        "top": [[stop(image.getpixel((x, y))) for x in inner] for y in range(GLOSS_TOP)],
+        "bottom": [[stop(image.getpixel((x, y))) for x in inner] for y in range(height - GLOSS_BOTTOM, height)],
+        "left": [[stop(image.getpixel((x, y))) for y in range(height)] for x in range(GLOSS_EDGE)],
+        "right": [[stop(image.getpixel((x, y))) for y in range(height)] for x in range(width - GLOSS_EDGE, width)],
+    }
+    target = over_bar_glass(image)
+
+    def error(gloss):
+        drawn = over_bar_glass(rendered(generator.glossy_face_svg({**face, "gloss": gloss}), (width, height)))
+        return sum(
+            abs(a - b)
+            for x in inner
+            for y in range(GLOSS_TOP, height - GLOSS_BOTTOM)
+            for a, b in zip(drawn.getpixel((x, y)), target.getpixel((x, y)), strict=True)
+        )
+
+    numbers = [height * 0.6, width / 2, height * 0.3, 4, 0, 0, width * 0.8, height * 0.6, 0.6, 0.4, 0]
+    steps = [3, 6, 3, 3, 6, 4, 8, 6, 0.1, 0.1, 0.1]
+
+    def gloss_of(values):
+        start, curve_x, curve_y, end, centre_x, centre_y, radius_x, radius_y, *opacities = values
+        return {
+            "curve": tuple(round(v, 2) for v in (start, curve_x, curve_y, end)),
+            "centre": (round(centre_x, 2), round(centre_y, 2)),
+            "radii": (round(max(1, radius_x), 2), round(max(1, radius_y), 2)),
+            "opacity": tuple(round(min(1, max(0, opacity)), 3) for opacity in opacities),
+        }
+
+    best = error(gloss_of(numbers))
+    for _ in range(GLOSS_ROUNDS):
+        for index in range(len(numbers)):
+            for sign in (1, -1):
+                while True:
+                    trial = list(numbers)
+                    trial[index] += sign * steps[index]
+                    score = error(gloss_of(trial))
+                    if score >= best:
+                        break
+                    best, numbers = score, trial
+        steps = [step / 2 for step in steps]
+    return {**face, "gloss": gloss_of(numbers)}
+
+
 def fitted_tasks():
-    return {state: fit_state(task_image(index), BAR_GLASS) for index, state in enumerate(TASK_STATES)}
+    generator = plasma_style()
+    return {state: fit_glossy_state(task_image(TASK_STATES.index(state)), generator) for state in DRAWN_TASK_STATES}
 
 
 def glyph_image(glyph, state, dpi=96):
@@ -165,6 +247,10 @@ def fitted_glyphs():
 
 
 if __name__ == "__main__":
+    import conftest  # noqa: F401  (an offscreen Qt for drawing the faces it fits)
+    from PySide6.QtWidgets import QApplication
+
+    application = QApplication.instance() or QApplication([])
     text = (
         '"""Aero caption button faces fitted to aero.msstyles by tests/aero/fit_aero_stops.py; '
         'do not edit by hand."""\n\n'

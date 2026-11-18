@@ -36,118 +36,16 @@ BUTTON_RIGHT_INSET = 6
 BUTTON_CONTENT = {"caption-end": (3, 1, 2, 4), "caption": (2, 3, 2, 4), "close": (1, 2, 2, 4)}
 
 # The superbar, 40 rows: a dark line and a highlight along its top (the composited TaskBand2 BARTOP part and the
-# screenshots agree), then glass. TASKBAR_GLASS is what win7dragedge.png shows at x 600, rows 730..767, over the plain
-# #4395D1 desktop; the generator solves each row's fill at the frame glass' opacity so it shows the same there.
+# screenshots agree), then glass. TASKBAR_GLASS is win7dragedge.png's rows 730..767 without DWM's streaks (each
+# row's median over the empty columns, tests/aero/aero_model.plain_bar), over the plain #4395D1 desktop; the
+# generator solves each row's fill at the frame glass' opacity so it shows the same there.
 TASKBAR_HEIGHT = 40
 TASKBAR_EDGE = (("#000000", 153), ("#FFFFFF", 102))
-TASKBAR_GLASS = (
-    ["#437EAF"]
-    + ["#437FB0"] * 7
-    + ["#4480B1"] * 2
-    + ["#4580B1"] * 4
-    + ["#4681B2"]
-    + ["#4783B4"] * 4
-    + ["#4884B5"] * 12
-    + ["#4783B5"] * 7
-)
+TASKBAR_GLASS = ["#4580B1"] * 3 + ["#4480B1"] * 10 + ["#4580B1"] * 16 + ["#4581B1"] * 3 + ["#4681B1"] * 6
 
-# Windows 7 darkens the bar behind the orb: black over the glass at this alpha per column from the screen's left edge,
-# rows 2..39 (below the top line and highlight), fading out under the first pinned program. Measured on
-# win7screenres.png's last row, the same in every reference.
-START_SHADE = (
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    67,
-    65,
-    64,
-    64,
-    64,
-    64,
-    64,
-    63,
-    63,
-    61,
-    60,
-    59,
-    59,
-    57,
-    55,
-    53,
-    53,
-    51,
-    49,
-    47,
-    46,
-    43,
-    42,
-    39,
-    37,
-    35,
-    33,
-    31,
-    29,
-    28,
-    26,
-    23,
-    22,
-    21,
-    19,
-    17,
-    14,
-    13,
-    11,
-    10,
-    7,
-    6,
-    5,
-    4,
-    3,
-)
+# Windows 7 darkens the bar behind the orb: black over the glass at opacity, below the bar's top line and highlight
+# (rows START_SHADE_TOP..39), within an ellipse anchored at the bar's bottom-left corner whose height is height_scale
+# of its width: flat out to flat pixels, fading out by reach, sooner in the upper rows than at the foot. Fitted to
+# win7screenres.png outside the orb and the first pinned icon, within four levels, the same in every reference.
+START_SHADE = {"opacity": 64, "flat": 56, "reach": 94, "height_scale": 0.55}
 START_SHADE_TOP = 2

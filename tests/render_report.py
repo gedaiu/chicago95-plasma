@@ -1163,8 +1163,10 @@ AERO = "aero"  # Windows 7: components so far, not yet a look
 
 
 def aero_desktop():
-    """A nested KWin desktop in the Luna look, with the Aero frames and superbar, over the plain blue desktop of
-    Windows 7's references so its glass shows what theirs does; None without KWin and Plasma."""
+    """A nested KWin desktop in the Luna look, with the Aero frames and superbar, laid out as win7screenres.png is
+    (three pinned programs and Control Panel running without the focus, there its context menu's, here minimized)
+    over the plain blue desktop of Windows 7's references, so
+    its glass shows what theirs does; None without KWin and Plasma."""
     from aero_model import REFERENCE_DESKTOP
     from plasma_session import desktop_session, missing_programs
 
@@ -1178,6 +1180,8 @@ def aero_desktop():
             settings=[("DECORATION", AERO), ("BACKGROUND_MODE", "color"), ("BACKGROUND_COLOR", REFERENCE_DESKTOP)],
             components=["background"],
             taskbar_style=AERO,
+            windows=[("Control Panel", "qt", "minimized")],
+            launchers=3,
         )
     finally:
         shutil.rmtree(work, ignore_errors=True)
