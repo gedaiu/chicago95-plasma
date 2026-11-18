@@ -1162,11 +1162,13 @@ def comparison_main(output, looks):
 AERO = "aero"  # Windows 7: components so far, not yet a look
 
 
-def aero_desktop():
+def aero_desktop(hidden_applets=(), tray_icons=None, pointer_steps=(), tasks_config=()):
     """A nested KWin desktop in the Luna look, with the Aero frames and superbar, laid out as win7screenres.png is
     (three pinned programs and Control Panel running without the focus, there its context menu's, here minimized)
     over the plain blue desktop of Windows 7's references, so
-    its glass shows what theirs does; None without KWin and Plasma."""
+    its glass shows what theirs does; None without KWin and Plasma. hidden_applets go behind the tray's arrow, and
+    tray_icons replaces the number of test icons in the tray; pointer_steps drive the pointer before the screenshot;
+    tasks_config (key, value) pairs set the task list's settings."""
     from aero_model import REFERENCE_DESKTOP
     from plasma_session import desktop_session, missing_programs
 
@@ -1182,6 +1184,10 @@ def aero_desktop():
             taskbar_style=AERO,
             windows=[("Control Panel", "qt", "minimized")],
             launchers=3,
+            hidden_applets=hidden_applets,
+            tray_icons=tray_icons,
+            pointer_steps=pointer_steps,
+            tasks_config=tasks_config,
             screen=(1024, 768),  # the references' size: DWM's streaks stretch over the screen
         )
     finally:

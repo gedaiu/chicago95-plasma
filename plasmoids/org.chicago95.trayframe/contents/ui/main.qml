@@ -25,10 +25,10 @@ PlasmoidItem {
     readonly property bool isAero: Plasmoid.configuration.taskbarStyle === "aero"  // no box; icons centred on the glass
     readonly property bool bevel2000: Plasmoid.configuration.bevel === "2000"
     readonly property int iconSize: 16
-    readonly property int iconPitch: 17
+    readonly property int iconPitch: isAero ? 24 : 17   // win7peek.png: icons at x 866, 890 and 914
     readonly property int iconTop: isLuna || isAero ? Math.floor((root.height + 2 * panelMargin - iconSize) / 2) : 7
     readonly property int lunaChevronDiameter: 16
-    readonly property int clockGap: bevel2000 ? 4 : 1
+    readonly property int clockGap: isAero ? 14 : bevel2000 ? 4 : 1   // Windows 7: the last icon ends at x 929, the clock at 944
     readonly property int boxPadding: isLuna ? 11 : bevel2000 ? 4 : 3
     readonly property int iconShift: isLuna ? 10 : 0
     readonly property int panelEndInset: isLuna ? 3 : 0
@@ -93,9 +93,29 @@ PlasmoidItem {
         button.x = 0;
         button.y = Math.round(arrow.mapFromItem(null, 0, iconTop).y);
     }
+    // Windows 7's button, drawn here; the icons' placing puts it before them (placeAeroArrow). Plasma's arrow is two
+    // icons it cross-fades, the down one turning upright (rotation 0) while the popup is open: both are hidden here,
+    // which Plasma leaves alone, and the down one's turn tells the button it is open.
+    function plasmaIcons(item, depth) {
+        if (!item || depth > 12 || item.objectName === "aeroChevron")
+            return [];
+        const own = item.toString().indexOf("Icon") === 0 ? [item] : [];
+        return own.concat(...Array.from(item.children, child => plasmaIcons(child, depth + 1)));
+    }
+    function restyleAeroArrow(arrow) {
+        const icons = plasmaIcons(arrow, 0);
+        icons.forEach(icon => icon.visible = false);
+        const open = icons.some(icon => String(icon.source).indexOf("down") >= 0 && Math.abs(icon.rotation) < 90);
+        const existing = arrow.children.find(child => child.objectName === "aeroChevron");
+        const button = existing ?? Qt.createComponent(Qt.resolvedUrl("aero/TrayChevron.qml")).createObject(arrow);
+        button.open = open;
+        return button;
+    }
     function restyleArrow(arrow) {   // the chevron at its own size, on the icons' row
         if (isLuna)
             return restyleLunaArrow(arrow);
+        if (isAero)
+            return restyleAeroArrow(arrow);
         for (let i = 0; i < arrow.children.length; i++) {
             const icon = arrow.children[i];
             if (icon.toString().indexOf("Icon") !== 0)
@@ -113,6 +133,16 @@ PlasmoidItem {
         }
     }
 
+    // win7peek.png: the 21 by 20 button ends 5 pixels before the first icon, a row below the bar's middle.
+    readonly property int aeroArrowGap: 5
+    function placeAeroArrow(arrow, firstIconX) {
+        const button = arrow.children.find(child => child.objectName === "aeroChevron");
+        if (!button)
+            return;
+        const spot = arrow.mapFromItem(null, firstIconX - aeroArrowGap - button.width, iconTop - 1);
+        button.x = Math.round(spot.x);
+        button.y = Math.round(spot.y);
+    }
     function shift(item, by) {
         if (item.transform.length !== 1)
             item.transform = [Qt.createQmlObject("import QtQuick; Translate {}", item)];
@@ -173,6 +203,8 @@ PlasmoidItem {
         icons.sort((a, b) => a.delegate.x - b.delegate.x);
         const clockX = clockItem ? clockItem.mapToItem(null, 0, 0).x : trayItem.mapToItem(null, trayItem.width, 0).x;
         const firstX = clockX - clockGap - iconSize - (icons.length - 1) * iconPitch + iconShift;
+        if (arrow && isAero)
+            placeAeroArrow(arrow, firstX);
         icons.forEach(({
                 area,
                 icon

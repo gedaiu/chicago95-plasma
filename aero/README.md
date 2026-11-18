@@ -70,6 +70,24 @@ generator by `tests/aero/test_aero_taskbar.py`):
   of arcs fitted to win7dragedge.png (`orb.py`, by `tests/aero/fit_aero_orb.py`), within five levels. The logo is the one Setup's branding chose, never drawn here.
   Under the pointer it glows in the logo's own colours (`LogoGlow.qml`), as light only, so a dark outline adds
   nothing (win7allprograms.png); at rest there is no glow.
+- **The darkening at the notification area** (`widgets/trayshade.svg`) is drawn by the orb's part too, from the
+  screen's right edge, so it lies under the task buttons wherever they reach, as the bar's own shading. While the
+  "show hidden icons" button shows, it starts the button's 21 pixels further left, as win7peek.png's does against
+  win7screenres.png's (within half a level at that shift).
+- **The "show hidden icons" button** (`widgets/trayarrow.svg`) is TrayNotifyHoriz::Button and its Open variant:
+  hot and pressed glass faces fitted as the task faces are, a white triangle shaded row by row, and a soft shadow of
+  two grown and lowered copies of it in black (`traybutton.py`, by `tests/aero/fit_aero_tray_button.py`), within
+  two levels on average. It stands 5 pixels before the first icon, which sit 24 apart and end 15 before the clock,
+  and points down while Plasma's hidden-icons popup is open (win7peek.png).
+- **The paging arrows** (`widgets/scrollarrow.svg`) are TaskBand2Composited::ScrollBar's ARROWBTN in its twenty
+  states: two lines at 50% (black outside, white inside, open towards the other arrow) and a white triangle placed
+  to come closest to the sprite's stair. The frame matches within a level and the glyph within six on average. When
+  more windows are open than fit, the superbar keeps its buttons whole and shows a page of them (`paging.js`), with
+  the up and down arrows after it (`PageArrows.qml`); the older taskbars narrow their buttons instead.
+- **The grip** (`widgets/grip.svg`) is TaskBar::Rebar's GRIPPER at its own 12-pixel width, its 2 by 2 dots tiled
+  down the bar (`palette.GRIP_DOT`), within a level of the sprite. "Lock the taskbar" in the taskbar's menu (the
+  task list's `locked` setting, on by default as in Windows 7) hides it; unlocked, it stands where the band began
+  and the band starts after it.
 - **The hover light** (`HoverGlow.qml`) washes a hovered button in its icon's hue at full brightness and paler,
   brightest at its foot under the pointer (win7peek.png).
 
@@ -93,5 +111,12 @@ Windows 7 pixel for pixel: the bar, the orb, the pinned slots and their pitch, a
   them; jump lists and thumbnails are Plasma's own.
 - **Orb glow while the menu is open.** The Start menu is its own program and does not yet tell the orb it is open,
   so the glow follows the pointer only.
+- **Paging arrow size.** No reference shows the superbar's arrows, so they are 17 wide (Windows' scroll bar width)
+  and half the bar tall each, placed one gap after the page's last button.
+- **Unlocked taskbar.** No lossless reference shows one. Windows 7's documentation places the grip left of the
+  pinned programs; that the band moves by the gripper's own width is assumed.
+- **Tray icon count.** The darkening's shift with the hidden-icons button is measured; how it moves with the
+  number of icons is not, as both references hold three.
+- **The hidden-icons popup** is still Plasma's own, unstyled.
 - **Blur strength.** It is set low to match the references' roughly 12-pixel softening, but has not yet been measured
   in KWin against them.

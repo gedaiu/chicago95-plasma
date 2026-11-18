@@ -50,3 +50,10 @@ TASKBAR_GLASS = ["#4582B4"] * 38
 # win7screenres.png outside the orb and the first pinned icon, within four levels, the same in every reference.
 START_SHADE = {"opacity": 64, "flat": 56, "reach": 94, "height_scale": 0.55}
 START_SHADE_TOP = 2
+
+# TaskBar::Rebar GRIPPER (aero.msstyles IMAGE_1054, 12 by 12, sizing margins 2, 2, 4, 4): a 2 by 2 dot every 3 columns
+# from x 2 and every 4 rows from y 5, tiled down the grip. The dot's pixels, row by row: (colour, alpha).
+GRIP_DOT = [[("#FFFFFF", 72), ("#000000", 108)], [("#000000", 108), ("#000000", 180)]]
+GRIP_COLUMNS = (2, 5, 8)
+GRIP_FIRST_ROW, GRIP_ROW_PITCH, GRIP_MARGIN = 5, 4, 4
+GRIP_WIDTH = 12

@@ -14,6 +14,7 @@ import "quickLaunchBand.js" as Band
 import "windowMenu.js" as WindowMenu
 import "styleParts.js" as Parts
 import "grouping.js" as Grouping
+import "paging.js" as Paging
 
 // The taskbar between the Start button and the tray, as the originals lay it out
 // (tests/test_plasma_taskbar_reference.py): with Quick Launch entries, a separator, their 23px cells
@@ -38,7 +39,11 @@ PlasmoidItem {
     readonly property bool isLuna: Plasmoid.configuration.taskbarStyle === "luna"
     // Windows 7's superbar has no Quick Launch band to drag: its pinned programs have no separators.
     readonly property bool showsSeparators: launcherCount > 0 && Plasmoid.configuration.taskbarStyle !== "aero"
-    readonly property int contentX: -Kirigami.Units.smallSpacing   // the panel's gap between applets
+    // Unlocked, Windows 7's taskbar shows a grip (TaskBar::Rebar GRIPPER) where its band began, the band after it.
+    readonly property bool showsGrip: Plasmoid.configuration.taskbarStyle === "aero" && !Plasmoid.configuration.locked
+    readonly property int gripWidth: 12
+    readonly property int bandStart: -Kirigami.Units.smallSpacing   // the panel's gap between applets
+    readonly property int contentX: bandStart + (showsGrip ? gripWidth : 0)
     readonly property bool showQuickLaunch: QuickLaunch.shown(Plasmoid.configuration.quickLaunch, Plasmoid.configuration.look)
     readonly property int maxButtonWidth: Sizing.maxButtonWidth(Plasmoid.configuration.maxButtonWidth, Plasmoid.configuration.look)
     readonly property int styledMaxButtonWidth: Sizing.styledButtonWidth(maxButtonWidth, Plasmoid.configuration.maxButtonWidth, Plasmoid.configuration.taskbarStyle)
@@ -68,7 +73,13 @@ PlasmoidItem {
     // than buttons fit at their full width, or never (grouping.js).
     readonly property string groupingMode: Grouping.mode(Plasmoid.configuration.grouping, Plasmoid.configuration.taskbarStyle)
     readonly property int fittingButtons: Math.floor((band.tasksEnd - tasksX + gap) / (styledMaxButtonWidth + gap))
-    readonly property int buttonWidth: windowCount === 0 ? 0 : Math.min(styledMaxButtonWidth, Math.floor((band.tasksEnd - tasksX + gap) / windowCount) - gap)
+    // Windows 7's superbar keeps its buttons whole and pages them (paging.js); the older taskbars narrow them to fit.
+    readonly property bool pagesButtons: Plasmoid.configuration.taskbarStyle === "aero"
+    readonly property int pageArrowsWidth: 17
+    readonly property var paging: pagesButtons ? Paging.layout(windowCount, { room: band.tasksEnd - tasksX, buttonWidth: styledMaxButtonWidth, gap: gap, arrowWidth: pageArrowsWidth }) : { perPage: windowCount, pages: 1 }
+    property int page: 0
+    readonly property int shownPage: Paging.clamped(page, paging.pages)
+    readonly property int buttonWidth: windowCount === 0 ? 0 : pagesButtons ? styledMaxButtonWidth : Math.min(styledMaxButtonWidth, Math.floor((band.tasksEnd - tasksX + gap) / windowCount) - gap)
 
     function separatorDragged(separator, gripX) {
         if (Band.outerSeparator(dock) === separator)
@@ -98,6 +109,13 @@ PlasmoidItem {
     // qmllint disable unqualified
     // i18n() is injected into the applet context by Plasma.
     Plasmoid.contextualActions: [
+        PlasmaCore.Action {
+            text: i18n("Lock the taskbar")
+            visible: Plasmoid.configuration.taskbarStyle === "aero"   // only Windows 7's taskbar has a grip to show
+            checkable: true
+            checked: Plasmoid.configuration.locked
+            onTriggered: checked => Plasmoid.configuration.locked = checked
+        },
         PlasmaCore.Action {
             text: i18n("Quick Launch")
             checkable: true
@@ -300,6 +318,26 @@ PlasmoidItem {
         chevronMenu.openRelative();
     }
 
+    KSvg.SvgItem {
+        visible: root.showsGrip
+        x: root.bandStart
+        width: root.gripWidth
+        height: root.height
+        imagePath: "widgets/grip"
+        elementId: "grip"
+    }
+    Loader {
+        active: root.paging.pages > 1
+        x: root.tasksX + root.paging.perPage * (root.buttonWidth + root.gap)
+        width: root.pageArrowsWidth
+        height: root.height
+        source: Qt.resolvedUrl(Parts.path(Plasmoid.configuration.taskbarStyle, "PageArrows.qml"))
+        onLoaded: {
+            item.page = Qt.binding(() => root.shownPage);
+            item.pages = Qt.binding(() => root.paging.pages);
+            item.moved.connect(page => root.page = page);
+        }
+    }
     Repeater {
         model: tasksModel
 
@@ -309,7 +347,8 @@ PlasmoidItem {
             required property int index
             readonly property bool launcher: index < root.launcherCount
             readonly property var modelIndex: tasksModel.makeModelIndex(index)
-            readonly property int laidOutX: launcher ? root.quickLaunchX + Band.cellsWidth(index - root.firstShown, root.metrics) : root.tasksX + (index - root.launcherCount) * (root.buttonWidth + root.gap)
+            readonly property int laidOutX: launcher ? root.quickLaunchX + Band.cellsWidth(index - root.firstShown, root.metrics) : root.tasksX + slot % root.paging.perPage * (root.buttonWidth + root.gap)
+            readonly property int slot: index - root.launcherCount
             // Dragged: the button follows the pointer; the others slide into their new places.
             property bool dragging: false
             property bool slides: true
@@ -329,7 +368,7 @@ PlasmoidItem {
             }
             width: launcher ? root.metrics.cellWidth : root.buttonWidth
             height: root.height
-            visible: !launcher || (index >= root.firstShown && index < root.firstShown + root.shownLaunchers)
+            visible: launcher ? index >= root.firstShown && index < root.firstShown + root.shownLaunchers : Math.floor(slot / root.paging.perPage) === root.shownPage
             sourceComponent: launcher ? launcherCell : windowButton
 
             Component {

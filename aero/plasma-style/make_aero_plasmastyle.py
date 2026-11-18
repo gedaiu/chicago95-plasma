@@ -26,6 +26,7 @@ def load(name, path):
 
 palette = load("aero_palette", HERE.parent / "palette.py")
 stops = load("aero_plasma_stops", HERE / "stops.py")
+traybutton = load("aero_tray_button", HERE / "traybutton.py")
 orb = load("aero_orb", HERE / "orb.py")
 tray_shade = load("aero_tray_shade", HERE / "trayshade.py")
 reflection = load("aero_reflection", HERE.parent / "reflection.py")
@@ -386,6 +387,190 @@ def bar_edge_svg():
     )
 
 
+# TaskBand2Composited::ScrollBar ARROWBTN (aero.msstyles IMAGE_1006/1007): its states in the strips' order. The
+# strips hold four more, repeating the hover states.
+ARROW_DIRECTIONS = ("up", "down", "left", "right")
+SCROLL_ARROW_STATES = [
+    f"{direction}-{state}" for direction in ARROW_DIRECTIONS for state in ("normal", "hot", "pressed", "disabled")
+] + [f"{direction}-hover" for direction in ARROW_DIRECTIONS]
+# The face is two lines, black outside and white inside, both at 50% and open towards the other arrow of the pair;
+# a disabled up or down arrow has no white line, while the sprite keeps it on disabled left and right ones. The
+# glyph is white, at full strength when hot or under the pointer.
+LINE_OPACITY = round(128 / 255, 4)  # the sprites' alpha 128, which 0.5 would round to 127
+GLYPH_OPACITY = {"normal": LINE_OPACITY, "hot": 1, "pressed": LINE_OPACITY, "disabled": LINE_OPACITY, "hover": 1}
+GLYPH_SIZE = (9, 7)
+# Each direction's triangle in its glyph cell, apex then base, in pixels: the sprite's 1-3-5-7 stair is a triangle
+# whose apex and base corners stand a quarter pixel out of it, the closest a straight edge comes to the stair.
+GLYPH_TRIANGLES = {
+    "up": ((4.5, 0.75), (0.75, 5), (8.25, 5)),
+    "down": ((4.5, 6.25), (0.75, 2), (8.25, 2)),
+    "left": ((1.75, 3.5), (6, -0.25), (6, 7.25)),
+    "right": ((7.25, 3.5), (3, -0.25), (3, 7.25)),
+}
+OPEN_SIDE = {"up": "bottom", "down": "top", "left": "right", "right": "left"}
+
+
+def frame_lines(inset, width, height, open_side):
+    """The rectangles of a one-pixel frame `inset` from the button's edge, running out through its open side. The
+    left and right lines stop short of the top and bottom ones, so no corner is drawn twice."""
+    top, bottom = (0 if open_side == "top" else inset + 1), (height if open_side == "bottom" else height - inset - 1)
+    left, right = (0 if open_side == "left" else inset), (width if open_side == "right" else width - inset)
+    sides = {
+        "top": (left, inset, right - left, 1),
+        "bottom": (left, height - inset - 1, right - left, 1),
+        "left": (inset, top, 1, bottom - top),
+        "right": (width - inset - 1, top, 1, bottom - top),
+    }
+    return [rect for side, rect in sides.items() if side != open_side]
+
+
+def scroll_arrow_markup(state, size, origin=(0, 0)):
+    direction, look = state.split("-")
+    width, height = size
+    x0, y0 = origin
+    lines = [("#000000", rect) for rect in frame_lines(0, width, height, OPEN_SIDE[direction])]
+    if look != "disabled" or direction in ("left", "right"):
+        lines += [("#FFFFFF", rect) for rect in frame_lines(1, width, height, OPEN_SIDE[direction])]
+    line_opacity = faces.number(LINE_OPACITY)
+    rects = "".join(
+        f'<rect x="{x0 + x}" y="{y0 + y}" width="{w}" height="{h}" fill="{colour}" fill-opacity="{line_opacity}"/>'
+        for colour, (x, y, w, h) in lines
+    )
+    gx, gy = x0 + (width - GLYPH_SIZE[0]) // 2, y0 + (height - GLYPH_SIZE[1]) // 2
+    points = " ".join(f"{faces.number(gx + x)},{faces.number(gy + y)}" for x, y in GLYPH_TRIANGLES[direction])
+    opacity = faces.number(GLYPH_OPACITY[look])
+    return f'{rects}<polygon points="{points}" fill="#FFFFFF" fill-opacity="{opacity}"/>'
+
+
+def scroll_arrow_svg(state, size):
+    width, height = size
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">'
+        f"{scroll_arrow_markup(state, size)}</svg>\n"
+    )
+
+
+def scroll_arrows_svg(size=(17, 20)):
+    """Every arrow state as its own element, one under another, for the superbar's paging arrows."""
+    width, height = size
+    groups = "".join(
+        f'<g id="{state}">{scroll_arrow_markup(state, size, (0, index * height))}</g>'
+        for index, state in enumerate(SCROLL_ARROW_STATES)
+    )
+    total = height * len(SCROLL_ARROW_STATES)
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{total}" viewBox="0 0 {width} {total}">'
+        f"{groups}</svg>\n"
+    )
+
+
+# The notification area's "show hidden icons" button (TrayNotifyHoriz::Button, and its Open variant while the popup
+# shows), 21 by 20: a glass face when hot or pressed (traybutton.FACES), and a white triangle shaded row by row with a
+# soft black shadow, the triangle grown and moved for each layer of it (traybutton.SHADOW), all fitted by
+# tests/aero/fit_aero_tray_button.py. The triangles stand a quarter pixel out of the sprite's 1-3-5-7 stair.
+TRAY_BUTTON_SIZE = (21, 20)
+TRAY_GLYPHS = {
+    "": ((10.5, 7.75), (14.25, 12), (6.75, 12)),  # points up: the hidden icons are above
+    "open-": ((6.75, 8), (14.25, 8), (10.5, 12.25)),
+}
+
+
+def outset(points, distance):
+    """A convex polygon (clockwise on screen) grown by distance on every side: each corner where its two neighbouring
+    edges, moved outwards, meet."""
+
+    def moved_line(start, end):
+        (x0, y0), (x1, y1) = start, end
+        length = math.hypot(x1 - x0, y1 - y0)
+        normal = ((y1 - y0) / length, (x0 - x1) / length)
+        return (x0 + normal[0] * distance, y0 + normal[1] * distance), (x1 - x0, y1 - y0)
+
+    lines = [moved_line(points[index], points[(index + 1) % len(points)]) for index in range(len(points))]
+    corners = []
+    for index in range(len(points)):
+        (px, py), (dx, dy) = lines[index - 1]
+        (qx, qy), (ex, ey) = lines[index]
+        along = ((qx - px) * ey - (qy - py) * ex) / (dx * ey - dy * ex)
+        corners.append((px + along * dx, py + along * dy))
+    return corners
+
+
+def polygon_points(points, origin):
+    x0, y0 = origin
+    return " ".join(f"{faces.number(round(x0 + x, 4))},{faces.number(round(y0 + y, 4))}" for x, y in points)
+
+
+def tray_button_markup(state, origin=(0, 0), shadow=None):
+    kind = "open-" if state.startswith("open-") else ""
+    look = state.removeprefix(kind)
+    prefix = f"tb{kind}{look}".replace("-", "")
+    definitions, shapes = ("", "")
+    if f"{kind}{look}" in traybutton.FACES:
+        definitions, shapes = faces.face_markup(traybutton.FACES[f"{kind}{look}"], prefix, origin)
+    triangle = TRAY_GLYPHS[kind]
+    for dy, distance, opacity in shadow if shadow is not None else traybutton.SHADOW:
+        grown = [(x, y + dy) for x, y in outset(triangle, distance)]
+        shapes += (
+            f'<polygon points="{polygon_points(grown, origin)}" fill="#000000" fill-opacity="{faces.number(opacity)}"/>'
+        )
+    top, bottom = min(y for _, y in triangle), max(y for _, y in triangle)
+    gradient = (
+        f'<linearGradient id="{prefix}g" gradientUnits="userSpaceOnUse" x1="0" y1="{faces.number(origin[1] + top)}" '
+        f'x2="0" y2="{faces.number(origin[1] + bottom)}">'
+        + "".join(
+            f'<stop offset="{faces.number(round((row + 0.5 - top) / (bottom - top), 4))}" stop-color="{colour}"/>'
+            for row, colour in traybutton.GLYPH_ROWS[kind]
+        )
+        + "</linearGradient>"
+    )
+    shapes += f'<polygon points="{polygon_points(triangle, origin)}" fill="url(#{prefix}g)"/>'
+    return definitions + gradient, shapes
+
+
+def tray_button_svg(state, shadow=None):
+    width, height = TRAY_BUTTON_SIZE
+    definitions, shapes = tray_button_markup(state, shadow=shadow)
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">'
+        f"<defs>{definitions}</defs>{shapes}</svg>\n"
+    )
+
+
+def tray_buttons_svg():
+    """Every state of the "show hidden icons" button as its own element, side by side."""
+    width, height = TRAY_BUTTON_SIZE
+    states = [f"{kind}{look}" for kind in TRAY_GLYPHS for look in ("normal", "hot", "pressed")]
+    definitions, groups = [], []
+    for index, state in enumerate(states):
+        state_definitions, shapes = tray_button_markup(state, (index * (width + GAP), 0))
+        definitions.append(state_definitions)
+        # A clear rectangle the button's size: an element's bounds are what KSvg stretches to the item.
+        bounds = f'<rect x="{index * (width + GAP)}" y="0" width="{width}" height="{height}" fill="none"/>'
+        groups.append(f'<g id="{state}">{bounds}{shapes}</g>')
+    total = len(states) * (width + GAP)
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{total}" height="{height}">'
+        f"<defs>{''.join(definitions)}</defs>\n" + "\n".join(groups) + "\n</svg>\n"
+    )
+
+
+def grip_svg(height=40):
+    """The grip an unlocked taskbar shows before its band: the gripper's dots down the bar, as 1-pixel squares."""
+    rows = range(palette.GRIP_FIRST_ROW, height - palette.GRIP_MARGIN - 1, palette.GRIP_ROW_PITCH)
+    squares = "".join(
+        f'<rect x="{x + dx}" y="{y + dy}" width="1" height="1" fill="{colour}" '
+        f'fill-opacity="{faces.number(round(alpha / 255, 4))}"/>'
+        for x in palette.GRIP_COLUMNS
+        for y in rows
+        for dy, dot_row in enumerate(palette.GRIP_DOT)
+        for dx, (colour, alpha) in enumerate(dot_row)
+    )
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{palette.GRIP_WIDTH}" height="{height}">'
+        f'<g id="grip"><rect width="{palette.GRIP_WIDTH}" height="{height}" fill="none"/>{squares}</g></svg>\n'
+    )
+
+
 def write_theme(out):
     (out / "widgets").mkdir(parents=True, exist_ok=True)
     (out / "translucent/widgets").mkdir(parents=True, exist_ok=True)
@@ -399,6 +584,9 @@ def write_theme(out):
     (out / "widgets/baredge.svg").write_text(bar_edge_svg())
     (out / "widgets/showdesktop.svg").write_text(faces_svg(stops.SHOW_DESKTOP_FACES))
     (out / "widgets/taskgroup.svg").write_text(faces_svg(stops.GROUP_FACES))
+    (out / "widgets/scrollarrow.svg").write_text(scroll_arrows_svg())
+    (out / "widgets/trayarrow.svg").write_text(tray_buttons_svg())
+    (out / "widgets/grip.svg").write_text(grip_svg())
     (out / "metadata.json").write_text(json.dumps(METADATA, indent=2) + "\n")
 
 

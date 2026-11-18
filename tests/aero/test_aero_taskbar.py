@@ -276,3 +276,101 @@ def test_group_stack_matches_its_sprite_over_the_bar_within_four_levels_in_every
     ]
 
     assert max(columns) <= 4
+
+
+ARROW_SIZE = (17, 20)  # SM_CXVSCROLL wide, half the bar tall: no reference shows the superbar's scroll arrows
+
+
+def scroll_arrow_image(state, size):
+    """TaskBand2Composited::ScrollBar ARROWBTN as Windows draws it: the face nine-sliced to the button (margins 2)
+    and the glyph centred over it."""
+    from aero_sprites import part, sprite_dir, straight
+
+    arrow = part("TaskBand2Composited::ScrollBar", "ARROWBTN")
+    index = generator.SCROLL_ARROW_STATES.index(state)
+    face_strip = straight(Image.open(sprite_dir() / arrow.image_file).convert("RGBA"))
+    glyph_strip = straight(Image.open(sprite_dir() / arrow.properties["GLYPHIMAGEFILE"]).convert("RGBA"))
+    face_height, glyph_height = face_strip.height // arrow.image_count, glyph_strip.height // arrow.image_count
+    face = face_strip.crop((0, index * face_height, face_strip.width, (index + 1) * face_height))
+    glyph = glyph_strip.crop((0, index * glyph_height, glyph_strip.width, (index + 1) * glyph_height))
+    width, height = size
+    image = Image.new("RGBA", size)
+    edge = 2
+    columns = [(0, edge, 0, edge), (edge, face.width - edge, edge, width - edge)]
+    columns.append((face.width - edge, face.width, width - edge, width))
+    rows = [(0, edge, 0, edge), (edge, face.height - edge, edge, height - edge)]
+    rows.append((face.height - edge, face.height, height - edge, height))
+    for sx0, sx1, dx0, dx1 in columns:
+        for sy0, sy1, dy0, dy1 in rows:
+            image.alpha_composite(face.crop((sx0, sy0, sx1, sy1)).resize((dx1 - dx0, dy1 - dy0)), (dx0, dy0))
+    image.alpha_composite(glyph, ((width - glyph.width) // 2, (height - glyph.height) // 2))
+    return image
+
+
+def level_difference(ours, theirs, pixels):
+    return [max(abs(a - b) for a, b in zip(ours.getpixel(xy), theirs.getpixel(xy), strict=True)) for xy in pixels]
+
+
+@requires_sprites
+@pytest.mark.parametrize(
+    "state", ["up-normal", "up-hot", "down-pressed", "down-disabled", "left-disabled", "right-hover"]
+)
+def test_scroll_arrow_frame_is_its_sprite_within_a_level_and_its_glyph_within_six_on_average(qt_app, state):
+    theirs = over_bar(scroll_arrow_image(state, ARROW_SIZE))
+    ours = over_bar(rendered(generator.scroll_arrow_svg(state, ARROW_SIZE), ARROW_SIZE))
+    width, height = ARROW_SIZE
+    # The glyph's cell and the pixel around it, where its antialiased edges fall.
+    left, top = (width - generator.GLYPH_SIZE[0]) // 2 - 1, (height - generator.GLYPH_SIZE[1]) // 2 - 1
+    right, bottom = left + generator.GLYPH_SIZE[0] + 2, top + generator.GLYPH_SIZE[1] + 2
+    pixels = [(x, y) for x in range(width) for y in range(height)]
+    glyph = [(x, y) for x, y in pixels if left <= x < right and top <= y < bottom]
+    frame = [xy for xy in pixels if xy not in glyph]
+    glyph_differences = level_difference(ours, theirs, glyph)
+
+    assert (max(level_difference(ours, theirs, frame)), sum(glyph_differences) / len(glyph_differences) <= 6) == (
+        1,
+        True,
+    )
+
+
+TRAY_BUTTONS = [f"{kind}{state}" for kind in ("", "open-") for state in ("normal", "hot", "pressed")]
+
+
+@requires_sprites
+@pytest.mark.parametrize("state", TRAY_BUTTONS)
+def test_tray_button_is_its_sprite_over_the_bar_within_three_levels_on_average_and_48_at_a_stair_corner(qt_app, state):
+    # A straight-edged triangle cannot land on every corner of the sprite's 1-3-5-7 pixel stair.
+    from fit_aero_stops import tray_button_image
+
+    kind, look = ("open-", state[5:]) if state.startswith("open-") else ("", state)
+    sprite = tray_button_image(kind, look)
+    ours = over_bar(rendered(generator.tray_button_svg(state), sprite.size))
+    pixels = [(x, y) for x in range(sprite.width) for y in range(sprite.height)]
+    differences = level_difference(ours, over_bar(sprite), pixels)
+
+    assert (sum(differences) / len(differences) <= 3, max(differences) <= 48) == (True, True)
+
+
+def grip_image(height):
+    """TaskBar::Rebar GRIPPER at its own 12-pixel width, as Windows tiles it down a band's height: its top and bottom
+    4 rows (sizing margins) kept, the 4 rows between them repeated."""
+    from aero_sprites import part, sprite_dir, straight
+
+    gripper = part("TaskBar::Rebar", "GRIPPER")
+    tile = straight(Image.open(sprite_dir() / gripper.properties["IMAGEFILE1"]).convert("RGBA"))
+    top, bottom = gripper.margins.top, gripper.margins.bottom
+    image = Image.new("RGBA", (tile.width, height))
+    image.paste(tile.crop((0, 0, tile.width, top)), (0, 0))
+    middle = tile.crop((0, top, tile.width, tile.height - bottom))
+    for y in range(top, height - bottom, middle.height):
+        image.paste(middle.crop((0, 0, tile.width, min(middle.height, height - bottom - y))), (0, y))
+    image.paste(tile.crop((0, tile.height - bottom, tile.width, tile.height)), (0, height - bottom))
+    return image
+
+
+@requires_sprites
+def test_taskbar_grip_is_its_sprite_tiled_down_the_bar_within_a_level(qt_app):
+    theirs = over_bar(grip_image(40))
+    ours = over_bar(rendered(generator.grip_svg(), (12, 40)))
+
+    assert max(level_difference(ours, theirs, [(x, y) for x in range(12) for y in range(40)])) <= 1

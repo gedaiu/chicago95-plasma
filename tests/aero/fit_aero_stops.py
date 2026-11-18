@@ -99,6 +99,20 @@ def group_image(part_name, state):
     return strip.crop((0, state * rows, strip.width, (state + 1) * rows))
 
 
+TRAY_BUTTON_STATES = ("normal", "hot", "pressed")
+TRAY_BUTTON_PARTS = {"": "TrayNotifyHoriz::Button", "open-": "TrayNotifyHorizOpen::Button"}
+
+
+def tray_button_image(kind, state):
+    """A state of the notification area's "show hidden icons" button at 96 DPI, closed ("") or while its popup is open
+    ("open-")."""
+    piece = part(TRAY_BUTTON_PARTS[kind], "Common Properties")
+    strip = straight(Image.open(sprite_dir() / piece.properties["IMAGEFILE1"]).convert("RGBA"))
+    rows = strip.height // piece.image_count
+    index = TRAY_BUTTON_STATES.index(state)
+    return strip.crop((0, index * rows, strip.width, (index + 1) * rows))
+
+
 def fitted_groups():
     # A strip this narrow is lines alone: every column its own vertical gradient.
     return {

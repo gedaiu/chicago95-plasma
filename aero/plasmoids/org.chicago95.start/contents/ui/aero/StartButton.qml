@@ -26,12 +26,29 @@ Item {
     // rows of them. Drawn first, under everything on the bar, from the screen's top-left corner: the panel window's
     // origin here, less where the window sits on the screen (at its foot).
     property point screenOrigin: Qt.point(0, 0)
+    // The tray's "show hidden icons" button (the tray frame's aeroChevron), while it shows: Windows 7's darkening at the
+    // notification area starts its width further left (win7peek.png against win7screenres.png).
+    property int hiddenIconsButtonWidth: 0
+    function shownChevron(item, depth) {
+        if (!item || !item.visible || depth > 30)
+            return null;
+        if (item.objectName === "aeroChevron")
+            return item;
+        for (let i = 0; i < item.children.length; i++) {
+            const found = shownChevron(item.children[i], depth + 1);
+            if (found)
+                return found;
+        }
+        return null;
+    }
     function measure() {
         const window = button.Window.window;
         if (!window)
             return;
         const windowOrigin = button.mapFromItem(null, 0, 0);
         button.screenOrigin = Qt.point(windowOrigin.x, windowOrigin.y - (Screen.height - window.height));
+        const chevron = shownChevron(window.contentItem, 0);
+        button.hiddenIconsButtonWidth = chevron ? chevron.width : 0;
     }
     Timer {
         interval: 500
@@ -56,6 +73,16 @@ Item {
         height: implicitHeight
     }
 
+    // Explorer darkens the bar at its notification area, from before the icons to the Show desktop strip, and
+    // lightens it behind the strip (widgets/trayshade, fitted to win7screenres.png). It is the bar's own shading,
+    // under the task buttons and tray icons wherever they reach, so it is drawn here, from the screen's right edge.
+    KSvg.SvgItem {
+        imagePath: "widgets/trayshade"
+        width: implicitWidth
+        height: implicitHeight
+        x: button.screenOrigin.x + Screen.width - width - button.hiddenIconsButtonWidth
+        y: orb.y + 2 // below the bar's top line and highlight (palette.START_SHADE_TOP)
+    }
     // Windows 7 darkens the bar behind the orb, fading out under the first pinned program, past the orb's slot.
     KSvg.SvgItem {
         imagePath: "widgets/startshade"
