@@ -99,7 +99,7 @@ kconf() {
 
 # The choices the Control Panel saves in ~/.config/chicago95/setup.conf, one KEY=value per line; KEY sets SETUP_KEY.
 SETTINGS_KEYS="LOOK DECORATION WIDGET_STYLE TASKBAR_STYLE START_MENU_STYLE BEVEL TITLE_ACTIVE TITLE_INACTIVE BANNER_BG BANNER_FG ICONS FONT FONT_SCOPE CURSOR PANEL MOUSE_HAND DOUBLE_CLICK_MS POINTER_SPEED
-    TASK_BUTTON_WIDTH QUICK_LAUNCH LAUNCHERS TASKBAR_AUTOHIDE TASKBAR_ON_TOP CLOCK_SHOW CLOCK_HOURS START_TEXT START_LOGO BANNER_TEXT
+    TASK_BUTTON_WIDTH QUICK_LAUNCH TASK_GROUPING LAUNCHERS TASKBAR_AUTOHIDE TASKBAR_ON_TOP CLOCK_SHOW CLOCK_HOURS START_TEXT START_LOGO BANNER_TEXT
     SAVER IDLE_MIN LOGIN_STYLE LOGIN_TITLE LOGIN_MESSAGE LOGIN_ICON LOGIN_LOGO EDITION TAGLINE COMPANY COMPANY_LOGO
     BOOT_LOGO BOOT_NAME BOOT_TEXT BOOT_FOOTER BOOT_BACKGROUND BOOT_FOREGROUND BOOT_ACCENT BOOT_FONT
     BOOT_BACKGROUND_IMAGE BOOT_ANIMATION BOOT_FRAMES BOOT_LOOP_START BOOT_FPS BOOT_LOGO_SIZE
@@ -1789,6 +1789,7 @@ apply_taskbar() { # every run: the Start button's text and logo, and the look in
         panel.widgets('org.chicago95.tasks').forEach(widget => {
             widget.currentConfigGroup = ['General'];
             widget.writeConfig('quickLaunch', $(js_string "${SETUP_QUICK_LAUNCH:-auto}"));
+            widget.writeConfig('grouping', $(js_string "${SETUP_TASK_GROUPING:-auto}"));
             widget.writeConfig('previewSize', $(preview_size));
             $slide_script
         });

@@ -140,3 +140,34 @@ def test_show_desktop_strip_ends_at_the_screens_edge_as_windows_7s(desktop):
     strip = [(ours.getpixel((ours.width - 15 + x, 20)), theirs.getpixel((1009 + x, 20))) for x in range(15)]
 
     assert max(abs(a - b) for p, q in strip for a, b in zip(p, q, strict=True)) <= 6
+
+
+@pytest.fixture(scope="module")
+def two_windows_of_one_program():
+    import shutil
+    import tempfile
+
+    from plasma_session import desktop_session, missing_programs
+
+    if missing_programs():
+        pytest.skip("needs KWin and Plasma")
+    work = tempfile.mkdtemp(prefix="c95-group-", dir="/tmp")
+    try:
+        return desktop_session(
+            "luna",
+            work,
+            settings=[("DECORATION", "aero")],
+            taskbar_style="aero",
+            windows=[
+                ("First", "qt", "minimized", "org.chicago95.test.notes"),
+                ("Second", "qt", "minimized", "org.chicago95.test.notes"),
+            ],
+            launchers=0,
+            screen=(1024, 768),
+        ).convert("RGB")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def test_two_windows_of_one_program_combine_into_one_superbar_button(two_windows_of_one_program):
+    assert len(icon_columns(two_windows_of_one_program)) == 1

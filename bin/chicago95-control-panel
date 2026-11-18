@@ -146,6 +146,7 @@ COMPONENTS_BY_KEY = {
     "PANEL": ("taskbar",),
     "TASK_BUTTON_WIDTH": ("taskbar",),
     "QUICK_LAUNCH": ("taskbar",),
+    "TASK_GROUPING": ("taskbar",),
     "LAUNCHERS": ("taskbar",),
     "TASKBAR_AUTOHIDE": ("taskbar",),
     "TASKBAR_ON_TOP": ("taskbar",),
@@ -3322,6 +3323,17 @@ def taskbar_options_tab(settings, actions):
         "QUICK_LAUNCH",
         "Quick Launch:",
         [("From the look (1998 on)", "auto"), ("Always", "yes"), ("Never", "no")],
+        default="auto",
+    )
+    tab.choice(
+        "TASK_GROUPING",
+        "Taskbar buttons:",
+        [
+            ("From the taskbar style (Windows 7 combines)", "auto"),
+            ("Always combine, hide labels", "always"),
+            ("Combine when taskbar is full", "full"),
+            ("Never combine", "never"),
+        ],
         default="auto",
     )
     taskbar_style = tab.choice(

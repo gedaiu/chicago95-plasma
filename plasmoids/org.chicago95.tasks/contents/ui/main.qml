@@ -13,6 +13,7 @@ import "quickLaunch.js" as QuickLaunch
 import "quickLaunchBand.js" as Band
 import "windowMenu.js" as WindowMenu
 import "styleParts.js" as Parts
+import "grouping.js" as Grouping
 
 // The taskbar between the Start button and the tray, as the originals lay it out
 // (tests/test_plasma_taskbar_reference.py): with Quick Launch entries, a separator, their 23px cells
@@ -63,6 +64,10 @@ PlasmoidItem {
     readonly property int quickLaunchX: band.cellsX + bandShift
     readonly property int quickLaunchEnd: quickLaunchX + Band.cellsWidth(shownLaunchers, metrics)
     readonly property int tasksX: band.tasksX
+    // "Group similar taskbar buttons": a program's windows combine into one button always, once more windows are open
+    // than buttons fit at their full width, or never (grouping.js).
+    readonly property string groupingMode: Grouping.mode(Plasmoid.configuration.grouping, Plasmoid.configuration.taskbarStyle)
+    readonly property int fittingButtons: Math.floor((band.tasksEnd - tasksX + gap) / (styledMaxButtonWidth + gap))
     readonly property int buttonWidth: windowCount === 0 ? 0 : Math.min(styledMaxButtonWidth, Math.floor((band.tasksEnd - tasksX + gap) / windowCount) - gap)
 
     function separatorDragged(separator, gripX) {
@@ -161,7 +166,9 @@ PlasmoidItem {
         virtualDesktop: virtualDesktopInfo.currentDesktop
         filterByVirtualDesktop: true
         filterByActivity: true
-        groupMode: TaskManager.TasksModel.GroupDisabled
+        groupMode: root.groupingMode === "never" ? TaskManager.TasksModel.GroupDisabled : TaskManager.TasksModel.GroupApplications
+        groupInline: false
+        groupingWindowTasksThreshold: Grouping.threshold(root.groupingMode, root.fittingButtons)
         sortMode: TaskManager.TasksModel.SortManual
         separateLaunchers: true
         hideActivatedLaunchers: false
@@ -490,6 +497,12 @@ PlasmoidItem {
                                     windowMenu.window = WindowMenu.windowState(entry.model);
                                     windowMenu.launcher = entry.model.LauncherUrlWithoutIcon;
                                     windowMenu.open(clickX, clickY);
+                                } else if (entry.model.IsGroupParent) {
+                                    const windows = tasksModel.rowCount(entry.modelIndex);
+                                    const focused = [];
+                                    for (let row = 0; row < windows; ++row)
+                                        focused.push(tasksModel.data(tasksModel.makeModelIndex(entry.index, row), TaskManager.AbstractTasksModel.IsActive) === true);
+                                    tasksModel.requestActivate(tasksModel.makeModelIndex(entry.index, Grouping.nextWindow(focused)));
                                 } else if (entry.model.IsActive) {
                                     tasksModel.requestToggleMinimized(entry.modelIndex);
                                 } else {

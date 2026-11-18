@@ -30,8 +30,9 @@ TEST_ICON = "c95-test-square"
 TEST_ICON_SIZES = (16, 22, 24, 32, 48)
 CHICAGO95_SRC = Path(os.environ.get("CHICAGO95_SRC", Path.home() / "src/Chicago95"))
 
-# Each original's desktop: its windows in the taskbar's order (title, toolkit, and the frame's box
-# (left, top, right, bottom) inclusive, or "minimized"), the active one, its Quick Launch entries and
+# Each original's desktop: its windows in the taskbar's order (title, toolkit, the frame's box
+# (left, top, right, bottom) inclusive, or "minimized", and optionally a program ID that windows share to be
+# one program), the active one, its Quick Launch entries and
 # its tray icons.
 CONTENT = {
     "1995": dict(
@@ -297,8 +298,8 @@ def stub(folder, *programs):
 
 def window_commands(work, applications, windows):
     commands = []
-    for index, (title, toolkit, _place) in enumerate(windows):
-        name = f"org.chicago95.test.window{index}"
+    for index, (title, toolkit, _place, *program_id) in enumerate(windows):
+        name = program_id[0] if program_id else f"org.chicago95.test.window{index}"  # windows sharing one: one program
         if toolkit == "x11":
             desktop_file(applications, name, title, TEST_ICON, "StartupWMClass=Xmessage\n")
             program = f"xmessage -title {quote(title)} -geometry 200x100 {quote(title)}"
@@ -386,7 +387,7 @@ def desktop_session(
 
     content = CONTENT[look]
     if windows is not None:
-        shown = [title for title, _toolkit, place in windows if place != "minimized"]
+        shown = [title for title, _toolkit, place, *_program in windows if place != "minimized"]
         content = {**content, "windows": list(windows), "active": shown[0] if shown else ""}  # minimized: not active
     if launchers is not None:
         content = {**content, "launchers": launchers}
@@ -396,7 +397,7 @@ def desktop_session(
         desktop_file(applications, f"c95-launcher-{index}", f"Launcher {index}", TEST_ICON).as_uri()
         for index in range(content["launchers"])
     ]
-    places = {title: place for title, _toolkit, place in content["windows"]}
+    places = {title: place for title, _toolkit, place, *_program in content["windows"]}
     window_script = window_commands(work, applications, content["windows"])
     (work / "setup.sh").write_text(
         SETUP.format(

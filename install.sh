@@ -9,7 +9,7 @@
 #   ./install.sh --plain         no full-screen UI (logs, CI, screen readers)
 #   Options (asked interactively, or given as flags):
 #     --screen=2560x1440@1.5  --panel=28  --explorer=thunar|dolphin  --saver=maze
-#     --idle=5  --cursor=48  --clippy=yes|no  --quick-launch=yes|no|auto  --font="MS W98 UI"  --font-scope=everywhere|desktop|none
+#     --idle=5  --cursor=48  --clippy=yes|no  --quick-launch=yes|no|auto  --task-grouping=always|full|never|auto  --font="MS W98 UI"  --font-scope=everywhere|desktop|none
 #     --start-text=Start  --start-logo=flag|penguin|/path/to/image  --banner-text=Chicago95
 #     --look=1995|1998|2000|2001|luna|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
 #     --decoration=classic|luna|aero  --widget-style=classic|luna  --taskbar-style=classic|luna|aero  (each overrides the look's choice)
@@ -43,6 +43,7 @@ for arg in "$@"; do
   --cursor=*) OPT_CURSOR="${arg#*=}" ;;
   --clippy=*) OPT_CLIPPY="${arg#*=}" ;;
   --quick-launch=*) OPT_QUICK_LAUNCH="${arg#*=}" ;;
+  --task-grouping=*) OPT_TASK_GROUPING="${arg#*=}" ;;
   --font=*) OPT_FONT="${arg#*=}" ;;
   --font-scope=*) OPT_FONT_SCOPE="${arg#*=}" ;;
   --start-text=*) OPT_START_TEXT="${arg#*=}" ;;
@@ -471,6 +472,7 @@ while IFS='=' read -r name value; do
   cursor) SETUP_CURSOR=$value ;;
   clippy) SETUP_CLIPPY_AUTOSTART=$value ;;
   quicklaunch) SETUP_QUICK_LAUNCH=$value ;;
+  grouping) SETUP_TASK_GROUPING=$value ;;
   font) SETUP_FONT=$value ;;
   esac
 done < <(ui_pick_options \
@@ -481,6 +483,7 @@ done < <(ui_pick_options \
   "cursor|Cursor size (24/32/48)|${OPT_CURSOR:-${SETUP_CURSOR:-$(awk -v s="$SETUP_SCALE" 'BEGIN{print (s>1)?48:32}')}}" \
   "clippy|Office Assistant at login (yes/no)|${OPT_CLIPPY:-${SETUP_CLIPPY_AUTOSTART:-yes}}" \
   "quicklaunch|Quick Launch on the taskbar (yes/no/auto: from the 1998 look on)|${OPT_QUICK_LAUNCH:-${SETUP_QUICK_LAUNCH:-auto}}" \
+  "grouping|Group similar taskbar buttons (always/full/never/auto: Windows 7's always)|${OPT_TASK_GROUPING:-${SETUP_TASK_GROUPING:-auto}}" \
   "font|UI font family|${OPT_FONT:-${SETUP_FONT:-MS W98 UI}}")
 SETUP_FONT_SCOPE=${OPT_FONT_SCOPE:-${SETUP_FONT_SCOPE:-everywhere}}
 [ -n "${OPT_FONT_SCOPE:-}" ] || choose_font_scope
@@ -535,8 +538,8 @@ SETUP_SOUND_THEME=${OPT_SOUNDS:-${SETUP_SOUND_THEME:-Chicago95}}
 [ -n "${OPT_TASK_BUTTON_WIDTH:-}" ] && SETUP_TASK_BUTTON_WIDTH=$OPT_TASK_BUTTON_WIDTH
 SETUP_DPI=$(awk -v s="$SETUP_SCALE" 'BEGIN{printf "%d", 96*s + 0.5}')
 PANEL_HEIGHT=${SETUP_PANEL:-$(default_panel_height)}
-printf 'Options: screen=%sx%s@%s panel=%s explorer=%s saver=%s idle=%s cursor=%s clippy=%s quicklaunch=%s font=%s sounds=%s\n' \
-  "$SETUP_WIDTH" "$SETUP_HEIGHT" "$SETUP_SCALE" "$PANEL_HEIGHT" "$SETUP_EXPLORER" "$SETUP_SAVER" "$SETUP_IDLE_MIN" "$SETUP_CURSOR" "$SETUP_CLIPPY_AUTOSTART" "${SETUP_QUICK_LAUNCH:-auto}" "$SETUP_FONT" "$SETUP_SOUND_THEME" >>"$SETUP_LOG"
+printf 'Options: screen=%sx%s@%s panel=%s explorer=%s saver=%s idle=%s cursor=%s clippy=%s quicklaunch=%s grouping=%s font=%s sounds=%s\n' \
+  "$SETUP_WIDTH" "$SETUP_HEIGHT" "$SETUP_SCALE" "$PANEL_HEIGHT" "$SETUP_EXPLORER" "$SETUP_SAVER" "$SETUP_IDLE_MIN" "$SETUP_CURSOR" "$SETUP_CLIPPY_AUTOSTART" "${SETUP_QUICK_LAUNCH:-auto}" "${SETUP_TASK_GROUPING:-auto}" "$SETUP_FONT" "$SETUP_SOUND_THEME" >>"$SETUP_LOG"
 ui_step_done 1
 
 # ---- 3. copy ----------------------------------------------------------------
