@@ -44,3 +44,17 @@ def test_active_orb_glows_in_the_logos_colour_beyond_the_logo(qt_app, tmp_path):
     red, green, blue, alpha = glow(qt_app, red_logo(tmp_path), True).getpixel((27 + 13, 20))
 
     assert (alpha > 40, red > 2 * green, red > 2 * blue) == (True, True, True)
+
+
+def test_dark_parts_of_the_logo_do_not_glow(qt_app, tmp_path):
+    path = tmp_path / "black.png"
+    Image.new("RGBA", (20, 20), (0, 0, 0, 255)).save(path)
+
+    assert glow(qt_app, path, True).getextrema()[3][1] <= 8
+
+
+def test_glow_fades_out_before_its_edges(qt_app, tmp_path):
+    # The light spreads 30 pixels each way from the orb's centre: no hard square where it stops.
+    image = glow(qt_app, red_logo(tmp_path), True)
+
+    assert max(image.getpixel((x, 20))[3] for x in (0, 57)) <= 8

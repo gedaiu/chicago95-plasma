@@ -261,7 +261,9 @@ print(sheet.width >= 1600 + 4 * report.GAP, sheet.getpixel((2 * report.GAP + 159
     assert result.stdout.strip().splitlines()[-1:] == ["True (255, 0, 0)"], result.stderr[-2000:]
 
 
-def test_aero_showcase_shows_both_frames_beside_windows_7_every_button_state_and_the_2x_caption(tmp_path):
+def test_aero_showcase_shows_frames_beside_windows_7_every_button_state_the_2x_caption_and_superbar_close_ups(
+    tmp_path,
+):
     program = r"""
 import sys
 from pathlib import Path
@@ -275,12 +277,13 @@ panels = aero_panels(app, desktop=None)
 print(len([name for name, original, _ in panels if "frame" in name and original is not None]))
 print(len([name for name, _, _ in panels if name.startswith("Caption button")]))
 print(any("2x" in name for name, _, _ in panels), all(image.width and image.height for _, _, image in panels))
+print(len([name for name, original, _ in panels if name.startswith("Superbar close-up") and original is not None]))
 """
     result = subprocess.run(
         [sys.executable, "-c", program], cwd=REPO, capture_output=True, text=True, check=False, timeout=120
     )
 
-    assert result.stdout.split() == ["2", "4", "True", "True"], result.stderr[-2000:]
+    assert result.stdout.split() == ["2", "4", "True", "True", "3"], result.stderr[-2000:]
 
 
 def test_readme_shows_the_windows_7_showcase_and_the_image_exists():

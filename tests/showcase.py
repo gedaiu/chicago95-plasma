@@ -752,6 +752,98 @@ def aero_button_strip(button, glass="#5DABE8"):
     return qimage_to_pil(image)
 
 
+AERO_PARTS = REPO / "aero/plasmoids"
+AERO_STYLE = REPO / "aero/plasma-style/theme/widgets"
+CLOSE_UP = 4
+
+
+def aero_part_image(app, scene, size):
+    """A QML scene drawn with the Aero plasmoid parts (orb, glows), as Plasma draws them, on the bar's glass."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="c95-aero-part-") as folder:
+        path = Path(folder) / "Scene.qml"
+        path.write_text(scene)
+        return qml_image(app, path, size)
+
+
+def aero_orb_close_up(app, glowing):
+    from reference import screenshot
+    from render_report import DEFAULT_LOGO
+
+    bar = screenshot("win7dragedge").getpixel((600, 748))
+    scene = f"""
+import QtQuick
+import "file://{AERO_PARTS}/org.chicago95.start/contents/ui/aero"
+Rectangle {{
+    color: "#{bytes(bar).hex()}"
+    Image {{ source: "file://{AERO_STYLE}/startbutton.svg"; width: 58; height: 40 }}
+    LogoGlow {{ source: "file://{DEFAULT_LOGO}"; active: {str(glowing).lower()} }}
+    Image {{ x: 17.5; y: 10; width: 20; height: 20; source: "file://{DEFAULT_LOGO}"; smooth: true }}
+}}
+"""
+    return aero_part_image(app, scene, (58, 40))
+
+
+def aero_hover_close_up(app):
+    import tempfile
+
+    from PySide6.QtCore import QRectF
+    from PySide6.QtGui import QColor, QImage, QPainter
+    from PySide6.QtSvg import QSvgRenderer
+    from reference import screenshot
+
+    bar = screenshot("win7peek").getpixel((300, 748))
+    with tempfile.TemporaryDirectory(prefix="c95-aero-face-") as folder:
+        face = Path(folder) / "launcher-hover.png"
+        image = QImage(60, 40, QImage.Format_ARGB32)
+        image.fill(QColor(0, 0, 0, 0))
+        painter = QPainter(image)
+        QSvgRenderer(str(AERO_STYLE / "tasks.svg")).render(painter, "launcher-hover-center", QRectF(0, 0, 60, 40))
+        painter.end()
+        image.save(str(face))
+        scene = f"""
+import QtQuick
+import org.kde.kirigami as Kirigami
+import "file://{AERO_PARTS}/org.chicago95.tasks/contents/ui/aero"
+Rectangle {{
+    color: "#{bytes(bar).hex()}"
+    Image {{ source: "file://{face}"; anchors.fill: parent }}
+    Kirigami.ImageColors {{ id: colours; source: "folder"; Component.onCompleted: update() }}
+    HoverGlow {{ anchors.fill: parent; tint: colours.dominant; pointerX: 30 }}
+    Kirigami.Icon {{ anchors.centerIn: parent; width: 32; height: 32; source: "folder" }}
+}}
+"""
+        return aero_part_image(app, scene, (60, 40))
+
+
+def enlarged(image):
+    return image.resize((image.width * CLOSE_UP, image.height * CLOSE_UP), Image.Resampling.NEAREST)
+
+
+def aero_close_ups(app):
+    """The orb at rest and glowing and a hovered superbar button, beside Windows 7's, four times their size."""
+    from reference import screenshot
+
+    return [
+        (
+            "Superbar close-up: the Start orb at rest, its rim white glass (Windows 7: win7dragedge.png)",
+            enlarged(screenshot("win7dragedge").crop((0, 728, 58, 768))),
+            enlarged(aero_orb_close_up(app, glowing=False)),
+        ),
+        (
+            "Superbar close-up: the orb glowing in its logo's colours (Windows 7: win7allprograms.png, menu open)",
+            enlarged(screenshot("win7allprograms").crop((0, 728, 58, 768))),
+            enlarged(aero_orb_close_up(app, glowing=True)),
+        ),
+        (
+            "Superbar close-up: a hovered button lit in its icon's colour (Windows 7: win7peek.png)",
+            enlarged(screenshot("win7peek").crop((118, 728, 182, 768))),
+            enlarged(aero_hover_close_up(app)),
+        ),
+    ]
+
+
 def aero_panels(app, desktop=None):
     """The Windows 7 glass decoration beside Windows 7 (tests/references/win7*.png), its buttons and its 2x caption."""
     from aero_model import REFERENCE_DESKTOP, AeroWindow
@@ -782,6 +874,7 @@ def aero_panels(app, desktop=None):
             AeroWindow(600, 360).render(scale=2, background=behind).crop((920, 0, 1200, 80)),
         ),
     ]
+    panels += aero_close_ups(app)
     if desktop is not None:
         panels.append(
             (

@@ -35,12 +35,11 @@ def glow(qt_app, tint, pointer_x):
     )
 
 
-def test_hover_glow_under_the_pointer_at_the_foot_is_the_icon_colour_at_eighty_five_percent(qt_app):
-    red, green, blue, alpha = glow(qt_app, "#F0D970", 30).getpixel((30, 39))
+def test_hover_glow_under_the_pointer_at_the_foot_is_the_icon_colour_lightened_at_eighty_five_percent(qt_app):
+    # An olive icon colour lights the button pale yellow, as the folder's does win7peek.png's: (249, 243, 223).
+    red, green, blue, alpha = glow(qt_app, "#9A9040", 30).getpixel((30, 39))
 
-    colour_error = max(abs(a - b) for a, b in zip((red, green, blue), (0xF0, 0xD9, 0x70), strict=True))
-
-    assert (colour_error <= 2, abs(alpha - 217) <= 15) == (True, True)
+    assert (red >= 250, red > green > blue, blue >= 150, abs(alpha - 217) <= 15) == (True, True, True, True)
 
 
 @pytest.mark.parametrize("side", [1, 58])
