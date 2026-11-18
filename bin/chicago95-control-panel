@@ -250,6 +250,8 @@ LOOK_PRESETS["luna"] = {
 }
 
 COMPONENT_STYLES = [("Classic", "classic"), ("Windows XP", "luna")]
+# Windows 7's glass is a decoration so far; its widgets and taskbar come later.
+DECORATION_STYLES = [*COMPONENT_STYLES, ("Windows 7", "aero")]
 START_MENU_STYLES = [
     ("Windows 95", "1995"),
     ("Windows 98", "1998"),
@@ -3707,7 +3709,7 @@ def appearance_tab(settings, actions):
             form.addRow("Icon set:", tab.icons)
         elif key in ("DECORATION", "WIDGET_STYLE"):
             component_combos[key] = chicago95ui.classic_combo(QComboBox())
-            for style_label, value in COMPONENT_STYLES:
+            for style_label, value in DECORATION_STYLES if key == "DECORATION" else COMPONENT_STYLES:
                 component_combos[key].addItem(style_label, value)
             form.addRow("Style:", component_combos[key])
         else:

@@ -654,6 +654,24 @@ step_animations() { # the saved animation choices into KWin, KDE's speed and our
 
 default_panel_height() { [ "${SETUP_TASKBAR_STYLE:-classic}" = luna ] && echo "$LUNA_PANEL_HEIGHT" || echo 28; }
 
+decoration_theme() { # the Aurorae theme of the chosen decoration
+  case "${SETUP_DECORATION:-classic}" in
+  luna) echo Chicago95Luna ;;
+  aero) echo Chicago95Aero ;;
+  *) echo Chicago95 ;;
+  esac
+}
+
+# Windows 7's glass is KWin's blur behind the decoration's mask, kept light: the references blur a sharp edge over
+# about 12 pixels.
+AERO_BLUR_STRENGTH=3
+apply_aero_glass() {
+  put_tree "$REPO/aero/aurorae/theme" ~/.local/share/aurorae/themes/Chicago95Aero
+  kconf kwinrc Plugins blurEnabled true
+  kconf kwinrc Effect-blur BlurStrength "$AERO_BLUR_STRENGTH"
+  kconf kwinrc Effect-blur NoiseStrength 0
+}
+
 wants_luna() { [ "${SETUP_DECORATION:-classic}" = luna ] || [ "${SETUP_TASKBAR_STYLE:-classic}" = luna ] || [ "${SETUP_WIDGET_STYLE:-classic}" = luna ]; }
 
 install_luna_theme_files() {
@@ -713,7 +731,8 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   kconf kdeglobals General AccentColor --delete
   kconf kwinrc org.kde.kdecoration2 library org.kde.kwin.aurorae
   wants_luna && install_luna_theme_files
-  kconf kwinrc org.kde.kdecoration2 theme "$([ "${SETUP_DECORATION:-classic}" = luna ] && echo __aurorae__svg__Chicago95Luna || echo __aurorae__svg__Chicago95)"
+  [ "${SETUP_DECORATION:-classic}" = aero ] && apply_aero_glass
+  kconf kwinrc org.kde.kdecoration2 theme "__aurorae__svg__$(decoration_theme)"
   kconf kwinrc org.kde.kdecoration2 BorderSize Normal
   run plasma-apply-colorscheme "$([ "${SETUP_WIDGET_STYLE:-classic}" = luna ] && echo Chicago95Luna || echo Chicago95)" >>"$SETUP_LOG" 2>&1 || true
   apply_icon_set
@@ -986,8 +1005,12 @@ run_window_height() {
 }
 
 decoration_frame_height() { # the title bar and bottom border of the decoration Setup installs
-  local rc="$REPO/aurorae/theme/Chicago95rc"
-  [ "${SETUP_DECORATION:-classic}" = luna ] && rc="$REPO/luna/aurorae/theme/Chicago95Lunarc"
+  local rc
+  case "${SETUP_DECORATION:-classic}" in
+  luna) rc="$REPO/luna/aurorae/theme/Chicago95Lunarc" ;;
+  aero) rc="$REPO/aero/aurorae/theme/Chicago95Aerorc" ;;
+  *) rc="$REPO/aurorae/theme/Chicago95rc" ;;
+  esac
   awk -F= '$1 == "TitleHeight" || $1 == "TitleEdgeTop" || $1 == "TitleEdgeBottom" || $1 == "BorderBottom" { sum += $2 } END { print sum }' "$rc"
 }
 

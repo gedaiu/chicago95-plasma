@@ -877,8 +877,8 @@ def test_setup_replaces_home_in_the_tasks_applet_as_it_does_in_the_start_applet(
     )
 
 
-def run_dialog_rule(tmp_path, look):
-    run_setup(tmp_path, "--components=startmenu", f"--look={look}", "--screen=1920x1080@1")
+def run_dialog_rule(tmp_path, look, *flags):
+    run_setup(tmp_path, "--components=startmenu", f"--look={look}", "--screen=1920x1080@1", *flags)
     rules = (tmp_path / ".config/kwinrulesrc").read_text()
     return dict(
         line.split("=", 1) for line in rules.split("[chicago95-run]")[1].split("\n[")[0].splitlines() if "=" in line
@@ -900,6 +900,12 @@ def test_the_run_dialog_is_placed_when_it_opens_and_can_then_be_dragged(tmp_path
 )
 def test_the_run_dialog_sits_on_the_taskbar_whatever_its_frame(tmp_path, look, top):
     assert run_dialog_rule(tmp_path, look)["position"] == f"0,{top}"
+
+
+def test_the_run_dialog_with_luna_widgets_in_the_aero_frame_sits_on_the_taskbar(tmp_path):
+    top = 1080 - 30 - (154 + 1 + 29 + 0 + 8)  # the dialog, then KWin's Aero title (1 + 29 + 0) and border (8)
+
+    assert run_dialog_rule(tmp_path, "luna", "--decoration=aero")["position"] == f"0,{top}"
 
 
 def start_menu_rule(tmp_path, look):
@@ -1354,6 +1360,18 @@ def test_look_luna_installs_the_luna_themes_and_selects_them(tmp_path):
         f"{home}/.config/fontconfig/conf.d/61-chicago95-luna-fonts.conf" in log,
         "--key activeFont Trebuchet MS,10,-1,5,75,0,0,0,0,0" in log,
     ) == (True,) * 8
+
+
+def test_aero_decoration_installs_the_glass_theme_selects_it_and_turns_on_kwins_blur(tmp_path):
+    log = dry_run_log(tmp_path, "--components=look", "--decoration=aero")
+    home = str(tmp_path)
+
+    assert (
+        f"cp -r {REPO}/aero/aurorae/theme {home}/.local/share/aurorae/themes/Chicago95Aero" in log,
+        "kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme __aurorae__svg__Chicago95Aero" in log,
+        "kwriteconfig6 --file kwinrc --group Plugins --key blurEnabled true" in log,
+        "kwriteconfig6 --file chicago95rc --group Look --key decoration aero" in log,
+    ) == (True,) * 4
 
 
 def test_look_luna_writes_the_component_keys_to_chicago95rc(tmp_path):

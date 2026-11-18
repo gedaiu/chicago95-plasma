@@ -112,7 +112,9 @@ def main():
     # kdeglobals is rewritten for any setting; only a title colour change is worth a redraw.
     if "--force" not in sys.argv and STAMP.exists() and STAMP.read_text() == stamp:
         return 0
-    subprocess.run(decoration_command(decoration, arguments), check=True, stdout=subprocess.DEVNULL)
+    # Aero's glass has no title colours to follow; the other decorations are drawn in the scheme's.
+    if decoration in DECORATION_THEMES:
+        subprocess.run(decoration_command(decoration, arguments), check=True, stdout=subprocess.DEVNULL)
     if PLASMA_STYLE_THEMES[plasma_style][1].exists():
         subprocess.run(plasma_style_command(plasma_style, scheme, bevel), check=True, stdout=subprocess.DEVNULL)
     subprocess.run(

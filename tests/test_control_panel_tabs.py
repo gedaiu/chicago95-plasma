@@ -1303,7 +1303,7 @@ def test_choosing_the_windows_xp_scheme_fills_in_every_setting_of_the_luna_look(
     assert tab.values() == preset_values(control_panel, "luna")
 
 
-def test_every_component_combo_offers_classic_and_windows_xp(control_panel, qt_app):
+def test_component_combos_offer_classic_and_windows_xp_and_the_decoration_also_windows_7(control_panel, qt_app):
     appearance_tab = appearance(control_panel)
     taskbar_tab = built(control_panel, "Taskbar", "Taskbar Options")
 
@@ -1313,7 +1313,7 @@ def test_every_component_combo_offers_classic_and_windows_xp(control_panel, qt_a
         combo_choices(taskbar_tab, "TASKBAR_STYLE"),
         combo_choices(built(control_panel, "Taskbar", "Start Menu"), "START_MENU_STYLE"),
     ) == (
-        ["classic", "luna"],
+        ["classic", "luna", "aero"],
         ["classic", "luna"],
         ["classic", "luna"],
         ["1995", "1998", "2000", "2001", "luna"],
@@ -1324,3 +1324,10 @@ def test_taskbar_style_combo_explains_that_the_xp_taskbar_restyles_tooltips_and_
     combo = built(control_panel, "Taskbar", "Taskbar Options").fields["TASKBAR_STYLE"][0].__self__
 
     assert combo.whatsThis() == "The Windows XP taskbar also switches tooltips and popups to the XP style."
+
+
+def test_appearance_with_the_aero_decoration_shows_windows_7_and_saves_aero(control_panel, qt_app):
+    tab = appearance(control_panel, {"LOOK": "luna", "DECORATION": "aero"})
+    combo = tab.fields["DECORATION"][0].__self__
+
+    assert (combo.currentText(), tab.values()["DECORATION"]) == ("Windows 7", "aero")

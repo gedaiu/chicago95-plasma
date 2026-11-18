@@ -91,3 +91,12 @@ def test_redraws_the_plasma_style_when_it_is_installed(home):
     result = sync_colors(home)
 
     assert (result.returncode, any(plasma_style.iterdir())) == (0, True)
+
+
+def test_with_the_aero_decoration_succeeds_without_redrawing_the_glass_frame(home):
+    (home / "config").mkdir()
+    (home / "config/chicago95rc").write_text("[Look]\ndecoration=aero\n")
+
+    result = sync_colors(home)
+
+    assert (result.returncode, result.stderr) == (0, "")
