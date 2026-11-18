@@ -891,5 +891,11 @@ def aero_panels(app, desktop=None):
                 desktop.crop((0, desktop.height - 40, desktop.width, desktop.height)),
             )
         )
-        panels.append(("Real KWin desktop: the Luna look with the Windows 7 frames and superbar", None, desktop))
+        panels.append(
+            (
+                "Real KWin desktop: the Windows 7 superbar laid out as win7screenres.png, its running task minimized",
+                None,
+                desktop,
+            )
+        )
     return panels

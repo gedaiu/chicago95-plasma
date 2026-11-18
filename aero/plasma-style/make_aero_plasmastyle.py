@@ -27,6 +27,7 @@ def load(name, path):
 palette = load("aero_palette", HERE.parent / "palette.py")
 stops = load("aero_plasma_stops", HERE / "stops.py")
 orb = load("aero_orb", HERE / "orb.py")
+tray_shade = load("aero_tray_shade", HERE / "trayshade.py")
 faces = load("aero_faces", HERE.parent / "aurorae/make_aero_aurorae.py")
 
 PANEL_WIDTH = 10
@@ -312,6 +313,34 @@ def start_shade_svg():
     )
 
 
+def tray_shade_svg():
+    """The bar at the notification area (trayshade.py), its last WIDTH columns below the top line and highlight: a
+    band of rows each, black's opacity running through a point every STEP columns up to the Show desktop strip, and
+    white's behind the strip, where Windows 7's bar is lighter."""
+    number = faces.number
+    width, height = tray_shade.WIDTH, palette.TASKBAR_HEIGHT - palette.START_SHADE_TOP
+    dark = width - tray_shade.STRIP
+    definitions, shapes = [], []
+    for index, (row, light) in enumerate(zip(tray_shade.OPACITY, tray_shade.LIGHT, strict=True)):
+        knots = "".join(
+            f'<stop offset="{number(round((column * tray_shade.STEP + tray_shade.STEP / 2) / dark, 4))}" '
+            f'stop-color="#000000" stop-opacity="{number(round(alpha / 255, 3))}"/>'
+            for column, alpha in enumerate(row)
+        )
+        definitions.append(f'<linearGradient id="tray{index}" x1="0" y1="0" x2="1" y2="0">{knots}</linearGradient>')
+        top = index * tray_shade.BAND
+        rows = min(tray_shade.BAND, height - top)
+        shapes.append(f'<rect x="0" y="{top}" width="{dark}" height="{rows}" fill="url(#tray{index})"/>')
+        shapes.append(
+            f'<rect x="{dark}" y="{top}" width="{tray_shade.STRIP}" height="{rows}" fill="#FFFFFF" '
+            f'fill-opacity="{number(round(light / 255, 3))}"/>'
+        )
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">'
+        f"<defs>{''.join(definitions)}</defs>{''.join(shapes)}</svg>\n"
+    )
+
+
 def write_theme(out):
     (out / "widgets").mkdir(parents=True, exist_ok=True)
     (out / "translucent/widgets").mkdir(parents=True, exist_ok=True)
@@ -320,6 +349,7 @@ def write_theme(out):
     (out / "widgets/tasks.svg").write_text(tasks_svg())
     (out / "widgets/startbutton.svg").write_text(orb_svg())
     (out / "widgets/startshade.svg").write_text(start_shade_svg())
+    (out / "widgets/trayshade.svg").write_text(tray_shade_svg())
     (out / "widgets/showdesktop.svg").write_text(faces_svg(stops.SHOW_DESKTOP_FACES))
     (out / "metadata.json").write_text(json.dumps(METADATA, indent=2) + "\n")
 

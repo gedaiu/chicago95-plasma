@@ -65,11 +65,25 @@ def task_image(state):
 SHOW_DESKTOP_STATES = ("normal", "hover", "pressed")
 
 
+SHOW_DESKTOP_WIDTH = 15  # win7screenres.png's strip, x 1009..1023
+
+
 def show_desktop_image(state):
+    """A state of the Show desktop button as Windows draws it at the screen's edge: its 17-column sprite at
+    SHOW_DESKTOP_WIDTH, the side columns its sizing margins keep and the middle ones squeezed between them."""
     piece = part("ShowDesktop::Button", "Common Properties")
     strip = straight(Image.open(sprite_dir() / piece.image_file).convert("RGBA"))
     rows = strip.height // piece.image_count
-    return strip.crop((0, state * rows, strip.width, (state + 1) * rows))
+    sprite = strip.crop((0, state * rows, strip.width, (state + 1) * rows))
+    left, right = piece.margins.left, piece.margins.right
+    middle = sprite.crop((left, 0, sprite.width - right, rows)).resize(
+        (SHOW_DESKTOP_WIDTH - left - right, rows), Image.Resampling.NEAREST
+    )
+    drawn = Image.new("RGBA", (SHOW_DESKTOP_WIDTH, rows))
+    drawn.paste(sprite.crop((0, 0, left, rows)), (0, 0))
+    drawn.paste(middle, (left, 0))
+    drawn.paste(sprite.crop((sprite.width - right, 0, sprite.width, rows)), (SHOW_DESKTOP_WIDTH - right, 0))
+    return drawn
 
 
 def fitted_show_desktop():

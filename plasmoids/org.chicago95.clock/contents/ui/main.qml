@@ -21,11 +21,13 @@ PlasmoidItem {
     readonly property bool isXpClassic: Plasmoid.configuration.look === "2001"
     readonly property int cellWidth: isAero ? 80 : isLuna ? 68 : Plasmoid.configuration.bevel === "2000" && !isXpClassic ? 69 : 60
     readonly property int textTop: isXpClassic ? 8 : 9   // the lettering's top row in the applet, which starts 2px into the taskbar
+    // Windows 7's Show desktop strip ends at the screen's edge: the clock reaches over the panel's last 4px.
+    readonly property int panelMarginOverlap: isAero ? 4 : 0
     property date now: new Date()
 
-    Layout.minimumWidth: cellWidth
-    Layout.preferredWidth: cellWidth
-    Layout.maximumWidth: cellWidth
+    Layout.minimumWidth: cellWidth - panelMarginOverlap
+    Layout.preferredWidth: cellWidth - panelMarginOverlap
+    Layout.maximumWidth: cellWidth - panelMarginOverlap
     Layout.fillHeight: true
 
     toolTipMainText: Qt.formatDate(now, Qt.locale().dateFormat(Locale.LongFormat))
@@ -48,7 +50,8 @@ PlasmoidItem {
 
     Loader {
         id: aeroClock
-        anchors.fill: parent
+        width: root.cellWidth
+        height: parent.height
         active: root.isAero
         source: Qt.resolvedUrl("aero/Clock.qml")
         onLoaded: item.showDesktop.connect(() => runner.connectSource(root.showDesktopCommand))

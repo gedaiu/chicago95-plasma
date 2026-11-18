@@ -90,7 +90,7 @@ def test_start_orb_outside_its_logo_is_windows_7s_within_five_levels(qt_app):
 
 @requires_sprites
 @pytest.mark.parametrize("state", ["normal", "hover", "pressed"])
-def test_show_desktop_face_matches_its_sprite_over_the_bar_within_six_levels(qt_app, state):
+def test_show_desktop_face_is_its_sprite_as_drawn_15_wide_within_six_levels(qt_app, state):
     from fit_aero_stops import SHOW_DESKTOP_STATES, show_desktop_image
 
     sprite = show_desktop_image(SHOW_DESKTOP_STATES.index(state))
@@ -102,7 +102,10 @@ def test_show_desktop_face_matches_its_sprite_over_the_bar_within_six_levels(qt_
         for a, b in zip(p, q, strict=True)
     ]
 
-    assert sum(differences) / len(differences) < 6
+    assert (tuple(generator.stops.SHOW_DESKTOP_FACES[state]["size"]), sum(differences) / len(differences) < 6) == (
+        sprite.size,
+        True,
+    )
 
 
 @pytest.mark.parametrize("rim", [(8, 20), (27, 1), (27, 38)])
@@ -149,3 +152,45 @@ def test_start_shade_over_the_bar_is_windows_7s_darkening_behind_the_orb_within_
             differences += [abs(a - b) for a, b in zip(seen, windows_7.getpixel((x, 728 + y)), strict=True)]
 
     assert max(differences) <= 4
+
+
+def test_tray_shade_over_the_bar_is_windows_7s_darkening_at_the_notification_area_within_four_levels(qt_app):
+    # Windows 7 darkens the bar from before the notification area to the Show desktop strip. Compared on the median of
+    # each 2-row, 8-column cell's brightness where no icon or lettering lies (pixels within 30 levels of the
+    # cell's median).
+    import statistics
+
+    from aero_model import plain_bar
+    from reference import screenshot
+
+    shade_svg = generator.tray_shade_svg()
+    width = generator.tray_shade.WIDTH - generator.tray_shade.STRIP  # the darkening, up to the Show desktop strip
+    top = generator.palette.START_SHADE_TOP
+    shade = rendered(shade_svg, (generator.tray_shade.WIDTH, 40 - top))
+    windows_7 = screenshot("win7screenres")
+    glass = plain_bar("win7screenres")
+    left = 1024 - 15 - width  # it ends where the Show desktop strip begins
+    errors = []
+    for y0 in range(top, 40, 2):
+        for x0 in range(0, width, 8):
+            cell = [(x, y) for x in range(x0, min(x0 + 8, width)) for y in range(y0, min(y0 + 2, 40))]
+            theirs = [windows_7.getpixel((left + x, 728 + y)) for x, y in cell]
+            middle = [statistics.median(channel) for channel in zip(*theirs, strict=True)]
+            kept = [
+                (pixel, (x, y))
+                for pixel, (x, y) in zip(theirs, cell, strict=True)
+                if max(abs(a - b) for a, b in zip(pixel, middle, strict=True)) <= 30
+            ]
+            # A black darkening changes only brightness: compare the cell's median brightness, in levels per channel.
+            if 2 * len(kept) < len(cell):  # mostly icon or lettering, with their smoothed edges: no bar to compare
+                continue
+            reference = statistics.median(sum(pixel) for pixel, _ in kept) / 3
+            if not 0 <= 1 - reference * 3 / sum(glass[y0]) <= 0.35:  # an icon's or the lettering's own colours
+                continue
+            seen = []
+            for _, (x, y) in kept:
+                alpha = shade.getpixel((x, y - top))[3] / 255
+                seen.append(sum(glass[y]) * (1 - alpha) / 3)
+            errors.append(abs(statistics.median(seen) - reference))
+
+    assert max(errors) <= 4

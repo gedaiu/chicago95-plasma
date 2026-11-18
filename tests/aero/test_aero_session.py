@@ -26,7 +26,7 @@ def test_empty_superbar_glass_is_windows_7s_without_its_streaks_row_by_row_withi
     from aero_model import plain_bar
 
     ours = bar(desktop)
-    column = [ours.getpixel((ours.width - 200, y)) for y in range(40)]
+    column = [ours.getpixel((ours.width - 300, y)) for y in range(40)]  # past the tasks, before the tray
     windows_7 = plain_bar("win7screenres")
 
     assert max(abs(a - b) for p, q in zip(column, windows_7, strict=True) for a, b in zip(p, q, strict=True)) <= 3
@@ -121,3 +121,11 @@ def test_running_task_button_outside_its_icon_is_windows_7s_within_six_levels(de
     ]
 
     assert sum(differences) / len(differences) <= 6
+
+
+def test_show_desktop_strip_ends_at_the_screens_edge_as_windows_7s(desktop):
+    # win7screenres.png: the strip is the bar's last 15 columns, x 1009..1023, with nothing after it.
+    ours, theirs = bar(desktop), WINDOWS_7_BAR
+    strip = [(ours.getpixel((ours.width - 15 + x, 20)), theirs.getpixel((1009 + x, 20))) for x in range(15)]
+
+    assert max(abs(a - b) for p, q in strip for a, b in zip(p, q, strict=True)) <= 6
