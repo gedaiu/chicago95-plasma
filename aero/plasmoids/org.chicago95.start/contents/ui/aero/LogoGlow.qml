@@ -11,8 +11,8 @@ Item {
     property int logoSize: 20
 
     // How far the light spreads past the logo, and how bright it blooms.
-    readonly property real spread: 1.8
-    readonly property real strength: 0.9
+    readonly property real spread: 2.1
+    readonly property real strength: 1
     // Drawn this small and stretched smoothly, the logo blurs without a shader, on every scene graph backend;
     // the empty margin round it lets the light fade out before the glow's edges.
     readonly property int blurredPixels: 6

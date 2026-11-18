@@ -56,8 +56,12 @@ generator by `tests/aero/test_aero_taskbar.py`):
   attention and pinned, each with its pointer states. Those PNG resources store premultiplied colours, which
   `aero_sprites.straight` reads back to straight alpha.
 - **Show desktop** (`widgets/showdesktop.svg`) comes from ShowDesktop::Button's three states.
-- **The Start orb** (`widgets/startbutton.svg`) is a vector sphere fitted to Windows 7's, outside its logo. The logo
-  is the one Setup's branding chose, never drawn here.
+- **The Start orb** (`widgets/startbutton.svg`) is a vector sphere fitted to Windows 7's, outside its logo, in a rim
+  of white glass at 30% that the bar shows through. The logo is the one Setup's branding chose, never drawn here.
+  Under the pointer it glows in the logo's own colours (`LogoGlow.qml`), as light only, so a dark outline adds
+  nothing (win7allprograms.png); at rest there is no glow.
+- **The hover light** (`HoverGlow.qml`) washes a hovered button in its icon's hue at full brightness and paler,
+  brightest at its foot under the pointer (win7peek.png).
 
 The QML parts live in `plasmoids/*/contents/ui/aero/`, and `styleParts.js` picks them for the taskbar style `aero`.
 Buttons sit on a 62-pixel pitch, 60 wide and 2 apart, as the references' icons do.
@@ -71,6 +75,8 @@ Buttons sit on a 62-pixel pitch, 60 wide and 2 apart, as the references' icons d
   brightness, need a compositor shader; a decoration cannot draw them.
 - **Title glow.** KWin 6's Aurorae draws no halo behind the title.
 - **Superbar grouping.** A pinned program that is running shows twice, pinned and as a task, where Windows 7 merges
-  them; its hover glow does not take the icon's colour; jump lists and thumbnails are Plasma's own.
+  them; jump lists and thumbnails are Plasma's own.
+- **Orb glow while the menu is open.** The Start menu is its own program and does not yet tell the orb it is open,
+  so the glow follows the pointer only.
 - **Blur strength.** It is set low to match the references' roughly 12-pixel softening, but has not yet been measured
   in KWin against them.

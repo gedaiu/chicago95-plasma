@@ -823,7 +823,15 @@ def enlarged(image):
 
 def aero_close_ups(app):
     """The orb at rest and glowing and a hovered superbar button, beside Windows 7's, four times their size."""
+    from PySide6.QtGui import QIcon
     from reference import screenshot
+
+    previous_icons = QIcon.themeName()
+    QIcon.setThemeName("Windows-XP")  # the hovered button's folder, as the other scenes show icons
+    try:
+        hovered = aero_hover_close_up(app)
+    finally:
+        QIcon.setThemeName(previous_icons)
 
     return [
         (
@@ -839,7 +847,7 @@ def aero_close_ups(app):
         (
             "Superbar close-up: a hovered button lit in its icon's colour (Windows 7: win7peek.png)",
             enlarged(screenshot("win7peek").crop((118, 728, 182, 768))),
-            enlarged(aero_hover_close_up(app)),
+            enlarged(hovered),
         ),
     ]
 
