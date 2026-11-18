@@ -1,0 +1,10 @@
+{
+  "KPlugin": {
+    "Authors": [{ "Name": "Bending Unit 22" }],
+    "Id": "Chicago95Aero",
+    "License": "GPL-3.0",
+    "Name": "Chicago95 Aero",
+    "Description": "Chicago95 Windows 7 Aero glass window decoration",
+    "Version": "1.0"
+  }
+}

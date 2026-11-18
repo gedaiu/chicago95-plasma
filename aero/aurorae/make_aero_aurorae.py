@@ -32,29 +32,42 @@ def paint(colour, alpha):
     return f'stop-color="{colour}" stop-opacity="{number(round(alpha / 255, 3))}"'
 
 
-def vertical_gradient(gradient_id, column):
-    """One stop per pixel row, held across the row: the sprite column as a gradient that scales smoothly."""
-    rows = len(column)
-    stops_markup = "".join(
-        f'<stop offset="{number(round(edge / rows, 4))}" {paint(*column[row])}/>'
-        for row in range(rows)
-        for edge in (row, row + 1)
+def runs(values):
+    """(start, end, value) for each run of equal neighbouring values."""
+    start = 0
+    for index in range(1, len(values) + 1):
+        if index == len(values) or values[index] != values[start]:
+            yield start, index, values[start]
+            start = index
+
+
+def held_stops(values, attributes):
+    """Stops that hold each value across its pixels, a pair per run of equal values."""
+    count = len(values)
+    return "".join(
+        f'<stop offset="{number(round(edge / count, 4))}" {attributes(value)}/>'
+        for start, end, value in runs(values)
+        for edge in (start, end)
     )
-    return f'<linearGradient id="{gradient_id}" x1="0" y1="0" x2="0" y2="1">{stops_markup}</linearGradient>'
+
+
+def vertical_gradient(gradient_id, column):
+    """One colour per pixel row: the sprite column as a gradient that scales smoothly."""
+    return (
+        f'<linearGradient id="{gradient_id}" x1="0" y1="0" x2="0" y2="1">'
+        f"{held_stops(column, lambda value: paint(*value))}</linearGradient>"
+    )
 
 
 def shade_gradient(gradient_id, shade):
-    columns = len(shade)
-    stops_markup = "".join(
-        f'<stop offset="{number(round(edge / columns, 4))}" stop-color="#000000" '
-        f'stop-opacity="{number(shade[column])}"/>'
-        for column in range(columns)
-        for edge in (column, column + 1)
+    return (
+        f'<linearGradient id="{gradient_id}" x1="0" y1="0" x2="1" y2="0">'
+        f"{held_stops(shade, lambda value: f'stop-color="#000000" stop-opacity="{number(value)}"')}"
+        "</linearGradient>"
     )
-    return f'<linearGradient id="{gradient_id}" x1="0" y1="0" x2="1" y2="0">{stops_markup}</linearGradient>'
 
 
-def face_svg(face, prefix="f", origin=(0, 0)):
+def face_markup(face, prefix, origin):
     """A button face at its sprite size: the centre column's gradient, the side shading, and the edge columns."""
     width, height = face["size"]
     edge = len(face["left"])
@@ -76,9 +89,15 @@ def face_svg(face, prefix="f", origin=(0, 0)):
             shapes.append(
                 f'<rect x="{x0 + offset + index}" y="{y0}" width="1" height="{height}" fill="url(#{gradient_id})"/>'
             )
+    return "".join(definitions), "".join(shapes)
+
+
+def face_svg(face):
+    width, height = face["size"]
+    definitions, shapes = face_markup(face, "f", (0, 0))
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">'
-        f"<defs>{''.join(definitions)}</defs>{''.join(shapes)}</svg>"
+        f"<defs>{definitions}</defs>{shapes}</svg>"
     )
 
 
@@ -109,13 +128,14 @@ GLYPH_SHAPES = {
 CLOSE_OUTLINE_WIDTH = 2
 
 
-def glyph_markup(kind, colours, prefix="g"):
-    """A glyph's shapes: dark outline under a white body that darkens towards its foot."""
-    (width, height), layers = GLYPH_SHAPES[kind]
+def glyph_markup(kind, colours, prefix="g", origin=(0, 0)):
+    """A glyph's shapes at origin: dark outline under a white body that darkens towards its foot."""
+    (_, height), layers = GLYPH_SHAPES[kind]
+    x0, y0 = origin
     outline, outline_alpha = colours["outline"]
     body_id = f"{prefix}{kind}"
     gradient = (
-        f'<linearGradient id="{body_id}" x1="0" y1="0" x2="0" y2="{height}" gradientUnits="userSpaceOnUse">'
+        f'<linearGradient id="{body_id}" x1="0" y1="{y0}" x2="0" y2="{y0 + height}" gradientUnits="userSpaceOnUse">'
         f'<stop offset="0" {paint(*colours["top"])}/><stop offset="1" {paint(*colours["bottom"])}/></linearGradient>'
     )
     opacity = number(round(outline_alpha / 255, 3))
@@ -127,7 +147,8 @@ def glyph_markup(kind, colours, prefix="g"):
         ),
         "body": lambda path: f'<path d="{path}" fill="url(#{body_id})" fill-rule="evenodd"/>',
     }
-    return gradient, "".join(shapes[layer](path) for layer, path in layers)
+    drawn = "".join(shapes[layer](path) for layer, path in layers)
+    return gradient, f'<g transform="translate({number(x0)},{number(y0)})">{drawn}</g>'
 
 
 def glyph_svg(kind, colours):
@@ -137,3 +158,261 @@ def glyph_svg(kind, colours):
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">'
         f"<defs>{gradient}</defs>{shapes}</svg>"
     )
+
+
+palette = load("aero_palette", HERE.parent / "palette.py")
+
+SIDE, TOP, MIDDLE = palette.BORDER, palette.TITLE_HEIGHT, 16
+FRAME_W, FRAME_H = 2 * SIDE + MIDDLE, TOP + MIDDLE + SIDE
+MAX_ROWS = TOP - SIDE  # a maximized window keeps the caption without the border pushed off screen
+GAP = 8
+PIECES = ("topleft", "top", "topright", "left", "center", "right", "bottomleft", "bottom", "bottomright")
+
+
+def piece_boxes(x0):
+    """The nine-slice pieces of a frame drawn at x0, as (name, (left, top, right, bottom))."""
+    columns = (x0, x0 + SIDE, x0 + SIDE + MIDDLE, x0 + FRAME_W)
+    rows = (0, TOP, TOP + MIDDLE, FRAME_H)
+    return [
+        (PIECES[3 * row + column], (columns[column], rows[row], columns[column + 1], rows[row + 1]))
+        for row in range(3)
+        for column in range(3)
+    ]
+
+
+def rounded_path(box, radii):
+    """A box with its corners (top left, top right, bottom right, bottom left) rounded by radii."""
+    left, top, right, bottom = box
+    top_left, top_right, bottom_right, bottom_left = radii
+    return (
+        f"M{left},{top + top_left}"
+        + (f"A{top_left},{top_left} 0 0 1 {left + top_left},{top}" if top_left else "")
+        + f"H{right - top_right}"
+        + (f"A{top_right},{top_right} 0 0 1 {right},{top + top_right}" if top_right else "")
+        + f"V{bottom - bottom_right}"
+        + (f"A{bottom_right},{bottom_right} 0 0 1 {right - bottom_right},{bottom}" if bottom_right else "")
+        + f"H{left + bottom_left}"
+        + (f"A{bottom_left},{bottom_left} 0 0 1 {left},{bottom - bottom_left}" if bottom_left else "")
+        + "z"
+    )
+
+
+def clipped(shape, piece):
+    """The part of a rounded box inside a piece: their overlap, keeping a corner's rounding where the piece holds it."""
+    box, radii = shape
+    left, top = max(box[0], piece[0]), max(box[1], piece[1])
+    right, bottom = min(box[2], piece[2]), min(box[3], piece[3])
+    if right <= left or bottom <= top:
+        return ""
+    corners = ((left, top), (right, top), (right, bottom), (left, bottom))
+    own = ((box[0], box[1]), (box[2], box[1]), (box[2], box[3]), (box[0], box[3]))
+    kept = tuple(radius if corner == mine else 0 for corner, mine, radius in zip(corners, own, radii, strict=True))
+    return rounded_path((left, top, right, bottom), kept)
+
+
+def inset(x0, distance):
+    """The window outline moved distance pixels inwards, its corner radii shrinking with it."""
+    box = (x0 + distance, distance, x0 + FRAME_W - distance, FRAME_H - distance)
+    top, bottom = max(palette.TOP_RADIUS - distance, 0), max(palette.BOTTOM_RADIUS - distance, 0)
+    return box, (top, top, bottom, bottom)
+
+
+def around_client(x0, distance):
+    """The client area grown by distance pixels."""
+    return (x0 + SIDE - distance, TOP - distance, x0 + SIDE + MIDDLE + distance, TOP + MIDDLE + distance), (0,) * 4
+
+
+def frame_layers(x0, state):
+    """(fill, opacity, outer shape, inner shape): glass, then the lines DWM draws over it, outside in."""
+    lines = palette.FRAME_LINES
+    glass, glass_alpha = palette.GLASS[state]
+    return [
+        (glass, glass_alpha, inset(x0, 0), around_client(x0, 0)),
+        (*lines["outer"][state], inset(x0, 0), inset(x0, 1)),
+        (*lines["highlight"][state], inset(x0, 1), inset(x0, 2)),
+        (*lines["client_light"][state], around_client(x0, 2), around_client(x0, 1)),
+        (*lines["client_dark"][state], around_client(x0, 1), around_client(x0, 0)),
+    ]
+
+
+def ring(fill, alpha, outer, inner, piece):
+    path = clipped(outer, piece) + clipped(inner, piece)
+    if not clipped(outer, piece):
+        return ""
+    return f'<path d="{path}" fill="{fill}" fill-opacity="{number(round(alpha / 255, 3))}" fill-rule="evenodd"/>'
+
+
+def frame_piece(element_id, box, layers):
+    left, top, right, bottom = box
+    shapes = "".join(ring(*layer, box) for layer in layers)
+    bounds = f'<rect x="{left}" y="{top}" width="{right - left}" height="{bottom - top}" fill="none"/>'
+    return f'<g id="{element_id}">{bounds}{shapes}</g>'
+
+
+def frame(prefix, x0, state):
+    layers = frame_layers(x0, state)
+    pieces = [frame_piece(f"{prefix}{name}", box, layers) for name, box in piece_boxes(x0)]
+    return "\n".join(
+        [*pieces, f'<rect id="{prefix}hint-stretch-borders" x="{x0}" y="0" width="1" height="1" fill="none"/>']
+    )
+
+
+def maximized(prefix, x0, state):
+    """A maximized window's caption: glass with the client lines along its foot, the same band in every piece."""
+    glass, glass_alpha = palette.GLASS[state]
+    light, light_alpha = palette.FRAME_LINES["client_light"][state]
+    dark, dark_alpha = palette.FRAME_LINES["client_dark"][state]
+    band = (
+        f'<rect x="{x0}" y="0" width="{FRAME_W}" height="{MAX_ROWS}" fill="{glass}" '
+        f'fill-opacity="{number(round(glass_alpha / 255, 3))}"/>'
+        f'<rect x="{x0}" y="{MAX_ROWS - 2}" width="{FRAME_W}" height="1" fill="{light}" '
+        f'fill-opacity="{number(round(light_alpha / 255, 3))}"/>'
+        f'<rect x="{x0}" y="{MAX_ROWS - 1}" width="{FRAME_W}" height="1" fill="{dark}" '
+        f'fill-opacity="{number(round(dark_alpha / 255, 3))}"/>'
+    )
+    return "\n".join(f'<g id="{prefix}{name}">{band}</g>' for name in PIECES)
+
+
+def mask(x0):
+    """The window's shape, where KWin blurs behind the glass: the frame's outline with the client inside it."""
+    outline = inset(x0, 0)
+    return "\n".join(
+        f'<path id="mask-{name}" d="{clipped(outline, box)}"/>'
+        for name, box in piece_boxes(x0)
+        if clipped(outline, box)
+    )
+
+
+def decoration_svg():
+    step = FRAME_W + GAP
+    body = "\n".join(
+        [
+            frame("decoration-", 0, "active"),
+            frame("decoration-inactive-", step, "inactive"),
+            maximized("decoration-maximized-", 2 * step, "active"),
+            maximized("decoration-maximized-inactive-", 3 * step, "inactive"),
+            mask(4 * step),
+        ]
+    )
+    return f'<svg xmlns="http://www.w3.org/2000/svg" width="{5 * step}" height="{FRAME_H}">\n{body}\n</svg>\n'
+
+
+# Aurorae's button states, each a (window, Windows 7 state) of the atlas.
+AURORAE_STATES = {
+    "active": ("active", "normal"),
+    "hover": ("active", "hot"),
+    "pressed": ("active", "pressed"),
+    "deactivated": ("active", "disabled"),
+    "inactive": ("inactive", "normal"),
+    "hover-inactive": ("inactive", "hot"),
+    "pressed-inactive": ("inactive", "pressed"),
+    "deactivated-inactive": ("inactive", "disabled"),
+}
+BUTTON_FACES = {"minimize": "caption-end", "maximize": "caption", "restore": "caption", "close": "close"}
+
+
+def glyph_origin(face, glyph):
+    """The glyph centred in the face's content box."""
+    width, height = stops.FACES[face]["active"]["normal"]["size"]
+    left, right, top, bottom = palette.BUTTON_CONTENT[face]
+    (glyph_width, glyph_height), _ = GLYPH_SHAPES[glyph]
+    return (
+        left + (width - left - right - glyph_width) / 2,
+        top + (height - top - bottom - glyph_height) / 2,
+    )
+
+
+def button_svg(kind):
+    face_name = BUTTON_FACES[kind]
+    width, height = stops.FACES[face_name]["active"]["normal"]["size"]
+    glyph_x, glyph_y = glyph_origin(face_name, kind)
+    definitions, groups = [], []
+    for index, (state, (window, look)) in enumerate(AURORAE_STATES.items()):
+        x0 = index * (width + GAP)
+        face_definitions, face_shapes = face_markup(stops.FACES[face_name][window][look], f"f{index}", (x0, 0))
+        glyph_gradient, glyph_shapes = glyph_markup(
+            kind, stops.GLYPHS[kind][look], f"g{index}", (x0 + glyph_x, glyph_y)
+        )
+        definitions += [face_definitions, glyph_gradient]
+        groups.append(f'<g id="{state}-center">{face_shapes}{glyph_shapes}</g>')
+    total = len(AURORAE_STATES) * (width + GAP)
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{total}" height="{height}">'
+        f"<defs>{''.join(definitions)}</defs>\n" + "\n".join(groups) + "\n</svg>\n"
+    )
+
+
+RC = """[General]
+ActiveTextColor=0,0,0,255
+InactiveTextColor=0,0,0,255
+TitleAlignment=Left
+TitleVerticalAlignment=Center
+Animation=0
+Shadow=false
+
+[Layout]
+TitleHeight={title}
+TitleEdgeTop=1
+TitleEdgeBottom=0
+TitleEdgeLeft={side}
+TitleEdgeRight={right_inset}
+TitleEdgeTopMaximized=0
+TitleEdgeBottomMaximized=0
+TitleEdgeLeftMaximized=2
+TitleEdgeRightMaximized=2
+TitleBorderLeft=4
+TitleBorderRight=4
+ButtonHeight={button_height}
+ButtonWidth={maximize}
+ButtonWidthMinimize={minimize}
+ButtonWidthMaximizeRestore={maximize}
+ButtonWidthClose={close}
+ButtonSpacing=-1
+ButtonMarginTop=0
+ExplicitButtonSpacer=4
+BorderLeft={side}
+BorderRight={side}
+BorderBottom={side}
+PaddingTop=0
+PaddingBottom=0
+PaddingLeft=0
+PaddingRight=0
+"""
+METADATA = """{
+  "KPlugin": {
+    "Authors": [{ "Name": "Bending Unit 22" }],
+    "Id": "Chicago95Aero",
+    "License": "GPL-3.0",
+    "Name": "Chicago95 Aero",
+    "Description": "Chicago95 Windows 7 Aero glass window decoration",
+    "Version": "1.0"
+  }
+}
+"""
+
+
+def write_theme(out):
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "decoration.svg").write_text(decoration_svg())
+    for kind in BUTTON_FACES:
+        (out / f"{kind}.svg").write_text(button_svg(kind))
+    (out / "Chicago95Aerorc").write_text(
+        RC.format(
+            title=palette.TITLE_HEIGHT - 1,
+            side=palette.BORDER,
+            right_inset=palette.BUTTON_RIGHT_INSET,
+            button_height=palette.BUTTON_HEIGHT,
+            **palette.BUTTON_WIDTHS,
+        )
+    )
+    (out / "metadata.json").write_text(METADATA)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--out", type=Path, default=HERE / "theme")
+    destination = parser.parse_args().out
+    write_theme(destination)
+    print("wrote", destination)

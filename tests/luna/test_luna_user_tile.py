@@ -43,8 +43,7 @@ def default_picture_shown(engine, **properties):
 
 def test_default_picture_is_hidden_on_an_idle_tile_with_a_user_picture_and_shown_without_one(engine):
     picture = QUrl.fromLocalFile(str(PICTURE))
-    assert (default_picture_shown(engine, selected=False, picture=picture), default_picture_shown(engine, selected=False)) == (
-        False,
-        True,
-    )
+    with_picture = default_picture_shown(engine, selected=False, picture=picture)
+
+    assert (with_picture, default_picture_shown(engine, selected=False)) == (False, True)
 

@@ -31,7 +31,12 @@ BUTTON_FILES = {
     "S": "alldesktops",
     "L": "shade",
 }
-WIDTH_KEYS = {"M": "ButtonWidthMenu", "X": "ButtonWidthClose"}
+WIDTH_KEYS = {
+    "M": "ButtonWidthMenu",
+    "I": "ButtonWidthMinimize",
+    "A": "ButtonWidthMaximizeRestore",
+    "X": "ButtonWidthClose",
+}
 
 # The colours each original's frame uses, as chicago95-sync-colors passes them for the looks.
 LOOKS = {
@@ -85,13 +90,15 @@ def title_font():
 
 
 class Window:
+    RC_NAME = "Chicago95rc"
+
     def __init__(self, theme, width, height, active=True, caption="", left="M", right="IAX", pressed=(), disabled=()):
         self.theme = Path(theme)
         self.width, self.height, self.active, self.caption = width, height, active, caption
         self.left, self.right, self.pressed, self.disabled = left, right, set(pressed), set(disabled)
         rc = configparser.ConfigParser()
         rc.optionxform = str
-        rc.read(self.theme / "Chicago95rc")
+        rc.read(self.theme / self.RC_NAME)
         self.layout = {key: int(value) for key, value in rc["Layout"].items()}
         self.general = rc["General"]
 
@@ -153,12 +160,12 @@ class Window:
         painter.setFont(title_font())
         painter.drawText(self.caption_rect(), Qt.AlignLeft | Qt.AlignVCenter, self.caption)
 
-    def render(self, scale=1):
+    def render(self, scale=1, background=Qt.white):
         """The window's frame as a PIL image at scale device pixels per logical pixel, painted in logical
-        coordinates as KWin does (the client area is the frame's centre: plain face)."""
+        coordinates as KWin does over background (the client area is the frame's centre: plain face)."""
         image = QImage(self.width * scale, self.height * scale, QImage.Format_RGB32)
         image.setDevicePixelRatio(scale)
-        image.fill(Qt.white)
+        image.fill(background)
         painter = QPainter(image)
         self.paint_frame(painter)
         self.paint_buttons(painter)

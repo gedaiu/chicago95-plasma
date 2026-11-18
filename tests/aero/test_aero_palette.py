@@ -29,3 +29,24 @@ def test_frame_line_colour_and_opacity_match_the_left_frame_sprite(line, state):
     colour, alpha = drawn[state]
 
     assert atlas_pixel("LEFTFRAME", ("active", "inactive").index(state), x, 0) == (*bytes.fromhex(colour[1:]), alpha)
+
+
+@pytest.mark.parametrize(
+    ("state", "measured"),
+    [("active", "#528BB9"), ("inactive", "#5DABE8")],
+)
+def test_glass_over_the_reference_desktop_matches_the_median_frame_glass_within_three_levels(state, measured):
+    colour, alpha = palette.GLASS[state]
+    desktop = bytes.fromhex(palette.REFERENCE_DESKTOP[1:])
+    blended = [round(d + (c - d) * alpha / 255) for c, d in zip(bytes.fromhex(colour[1:]), desktop, strict=True)]
+
+    assert max(abs(b - m) for b, m in zip(blended, bytes.fromhex(measured[1:]), strict=True)) <= 3
+
+
+@requires_sprites
+@pytest.mark.parametrize(
+    ("face", "part_name"),
+    [("caption-end", "BUTTONACTIVECAPTIONEND"), ("caption", "BUTTONACTIVECAPTION"), ("close", "BUTTONACTIVECLOSE")],
+)
+def test_button_content_margins_are_the_sprites_content_margins(face, part_name):
+    assert palette.BUTTON_CONTENT[face] == tuple(part("DWMWindow", part_name).properties["CONTENTMARGINS"])
