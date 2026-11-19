@@ -45,7 +45,7 @@ def applied_components(tmp_path, look):
     return dict(zip(COMPONENT_KEYS, line.split(), strict=True))
 
 
-@pytest.mark.parametrize("look", ["1995", "1998", "2000", "2001", "luna"])
+@pytest.mark.parametrize("look", ["1995", "1998", "2000", "2001", "luna", "aero"])
 def test_apply_look_sets_the_components_the_preset_lists_for_that_look(control_panel, tmp_path, look):
     preset = control_panel.LOOK_PRESETS[look]
 

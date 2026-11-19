@@ -54,6 +54,9 @@ without a box, the two-line clock and the Show desktop strip. The showcase puts 
 with every caption button state, the frame at 2x and a real KWin desktop. The Aero widgets, Start menu and screens
 are still to come; [aero/README.md](aero/README.md) says where every value comes from.
 
+`./install.sh --look=aero` applies them together with the Windows 7 boot screen (`--boot-style=7`), and the Look
+page of Setup lists it as "Windows 7".
+
 ![The Windows 7 Aero frames and superbar showcase](docs/compare/showcase-aero.jpg)
 
 The controls of each look (Qt, GTK 3, GTK 4, Plasma and the window

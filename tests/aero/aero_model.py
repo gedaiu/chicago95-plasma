@@ -7,6 +7,22 @@ AERO_THEME = REPO / "aero/aurorae/theme"
 REFERENCE_DESKTOP = "#4395D1"
 
 
+def reference_session(**options):
+    """plasma_session's options for the Luna look with the Aero frames and superbar, laid out as win7screenres.png
+    is (three pinned programs and Control Panel running without the focus, there its context menu's, here
+    minimized) over the plain blue desktop of Windows 7's references, so its glass shows what theirs does; with
+    any further options."""
+    return {
+        "settings": [("DECORATION", "aero"), ("BACKGROUND_MODE", "color"), ("BACKGROUND_COLOR", REFERENCE_DESKTOP)],
+        "components": ["background"],
+        "taskbar_style": "aero",
+        "windows": [("Control Panel", "qt", "minimized")],
+        "launchers": 3,
+        "screen": (1024, 768),  # the references' size: DWM's streaks stretch over the screen
+        **options,
+    }
+
+
 class AeroWindow(Window):
     RC_NAME = "Chicago95Aerorc"
 

@@ -11,7 +11,7 @@
 #     --screen=2560x1440@1.5  --panel=28  --explorer=thunar|dolphin  --saver=maze
 #     --idle=5  --cursor=48  --clippy=yes|no  --quick-launch=yes|no|auto  --task-grouping=always|full|never|auto  --font="MS W98 UI"  --font-scope=everywhere|desktop|none
 #     --start-text=Start  --start-logo=flag|penguin|/path/to/image  --banner-text=Chicago95
-#     --look=1995|1998|2000|2001|luna|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
+#     --look=1995|1998|2000|2001|luna|aero|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
 #     --decoration=classic|luna|aero  --widget-style=classic|luna  --taskbar-style=classic|luna|aero  (each overrides the look's choice)
 #     --start-menu-style=1995|1998|2000|2001|luna
 #     --login-style=classic|2000|luna  --boot-style=classic|2000|luna|vista|7|8|8.1|10|11  --icons=chicago95|se98|classicos2000|windowsxp
@@ -233,13 +233,14 @@ choose_sounds() {
 
 choose_look() {
   local choice marked=1
-  case "${SETUP_LOOK:-}" in 1998) marked=2 ;; 2000) marked=3 ;; 2001) marked=4 ;; luna) marked=5 ;; custom) marked=6 ;; esac
+  case "${SETUP_LOOK:-}" in 1998) marked=2 ;; 2000) marked=3 ;; 2001) marked=4 ;; luna) marked=5 ;; aero) marked=6 ;; custom) marked=7 ;; esac
   choice=$(ui_choose "Look" "How should title bars and the Start menu banner look?" "$marked" \
     "1995: solid navy title bars, grey banner" \
     "1998: navy-to-blue title bars, navy banner with a blue glow, taller menu rows" \
     "2000: warm grey windows, navy-to-light-blue title bars, black-to-blue banner" \
     "Windows XP Classic: the 2000 windows with the Windows XP Start menu" \
     "Windows XP: Luna window frames, controls, taskbar and Start menu" \
+    "Windows 7: Aero glass frames, the superbar and the Windows 7 boot screen" \
     "Your own colours")
   [ "$choice" = "$marked" ] && [ -n "${SETUP_LOOK:-}" ] && return 0 # the remembered look keeps its saved colours
   case "$choice" in
@@ -248,7 +249,8 @@ choose_look() {
   3) apply_look 2000 ;;
   4) apply_look 2001 ;;
   5) apply_look luna ;;
-  6)
+  6) apply_look aero ;;
+  7)
     SETUP_LOOK=custom
     ui_card "Your own colours" "Type a colour as #RRGGBB, or two separated by a comma for a gradient" \
       "(left to right on title bars, top to bottom on the banner). ENTER keeps the shown value." >/dev/tty

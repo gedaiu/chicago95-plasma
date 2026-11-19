@@ -30,6 +30,7 @@ def test_the_menu_lists_the_originals_entries_in_their_order():
         "Minimize All Windows",
         "Undo %1",
         "-",
+        "Lock the taskbar",  # Windows 7's, just above Properties there; shown with its taskbar only
         "Properties",
     ]
 

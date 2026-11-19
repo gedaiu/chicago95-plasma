@@ -249,6 +249,18 @@ LOOK_PRESETS["luna"] = {
     "TITLE_INACTIVE": "#7A96DF,#9DB9EB",
     "BACKGROUND_COLOR": "#004E98",
 }
+LOOK_PRESETS["aero"] = {
+    **LOOK_PRESETS["2000"],
+    "DECORATION": "aero",
+    "TASKBAR_STYLE": "aero",
+    "START_MENU_STYLE": "1995",
+    "ICONS": "chicago95",
+    "TITLE_ACTIVE": "#6B9CD3,#B9D1EA",
+    "TITLE_INACTIVE": "#BFCDDB,#DCE6F1",
+    "BANNER_BG": "#1E3F66,#2F5E94@100,#5B8FC8@0",
+    "BANNER_FG": "#FFFFFF",
+    "BACKGROUND_COLOR": "#1D5C9C",
+}
 
 COMPONENT_STYLES = [("Classic", "classic"), ("Windows XP", "luna")]
 # Windows 7's glass frames and superbar; its widgets come later.

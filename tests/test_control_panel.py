@@ -149,7 +149,7 @@ def test_tasks_launchers_are_unknown_when_the_applet_never_saved_any(control_pan
     assert control_panel.read_launchers(appletsrc) is None
 
 
-@pytest.mark.parametrize("look", ["1995", "1998", "2000", "luna"])
+@pytest.mark.parametrize("look", ["1995", "1998", "2000", "luna", "aero"])
 def test_look_presets_match_what_setup_applies_for_that_look(control_panel, tmp_path, look):
     applied = run_bash_with_steps(
         tmp_path,

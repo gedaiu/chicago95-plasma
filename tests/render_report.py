@@ -1098,7 +1098,7 @@ def compose_showcase(title, panels, path, grouped=False):
 
 def real_desktops(looks):
     """{look: screenshot} of the real desktop of each look, or {} without KWin and Plasma."""
-    from plasma_session import desktop_session, missing_programs
+    from plasma_session import desktop_session, missing_programs, work_folder
 
     if missing_programs():
         print(
@@ -1109,7 +1109,7 @@ def real_desktops(looks):
         return {}
     screens = {}
     for look in looks:
-        work = tempfile.mkdtemp(prefix=f"c95-{look}-", dir="/tmp")  # short: Wayland's socket path limit
+        work = work_folder(look)
         screens[look] = desktop_session(look, work)
         shutil.rmtree(work, ignore_errors=True)
     return screens
@@ -1162,34 +1162,17 @@ def comparison_main(output, looks):
 AERO = "aero"  # Windows 7: components so far, not yet a look
 
 
-def aero_desktop(hidden_applets=(), tray_icons=None, pointer_steps=(), tasks_config=()):
-    """A nested KWin desktop in the Luna look, with the Aero frames and superbar, laid out as win7screenres.png is
-    (three pinned programs and Control Panel running without the focus, there its context menu's, here minimized)
-    over the plain blue desktop of Windows 7's references, so
-    its glass shows what theirs does; None without KWin and Plasma. hidden_applets go behind the tray's arrow, and
-    tray_icons replaces the number of test icons in the tray; pointer_steps drive the pointer before the screenshot;
-    tasks_config (key, value) pairs set the task list's settings."""
-    from aero_model import REFERENCE_DESKTOP
-    from plasma_session import desktop_session, missing_programs
+def aero_desktop():
+    """A nested KWin desktop laid out as win7screenres.png is (aero_model.reference_session); None without KWin
+    and Plasma."""
+    from aero_model import reference_session
+    from plasma_session import desktop_session, missing_programs, work_folder
 
     if missing_programs():
         return None
-    work = tempfile.mkdtemp(prefix="c95-aero-", dir="/tmp")  # short: Wayland's socket path limit
+    work = work_folder("aero")
     try:
-        return desktop_session(
-            "luna",
-            work,
-            settings=[("DECORATION", AERO), ("BACKGROUND_MODE", "color"), ("BACKGROUND_COLOR", REFERENCE_DESKTOP)],
-            components=["background"],
-            taskbar_style=AERO,
-            windows=[("Control Panel", "qt", "minimized")],
-            launchers=3,
-            hidden_applets=hidden_applets,
-            tray_icons=tray_icons,
-            pointer_steps=pointer_steps,
-            tasks_config=tasks_config,
-            screen=(1024, 768),  # the references' size: DWM's streaks stretch over the screen
-        )
+        return desktop_session("luna", work, **reference_session())
     finally:
         shutil.rmtree(work, ignore_errors=True)
 

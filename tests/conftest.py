@@ -127,27 +127,13 @@ needs_se98_icons = pytest.mark.skipif(not icon_set_installed("SE98"), reason="SE
 
 @pytest.fixture(scope="session")
 def desktops():
-    """The desktop of a look as Plasma and KWin draw it (plasma_session.py), run once per look."""
-    import shutil
-    import tempfile
+    """The desktop of a look as Plasma and KWin draw it (plasma_session.py): each drawn once, and Setup run once
+    for those that differ only in what the desktop then shows."""
+    from plasma_session import Desktops
 
-    from plasma_session import desktop_session
-
-    screens, folders = {}, []
-
-    def desktop(look, **variant):
-        key = (
-            look,
-            *sorted((name, tuple(value) if isinstance(value, list) else value) for name, value in variant.items()),
-        )
-        if key not in screens:
-            folders.append(tempfile.mkdtemp(prefix=f"c95-{look}-", dir="/tmp"))  # short: Wayland's socket path limit
-            screens[key] = desktop_session(look, folders[-1], **variant)
-        return screens[key]
-
+    desktop = Desktops()
     yield desktop
-    for folder in folders:
-        shutil.rmtree(folder, ignore_errors=True)
+    desktop.remove_folders()
 
 
 @pytest.fixture

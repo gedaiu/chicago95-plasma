@@ -56,9 +56,15 @@ Pick the strongest kind of test that applies; often two of them.
 - **QML components**: load them in a `QQuickView`/`QQmlComponent` under the offscreen platform and drive
   them with `QTest.mousePress/mouseMove/mouseRelease` after `QTest.qWaitForWindowExposed(view)`
   (see `tests/test_drag_sort.py`). Plain-QtQuick components only; Plasma imports do not load there.
-- **Real desktop**: `desktop_session(look, work, ...)` in `tests/plasma_session.py` starts a nested
-  `kwin_wayland --virtual` with a throwaway HOME, installs the theme, opens test windows and returns a
-  screenshot. Slow (40 s+), used for the taskbar, tray and windows. Skipped when the programs are missing.
+- **Real desktop**: the `desktops` fixture (`Desktops` in `tests/plasma_session.py`) starts a nested
+  `kwin_wayland --virtual` with a throwaway HOME, installs the theme (`install`), opens test windows and returns a
+  screenshot (`show`). Slow (about 17 s for Setup and 9 s for a desktop), used for the taskbar, tray and windows.
+  Skipped when the programs are missing. Desktops that differ only in `show`'s options (windows, tray icons,
+  pointer steps) share one Setup and start from a copy of the home it left, so vary those where a test can.
+  `desktop_session(look, work, ...)` runs both for a one-off.
+- The session's folder comes from `work_folder(name)`: in `/dev/shm` (memory) where there is one. Setup syncs
+  every setting it writes; on a busy disk each sync stalls for seconds, and a session cut off by its 240 s limit
+  used to be photographed half-installed. It now raises (`enforce_screenshot`).
 - **Setup**: `run_bash_with_steps(tmp_path, "…")` runs a shell snippet with `setup/steps.sh` sourced in a
   temporary HOME; `dry_run_log(tmp_path, "--components=x")` in `tests/test_install.py` runs the installer
   in dry-run mode and returns its log ("would: …" lines).
@@ -119,7 +125,7 @@ first; if it crashes, run it again).
   `while tab.check is not None: qt_app.processEvents()`.
 - The nested desktop screenshots settle: `desktop_session` keeps shooting until two match. Do not add
   sleeps; make the probe robust instead.
-- Btrfs: a full suite run leaves `/tmp/c95-*` folders when it crashes and core dumps under
+- Btrfs: a full suite run leaves `/dev/shm/c95-*` (or `/tmp/c95-*`) folders when it crashes and core dumps under
   `/var/lib/systemd/coredump`; both are the user's to remove.
 
 ## Working beside another session

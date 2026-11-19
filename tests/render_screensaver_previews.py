@@ -13,7 +13,6 @@ import importlib.util
 import os
 import shutil
 import sys
-import tempfile
 from pathlib import Path
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -22,7 +21,7 @@ REPO = TESTS.parent
 sys.path[:0] = [str(TESTS), str(REPO / "lib")]
 
 from PIL import Image, ImageStat  # noqa: E402
-from plasma_session import link_user_assets, run_session  # noqa: E402
+from plasma_session import link_user_assets, run_session, work_folder  # noqa: E402
 
 PICTURES = REPO / "data/screensaver-previews"
 RUN_SECONDS = 4
@@ -69,7 +68,7 @@ def load(name):
 def main():
     savers = list(load("chicago95-screensaver").CATALOG)
     screen = load("chicago95-control-panel").MONITOR_SCREEN
-    work = Path(tempfile.mkdtemp(prefix="c95-savers-", dir="/tmp"))  # short: Wayland's socket path is limited
+    work = work_folder("savers")
     home, runtime = work / "home", work / "run"
     for folder in (home / ".config", runtime):
         folder.mkdir(parents=True, exist_ok=True)

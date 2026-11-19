@@ -178,6 +178,15 @@ apply_look() {
     SETUP_ICONS=${OPT_ICONS:-windowsxp}
     set -- "#0054E3,#3F97FF;#7A96DF,#9DB9EB;#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0;#FFFFFF"
     ;;
+  aero)
+    SETUP_DECORATION=aero
+    SETUP_TASKBAR_STYLE=aero
+    SETUP_BOOT_STYLE=7
+    SETUP_BEVEL=2000
+    SETUP_FACE="240,240,240"
+    SETUP_SELECTION="51,153,255"
+    set -- "#6B9CD3,#B9D1EA;#BFCDDB,#DCE6F1;#1E3F66,#2F5E94@100,#5B8FC8@0;#FFFFFF"
+    ;;
   esac
   IFS=';' read -r SETUP_TITLE_ACTIVE SETUP_TITLE_INACTIVE SETUP_BANNER_BG SETUP_BANNER_FG <<<"$1"
 }
@@ -214,7 +223,7 @@ remembered_components() { # remembered_components <previous setup.conf text>   e
 load_settings() { # load_settings <file>   values are data: the file is read, never executed
   local key value look
   look=$(sed -n 's/^LOOK=//p' "$1" | tail -1)
-  case "$look" in 1995 | 1998 | 2000 | 2001 | luna) apply_look "$look" ;; esac
+  case "$look" in 1995 | 1998 | 2000 | 2001 | luna | aero) apply_look "$look" ;; esac
   while IFS='=' read -r key value; do
     case " ${SETTINGS_KEYS//$'\n'/ } COMPONENTS CLASSIC_EFFECTS " in *" $key "*) printf -v "SETUP_$key" '%s' "$value" ;; esac
   done <"$1"
@@ -2052,7 +2061,7 @@ restore_classic_gtk_font() {
 
 # Luna's text is Tahoma, which no free font matches; without it fontconfig falls back to DejaVu Sans Condensed.
 warn_without_tahoma() {
-  fc-match Tahoma 2>/dev/null | grep -qi tahoma && return 0
+  fc-match Tahoma 2>/dev/null | grep -i tahoma >/dev/null && return 0
   ui_status "Tahoma is not installed: Luna text falls back to DejaVu Sans Condensed. Install Wine's Tahoma (wine-tahoma-fonts) or put tahoma.ttf in ~/.local/share/fonts, then log out and in."
 }
 
@@ -2061,7 +2070,8 @@ warn_without_tahoma() {
 LIBRE_FRANKLIN_URL=https://raw.githubusercontent.com/google/fonts/main/ofl/librefranklin
 fetch_libre_franklin() {
   local folder=~/.local/share/fonts/LibreFranklin name source
-  fc-list : family 2>/dev/null | grep -qi "Libre Franklin" && return 0
+  # Not grep -q: it leaves at its first match, the list's writer dies on the closed pipe, and pipefail fails the check.
+  fc-list : family 2>/dev/null | grep -i "Libre Franklin" >/dev/null && return 0
   ui_status "Downloading Libre Franklin (the Start button's lettering)..."
   run mkdir -p "$folder"
   for name in "LibreFranklin-Variable.ttf=LibreFranklin%5Bwght%5D.ttf" "LibreFranklin-Italic-Variable.ttf=LibreFranklin-Italic%5Bwght%5D.ttf" "OFL.txt=OFL.txt"; do

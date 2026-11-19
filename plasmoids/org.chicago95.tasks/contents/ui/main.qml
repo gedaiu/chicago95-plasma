@@ -110,13 +110,6 @@ PlasmoidItem {
     // i18n() is injected into the applet context by Plasma.
     Plasmoid.contextualActions: [
         PlasmaCore.Action {
-            text: i18n("Lock the taskbar")
-            visible: Plasmoid.configuration.taskbarStyle === "aero"   // only Windows 7's taskbar has a grip to show
-            checkable: true
-            checked: Plasmoid.configuration.locked
-            onTriggered: checked => Plasmoid.configuration.locked = checked
-        },
-        PlasmaCore.Action {
             text: i18n("Quick Launch")
             checkable: true
             checked: root.showQuickLaunch
@@ -151,6 +144,13 @@ PlasmoidItem {
         },
         PlasmaCore.Action {
             isSeparator: true
+        },
+        PlasmaCore.Action {
+            text: i18n("Lock the taskbar")
+            visible: Plasmoid.configuration.taskbarStyle === "aero"   // only Windows 7's taskbar has a grip to show
+            checkable: true
+            checked: Plasmoid.configuration.locked
+            onTriggered: checked => Plasmoid.configuration.locked = checked
         },
         PlasmaCore.Action {
             text: i18n("Properties")

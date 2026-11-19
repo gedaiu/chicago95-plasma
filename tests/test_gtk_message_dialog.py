@@ -164,6 +164,10 @@ def style():
     Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
     GLib.timeout_add(300, report)
 def report():
+    # Laid out here, not on the next frame: a compositor sends no frames to a window it does not show (a locked or
+    # blanked screen), and the content would still be where it was.
+    outer.queue_resize()
+    window.size_allocate(window.get_allocation())
     print(inner.translate_coordinates(window, 0, 0)[0] - before[0])
     Gtk.main_quit()
 GLib.timeout_add(300, style)
@@ -189,6 +193,7 @@ def test_a_libhandy_windows_content_moves_4_pixels_in_so_a_vm_screen_leaves_the_
         text=True,
         check=True,
         timeout=30,
-        env={**os.environ, "GTK_THEME": "Adwaita"},
+        # An empty settings folder: the user's own gtk.css, once Setup installed it, already moves the content in.
+        env={**os.environ, "GTK_THEME": "Adwaita", "XDG_CONFIG_HOME": str(tmp_path / "config")},
     ).stdout
     assert shift == "4\n"

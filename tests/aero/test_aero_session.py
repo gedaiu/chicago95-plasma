@@ -2,17 +2,16 @@
 win7screenres.png pixel for pixel."""
 
 import pytest
+from aero_model import reference_session
+from plasma_session import missing_programs
 from reference import screenshot
+
+pytestmark = pytest.mark.skipif(bool(missing_programs()), reason=f"needs {', '.join(missing_programs())}")
 
 
 @pytest.fixture(scope="module")
-def desktop():
-    from render_report import aero_desktop
-
-    image = aero_desktop()
-    if image is None:
-        pytest.skip("needs KWin and Plasma")
-    return image.convert("RGB")
+def desktop(desktops):
+    return desktops("luna", **reference_session())
 
 
 def bar(image):
@@ -143,31 +142,20 @@ def test_show_desktop_strip_ends_at_the_screens_edge_as_windows_7s(desktop):
     assert max(abs(a - b) for p, q in strip for a, b in zip(p, q, strict=True)) <= 6
 
 
+SUPERBAR = {"settings": [("DECORATION", "aero")], "taskbar_style": "aero", "launchers": 0}
+
+
 @pytest.fixture(scope="module")
-def two_windows_of_one_program():
-    import shutil
-    import tempfile
-
-    from plasma_session import desktop_session, missing_programs
-
-    if missing_programs():
-        pytest.skip("needs KWin and Plasma")
-    work = tempfile.mkdtemp(prefix="c95-group-", dir="/tmp")
-    try:
-        return desktop_session(
-            "luna",
-            work,
-            settings=[("DECORATION", "aero")],
-            taskbar_style="aero",
-            windows=[
-                ("First", "qt", "minimized", "org.chicago95.test.notes"),
-                ("Second", "qt", "minimized", "org.chicago95.test.notes"),
-            ],
-            launchers=0,
-            screen=(1024, 768),
-        ).convert("RGB")
-    finally:
-        shutil.rmtree(work, ignore_errors=True)
+def two_windows_of_one_program(desktops):
+    return desktops(
+        "luna",
+        **SUPERBAR,
+        windows=[
+            ("First", "qt", "minimized", "org.chicago95.test.notes"),
+            ("Second", "qt", "minimized", "org.chicago95.test.notes"),
+        ],
+        screen=(1024, 768),
+    )
 
 
 def test_two_windows_of_one_program_combine_into_one_superbar_button(two_windows_of_one_program):
@@ -193,40 +181,27 @@ def test_combined_button_ends_in_one_stacked_card_over_its_last_8_columns(two_wi
     assert max(differences) <= 8
 
 
-def nine_programs_on_a_640_bar(pointer_steps=()):
+def nine_programs_on_a_640_bar(desktops, pointer_steps=()):
     """Nine programs' windows on a 640-wide superbar, which holds seven: the first page, or another after the pointer
     steps (the pointer resting off the bar, so no button is lit)."""
-    import shutil
-    import tempfile
-
-    from plasma_session import desktop_session, missing_programs
-
-    if missing_programs():
-        pytest.skip("needs KWin and Plasma")
-    work = tempfile.mkdtemp(prefix="c95-pages-", dir="/tmp")
-    try:
-        return desktop_session(
-            "luna",
-            work,
-            settings=[("DECORATION", "aero")],
-            taskbar_style="aero",
-            windows=[(f"Window {n}", "qt", "minimized", f"org.chicago95.test.program{n}") for n in range(9)],
-            launchers=0,
-            screen=(640, 480),
-            pointer_steps=[*pointer_steps, "move:320,200", "wait:1"],
-        ).convert("RGB")
-    finally:
-        shutil.rmtree(work, ignore_errors=True)
+    return desktops(
+        "luna",
+        **SUPERBAR,
+        windows=[(f"Window {n}", "qt", "minimized", f"org.chicago95.test.program{n}") for n in range(9)],
+        screen=(640, 480),
+        pointer_steps=[*pointer_steps, "move:320,200", "wait:1"],
+    )
 
 
 @pytest.fixture(scope="module")
-def more_windows_than_fit():
-    return nine_programs_on_a_640_bar()
+def more_windows_than_fit(desktops):
+    return nine_programs_on_a_640_bar(desktops)
 
 
 @pytest.fixture(scope="module")
-def second_page():
-    return nine_programs_on_a_640_bar(["move:501,470", "click:left", "wait:1"])  # the down arrow, at x 493..509
+def second_page(desktops):
+    # The down arrow, at x 493..509.
+    return nine_programs_on_a_640_bar(desktops, ["move:501,470", "click:left", "wait:1"])
 
 
 def arrow_match(image, state):
@@ -278,14 +253,12 @@ def test_down_arrow_shows_the_last_two_windows_from_the_first_slot_with_only_the
     )
 
 
-@pytest.fixture(scope="module")
-def hidden_tray_icons():
-    from render_report import aero_desktop
+HIDDEN_ICONS = {"hidden_applets": ["org.kde.plasma.notifications"], "tray_icons": 3}  # as win7peek.png's three
 
-    image = aero_desktop(hidden_applets=["org.kde.plasma.notifications"], tray_icons=3)  # as win7peek.png's three
-    if image is None:
-        pytest.skip("needs KWin and Plasma")
-    return image.convert("RGB")
+
+@pytest.fixture(scope="module")
+def hidden_tray_icons(desktops):
+    return desktops("luna", **reference_session(**HIDDEN_ICONS))
 
 
 def test_show_hidden_icons_button_is_win7peeks_before_the_flag_within_six_levels_on_average(hidden_tray_icons):
@@ -324,17 +297,9 @@ def test_tray_icons_start_at_win7peeks_866_890_and_914(hidden_tray_icons):
 
 
 @pytest.fixture(scope="module")
-def hidden_icons_open():
-    from render_report import aero_desktop
-
-    image = aero_desktop(
-        hidden_applets=["org.kde.plasma.notifications"],
-        tray_icons=3,
-        pointer_steps=["move:850,749", "click:left", "wait:1", "move:500,300", "wait:1"],
-    )
-    if image is None:
-        pytest.skip("needs KWin and Plasma")
-    return image.convert("RGB")
+def hidden_icons_open(desktops):
+    steps = ["move:850,749", "click:left", "wait:1", "move:500,300", "wait:1"]
+    return desktops("luna", **reference_session(**HIDDEN_ICONS, pointer_steps=steps))
 
 
 def test_show_hidden_icons_button_points_down_while_its_popup_is_open(hidden_icons_open):
@@ -345,13 +310,8 @@ def test_show_hidden_icons_button_points_down_while_its_popup_is_open(hidden_ico
 
 
 @pytest.fixture(scope="module")
-def unlocked():
-    from render_report import aero_desktop
-
-    image = aero_desktop(tasks_config=[("locked", "false")])
-    if image is None:
-        pytest.skip("needs KWin and Plasma")
-    return image.convert("RGB")
+def unlocked(desktops):
+    return desktops("luna", **reference_session(tasks_config=[("locked", "false")]))
 
 
 def test_unlocked_taskbar_shows_the_grip_where_its_band_began_and_moves_the_pinned_programs_12_right(unlocked, desktop):

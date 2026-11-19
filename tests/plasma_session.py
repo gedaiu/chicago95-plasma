@@ -17,6 +17,8 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
+from collections import namedtuple
 from pathlib import Path
 
 from PIL import Image
@@ -161,10 +163,13 @@ start_plasmashell() {{
         "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" | cut -d= -f2-)
     ${{command//%h/$HOME}} >"$1" 2>&1 &
 }}
-# Screenshots until two in a row match: Plasma settles its widgets on timers, later when the machine is busy.
+# Screenshots until two in a row match: Plasma settles its widgets on timers, later when the machine is busy. Each
+# waits for Plasma to answer first: its answer comes from the thread that paints it, so two matching shots cannot
+# be one frame held while it loads a widget (a classic Start button before the style's own one is drawn).
 screenshot_settled() {{
     local shots="${{1%.png}}-shot"
     for shot in 1 2 3 4 5 6 7 8 9 10; do
+        evaluate 'print("ready")' >/dev/null 2>&1
         spectacle --background --nonotify --fullscreen --output "$shots-$shot.png" >"$WORK/spectacle.log" 2>&1
         if [ "$shot" -gt 1 ] && cmp -s "$shots-$shot.png" "$shots-$((shot - 1)).png"; then break; fi
         sleep 1
@@ -204,6 +209,7 @@ kill %1; wait
 DESKTOP = (
     COMMON + """
 # The second session, as after logging in again: everything Setup wrote is read from the start.
+kbuildsycoca6 >/dev/null 2>&1   # the windows' programs are written into the home Setup left
 {windows_before_plasma}
 start_plasmashell "$WORK/plasma.log"
 wait_for_plasma
@@ -254,6 +260,17 @@ def menu_steps(look, kind, hover=None):
     return (*MENU_OPENERS[kind](look), *(hover_steps(hover) if hover else ()))
 
 
+ICON_SET_CLONES = ("Windows-XP", "Win98SE", "ClassicOS-2000-Icons")  # setup/steps.sh install_icon_pack
+
+
+def work_folder(name, memory=Path("/dev/shm")):
+    """A new folder for a session's home and logs: its path short (Wayland's socket path stops at 108 bytes), and in
+    memory where the machine has such a filesystem. Setup syncs every setting it writes and copies thousands of
+    files, which stalls for seconds at a time on a busy disk."""
+    parent = memory if os.access(memory, os.W_OK) else Path("/tmp")
+    return Path(tempfile.mkdtemp(prefix=f"c95-{name}-", dir=parent))
+
+
 def screen_of(look):
     return SCREENS.get(look, SCREEN)
 
@@ -287,6 +304,17 @@ def link_user_assets(home):
     link_children(real / ".icons/Chicago95", home / ".icons/Chicago95", copy=("index.theme",))
     (home / ".themes").mkdir(exist_ok=True)
     (home / ".themes/Chicago95").symlink_to(CHICAGO95_SRC / "Theme/Chicago95")
+    # The icon sets Setup would otherwise clone from GitHub in every session, and nothing else of ~/src.
+    (home / "src").mkdir(exist_ok=True)
+    for clone in ICON_SET_CLONES:
+        if (real / "src" / clone).is_dir():
+            (home / "src" / clone).symlink_to(real / "src" / clone)
+
+
+def enforce_screenshot(path, session):
+    """A session KWin's time limit cut off, or one that crashed, must not pass as a half-built desktop."""
+    if not path.exists():
+        raise RuntimeError(f"{session} session took no screenshot ({path.name}); see the logs in {path.parent}")
 
 
 def stub(folder, *programs):
@@ -338,35 +366,48 @@ def run_session(work, script, environment, screen, xwayland=False, scale=1):
         subprocess.run(command, env=environment, cwd=work, stdout=log, stderr=subprocess.STDOUT, check=False)
 
 
-def desktop_session(
+SETUP_OPTIONS = (
+    "tray_applets",
+    "hidden_applets",
+    "tasks_config",
+    "taskbar_style",
+    "settings",
+    "components",
+    "launchers",
+    "screen",
+)
+Installed = namedtuple("Installed", "look work screen environment")
+
+
+def frozen(value):
+    return tuple(frozen(item) for item in value) if isinstance(value, (list, tuple)) else value
+
+
+def setup_key(look, options):
+    """What Setup's session depends on, of a desktop's options: desktops that differ only in what is then shown
+    (the windows, the tray's icons, the pointer) share one Setup."""
+    return (look, *sorted((name, frozen(value)) for name, value in options.items() if name in SETUP_OPTIONS))
+
+
+def install(
     look,
     work,
     tray_applets=(),
-    tray_icons=None,
     hidden_applets=(),
     tasks_config=(),
     taskbar_style=None,
     settings=(),
     components=(),
-    windows=None,
-    windows_first=False,
     launchers=None,
-    pointer_steps=(),
     screen=None,
 ):
-    """Runs both sessions for a look in work (a short path: Wayland's socket path is limited to 108
-    bytes); returns the screenshot, 640x480 or the look's own size (SCREENS). tray_applets are Plasma applets
-    shown in the tray (such as org.kde.plasma.notifications), hidden_applets ones behind its "show hidden icons"
-    arrow, and tray_icons the number of the test's icons there, beside the original's; tasks_config (key, value)
-    pairs for the taskbar widget's settings; taskbar_style the taskbar Setup installs whatever the look (classic
-    or luna); settings (key, value) pairs Setup applies with its animations step too; components further Setup
-    components to install (such as desktop); windows replaces the look's own windows (an empty list: none, for
-    the desktop behind them); launchers replaces the number of Quick Launch entries; windows_first opens them
-    before Plasma starts, as a login that restores the last session does; pointer_steps (see eis_pointer.py)
-    drive the pointer before the screenshot, to open a context menu (see MENU_OPENERS) and hover one of its rows;
-    screen (width, height) replaces the look's own size.
-    The screenshot's info holds KWin's loaded effects, its log, and Setup's own session's screenshot
-    ("setup_screen": the taskbar right after Setup restarted Plasma, before anyone touched it)."""
+    """Runs Setup's session for a look in work (see work_folder) and keeps a copy of the home it leaves, for
+    show() to start each desktop from. tray_applets are Plasma applets shown in the tray (such as
+    org.kde.plasma.notifications), hidden_applets ones behind its "show hidden icons" arrow; tasks_config (key,
+    value) pairs for the taskbar widget's settings; taskbar_style the taskbar Setup installs whatever the look
+    (classic, luna or aero); settings (key, value) pairs Setup applies with its animations step too; components
+    further Setup components to install (such as desktop); launchers replaces the number of Quick Launch entries;
+    screen (width, height) replaces the look's own size, 640x480 or SCREENS'."""
     work = Path(work)
     screen_size = screen or screen_of(look)
     home, runtime = work / "home", work / "run"
@@ -385,47 +426,23 @@ def desktop_session(
     (work / "tray.py").write_text(TRAY_PROGRAM)
     shutil.copy(REPO / "tests/eis_pointer.py", work / "eis_pointer.py")
 
-    content = CONTENT[look]
-    if windows is not None:
-        shown = [title for title, _toolkit, place, *_program in windows if place != "minimized"]
-        content = {**content, "windows": list(windows), "active": shown[0] if shown else ""}  # minimized: not active
-    if launchers is not None:
-        content = {**content, "launchers": launchers}
     applications = home / ".local/share/applications"
     applications.mkdir(parents=True, exist_ok=True)
-    launchers = [
+    launcher_files = [
         desktop_file(applications, f"c95-launcher-{index}", f"Launcher {index}", TEST_ICON).as_uri()
-        for index in range(content["launchers"])
+        for index in range(CONTENT[look]["launchers"] if launchers is None else launchers)
     ]
-    places = {title: place for title, _toolkit, place, *_program in content["windows"]}
-    window_script = window_commands(work, applications, content["windows"])
     (work / "setup.sh").write_text(
         SETUP.format(
             look=look,
             screen="x".join(map(str, screen_size)),
             taskbar_style=f" --taskbar-style={taskbar_style}" if taskbar_style else "",
-            launchers=json.dumps(launchers),
+            launchers=json.dumps(launcher_files),
             tray_applets=json.dumps(list(tray_applets)),
             hidden_applets=json.dumps(list(hidden_applets)),
             tasks_config=json.dumps(dict(tasks_config)),
             components="".join(f",{component}" for component in (*(["animations"] if settings else []), *components)),
             settings=f" --settings={work / 'chosen.conf'}" if settings else "",
-        )
-    )
-    (work / "desktop.sh").write_text(
-        DESKTOP.format(
-            icon=TEST_ICON,
-            tray=content["tray"] if tray_icons is None else tray_icons,
-            windows_before_plasma=window_script if windows_first else "",
-            windows_after_plasma="" if windows_first else window_script,
-            places=json.dumps(places),
-            active=json.dumps(content["active"]),
-            pointer_command=(
-                f'python3 "$WORK/eis_pointer.py" {" ".join(quote(step) for step in pointer_steps)} '
-                '>"$WORK/pointer.log" 2>&1; sleep 1'
-                if pointer_steps
-                else ""
-            ),
         )
     )
     environment = {
@@ -446,16 +463,93 @@ def desktop_session(
     }
     (work / "chosen.conf").write_text("".join(f"{key}={value}\n" for key, value in settings))
     run_session(work, work / "setup.sh", environment, screen_size)
+    enforce_screenshot(work / "setup-screen.png", "Setup's")
+    shutil.copytree(home, work / HOME_AFTER_SETUP, symlinks=True)
+    return Installed(look, work, screen_size, environment)
+
+
+HOME_AFTER_SETUP = "home-after-setup"
+DESKTOP_LEAVINGS = ("screen.png", "screen-shot-*.png", "effects.txt")
+
+
+def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_steps=()):
+    """Runs the desktop's session, as after logging in again, from the home Setup left; returns the screenshot.
+    windows replaces the look's own windows (an empty list: none, for the desktop behind them); windows_first
+    opens them before Plasma starts, as a login that restores the last session does; tray_icons is the number of
+    the test's icons in the tray, beside the original's; pointer_steps (see eis_pointer.py) drive the pointer
+    before the screenshot, to open a context menu (see MENU_OPENERS) and hover one of its rows.
+    The screenshot's info holds KWin's loaded effects, its log, and Setup's own session's screenshot
+    ("setup_screen": the taskbar right after Setup restarted Plasma, before anyone touched it)."""
+    look, work, screen_size, environment = installed
+    home = work / "home"
+    shutil.rmtree(home)
+    shutil.copytree(work / HOME_AFTER_SETUP, home, symlinks=True)
+    for leaving in DESKTOP_LEAVINGS:  # an earlier desktop's in this folder: a session that dies must show nothing
+        for path in work.glob(leaving):
+            path.unlink()
+
+    content = CONTENT[look]
+    if windows is not None:
+        shown = [title for title, _toolkit, place, *_program in windows if place != "minimized"]
+        content = {**content, "windows": list(windows), "active": shown[0] if shown else ""}  # minimized: not active
+    places = {title: place for title, _toolkit, place, *_program in content["windows"]}
+    window_script = window_commands(work, home / ".local/share/applications", content["windows"])
+    (work / "desktop.sh").write_text(
+        DESKTOP.format(
+            icon=TEST_ICON,
+            tray=content["tray"] if tray_icons is None else tray_icons,
+            windows_before_plasma=window_script if windows_first else "",
+            windows_after_plasma="" if windows_first else window_script,
+            places=json.dumps(places),
+            active=json.dumps(content["active"]),
+            pointer_command=(
+                f'python3 "$WORK/eis_pointer.py" {" ".join(quote(step) for step in pointer_steps)} '
+                '>"$WORK/pointer.log" 2>&1; sleep 1'
+                if pointer_steps
+                else ""
+            ),
+        )
+    )
     run_session(work, work / "desktop.sh", environment, screen_size, xwayland=True)
-    screen = work / "screen.png"
-    if not screen.exists():
-        raise RuntimeError(f"the Plasma session took no screenshot; see the logs in {work}")
-    image = Image.open(screen).convert("RGB")
+    enforce_screenshot(work / "screen.png", "the desktop's")
+    image = Image.open(work / "screen.png").convert("RGB")
     effects, kwin_log = work / "effects.txt", work / "kwin-desktop.log"
     image.info["loaded_effects"] = effects.read_text() if effects.exists() else ""
     image.info["kwin_log"] = kwin_log.read_text(errors="replace") if kwin_log.exists() else ""
     image.info["setup_screen"] = Image.open(work / "setup-screen.png").convert("RGB")
     return image
+
+
+def split_options(options):
+    setup = {name: value for name, value in options.items() if name in SETUP_OPTIONS}
+    return setup, {name: value for name, value in options.items() if name not in SETUP_OPTIONS}
+
+
+def desktop_session(look, work, **options):
+    """Runs both sessions for a look in work, with install()'s and show()'s options; returns the screenshot."""
+    setup_options, desktop_options = split_options(options)
+    return show(install(look, work, **setup_options), **desktop_options)
+
+
+class Desktops:
+    """Desktops by their options, each drawn once, with one Setup for those that share its options (setup_key)."""
+
+    def __init__(self):
+        self.screens, self.installed = {}, {}
+
+    def __call__(self, look, **options):
+        key = (look, *sorted((name, frozen(value)) for name, value in options.items()))
+        if key not in self.screens:
+            setup_options, desktop_options = split_options(options)
+            shared = setup_key(look, options)
+            if shared not in self.installed:
+                self.installed[shared] = install(look, work_folder(look), **setup_options)
+            self.screens[key] = show(self.installed[shared], **desktop_options)
+        return self.screens[key]
+
+    def remove_folders(self):
+        for installed in self.installed.values():
+            shutil.rmtree(installed.work, ignore_errors=True)
 
 
 def quote(text):

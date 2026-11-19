@@ -1390,6 +1390,33 @@ def test_aero_taskbar_installs_the_superbar_style_and_parts_and_a_40_pixel_panel
     ) == (True,) * 5
 
 
+def test_look_aero_installs_the_glass_decoration_and_the_superbar(tmp_path):
+    log = dry_run_log(tmp_path, "--look=aero", "--components=look,taskbar")
+
+    assert (
+        "kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme __aurorae__svg__Chicago95Aero" in log,
+        "plasma-apply-desktoptheme Chicago95Aero" in log,
+        " panel=40 " in log,
+    ) == (True,) * 3
+
+
+def test_look_aero_builds_the_windows_7_boot_theme(tmp_path):
+    plymouth_stub(tmp_path)
+    run_setup(tmp_path, "--dry-run", "--look=aero", "--screen=1280x1024@1", "--components=plymouth")
+    log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
+
+    assert "would: sudo plymouth-set-default-theme -R Chicago95-7" in log
+
+
+def test_settings_file_with_look_aero_keeps_the_glass_decoration_and_the_windows_7_boot_style(tmp_path):
+    settings = tmp_path / "choices.conf"
+    settings.write_text("LOOK=aero\n")
+
+    assert run_bash_with_steps(
+        tmp_path, f'load_settings {settings}; echo "$SETUP_DECORATION $SETUP_TASKBAR_STYLE $SETUP_BOOT_STYLE"'
+    ) == ["aero aero 7"]
+
+
 def test_look_luna_writes_the_component_keys_to_chicago95rc(tmp_path):
     log = dry_run_log(tmp_path, "--components=look,taskbar,fonts", "--look=luna")
 
@@ -1606,6 +1633,22 @@ def test_look_luna_leaves_an_installed_libre_franklin_alone(tmp_path):
         (stubs / "fc-list").chmod(0o755)
 
     log = widget_look_log(tmp_path, "--look=luna", qt_style_dirs=tmp_path / "no-styles", prepare=with_the_font)
+
+    assert "librefranklin" not in log
+
+
+def test_look_luna_leaves_libre_franklin_alone_when_it_comes_first_of_ten_thousand_installed_families(tmp_path):
+    # Setup runs with pipefail: a font list longer than a pipe holds still counts once its match is found.
+    def with_many_fonts(home):
+        stubs = home / "stubs"
+        stubs.mkdir(exist_ok=True)
+        (stubs / "fc-list").write_text(
+            "#!/bin/sh\necho 'Libre Franklin'\nsleep 0.2\n"
+            "i=0; while [ $i -lt 10000 ]; do echo 'Another Family With A Long Name'; i=$((i+1)); done\n"
+        )
+        (stubs / "fc-list").chmod(0o755)
+
+    log = widget_look_log(tmp_path, "--look=luna", qt_style_dirs=tmp_path / "no-styles", prepare=with_many_fonts)
 
     assert "librefranklin" not in log
 
