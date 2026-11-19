@@ -101,3 +101,13 @@ def test_a_wrong_classic_password_shows_no_logon_message_box(qt_app, tmp_path):
 def test_a_wrong_classic_password_shows_the_line_under_the_fields(qt_app, tmp_path):
     with login_view(qt_app, tmp_path, loginStyle="classic", failed=True) as view:
         assert child(view, "failureLine").property("text") == "The password is incorrect. Try again."
+
+
+def test_aero_login_rejects_a_password_and_leaves_the_field_ready_for_retry(qt_app, tmp_path):
+    with login_view(qt_app, tmp_path, loginStyle="aero", failed=True) as view:
+        field = child(view, "aeroPassword")
+        assert (child(view, "logonDialog").isVisible(), field.hasActiveFocus(), field.property("text")) == (
+            False,
+            True,
+            "",
+        )

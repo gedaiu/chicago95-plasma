@@ -120,9 +120,16 @@ PlasmoidItem {
         value: Kirigami.Theme.textColor
     }
 
+    Binding {
+        target: button.item
+        property: "hovered"
+        when: Plasmoid.configuration.taskbarStyle === "aero"
+        value: clickArea.containsMouse
+    }
     MouseArea {
         id: clickArea
         anchors.fill: button
+        hoverEnabled: Plasmoid.configuration.taskbarStyle === "aero"
         onClicked: root.toggleMenu()
     }
 }

@@ -62,7 +62,7 @@ PlasmoidItem {
     // turns into 0 (no launchers at all). Until they arrive, the band fits every launcher.
     readonly property int savedSize: Plasmoid.configuration.quickLaunchWidth ?? Band.fitAll()
     readonly property int size: liveSize !== notDragged ? liveSize : savedSize
-    readonly property var band: Band.layout(width, contentX, lead, launcherCount, size, dock, metrics)
+    readonly property var band: Band.layout(width, contentX, lead, pagesButtons ? 0 : launcherCount, size, dock, metrics)
     readonly property int bandShift: bandCarried ? Band.carriedShift(carriedGripX, band, dock, width, contentX, metrics) : 0
     readonly property int shownLaunchers: band.shown
     readonly property int firstShown: band.firstShown   // the launchers before it are behind the chevron
@@ -76,10 +76,12 @@ PlasmoidItem {
     // Windows 7's superbar keeps its buttons whole and pages them (paging.js); the older taskbars narrow them to fit.
     readonly property bool pagesButtons: Plasmoid.configuration.taskbarStyle === "aero"
     readonly property int pageArrowsWidth: 17
-    readonly property var paging: pagesButtons ? Paging.layout(windowCount, { room: band.tasksEnd - tasksX, buttonWidth: styledMaxButtonWidth, gap: gap, arrowWidth: pageArrowsWidth }) : { perPage: windowCount, pages: 1 }
+    readonly property var paging: pagesButtons ? Paging.layout(tasksModel.count, { room: band.tasksEnd - tasksX, buttonWidth: styledMaxButtonWidth, gap: gap, arrowWidth: pageArrowsWidth }) : { perPage: windowCount, pages: 1 }
+    readonly property int pageStart: shownPage * paging.perPage
+    readonly property int pageCount: Math.min(paging.perPage, tasksModel.count - pageStart)
     property int page: 0
     readonly property int shownPage: Paging.clamped(page, paging.pages)
-    readonly property int buttonWidth: windowCount === 0 ? 0 : pagesButtons ? styledMaxButtonWidth : Math.min(styledMaxButtonWidth, Math.floor((band.tasksEnd - tasksX + gap) / windowCount) - gap)
+    readonly property int buttonWidth: pagesButtons ? styledMaxButtonWidth : windowCount === 0 ? 0 : Math.min(styledMaxButtonWidth, Math.floor((band.tasksEnd - tasksX + gap) / windowCount) - gap)
 
     function separatorDragged(separator, gripX) {
         if (Band.outerSeparator(dock) === separator)
@@ -188,8 +190,9 @@ PlasmoidItem {
         groupInline: false
         groupingWindowTasksThreshold: Grouping.threshold(root.groupingMode, root.fittingButtons)
         sortMode: TaskManager.TasksModel.SortManual
-        separateLaunchers: true
-        hideActivatedLaunchers: false
+        separateLaunchers: !root.pagesButtons
+        launchInPlace: root.pagesButtons
+        hideActivatedLaunchers: root.pagesButtons
         // The launchers go in once the applet is complete. Given while it loads, Plasma never counts them: it counts
         // launchers when rows change, and with the windows already there (a login restoring the last session) no row
         // changes until a window opens, so the cells draw as window buttons until then.
@@ -205,16 +208,18 @@ PlasmoidItem {
 
     DropArea {
         visible: root.showQuickLaunch
-        x: root.quickLaunchX
-        width: Math.max(root.metrics.cellWidth, root.quickLaunchEnd - root.quickLaunchX)
+        x: root.pagesButtons ? root.contentX : root.quickLaunchX
+        width: root.pagesButtons ? root.width - x : Math.max(root.metrics.cellWidth, root.quickLaunchEnd - root.quickLaunchX)
         height: parent.height
         onDropped: drop => {
-            const insertAt = Launchers.insertionIndexAt(x + drop.x, root.quickLaunchX, root.shownLaunchers);
+            const insertAt = root.pagesButtons ? root.pageStart + Math.min(root.pageCount, Math.round(drop.x / root.metrics.cellWidth)) : root.firstShown + Launchers.insertionIndexAt(x + drop.x, root.quickLaunchX, root.shownLaunchers);
             drop.urls.forEach((url, offset) => {
-                const before = tasksModel.launcherCount;
+                const before = tasksModel.count;
                 tasksModel.requestAddLauncher(url);
-                if (tasksModel.launcherCount > before)
-                    tasksModel.move(before, root.firstShown + insertAt + offset);
+                if (tasksModel.count > before) {
+                    tasksModel.move(root.pagesButtons ? before : tasksModel.launcherCount - 1, insertAt + offset);
+                    tasksModel.syncLaunchers();
+                }
             });
         }
     }
@@ -345,10 +350,10 @@ PlasmoidItem {
             id: entry
             required property var model
             required property int index
-            readonly property bool launcher: index < root.launcherCount
+            readonly property bool launcher: root.pagesButtons ? model.IsLauncher === true : index < root.launcherCount
             readonly property var modelIndex: tasksModel.makeModelIndex(index)
-            readonly property int laidOutX: launcher ? root.quickLaunchX + Band.cellsWidth(index - root.firstShown, root.metrics) : root.tasksX + slot % root.paging.perPage * (root.buttonWidth + root.gap)
-            readonly property int slot: index - root.launcherCount
+            readonly property int laidOutX: root.pagesButtons ? root.tasksX + slot % root.paging.perPage * (root.buttonWidth + root.gap) - (launcher ? 1 : 0) : launcher ? root.quickLaunchX + Band.cellsWidth(index - root.firstShown, root.metrics) : root.tasksX + slot % root.paging.perPage * (root.buttonWidth + root.gap)
+            readonly property int slot: root.pagesButtons ? index : index - root.launcherCount
             // Dragged: the button follows the pointer; the others slide into their new places.
             property bool dragging: false
             property bool slides: true
@@ -368,7 +373,7 @@ PlasmoidItem {
             }
             width: launcher ? root.metrics.cellWidth : root.buttonWidth
             height: root.height
-            visible: launcher ? index >= root.firstShown && index < root.firstShown + root.shownLaunchers : Math.floor(slot / root.paging.perPage) === root.shownPage
+            visible: launcher && !root.pagesButtons ? index >= root.firstShown && index < root.firstShown + root.shownLaunchers : Math.floor(slot / root.paging.perPage) === root.shownPage
             sourceComponent: launcher ? launcherCell : windowButton
 
             Component {
@@ -401,15 +406,15 @@ PlasmoidItem {
                             id: launcherArea
                             anchors.fill: parent
                             layoutParent: root
-                            origin: root.quickLaunchX
+                            origin: root.pagesButtons ? root.contentX : root.quickLaunchX
                             pitch: root.metrics.cellWidth
-                            count: root.shownLaunchers
-                            slot: entry.index - root.firstShown
+                            count: root.pagesButtons ? root.pageCount : root.shownLaunchers
+                            slot: entry.index - (root.pagesButtons ? root.pageStart : root.firstShown)
                             itemWidth: root.metrics.cellWidth
                             onDraggingChanged: entry.dragging = dragging
                             onSlidesChanged: entry.slides = slides
                             onDragXChanged: entry.dragX = dragX
-                            onMoved: (from, to) => tasksModel.move(root.firstShown + from, root.firstShown + to)
+                            onMoved: (from, to) => tasksModel.move(entry.index - slot + from, entry.index - slot + to)
                             onDropped: (pointerX, pointerY) => {
                                 tasksModel.syncLaunchers();
                                 if (Launchers.releasedOffTaskbar(pointerX, pointerY, root.width, root.height))
@@ -528,13 +533,14 @@ PlasmoidItem {
                             layoutParent: root
                             origin: root.tasksX
                             pitch: root.buttonWidth + root.gap
-                            count: root.windowCount
-                            slot: entry.index - root.launcherCount
+                            count: root.pagesButtons ? root.pageCount : root.windowCount
+                            slot: entry.index - (root.pagesButtons ? root.pageStart : root.launcherCount)
                             itemWidth: root.buttonWidth
                             onDraggingChanged: entry.dragging = dragging
                             onSlidesChanged: entry.slides = slides
                             onDragXChanged: entry.dragX = dragX
-                            onMoved: (from, to) => tasksModel.move(root.launcherCount + from, root.launcherCount + to)
+                            onMoved: (from, to) => tasksModel.move(entry.index - slot + from, entry.index - slot + to)
+                            onDropped: if (root.pagesButtons) tasksModel.syncLaunchers()
                             onTapped: (mouseButton, clickX, clickY) => {
                                 if (mouseButton === Qt.RightButton) {
                                     windowMenu.visualParent = button;

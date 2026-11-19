@@ -1106,7 +1106,7 @@ def test_radio_field_sits_in_a_titled_group_like_the_originals(make_tab):
     assert (isinstance(group, QGroupBox), group.title()) == (True, "Pointer size")
 
 
-def test_two_and_three_way_choices_are_radio_buttons_as_in_the_originals(control_panel, qt_app):
+def test_login_cursor_explorer_and_font_scope_choices_are_radio_buttons(control_panel, qt_app):
     from PySide6.QtWidgets import QRadioButton
 
     counts = {}
@@ -1119,7 +1119,7 @@ def test_two_and_three_way_choices_are_radio_buttons_as_in_the_originals(control
         tab = built(control_panel, applet, tab_name, None, program_installed=lambda name: f"/usr/bin/{name}")
         counts[key] = len(tab.findChildren(QRadioButton))
 
-    assert counts == {"LOGIN_STYLE": 3, "CURSOR": 3, "EXPLORER": 2, "FONT_SCOPE": 3}
+    assert counts == {"LOGIN_STYLE": 4, "CURSOR": 3, "EXPLORER": 2, "FONT_SCOPE": 3}
 
 
 def preview_image(control_panel, qt_app, look="1998"):
@@ -1305,7 +1305,7 @@ def test_choosing_the_windows_xp_scheme_fills_in_every_setting_of_the_luna_look(
     assert tab.values() == preset_values(control_panel, "luna")
 
 
-def test_component_combos_offer_classic_and_windows_xp_and_the_frames_and_taskbar_also_windows_7(control_panel, qt_app):
+def test_component_combos_offer_the_aero_frames_controls_taskbar_and_menu(control_panel, qt_app):
     appearance_tab = appearance(control_panel)
     taskbar_tab = built(control_panel, "Taskbar", "Taskbar Options")
 
@@ -1316,9 +1316,9 @@ def test_component_combos_offer_classic_and_windows_xp_and_the_frames_and_taskba
         combo_choices(built(control_panel, "Taskbar", "Start Menu"), "START_MENU_STYLE"),
     ) == (
         ["classic", "luna", "aero"],
-        ["classic", "luna"],
         ["classic", "luna", "aero"],
-        ["1995", "1998", "2000", "2001", "luna"],
+        ["classic", "luna", "aero"],
+        ["1995", "1998", "2000", "2001", "luna", "aero"],
     )
 
 

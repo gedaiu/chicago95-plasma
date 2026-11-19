@@ -139,6 +139,8 @@ PlasmoidItem {
         const button = arrow.children.find(child => child.objectName === "aeroChevron");
         if (!button)
             return;
+        const base = arrow.parent.mapToItem(null, arrow.x, arrow.y);
+        shift(arrow, Math.round(firstIconX - aeroArrowGap - button.width - base.x));
         const spot = arrow.mapFromItem(null, firstIconX - aeroArrowGap - button.width, iconTop - 1);
         button.x = Math.round(spot.x);
         button.y = Math.round(spot.y);
@@ -186,7 +188,8 @@ PlasmoidItem {
         shift(grid, arrowWidth);
         if (arrow) {
             restyleArrow(arrow);
-            shift(arrow, -(arrow.x - grid.x) - (isLuna ? lunaChevronDiameter / 2 : 0));
+            if (!isAero)
+                shift(arrow, -(arrow.x - grid.x) - (isLuna ? lunaChevronDiameter / 2 : 0));
         }
         // Each tray entry holds its icon area in a focus scope; the grid's own helper items have none.
         const icons = [];
@@ -206,10 +209,17 @@ PlasmoidItem {
         if (arrow && isAero)
             placeAeroArrow(arrow, firstX);
         icons.forEach(({
-                area,
+                delegate, area,
                 icon
             }, index) => {
             const x = firstX + index * iconPitch;
+            if (isAero) {
+                const base = delegate.parent.mapToItem(null, delegate.x, delegate.y);
+                shift(delegate, Math.round(x + iconSize / 2 - base.x - delegate.width / 2));
+                area.transformOrigin = Item.Center;
+                area.scale = iconSize / Math.max(1, Math.min(area.width, area.height));
+                return;
+            }
             if (icon) {
                 const spot = icon.parent.mapFromItem(null, x, iconTop);
                 icon.anchors.fill = undefined;

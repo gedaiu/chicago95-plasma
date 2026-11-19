@@ -18,10 +18,14 @@ from pathlib import Path
 CHICAGO95RC = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "chicago95rc")
 
 
-def luna_widgets():
+def widget_style():
     settings = configparser.ConfigParser(interpolation=None, strict=False)
     settings.read(CHICAGO95RC)
-    return settings.get("Look", "widgetStyle", fallback="classic") == "luna"
+    return settings.get("Look", "widgetStyle", fallback="classic")
+
+
+def luna_widgets():
+    return widget_style() == "luna"
 
 
 def display_socket_paths(environ):
@@ -72,7 +76,7 @@ def detect_scale():
 # X11 sets CHICAGO95_PLATFORM=xcb before importing this module.
 os.environ.setdefault("QT_QPA_PLATFORM", os.environ.get("CHICAGO95_PLATFORM", "wayland"))
 os.environ.setdefault("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1")
-if not luna_widgets():
+if widget_style() == "classic":
     os.environ.setdefault("QT_STYLE_OVERRIDE", "Windows")
 # On XWayland the X server advertises the real DPI (Xft.dpi 144 via ~/.Xresources) and KWin's
 # "apps scale themselves" mode leaves it at that, so Qt already lands at the right scale.
@@ -524,8 +528,8 @@ def ui_font(pixel_size=11, bold=False):
     11px grid; at any other size its letters land on fractional pixels and space unevenly. On a whole
     scale (1x, 2x) the grid lands on screen pixels and it is drawn unsmoothed, with hard edges; on 1.5x
     it is left to fontconfig, which smooths it (config/fontconfig/60-chicago95-pixel-font.conf)."""
-    if luna_widgets():
-        font = QFont("Tahoma")
+    if widget_style() in ("luna", "aero"):
+        font = QFont("Segoe UI" if widget_style() == "aero" else "Tahoma")
         font.setPixelSize(pixel_size)
         font.setBold(bold)
         font.setStyleStrategy(QFont.PreferAntialias)
@@ -541,6 +545,20 @@ def ui_font(pixel_size=11, bold=False):
 
 def apply_style(app):
     """The controls, palette and font of the look's widget style: Luna's, else the classic ones."""
+    if widget_style() == "aero":
+        if app.setStyle("kvantum") is None:
+            app.setStyle("Fusion")
+            app.setStyleSheet("""
+                QPushButton { border: 1px solid #707070; border-radius: 3px; padding: 2px 7px;
+                    color: #151515; background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                    stop:0 #f7f7f7,stop:0.49 #e8e8e8,stop:0.5 #dcdcdc,stop:1 #cfcfcf); }
+                QPushButton:hover, QPushButton:default { border-color: #3c7fb1; }
+                QPushButton:pressed { background: #c4e5f6; }
+                QPushButton:disabled { color: #888; }
+                QLineEdit { background: white; color: black; border: 1px solid #8497a8; }
+            """)
+        app.setFont(ui_font(12))
+        return
     if not luna_widgets():
         app.setStyle(classic_style())
         app.setPalette(retro_palette(read_scheme()))
@@ -1296,7 +1314,7 @@ _FIELD_STYLE = []
 
 
 def field_style():
-    if luna_widgets():
+    if widget_style() != "classic":
         return QApplication.style()
     if not _FIELD_STYLE:
         _FIELD_STYLE.append(PlainDisabledTextStyle("Windows"))
@@ -1316,7 +1334,7 @@ def read_only_field(edit):
 def plain_disabled_text(widget):
     """Gives a field the originals' disabled look: grey text, no engraving, on the window colour.
     Under Luna the application style already draws fields and is left on them."""
-    if luna_widgets():
+    if widget_style() != "classic":
         return widget
     widget.setStyle(field_style())
     return widget
@@ -1336,7 +1354,7 @@ class ListRowDelegate(QStyledItemDelegate):
 def classic_combo(combo):
     """A drop-down as the originals had it: plain grey when disabled, and a list with a 1px black border,
     13px rows and eight rows before it scrolls."""
-    if luna_widgets():
+    if widget_style() != "classic":
         return combo
     plain_disabled_text(combo)
     combo.setMaxVisibleItems(DROP_DOWN_ROWS)
@@ -1472,7 +1490,7 @@ class ClassicDialog(QDialog):
 def dialog_frame_class(luna=None):
     """The class of the look's dialogs: one that draws its own classic frame, or under Luna a plain window KWin
     decorates."""
-    if not (luna_widgets() if luna is None else luna):
+    if not (widget_style() in ("aero", "luna") if luna is None else luna):
         return ClassicDialog
     import chicago95lunaframe
 

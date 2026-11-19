@@ -57,11 +57,11 @@ PROMPTS = {
 
 
 def layout_key(look):
-    return "luna" if look["widgetStyle"] == "luna" else "classic"
+    return "luna" if look["widgetStyle"] in ("luna", "aero") else "classic"
 
 
 def prompt_key(look):
-    return "luna" if look["widgetStyle"] == "luna" else look["style"] if look["style"] in PROMPTS else "1995"
+    return "luna" if look["widgetStyle"] in ("luna", "aero") else look["style"] if look["style"] in PROMPTS else "1995"
 
 
 def read_history(path=None):
@@ -336,7 +336,7 @@ def run_dialog_class(frame):
 
 def RunDialog(look=None, applications=None, path_dirs=None, history=None):  # noqa: N802
     look = {**chicago95ui.look_settings(), **(look or {})}
-    return run_dialog_class(chicago95ui.dialog_frame_class(look["widgetStyle"] == "luna"))(
+    return run_dialog_class(chicago95ui.dialog_frame_class(look["widgetStyle"] in ("luna", "aero")))(
         look,
         applications,
         path_dirs if path_dirs is not None else os.environ.get("PATH", "").split(os.pathsep),
@@ -349,7 +349,9 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="print the command instead of running it")
     parser.add_argument("--screenshot", metavar="PATH", help="save the dialog as PNG and exit")
     parser.add_argument("--height", action="store_true", help="print the dialog's height in pixels and exit")
-    parser.add_argument("--widget-style", choices=("classic", "luna"), help="with --height: the style to measure")
+    parser.add_argument(
+        "--widget-style", choices=("classic", "luna", "aero"), help="with --height: the style to measure"
+    )
     arguments = parser.parse_args()
     if arguments.height:
         chicago95ui.make_app(INSTANCE_NAME)

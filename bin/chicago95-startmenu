@@ -891,6 +891,19 @@ def build_luna_menu():
 
 
 def build_menu():
+    if banner_settings()["style"] == "aero":
+        from chicago95aeromenu import AeroMenu
+
+        user = getpass.getuser()
+        commands = {**luna_commands(), "home": ["xdg-open", str(Path.home())]}
+        return AeroMenu(
+            collect_applications(),
+            launch_luna_item,
+            themed_icon,
+            commands,
+            user,
+            chicago95ui.user_picture_path(Path.home(), user, chicago95ui.ACCOUNTS_ICONS),
+        )
     return build_luna_menu() if is_luna_menu() else build_root_menu()
 
 
@@ -916,7 +929,10 @@ def apply_luna_menu_look(app):
 
 
 def apply_retro_look(app):
-    {True: apply_luna_menu_look, False: apply_classic_menu_look}[is_luna_menu()](app)
+    if banner_settings()["style"] == "aero":
+        app.setStyle("Fusion")
+    else:
+        {True: apply_luna_menu_look, False: apply_classic_menu_look}[is_luna_menu()](app)
     # The KDE platform theme can switch menu icons off session-wide; classic menus always show them.
     app.setAttribute(Qt.AA_DontShowIconsInMenus, False)
     # Autostart runs before the platform theme plugin can add user icon dirs; add them ourselves.
@@ -952,11 +968,11 @@ class StartMenu:
         if self.menu is not None:
             self.menu.deleteLater()
         self.menu = build_menu()
-        luna = is_luna_menu()
-        if not luna:
+        cascading = isinstance(self.menu, QMenu)
+        if cascading:
             self.menu.aboutToHide.connect(lambda: QTimer.singleShot(0, self.shield.hide))
         screen = self.app.primaryScreen()
-        if os.environ.get("QT_QPA_PLATFORM") != "wayland" and not luna:
+        if os.environ.get("QT_QPA_PLATFORM") != "wayland" and cascading:
             # X11 only: Wayland delivers activation changes reliably, so focus-out closes the menu.
             self.shield.setGeometry(screen.geometry())
             self.shield.show()

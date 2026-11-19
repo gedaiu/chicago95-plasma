@@ -13,7 +13,10 @@ Item {
     readonly property int stripWidth: 15
     readonly property int textWidth: width - stripWidth
 
+    implicitWidth: stripWidth + Math.max(65, Math.ceil(Math.max(timeLine.implicitWidth, dateLine.implicitWidth)) + 6)
+
     Text {
+        id: timeLine
         x: Math.round((clock.textWidth - implicitWidth) / 2)
         y: 4
         text: Qt.formatTime(clock.now, ClockFormat.timeFormat(clock.hourFormat, Qt.locale().timeFormat(Locale.ShortFormat))).replace(/[  ]/g, " ")
@@ -22,6 +25,7 @@ Item {
         color: "#ffffff"
     }
     Text {
+        id: dateLine
         x: Math.round((clock.textWidth - implicitWidth) / 2)
         y: 21
         text: Qt.formatDate(clock.now, ClockFormat.fullYearDateFormat(Qt.locale().dateFormat(Locale.ShortFormat)))

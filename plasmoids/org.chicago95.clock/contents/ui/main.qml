@@ -19,7 +19,7 @@ PlasmoidItem {
     readonly property bool isLuna: Plasmoid.configuration.taskbarStyle === "luna"
     readonly property bool isAero: Plasmoid.configuration.taskbarStyle === "aero"  // two lines, then Show desktop
     readonly property bool isXpClassic: Plasmoid.configuration.look === "2001"
-    readonly property int cellWidth: isAero ? 80 : isLuna ? 68 : Plasmoid.configuration.bevel === "2000" && !isXpClassic ? 69 : 60
+    readonly property int cellWidth: isAero ? (aeroClock.item?.implicitWidth || 80) : isLuna ? 68 : Plasmoid.configuration.bevel === "2000" && !isXpClassic ? 69 : 60
     readonly property int textTop: isXpClassic ? 8 : 9   // the lettering's top row in the applet, which starts 2px into the taskbar
     // Windows 7's Show desktop strip ends at the screen's edge: the clock reaches over the panel's last 4px.
     readonly property int panelMarginOverlap: isAero ? 4 : 0
@@ -107,7 +107,8 @@ PlasmoidItem {
     }
 
     MouseArea {
-        anchors.fill: parent
+        width: root.isAero && aeroClock.item ? root.cellWidth - aeroClock.item.stripWidth : root.width
+        height: parent.height
         onDoubleClicked: runner.connectSource("systemd-run --user --quiet --collect kcmshell6 kcm_clock")
     }
 }

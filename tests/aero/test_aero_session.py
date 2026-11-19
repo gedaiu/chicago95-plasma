@@ -334,3 +334,8 @@ def test_unlocked_taskbar_shows_the_grip_where_its_band_began_and_moves_the_pinn
         True,
         [a for a, _ in icon_columns(unlocked)],
     )
+
+
+def test_classic_quick_launch_width_and_dock_do_not_move_or_hide_aero_pins(desktops):
+    image = desktops("luna", **reference_session(tasks_config=[("quickLaunchWidth", "138"), ("quickLaunchDock", "right")]))
+    assert icon_columns(image) == [(73, 104), (135, 166), (197, 228), (259, 290)]

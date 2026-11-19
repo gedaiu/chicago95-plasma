@@ -1,10 +1,29 @@
 # Aero
 
-The Windows 7 "Aero" component set. So far it holds the glass window decoration and the superbar, each chosen as
-"Windows 7" in Setup and the Control Panel (`install.sh --decoration=aero --taskbar-style=aero`). The widgets,
-Start menu and screens are still to come.
+The Windows 7 preset selects the Aero window frames, superbar, two-column Start menu, application controls,
+Windows 7 icons, SDDM sign-in and boot screen. The launcher searches installed applications and opens the selected
+entry on Enter. The default icon set comes from [B00merang Artwork](https://github.com/B00merang-Artwork/Windows-7).
+Qt 6 applications use [AeroThemePlasma's Kvantum theme](https://github.com/aeroshell-desktop/aerothemeplasma/tree/Plasma/6.8/misc/kvantum/Windows7Aero)
+when Kvantum is installed. Setup uses Fusion otherwise.
 
-Nothing here is shared with the flat 1995, 1998 and 2000 components or with Luna.
+## Native frames on Plasma 6.8 Wayland
+
+The [SMOD decoration](https://github.com/aeroshell-desktop/smod) supplies the caption halo and the
+[Aero Glass Blur effect](https://github.com/aeroshell-desktop/aeroshell-kwin-components) supplies screen-relative
+reflections and brightness-dependent afterglow. Build against the KWin version installed on the target machine.
+The build needs CMake, Ninja, a C++ compiler, ECM, and the Qt 6, KDE Frameworks 6, KDecoration3, KWin, Wayland,
+epoxy and Vulkan development packages. On Fedora install the `kvantum` package for the Qt widget theme.
+
+```sh
+./aero/build-native.sh --install
+./install.sh --look=aero
+```
+
+The helper downloads two checksum-verified source archives and compiles the decoration, resource and effect.
+Only installation of those three files needs administrator privileges. A build without arguments leaves them in
+`build/aero-native`. Use `--install-built` to install that local build on the same KWin version. Rebuild after
+a KWin ABI update. Setup selects the native backend when all three files are present. Otherwise it installs the
+bundled Aurorae frame. The following measurements describe the bundled art.
 
 ## Where the numbers come from
 
@@ -103,10 +122,10 @@ Windows 7 pixel for pixel: the bar, the orb, the pinned slots and their pitch, a
 - **Glass colour.** One plain background cannot separate the glass' opacity from its colour. The opacity keeps
   Windows 7's default 49% share for the background, and the colour is solved to give the references' median. A
   screenshot of glass over a varied wallpaper would let both be fitted.
-- **Streaks on the frames, and afterglow.** The superbar draws DWM's streaks from the screen's corner, but an Aurorae
+- **Aurorae frame streaks and afterglow.** The superbar draws DWM's streaks from the screen's corner, but an Aurorae
   frame cannot know where it lies on the screen, so window frames have none; Windows 7's afterglow, which follows the
   background's brightness, needs a compositor shader.
-- **Title glow.** KWin 6's Aurorae draws no halo behind the title.
+- **Aurorae title glow.** KWin 6's Aurorae draws no halo behind the title.
 - **Superbar grouping.** A pinned program that is running shows twice, pinned and as a task, where Windows 7 merges
   them; jump lists and thumbnails are Plasma's own.
 - **Orb glow while the menu is open.** The Start menu is its own program and does not yet tell the orb it is open,

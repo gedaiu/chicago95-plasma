@@ -12,3 +12,5 @@ node_modules/
 /data/clippy/3d-prototype/*-candidate.blend
 /data/clippy/3d-prototype/*.blend[0-9]*
 /data/clippy/hd-blink/
+
+/build/aero-native/

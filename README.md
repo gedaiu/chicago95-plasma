@@ -16,10 +16,9 @@ code is organised and how a change is proven, for anyone working on it.
 
 Built and tested on Fedora 44, Plasma 6.8.2 (Wayland), 3840x2160 at 1.5x.
 
-## The five looks
+## The six looks
 
-Setup offers five looks: 1995, 1998, 2000, 2001 (Windows XP Classic) and Luna, and Windows 7's Aero frames for
-any of them.
+Setup offers six looks, from 1995 through Windows 7 Aero.
 Each image below shows the look's boot screen, log on and a populated 800×600
 desktop, then its taskbar idle, with open windows, crowded, and overflowing
 (Quick Launch and tray chevrons). They are rendered from the real components by
@@ -47,15 +46,13 @@ desktop, then its taskbar idle, with open windows, crowded, and overflowing
 
 ### Windows 7 (Aero, in progress)
 
-The Aero glass window frames and the superbar are ready, and any look can wear them: choose "Windows 7" for the
-window frames and the taskbar in Setup, or under the Control Panel's Window Frames and Taskbar style. The superbar
-has the Start orb (with the logo you chose in it), 60-pixel icon buttons for pinned and running programs, a tray
-without a box, the two-line clock and the Show desktop strip. The showcase puts them beside Windows 7 screenshots,
-with every caption button state, the frame at 2x and a real KWin desktop. The Aero widgets, Start menu and screens
-are still to come; [aero/README.md](aero/README.md) says where every value comes from.
+Choose Windows 7 in Setup or run `./install.sh --look=aero` to select the glass window frames, 40-pixel superbar,
+searchable two-column Start menu, application controls, icon set, sign-in screen and boot screen.
+GTK 3 and GTK 4 load the bundled theme. Qt applications use the Windows7Aero theme when the Qt 6 Kvantum plugin is installed.
+The screenshot below shows the frames and superbar beside their references.
 
-`./install.sh --look=aero` applies them together with the Windows 7 boot screen (`--boot-style=7`), and the Look
-page of Setup lists it as "Windows 7".
+For the title halo, frame reflections and backdrop-dependent afterglow on Plasma 6.8 Wayland, install the native
+decoration and glass effect before applying the preset. [Native build instructions and rendering limits](aero/README.md).
 
 ![The Windows 7 Aero frames and superbar showcase](docs/compare/showcase-aero.jpg)
 

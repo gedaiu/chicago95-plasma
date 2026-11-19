@@ -11,6 +11,7 @@ Rectangle {
     width: 1024
     height: 768
     readonly property bool modern: config.loginStyle === "2000"
+    readonly property bool aero: config.loginStyle === "aero"
     readonly property bool luna: config.loginStyle === "luna"
     color: modern ? "#3A6EA5" : "#008080"
 
@@ -52,7 +53,7 @@ Rectangle {
 
     Connections {
         target: root.greeter
-        enabled: !root.luna
+        enabled: !root.luna && !root.aero
         function onLoginFailed() {
             passwordField.text = "";
             if (root.modern) {
@@ -332,7 +333,7 @@ Rectangle {
     Bevel {
         id: dialog
         objectName: "logonDialog"
-        visible: !root.luna
+        visible: !root.luna && !root.aero
         enabled: !logonMessage.visible
         // 2000's top edge sits a third of the way down the free space above its expanded size, like the
         // original, and stays there while Options grows the dialog; classic is centred.
@@ -730,8 +731,20 @@ Rectangle {
         }
     }
 
+    Loader {
+        anchors.fill: parent
+        active: root.aero
+        sourceComponent: AeroLogin {
+            greeter: root.greeter
+            users: root.userNames
+            sessions: root.sessionNames
+            lastSession: root.sessionIndex
+            lastUser: root.users.lastUser || ""
+        }
+    }
+
     Component.onCompleted: {
-        if (!root.luna)
+        if (!root.luna && !root.aero)
             (userField.text === "" ? userField : passwordField).input.forceActiveFocus();
     }
 }

@@ -12,9 +12,9 @@
 #     --idle=5  --cursor=48  --clippy=yes|no  --quick-launch=yes|no|auto  --task-grouping=always|full|never|auto  --font="MS W98 UI"  --font-scope=everywhere|desktop|none
 #     --start-text=Start  --start-logo=flag|penguin|/path/to/image  --banner-text=Chicago95
 #     --look=1995|1998|2000|2001|luna|aero|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
-#     --decoration=classic|luna|aero  --widget-style=classic|luna  --taskbar-style=classic|luna|aero  (each overrides the look's choice)
-#     --start-menu-style=1995|1998|2000|2001|luna
-#     --login-style=classic|2000|luna  --boot-style=classic|2000|luna|vista|7|8|8.1|10|11  --icons=chicago95|se98|classicos2000|windowsxp
+#     --decoration=classic|luna|aero  --widget-style=classic|luna|aero  --taskbar-style=classic|luna|aero  (each overrides the look's choice)
+#     --start-menu-style=1995|1998|2000|2001|luna|aero
+#     --login-style=classic|2000|luna|aero  --boot-style=classic|2000|luna|vista|7|8|8.1|10|11  --icons=chicago95|se98|classicos2000|windowsxp|windows7
 #     --sounds=Chicago95|Windows98|Windows2000|Plus98-Jungle|...  (data/sound-themes/)
 #     --branding=distro|windows  name the screens after this computer's distribution (detected) or keep the look's Windows names
 #     --settings=FILE  choices saved by the Control Panel (KEY=value lines), applied over the defaults
@@ -240,7 +240,7 @@ choose_look() {
     "2000: warm grey windows, navy-to-light-blue title bars, black-to-blue banner" \
     "Windows XP Classic: the 2000 windows with the Windows XP Start menu" \
     "Windows XP: Luna window frames, controls, taskbar and Start menu" \
-    "Windows 7: Aero glass frames, the superbar and the Windows 7 boot screen" \
+    "Windows 7: Aero glass frames, widgets, superbar, Start menu, icons and sign-in screen" \
     "Your own colours")
   [ "$choice" = "$marked" ] && [ -n "${SETUP_LOOK:-}" ] && return 0 # the remembered look keeps its saved colours
   case "$choice" in
@@ -267,13 +267,14 @@ login_style_description() {
   case "$1" in
   classic) echo "Classic (1995/1998): key dialog on teal, picture while loading" ;;
   2000) echo "2000: your logo and banner text on white, progress bar while loading" ;;
+  aero) echo "Windows 7: blue sign-in screen with a centered account tile" ;;
   luna) echo "Windows XP: blue welcome screen with user tiles, scrolling bar while loading" ;;
   esac
 }
 
 # "P1"/"P2"/"P3" open the real login screen in test mode with that style; close it with Alt+F4.
 choose_login_style() {
-  local styles=(classic 2000 luna) answer index greeter
+  local styles=(classic 2000 luna aero) answer index greeter
   greeter=$(command -v sddm-greeter-qt6 || command -v sddm-greeter || true)
   while :; do
     local lines=("How should the login and loading screens look?" "")
@@ -288,8 +289,8 @@ choose_login_style() {
     answer=$(ui_ask "Choice" "")
     case "$answer" in
     "") break ;;
-    [Pp][123]) [ -n "$greeter" ] && preview_login "$greeter" "${styles[$((${answer#?} - 1))]}" ;;
-    [123]) SETUP_LOGIN_STYLE=${styles[$((answer - 1))]} ;;
+    [Pp][1234]) [ -n "$greeter" ] && preview_login "$greeter" "${styles[$((${answer#?} - 1))]}" ;;
+    [1234]) SETUP_LOGIN_STYLE=${styles[$((answer - 1))]} ;;
     esac
   done
   return 0
@@ -498,7 +499,11 @@ SETUP_DECORATION=${OPT_DECORATION:-${SETUP_DECORATION:-classic}}
 SETUP_WIDGET_STYLE=${OPT_WIDGET_STYLE:-${SETUP_WIDGET_STYLE:-classic}}
 SETUP_TASKBAR_STYLE=${OPT_TASKBAR_STYLE:-${SETUP_TASKBAR_STYLE:-classic}}
 SETUP_START_MENU_STYLE=${OPT_START_MENU_STYLE:-${SETUP_START_MENU_STYLE:-1995}}
-[ -n "$PANEL_CHOSEN" ] || [ "$SETUP_PANEL" != 28 ] || SETUP_PANEL=$(default_panel_height)
+if [ -z "${OPT_PANEL:-}" ] && [ "${OPT_LOOK:-}" = aero ] && [ "$SETUP_PANEL" = 28 ]; then
+  SETUP_PANEL=$AERO_PANEL_HEIGHT
+elif [ -z "$PANEL_CHOSEN" ] && [ "$SETUP_PANEL" = 28 ]; then
+  SETUP_PANEL=$(default_panel_height)
+fi
 [ -z "${OPT_DECORATION:-}${OPT_WIDGET_STYLE:-}${OPT_TASKBAR_STYLE:-}${OPT_START_MENU_STYLE:-}" ] || SETUP_LOOK=custom
 LOOK_APPLIED=$([ -n "${OPT_LOOK:-}" ] || [ -z "${SETUP_BRANDING:-}" ] && echo 1 || echo 0)
 if [ -n "${OPT_BRANDING:-}" ]; then
@@ -517,6 +522,7 @@ SETUP_LOGIN_STYLE=${OPT_LOGIN_STYLE:-${SETUP_LOGIN_STYLE:-classic}}
 # look or boot override was requested. Preserve that after resetting look defaults.
 if [ -n "${OPT_LOGIN_STYLE:-}" ] && [ -z "${OPT_LOOK:-}${OPT_BOOT_STYLE:-}" ]; then
   SETUP_BOOT_STYLE=$OPT_LOGIN_STYLE
+  [ "$OPT_LOGIN_STYLE" != aero ] || SETUP_BOOT_STYLE=7
 fi
 SETUP_BOOT_STYLE=${OPT_BOOT_STYLE:-${SETUP_BOOT_STYLE:-$SETUP_LOGIN_STYLE}}
 SETUP_LOGIN_TITLE=${SETUP_LOGIN_TITLE:-"$([ "$SETUP_LOGIN_STYLE" = classic ] && echo 'Welcome to Windows' || echo 'Log On to %h')"}

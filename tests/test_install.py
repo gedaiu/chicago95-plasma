@@ -604,6 +604,7 @@ def dry_run_log(tmp_path, *arguments, environment=None):
             "SETUP_OS_RELEASE": "/dev/null",
             "HOME": str(tmp_path),
             "TMPDIR": str(tmp_path),
+            "SETUP_QT_PLUGIN_DIR": str(tmp_path / "qt-plugins"),
             **(environment or {}),
         },
         check=False,
@@ -2364,3 +2365,19 @@ def test_aero_glass_keeps_kwins_blur_from_saturating_the_desktop_behind_it(tmp_p
     log = dry_run_log(tmp_path, "--components=look", "--decoration=aero")
 
     assert "kwriteconfig6 --file kwinrc --group Effect-blur --key Saturation 100" in log
+
+
+def test_installed_native_glass_selects_smod_and_only_the_aero_blur(tmp_path):
+    plugins = tmp_path / "plugins"
+    for filename in ("org.kde.kdecoration3/org.smod.smod.so", "kwin/effects/plugins/aeroglassblur.so"):
+        plugin = plugins / filename
+        plugin.parent.mkdir(parents=True)
+        plugin.touch()
+    theme = tmp_path / ".local/share/smod/decorations/Aero.smod.rcc"
+    theme.parent.mkdir(parents=True)
+    theme.touch()
+    log = dry_run_log(tmp_path, "--look=aero", "--components=look", environment={"SETUP_QT_PLUGIN_DIR": str(plugins)})
+    assert all(
+        setting in log
+        for setting in ("library org.smod.smod", "theme SMOD", "aeroglassblurEnabled true", "blurEnabled false")
+    )

@@ -102,7 +102,7 @@ def main():
     settings = chicago95ui.look_settings()
     scheme, bevel = chicago95ui.read_scheme(), settings["bevel"]
     decoration, plasma_style = settings["decoration"], settings["taskbarStyle"]
-    if settings["widgetStyle"] != "luna":
+    if settings["widgetStyle"] == "classic":
         from gtk_palette import sync_installed
 
         sync_installed(scheme, bevel)

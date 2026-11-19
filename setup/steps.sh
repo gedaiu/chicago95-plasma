@@ -111,7 +111,7 @@ SETTINGS_KEYS="LOOK DECORATION WIDGET_STYLE TASKBAR_STYLE START_MENU_STYLE BEVEL
 # A look: menu style, title bars, Start menu banner and, for 2000, the warm grey face. Colours are
 # #RRGGBB, two separated by a comma for a gradient; banner stops with @N sit N pixels above its bottom.
 # The 1998 and 2000 banners are measured from the originals (tests/test_startmenu_styles_reference.py).
-default_start_logo() { case "${SETUP_START_MENU_STYLE:-1995}" in 2001 | luna) printf xp ;; *) printf flag ;; esac; }
+default_start_logo() { case "${SETUP_START_MENU_STYLE:-1995}" in 2001 | luna) printf xp ;; *) printf flag ;; esac }
 # The running distribution's branding (lib/chicago95distro.py): KEY<TAB>value lines, read as data; nothing when
 # there is no os-release. SETUP_OS_RELEASE and SETUP_DATA_DIRS point it elsewhere (tests).
 DISTRO_BRANDING_KEYS="BANNER_TEXT EDITION COMPANY LOADING_FOOTER START_LOGO LOGIN_LOGO COMPANY_LOGO"
@@ -179,6 +179,10 @@ apply_look() {
     set -- "#0054E3,#3F97FF;#7A96DF,#9DB9EB;#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0;#FFFFFF"
     ;;
   aero)
+    SETUP_WIDGET_STYLE=aero
+    SETUP_START_MENU_STYLE=aero
+    SETUP_ICONS=${OPT_ICONS:-windows7}
+    SETUP_LOGIN_STYLE=aero
     SETUP_DECORATION=aero
     SETUP_TASKBAR_STYLE=aero
     SETUP_BOOT_STYLE=7
@@ -285,7 +289,13 @@ kwin_reconfigure() { run gdbus call --session --dest org.kde.KWin --object-path 
 
 widget_style_is_luna() { [ "${SETUP_WIDGET_STYLE:-classic}" = luna ]; }
 
-gtk_theme_name() { widget_style_is_luna && echo Chicago95Luna || echo Chicago95; }
+gtk_theme_name() {
+  case "${SETUP_WIDGET_STYLE:-classic}" in
+  aero) echo Chicago95Aero ;;
+  luna) echo Chicago95Luna ;;
+  *) echo Chicago95 ;;
+  esac
+}
 
 xsettingsd_source() { widget_style_is_luna && echo "$REPO/config/xsettingsd/xsettingsd-luna.conf" || echo "$REPO/config/xsettingsd/xsettingsd.conf"; }
 
@@ -480,6 +490,12 @@ apply_title_colors() {
 install_icon_pack() { # install_icon_pack se98|classicos2000|windowsxp   -> 0 when the theme is in ~/.local/share/icons
   local theme repo source built
   case "$1" in
+  windows7)
+    theme=Windows-7
+    repo=https://github.com/B00merang-Artwork/Windows-7
+    source="$HOME/src/Windows-7-icons"
+    built="$source"
+    ;;
   windowsxp)
     theme=Windows-XP
     repo=https://github.com/B00merang-Artwork/Windows-XP
@@ -549,8 +565,17 @@ PY
 }
 
 apply_icon_set() {
-  local theme=Chicago95
+  local theme=Chicago95 group
   case "${SETUP_ICONS:-chicago95}" in
+  windows7)
+    install_icon_pack windows7 || return 1
+    kconf kdeglobals Icons Theme Windows-7
+    for group in MainToolbarIcons ToolbarIcons; do
+      kconf kdeglobals "$group" DefaultEffect none
+      kconf kdeglobals "$group" ActiveEffect none
+    done
+    return
+    ;;
   se98) install_icon_pack se98 && theme=SE98 ;;
   classicos2000)
     install_icon_pack se98
@@ -565,7 +590,6 @@ apply_icon_set() {
   kconf kdeglobals Icons Theme Chicago95-Toolbar
   # Toolbar icons are grey until the pointer is over them, as Explorer's were: KIconLoader's effects, which
   # the Plasma platform theme applies to every Qt program's themed icons.
-  local group
   for group in MainToolbarIcons ToolbarIcons; do
     kconf kdeglobals "$group" DefaultEffect togray
     kconf kdeglobals "$group" DefaultValue 1
@@ -712,6 +736,37 @@ decoration_theme() { # the Aurorae theme of the chosen decoration
 # Windows 7's glass is KWin's blur behind the decoration's mask, kept light: the references blur a sharp edge over
 # about 12 pixels.
 AERO_BLUR_STRENGTH=3
+native_aero_available() {
+  local plugins="${SETUP_QT_PLUGIN_DIR:-$(qtpaths6 --plugin-dir 2>/dev/null)}" data
+  [ -f "$plugins/org.kde.kdecoration3/org.smod.smod.so" ] && [ -f "$plugins/kwin/effects/plugins/aeroglassblur.so" ] || return 1
+  local -a dirs
+  IFS=: read -ra dirs <<<"${XDG_DATA_HOME:-$HOME/.local/share}:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+  for data in "${dirs[@]}"; do [ ! -f "$data/smod/decorations/Aero.smod.rcc" ] || return 0; done
+  return 1
+}
+
+apply_decoration() {
+  if [ "${SETUP_DECORATION:-classic}" = aero ] && native_aero_available; then
+    kconf kwinrc org.kde.kdecoration2 library org.smod.smod
+    kconf kwinrc org.kde.kdecoration2 theme SMOD
+    kconf kwinrc Plugins blurEnabled false
+    kconf kwinrc Plugins aeroglassblurEnabled true
+    kconf kwinrc Effect-aeroglassblur BasicColorization false
+    kconf kwinrc Effect-aeroglassblur ReflectionIntensity 75
+    return
+  fi
+  if installed_by_setup kconf:kwinrc:Plugins:aeroglassblurEnabled; then
+    kconf kwinrc Plugins aeroglassblurEnabled false
+    kconf kwinrc Plugins blurEnabled true
+  fi
+  if [ "${SETUP_DECORATION:-classic}" = aero ]; then
+    ui_status "Using Aurorae glass. For frame reflections, afterglow and title halos install the native modules with aero/build-native.sh --install."
+    apply_aero_glass
+  fi
+  kconf kwinrc org.kde.kdecoration2 library org.kde.kwin.aurorae
+  kconf kwinrc org.kde.kdecoration2 theme "__aurorae__svg__$(decoration_theme)"
+}
+
 apply_aero_glass() {
   put_tree "$REPO/aero/aurorae/theme" ~/.local/share/aurorae/themes/Chicago95Aero
   kconf kwinrc Plugins blurEnabled true
@@ -734,6 +789,28 @@ install_luna_theme_files() {
   done
 }
 
+apply_aero_qt_style() {
+  local archive=https://raw.githubusercontent.com/aeroshell-desktop/aerothemeplasma/f51ca15f4668a81d908505b422e5d560f35fe241/misc/kvantum/Windows7Aero
+  local cache="${XDG_CACHE_HOME:-$HOME/.cache}/chicago95/kvantum-f51ca15" extension
+  if [ "${SETUP_HAS_KVANTUM:-0}" != 1 ]; then
+    ui_status "Install the Qt 6 Kvantum style for Aero controls in KDE applications. Using Fusion until then."
+    kconf kdeglobals KDE widgetStyle Fusion
+    return
+  fi
+  run mkdir -p "$cache"
+  for extension in kvconfig svg; do
+    if [ ! -s "$cache/Windows7Aero.$extension" ]; then
+      run curl -fsSL "$archive/Windows7Aero.$extension" -o "$cache/Windows7Aero.$extension.part" &&
+        run mv "$cache/Windows7Aero.$extension.part" "$cache/Windows7Aero.$extension" || return 1
+    fi
+  done
+  for extension in kvconfig svg; do
+    put_file "$cache/Windows7Aero.$extension" "$HOME/.config/Kvantum/Windows7Aero/Windows7Aero.$extension"
+  done
+  kconf ~/.config/Kvantum/kvantum.kvconfig General theme Windows7Aero
+  kconf kdeglobals KDE widgetStyle kvantum
+}
+
 apply_luna_qt_style() {
   if [ "${SETUP_HAS_KVANTUM:-0}" != 1 ]; then
     printf 'note: Kvantum is not installed, so the Windows XP widgets use the Fusion style; install kvantum and run Setup again\n' >>"$SETUP_LOG"
@@ -754,12 +831,20 @@ apply_luna_gtk_theme() {
 
 apply_classic_widget_themes() {
   kconf kdeglobals KDE widgetStyle Windows
-  [ -d ~/.themes/Chicago95Luna ] && [ -d ~/.themes/Chicago95 ] || return 0
+  { [ -d ~/.themes/Chicago95Luna ] || [ -d ~/.themes/Chicago95Aero ]; } && [ -d ~/.themes/Chicago95 ] || return 0
   set_gtk_theme Chicago95
   edit_xsettings Net/ThemeName '"Chicago95"'
 }
 
 apply_widget_themes() { # Qt applications (Kvantum, or Fusion without it) and GTK applications
+  if [ "${SETUP_WIDGET_STYLE:-classic}" = aero ]; then
+    put_file "$REPO/aero/Chicago95Aero.colors" ~/.local/share/color-schemes/Chicago95Aero.colors
+    put_tree "$REPO/aero/gtk/Chicago95Aero" ~/.themes/Chicago95Aero
+    set_gtk_theme Chicago95Aero
+    edit_xsettings Net/ThemeName '"Chicago95Aero"'
+    apply_aero_qt_style
+    return
+  fi
   widget_style_is_luna || {
     apply_classic_widget_themes
     return
@@ -777,19 +862,17 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   put_file "$REPO/config/Chicago95.colors" ~/.local/share/color-schemes/Chicago95.colors
   apply_widget_themes
   kconf kdeglobals General AccentColor --delete
-  kconf kwinrc org.kde.kdecoration2 library org.kde.kwin.aurorae
   wants_luna && install_luna_theme_files
   [ "${SETUP_TASKBAR_STYLE:-classic}" = aero ] && put_tree "$REPO/aero/plasma-style/theme" ~/.local/share/plasma/desktoptheme/Chicago95Aero
-  [ "${SETUP_DECORATION:-classic}" = aero ] && apply_aero_glass
-  kconf kwinrc org.kde.kdecoration2 theme "__aurorae__svg__$(decoration_theme)"
+  apply_decoration
   kconf kwinrc org.kde.kdecoration2 BorderSize Normal
-  run plasma-apply-colorscheme "$([ "${SETUP_WIDGET_STYLE:-classic}" = luna ] && echo Chicago95Luna || echo Chicago95)" >>"$SETUP_LOG" 2>&1 || true
+  run plasma-apply-colorscheme "$(gtk_theme_name)" >>"$SETUP_LOG" 2>&1 || true
   apply_icon_set
   if [ -n "${SETUP_FACE:-}" ]; then # the 2000 look: warm grey face and its selection colour
     local group
     for group in Colors:Window Colors:Button Colors:Header Colors:Complementary; do kconf kdeglobals "$group" BackgroundNormal "$SETUP_FACE"; done
     kconf kdeglobals Colors:Selection BackgroundNormal "$SETUP_SELECTION"
-    kconf kdeglobals WM inactiveForeground "$SETUP_FACE" # 2000's inactive title text is the face colour
+    [ "${SETUP_WIDGET_STYLE:-classic}" = aero ] || kconf kdeglobals WM inactiveForeground "$SETUP_FACE" # 2000's inactive title text is the face colour
   fi
   # The originals' title bar: the window icon on the left; minimize, maximize and close on the right.
   kconf kwinrc org.kde.kdecoration2 ButtonsOnLeft M
@@ -800,11 +883,11 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   run kwriteconfig6 --file chicago95rc --group Look --key bevel "${SETUP_BEVEL:-1995}"
   run kwriteconfig6 --file chicago95rc --group Look --key taskbarStyle "${SETUP_TASKBAR_STYLE:-classic}"
   run kwriteconfig6 --file chicago95rc --group StartMenu --key style "${SETUP_START_MENU_STYLE:-1995}"
-  if ! widget_style_is_luna && [ -d ~/.themes/Chicago95 ]; then
+  if [ "${SETUP_WIDGET_STYLE:-classic}" = classic ] && [ -d ~/.themes/Chicago95 ]; then
     run python3 "$REPO/lib/gtk_palette.py"
   fi
   apply_title_colors
-  widget_style_is_luna || theme_wine
+  [ "${SETUP_WIDGET_STYLE:-classic}" != classic ] || theme_wine
   theme_firefox
   run plasma-apply-desktoptheme "$(plasma_style_theme)" >>"$SETUP_LOG" 2>&1 || true
   if [ "$SETUP_SCALE" != 1 ]; then
@@ -953,7 +1036,10 @@ step_tools_common() { # shared by every PySide6 component; idempotent
   TOOLS_COMMON_DONE=1
   local drop_in=~/.config/systemd/user/plasma-plasmashell.service.d/chicago95-menus.conf
   local menus_qss="$REPO/data/plasmashell-menus.qss"
-  if [ "${SETUP_WIDGET_STYLE:-classic}" = luna ]; then menus_qss="$REPO/data/plasmashell-menus-luna.qss"; fi
+  case "${SETUP_WIDGET_STYLE:-classic}" in
+  aero) menus_qss="$REPO/aero/plasma-style/menus.qss" ;;
+  luna) menus_qss="$REPO/data/plasmashell-menus-luna.qss" ;;
+  esac
   if menus_qss_differs "$menus_qss" ~/.local/share/chicago95/plasmashell-menus.qss ||
     installed_differs "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" "$drop_in" ||
     installed_differs "$REPO/data/qml" ~/.local/share/chicago95/qml; then
@@ -1030,7 +1116,7 @@ step_startmenu() {
   run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerBackground "${SETUP_BANNER_BG:-#808080}"
   run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerTextColor "${SETUP_BANNER_FG:-#C0C0C0}"
   run kwriteconfig6 --file chicago95rc --group StartMenu --key style "${SETUP_START_MENU_STYLE:-1995}"
-  if ! widget_style_is_luna && [ -d ~/.themes/Chicago95 ]; then
+  if [ "${SETUP_WIDGET_STYLE:-classic}" = classic ] && [ -d ~/.themes/Chicago95 ]; then
     run python3 "$REPO/lib/gtk_palette.py"
   fi
   write_branding
@@ -1054,7 +1140,7 @@ run_window_height() {
   dialog=$(QT_QPA_PLATFORM=offscreen QT_SCALE_FACTOR=1 python3 "$REPO/bin/chicago95-run" --height \
     --widget-style="${SETUP_WIDGET_STYLE:-classic}" 2>/dev/null | tail -1)
   [[ "$dialog" =~ ^[0-9]+$ ]] || dialog=$RUN_HEIGHT
-  widget_style_is_luna || {
+  [ "${SETUP_WIDGET_STYLE:-classic}" != classic ] || {
     echo "$dialog"
     return
   }
@@ -1100,7 +1186,7 @@ place_start_menu() {
   [[ "$height" =~ ^[0-9]+$ ]] || height=$MENU_HEIGHT
   # The classic menus stop a pixel short of the taskbar's top line; the XP menu sits right on the taskbar.
   local gap=1
-  [ "${SETUP_START_MENU_STYLE:-1995}" = luna ] && gap=0
+  case "${SETUP_START_MENU_STYLE:-1995}" in luna | aero) gap=0 ;; esac
   kwin_rule chicago95-startmenu "Description=Chicago95 Start menu" "wmclass=chicago95-startmenu" "wmclassmatch=1" \
     "title=chicago95-startmenu-root" "titlematch=1" "position=0,$((SETUP_HEIGHT - PANEL_HEIGHT - height - gap))" "positionrule=2" \
     "placement=Zero" "placementrule=2" "above=true" "aboverule=2" "skiptaskbar=true" "skiptaskbarrule=2" \
@@ -1764,6 +1850,12 @@ js_list() { python3 -c 'import json, sys; print(json.dumps([entry for entry in s
 
 apply_taskbar() { # every run: the Start button's text and logo, and the look into each taskbar applet
   [ "$SETUP_IN_PLASMA" = 1 ] && [ "${SETUP_DRY_RUN:-0}" = 0 ] || return 0
+  # finish_session queues a shell restart. Wait for the new scripting interface before changing the panel.
+  local attempt
+  for attempt in {1..20}; do
+    plasma_script 'print("ready")' >/dev/null 2>&1 && break
+    sleep 0.5
+  done
   local width height height_script="" width_script="" launchers_script="" hiding hiding_script="" hours clock_script="" slide_script=""
   width=$(only_digits "${SETUP_TASK_BUTTON_WIDTH:-}")
   [ -n "$width" ] && width_script="panel.widgets('org.chicago95.tasks').forEach(widget => { widget.currentConfigGroup = ['General']; widget.writeConfig('maxButtonWidth', $width); });"
@@ -2019,10 +2111,10 @@ theme_firefox() {
   fi
   mkdir -p "$chrome"
   {
-    widget_style_is_luna || printf '%s\n' "$import"
+    [ "${SETUP_WIDGET_STYLE:-classic}" != classic ] || printf '%s\n' "$import"
     [ -f "$chrome/userChrome.css" ] && grep -vxF "$import" "$chrome/userChrome.css" || true
   } >"$chrome/userChrome.css.chicago95" && mv "$chrome/userChrome.css.chicago95" "$chrome/userChrome.css"
-  if widget_style_is_luna; then
+  if [ "${SETUP_WIDGET_STYLE:-classic}" != classic ]; then
     rm -f "$chrome/chicago95-controls.css"
   else
     python3 "$REPO/lib/firefox_chrome.py" "$chrome/chicago95-controls.css"
@@ -2114,6 +2206,19 @@ step_fonts() { # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bar
     return
   }
   local family="${SETUP_FONT:-MS W98 UI}" key
+  if [ "${SETUP_WIDGET_STYLE:-classic}" = aero ]; then
+    if [ "$family" = "MS W98 UI" ] && [ -z "${OPT_FONT:-}" ]; then
+      family=$(fc-match -f '%{family[0]}' 'Segoe UI,Noto Sans')
+    fi
+    case "${SETUP_FONT_SCOPE:-everywhere}" in
+    everywhere)
+      for key in "${APP_FONT_KEYS[@]}"; do kconf kdeglobals General "$key" "$family,9,-1,5,50,0,0,0,0,0"; done
+      set_gtk_font "$family 9"
+      ;;
+    esac
+    [ "${SETUP_FONT_SCOPE:-everywhere}" = none ] || kconf kdeglobals WM activeFont "$family,9,-1,5,50,0,0,0,0,0"
+    return 0
+  fi
   if ! fc-list : family | grep -i "$family" >/dev/null; then
     ui_status "Font '$family' not installed; UI text keeps your current font until it is in ~/.local/share/fonts"
     return
@@ -2140,11 +2245,29 @@ step_fonts() { # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bar
   return 0
 }
 
+refresh_glass_effect() {
+  local target=blur previous=aeroglassblur
+  local -a effects=(gdbus call --session --dest org.kde.KWin --object-path /Effects --method)
+  if [ "${SETUP_DECORATION:-classic}" = aero ] && native_aero_available; then
+    target=aeroglassblur
+    previous=blur
+  fi
+  "${effects[@]}" org.kde.kwin.Effects.unloadEffect "$previous" >/dev/null 2>&1 || true
+  [[ "$("${effects[@]}" org.kde.kwin.Effects.isEffectLoaded "$target")" == "(true,)" ]] && return 0
+  if [[ "$("${effects[@]}" org.kde.kwin.Effects.loadEffect "$target")" != "(true,)" ]]; then
+    "${effects[@]}" org.kde.kwin.Effects.loadEffect "$previous" >/dev/null 2>&1 || true
+    ui_status "KWin could not activate $target in this session. Check the effect after signing in again."
+  fi
+}
+
 finish_session() { # KWin always rereads its settings; plasmashell restarts only when something it loads changed
   [ "$SHELL_CHANGED" = 1 ] && run rm -rf ~/.cache/plasmashell/qmlcache ~/.cache/ksvg-elements ~/.cache/plasma_theme_Chicago95.kcache
   run systemctl --user daemon-reload
   kwin_reconfigure
   [ "${SETUP_DRY_RUN:-0}" != 1 ] && [ "$SETUP_IN_PLASMA" = 1 ] || return 0
+  if [[ " $COMPONENTS " == *" look "* ]] && installed_by_setup kconf:kwinrc:Plugins:aeroglassblurEnabled; then
+    refresh_glass_effect
+  fi
   systemctl --user is-enabled chicago95-notifyd.service >/dev/null 2>&1 && systemctl --user restart chicago95-notifyd.service || true
   [ "$SHELL_CHANGED" = 1 ] || return 0
   # Last, and one queued job: Setup may run inside plasmashell's service (started from the Control

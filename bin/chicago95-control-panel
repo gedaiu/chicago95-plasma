@@ -253,8 +253,11 @@ LOOK_PRESETS["aero"] = {
     **LOOK_PRESETS["2000"],
     "DECORATION": "aero",
     "TASKBAR_STYLE": "aero",
-    "START_MENU_STYLE": "1995",
-    "ICONS": "chicago95",
+    "START_MENU_STYLE": "aero",
+    "WIDGET_STYLE": "aero",
+    "LOGIN_STYLE": "aero",
+    "BOOT_STYLE": "7",
+    "ICONS": "windows7",
     "TITLE_ACTIVE": "#6B9CD3,#B9D1EA",
     "TITLE_INACTIVE": "#BFCDDB,#DCE6F1",
     "BANNER_BG": "#1E3F66,#2F5E94@100,#5B8FC8@0",
@@ -262,9 +265,8 @@ LOOK_PRESETS["aero"] = {
     "BACKGROUND_COLOR": "#1D5C9C",
 }
 
-COMPONENT_STYLES = [("Classic", "classic"), ("Windows XP", "luna")]
-# Windows 7's glass frames and superbar; its widgets come later.
-DECORATION_STYLES = [*COMPONENT_STYLES, ("Windows 7", "aero")]
+COMPONENT_STYLES = [("Classic", "classic"), ("Windows XP", "luna"), ("Windows 7", "aero")]
+DECORATION_STYLES = COMPONENT_STYLES
 TASKBAR_STYLES = DECORATION_STYLES
 START_MENU_STYLES = [
     ("Windows 95", "1995"),
@@ -272,6 +274,7 @@ START_MENU_STYLES = [
     ("Windows 2000", "2000"),
     ("Windows XP Classic", "2001"),
     ("Windows XP", "luna"),
+    ("Windows 7", "aero"),
 ]
 TASKBAR_STYLE_HELP = "The Windows XP taskbar also switches tooltips and popups to the XP style."
 
@@ -1883,7 +1886,9 @@ class LogOnPreview(QmlPreview):
         main_qml = login_preview.prepare_login_theme(theme, folder, banner=banner, icon=icon)
         add_luna_screen(values, folder / "theme", "sddm", style)
         branding = luna_login_branding(values, folder / "theme") if style == "luna" else {}
-        self.fit(*{"luna": (self.LUNA_SIZE, self.LUNA_SCALE)}.get(style, (self.SIZE, self.SCALE)))
+        self.fit(
+            *dict.fromkeys(("luna", "aero"), (self.LUNA_SIZE, self.LUNA_SCALE)).get(style, (self.SIZE, self.SCALE))
+        )
         if self.interactive:
             self.fit((800, 600), 1.0)
         self.engine().addImportPath(str(folder / "imports"))
@@ -1973,7 +1978,7 @@ class LoginTestDialog(QDialog):
             self.status.setText(f"Simulated successful login for {user}, session {session + 1}.")
 
 
-MENU_STYLES = ("1995", "1998", "2000", "2001", "luna")
+MENU_STYLES = ("1995", "1998", "2000", "2001", "luna", "aero")
 LUNA_MENU_PREVIEW_WIDTH = 250
 LOOK_FACES = {
     "2000": "#D4D0C8",
@@ -2128,7 +2133,7 @@ class StartMenuPreview(QWidget):
 
     def show_menu(self):
         menu = QPixmap(str(self.shot))
-        if self.menu_style == "luna":
+        if self.menu_style in ("aero", "luna"):
             menu = menu.scaledToWidth(LUNA_MENU_PREVIEW_WIDTH, Qt.SmoothTransformation)
         self.menu_label.setPixmap(menu)
         self.button.setFixedWidth(max(menu.width(), TASKBAR_STRIP.width()))
@@ -2987,6 +2992,9 @@ class PropertiesPage(QWidget):
 
     def changed_values(self):
         changed = {key: value for key, value in self.collect_values().items() if self.baseline.get(key) != value}
+        if changed.get("LOOK") == "aero":
+            preset = LOOK_PRESETS["aero"]
+            changed.update({key: preset[key] for key in ("LOGIN_STYLE", "BOOT_STYLE")})
         return with_custom_look(changed)
 
     def refresh_apply_button(self):
@@ -3517,7 +3525,12 @@ def log_on_tab(settings, actions):
     tab.radios(
         "LOGIN_STYLE",
         "Style",
-        [("Classic (1995 and 1998)", "classic"), ("Windows 2000", "2000"), ("Windows XP", "luna")],
+        [
+            ("Classic (1995 and 1998)", "classic"),
+            ("Windows 2000", "2000"),
+            ("Windows XP", "luna"),
+            ("Windows 7", "aero"),
+        ],
         default="classic",
     )
     branding_field(tab, "LOGIN_TITLE", "Title bar:", settings)
@@ -3682,6 +3695,7 @@ ICON_SETS = [
     ("SE98 (1998)", "se98"),
     ("ClassicOS 2000", "classicos2000"),
     ("Windows XP", "windowsxp"),
+    ("Windows 7", "windows7"),
 ]
 # The Appearance tab's items (Windows 98 lists every part of the screen; these are the ones this desktop
 # colours): its setting, and how many colours it takes (stops: the banner's base colour and its glows).

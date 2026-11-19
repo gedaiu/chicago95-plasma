@@ -120,3 +120,22 @@ def test_luna_preset_sets_every_component_to_luna_with_the_xp_title_colours(cont
         "START_MENU_STYLE": "luna",
         "TITLE_ACTIVE": "#0054E3,#3F97FF",
     }
+
+
+def test_aero_selects_the_matching_menu_widgets_icons_login_and_boot(tmp_path):
+    keys = "WIDGET_STYLE START_MENU_STYLE ICONS LOGIN_STYLE BOOT_STYLE".split()
+    values = " ".join(f'"$SETUP_{key}"' for key in keys)
+    assert run_bash_with_steps(tmp_path, f"apply_look aero; echo {values}")[0] == "aero aero windows7 aero 7"
+
+
+def test_aero_menu_search_launches_the_selected_desktop_entry(qt_app):
+    from chicago95aeromenu import AeroMenu
+    from PySide6.QtGui import QIcon
+
+    entries = [{"name": name, "path": name + ".desktop", "icon": ""} for name in ("Editor", "Paint")]
+    launches = []
+    menu = AeroMenu(entries, launches.append, lambda name: QIcon(), {}, "user")
+    menu.search.setText("paint")
+    menu.search.returnPressed.emit()
+
+    assert (menu.width(), launches) == (411, [entries[1]])
