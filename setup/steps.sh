@@ -569,6 +569,10 @@ apply_icon_set() {
   case "${SETUP_ICONS:-chicago95}" in
   windows7)
     install_icon_pack windows7 || return 1
+    local icons="$HOME/.local/share/icons/Windows-7"
+    # The pack's apps/user-desktop.png is fully transparent. Its Places artwork is the desktop icon.
+    run cp "$icons/filesystems/user-desktop.png" "$icons/apps/user-desktop.png"
+    run sed -i 's/^Inherits=Gnome,hicolor$/Inherits=gnome,breeze,hicolor/' "$icons/index.theme"
     kconf kdeglobals Icons Theme Windows-7
     for group in MainToolbarIcons ToolbarIcons; do
       kconf kdeglobals "$group" DefaultEffect none

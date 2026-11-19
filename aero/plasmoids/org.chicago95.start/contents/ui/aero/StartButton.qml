@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Window
 import org.kde.ksvg as KSvg
+import org.kde.plasma.workspace.dbus as DBus
 
 // The Windows 7 Start orb: the Aero style's glass sphere with the logo Setup chose laid over its middle, glowing in
 // the logo's colours under the pointer and while held.
@@ -17,6 +18,12 @@ Item {
 
     readonly property int logoSize: 20
     implicitWidth: orb.implicitWidth
+
+    DBus.DBusServiceWatcher {
+        id: menu
+        busType: DBus.BusType.Session
+        watchedService: "org.chicago95.StartMenuOpen"
+    }
 
     HoverHandler {
         id: pointer
@@ -105,7 +112,7 @@ Item {
         y: orb.y
         source: button.logoSource
         logoSize: button.logoSize
-        active: button.hovered || button.held
+        active: button.hovered || button.held || menu.registered
     }
     Image {
         x: 27 - width / 2

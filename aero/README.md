@@ -126,10 +126,7 @@ Windows 7 pixel for pixel: the bar, the orb, the pinned slots and their pitch, a
   frame cannot know where it lies on the screen, so window frames have none; Windows 7's afterglow, which follows the
   background's brightness, needs a compositor shader.
 - **Aurorae title glow.** KWin 6's Aurorae draws no halo behind the title.
-- **Superbar grouping.** A pinned program that is running shows twice, pinned and as a task, where Windows 7 merges
-  them; jump lists and thumbnails are Plasma's own.
-- **Orb glow while the menu is open.** The Start menu is its own program and does not yet tell the orb it is open,
-  so the glow follows the pointer only.
+- **Superbar menus.** Jump lists and thumbnails use Plasma’s menus and previews.
 - **Paging arrow size.** No reference shows the superbar's arrows, so they are 17 wide (Windows' scroll bar width)
   and half the bar tall each, placed one gap after the page's last button.
 - **Unlocked taskbar.** No lossless reference shows one. Windows 7's documentation places the grip left of the

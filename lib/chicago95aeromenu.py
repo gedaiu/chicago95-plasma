@@ -3,6 +3,7 @@
 import functools
 
 from PySide6.QtCore import QSize, Qt
+from PySide6.QtDBus import QDBusConnection
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QFrame,
@@ -101,6 +102,14 @@ class AeroMenu(QWidget):
         """)
         self.populate()
         self.search.setFocus()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        QDBusConnection.sessionBus().registerService("org.chicago95.StartMenuOpen")
+
+    def hideEvent(self, event):
+        QDBusConnection.sessionBus().unregisterService("org.chicago95.StartMenuOpen")
+        super().hideEvent(event)
 
     def toggle_programs(self):
         self.all_programs = not self.all_programs
