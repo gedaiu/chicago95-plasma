@@ -25,6 +25,7 @@ def greeter(tmp_path_factory):
     shutil.copy(src / "background", art)
     for name in ("AeroLogin", "AeroLockScreen"):
         shutil.copy(REPO / f"sddm/Chicago95Plasma/{name}.qml", folder)
+    shutil.copy(REPO / "sddm/Chicago95Plasma/AeroPortraitFrame.svg", folder)
     for icon in src.glob("*.png"):
         with Image.open(icon) as original:
             (art / icon.with_suffix(".svg").name).write_bytes(vector_art.bitmap_svg(original))
@@ -150,5 +151,59 @@ def test_welcome_screen_draws_the_status_and_cycles_the_spinner(qt_app, tmp_path
         root.setProperty("animated", True)
         QTest.qWait(180)
         assert root.property("frame") != 17
+    finally:
+        view.close()
+
+
+@pytest.mark.parametrize("scale", (1, 1.5))
+def test_glass_rim_and_shadow_follow_the_account_frame_artwork(greeter, scale):
+    from test_aero_imported_art import render
+
+    folder, src = greeter
+    size = (round(190 * scale),) * 2
+    frame = render((folder / "AeroPortraitFrame.svg").read_bytes(), size)
+    reference = Image.open(src / "12223.png").convert("RGBA").resize(size, Image.Resampling.LANCZOS)
+    desktop = Image.new("RGBA", size, "#247eb8")
+    actual = Image.alpha_composite(desktop, frame).convert("RGB")
+    expected = Image.alpha_composite(desktop, reference).convert("RGB")
+    diff = ImageChops.difference(actual, expected)
+    # Check the thin rim separately from the unpainted center and the outer shadow.
+    for box in ((19, 38, 32, 154), (51, 15, 139, 32)):
+        strip = diff.crop(tuple(round(v * scale) for v in box))
+        assert max(ImageStat.Stat(strip).mean) < 16
+
+
+def test_unlock_switch_user_button_clears_input_and_fits_above_branding(qt_app, greeter):
+    from PySide6.QtTest import QSignalSpy
+
+    folder, _ = greeter
+    scene = folder / "switch.qml"
+    scene.write_text(
+        'import QtQuick\nAeroLockScreen { width: 640; height: 480; userName: "Demo"; brandText: "Fedora" }'
+    )
+    view = QQuickView()
+    view.setSource(QUrl.fromLocalFile(str(scene)))
+    assert not view.errors()
+    view.show()
+    try:
+        root = view.rootObject()
+        switch = root.findChild(QObject, "aeroSwitchUser")
+        assert not switch.isVisible()
+        root.setProperty("canSwitchUser", True)
+        QTest.qWait(50)
+        assert switch.isVisible()
+        position = switch.mapToScene(QPointF(0, 0))
+        assert position.y() + switch.height() < view.height() - 57
+        screenshot = qimage_to_pil(view.grabWindow())
+        box = (round(position.x()), round(position.y()), round(position.x()) + 108, round(position.y()) + 28)
+        field = root.findChild(QObject, "aeroPassword")
+        field.setProperty("text", "sample")
+        signal = QSignalSpy(root.switchUserRequested)
+        QTest.mouseClick(view, Qt.LeftButton, pos=switch.mapToScene(QPointF(54, 14)).toPoint())
+        assert signal.count() == 1 and field.property("text") == ""
+        root.setProperty("canSwitchUser", False)
+        QTest.qWait(30)
+        diff = ImageChops.difference(screenshot.crop(box), qimage_to_pil(view.grabWindow()).crop(box)).convert("L")
+        assert sum(diff.histogram()[25:]) > 500
     finally:
         view.close()

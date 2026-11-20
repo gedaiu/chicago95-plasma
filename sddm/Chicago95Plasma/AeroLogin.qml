@@ -10,6 +10,8 @@ Rectangle {
     required property int lastSession
     required property string lastUser
     property bool unlockOnly: false
+    property bool canSwitchUser: false
+    signal switchUserRequested()
     property url userPicture
     property string brandText
     property url brandLogo
@@ -76,7 +78,10 @@ Rectangle {
         Item {
             id: portrait
             anchors.horizontalCenter: parent.horizontalCenter
-            y: Math.round(parent.height / 2) - 134
+            // Reserve the footer on short displays when the session offers user switching.
+            y: page.unlockOnly && page.canSwitchUser
+                ? Math.max(-15, Math.min(Math.round(parent.height / 2) - 134, parent.height - 432))
+                : Math.round(parent.height / 2) - 134
             width: 190
             height: 190
             Image {
@@ -89,14 +94,15 @@ Rectangle {
                 anchors.centerIn: parent
                 width: 126
                 height: 126
-                source: page.userPicture.toString() ? page.userPicture : !page.manual && page.account ? "file:///var/lib/AccountsService/icons/" + encodeURIComponent(page.account) : ""
+                source: page.userPicture.toString() ? page.userPicture : !page.unlockOnly && !page.manual && page.account ? "file:///var/lib/AccountsService/icons/" + encodeURIComponent(page.account) : ""
                 fillMode: Image.PreserveAspectCrop
             }
-            Image { anchors.fill: parent; source: page.art("12223.svg") }
+            Image { anchors.fill: parent; source: Qt.resolvedUrl("AeroPortraitFrame.svg") }
         }
         Text {
             id: nameLabel
             anchors.top: portrait.bottom
+            anchors.topMargin: page.unlockOnly ? 7 : 0
             anchors.horizontalCenter: parent.horizontalCenter
             color: "white"
             style: Text.Raised
@@ -156,7 +162,7 @@ Rectangle {
                     width: 30
                     height: 30
                     hoverEnabled: true
-                    Accessible.name: qsTr("Log on")
+                    Accessible.name: page.unlockOnly ? qsTr("Unlock") : qsTr("Log on")
                     background: Image { source: page.art(go.down ? "gopressed.svg" : go.hovered || go.activeFocus ? "gohover.svg" : "go.svg") }
                     onClicked: page.submit()
                 }
@@ -171,14 +177,23 @@ Rectangle {
             font.pixelSize: 13
         }
         GlassButton {
-            anchors.top: fields.bottom
-            anchors.topMargin: 48
+            anchors.top: page.unlockOnly ? portrait.bottom : fields.bottom
+            anchors.topMargin: page.unlockOnly ? 138 : 48
             anchors.horizontalCenter: parent.horizontalCenter
             width: 108
             height: 28
-            visible: !page.unlockOnly
+            objectName: "aeroSwitchUser"
+            visible: !page.unlockOnly || page.canSwitchUser
             text: qsTr("Switch User")
-            onClicked: { password.clear(); page.choosing = true; accountList.forceActiveFocus(); }
+            onClicked: {
+                password.clear();
+                if (page.unlockOnly) {
+                    page.switchUserRequested();
+                } else {
+                    page.choosing = true;
+                    accountList.forceActiveFocus();
+                }
+            }
         }
     }
     GridView {
@@ -190,7 +205,7 @@ Rectangle {
         width: Math.max(1, Math.min(count, Math.floor(page.width / cellWidth))) * cellWidth
         height: Math.min(page.height - 100, Math.ceil(count / Math.max(1, width / cellWidth)) * cellHeight)
         clip: true
-        model: [...page.users, ""]
+        model: page.unlockOnly ? [] : [...page.users, ""]
         Keys.onReturnPressed: page.selectUser(model[currentIndex])
         delegate: Button {
             id: tile
@@ -207,7 +222,7 @@ Rectangle {
                     width: 110; height: 110
                     Image { anchors.centerIn: parent; width: 74; height: 74; source: page.art("user.svg") }
                     Image { anchors.centerIn: parent; width: 74; height: 74; source: tile.modelData ? "file:///var/lib/AccountsService/icons/" + encodeURIComponent(tile.modelData) : ""; fillMode: Image.PreserveAspectCrop }
-                    Image { anchors.fill: parent; source: page.art("12223.svg") }
+                    Image { anchors.fill: parent; source: Qt.resolvedUrl("AeroPortraitFrame.svg") }
                 }
                 Text { anchors.horizontalCenter: parent.horizontalCenter; text: tile.Accessible.name; color: "white"; font.pixelSize: 15 }
             }

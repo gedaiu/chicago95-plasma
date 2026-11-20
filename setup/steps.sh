@@ -805,9 +805,8 @@ decoration_theme() { # the Aurorae theme of the chosen decoration
   esac
 }
 
-# Windows 7's glass is KWin's blur behind the decoration's mask, kept light: the references blur a sharp edge over
-# about 12 pixels.
-AERO_BLUR_STRENGTH=3
+# Closest discrete KWin setting to the edge spread in win7dragedge.png, measured at 96 DPI.
+AERO_BLUR_STRENGTH=2
 native_effect_available() {
   local plugins="${SETUP_QT_PLUGIN_DIR:-$(qtpaths6 --plugin-dir 2>/dev/null)}"
   [ -f "$plugins/kwin/effects/plugins/$1.so" ]
@@ -832,17 +831,29 @@ select_aero_blur() {
     kreadconfig6 --file kwinrc --group Plugins --key better_wobblywindowsEnabled --type bool --default false 2>/dev/null; then
     wobbly=yes
   fi
+  kconf kwinrc Effect-blur BlurStrength "$AERO_BLUR_STRENGTH"
+  if [[ "$wobbly" = blurred ]] || kreadconfig6 --file kwinrc --group Plugins --key better_wobblywindowsEnabled --type bool --default false 2>/dev/null; then
+    kconf kwinrc Effect-better_wobblywindows EmbeddedDXBlurUseBetterBlurDXSettings false
+    kconf kwinrc Effect-better_wobblywindows EmbeddedDXBlurStrength "$AERO_BLUR_STRENGTH"
+    kconf kwinrc Effect-better_wobblywindows EmbeddedDXBlurSaturation 100
+    kconf kwinrc Effect-better_wobblywindows EmbeddedDXBlurNoiseStrength 0
+  fi
   # KWin's blur skips the rectangular backdrop while an effect bends the window mesh.
   if native_effect_available aeroglassblur && [ "$wobbly" = no ]; then
     native=true
     builtin=false
   fi
   kconf kwinrc Plugins blurEnabled "$builtin"
+  local style="$HOME/.local/share/plasma/desktoptheme/Chicago95Aero"
+  if [ -d "$style" ]; then
+    run kwriteconfig6 --file "$style/plasmarc" --group BlurBehindEffect --key enabled "$builtin"
+  fi
   if native_effect_available aeroglassblur || installed_by_setup kconf:kwinrc:Plugins:aeroglassblurEnabled; then
     kconf kwinrc Plugins aeroglassblurEnabled "$native"
     GLASS_EFFECT_CHANGED=1
   fi
   if [ "$native" = true ]; then
+    kconf kwinrc Effect-aeroglassblur EnableTransparency true
     kconf kwinrc Effect-aeroglassblur BasicColorization false
     kconf kwinrc Effect-aeroglassblur ReflectionIntensity 75
   fi
@@ -863,7 +874,6 @@ apply_decoration() {
 
 apply_aero_glass() {
   put_tree "$REPO/aero/aurorae/theme" ~/.local/share/aurorae/themes/Chicago95Aero
-  kconf kwinrc Effect-blur BlurStrength "$AERO_BLUR_STRENGTH"
   kconf kwinrc Effect-blur NoiseStrength 0
   kconf kwinrc Effect-blur Saturation 100 # a percentage; KWin's default saturates the glass, DWM's did not
 }
@@ -959,10 +969,6 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   if [ "${SETUP_TASKBAR_STYLE:-classic}" = aero ]; then
     local style="$HOME/.local/share/plasma/desktoptheme/Chicago95Aero"
     put_tree "$REPO/aero/plasma-style/theme" "$style"
-    if [ "${SETUP_DECORATION:-classic}" = aero ] && native_effect_available aeroglassblur; then
-      # The panel already paints its calibrated colour and reflection. The native backdrop shader adds both again.
-      run kwriteconfig6 --file "$style/plasmarc" --group BlurBehindEffect --key enabled false
-    fi
   fi
   apply_decoration
   kconf kwinrc org.kde.kdecoration2 BorderSize Normal

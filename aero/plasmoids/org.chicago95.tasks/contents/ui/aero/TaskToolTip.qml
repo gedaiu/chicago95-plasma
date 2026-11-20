@@ -27,6 +27,25 @@ Rectangle {
     width: implicitWidth
     height: implicitHeight
 
+    // The same Plasma window hosts both ordinary tooltips and our thumbnail previews.
+    // Keep its rounded blur mask and let the preview paint its own translucent fill.
+    readonly property var host: Window.window
+    readonly property var hostFrame: {
+        if (host?.mainItem !== parent || !parent) return null;
+        for (const layer of host.contentItem.children) {
+            for (const frame of layer.children) {
+                if (frame.imagePath === "widgets/tooltip") return frame;
+            }
+        }
+        return null;
+    }
+    Binding {
+        target: tip.hostFrame
+        property: "opacity"
+        value: 0
+        when: tip.hostFrame !== null
+        restoreMode: Binding.RestoreBindingOrValue
+    }
     Rectangle {
         anchors.fill: parent
         // Plasma adds its own tooltip padding around the hosted Loader.
@@ -36,11 +55,7 @@ Rectangle {
         anchors.bottomMargin: -(tip.Window.window?.bottomPadding ?? 0)
         radius: 4
         border.color: "#91a9b8"
-        gradient: Gradient {
-            GradientStop { position: 0; color: "#f2657e90" }
-            GradientStop { position: 0.48; color: "#f2405a70" }
-            GradientStop { position: 1; color: "#f2314c63" }
-        }
+        color: "#94233446"
     }
     ListView {
         anchors.fill: parent

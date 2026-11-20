@@ -52,3 +52,15 @@ def test_aero_window_matches_reviewed_portrait(pictures, scene):
             if max(ImageStat.Stat(tile).mean) > 6:
                 diff.convert("RGB").save(output / f"{scene}-difference.png")
                 pytest.fail(f"{scene} differs near ({x}, {y}); render and difference in {output}")
+
+
+def test_background_shows_through_menu_and_preview_glass(pictures):
+    output, _ = pictures
+    for scene, logical_width, point, transmission in (
+        ("start", 411, (393, 249), 0.27),
+        ("preview-cards", 312, (156, 5), 0.42),
+    ):
+        with Image.open(output / f"{scene}.png") as surface:
+            scale = surface.width / logical_width
+            x, y = (round(value * scale) for value in point)
+            assert 1 - surface.convert("RGBA").getpixel((x, y))[3] / 255 == pytest.approx(transmission, abs=0.02)

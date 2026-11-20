@@ -1,10 +1,11 @@
 """Two-column Aero launcher, sized from the 96 DPI all-programs reference."""
 
+import ctypes
 import functools
 
-from PySide6.QtCore import QAbstractListModel, QPoint, QSignalBlocker, QSize, Qt, QTimer
+from PySide6.QtCore import QAbstractListModel, QPoint, QRectF, QSignalBlocker, QSize, Qt, QTimer
 from PySide6.QtDBus import QDBusConnection
-from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPainterPath, QPixmap, QRegion
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -20,6 +21,19 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+
+@functools.cache
+def blur_behind_function():
+    # KF6 takes Qt objects by pointer/reference. PySide owns both for the duration of the call.
+    try:
+        library = ctypes.CDLL("libKF6WindowSystem.so.6")
+        enable = library._ZN14KWindowEffects16enableBlurBehindEP7QWindowbRK7QRegion
+    except (OSError, AttributeError):
+        return None
+    enable.argtypes = (ctypes.c_void_p, ctypes.c_bool, ctypes.c_void_p)
+    enable.restype = None
+    return enable
 
 
 class ProgramScrollBar(QScrollBar):
@@ -202,7 +216,8 @@ class AeroMenu(QWidget):
             * { font-family: "Segoe UI", "Noto Sans"; font-size: 12px; color: #172838; }
             #glass { border: 1px solid #263b50; border-radius: 6px;
                 background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                stop:0 #739fbd, stop:0.37 #436989, stop:0.5 #344f68, stop:0.82 #263f56, stop:1 #6392b6); }
+                stop:0 rgba(130,163,184,185), stop:0.37 rgba(31,51,68,185), stop:0.5 rgba(15,24,32,185),
+                stop:0.82 rgba(13,22,29,185), stop:1 rgba(110,141,159,185)); }
             #avatar { border: 2px solid #c1d6e3; border-radius: 5px; background: #5b859c; }
             #programs { background: white; border: 1px solid #8192a2; border-radius: 4px; }
             QListView { background: white; border: none; outline: none; }
@@ -228,6 +243,15 @@ class AeroMenu(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
+        if QGuiApplication.platformName() in ("wayland", "xcb"):
+            enable = blur_behind_function()
+            if enable is not None and self.windowHandle() is not None:
+                from shiboken6 import getCppPointer
+
+                outline = QPainterPath()
+                outline.addRoundedRect(QRectF(self.findChild(QFrame, "glass").geometry()), 6, 6)
+                region = QRegion(outline.toFillPolygon().toPolygon())
+                enable(getCppPointer(self.windowHandle())[0], True, getCppPointer(region)[0])
         QDBusConnection.sessionBus().registerService("org.chicago95.StartMenuOpen")
 
     def hideEvent(self, event):

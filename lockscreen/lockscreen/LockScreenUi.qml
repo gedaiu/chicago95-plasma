@@ -256,6 +256,8 @@ Item {
                 item.authenticator = authenticator;
                 item.userName = Qt.binding(() => users.count > 0 ? users.get(0).realName : "");
                 if (lockScreenUi.aero) {
+                    item.canSwitchUser = Qt.binding(() => sessionManagement.canSwitchUser);
+                    item.switchUserRequested.connect(() => sessionManagement.switchUser());
                     item.brandText = Settings.brandText;
                     item.brandLogo = Qt.resolvedUrl(Settings.brandLogo);
                 }

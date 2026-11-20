@@ -4,7 +4,7 @@ import QtQuick
 AeroLogin {
     id: screen
     property string userName
-    property var authenticator
+    property var authenticator: null
     signal passwordEntered(string password)
     signal suspendRequested()
 

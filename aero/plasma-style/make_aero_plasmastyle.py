@@ -4,7 +4,7 @@
 usage: python3 aero/plasma-style/make_aero_plasmastyle.py [--out DIR]
 
 With compositing Plasma draws the panel from translucent/widgets/panel-background.svg and blurs behind its mask, as
-DWM blurred behind the taskbar; without it, widgets/panel-background.svg is the same bar over the references'
+DWM blurred behind the taskbar; without it, opaque/widgets/panel-background.svg is the same bar over the references'
 desktop. The task buttons are vector faces fitted to aero.msstyles' TASKITEM (stops.py, written by
 tests/aero/fit_aero_stops.py) and drawn with the decoration's face model.
 """
@@ -576,11 +576,47 @@ def grip_svg(height=40):
     )
 
 
+def tooltip_svg():
+    # Plasma paints ordinary tooltip labels with the Window colour set. Match their background.
+    parts = ['<svg xmlns="http://www.w3.org/2000/svg" width="50" height="24">']
+    parts.append(
+        '<style id="current-color-scheme">.ColorScheme-Background {color:#f0f0f0;} '
+        '.ColorScheme-Text {color:#222;}</style>'
+    )
+    for offset, prefix, paint in (
+        (0, "", 'class="ColorScheme-Background" fill="currentColor"'),
+        (26, "mask-", 'fill="black"'),
+    ):
+        for y, row in enumerate(("top", "", "bottom")):
+            for x, column in enumerate(("left", "", "right")):
+                name = row + column or "center"
+                # Mirror the top-left quadrant and top/left strips around their inner edges.
+                tx = offset + 8 * x + (4 if column == "right" else 0)
+                ty = 8 * y + (4 if row == "bottom" else 0)
+                sx, sy = (-1 if column == "right" else 1), (-1 if row == "bottom" else 1)
+                parts.append(f'<g id="{prefix}{name}" transform="translate({tx} {ty}) scale({sx} {sy})">')
+                if row and column:
+                    parts.append(f'<path d="M0 4A4 4 0 0 1 4 0V4Z" {paint}/>')
+                    edge = "M0 4A4 4 0 0 1 4 0V1A3 3 0 0 0 1 4Z"
+                else:
+                    parts.append(f'<rect width="4" height="4" {paint}/>')
+                    edge = "M0 0H4V1H0Z" if row else "M0 0H1V4H0Z"
+                if not prefix and (row or column):
+                    parts.append(f'<path d="{edge}" class="ColorScheme-Text" fill="currentColor" opacity=".45"/>')
+                parts.append("</g>")
+    return "".join(parts) + "</svg>\n"
+
+
 def write_theme(out):
     (out / "widgets").mkdir(parents=True, exist_ok=True)
     (out / "translucent/widgets").mkdir(parents=True, exist_ok=True)
-    (out / "widgets/panel-background.svg").write_text(panel_svg(translucent=False))
+    (out / "opaque/widgets").mkdir(parents=True, exist_ok=True)
+    (out / "opaque/widgets/panel-background.svg").write_text(panel_svg(translucent=False))
+    (out / "widgets/panel-background.svg").write_text(panel_svg(translucent=True))
     (out / "translucent/widgets/panel-background.svg").write_text(panel_svg(translucent=True))
+    for directory in ("widgets", "translucent/widgets"):
+        (out / directory / "tooltip.svg").write_text(tooltip_svg())
+    (out / "plasmarc").write_text("[BlurBehindEffect]\nenabled=true\n")
     (out / "widgets/tasks.svg").write_text(tasks_svg())
     (out / "widgets/startbutton.svg").write_text(orb_svg())
     (out / "widgets/startshade.svg").write_text(start_shade_svg())

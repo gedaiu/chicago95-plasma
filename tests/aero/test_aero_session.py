@@ -367,3 +367,28 @@ def test_restored_pinned_window_occupies_its_saved_slot(desktops):
         actual = tuple(taskbar.getpixel((x, 20)))
         expected = tuple(reference.getpixel((expected_x, 20)))
         assert max(abs(a - b) for a, b in zip(actual, expected, strict=True)) <= 12
+
+
+def test_tray_tooltip_is_legible_after_hovering_a_glass_task_preview(desktops, tmp_path):
+    import numpy as np
+
+    screen = desktops(
+        "luna",
+        **reference_session(
+            **HIDDEN_ICONS,
+            settings=[
+                ("DECORATION", "aero"),
+                ("WIDGET_STYLE", "aero"),
+                ("BACKGROUND_MODE", "color"),
+                ("BACKGROUND_COLOR", "#232735"),
+            ],
+            pointer_steps=["move:271,748", "wait:1.5", "move:874,748", "wait:1.5"],
+        ),
+    )
+    screen.crop((800, 640, 1024, 768)).save(tmp_path / "tray-tooltip.png")
+    # The first tray icon's label reads "tray 0". Sample both its ink and its fill.
+    pixels = np.asarray(screen.crop((854, 694, 894, 712)), dtype=float) / 255
+    linear = np.where(pixels <= 0.04045, pixels / 12.92, ((pixels + 0.055) / 1.055) ** 2.4)
+    luminance = linear @ [0.2126, 0.7152, 0.0722]
+    ink, fill = np.percentile(luminance, [5, 75])
+    assert (fill + 0.05) / (ink + 0.05) >= 7

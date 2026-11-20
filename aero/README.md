@@ -60,7 +60,7 @@ is set, and skip otherwise.
 generator.
 
 - **The frame** is translucent glass. Its `mask-*` elements make KWin blur what lies behind the frame, and Setup turns
-  on KWin's blur at a light strength.
+  on KWin's blur at strength 2 for both stationary and wobbling frames. At 96 DPI, a high-contrast edge spreads across about 7 pixels in the compositor, compared with about 8–9 pixels in the Windows 7 drag reference.
 - **The lines** are drawn over the glass with the atlas' alphas.
 - **The caption buttons** are vector faces: a centre-column gradient, two-row bands of side shading, and gradient
   edge columns. Each face is within 6 levels of its sprite, and each glyph within 12. They stay sharp at any scale.
@@ -138,8 +138,6 @@ Windows 7 pixel for pixel: the bar, the orb, the pinned slots and their pitch, a
 - **Tray icon count.** The darkening's shift with the hidden-icons button is measured; how it moves with the
   number of icons is not, as both references hold three.
 - **The hidden-icons popup** is still Plasma's own, unstyled.
-- **Blur strength.** It is set low to match the references' roughly 12-pixel softening, but has not yet been measured
-  in KWin against them.
 
 ### Icons, cursors and event sounds
 
