@@ -205,12 +205,35 @@ def test_exported_plymouth_frames_match_custom_preview_and_parse(qt_app, tmp_pat
     assert (meta["FRAMES"], meta["LOOP_START"], meta["FPS"]) == (4, 1, 12)
 
 
+def test_seven_exports_shutdown_with_its_own_spinner_and_status_text(qt_app, tmp_path, monkeypatch):
+    art = tmp_path / "data/chicago95/session"
+    art.mkdir(parents=True)
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    Image.new("RGB", (64, 48), "#1d568a").save(art / "background", format="PNG")
+    strip = Image.new("RGB", (360, 20))
+    for i in range(18):
+        strip.paste((20 + 10 * i, 90, 210), (i * 20, 0, (i + 1) * 20, 20))
+    strip.save(art / "spinner.png")
+    source, output = tmp_path / "splash", tmp_path / "theme"
+    shutil.copytree(SPLASH, source)
+    settings = load_script("chicago95-control-panel").LoadingPreview.settings_js(
+        {"BOOT_STYLE": "7", "BOOT_FRAMES": "1"}
+    )
+    (source / "settings.js").write_text(settings)
+    load_script("chicago95-post-xp-boot").build(source, output, (640, 480), REPO / "setup/post_xp_boot.script.in")
+    assert len({Image.open(path).tobytes() for path in output.glob("shutdown-*.png")}) == 18
+    assert Image.open(output / "shutdown.png").getpixel((0, 0))[:3] == (29, 86, 138)
+    assert Image.open(output / "background.png").getpixel((0, 0))[:3] == (0, 0, 0)
+    script = (output / "Chicago95-7.script").read_text()
+    assert 'if (1 && (Plymouth.GetMode() == "shutdown" || Plymouth.GetMode() == "reboot"))' in script
+
+
 @pytest.mark.parametrize("style", [value for _, value in STYLES])
 def test_setup_dispatches_to_post_xp_exporter(tmp_path, style):
     lines = run_bash_with_steps(
         tmp_path,
         f"plymouth-set-default-theme() {{ :; }}; SETUP_DRY_RUN=1; SETUP_LOG=$HOME/log; SETUP_BOOT_STYLE={style}; "
-        "ui_sudo() { return 1; }; ui_message() { :; }; step_plymouth; cat $HOME/log",
+        "ui_sudo() { return 1; }; ui_message() { :; }; ui_progress() { :; }; step_plymouth; cat $HOME/log",
     )
     assert "chicago95-post-xp-boot" in "\n".join(lines)
 

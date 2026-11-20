@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import filecmp
 import os
 import sys
 
@@ -258,6 +259,7 @@ LOOK_PRESETS["aero"] = {
     "LOGIN_STYLE": "aero",
     "BOOT_STYLE": "7",
     "ICONS": "windows7",
+    "SOUND_THEME": "Windows7",
     "TITLE_ACTIVE": "#6B9CD3,#B9D1EA",
     "TITLE_INACTIVE": "#BFCDDB,#DCE6F1",
     "BANNER_BG": "#1E3F66,#2F5E94@100,#5B8FC8@0",
@@ -2079,7 +2081,7 @@ class StartMenuPreview(QWidget):
         folder = fresh_scratch(self)
         self.menu_style = menu_style_of(values)
         self.draw_menu(folder, values, self.menu_style)
-        show_button = {"luna": self.show_luna_button}.get(
+        show_button = {"luna": self.show_luna_button, "aero": self.show_aero_button}.get(
             values.get("TASKBAR_STYLE", self.menu_style), self.show_classic_button
         )
         show_button(folder, values)
@@ -2102,6 +2104,27 @@ class StartMenuPreview(QWidget):
             "face": QColor(LOOK_FACES.get(look, CLASSIC_FACE)),
         }
         self.show_scene(scene, context, TASKBAR_STRIP.height())
+
+    def show_aero_button(self, folder, values):
+        repo = repo_of(values)
+        ui = repo / "aero/plasmoids/org.chicago95.start/contents/ui/aero"
+        if not ui.exists():
+            ui = INSTALLED_START_PLASMOID / "aero"
+        logo = values.get("START_LOGO", "flag")
+        picture = picture_file(logo, repo)
+        originals = [start_button_ui(repo=repo).parent / "images" / f"logo-{kind}-16.png" for kind in ("flag", "xp")]
+        originals.append(Path.home() / ".local/share/icons/Windows-7/apps/distributor-logo.png")
+        windows = logo in ("flag", "xp") or (
+            picture.is_file()
+            and any(path.is_file() and filecmp.cmp(picture, path, shallow=False) for path in originals)
+        )
+        scene = folder / "AeroStartButtonPreview.qml"
+        scene.write_text(
+            f'import QtQuick\nimport "{ui.as_uri()}"\n'
+            'Rectangle { color: "#4684b4"; StartButton { height: 40; logoSource: startLogo; '
+            "windowsLogo: useWindowsOrb; held: true } }"
+        )
+        self.show_scene(scene, {"startLogo": QUrl.fromLocalFile(str(picture)), "useWindowsOrb": windows}, 40)
 
     def show_luna_button(self, folder, values):
         parts = folder / "luna-panel"
@@ -2994,7 +3017,7 @@ class PropertiesPage(QWidget):
         changed = {key: value for key, value in self.collect_values().items() if self.baseline.get(key) != value}
         if changed.get("LOOK") == "aero":
             preset = LOOK_PRESETS["aero"]
-            changed.update({key: preset[key] for key in ("LOGIN_STYLE", "BOOT_STYLE")})
+            changed.update({key: preset[key] for key in ("LOGIN_STYLE", "BOOT_STYLE", "SOUND_THEME")})
         return with_custom_look(changed)
 
     def refresh_apply_button(self):
@@ -4143,7 +4166,11 @@ SOUND_EVENTS = (
 def sounds_tab(settings, actions):
     tab = SettingsTab(settings, actions)
     themes = [(name, theme_id) for theme_id, name in installed_sound_themes(actions.sound_roots)]
-    scheme = tab.choice("SOUND_THEME", "Scheme:", themes or [("Chicago95", "Chicago95")], default="Chicago95")
+    if not themes:
+        themes.append(("Chicago95", "Chicago95"))
+    if not any(theme_id == "Windows7" for _, theme_id in themes):
+        themes.append(("Windows 7", "Windows7"))
+    scheme = tab.choice("SOUND_THEME", "Scheme:", themes, default="Chicago95")
     events = QListWidget()
     for event, label in SOUND_EVENTS:
         events.addItem(label)

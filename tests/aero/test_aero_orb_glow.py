@@ -58,3 +58,60 @@ def test_glow_fades_out_before_its_edges(qt_app, tmp_path):
     image = glow(qt_app, red_logo(tmp_path), True)
 
     assert max(image.getpixel((x, 20))[3] for x in (0, 57)) <= 8
+
+
+def test_hover_lights_the_glass_beyond_the_orb(qt_app, tmp_path):
+    image = glow(qt_app, red_logo(tmp_path), True)
+    # Two pixels outside the 19px glass rim: the halo is still plainly visible.
+    assert image.getpixel((48, 20))[3] >= 45
+
+
+def test_open_menu_keeps_the_pressed_glass_after_the_pointer_leaves(qt_app, tmp_path):
+    import os
+
+    import pytest
+    from PySide6.QtCore import QObject, QUrl
+    from PySide6.QtDBus import QDBusConnection
+    from PySide6.QtQuick import QQuickView
+    from PySide6.QtTest import QTest
+
+    bus = QDBusConnection.sessionBus()
+    if not bus.isConnected():
+        pytest.skip("needs a session bus for the menu visibility signal")
+    view = QQuickView()
+    view.setResizeMode(QQuickView.SizeRootObjectToView)
+    view.resize(58, 40)
+    view.setSource(QUrl.fromLocalFile(str(GLOW.with_name("StartButton.qml"))))
+    assert not view.errors()
+    orb = view.rootObject()
+    orb.setProperty("logoSource", QUrl.fromLocalFile(str(red_logo(tmp_path))))
+    service = f"org.chicago95.TestOrb.p{os.getpid()}"
+    watcher = next(child for child in orb.findChildren(QObject) if child.property("watchedService"))
+    watcher.setProperty("watchedService", service)
+    view.show()
+
+    def capture():
+        QTest.qWait(250)
+        image = view.grabWindow()
+        return [image.pixelColor(x, y).getRgb()[:3] for y in range(10, 18) for x in range(15, 38)]
+
+    try:
+        orb.setProperty("hovered", True)
+        hot = capture()
+        orb.setProperty("held", True)
+        pressed = capture()
+        assert bus.registerService(service)
+        orb.setProperty("held", False)
+        orb.setProperty("hovered", False)
+        opened = capture()
+        assert opened == pressed
+        assert (
+            sum(max(abs(a - b) for a, b in zip(h, p, strict=True)) > 12 for h, p in zip(hot, pressed, strict=True))
+            >= 30
+        )
+        bus.unregisterService(service)
+        rest = capture()
+        assert rest != opened
+    finally:
+        bus.unregisterService(service)
+        view.close()

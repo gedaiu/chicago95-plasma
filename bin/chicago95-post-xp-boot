@@ -6,7 +6,7 @@ import json
 import math
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QUrl
+from PySide6.QtCore import QObject, QPointF, QUrl
 from PySide6.QtGui import QColor, QGuiApplication, QImage
 from PySide6.QtQuick import QQuickView
 from PySide6.QtTest import QTest
@@ -22,6 +22,27 @@ def build(splash, out, size, template):
     finally:
         view.close()
         app.processEvents()
+
+
+def export_shutdown(view, splash, out):
+    view.setSource(QUrl.fromLocalFile(str(splash / "SevenSession.qml")))
+    if view.errors():
+        raise ValueError("\n".join(error.toString() for error in view.errors()))
+    page = view.rootObject()
+    page.setProperty("animated", False)
+    page.setProperty("statusText", "Shutting down...")
+    QTest.qWait(100)
+    spinner = page.findChild(QObject, "sessionSpinner")
+    pos = spinner.mapToScene(QPointF(0, 0)).toPoint()
+    for frame in range(18):
+        page.setProperty("frame", frame)
+        QTest.qWait(20)
+        image = view.grabWindow()
+        if frame == 0 and not image.save(str(out / "shutdown.png")):
+            raise OSError("Could not save the shutdown background")
+        if not image.copy(pos.x(), pos.y(), 20, 20).save(str(out / f"shutdown-{frame}.png")):
+            raise OSError("Could not save the shutdown animation")
+    return pos
 
 
 def render_theme(view, splash, out, size, template):
@@ -104,7 +125,12 @@ def render_theme(view, splash, out, size, template):
         "FPS": fps,
         "BACKGROUND": f"{color.redF()}, {color.greenF()}, {color.blueF()}",
     }
-    script = template.read_text()
+    seven = name == "Chicago95-7"
+    position = export_shutdown(view, splash, out) if seven else None
+    script = template.read_text().replace("@SEVEN@", "1" if seven else "0")
+    script = script.replace("@SX@", str(position.x() if seven else 0)).replace(
+        "@SY@", str(position.y() if seven else 0)
+    )
     for key, value in values.items():
         script = script.replace(f"@{key}@", str(value))
     (out / f"{name}.script").write_text(script)

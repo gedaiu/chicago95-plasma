@@ -1,4 +1,5 @@
 import QtQuick
+import QtCore
 import org.kde.ksvg as KSvg
 import org.kde.kirigami as Kirigami
 
@@ -6,6 +7,8 @@ import org.kde.kirigami as Kirigami
 // icon's colour, and pressed while held.
 Item {
     id: cell
+    readonly property url folderArt: fileManager ? StandardPaths.locate(StandardPaths.GenericDataLocation, "icons/Windows-7-SVG/apps/file-manager.svg") : ""
+    property bool fileManager
     property var icon
     property bool hovered
     property bool held
@@ -41,6 +44,16 @@ Item {
         width: cell.iconSize
         height: cell.iconSize
         source: cell.icon
+        visible: folder.status !== Image.Ready
         roundToIconSize: false
+    }
+    Image {
+        id: folder
+        anchors.centerIn: parent
+        width: cell.iconSize
+        height: width
+        source: cell.folderArt
+        fillMode: Image.PreserveAspectFit
+        mipmap: true
     }
 }

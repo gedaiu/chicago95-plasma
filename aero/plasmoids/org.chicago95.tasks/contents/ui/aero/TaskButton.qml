@@ -1,4 +1,5 @@
 import QtQuick
+import QtCore
 import org.kde.ksvg as KSvg
 import org.kde.kirigami as Kirigami
 
@@ -8,6 +9,8 @@ import org.kde.kirigami as Kirigami
 Item {
     id: task
     property string text
+    readonly property url folderArt: fileManager ? StandardPaths.locate(StandardPaths.GenericDataLocation, "icons/Windows-7-SVG/apps/file-manager.svg") : ""
+    property bool fileManager
     property var icon
     property bool hovered: pointer.hovered
     property bool pressed // the window is the active one
@@ -52,6 +55,16 @@ Item {
         width: task.iconSize
         height: task.iconSize
         source: task.icon
+        visible: folder.status !== Image.Ready
         roundToIconSize: false
+    }
+    Image {
+        id: folder
+        anchors.centerIn: parent
+        width: task.iconSize
+        height: width
+        source: task.folderArt
+        fillMode: Image.PreserveAspectFit
+        mipmap: true
     }
 }

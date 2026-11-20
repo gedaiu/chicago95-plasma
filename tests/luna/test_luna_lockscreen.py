@@ -119,7 +119,7 @@ def test_typed_characters_show_as_dots_in_the_password_field(qt_app):
 
 def test_lock_screen_ui_loads_the_luna_screen_only_when_the_look_is_luna():
     assert (
-        'source: lockScreenUi.luna ? "luna/lockscreen/LunaLockScreen.qml" : "classic/ClassicLockScreen.qml"'
+        'source: lockScreenUi.luna ? "luna/lockscreen/LunaLockScreen.qml" : lockScreenUi.aero ? "classic/AeroLockScreen.qml" : "classic/ClassicLockScreen.qml"'
         in LOCK_SCREEN_UI.read_text()
     )
 

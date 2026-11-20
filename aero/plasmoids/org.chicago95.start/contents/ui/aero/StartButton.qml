@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Window
+import QtCore
 import org.kde.ksvg as KSvg
 import org.kde.plasma.workspace.dbus as DBus
 
@@ -10,13 +11,15 @@ Item {
     property string text // the orb has no lettering
     property url logoSource
     property bool hovered: pointer.hovered
+    property bool windowsLogo: false
     property bool held
     property string look: "1995"
     property string bevel: "1995"
     property color face: "#000000"
     property color textColor: "#ffffff"
 
-    readonly property int logoSize: 20
+    readonly property int logoSize: 22
+    readonly property bool engaged: held || menu.registered
     implicitWidth: orb.implicitWidth
 
     DBus.DBusServiceWatcher {
@@ -100,6 +103,7 @@ Item {
     }
     KSvg.SvgItem {
         id: orb
+        visible: !windowsFrames.ready
         imagePath: "widgets/startbutton" // the whole picture: the orb sits in it where Windows 7's does
         implicitWidth: 58
         implicitHeight: 40
@@ -108,13 +112,23 @@ Item {
         width: implicitWidth
         height: implicitHeight
     }
+    WindowsOrb {
+        id: windowsFrames
+        y: orb.y
+        source: button.windowsLogo ? StandardPaths.locate(StandardPaths.GenericDataLocation, "chicago95/icons/windows7-orb.svg") : ""
+        hovered: button.hovered
+        engaged: button.engaged
+    }
     LogoGlow {
+        visible: !windowsFrames.ready
         y: orb.y
         source: button.logoSource
         logoSize: button.logoSize
-        active: button.hovered || button.held || menu.registered
+        active: button.hovered || button.engaged
+        pressed: button.engaged
     }
     Image {
+        visible: !windowsFrames.ready
         x: 27 - width / 2
         y: orb.y + 20 - height / 2
         width: button.logoSize
@@ -123,5 +137,18 @@ Item {
         source: button.logoSource
         fillMode: Image.PreserveAspectFit
         smooth: true
+    }
+    // The glass darkens when pushed, including while the menu owns focus.
+    Rectangle {
+        visible: !windowsFrames.ready
+        width: 36
+        height: width
+        x: 27 - width / 2
+        y: orb.y + 20 - height / 2
+        radius: width / 2
+        antialiasing: true
+        opacity: button.engaged ? 1 : 0
+        color: "#40102d43"
+        Behavior on opacity { NumberAnimation { duration: 85 } }
     }
 }

@@ -18,6 +18,7 @@ def parts(qt_app):
         ("luna", "Chevron.qml", "luna/Chevron.qml"),
         ("aero", "TaskButton.qml", "aero/TaskButton.qml"),
         ("aero", "QuickLaunchButton.qml", "aero/QuickLaunchButton.qml"),
+        ("aero", "TaskToolTip.qml", "aero/TaskToolTip.qml"),
         ("aero", "Chevron.qml", "Chevron.qml"),
     ],
 )

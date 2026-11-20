@@ -452,6 +452,14 @@ def test_empty_saved_launchers_clear_the_quick_launch_instead_of_restoring_the_d
     ) == (True, False)
 
 
+def test_new_aero_panel_keeps_show_desktop_at_the_clock_end(tmp_path):
+    layout = run_bash_with_steps(
+        tmp_path, f"SETUP_TASKBAR_STYLE=aero PANEL_HEIGHT=40 panel_layout_script {REPO}/plasmoids/panel-layout.js"
+    )
+    pins = next(line for line in layout if 'tasks.writeConfig("launchers"' in line)
+    assert "applications:thunar.desktop" in pins and "chicago95-showdesktop.desktop" not in pins
+
+
 def test_panel_layout_for_a_new_taskbar_starts_with_the_saved_launchers(tmp_path):
     layout = run_bash_with_steps(
         tmp_path,

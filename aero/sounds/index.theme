@@ -1,0 +1,7 @@
+[Sound Theme]
+Name=Windows 7
+Inherits=freedesktop
+Directories=stereo
+
+[stereo]
+OutputProfile=stereo

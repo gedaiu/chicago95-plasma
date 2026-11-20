@@ -209,7 +209,8 @@ PlasmoidItem {
         if (arrow && isAero)
             placeAeroArrow(arrow, firstX);
         icons.forEach(({
-                delegate, area,
+                delegate,
+                area,
                 icon
             }, index) => {
             const x = firstX + index * iconPitch;

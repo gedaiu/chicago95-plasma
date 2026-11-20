@@ -246,24 +246,25 @@ def gloss_path(cx, cy, radius):
 
 
 def shell_markup(cx, cy):
-    """The glass outside the logo: rings orb.RING_WIDTH wide, cut into orb.SECTORS arcs of orb.SHELL's colours."""
-    number = faces.number
-    step = math.tau / orb.SECTORS
-
-    def point(radius, angle):
-        return f"{number(round(cx + radius * math.cos(angle), 3))},{number(round(cy + radius * math.sin(angle), 3))}"
-
-    shapes = []
+    """Glass rings catch the same overhead light on the left and right of the sphere."""
+    defs, shapes = [], []
     for index, colours in enumerate(orb.SHELL):
-        inner, outer = orb.SHELL_FROM + index * orb.RING_WIDTH, orb.SHELL_FROM + (index + 1) * orb.RING_WIDTH
-        for sector, colour in enumerate(colours):
-            start, end = sector * step, (sector + 1) * step
-            shapes.append(
-                f'<path d="M{point(inner, start)}L{point(outer, start)}A{number(outer)},{number(outer)} 0 0 1 '
-                f"{point(outer, end)}L{point(inner, end)}A{number(inner)},{number(inner)} 0 0 0 "
-                f'{point(inner, start)}z" fill="{colour}"/>'
-            )
-    return "", "".join(shapes)
+        radius = orb.SHELL_FROM + (index + 0.5) * orb.RING_WIDTH
+        stops = []
+        for sector in range(-orb.SECTORS // 4, orb.SECTORS // 4):
+            angle = (sector + 0.5) * math.tau / orb.SECTORS
+            offset = (1 + math.sin(angle)) / 2
+            right = colours[sector % orb.SECTORS]
+            left = colours[(orb.SECTORS // 2 - 1 - sector) % orb.SECTORS]
+            colour = "#" + "".join(f"{(int(right[i:i+2],16) + int(left[i:i+2],16)) // 2:02x}" for i in (1,3,5))
+            stops.append(f'<stop offset="{offset:.5f}" stop-color="{colour}"/>')
+        defs.append(f'<linearGradient id="shell{index}" x1="0" x2="0" y1="{cy-radius}" y2="{cy+radius}" '
+                    f'gradientUnits="userSpaceOnUse">{"".join(stops)}</linearGradient>')
+        rings = []
+        for edge in (radius - orb.RING_WIDTH / 2, radius + orb.RING_WIDTH / 2):
+            rings.append(f"M{cx-edge},{cy}a{edge},{edge} 0 1 0 {2*edge},0a{edge},{edge} 0 1 0 {-2*edge},0z")
+        shapes.append(f'<path fill-rule="evenodd" d="{"".join(rings)}" fill="url(#shell{index})"/>')
+    return "".join(defs), "".join(shapes)
 
 
 def orb_svg():

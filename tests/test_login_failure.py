@@ -6,7 +6,7 @@ import pytest
 from chicago95lunapreviews import copy_screen_trees
 from conftest import REPO
 from login_theme import login_view, overlapping_pairs, render_login
-from PySide6.QtCore import QObject, Qt
+from PySide6.QtCore import QObject, QPointF, Qt
 from PySide6.QtTest import QTest
 
 W2K_LOGON_MESSAGE = (
@@ -111,3 +111,30 @@ def test_aero_login_rejects_a_password_and_leaves_the_field_ready_for_retry(qt_a
             True,
             "",
         )
+
+
+def test_aero_centres_the_225_pixel_password_box_below_the_account_portrait(qt_app, tmp_path):
+    with login_view(qt_app, tmp_path, size=(1024, 768), loginStyle="aero") as view:
+        field = child(view, "aeroPassword")
+        assert field.width() == 225
+        assert abs(field.mapToScene(QPointF(0, 0)).x() + field.width() / 2 - view.width() / 2) <= 0.5
+
+
+def test_aero_power_arrow_opens_the_menu_without_requesting_shutdown(qt_app, tmp_path):
+    with login_view(qt_app, tmp_path, size=(1024, 768), loginStyle="aero") as view:
+        shutdown = child(view, "aeroShutdown")
+        arrow = child(view, "aeroPowerOptions")
+        menu = child(view, "aeroPowerMenu")
+        requests = []
+        view.rootContext().contextProperty("sddm").powerRequested.connect(requests.append)
+        for control, x, width in [(shutdown, 932, 38), (arrow, 970, 20)]:
+            assert control.mapToScene(QPointF(0, 0)) == QPointF(x, 706)
+            assert control.width() == width and control.height() == 28
+        QTest.mouseClick(view, Qt.LeftButton, pos=arrow.mapToScene(QPointF(10, 14)).toPoint())
+        assert menu.property("visible") and not requests
+        QTest.keyClick(view, Qt.Key_Down)
+        QTest.keyClick(view, Qt.Key_Return)
+        QTest.qWait(200)
+        assert requests == ["Restart"]
+        QTest.mouseClick(view, Qt.LeftButton, pos=shutdown.mapToScene(QPointF(19, 14)).toPoint())
+        assert requests == ["Restart", "Power off"]

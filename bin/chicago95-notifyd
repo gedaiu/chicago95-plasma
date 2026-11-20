@@ -228,14 +228,14 @@ def title_pixmap(notification, device_pixel_ratio):
     )
 
 
-def content_pixmap(notification, device_pixel_ratio):
+def content_pixmap(notification, device_pixel_ratio, image_size=IMAGE_SIZE):
     if not notification.override:
         for key in ("image-data", "image_data", "icon_data"):
             if key in notification.hints:
-                return pixmap_from_image_data(notification.hints[key], IMAGE_SIZE, device_pixel_ratio)
+                return pixmap_from_image_data(notification.hints[key], image_size, device_pixel_ratio)
         for key in ("image-path", "image_path"):
             if notification.hints.get(key):
-                return pixmap_from_spec(str(notification.hints[key]), IMAGE_SIZE, device_pixel_ratio)
+                return pixmap_from_spec(str(notification.hints[key]), image_size, device_pixel_ratio)
     fallback = "dialog-warning" if notification.urgency == URGENCY_CRITICAL else "dialog-information"
     return pixmap_from_spec(app_icon_spec(notification), ICON_SIZE, device_pixel_ratio) or pixmap_from_spec(
         fallback, ICON_SIZE, device_pixel_ratio
@@ -323,13 +323,21 @@ def paint_classic_frame(painter, size, device_pixel_ratio, palette):
 
 
 Chrome = namedtuple(
-    "Chrome", "title_bar_class frame_margins content_margins paint content_icon text_pixel_size summary_in_title"
+    "Chrome",
+    "title_bar_class frame_margins content_margins paint content_icon "
+    "text_pixel_size summary_in_title title_in_content",
+    defaults=(False,),
 )
 CLASSIC_CHROME = Chrome(TitleBar, (3, 3, 3, 3), (10, 10, 10, 10), paint_classic_frame, True, 12, False)
 
 
 def popup_chrome():
-    if chicago95ui.look_settings()["widgetStyle"] != "luna":
+    style = chicago95ui.look_settings()["widgetStyle"]
+    if style == "aero":
+        import chicago95aeronotify
+
+        return Chrome(*chicago95aeronotify.CHROME_FIELDS)
+    if style != "luna":
         return CLASSIC_CHROME
     import chicago95lunanotify
 
@@ -374,13 +382,19 @@ class NotificationPopup(QWidget):
         self.action_buttons = []
 
         text_column = QVBoxLayout()
-        text_column.setSpacing(4)
+        # Windows 7 puts the icon beside both the blue heading and the body.
+        aero_balloon = self.chrome.title_in_content
+        if aero_balloon:
+            self.setAttribute(Qt.WA_TranslucentBackground)
+            self.body_label.setStyleSheet('color: #171717; font: 12px "Segoe UI", "Noto Sans";')
+            text_column.addWidget(self.title_bar)
+        text_column.setSpacing(2 if aero_balloon else 4)
         text_column.addWidget(self.summary_label)
         text_column.addWidget(self.body_label)
         text_column.addLayout(self.action_row)
         content = QHBoxLayout()
         content.setContentsMargins(*self.chrome.content_margins)
-        content.setSpacing(12)
+        content.setSpacing(6 if aero_balloon else 12)
         icon_column = QVBoxLayout()
         icon_column.addWidget(self.icon_label)
         icon_column.addStretch(1)
@@ -389,7 +403,8 @@ class NotificationPopup(QWidget):
         frame = QVBoxLayout(self)
         frame.setContentsMargins(*self.chrome.frame_margins)
         frame.setSpacing(0)
-        frame.addWidget(self.title_bar)
+        if not aero_balloon:
+            frame.addWidget(self.title_bar)
         frame.addLayout(content)
 
         self.expiry_timer = QTimer(self)
@@ -418,7 +433,9 @@ class NotificationPopup(QWidget):
         summary = rewritten_summary(notification)
         title = summary if self.chrome.summary_in_title else display_name(notification)
         self.title_bar.set_content(title_pixmap(notification, device_pixel_ratio), title)
-        image = content_pixmap(notification, device_pixel_ratio)
+        image = content_pixmap(
+            notification, device_pixel_ratio, ICON_SIZE if self.chrome.title_in_content else IMAGE_SIZE
+        )
         self.icon_label.setPixmap(image or QPixmap())
         self.icon_label.setVisible(image is not None and self.chrome.content_icon)
         if image is not None:

@@ -34,6 +34,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
+    QDialogButtonBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -698,7 +699,68 @@ def luna_dialogs_wanted():
     return chicago95ui.look_settings()["widgetStyle"] == "luna"
 
 
-def screenshot_dialog(log_off):
+class AeroSessionDialog(QDialog):
+    """A native decorated session dialog using the current Qt controls and KWin frame."""
+
+    actions = {
+        SHUT_DOWN: ("Shut down", "Closes all open programs and turns off the computer.", "system-shutdown"),
+        RESTART: ("Restart", "Closes all open programs and restarts the computer.", "system-reboot"),
+        LOG_OFF: ("Log off", "Closes your programs and ends your session.", "system-log-out"),
+    }
+
+    def __init__(self, choice=None):
+        super().__init__()
+        self.choice = SHUT_DOWN if choice is None else choice
+        label, description, icon = self.actions[self.choice]
+        self.setWindowTitle(label if choice is not None else f"Shut Down {os_name(chicago95ui.look_settings())}")
+        self.setWindowFlags(Qt.Dialog | Qt.CustomizeWindowHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        self.setMinimumWidth(350)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        panel = QWidget()
+        panel.setObjectName("sessionContent")
+        panel.setStyleSheet("#sessionContent { background: white; border-bottom: 1px solid #dadada; }")
+        content = QHBoxLayout(panel)
+        content.setContentsMargins(18, 16, 18, 16)
+        content.setSpacing(14)
+        content.addWidget(dialog_icon(icon), 0, Qt.AlignTop)
+        fields = QVBoxLayout()
+        question = (
+            "What do you want the computer to do?" if choice is None else f"Are you sure you want to {label.lower()}?"
+        )
+        heading = QLabel(question)
+        heading.setStyleSheet("color: #003399; font-size: 15px;")
+        fields.addWidget(heading)
+        detail = QLabel(description)
+        detail.setWordWrap(True)
+        if choice is None:
+            combo = QComboBox()
+            for action, (name, _, _) in self.actions.items():
+                combo.addItem(name, action)
+
+            def select_action():
+                self.choice = combo.currentData()
+                detail.setText(self.actions[self.choice][1])
+
+            combo.currentIndexChanged.connect(select_action)
+            fields.addWidget(combo)
+        fields.addWidget(detail)
+        content.addLayout(fields)
+        layout.addWidget(panel)
+        buttons = QDialogButtonBox(QDialogButtonBox.Cancel)
+        confirm = buttons.addButton(label if choice is not None else "OK", QDialogButtonBox.AcceptRole)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        buttons.button(QDialogButtonBox.Cancel).setDefault(True)
+        confirm.setAutoDefault(False)
+        buttons.setContentsMargins(10, 8, 10, 8)
+        layout.addWidget(buttons)
+
+
+def screenshot_dialog(log_off, action=None):
+    if action is not None or chicago95ui.widget_style() == "aero":
+        return AeroSessionDialog(LOG_OFF if log_off else action)
     if luna_dialogs_wanted():
         import chicago95lunadialogs
 
@@ -720,7 +782,7 @@ def turn_off_choice():
     """What the user picked in the Shut Down dialog of the look, or None when it was cancelled."""
     if luna_dialogs_wanted():
         return luna_turn_off_choice()
-    dialog = ShutDownDialog()
+    dialog = AeroSessionDialog() if chicago95ui.widget_style() == "aero" else ShutDownDialog()
     return dialog.choice if ask(dialog) else None
 
 
@@ -728,7 +790,8 @@ def log_off_choice():
     """LOG_OFF or SWITCH_USER as picked in the Log Off dialog of the look, or None when it was cancelled."""
     if luna_dialogs_wanted():
         return luna_log_off_choice()
-    return LOG_OFF if ask(LogOffDialog()) else None
+    dialog = AeroSessionDialog(LOG_OFF) if chicago95ui.widget_style() == "aero" else LogOffDialog()
+    return LOG_OFF if ask(dialog) else None
 
 
 def log_off(choice, dry_run, dbus_prefix):
@@ -878,6 +941,10 @@ def session_bus():
 
 def main():
     parser = argparse.ArgumentParser(description="Chicago95 Shut Down dialog for KDE")
+    parser.add_argument(
+        "--power-off", action="store_true", help="request a normal session shutdown from the Aero power button"
+    )
+    parser.add_argument("--restart", action="store_true", help="confirm a restart from the Aero power menu")
     parser.add_argument("--log-off", action="store_true", help="ask to log off instead of the Shut Down choices")
     parser.add_argument("--dry-run", action="store_true", help="print commands instead of running them")
     parser.add_argument("--screenshot", metavar="PATH", help="save the dialog as PNG and exit")
@@ -888,14 +955,26 @@ def main():
     app = chicago95ui.make_app("chicago95-shutdown")
     QIcon.setThemeSearchPaths(list(ICON_DIRS) + QIcon.themeSearchPaths())
 
+    action = SHUT_DOWN if args.power_off else RESTART if args.restart else None
     if args.screenshot:
-        grab_widget(screenshot_dialog(args.log_off), args.screenshot)
+        dialog = screenshot_dialog(args.log_off, action)
+        grab_widget(dialog, args.screenshot)
         return 0
     if args.login_banner:
         return 0 if render_login_banner(chicago95ui.look_settings(), args.login_banner) else 1
     if args.screenshot_safe:
         grab_widget(shutting_down_screen(QRect(0, 0, 1280, 720), hold_until_input=False), args.screenshot_safe)
         return 0
+
+    if action is not None:
+        if not ask(AeroSessionDialog(action)):
+            return 0
+        command = shutdown_command(action, dbus_caller())
+        if args.dry_run:
+            run_command(command, True)
+            return 0
+        play_shutdown_sound(False)
+        return subprocess.run(command, check=False).returncode
 
     if args.log_off:
         choice = log_off_choice()

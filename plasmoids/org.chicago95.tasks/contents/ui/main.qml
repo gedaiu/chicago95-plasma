@@ -76,7 +76,15 @@ PlasmoidItem {
     // Windows 7's superbar keeps its buttons whole and pages them (paging.js); the older taskbars narrow them to fit.
     readonly property bool pagesButtons: Plasmoid.configuration.taskbarStyle === "aero"
     readonly property int pageArrowsWidth: 17
-    readonly property var paging: pagesButtons ? Paging.layout(tasksModel.count, { room: band.tasksEnd - tasksX, buttonWidth: styledMaxButtonWidth, gap: gap, arrowWidth: pageArrowsWidth }) : { perPage: windowCount, pages: 1 }
+    readonly property var paging: pagesButtons ? Paging.layout(tasksModel.count, {
+        room: band.tasksEnd - tasksX,
+        buttonWidth: styledMaxButtonWidth,
+        gap: gap,
+        arrowWidth: pageArrowsWidth
+    }) : {
+        perPage: windowCount,
+        pages: 1
+    }
     readonly property int pageStart: shownPage * paging.perPage
     readonly property int pageCount: Math.min(paging.perPage, tasksModel.count - pageStart)
     property int page: 0
@@ -112,10 +120,11 @@ PlasmoidItem {
     // i18n() is injected into the applet context by Plasma.
     Plasmoid.contextualActions: [
         PlasmaCore.Action {
+            id: quickLaunchAction
             text: i18n("Quick Launch")
             checkable: true
             checked: root.showQuickLaunch
-            onTriggered: checked => Plasmoid.configuration.quickLaunch = checked ? "yes" : "no"
+            onTriggered: Plasmoid.configuration.quickLaunch = quickLaunchAction.checked ? "yes" : "no"
         },
         PlasmaCore.Action {
             isSeparator: true
@@ -148,11 +157,12 @@ PlasmoidItem {
             isSeparator: true
         },
         PlasmaCore.Action {
+            id: lockAction
             text: i18n("Lock the taskbar")
             visible: Plasmoid.configuration.taskbarStyle === "aero"   // only Windows 7's taskbar has a grip to show
             checkable: true
             checked: Plasmoid.configuration.locked
-            onTriggered: checked => Plasmoid.configuration.locked = checked
+            onTriggered: Plasmoid.configuration.locked = lockAction.checked
         },
         PlasmaCore.Action {
             text: i18n("Properties")
@@ -196,7 +206,7 @@ PlasmoidItem {
         // The launchers go in once the applet is complete. Given while it loads, Plasma never counts them: it counts
         // launchers when rows change, and with the windows already there (a login restoring the last session) no row
         // changes until a window opens, so the cells draw as window buttons until then.
-        launcherList: root.completed ? QuickLaunch.launchers(root.showQuickLaunch, Plasmoid.configuration.launchers) : []
+        launcherList: (root.pagesButtons || root.completed) ? QuickLaunch.launchers(root.showQuickLaunch, Plasmoid.configuration.launchers) : []
         // Entries added or removed here are saved; the setting's changes come back in through the binding.
         onLauncherListChanged: {
             if (root.showQuickLaunch && QuickLaunch.launchersDiffer(Plasmoid.configuration.launchers, launcherList))
@@ -223,7 +233,6 @@ PlasmoidItem {
             });
         }
     }
-
 
     // While carried, the band is drawn over the window buttons on the taskbar's face.
     component CarriedBackdrop: Item {
@@ -312,7 +321,11 @@ PlasmoidItem {
     }
     function openChevronMenu() {
         chevronMenu.clearMenuItems();
-        Band.chevronLaunchers({ count: launcherCount, size: size, dock: dock }, metrics).forEach(index => {
+        Band.chevronLaunchers({
+            count: launcherCount,
+            size: size,
+            dock: dock
+        }, metrics).forEach(index => {
             const modelIndex = tasksModel.makeModelIndex(index);
             chevronMenu.addMenuItem(chevronEntry.createObject(chevronMenu, {
                 launcher: index,
@@ -343,8 +356,39 @@ PlasmoidItem {
             item.moved.connect(page => root.page = page);
         }
     }
+    // Restored windows can arrive before their launchers. Rebuild the saved superbar order once
+    // all pinned rows exist, including pins represented by running windows.
+    Timer {
+        id: restorePins
+        interval: 150
+        onTriggered: {
+            if (!root.pagesButtons || root.pinsPlaced || !tasksModel.launcherList.length)
+                return;
+            const saved = Array.from(tasksModel.launcherList, url => String(url).split(/[/:]/).pop());
+            const rows = Array.from({
+                length: entries.count
+            }, (_, i) => {
+                const row = entries.itemAt(i);
+                return String(row?.model.LauncherUrlWithoutIcon ?? "").split(/[/:]/).pop();
+            });
+            if (!saved.every(id => rows.includes(id)))
+                return;
+            root.pinsPlaced = true;
+            saved.forEach((id, to) => {
+                const from = rows.indexOf(id, to);
+                if (from > to) {
+                    tasksModel.move(from, to);
+                    rows.splice(to, 0, rows.splice(from, 1)[0]);
+                }
+            });
+        }
+    }
+    property bool pinsPlaced: false
     Repeater {
+        id: entries
         model: tasksModel
+        onItemAdded: if (root.pagesButtons && !root.pinsPlaced)
+            restorePins.restart()
 
         Loader {
             id: entry
@@ -352,6 +396,7 @@ PlasmoidItem {
             required property int index
             readonly property bool launcher: root.pagesButtons ? model.IsLauncher === true : index < root.launcherCount
             readonly property var modelIndex: tasksModel.makeModelIndex(index)
+            readonly property bool fileManager: ["thunar.desktop", "org.kde.dolphin.desktop"].includes(String(model.LauncherUrlWithoutIcon ?? "").split(/[/:]/).pop())
             readonly property int laidOutX: root.pagesButtons ? root.tasksX + slot % root.paging.perPage * (root.buttonWidth + root.gap) - (launcher ? 1 : 0) : launcher ? root.quickLaunchX + Band.cellsWidth(index - root.firstShown, root.metrics) : root.tasksX + slot % root.paging.perPage * (root.buttonWidth + root.gap)
             readonly property int slot: root.pagesButtons ? index : index - root.launcherCount
             // Dragged: the button follows the pointer; the others slide into their new places.
@@ -387,6 +432,12 @@ PlasmoidItem {
                         target: cell.item
                         property: "icon"
                         value: entry.model.decoration
+                    }
+                    Binding {
+                        target: cell.item
+                        property: "fileManager"
+                        when: root.pagesButtons && cell.item?.fileManager !== undefined
+                        value: entry.fileManager
                     }
                     Binding {
                         target: cell.item
@@ -467,6 +518,12 @@ PlasmoidItem {
                     }
                     Binding {
                         target: face.item
+                        property: "fileManager"
+                        when: root.pagesButtons && face.item?.fileManager !== undefined
+                        value: entry.fileManager
+                    }
+                    Binding {
+                        target: face.item
                         property: "pressed"
                         value: entry.model.IsActive === true
                     }
@@ -493,7 +550,8 @@ PlasmoidItem {
                     // mouse area on top of the tooltip area would take every hover and the tooltip would never show.
                     PlasmaCore.ToolTipArea {
                         anchors.fill: parent
-                        interactive: false
+                        id: previews
+                        interactive: root.pagesButtons
                         mainItem: Loader {
                             id: tip
                             property string title: entry.model.display
@@ -502,6 +560,18 @@ PlasmoidItem {
                             property string bevel: Plasmoid.configuration.bevel
                             property color face: Kirigami.Theme.backgroundColor
                             source: Qt.resolvedUrl(Parts.path(Plasmoid.configuration.taskbarStyle, "TaskToolTip.qml"))
+                            onLoaded: {
+                                if (root.pagesButtons && item.chooseWindow) {
+                                    item.ids = Qt.binding(() => entry.model.WinIdList ?? []);
+                                    item.titleAt = row => entry.model.IsGroupParent ? tasksModel.data(tasksModel.makeModelIndex(entry.index, row), Qt.DisplayRole) : entry.model.display;
+                                    item.iconAt = row => entry.model.IsGroupParent ? tasksModel.data(tasksModel.makeModelIndex(entry.index, row), Qt.DecorationRole) : entry.model.decoration;
+                                    item.closeWindow.connect(row => tasksModel.requestClose(entry.model.IsGroupParent ? tasksModel.makeModelIndex(entry.index, row) : entry.modelIndex));
+                                    item.chooseWindow.connect(row => {
+                                        previews.hideToolTip();
+                                        tasksModel.requestActivate(entry.model.IsGroupParent ? tasksModel.makeModelIndex(entry.index, row) : entry.modelIndex);
+                                    });
+                                }
+                            }
                             Binding {
                                 target: tip.item
                                 property: "title"
@@ -540,7 +610,8 @@ PlasmoidItem {
                             onSlidesChanged: entry.slides = slides
                             onDragXChanged: entry.dragX = dragX
                             onMoved: (from, to) => tasksModel.move(entry.index - slot + from, entry.index - slot + to)
-                            onDropped: if (root.pagesButtons) tasksModel.syncLaunchers()
+                            onDropped: if (root.pagesButtons)
+                                tasksModel.syncLaunchers()
                             onTapped: (mouseButton, clickX, clickY) => {
                                 if (mouseButton === Qt.RightButton) {
                                     windowMenu.visualParent = button;
@@ -548,6 +619,8 @@ PlasmoidItem {
                                     windowMenu.window = WindowMenu.windowState(entry.model);
                                     windowMenu.launcher = entry.model.LauncherUrlWithoutIcon;
                                     windowMenu.open(clickX, clickY);
+                                } else if (root.pagesButtons && entry.model.IsGroupParent) {
+                                    previews.showToolTip();
                                 } else if (entry.model.IsGroupParent) {
                                     const windows = tasksModel.rowCount(entry.modelIndex);
                                     const focused = [];
@@ -571,7 +644,7 @@ PlasmoidItem {
         id: launcherMenu
         property var launcher
         PlasmaExtras.MenuItem {
-            text: i18n("Remove from Quick Launch")
+            text: root.pagesButtons ? i18n("Unpin this program from taskbar") : i18n("Remove from Quick Launch")
             onClicked: tasksModel.requestRemoveLauncher(launcherMenu.launcher)
         }
     }
@@ -612,9 +685,14 @@ PlasmoidItem {
             separator: true
         }
         PlasmaExtras.MenuItem {
-            text: i18n("Add to Quick Launch")
+            text: root.pagesButtons ? i18n("Pin this program to taskbar") : i18n("Add to Quick Launch")
             visible: root.showQuickLaunch && String(windowMenu.launcher || "") !== "" && tasksModel.launcherPosition(windowMenu.launcher) === -1
             onClicked: tasksModel.requestAddLauncher(windowMenu.launcher)
+        }
+        PlasmaExtras.MenuItem {
+            text: root.pagesButtons ? i18n("Unpin this program from taskbar") : i18n("Remove from Quick Launch")
+            visible: root.pagesButtons && root.showQuickLaunch && String(windowMenu.launcher || "") !== "" && tasksModel.launcherPosition(windowMenu.launcher) >= 0
+            onClicked: tasksModel.requestRemoveLauncher(windowMenu.launcher)
         }
         PlasmaExtras.MenuItem {
             separator: true

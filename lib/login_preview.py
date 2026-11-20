@@ -2,6 +2,7 @@
 sddm, userModel, sessionModel, keyboard and the SddmComponents module), so the Control Panel can preview
 the dialog and the tests can compare it with the original screenshots."""
 
+import os
 import shutil
 from pathlib import Path
 
@@ -36,6 +37,14 @@ class Greeter(QObject):
     @Property(bool, constant=True)
     def canHibernate(self):
         return self._can_sleep
+
+    @Property(bool, constant=True)
+    def canPowerOff(self):
+        return True
+
+    @Property(bool, constant=True)
+    def canReboot(self):
+        return True
 
     @Slot()
     def suspend(self):
@@ -164,6 +173,9 @@ def prepare_login_theme(theme_source, folder, banner=None, icon=None):
     Returns the main.qml to load."""
     folder = Path(folder)
     shutil.copytree(theme_source, folder / "theme", dirs_exist_ok=True)
+    art = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "chicago95/sddm-f51ca15"
+    if (art / "background").is_file():
+        shutil.copytree(art, folder / "theme/aero-art", dirs_exist_ok=True)
     if UI_FONT.exists():
         shutil.copy(UI_FONT, folder / "theme")
     if banner:

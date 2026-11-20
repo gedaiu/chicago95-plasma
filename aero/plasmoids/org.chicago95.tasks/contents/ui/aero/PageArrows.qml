@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import org.kde.ksvg as KSvg
 
@@ -13,26 +14,32 @@ Item {
 
     Repeater {
         model: [
-            { direction: "up", step: -1 },
-            { direction: "down", step: 1 }
+            {
+                direction: "up",
+                step: -1
+            },
+            {
+                direction: "down",
+                step: 1
+            }
         ]
 
         KSvg.SvgItem {
             id: arrow
             required property var modelData
             required property int index
-            readonly property bool enabled: arrows.page + modelData.step >= 0 && arrows.page + modelData.step < arrows.pages
+            readonly property bool canMove: arrows.page + modelData.step >= 0 && arrows.page + modelData.step < arrows.pages
             y: index * arrows.height / 2
             width: arrows.width
             height: arrows.height / 2
             imagePath: "widgets/scrollarrow"
-            elementId: modelData.direction + "-" + (!enabled ? "disabled" : area.pressed ? "pressed" : area.containsMouse ? "hot" : hover.hovered ? "hover" : "normal")
+            elementId: modelData.direction + "-" + (!canMove ? "disabled" : area.pressed ? "pressed" : area.containsMouse ? "hot" : hover.hovered ? "hover" : "normal")
 
             MouseArea {
                 id: area
                 anchors.fill: parent
                 hoverEnabled: true
-                enabled: arrow.enabled
+                enabled: arrow.canMove
                 onClicked: arrows.moved(arrows.page + arrow.modelData.step)
             }
         }

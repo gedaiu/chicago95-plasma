@@ -895,7 +895,13 @@ def build_menu():
         from chicago95aeromenu import AeroMenu
 
         user = getpass.getuser()
-        commands = {**luna_commands(), "home": ["xdg-open", str(Path.home())]}
+        commands = {
+            **luna_commands(),
+            "shut_down": [SHUTDOWN_TOOL, "--power-off"],
+            "home": ["xdg-open", str(Path.home())],
+            "lock": ["loginctl", "lock-session"],
+            "restart": [SHUTDOWN_TOOL, "--restart"],
+        }
         return AeroMenu(
             collect_applications(),
             launch_luna_item,

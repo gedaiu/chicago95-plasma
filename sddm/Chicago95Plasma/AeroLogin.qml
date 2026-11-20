@@ -9,117 +9,311 @@ Rectangle {
     required property var sessions
     required property int lastSession
     required property string lastUser
-    gradient: Gradient {
-        GradientStop {
-            position: 0
-            color: "#053b68"
-        }
-        GradientStop {
-            position: 0.5
-            color: "#2579a5"
-        }
-        GradientStop {
-            position: 1
-            color: "#073456"
-        }
-    }
+    property bool unlockOnly: false
+    property url userPicture
+    property string brandText
+    property url brandLogo
+    property string account: lastUser || users[0] || ""
+    property bool choosing: !account
+    property bool manual: false
+    property bool reveal: false
+    property int sessionIndex: Math.max(0, lastSession)
+    color: "#105784"
 
+    function art(name) { return Qt.resolvedUrl("aero-art/" + name); }
+    function selectUser(name) {
+        account = name;
+        manual = !name;
+        choosing = false;
+        failure.text = "";
+        password.clear();
+        reveal = false;
+        if (manual) userField.forceActiveFocus();
+        else password.forceActiveFocus();
+    }
+    function focusPassword() { password.forceActiveFocus(); }
+    function clear() { password.clear(); focusPassword(); }
     function submit() {
-        if (!account.editText.trim()) {
-            account.forceActiveFocus();
+        const name = manual ? userField.text.trim() : account;
+        if (!name) {
+            userField.forceActiveFocus();
             return;
         }
         failure.text = "";
-        greeter.login(account.editText, password.text, Math.max(0, session.currentIndex));
+        greeter.login(name, password.text, sessionIndex);
     }
-
-    Column {
-        anchors.centerIn: parent
-        spacing: 10
-        Rectangle {
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: 94
-            height: 94
-            radius: 8
-            color: "#c1dbe4"
-            border.color: "#f7ffff"
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: 5
-                radius: 4
-                gradient: Gradient {
-                    GradientStop {
-                        position: 0
-                        color: "#82bcd3"
-                    }
-                    GradientStop {
-                        position: 1
-                        color: "#225a89"
-                    }
-                }
-                Rectangle {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    y: 14
-                    width: 30
-                    height: 30
-                    radius: 15
-                    color: "#eaf6fa"
-                }
-                Rectangle {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    y: 47
-                    width: 55
-                    height: 29
-                    radius: 13
-                    color: "#eaf6fa"
-                }
+    Image {
+        anchors.fill: parent
+        source: page.art("background")
+        fillMode: Image.PreserveAspectCrop
+    }
+    component GlassButton: Button {
+        id: control
+        property string sprite: "switch-user-button"
+        property string glyph
+        hoverEnabled: true
+        background: Image {
+            source: page.art(control.sprite + (control.down && control.sprite !== "access-button" ? "-active" : control.hovered || control.activeFocus ? "-hover" : "") + ".png")
+        }
+        contentItem: Item {
+            Image {
+                anchors.centerIn: parent
+                source: control.glyph ? page.art(control.glyph) : ""
+            }
+            Text {
+                anchors.centerIn: parent
+                text: control.text
+                color: "white"
+                font.family: "Segoe UI"
+                font.pixelSize: 12
             }
         }
-        ComboBox {
-            id: account
-            width: 210
-            editable: true
-            model: page.users
-            Component.onCompleted: editText = page.lastUser || currentText
-            onAccepted: password.forceActiveFocus()
+    }
+    Item {
+        id: credentials
+        anchors.fill: parent
+        visible: !page.choosing
+        Item {
+            id: portrait
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: Math.round(parent.height / 2) - 134
+            width: 190
+            height: 190
+            Image {
+                anchors.centerIn: parent
+                width: 126
+                height: 126
+                source: page.art("user.png")
+            }
+            Image {
+                anchors.centerIn: parent
+                width: 126
+                height: 126
+                source: page.userPicture.toString() ? page.userPicture : !page.manual && page.account ? "file:///var/lib/AccountsService/icons/" + encodeURIComponent(page.account) : ""
+                fillMode: Image.PreserveAspectCrop
+            }
+            Image { anchors.fill: parent; source: page.art("12223.png") }
         }
-        Row {
+        Text {
+            id: nameLabel
+            anchors.top: portrait.bottom
+            anchors.horizontalCenter: parent.horizontalCenter
+            color: "white"
+            style: Text.Raised
+            styleColor: "#344853"
+            font.family: "Segoe UI"
+            font.pixelSize: 23
+            text: page.manual ? qsTr("Other user") : page.account
+        }
+        Text {
+            id: lockedLabel
+            anchors.top: nameLabel.bottom
+            anchors.horizontalCenter: parent.horizontalCenter
+            visible: page.unlockOnly
+            text: qsTr("Locked")
+            color: nameLabel.color
+            style: nameLabel.style
+            styleColor: nameLabel.styleColor
+            font.family: nameLabel.font.family
+            font.pixelSize: 12
+        }
+        component CredentialField: TextField {
+            id: field
+            width: 225
+            height: 24
+            color: "#171717"
+            placeholderTextColor: "#555555"
+            leftPadding: 6
+            topPadding: 0
+            bottomPadding: 0
+            font.pixelSize: 13
+            selectByMouse: true
+            background: Image { source: page.art(field.activeFocus ? "input-focus.png" : "input.png") }
+        }
+        Column {
+            id: fields
+            anchors.top: lockedLabel.visible ? lockedLabel.bottom : nameLabel.bottom
+            anchors.topMargin: 8
+            anchors.horizontalCenter: parent.horizontalCenter
             spacing: 4
-            TextField {
+            CredentialField {
+                id: userField
+                visible: page.manual
+                placeholderText: qsTr("User name")
+                onAccepted: password.forceActiveFocus()
+            }
+            CredentialField {
                 id: password
                 objectName: "aeroPassword"
-                width: 178
-                echoMode: TextInput.Password
+                echoMode: page.reveal ? TextInput.Normal : TextInput.Password
                 placeholderText: qsTr("Password")
                 onAccepted: page.submit()
-            }
-            Button {
-                text: "➜"
-                onClicked: page.submit()
-                Accessible.name: qsTr("Log on")
+                Button {
+                    id: go
+                    anchors.left: parent.right
+                    anchors.leftMargin: 4
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 30
+                    height: 30
+                    hoverEnabled: true
+                    Accessible.name: qsTr("Log on")
+                    background: Image { source: page.art(go.down ? "gopressed.png" : go.hovered || go.activeFocus ? "gohover.png" : "go.png") }
+                    onClicked: page.submit()
+                }
             }
         }
-        Label {
+        Text {
             id: failure
+            anchors.top: fields.bottom
+            anchors.topMargin: 6
+            anchors.horizontalCenter: parent.horizontalCenter
             color: "white"
+            font.pixelSize: 13
+        }
+        GlassButton {
+            anchors.top: fields.bottom
+            anchors.topMargin: 48
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: 108
+            height: 28
+            visible: !page.unlockOnly
+            text: qsTr("Switch User")
+            onClicked: { password.clear(); page.choosing = true; accountList.forceActiveFocus(); }
         }
     }
-    ComboBox {
-        id: session
+    GridView {
+        id: accountList
+        anchors.centerIn: parent
+        visible: page.choosing
+        cellWidth: 140
+        cellHeight: 145
+        width: Math.max(1, Math.min(count, Math.floor(page.width / cellWidth))) * cellWidth
+        height: Math.min(page.height - 100, Math.ceil(count / Math.max(1, width / cellWidth)) * cellHeight)
+        clip: true
+        model: [...page.users, ""]
+        Keys.onReturnPressed: page.selectUser(model[currentIndex])
+        delegate: Button {
+            id: tile
+            required property string modelData
+            required property int index
+            width: accountList.cellWidth
+            height: accountList.cellHeight
+            onClicked: page.selectUser(modelData)
+            Accessible.name: modelData || qsTr("Other user")
+            background: Rectangle { radius: 5; color: tile.hovered || (accountList.activeFocus && accountList.currentIndex === tile.index) ? "#407ed2ef" : "transparent" }
+            contentItem: Column {
+                Item {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: 110; height: 110
+                    Image { anchors.centerIn: parent; width: 74; height: 74; source: page.art("user.png") }
+                    Image { anchors.centerIn: parent; width: 74; height: 74; source: tile.modelData ? "file:///var/lib/AccountsService/icons/" + encodeURIComponent(tile.modelData) : ""; fillMode: Image.PreserveAspectCrop }
+                    Image { anchors.fill: parent; source: page.art("12223.png") }
+                }
+                Text { anchors.horizontalCenter: parent.horizontalCenter; text: tile.Accessible.name; color: "white"; font.pixelSize: 15 }
+            }
+        }
+    }
+    Row {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 22
+        spacing: 7
+        Image {
+            width: 35
+            height: 35
+            visible: !!page.brandLogo.toString()
+            source: page.brandLogo
+            fillMode: Image.PreserveAspectFit
+        }
+        Text {
+            anchors.verticalCenter: parent.verticalCenter
+            font.family: "Segoe UI"
+            font.pixelSize: 26
+            color: "white"
+            text: page.brandText
+        }
+    }
+    GlassButton {
+        id: options
         anchors.left: parent.left
         anchors.bottom: parent.bottom
-        anchors.margins: 18
-        model: page.sessions
-        currentIndex: page.lastSession
-        visible: count > 1
+        anchors.leftMargin: 34
+        anchors.bottomMargin: 34
+        width: 38
+        height: 28
+        sprite: "access-button"
+        glyph: "12213.png"
+        Accessible.name: qsTr("Sign-in options")
+        onClicked: settings.open()
+        Menu {
+            id: settings
+            y: -height
+            Menu {
+                id: sessionMenu
+                title: qsTr("Session")
+                enabled: page.sessions.length > 1
+                Instantiator {
+                    model: page.sessions
+                    delegate: MenuItem {
+                        required property string modelData
+                        required property int index
+                        text: modelData
+                        checkable: true
+                        checked: page.sessionIndex === index
+                        onTriggered: page.sessionIndex = index
+                    }
+                    onObjectAdded: (index, item) => sessionMenu.insertItem(index, item)
+                    onObjectRemoved: (index, item) => sessionMenu.removeItem(item)
+                }
+            }
+            MenuItem {
+                text: qsTr("Show password")
+                checkable: true
+                checked: page.reveal
+                onTriggered: page.reveal = checked
+            }
+        }
     }
-    Button {
+    Row {
         anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.margins: 18
-        text: qsTr("Shut down")
-        visible: page.greeter.canPowerOff
-        onClicked: page.greeter.powerOff()
+        anchors.bottom: options.bottom
+        anchors.rightMargin: 34
+        visible: page.greeter.canPowerOff || page.greeter.canReboot
+        GlassButton {
+            objectName: "aeroShutdown"
+            width: 38
+            height: 28
+            sprite: "power"
+            glyph: "power-glyph.png"
+            Accessible.name: qsTr("Shut down")
+            enabled: page.greeter.canPowerOff
+            onClicked: page.greeter.powerOff()
+        }
+        Button {
+            id: powerOptions
+            objectName: "aeroPowerOptions"
+            width: 20
+            height: 28
+            Accessible.name: qsTr("Power options")
+            hoverEnabled: true
+            background: Image {
+                source: page.art((powerOptions.down ? "12301" : powerOptions.hovered
+                    ? (powerOptions.activeFocus ? "12298" : "12300")
+                    : (powerOptions.activeFocus ? "12299" : "12302")) + ".png")
+            }
+            contentItem: Item {
+                Image { anchors.centerIn: parent; source: page.art("power-glyph-arrow.png") }
+            }
+            onClicked: powerMenu.open()
+            Menu {
+                id: powerMenu
+                objectName: "aeroPowerMenu"
+                y: -height
+                x: powerOptions.width - width
+                MenuItem { text: qsTr("Restart"); enabled: page.greeter.canReboot; onTriggered: page.greeter.reboot() }
+                MenuItem { text: qsTr("Shut down"); enabled: page.greeter.canPowerOff; onTriggered: page.greeter.powerOff() }
+            }
+        }
     }
     Connections {
         target: page.greeter
@@ -129,5 +323,5 @@ Rectangle {
             password.forceActiveFocus();
         }
     }
-    Component.onCompleted: password.forceActiveFocus()
+    Component.onCompleted: if (!unlockOnly && choosing) accountList.forceActiveFocus(); else password.forceActiveFocus()
 }

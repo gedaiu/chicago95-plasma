@@ -7,12 +7,27 @@ left = (screen_width - @WIDTH@ * scale) / 2;
 top = (screen_height - @HEIGHT@ * scale) / 2;
 Window.SetBackgroundTopColor(@BACKGROUND@);
 Window.SetBackgroundBottomColor(@BACKGROUND@);
-background = Sprite(Image("background.png").Scale(Math.Int(@WIDTH@ * scale), Math.Int(@HEIGHT@ * scale)));
+image_name = "background.png";
+prefix = "frame-";
+frame_count = @FRAMES@;
+loop_start = @LOOP_START@;
+fps = @FPS@;
+ax = @AX@; ay = @AY@; aw = @AW@; ah = @AH@;
+if (@SEVEN@ && (Plymouth.GetMode() == "shutdown" || Plymouth.GetMode() == "reboot"))
+  {
+    image_name = "shutdown.png";
+    prefix = "shutdown-";
+    frame_count = 18;
+    loop_start = 0;
+    fps = 15;
+    ax = @SX@; ay = @SY@; aw = 20; ah = 20;
+  }
+background = Sprite(Image(image_name).Scale(Math.Int(@WIDTH@ * scale), Math.Int(@HEIGHT@ * scale)));
 background.SetPosition(left, top, 0);
-for (i = 0; i < @FRAMES@; i++)
-  frames[i] = Image("frame-" + i + ".png").Scale(Math.Max(1, Math.Int(@AW@ * scale)), Math.Max(1, Math.Int(@AH@ * scale)));
+for (i = 0; i < frame_count; i++)
+  frames[i] = Image(prefix + i + ".png").Scale(Math.Max(1, Math.Int(aw * scale)), Math.Max(1, Math.Int(ah * scale)));
 animation = Sprite(frames[0]);
-animation.SetPosition(left + @AX@ * scale, top + @AY@ * scale, 1);
+animation.SetPosition(left + ax * scale, top + ay * scale, 1);
 frame = 0;
 prompting = 0;
 fun refresh_callback()
@@ -20,12 +35,12 @@ fun refresh_callback()
     if (!prompting)
       {
         frame++;
-        if (frame >= @FRAMES@)
-          frame = @LOOP_START@;
+        if (frame >= frame_count)
+          frame = loop_start;
         animation.SetImage(frames[frame]);
       }
   }
-Plymouth.SetRefreshRate(@FPS@);
+Plymouth.SetRefreshRate(fps);
 Plymouth.SetRefreshFunction(refresh_callback);
 
 # Keep encrypted-disk and interactive prompts usable over every theme.

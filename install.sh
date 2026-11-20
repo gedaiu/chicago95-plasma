@@ -15,7 +15,7 @@
 #     --decoration=classic|luna|aero  --widget-style=classic|luna|aero  --taskbar-style=classic|luna|aero  (each overrides the look's choice)
 #     --start-menu-style=1995|1998|2000|2001|luna|aero
 #     --login-style=classic|2000|luna|aero  --boot-style=classic|2000|luna|vista|7|8|8.1|10|11  --icons=chicago95|se98|classicos2000|windowsxp|windows7
-#     --sounds=Chicago95|Windows98|Windows2000|Plus98-Jungle|...  (data/sound-themes/)
+#     --sounds=Chicago95|Windows98|Windows2000|Windows7|Plus98-Jungle|...  (data/sound-themes/)
 #     --branding=distro|windows  name the screens after this computer's distribution (detected) or keep the look's Windows names
 #     --settings=FILE  choices saved by the Control Panel (KEY=value lines), applied over the defaults
 #     --task-button-width=160  longest a task button on the taskbar may be, in pixels
@@ -224,6 +224,8 @@ choose_sounds() {
     themes+=("$theme")
     names+=("$(sed -n 's/^Name=//p' "$REPO/data/sound-themes/$theme/index.theme")")
   done
+  themes+=(Windows7)
+  names+=("Windows 7")
   local marked=1 index
   for index in "${!themes[@]}"; do [ "${themes[$index]}" = "${SETUP_SOUND_THEME:-}" ] && marked=$((index + 1)); done
   choice=$(ui_choose "Sounds" "Which sound scheme should play for log on, log off, errors and windows?" "$marked" "${names[@]}")

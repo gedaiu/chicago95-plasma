@@ -182,6 +182,7 @@ apply_look() {
     SETUP_WIDGET_STYLE=aero
     SETUP_START_MENU_STYLE=aero
     SETUP_ICONS=${OPT_ICONS:-windows7}
+    SETUP_SOUND_THEME=${OPT_SOUNDS:-Windows7}
     SETUP_LOGIN_STYLE=aero
     SETUP_DECORATION=aero
     SETUP_TASKBAR_STYLE=aero
@@ -425,6 +426,33 @@ PYTABS
   record "$target"
 }
 
+install_aero_asset_pack() ( # <kind> <destination>
+  local stage
+  stage=$(mktemp -d) || return 1
+  trap 'rm -rf "$stage"' EXIT
+  run bash "$REPO/aero/fetch-desktop-assets.sh" "$1" "$stage" || return 1
+  put_tree "$stage" "$2"
+)
+
+apply_pointer_theme() {
+  local theme=Chicago95_Animated_Hourglass_Cursors_HiDPI
+  if [ "${SETUP_WIDGET_STYLE:-classic}" = aero ]; then
+    theme=Windows-7-Aero-Cursors_Default
+    if [ ! -s "$HOME/.local/share/icons/$theme/cursors/left_ptr" ] || [ ! -s "$HOME/.local/share/icons/$theme/cursors/watch" ]; then
+      install_aero_asset_pack cursors "$HOME/.local/share/icons/$theme" || return 1
+    fi
+  fi
+  run plasma-apply-cursortheme "$theme" --size "${SETUP_CURSOR:-32}" >>"$SETUP_LOG" 2>&1 || true
+  kconf kcminputrc Mouse cursorTheme "$theme"
+  kconf kcminputrc Mouse cursorSize "${SETUP_CURSOR:-32}"
+  local version
+  for version in 3.0 4.0; do
+    run kwriteconfig6 --file "$HOME/.config/gtk-$version/settings.ini" --group Settings --key gtk-cursor-theme-name "$theme"
+  done
+  set_gtk_interface cursor-theme "$theme"
+  edit_xsettings Gtk/CursorThemeName "\"$theme\""
+}
+
 step_base() {
   if [ -z "$SETUP_CHICAGO95_SRC" ]; then
     ui_status "Downloading Chicago95 (about 100 MB)..."
@@ -458,7 +486,7 @@ step_base() {
   run fc-cache -f ~/.local/share/fonts >/dev/null 2>&1 || true
   put_file "$(xsettingsd_source)" ~/.config/xsettingsd/xsettingsd.conf
   grab_hand_for_moves
-  run plasma-apply-cursortheme Chicago95_Animated_Hourglass_Cursors_HiDPI --size "${SETUP_CURSOR:-32}" >>"$SETUP_LOG" 2>&1 || true
+  apply_pointer_theme
   pkill -HUP xsettingsd 2>/dev/null || true
 }
 
@@ -564,16 +592,36 @@ index.write_text("\n".join(kept) + "\n")
 PY
 }
 
+install_aero_icon_aliases() {
+  local icons="$1"
+  local pair name target folder
+  for pair in org.kde.konsole:konsole org.kde.systemsettings:control-center org.kde.khelpcenter:khelpcenter org.kde.plasma.printqueue:preferences-desktop-printer; do
+    name=${pair%:*}
+    target=${pair#*:}
+    for folder in "$icons/apps" "$icons/apps/32"; do
+      [ ! -f "$folder/$target.png" ] || run ln -sf "$target.png" "$folder/$name.png"
+    done
+  done
+}
+
 apply_icon_set() {
   local theme=Chicago95 group
   case "${SETUP_ICONS:-chicago95}" in
   windows7)
     install_icon_pack windows7 || return 1
-    local icons="$HOME/.local/share/icons/Windows-7"
+    local icons="$HOME/.local/share/icons/Windows-7" app
+    for app in org.xfce.thunar org.kde.dolphin; do
+      run ln -sf file-manager.png "$icons/apps/$app.png"
+      run ln -sf system-file-manager.png "$icons/apps/32/$app.png"
+    done
+    install_aero_icon_aliases "$icons"
     # The pack's apps/user-desktop.png is fully transparent. Its Places artwork is the desktop icon.
     run cp "$icons/filesystems/user-desktop.png" "$icons/apps/user-desktop.png"
     run sed -i 's/^Inherits=Gnome,hicolor$/Inherits=gnome,breeze,hicolor/' "$icons/index.theme"
-    kconf kdeglobals Icons Theme Windows-7
+    local vectors="$HOME/.local/share/icons/Windows-7-SVG"
+    run python3 "$REPO/aero/vector_art.py" icons "$icons" "$vectors" || return 1
+    record "$vectors"
+    kconf kdeglobals Icons Theme Windows-7-SVG
     for group in MainToolbarIcons ToolbarIcons; do
       kconf kdeglobals "$group" DefaultEffect none
       kconf kdeglobals "$group" ActiveEffect none
@@ -808,9 +856,9 @@ apply_aero_qt_style() {
         run mv "$cache/Windows7Aero.$extension.part" "$cache/Windows7Aero.$extension" || return 1
     fi
   done
-  for extension in kvconfig svg; do
-    put_file "$cache/Windows7Aero.$extension" "$HOME/.config/Kvantum/Windows7Aero/Windows7Aero.$extension"
-  done
+  run python3 "$REPO/aero/vector_art.py" controls "$cache/Windows7Aero.svg" "$cache/Windows7Aero-paths.svg" || return 1
+  put_file "$cache/Windows7Aero.kvconfig" "$HOME/.config/Kvantum/Windows7Aero/Windows7Aero.kvconfig"
+  put_file "$cache/Windows7Aero-paths.svg" "$HOME/.config/Kvantum/Windows7Aero/Windows7Aero.svg"
   kconf ~/.config/Kvantum/kvantum.kvconfig General theme Windows7Aero
   kconf kdeglobals KDE widgetStyle kvantum
 }
@@ -867,11 +915,21 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   apply_widget_themes
   kconf kdeglobals General AccentColor --delete
   wants_luna && install_luna_theme_files
-  [ "${SETUP_TASKBAR_STYLE:-classic}" = aero ] && put_tree "$REPO/aero/plasma-style/theme" ~/.local/share/plasma/desktoptheme/Chicago95Aero
+  if [ "${SETUP_TASKBAR_STYLE:-classic}" = aero ]; then
+    local style="$HOME/.local/share/plasma/desktoptheme/Chicago95Aero"
+    put_tree "$REPO/aero/plasma-style/theme" "$style"
+    if [ "${SETUP_DECORATION:-classic}" = aero ] && native_aero_available; then
+      # The panel already paints its calibrated colour and reflection. The native backdrop shader adds both again.
+      run kwriteconfig6 --file "$style/plasmarc" --group BlurBehindEffect --key enabled false
+    fi
+  fi
   apply_decoration
   kconf kwinrc org.kde.kdecoration2 BorderSize Normal
   run plasma-apply-colorscheme "$(gtk_theme_name)" >>"$SETUP_LOG" 2>&1 || true
   apply_icon_set
+  if [ "${SETUP_WIDGET_STYLE:-classic}" = aero ] || [ "$(kreadconfig6 --file kcminputrc --group Mouse --key cursorTheme 2>/dev/null)" = Windows-7-Aero-Cursors_Default ]; then
+    apply_pointer_theme || return 1
+  fi
   if [ -n "${SETUP_FACE:-}" ]; then # the 2000 look: warm grey face and its selection colour
     local group
     for group in Colors:Window Colors:Button Colors:Header Colors:Complementary; do kconf kdeglobals "$group" BackgroundNormal "$SETUP_FACE"; done
@@ -966,6 +1024,35 @@ scale_x11_programs() {
   run systemctl --user set-environment "STEAM_FORCE_DESKTOPUI_SCALING=$SETUP_SCALE"
 }
 
+# Fit scalable contours to the three original orb states.
+install_windows_orb() (
+  local dest="$HOME/.local/share/chicago95/icons/windows7-orb.png"
+  local digest=356976eb28cc7b8c25263143c1472fc1b47d889f7844b39aa76c695c8d09187c
+  local url=https://raw.githubusercontent.com/aeroshell-desktop/aerothemeplasma/f51ca15f4668a81d908505b422e5d560f35fe241/plasma/plasmoids/io.gitgud.wackyideas.SevenStart/contents/ui/orbs/orb.png
+  if [ -f "$dest" ] && printf '%s  %s\n' "$digest" "$dest" | sha256sum --check --status; then
+    run python3 "$REPO/aero/vector_art.py" orb "$dest" "${dest%.png}.svg" && record "${dest%.png}.svg"
+    return
+  fi
+  if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then show_copy "$url" "$dest"; return; fi
+  local tmp
+  tmp=$(mktemp) || return 1
+  trap 'rm -f "$tmp"' EXIT
+  curl -fsSL --retry 2 "$url" -o "$tmp" && printf '%s  %s\n' "$digest" "$tmp" | sha256sum --check --status && put_file "$tmp" "$dest" &&
+    python3 "$REPO/aero/vector_art.py" orb "$dest" "${dest%.png}.svg" && record "${dest%.png}.svg"
+)
+
+panel_start_logo() {
+  local logo="${SETUP_START_LOGO:-flag}"
+  if [ "${SETUP_TASKBAR_STYLE:-classic}" = aero ] && [ -f "$logo" ]; then
+    local kind
+    for kind in flag xp; do
+      if cmp -s "$logo" "$REPO/plasmoids/org.chicago95.start/contents/images/logo-$kind-16.png"; then printf '%s' "$kind"; return; fi
+    done
+    if cmp -s "$logo" "$HOME/.local/share/icons/Windows-7/apps/distributor-logo.png"; then printf flag; return; fi
+  fi
+  printf '%s' "$logo"
+}
+
 install_aero_plasmoid_files() { # the superbar's parts, beside each plasmoid's own (styleParts.js picks them)
   local part
   for part in "$REPO"/aero/plasmoids/org.chicago95.*/contents/ui/aero; do
@@ -994,6 +1081,7 @@ step_taskbar() {
   for plasmoid in "$REPO"/plasmoids/org.chicago95.*; do put_tree "$plasmoid" ~/.local/share/plasma/plasmoids/"$(basename "$plasmoid")"; done
   install_luna_plasmoid_files
   install_aero_plasmoid_files
+  if [ "${SETUP_TASKBAR_STYLE:-classic}" = aero ]; then install_windows_orb || ui_status "Windows orb download failed; using the configured logo on the drawn glass."; fi
   put_file "$REPO/plasmoids/panel-layout.js" ~/.local/share/chicago95/panel-layout.js
   put_file "$REPO/config/applications/chicago95-showdesktop.desktop" ~/.local/share/applications/chicago95-showdesktop.desktop
   put_file "$REPO/data/icons/tray-chevron.png" ~/.local/share/chicago95/icons/tray-chevron.png
@@ -1273,7 +1361,19 @@ step_sounds() { # the Windows 98, Plus! and Windows 2000 sound themes, and the o
     theme=${theme%/}
     put_tree "$theme" ~/.local/share/sounds/"${theme##*/}"
   done
+  if [ "${SETUP_SOUND_THEME:-Chicago95}" = Windows7 ]; then
+    install_aero_asset_pack sounds "$HOME/.local/share/sounds/Windows7" || return 1
+  fi
   kconf kdeglobals Sounds Theme "${SETUP_SOUND_THEME:-Chicago95}"
+  local version
+  for version in 3.0 4.0; do
+    if [ -f "$HOME/.config/gtk-$version/settings.ini" ]; then
+      run kwriteconfig6 --file "$HOME/.config/gtk-$version/settings.ini" --group Settings --key gtk-sound-theme-name "${SETUP_SOUND_THEME:-Chicago95}"
+    fi
+  done
+  if command -v gsettings >/dev/null 2>&1; then
+    run gsettings set org.gnome.desktop.sound theme-name "${SETUP_SOUND_THEME:-Chicago95}"
+  fi
   if [ -f ~/.config/xsettingsd/xsettingsd.conf ]; then
     run sed -i "s|^Net/SoundThemeName .*|Net/SoundThemeName \"${SETUP_SOUND_THEME:-Chicago95}\"|" ~/.config/xsettingsd/xsettingsd.conf
     [ "${SETUP_DRY_RUN:-0}" = 1 ] || pkill -HUP xsettingsd 2>/dev/null || true
@@ -1432,6 +1532,9 @@ write_lockscreen_settings() { # <dir>  settings.js: the look the lock screen is 
   if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run tee "$dir/settings.js"; else
     printf '.pragma library\nvar look = %s;\nvar desktopColor = %s;\n' "$(js_string "${SETUP_START_MENU_STYLE:-1995}")" "$(js_string "$(background_color)")" >"$dir/settings.js"
   fi
+  if [ "${SETUP_START_MENU_STYLE:-1995}" = aero ] && [ "${SETUP_DRY_RUN:-0}" != 1 ]; then
+    printf 'var brandText = %s;\nvar brandLogo = %s;\n' "$(js_string "${SETUP_BANNER_TEXT:-Chicago95}")" "$(js_string "classic/brand-logo.$(extension "$(login_logo)")")" >>"$dir/settings.js"
+  fi
   show_copy "(lock screen look ${SETUP_START_MENU_STYLE:-1995})" "$dir/settings.js"
 }
 
@@ -1441,6 +1544,10 @@ step_lockscreen() {
     return
   }
   local dst=~/.local/share/plasma/shells/org.kde.plasma.desktop
+  local art="${XDG_CACHE_HOME:-$HOME/.cache}/chicago95/sddm-f51ca15"
+  if [ "${SETUP_START_MENU_STYLE:-1995}" = aero ]; then
+    run bash "$REPO/aero/fetch-login-art.sh" "$art" || return 1
+  fi
   backup "$dst"
   run rm -rf "$dst"
   run mkdir -p "$dst/contents"
@@ -1457,6 +1564,10 @@ step_lockscreen() {
     for luna_tree in qml sddm images lockscreen; do put_tree "$REPO/luna/$luna_tree" "$dst/contents/lockscreen/luna/$luna_tree"; done
   else
     put_tree "$SDDM_THEME_SRC" "$dst/contents/lockscreen/classic"
+    if [ "${SETUP_START_MENU_STYLE:-1995}" = aero ]; then
+      put_tree "$art" "$dst/contents/lockscreen/classic/aero-art"
+      put_file "$(login_logo)" "$dst/contents/lockscreen/classic/brand-logo.$(extension "$(login_logo)")"
+    fi
   fi
   write_lockscreen_settings "$dst/contents/lockscreen"
   record "$dst"
@@ -1528,6 +1639,22 @@ retain_boot_screen() { # Plymouth leaves its last frame up until the login scree
   run sudo systemctl daemon-reload
 }
 
+install_seven_session_art() {
+  local art="${XDG_CACHE_HOME:-$HOME/.cache}/chicago95/sddm-f51ca15" target="${XDG_DATA_HOME:-$HOME/.local/share}/chicago95/session"
+  local upstream=https://raw.githubusercontent.com/aeroshell-desktop/aerothemeplasma/f51ca15f4668a81d908505b422e5d560f35fe241/plasma
+  run mkdir -p "$art"
+  if [ ! -s "$art/background" ]; then
+    run curl -fsSL --retry 2 "$upstream/sddm/sddm-theme-mod/background" -o "$art/background.tmp" || return 1
+    run mv "$art/background.tmp" "$art/background" || return 1
+  fi
+  if [ ! -s "$art/spinner.png" ]; then
+    run curl -fsSL --retry 2 "$upstream/look-and-feel/authui7/contents/images/100/Bitmap5002.png" -o "$art/spinner.tmp" || return 1
+    run mv "$art/spinner.tmp" "$art/spinner.png" || return 1
+  fi
+  put_file "$art/background" "$target/background"
+  put_file "$art/spinner.png" "$target/spinner.png"
+}
+
 step_splash() { # the loading screen: KSplash shows it after log on, in the login style; its texts and pictures go into settings.js
   local dir=~/.local/share/plasma/look-and-feel/chicago95.splashscreen/contents/splash
   put_tree "$REPO/splash/chicago95.splashscreen" ~/.local/share/plasma/look-and-feel/chicago95.splashscreen
@@ -1537,6 +1664,7 @@ step_splash() { # the loading screen: KSplash shows it after log on, in the logi
     put_tree "$REPO/luna/splash" "$dir/luna/splash"
     put_tree "$REPO/luna/sddm" "$dir/luna/sddm"
   fi
+  if [ "${SETUP_LOGIN_STYLE:-classic}" = aero ]; then install_seven_session_art || return 1; fi
   write_splash_settings "$dir"
   if [ "${SETUP_LOGIN_STYLE:-classic}" = 2000 ]; then
     write_branding
@@ -1640,8 +1768,8 @@ sddm_theme_conf() {
     LOGIN_TITLE="${SETUP_LOGIN_TITLE:-Log On to %h}" LOGIN_MESSAGE="${SETUP_LOGIN_MESSAGE:-Type a user name and password to log on.}" \
     LOGIN_ICON="login-icon.$(extension "$(image_source "${SETUP_LOGIN_ICON:-keys}")")" \
     TITLE_ACTIVE="$([ "${SETUP_LOGIN_STYLE:-classic}" = 2000 ] && echo '#0A246A,#A6CAF0')" \
-    BRAND_TEXT="$(xp_login && printf '%s' "${SETUP_BANNER_TEXT:-Chicago95}")" \
-    BRAND_LOGO="$(xp_login && printf 'brand-logo.%s' "$(extension "$(login_logo)")")" \
+    BRAND_TEXT="$({ xp_login || [ "${SETUP_LOGIN_STYLE:-}" = aero ]; } && printf '%s' "${SETUP_BANNER_TEXT:-Chicago95}")" \
+    BRAND_LOGO="$({ xp_login || [ "${SETUP_LOGIN_STYLE:-}" = aero ]; } && printf 'brand-logo.%s' "$(extension "$(login_logo)")")" \
     COMPANY="$(xp_login && printf '%s' "${SETUP_COMPANY:-KDE}")" EDITION="$(xp_login && printf '%s' "${SETUP_EDITION:-Professional}")" \
     SCALE="$(awk -v s="${SETUP_SCALE:-0}" 'BEGIN { print int(s + 0.5) }')" \
     awk -F= 'BEGIN {
@@ -1683,6 +1811,14 @@ step_sddm() { # login screen; system files, so it asks for the administrator pas
       "Everything else is installed. Run ./install.sh --components=sddm to try again."
     return
   fi
+  if [ "${SETUP_LOGIN_STYLE:-classic}" = aero ]; then
+    local art="${XDG_CACHE_HOME:-$HOME/.cache}/chicago95/sddm-f51ca15"
+    run bash "$REPO/aero/fetch-login-art.sh" "$art" || return 1
+    run sudo mkdir -p "$SDDM_THEME_DIR/aero-art"
+    run sudo cp -r "$art/." "$SDDM_THEME_DIR/aero-art/" || return 1
+    brand_logo=$(login_logo)
+    run sudo cp "$brand_logo" "$SDDM_THEME_DIR/brand-logo.$(extension "$brand_logo")" || return 1
+  fi
   run sudo mkdir -p "$SDDM_THEME_DIR"
   run sudo cp -r "$SDDM_THEME_SRC/." "$SDDM_THEME_DIR/"
   local file luna_tree
@@ -1722,6 +1858,7 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
     return
   }
   if [[ " vista 7 8 8.1 10 11 " == *" $(boot_style) "* ]]; then
+    if [ "$(boot_style)" = 7 ]; then install_seven_session_art || return 1; fi
     name="Chicago95-$(boot_style)"
     [ "$(boot_style)" = vista ] && name=Chicago95-Vista
     build="${TMPDIR:-/tmp}/chicago95-plymouth-$$"
@@ -1839,7 +1976,11 @@ panel_layout_script() { # panel_layout_script <layout file>   the layout with th
   local width hiding hours edits=(-e "s/^panel.height = 28;/panel.height = $PANEL_HEIGHT;/" -e "s/^const look = \"1995\";/const look = \"${SETUP_START_MENU_STYLE:-1995}\";/" -e "s/^const taskbarStyle = \"classic\";/const taskbarStyle = \"${SETUP_TASKBAR_STYLE:-classic}\";/" -e "s/^const bevel = \"1995\";/const bevel = \"${SETUP_BEVEL:-1995}\";/")
   width=$(only_digits "${SETUP_TASK_BUTTON_WIDTH:-}")
   [ -n "$width" ] && edits+=(-e "/^tasks.writeConfig(\"look\", look);/a tasks.writeConfig(\"maxButtonWidth\", $width);")
-  [ -n "${SETUP_LAUNCHERS+x}" ] && edits+=(-e "/^tasks.writeConfig(\"look\", look);/a tasks.writeConfig(\"launchers\", $(js_list "$SETUP_LAUNCHERS"));")
+  if [ -n "${SETUP_LAUNCHERS+x}" ]; then
+    edits+=(-e "/^tasks.writeConfig(\"look\", look);/a tasks.writeConfig(\"launchers\", $(js_list "$SETUP_LAUNCHERS"));")
+  elif [ "${SETUP_TASKBAR_STYLE:-classic}" = aero ]; then
+    edits+=(-e "/^tasks.writeConfig(\"look\", look);/a tasks.writeConfig(\"launchers\", $(quick_launch_defaults));")
+  fi
   hiding=$(panel_hiding)
   [ -n "$hiding" ] && edits+=(-e "s/^panel.hiding = \"none\";/panel.hiding = \"$hiding\";/")
   hours=$(clock_hours)
@@ -1854,6 +1995,7 @@ js_list() { python3 -c 'import json, sys; print(json.dumps([entry for entry in s
 
 apply_taskbar() { # every run: the Start button's text and logo, and the look into each taskbar applet
   [ "$SETUP_IN_PLASMA" = 1 ] && [ "${SETUP_DRY_RUN:-0}" = 0 ] || return 0
+  if [ "${SETUP_TASKBAR_STYLE:-classic}" = aero ] && [ ! -s "$HOME/.local/share/chicago95/icons/windows7-orb.svg" ]; then install_windows_orb || ui_status "Could not install the Windows orb artwork."; fi
   # finish_session queues a shell restart. Wait for the new scripting interface before changing the panel.
   local attempt
   for attempt in {1..20}; do
@@ -1901,7 +2043,7 @@ apply_taskbar() { # every run: the Start button's text and logo, and the look in
         panel.widgets('org.chicago95.start').forEach(widget => {
             widget.currentConfigGroup = ['General'];
             widget.writeConfig('buttonText', $(js_string "${SETUP_START_TEXT:-Start}"));
-            widget.writeConfig('logo', $(js_string "${SETUP_START_LOGO:-flag}"));
+            widget.writeConfig('logo', $(js_string "$(panel_start_logo)"));
         });
         ['org.chicago95.start', 'org.chicago95.tasks', 'org.chicago95.trayframe', 'org.chicago95.clock'].forEach(applet =>
             panel.widgets(applet).forEach(widget => {
@@ -1920,7 +2062,11 @@ quick_launch_shown() { # the Quick Launch option: yes, no, or auto for the look'
 
 quick_launch_defaults() { # the task list's default Quick Launch programs, from its settings file, as a JS list
   sed -n '/name="launchers"/,/<\/entry>/s/.*<default>\(.*\)<\/default>.*/\1/p' "$REPO/plasmoids/org.chicago95.tasks/contents/config/main.xml" |
-    python3 -c 'import json, sys; print(json.dumps(sys.stdin.read().strip().split(",")))'
+    python3 -c 'import json, sys
+pins = sys.stdin.read().strip().split(",")
+if sys.argv[1] == "aero":
+    pins = [pin for pin in pins if pin != "applications:chicago95-showdesktop.desktop"]
+print(json.dumps(pins))' "${SETUP_TASKBAR_STYLE:-classic}"
 }
 
 # The desktop picture: a colour, one tile of a pattern, or an image, written into every desktop's wallpaper.

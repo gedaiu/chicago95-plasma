@@ -71,7 +71,8 @@ generator by `tests/aero/test_aero_taskbar.py`):
 
 - **The bar** is the references' 40 rows. Plasma draws `translucent/widgets/panel-background.svg` over KWin's blur
   when compositing, solved row by row so it shows win7dragedge.png's bar, without DWM's streaks, over its desktop.
-  KWin's blur saturates what it blurs above 100%, which DWM's did not, so Setup sets its saturation to 100.
+  Setup sets the standard KWin blur to 100% saturation. With the native Aero shader, the Plasma theme paints
+  the translucent bar directly so its tint and screen-wide reflections are applied once.
 - **The glass streaks** (`widgets/reflection.svg`) are aero.msstyles' DWMWindow REFLECTIONMAP, straight bands at
   29 degrees, drawn as one gradient across them (`aero/reflection.py`, by `tests/aero/fit_aero_reflection.py`) and
   stretched over the screen at 75%, as DWM does: the orb's part draws them under everything on the bar, then the
@@ -84,11 +85,13 @@ generator by `tests/aero/test_aero_taskbar.py`):
   column within four levels of its sprite. A pinned program at rest is its icon alone. Those PNG resources store
   premultiplied colours, which `aero_sprites.straight` reads back to straight alpha.
 - **Show desktop** (`widgets/showdesktop.svg`) comes from ShowDesktop::Button's three states.
-- **The Start orb** (`widgets/startbutton.svg`) is a vector sphere centred at x 27 in a slot from the screen's edge,
+- **The Start orb** (`widgets/startbutton.svg`) is a glass sphere centred at x 27 in a slot from the screen's edge,
   in a one-pixel rim of white glass at 30% that the bar shows through. Outside its logo the glass is half-pixel rings
-  of arcs fitted to win7dragedge.png (`orb.py`, by `tests/aero/fit_aero_orb.py`), within five levels. The logo is the one Setup's branding chose, never drawn here.
-  Under the pointer it glows in the logo's own colours (`LogoGlow.qml`), as light only, so a dark outline adds
-  nothing (win7allprograms.png); at rest there is no glow.
+  of arcs fitted to win7dragedge.png (`orb.py`, by `tests/aero/fit_aero_orb.py`), within five levels. The generator composites the arcs at their measured 58 × 40 size so fractional scaling keeps a continuous rim. The logo is the one Setup's branding chose, never drawn here.
+  With the Windows flag selected, Setup installs the checksum-verified 54 × 162 SevenStart sprite. The button displays
+  its normal, hover and pressed frames at 54 × 54, centered in the 40-pixel panel. The open menu retains the pressed frame.
+  For custom branding, each quarter of the logo lights the surrounding glass in its own colour. Pressing Start dims the halo and
+  shades the upper glass. The menu keeps that pressed face until it closes, including when opened from the keyboard.
 - **The darkening at the notification area** (`widgets/trayshade.svg`) is drawn by the orb's part too, from the
   screen's right edge, so it lies under the task buttons wherever they reach, as the bar's own shading. While the
   "show hidden icons" button shows, it starts the button's 21 pixels further left, as win7peek.png's does against
@@ -126,7 +129,7 @@ Windows 7 pixel for pixel: the bar, the orb, the pinned slots and their pitch, a
   frame cannot know where it lies on the screen, so window frames have none; Windows 7's afterglow, which follows the
   background's brightness, needs a compositor shader.
 - **Aurorae title glow.** KWin 6's Aurorae draws no halo behind the title.
-- **Superbar menus.** Jump lists and thumbnails use Plasma’s menus and previews.
+- **Superbar menus.** The window picker shows each grouped window using Plasma’s screencast stream. Application-specific jump lists are unavailable.
 - **Paging arrow size.** No reference shows the superbar's arrows, so they are 17 wide (Windows' scroll bar width)
   and half the bar tall each, placed one gap after the page's last button.
 - **Unlocked taskbar.** No lossless reference shows one. Windows 7's documentation places the grip left of the
@@ -136,3 +139,7 @@ Windows 7 pixel for pixel: the bar, the orb, the pinned slots and their pitch, a
 - **The hidden-icons popup** is still Plasma's own, unstyled.
 - **Blur strength.** It is set low to match the references' roughly 12-pixel softening, but has not yet been measured
   in KWin against them.
+
+### Icons, cursors and event sounds
+
+The Windows 7 preset uses the [B00merang Windows 7 icon theme](https://github.com/B00merang-Artwork/Windows-7), with KDE application IDs mapped to the corresponding icons. Setup downloads the default white [Aero cursor port](https://github.com/lLexian/Windows-7-Aero-Cursors_Linux) and maps the [Windows 7 sound collection](https://github.com/Pendrag00n/Windows7Sounds) to desktop event names. The cursor port credits separate artwork for the open and closed hand. The cursor and sound archives are pinned by revision and SHA-256 and cached for reinstalls.

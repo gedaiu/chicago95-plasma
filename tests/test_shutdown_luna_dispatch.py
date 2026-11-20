@@ -150,3 +150,16 @@ def test_luna_status_screens_precede_real_backend_request(shutdown, monkeypatch,
     if action != "logoff":
         expected += ["Windows is shutting down..."]
     assert events == expected + [shutdown.shutdown_command(choice, ["mock-dbus"]), "quit"]
+
+
+def test_aero_log_off_uses_a_decorated_dialog_and_defaults_to_cancel(shutdown, asked_dialogs):
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QDialogButtonBox
+
+    dialogs = asked_dialogs("aero")
+    assert shutdown.log_off_choice() is None
+    dialog = dialogs[0]
+    assert isinstance(dialog, shutdown.AeroSessionDialog)
+    assert not dialog.windowFlags() & Qt.FramelessWindowHint
+    buttons = dialog.findChild(QDialogButtonBox)
+    assert buttons.button(QDialogButtonBox.Cancel).isDefault()

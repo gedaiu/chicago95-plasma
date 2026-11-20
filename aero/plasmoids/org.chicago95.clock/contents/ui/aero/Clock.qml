@@ -13,7 +13,8 @@ Item {
     readonly property int stripWidth: 15
     readonly property int textWidth: width - stripWidth
 
-    implicitWidth: stripWidth + Math.max(65, Math.ceil(Math.max(timeLine.implicitWidth, dateLine.implicitWidth)) + 6)
+    // Keep the reference clock cell while both lines fit. Wider locale formats expand it.
+    implicitWidth: stripWidth + Math.max(65, Math.ceil(Math.max(timeLine.implicitWidth, dateLine.implicitWidth)))
 
     Text {
         id: timeLine

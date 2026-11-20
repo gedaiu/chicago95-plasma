@@ -11,7 +11,7 @@ KCM.SimpleKCM {
     property string cfg_buttonTextDefault
     property string cfg_logoDefault
 
-    readonly property bool customLogo: cfg_logo !== "flag" && cfg_logo !== "penguin"
+    readonly property bool customLogo: !["flag", "xp", "penguin"].includes(cfg_logo)
 
     Kirigami.FormLayout {
         QQC2.ComboBox {
@@ -32,14 +32,14 @@ KCM.SimpleKCM {
         QQC2.ComboBox {
             id: logoChoice
             Kirigami.FormData.label: "Logo:"
-            model: ["Classic flag", "Penguin", "Custom image"]
-            currentIndex: page.cfg_logo === "flag" ? 0 : page.cfg_logo === "penguin" ? 1 : 2
+            model: ["Windows flag", "Windows XP flag", "Penguin", "Custom image"]
+            currentIndex: page.cfg_logo === "flag" ? 0 : page.cfg_logo === "xp" ? 1 : page.cfg_logo === "penguin" ? 2 : 3
             onActivated: index => {
-                page.cfg_logo = index === 0 ? "flag" : index === 1 ? "penguin" : "";
+                page.cfg_logo = index === 0 ? "flag" : index === 1 ? "xp" : index === 2 ? "penguin" : "";
             }
         }
         QQC2.TextField {
-            visible: logoChoice.currentIndex === 2
+            visible: logoChoice.currentIndex === 3
             Kirigami.FormData.label: "Image file:"
             placeholderText: "/home/you/Pictures/logo.png"
             text: page.customLogo ? page.cfg_logo : ""

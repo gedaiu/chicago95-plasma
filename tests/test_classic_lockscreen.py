@@ -221,3 +221,27 @@ def test_setup_writes_the_look_and_desktop_colour_into_the_lock_screen_settings(
     assert (
         tmp_path / "settings.js"
     ).read_text() == '.pragma library\nvar look = "2000";\nvar desktopColor = "#3A6EA5";\n'
+
+
+def test_aero_unlock_forwards_return_and_clears_a_rejected_password(qt_app, tmp_path):
+    harness = tmp_path / "aero.qml"
+    harness.write_text(
+        f'import QtQuick\nimport "{THEME.as_uri()}"\n'
+        'AeroLockScreen { width: 800; height: 600; userName: "Demo"; authenticator: backend; '
+        "onPasswordEntered: password => backend.respond(password) }"
+    )
+    backend = Authenticator()
+    view = QQuickView()
+    view.rootContext().setContextProperty("backend", backend)
+    view.setSource(QUrl.fromLocalFile(str(harness)))
+    assert not view.errors()
+    view.show()
+    try:
+        wait(qt_app, 100)
+        type_password(qt_app, view, "test\r")
+        assert backend.responses == ["test"]
+        backend.failed.emit(0)
+        assert named(view, "aeroPassword").property("text") == ""
+        assert named(view, "aeroPassword").hasActiveFocus()
+    finally:
+        view.close()

@@ -64,6 +64,12 @@ Rectangle {
         }
     }
 
+    Loader {
+        anchors.fill: parent
+        active: !root.booting && Settings.logonStyle === "aero"
+        source: active ? "SevenSession.qml" : ""
+    }
+
     readonly property bool modern: booting && Settings.style === "2000"
     readonly property bool luna: booting && Settings.style === "luna"
     readonly property bool postXp: booting && ["vista", "7", "8", "8.1", "10", "11"].indexOf(Settings.style) !== -1

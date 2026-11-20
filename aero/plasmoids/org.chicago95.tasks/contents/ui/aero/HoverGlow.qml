@@ -23,10 +23,22 @@ Shape {
             centerRadius: glow.width
             focalX: centerX
             focalY: centerY
-            GradientStop { position: 0; color: Qt.alpha(glow.light, glow.footOpacity) }
-            GradientStop { position: 0.6; color: Qt.alpha(glow.light, glow.sideOpacity) }
-            GradientStop { position: 1; color: Qt.alpha(glow.light, 0.3) }
+            GradientStop {
+                position: 0
+                color: Qt.alpha(glow.light, glow.footOpacity)
+            }
+            GradientStop {
+                position: 0.6
+                color: Qt.alpha(glow.light, glow.sideOpacity)
+            }
+            GradientStop {
+                position: 1
+                color: Qt.alpha(glow.light, 0.3)
+            }
         }
-        PathRectangle { width: glow.width; height: glow.height }
+        PathRectangle {
+            width: glow.width
+            height: glow.height
+        }
     }
 }

@@ -2,9 +2,9 @@
 
 import functools
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QPoint, QSize, Qt
 from PySide6.QtDBus import QDBusConnection
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QColor, QIcon, QPainter
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -12,10 +12,33 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMenu,
     QPushButton,
+    QScrollBar,
+    QStyle,
+    QStyleFactory,
+    QStyleOptionSlider,
     QVBoxLayout,
     QWidget,
 )
+
+
+class ProgramScrollBar(QScrollBar):
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        option = QStyleOptionSlider()
+        self.initStyleOption(option)
+        thumb = self.style().subControlRect(QStyle.CC_ScrollBar, option, QStyle.SC_ScrollBarSlider, self)
+        if thumb.height() < 12:
+            return
+        center = thumb.center()
+        painter = QPainter(self)
+        for offset in (-3, 0, 3):
+            y = center.y() + offset
+            painter.setPen(QColor("#888888"))
+            painter.drawLine(center.x() - 2, y, center.x() + 3, y)
+            painter.setPen(QColor("#ffffff"))
+            painter.drawLine(center.x() - 2, y + 1, center.x() + 3, y + 1)
 
 
 class AeroMenu(QWidget):
@@ -41,6 +64,15 @@ class AeroMenu(QWidget):
         programs = QVBoxLayout(left)
         programs.setContentsMargins(4, 4, 4, 8)
         self.list = QListWidget()
+        self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.list.setTextElideMode(Qt.ElideRight)
+        self.list.setWordWrap(False)
+        self.list.setResizeMode(QListWidget.Adjust)
+        scrollbar = ProgramScrollBar(Qt.Vertical)
+        self.list.setVerticalScrollBar(scrollbar)
+        scroll_style = QStyleFactory.create("Fusion")
+        scroll_style.setParent(scrollbar)
+        scrollbar.setStyle(scroll_style)
         self.list.itemClicked.connect(self.open_item)
         self.list.itemActivated.connect(self.open_item)
         programs.addWidget(self.list)
@@ -48,12 +80,13 @@ class AeroMenu(QWidget):
         self.toggle.clicked.connect(self.toggle_programs)
         programs.addWidget(self.toggle)
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Search programs")
+        self.search.setPlaceholderText("Search programs and files")
         self.search.textChanged.connect(self.populate)
         self.search.returnPressed.connect(self.open_first)
         programs.addWidget(self.search)
         links = QVBoxLayout()
         links.setSpacing(1)
+        links.setContentsMargins(7, 0, 6, 0)
         columns.addLayout(links)
         links.addSpacing(25)
         places = [
@@ -68,15 +101,36 @@ class AeroMenu(QWidget):
         ]
         for title, command in places:
             if command in commands:
+                if command in ("my_computer", "control_panel"):
+                    separator = QFrame()
+                    separator.setObjectName("linkSeparator")
+                    separator.setFixedHeight(2)
+                    links.addWidget(separator)
                 button = QPushButton(title)
                 button.clicked.connect(functools.partial(self.run, commands[command]))
                 links.addWidget(button)
         links.addStretch()
-        shutdown = QPushButton("Shut down")
+        power = QWidget(frame)
+        power.setObjectName("power")
+        power.setGeometry(267, frame.height() - 42, 94, 22)
+        shutdown = QPushButton("Shut down", power)
         shutdown.setObjectName("shutdown")
+        shutdown.setGeometry(0, 0, 72, 22)
         if "shut_down" in commands:
             shutdown.clicked.connect(functools.partial(self.run, commands["shut_down"]))
-        links.addWidget(shutdown)
+        arrow = QPushButton("▸", power)
+        arrow.setObjectName("powerArrow")
+        arrow.setGeometry(71, 0, 23, 22)
+        arrow.setAccessibleName("Shut-down options")
+        options = QMenu(self)
+        for label, key in [("Log off", "log_off"), ("Lock", "lock"), ("Restart", "restart")]:
+            if key in commands:
+                options.addAction(label, functools.partial(self.run, commands[key]))
+        arrow.clicked.connect(
+            lambda: options.popup(
+                arrow.mapToGlobal(QPoint(arrow.width(), arrow.height() - options.sizeHint().height()))
+            )
+        )
         avatar = QLabel(self)
         avatar.setObjectName("avatar")
         avatar.setGeometry(307, 0, 58, 58)
@@ -95,7 +149,17 @@ class AeroMenu(QWidget):
             QListWidget { background: white; border: none; outline: none; }
             QListWidget::item:selected, QListWidget::item:hover { background: #def0fc; color: #172838; }
             QPushButton { text-align: left; padding: 6px; border: 1px solid transparent; color: white; }
-            QPushButton:hover, QPushButton:focus, #shutdown { background: #597e9b; border: 1px solid #a2bece; }
+            QPushButton:hover, QPushButton:focus { background: #597e9b; border: 1px solid #a2bece; }
+            #linkSeparator { border: none; border-top: 1px solid rgba(0,0,0,45);
+                border-bottom: 1px solid rgba(255,255,255,35); }
+            #shutdown, #powerArrow { text-align: center; color: white; padding: 0; border: 1px solid #294d69;
+                border-radius: 2px; background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                stop:0 rgba(255,255,255,180), stop:0.07 rgba(255,255,255,130),
+                stop:0.47 rgba(255,255,255,28), stop:0.5 rgba(0,0,0,28),
+                stop:0.92 rgba(255,255,255,6), stop:1 rgba(255,255,255,95)); }
+            #shutdown:hover, #powerArrow:hover, #shutdown:focus, #powerArrow:focus { border-color: #b1dff9; }
+            #shutdown:pressed, #powerArrow:pressed { background: #345773; }
+            QScrollBar:vertical { width: 16px; }
             #programs QPushButton { color: #172838; border-top: 1px solid #d4dce3; }
             #programs QPushButton:hover { background: #def0fc; }
             QLineEdit { background: white; border: 1px solid #8497a8; padding: 3px; }
@@ -126,6 +190,8 @@ class AeroMenu(QWidget):
         for app in entries:
             if query in app["name"].casefold():
                 item = QListWidgetItem(self.icon(app["icon"]), app["name"], self.list)
+                # QListView expands short rows to the viewport. A long title must never enlarge the row.
+                item.setSizeHint(QSize(1, max(self.list.iconSize().height(), self.list.fontMetrics().height()) + 3))
                 item.setData(Qt.UserRole, app)
         self.list.setCurrentRow(0)
 

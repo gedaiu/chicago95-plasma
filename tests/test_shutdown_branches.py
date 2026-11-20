@@ -483,3 +483,13 @@ def test_classic_power_request_never_displays_safe_before_services_stop(
     monkeypatch.setattr(shutdown, "run_command", lambda command, dry: requests.append((command, dry)))
     assert run_main(shutdown, monkeypatch, *(["--dry-run"] if dry_run else [])) == 0
     assert requests == [(shutdown.shutdown_command(choice, shutdown.dbus_caller()), dry_run)]
+
+
+@pytest.mark.parametrize(("flag", "method"), [("--power-off", "logoutAndShutdown"), ("--restart", "logoutAndReboot")])
+@pytest.mark.parametrize("accept", [False, True])
+def test_aero_power_menu_requires_confirmation(shutdown, app_for_main, monkeypatch, capsys, flag, method, accept):
+    monkeypatch.setattr(shutdown, "dbus_caller", lambda: ["mock-session-bus"])
+    answer_modal_dialog(accept=accept)
+    assert run_main(shutdown, monkeypatch, flag, "--dry-run") == 0
+    expected = f"dry-run, would run: mock-session-bus org.kde.Shutdown.{method}\n" if accept else ""
+    assert capsys.readouterr().out == expected

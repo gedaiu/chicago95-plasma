@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtCore
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasma5support as Plasma5Support
@@ -41,7 +42,7 @@ PlasmoidItem {
     // Luna's Start button and Windows 7's orb slot start at the screen's very edge.
     readonly property bool fromScreenEdge: isLuna || Plasmoid.configuration.taskbarStyle === "aero"
     readonly property int panelMarginOverlap: fromScreenEdge ? 4 : 1
-    readonly property int buttonWidth: button.item ? button.item.implicitWidth : 0
+    readonly property int buttonWidth: (button.item as Item)?.implicitWidth ?? 0
     readonly property int gapAfterButton: Plasmoid.configuration.look === "2001" ? 1 : 0
     // Windows 7's first pinned program follows the orb's 58-pixel slot, which begins at the screen's edge.
     readonly property int appletWidth: buttonWidth - (isLuna ? 0 : panelMarginOverlap) + gapAfterButton
@@ -86,6 +87,12 @@ PlasmoidItem {
         target: button.item
         property: "logoSource"
         value: root.logoSource
+    }
+    Binding {
+        target: button.item
+        property: "windowsLogo"
+        when: Plasmoid.configuration.taskbarStyle === "aero" && button.item?.windowsLogo !== undefined
+        value: ["flag", "xp"].includes(root.logo) || (root.logo !== "" && root.logoSource.toString() === StandardPaths.locate(StandardPaths.GenericDataLocation, "icons/Windows-7/apps/distributor-logo.png").toString())
     }
     Binding {
         target: button.item

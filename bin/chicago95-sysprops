@@ -19,12 +19,15 @@ import chicago95ui  # noqa: E702
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFontMetrics, QIcon, QPainter
 from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QStackedWidget,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -475,9 +478,29 @@ def build_luna_window(facts):
     return window
 
 
+def build_aero_window(facts):
+    window = QDialog()
+    window.setWindowTitle("System Properties")
+    window.setWindowIcon(QIcon.fromTheme("computer"))
+    layout = QVBoxLayout(window)
+    tabs = QTabWidget()
+    tabs.addTab(luna_general_page(facts), "General")
+    tabs.addTab(build_device_manager_tab(), "Hardware")
+    tabs.addTab(build_performance_tab(facts), "Advanced")
+    layout.addWidget(tabs)
+    buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+    buttons.accepted.connect(window.accept)
+    buttons.rejected.connect(window.reject)
+    layout.addWidget(buttons)
+    window.resize(460, 420)
+    return window
+
+
 def build_window(facts, look=None):
     register_icon_directories()
     settings = chicago95ui.look_settings()
+    if look == "aero" or (look is None and settings["widgetStyle"] == "aero"):
+        return build_aero_window(facts)
     classic_style = "2001" if settings["style"] == "luna" else settings["style"]
     look = look if look in TABS else "luna" if settings["widgetStyle"] == "luna" else classic_style
     look = look if look in TABS else "1995"

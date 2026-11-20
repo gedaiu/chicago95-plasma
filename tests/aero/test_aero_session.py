@@ -337,5 +337,33 @@ def test_unlocked_taskbar_shows_the_grip_where_its_band_began_and_moves_the_pinn
 
 
 def test_classic_quick_launch_width_and_dock_do_not_move_or_hide_aero_pins(desktops):
-    image = desktops("luna", **reference_session(tasks_config=[("quickLaunchWidth", "138"), ("quickLaunchDock", "right")]))
+    image = desktops(
+        "luna", **reference_session(tasks_config=[("quickLaunchWidth", "138"), ("quickLaunchDock", "right")])
+    )
     assert icon_columns(image) == [(73, 104), (135, 166), (197, 228), (259, 290)]
+
+
+def test_hovering_the_start_applet_lights_the_orb(desktop, desktops):
+    from PIL import ImageChops
+
+    hovered = desktops("luna", **reference_session(pointer_steps=["move:27,748", "wait:0.6"]))
+    # Inside the orb but outside the 20px logo, so this measures the halo itself.
+    rim = (12, 741, 17, 755)
+    difference = ImageChops.difference(hovered.crop(rim), desktop.crop(rim))
+    assert max(channel[1] for channel in difference.getextrema()) > 15
+
+
+def test_restored_pinned_window_occupies_its_saved_slot(desktops):
+    image = desktops(
+        "luna",
+        **reference_session(windows_first=True, windows=[("Pinned window", "qt", "minimized", "c95-launcher-1")]),
+    )
+    assert icon_columns(image) == [(73, 104), (135, 166), (197, 228)]
+    # Only the middle pin has the running-window frame, even when its window precedes Plasma.
+    reference = bar(screenshot("win7screenres").convert("RGB"))
+    taskbar = bar(image)
+    for x in (59, 121, 183):
+        expected_x = 245 if x == 121 else x
+        actual = tuple(taskbar.getpixel((x, 20)))
+        expected = tuple(reference.getpixel((expected_x, 20)))
+        assert max(abs(a - b) for a, b in zip(actual, expected, strict=True)) <= 12

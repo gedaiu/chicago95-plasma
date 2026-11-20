@@ -740,6 +740,8 @@ Rectangle {
             sessions: root.sessionNames
             lastSession: root.sessionIndex
             lastUser: root.users.lastUser || ""
+            brandText: root.theme.brandText || ""
+            brandLogo: root.theme.brandLogo ? Qt.resolvedUrl(root.theme.brandLogo) : ""
         }
     }
 

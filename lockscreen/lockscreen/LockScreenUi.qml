@@ -53,6 +53,8 @@ Item {
     property string pendingPassword
     readonly property bool luna: Settings.look === "luna"
 
+    readonly property bool aero: Settings.look === "aero"
+
     Kirigami.Theme.inherit: false
     Kirigami.Theme.colorSet: Kirigami.Theme.Window
 
@@ -249,11 +251,15 @@ Item {
         Loader {
             id: screenLoader
             anchors.fill: parent
-            source: lockScreenUi.luna ? "luna/lockscreen/LunaLockScreen.qml" : "classic/ClassicLockScreen.qml"
+            source: lockScreenUi.luna ? "luna/lockscreen/LunaLockScreen.qml" : lockScreenUi.aero ? "classic/AeroLockScreen.qml" : "classic/ClassicLockScreen.qml"
             onLoaded: {
                 item.authenticator = authenticator;
                 item.userName = Qt.binding(() => users.count > 0 ? users.get(0).realName : "");
-                if (lockScreenUi.luna) {
+                if (lockScreenUi.aero) {
+                    item.brandText = Settings.brandText;
+                    item.brandLogo = Qt.resolvedUrl(Settings.brandLogo);
+                }
+                if (lockScreenUi.luna || lockScreenUi.aero) {
                     item.userPicture = Qt.binding(() => users.count > 0 ? users.get(0).icon : "");
                     return;
                 }
