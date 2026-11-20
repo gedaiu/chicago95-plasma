@@ -2,16 +2,15 @@
 
 import functools
 
-from PySide6.QtCore import QPoint, QSize, Qt
+from PySide6.QtCore import QAbstractListModel, QPoint, QSignalBlocker, QSize, Qt, QTimer
 from PySide6.QtDBus import QDBusConnection
-from PySide6.QtGui import QColor, QIcon, QPainter
+from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QListWidget,
-    QListWidgetItem,
+    QListView,
     QMenu,
     QPushButton,
     QScrollBar,
@@ -41,6 +40,64 @@ class ProgramScrollBar(QScrollBar):
             painter.drawLine(center.x() - 2, y + 1, center.x() + 3, y + 1)
 
 
+class ProgramModel(QAbstractListModel):
+    def __init__(self, view, icon):
+        super().__init__(view)
+        self.entries = []
+        self.row_size = QSize()
+        self.icon = icon
+        self.icons = {}
+        self.pending = {}
+        blank = QPixmap(32, 32)
+        blank.fill(Qt.transparent)
+        self.placeholder = QIcon(blank)
+        self.loader = QTimer(self)
+        self.loader.setSingleShot(True)
+        self.loader.timeout.connect(self.load_icon)
+
+    def show_entries(self, entries, row_height):
+        self.loader.stop()
+        self.pending.clear()
+        self.beginResetModel()
+        self.entries = entries
+        self.row_size = QSize(1, row_height)
+        self.endResetModel()
+
+    def rowCount(self, parent=None):
+        return 0 if parent is not None and parent.isValid() else len(self.entries)
+
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid():
+            return None
+        app = self.entries[index.row()]
+        if role == Qt.DisplayRole:
+            return app["name"]
+        if role == Qt.SizeHintRole:
+            return self.row_size
+        if role == Qt.UserRole:
+            return app
+        if role == Qt.DecorationRole:
+            name = app["icon"]
+            if name in self.icons:
+                return self.icons[name]
+            self.pending.setdefault(name, set()).add(index.row())
+            if not self.loader.isActive():
+                self.loader.start(0)
+            return self.placeholder
+        return None
+
+    def load_icon(self):
+        # Resolve only requested rows, yielding to input and paint between theme lookups.
+        name = next(iter(self.pending))
+        rows = self.pending.pop(name)
+        self.icons[name] = self.icon(name)
+        for row in rows:
+            index = self.index(row)
+            self.dataChanged.emit(index, index, [Qt.DecorationRole])
+        if self.pending:
+            self.loader.start(0)
+
+
 class AeroMenu(QWidget):
     def __init__(self, apps, launch, icon, commands, user, picture=None):
         super().__init__(None, Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
@@ -49,7 +106,6 @@ class AeroMenu(QWidget):
         self.setFixedSize(411, 498)
         self.apps = sorted(apps, key=lambda entry: entry["name"].casefold())
         self.launch = launch
-        self.icon = icon
         self.all_programs = False
         frame = QFrame(self)
         frame.setObjectName("glass")
@@ -63,18 +119,21 @@ class AeroMenu(QWidget):
         columns.addWidget(left)
         programs = QVBoxLayout(left)
         programs.setContentsMargins(4, 4, 4, 8)
-        self.list = QListWidget()
+        self.list = QListView()
+        self.model = ProgramModel(self.list, icon)
+        self.list.setModel(self.model)
+        self.list.setUniformItemSizes(True)
         self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.list.setTextElideMode(Qt.ElideRight)
         self.list.setWordWrap(False)
-        self.list.setResizeMode(QListWidget.Adjust)
+        self.list.setResizeMode(QListView.Adjust)
         scrollbar = ProgramScrollBar(Qt.Vertical)
         self.list.setVerticalScrollBar(scrollbar)
         scroll_style = QStyleFactory.create("Fusion")
         scroll_style.setParent(scrollbar)
         scrollbar.setStyle(scroll_style)
-        self.list.itemClicked.connect(self.open_item)
-        self.list.itemActivated.connect(self.open_item)
+        self.list.clicked.connect(self.open_item)
+        self.list.activated.connect(self.open_item)
         programs.addWidget(self.list)
         self.toggle = QPushButton("▸   All Programs")
         self.toggle.clicked.connect(self.toggle_programs)
@@ -146,8 +205,8 @@ class AeroMenu(QWidget):
                 stop:0 #739fbd, stop:0.37 #436989, stop:0.5 #344f68, stop:0.82 #263f56, stop:1 #6392b6); }
             #avatar { border: 2px solid #c1d6e3; border-radius: 5px; background: #5b859c; }
             #programs { background: white; border: 1px solid #8192a2; border-radius: 4px; }
-            QListWidget { background: white; border: none; outline: none; }
-            QListWidget::item:selected, QListWidget::item:hover { background: #def0fc; color: #172838; }
+            QListView { background: white; border: none; outline: none; }
+            QListView::item:selected, QListView::item:hover { background: #def0fc; color: #172838; }
             QPushButton { text-align: left; padding: 6px; border: 1px solid transparent; color: white; }
             QPushButton:hover, QPushButton:focus { background: #597e9b; border: 1px solid #a2bece; }
             #linkSeparator { border: none; border-top: 1px solid rgba(0,0,0,45);
@@ -177,7 +236,8 @@ class AeroMenu(QWidget):
 
     def toggle_programs(self):
         self.all_programs = not self.all_programs
-        self.search.clear()
+        with QSignalBlocker(self.search):
+            self.search.clear()
         self.populate()
 
     def populate(self):
@@ -185,23 +245,22 @@ class AeroMenu(QWidget):
         expanded = self.all_programs or bool(query)
         self.toggle.setText("◂   Back" if self.all_programs else "▸   All Programs")
         entries = self.apps if expanded else self.apps[:10]
-        self.list.clear()
-        self.list.setIconSize(QSize(16, 16) if expanded else QSize(32, 32))
-        for app in entries:
-            if query in app["name"].casefold():
-                item = QListWidgetItem(self.icon(app["icon"]), app["name"], self.list)
-                # QListView expands short rows to the viewport. A long title must never enlarge the row.
-                item.setSizeHint(QSize(1, max(self.list.iconSize().height(), self.list.fontMetrics().height()) + 3))
-                item.setData(Qt.UserRole, app)
-        self.list.setCurrentRow(0)
+        if query:
+            entries = [app for app in entries if query in app["name"].casefold()]
+        side = 16 if expanded else 32
+        self.list.setIconSize(QSize(side, side))
+        self.model.show_entries(entries, max(side, self.list.fontMetrics().height()) + 3)
+        self.list.setCurrentIndex(self.model.index(0))
+        self.list.scrollToTop()
 
-    def open_item(self, item):
-        if item is not None and self.isVisible():
-            self.run(item.data(Qt.UserRole))
+    def open_item(self, index):
+        if index.isValid() and self.isVisible():
+            self.run(index.data(Qt.UserRole))
 
     def open_first(self):
-        if self.list.currentItem():
-            self.run(self.list.currentItem().data(Qt.UserRole))
+        index = self.list.currentIndex()
+        if index.isValid():
+            self.run(index.data(Qt.UserRole))
 
     def run(self, target):
         self.hide()

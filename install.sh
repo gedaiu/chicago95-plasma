@@ -13,6 +13,7 @@
 #     --start-text=Start  --start-logo=flag|penguin|/path/to/image  --banner-text=Chicago95
 #     --look=1995|1998|2000|2001|luna|aero|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
 #     --decoration=classic|luna|aero  --widget-style=classic|luna|aero  --taskbar-style=classic|luna|aero  (each overrides the look's choice)
+#     --wobbly=blurred|yes|no  bending windows with live blur, ordinary wobble, or off
 #     --start-menu-style=1995|1998|2000|2001|luna|aero
 #     --login-style=classic|2000|luna|aero  --boot-style=classic|2000|luna|vista|7|8|8.1|10|11  --icons=chicago95|se98|classicos2000|windowsxp|windows7
 #     --sounds=Chicago95|Windows98|Windows2000|Windows7|Plus98-Jungle|...  (data/sound-themes/)
@@ -50,6 +51,8 @@ for arg in "$@"; do
   --start-logo=*) OPT_START_LOGO="${arg#*=}" ;;
   --banner-text=*) OPT_BANNER_TEXT="${arg#*=}" ;;
   --look=*) OPT_LOOK="${arg#*=}" ;;
+  --wobbly=blurred | --wobbly=yes | --wobbly=no) OPT_WOBBLY="${arg#*=}" ;;
+  --wobbly=*) echo "Expected --wobbly=blurred, yes or no" >&2; exit 2 ;;
   --icons=*) OPT_ICONS="${arg#*=}" ;;
   --decoration=*) OPT_DECORATION="${arg#*=}" ;;
   --widget-style=*) OPT_WIDGET_STYLE="${arg#*=}" ;;
@@ -545,6 +548,22 @@ SETUP_SAVER=${OPT_SAVER:-${SETUP_SAVER:-deepstars}}
 SETUP_SOUND_THEME=${OPT_SOUNDS:-${SETUP_SOUND_THEME:-Chicago95}}
 [[ " $COMPONENTS " == *" sounds "* ]] && [ -z "${OPT_SOUNDS:-}" ] && choose_sounds
 [ -n "${OPT_SETTINGS:-}" ] && load_settings "$OPT_SETTINGS"
+if [ -n "${OPT_WOBBLY:-}" ]; then
+  SETUP_ANIM_WOBBLY=$OPT_WOBBLY
+  [[ " $COMPONENTS " == *" animations "* ]] || COMPONENTS+=" animations"
+elif [[ " $COMPONENTS " == *" animations "* && "$SETUP_YES" = 0 && -z "${OPT_SETTINGS:-}" ]]; then
+  case "$(ui_choose "Wobbly windows" "Choose how windows look while you drag them." 1 \
+    "Keep current setting" "Off" "Wobble" "Wobble with live blur (installs the KWin effect if needed)")" in
+  2) SETUP_ANIM_WOBBLY=no ;;
+  3) SETUP_ANIM_WOBBLY=yes ;;
+  4) SETUP_ANIM_WOBBLY=blurred ;;
+  esac
+fi
+if [[ " $COMPONENTS " == *" animations "* && "${SETUP_ANIM_WOBBLY:-}" = blurred ]] && ! native_effect_available better_wobblywindows; then
+  ui_status "Building and installing Better Wobbly Windows"
+  run "$REPO/aero/build-native.sh" --install-wobbly || setup_abort \
+    "Could not install Better Wobbly Windows. Check the build output and the KWin development requirements in aero/README.md."
+fi
 [ -n "${OPT_TASK_BUTTON_WIDTH:-}" ] && SETUP_TASK_BUTTON_WIDTH=$OPT_TASK_BUTTON_WIDTH
 SETUP_DPI=$(awk -v s="$SETUP_SCALE" 'BEGIN{printf "%d", 96*s + 0.5}')
 PANEL_HEIGHT=${SETUP_PANEL:-$(default_panel_height)}

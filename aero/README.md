@@ -8,7 +8,7 @@ when Kvantum is installed. Setup uses Fusion otherwise.
 
 ## Native frames on Plasma 6.8 Wayland
 
-The [SMOD decoration](https://github.com/aeroshell-desktop/smod) supplies the caption halo and the
+Setup selects the bundled SVG Aurorae decoration for window frames and caption buttons. The optional
 [Aero Glass Blur effect](https://github.com/aeroshell-desktop/aeroshell-kwin-components) supplies screen-relative
 reflections and brightness-dependent afterglow. Build against the KWin version installed on the target machine.
 The build needs CMake, Ninja, a C++ compiler, ECM, and the Qt 6, KDE Frameworks 6, KDecoration3, KWin, Wayland,
@@ -22,8 +22,7 @@ epoxy and Vulkan development packages. On Fedora install the `kvantum` package f
 The helper downloads two checksum-verified source archives and compiles the decoration, resource and effect.
 Only installation of those three files needs administrator privileges. A build without arguments leaves them in
 `build/aero-native`. Use `--install-built` to install that local build on the same KWin version. Rebuild after
-a KWin ABI update. Setup selects the native backend when all three files are present. Otherwise it installs the
-bundled Aurorae frame. The following measurements describe the bundled art.
+a KWin ABI update. Setup uses the installed Aero Glass Blur effect for rigid frames. With Wobbly Windows enabled, Setup selects KWin’s built-in blur, which suspends backdrop painting while the frame bends and resumes it when the window settles. The native reflection and afterglow are unavailable in this combination. For blur that follows the bent frame during movement, choose **Wobble with live blur** during Setup, pass `--wobbly=blurred` to `install.sh`, or select **With live blur** under **Control Panel → Display → Effects → Wobbly windows** and click **Apply**. Setup builds and installs the effect if it is missing, using the development packages listed above and administrator access for the plugin files. This builds [Better Wobbly Windows](https://github.com/GoldenBilly/BetterWobblyWindows/tree/a6d6443a54dc731e5784cf9a0fec77f378a126f9) against your local KWin. Its embedded renderer handles motion and KWin supplies the stationary blur.
 
 ## Where the numbers come from
 
@@ -87,8 +86,8 @@ generator by `tests/aero/test_aero_taskbar.py`):
 - **Show desktop** (`widgets/showdesktop.svg`) comes from ShowDesktop::Button's three states.
 - **The Start orb** (`widgets/startbutton.svg`) is a glass sphere centred at x 27 in a slot from the screen's edge,
   in a one-pixel rim of white glass at 30% that the bar shows through. Outside its logo the glass is half-pixel rings
-  of arcs fitted to win7dragedge.png (`orb.py`, by `tests/aero/fit_aero_orb.py`), within five levels. The generator composites the arcs at their measured 58 × 40 size so fractional scaling keeps a continuous rim. The logo is the one Setup's branding chose, never drawn here.
-  With the Windows flag selected, Setup installs the checksum-verified 54 × 162 SevenStart sprite. The button displays
+  of arcs fitted to win7dragedge.png (`orb.py`, by `tests/aero/fit_aero_orb.py`), within five levels. The generator draws the rings with continuous SVG gradients at the display scale. The logo is the one Setup's branding chose, never drawn here.
+  The Windows flag uses a three-state SVG with separate glass, flag and halo layers. The button displays
   its normal, hover and pressed frames at 54 × 54, centered in the 40-pixel panel. The open menu retains the pressed frame.
   For custom branding, each quarter of the logo lights the surrounding glass in its own colour. Pressing Start dims the halo and
   shades the upper glass. The menu keeps that pressed face until it closes, including when opened from the keyboard.
@@ -142,4 +141,13 @@ Windows 7 pixel for pixel: the bar, the orb, the pinned slots and their pitch, a
 
 ### Icons, cursors and event sounds
 
-The Windows 7 preset uses the [B00merang Windows 7 icon theme](https://github.com/B00merang-Artwork/Windows-7), with KDE application IDs mapped to the corresponding icons. Setup downloads the default white [Aero cursor port](https://github.com/lLexian/Windows-7-Aero-Cursors_Linux) and maps the [Windows 7 sound collection](https://github.com/Pendrag00n/Windows7Sounds) to desktop event names. The cursor port credits separate artwork for the open and closed hand. The cursor and sound archives are pinned by revision and SHA-256 and cached for reinstalls.
+The Windows 7 preset uses the [B00merang Windows 7 icon theme](https://github.com/B00merang-Artwork/Windows-7), with KDE application IDs mapped to the corresponding icons. Setup uses Pillow and Potrace to build Windows-7-SVG from the icon pack, trace the embedded control artwork in Kvantum and supply KDE scalable cursor frames with the original hotspots and animation delays. Setup downloads the default white [Aero cursor port](https://github.com/lLexian/Windows-7-Aero-Cursors_Linux) and maps the [Windows 7 sound collection](https://github.com/Pendrag00n/Windows7Sounds) to desktop event names. The cursor port credits separate artwork for the open and closed hand. The cursor and sound archives are pinned by revision and SHA-256 and cached for reinstalls.
+
+## Visual regression tests
+
+Run `python3 tests/aero/run_visuals.py` from a Plasma 6 development machine. The command fails if any comparison fails or skips. It uses the local Aero Setup assets, the extracted `aero.msstyles` described above, and the nested Plasma/KWin test harness. Set `AERO_ORB_REFERENCE` to the original 54 × 162 SevenStart PNG when the old installer’s cached copy is unavailable. On other distributions, point `AERO_FEDORA_REFERENCE` at Fedora’s 256-pixel `fedora-logo-icon.png` to check the custom orb.
+
+- The panel, Start orb, tray, clock, Show desktop strip, task buttons and window frames have comparisons against original Windows 7 captures or theme sprites.
+- The dialog portraits in `tests/aero/portraits` are project regression baselines at 100% and 150% scale. They cover the Start menu, All Programs, search, power options and confirmations, System Properties, notifications, and preview cards. Fusion, a fixed font family, representative icons and a test window feed keep these renders reproducible. The Kvantum artwork is checked separately.
+- The imported artwork tests build the SVGs and compare rendered pixels with their source images on two backgrounds. They include icon aliases, cursor hotspots and animation frames, the login controls, the session spinner and all embedded Kvantum controls. Login and unlock comparisons also check where controls appear in the assembled screen. Boot tests compare rendered and exported frames.
+- Failed portrait comparisons save the actual image and difference in pytest’s temporary directory. To review a deliberate design change, render to a separate directory with `python3 tests/aero/render_aero_dialogs.py /tmp/aero-review 1.5` and inspect the images before replacing any baseline.

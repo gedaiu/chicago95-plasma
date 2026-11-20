@@ -712,6 +712,7 @@ class AeroSessionDialog(QDialog):
         super().__init__()
         self.choice = SHUT_DOWN if choice is None else choice
         label, description, icon = self.actions[self.choice]
+        self.setWindowIcon(QIcon.fromTheme(icon))
         self.setWindowTitle(label if choice is not None else f"Shut Down {os_name(chicago95ui.look_settings())}")
         self.setWindowFlags(Qt.Dialog | Qt.CustomizeWindowHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
         self.setMinimumWidth(350)

@@ -6,6 +6,8 @@ or wait:SECONDS. Coordinates are in the compositor's logical pixels.
 """
 
 import ctypes
+import os
+import subprocess
 import sys
 import time
 
@@ -65,6 +67,20 @@ def run_step(context, device, step):
     verb, _, argument = step.partition(":")
     if verb == "wait":
         time.sleep(float(argument))
+        return
+    if verb == "capture-drag":
+        # Keep dragging throughout Spectacle startup and capture a moving compositor frame.
+        x, y, distance = map(int, argument.split(","))
+        output = os.path.join(os.environ["WORK"], "drag.png")
+        with subprocess.Popen(["spectacle", "-b", "-n", "-f", "-o", output]) as shot:
+            for tick in range(500):
+                phase = tick % 40
+                position = x + distance * (phase if phase <= 20 else 40 - phase) / 20
+                emit(context, device, lambda d, px=position: LIBEI.ei_device_pointer_motion_absolute(d, px, y))
+                time.sleep(0.012)
+                if shot.poll() is not None:
+                    break
+            shot.wait(timeout=5)
         return
     if verb == "move":
         x, y = map(float, argument.split(","))

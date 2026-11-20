@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="54" height="162" viewBox="0 0 54 162">
+  <defs>
+    <linearGradient id="red" x1=".15" y1="0" x2=".85" y2="1">
+      <stop stop-color="#a5270b"/><stop offset=".47" stop-color="#f15f0b"/><stop offset="1" stop-color="#ffdc50"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="1" x2=".85" y2="0">
+      <stop stop-color="#e5f9a7"/><stop offset=".58" stop-color="#a2c342"/><stop offset="1" stop-color="#427509"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="1" x2="1" y2="0">
+      <stop stop-color="#00649a"/><stop offset=".52" stop-color="#23a9e0"/><stop offset="1" stop-color="#c1eeff"/>
+    </linearGradient>
+    <linearGradient id="gold" x1=".1" y1="0" x2=".85" y2="1">
+      <stop stop-color="#fffba0"/><stop offset=".5" stop-color="#ffdc4d"/><stop offset="1" stop-color="#ed9c12"/>
+    </linearGradient>
+    <radialGradient id="warm"><stop stop-color="#ff6529"/><stop offset="1" stop-color="#ff581b" stop-opacity="0"/></radialGradient>
+    <radialGradient id="lime"><stop stop-color="#81ff00"/><stop offset="1" stop-color="#58ed00" stop-opacity="0"/></radialGradient>
+    <radialGradient id="ice"><stop stop-color="#00dfff"/><stop offset="1" stop-color="#00dfff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="sun"><stop stop-color="#ffef47"/><stop offset="1" stop-color="#ffe326" stop-opacity="0"/></radialGradient>
+    <g id="flag">
+      <path d="M20.7 17.6q4.2-2.8 8.6.5l-2.3 8.2q-4.7-3-8.6-.5Z" fill="url(#red)"/>
+      <path d="M30.1 18.7q4.5 3 8.5.6l-2.3 8.3q-4.2 2.6-8.6-.5Z" fill="url(#green)"/>
+      <path d="M18 26.9q4.1-2.8 8.7.5l-2.4 8.6q-4.4-3.1-8.7-.6Z" fill="url(#blue)"/>
+      <path d="M27.4 28q4.6 3.1 8.6.6l-2.3 8.5q-4.3 2.6-8.7-.5Z" fill="url(#gold)"/>
+    </g>
+    <g id="halo">
+      <ellipse cx="19" cy="20" rx="12" ry="15" opacity="1.00" fill="url(#warm)"/>
+      <ellipse cx="38.5" cy="21.5" rx="14" ry="13.5" opacity="0.70" fill="url(#lime)"/>
+      <ellipse cx="16" cy="32" rx="13" ry="15" opacity="1.00" fill="url(#ice)"/>
+      <ellipse cx="33" cy="37" rx="13" ry="15" opacity="1.00" fill="url(#sun)"/>
+    </g>
+  </defs>
+  <use xlink:href="#flag"/>
+  <g transform="translate(0 54)"><use xlink:href="#halo"/><use xlink:href="#flag"/></g>
+  <g transform="translate(0 108)"><use xlink:href="#halo" opacity=".69"/><use xlink:href="#flag"/></g>
+</svg>

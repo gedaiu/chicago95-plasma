@@ -7,7 +7,7 @@ import org.kde.kirigami as Kirigami
 // icon's colour, and pressed while held.
 Item {
     id: cell
-    readonly property url folderArt: fileManager ? StandardPaths.locate(StandardPaths.GenericDataLocation, "icons/Windows-7-SVG/apps/file-manager.svg") : ""
+    readonly property url folderArt: fileManager ? StandardPaths.locate(StandardPaths.GenericDataLocation, "icons/Windows-7-SVG/scalable/aero/file-manager.svg") : ""
     property bool fileManager
     property var icon
     property bool hovered

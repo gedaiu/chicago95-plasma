@@ -21,7 +21,7 @@ def test_long_names_fit_the_viewport_and_keep_the_full_launch_target(qt_app, mod
         assert view.verticalScrollBar().isVisible()
         assert view.textElideMode() == Qt.ElideRight
         assert not view.horizontalScrollBar().isVisible()
-        assert view.visualItemRect(view.item(0)).width() == view.viewport().width()
+        assert view.visualRect(view.model().index(0)).width() == view.viewport().width()
         menu.open_first()
         assert launched == [names[0]]
     finally:
@@ -44,5 +44,37 @@ def test_shutdown_and_options_are_separate_targets(qt_app):
         menu.show()
         menu.findChild(QPushButton, "shutdown").click()
         assert launched[-1] == commands["shut_down"]
+    finally:
+        menu.close()
+
+
+def test_all_programs_is_ready_before_visible_icons_load(qt_app):
+    apps = [{"name": f"App {i:05}", "icon": str(i)} for i in range(10000)]
+    requests = []
+    launched = []
+
+    def icon(name):
+        requests.append(name)
+        return QIcon()
+
+    menu = AeroMenu(apps, launched.append, icon, {}, "Demo")
+    try:
+        menu.show()
+        QTest.qWait(40)
+        requests.clear()
+        menu.toggle.click()
+        assert menu.model.rowCount() == len(apps)
+        assert menu.toggle.text().endswith("Back")
+        assert not requests
+        # Even the final program is addressable before Qt starts fetching its icon.
+        last = menu.model.index(len(apps) - 1)
+        menu.list.setCurrentIndex(last)
+        menu.list.scrollToBottom()
+        menu.list.viewport().repaint()
+        menu.open_first()
+        assert launched == [apps[-1]]
+        QTest.qWait(80)
+        assert apps[-1]["icon"] in requests
+        assert len(requests) < 50
     finally:
         menu.close()

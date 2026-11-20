@@ -377,13 +377,16 @@ def test_taskbar_grip_is_its_sprite_tiled_down_the_bar_within_a_level(qt_app):
 
 
 def test_fractional_scale_preserves_the_start_orbs_fitted_glass(qt_app):
-    native = rendered(generator.orb_svg(), (58, 40))
-    expected = native.resize((87, 60), Image.Resampling.BILINEAR)
+    svg = generator.orb_svg()
+    assert "<image" not in svg and "data:image" not in svg
+    # Compare against a supersampled vector reference at the same physical size.
+    expected = rendered(svg, (174, 120)).resize((87, 60), Image.Resampling.LANCZOS)
     scaled = rendered(generator.orb_svg(), (87, 60))
     errors = [
-        max(abs(a - b) for a, b in zip(scaled.getpixel((x, y)), expected.getpixel((x, y)), strict=True))
+        abs(a - b)
         for x in range(87)
         for y in range(60)
         if 21**2 < (x + 0.5 - 40.5) ** 2 + (y + 0.5 - 30) ** 2 < 25**2
+        for a, b in zip(scaled.getpixel((x, y))[:3], expected.getpixel((x, y))[:3], strict=True)
     ]
     assert sum(errors) / len(errors) < 4

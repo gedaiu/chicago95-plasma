@@ -130,6 +130,13 @@ detect_install_command() {
   zypper) SETUP_INSTALL_CMD=(sudo zypper install -y python3-PySide6 python3-pyxdg python3-dbus-python python3-gobject thunar xsettingsd tumbler qmmp xscreensaver-data-extra) ;;
   *) SETUP_INSTALL_CMD=() ;;
   esac
+  if wants_vector_tools; then
+    case "$SETUP_PKG" in
+      dnf | zypper) SETUP_INSTALL_CMD+=(potrace python3-pillow) ;;
+      apt-get) SETUP_INSTALL_CMD+=(potrace python3-pil) ;;
+      pacman) SETUP_INSTALL_CMD+=(potrace python-pillow) ;;
+    esac
+  fi
 }
 
 detect_install_hint() {
@@ -151,7 +158,15 @@ detect_kvantum() {
 font_installed() { fc-list : family 2>/dev/null | grep -iF "$1" >/dev/null; }
 
 # Nonzero when something the package command provides is absent.
+wants_vector_tools() {
+  [ "${OPT_LOOK:-${SETUP_LOOK:-}}" = aero ] || [ "${OPT_WIDGET_STYLE:-${SETUP_WIDGET_STYLE:-}}" = aero ] ||
+    [ "${OPT_TASKBAR_STYLE:-${SETUP_TASKBAR_STYLE:-}}" = aero ] || [ "${OPT_ICONS:-${SETUP_ICONS:-}}" = windows7 ]
+}
+
+vector_tools_available() { command -v potrace >/dev/null && python3 -c 'import PIL.Image' 2>/dev/null; }
+
 detect_packages_missing() {
+  if wants_vector_tools && ! vector_tools_available; then return 0; fi
   [ -n "$SETUP_PY_MISSING" ] || [ "$SETUP_HAS_THUNAR" = 0 ] || [ "$SETUP_HAS_QMMP" = 0 ] ||
     [ -z "$SETUP_HACK_DIR" ] || [ "$SETUP_HAS_XSETTINGSD" = 0 ]
 }
@@ -166,6 +181,9 @@ detect_prerequisites() {
   elif [ "$SETUP_HAS_GIT" = 1 ]; then
     row "Chicago95 checkout" "will clone" "into ~/src/Chicago95"
   else row "Chicago95 checkout" "MISSING" "install git so Setup can clone it"; fi
+  if wants_vector_tools; then
+    row "Aero vector artwork" "$(vector_tools_available && echo OK || echo MISSING)" "Potrace and Python Pillow"
+  fi
   row "Python modules" "$([ -z "$SETUP_PY_MISSING" ] && echo OK || echo MISSING)" "${SETUP_PY_MISSING:-Start menu, notifications, Clippy}"
   row "xsettingsd" "$([ "$SETUP_HAS_XSETTINGSD" = 1 ] && echo OK || echo missing)" "GTK theme for X11 apps"
   row "Thunar" "$([ "$SETUP_HAS_THUNAR" = 1 ] && echo OK || echo missing)" "Explorer (Dolphin is used otherwise)"

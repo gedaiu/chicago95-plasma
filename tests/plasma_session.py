@@ -461,6 +461,9 @@ def install(
         "QT_QPA_PLATFORMTHEME": "kde",
         "QT_FORCE_STDERR_LOGGING": "1",
     }
+    if os.environ.get("AERO_TEST_PLUGIN_DIR"):
+        environment["QT_PLUGIN_PATH"] = os.environ["AERO_TEST_PLUGIN_DIR"]
+        environment["SETUP_QT_PLUGIN_DIR"] = os.environ["AERO_TEST_PLUGIN_DIR"]
     (work / "chosen.conf").write_text("".join(f"{key}={value}\n" for key, value in settings))
     run_session(work, work / "setup.sh", environment, screen_size)
     enforce_screenshot(work / "setup-screen.png", "Setup's")
@@ -510,12 +513,15 @@ def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_
             ),
         )
     )
+    (work / "drag.png").unlink(missing_ok=True)
     run_session(work, work / "desktop.sh", environment, screen_size, xwayland=True)
     enforce_screenshot(work / "screen.png", "the desktop's")
     image = Image.open(work / "screen.png").convert("RGB")
     effects, kwin_log = work / "effects.txt", work / "kwin-desktop.log"
     image.info["loaded_effects"] = effects.read_text() if effects.exists() else ""
     image.info["kwin_log"] = kwin_log.read_text(errors="replace") if kwin_log.exists() else ""
+    if (work / "drag.png").exists():
+        image.info["drag"] = Image.open(work / "drag.png").convert("RGB")
     image.info["setup_screen"] = Image.open(work / "setup-screen.png").convert("RGB")
     return image
 

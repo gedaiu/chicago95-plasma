@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Window
-import QtCore
 import org.kde.ksvg as KSvg
 import org.kde.plasma.workspace.dbus as DBus
 
@@ -103,7 +102,6 @@ Item {
     }
     KSvg.SvgItem {
         id: orb
-        visible: !windowsFrames.ready
         imagePath: "widgets/startbutton" // the whole picture: the orb sits in it where Windows 7's does
         implicitWidth: 58
         implicitHeight: 40
@@ -115,7 +113,7 @@ Item {
     WindowsOrb {
         id: windowsFrames
         y: orb.y
-        source: button.windowsLogo ? StandardPaths.locate(StandardPaths.GenericDataLocation, "chicago95/icons/windows7-orb.svg") : ""
+        source: button.windowsLogo ? Qt.resolvedUrl("windows7-orb.svg") : ""
         hovered: button.hovered
         engaged: button.engaged
     }

@@ -256,13 +256,17 @@ def shell_markup(cx, cy):
             offset = (1 + math.sin(angle)) / 2
             right = colours[sector % orb.SECTORS]
             left = colours[(orb.SECTORS // 2 - 1 - sector) % orb.SECTORS]
-            colour = "#" + "".join(f"{(int(right[i:i+2],16) + int(left[i:i+2],16)) // 2:02x}" for i in (1,3,5))
+            colour = "#" + "".join(
+                f"{(int(right[i : i + 2], 16) + int(left[i : i + 2], 16)) // 2:02x}" for i in (1, 3, 5)
+            )
             stops.append(f'<stop offset="{offset:.5f}" stop-color="{colour}"/>')
-        defs.append(f'<linearGradient id="shell{index}" x1="0" x2="0" y1="{cy-radius}" y2="{cy+radius}" '
-                    f'gradientUnits="userSpaceOnUse">{"".join(stops)}</linearGradient>')
+        defs.append(
+            f'<linearGradient id="shell{index}" x1="0" x2="0" y1="{cy - radius}" y2="{cy + radius}" '
+            f'gradientUnits="userSpaceOnUse">{"".join(stops)}</linearGradient>'
+        )
         rings = []
         for edge in (radius - orb.RING_WIDTH / 2, radius + orb.RING_WIDTH / 2):
-            rings.append(f"M{cx-edge},{cy}a{edge},{edge} 0 1 0 {2*edge},0a{edge},{edge} 0 1 0 {-2*edge},0z")
+            rings.append(f"M{cx - edge},{cy}a{edge},{edge} 0 1 0 {2 * edge},0a{edge},{edge} 0 1 0 {-2 * edge},0z")
         shapes.append(f'<path fill-rule="evenodd" d="{"".join(rings)}" fill="url(#shell{index})"/>')
     return "".join(defs), "".join(shapes)
 

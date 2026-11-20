@@ -8,7 +8,10 @@ Rectangle {
     property int frame: 0
     property bool animated: true
     readonly property url art: StandardPaths.locate(StandardPaths.GenericDataLocation, "chicago95/session/background")
-    readonly property url strip: StandardPaths.locate(StandardPaths.GenericDataLocation, "chicago95/session/spinner.png")
+    readonly property url strip: {
+        const svg = StandardPaths.locate(StandardPaths.GenericDataLocation, "chicago95/session/spinner.svg");
+        return svg.toString() ? svg : StandardPaths.locate(StandardPaths.GenericDataLocation, "chicago95/session/spinner.png");
+    }
     color: "#196ba4"
     Image { anchors.fill: parent; source: page.art; fillMode: Image.PreserveAspectCrop }
     Row {
@@ -16,12 +19,12 @@ Rectangle {
         spacing: 8
         Item {
             objectName: "sessionSpinner"
-            width: 20; height: 20
+            width: 20; height: 20; clip: true
             anchors.verticalCenter: parent.verticalCenter
             Image {
-                anchors.fill: parent
+                width: 18 * parent.width; height: parent.height
+                x: -page.frame * parent.width
                 source: page.strip
-                sourceClipRect: Qt.rect(page.frame * 20, 0, 20, 20)
             }
         }
         Text {

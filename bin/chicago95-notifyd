@@ -84,6 +84,7 @@ class Notification:
     actions: list
     hints: dict
     timeout_ms: int
+    action_sender: str | None = None
 
     @property
     def urgency(self):
@@ -97,6 +98,21 @@ class Notification:
     def override(self):
         return APP_OVERRIDES.get(self.app_name.lower()) or APP_OVERRIDES.get(
             str(self.hints.get("desktop-entry", "")).lower()
+        )
+
+    @property
+    def repeat_key(self):
+        if not (self.summary or self.body) or self.hints.get(chicago95ui.SESSION_END_HINT):
+            return None
+        return (
+            self.app_name,
+            self.hints.get("desktop-entry"),
+            rewritten_summary(self),
+            self.body,
+            self.actions,
+            self.resident,
+            self.hints.get("x-kde-eventId"),
+            self.action_sender if self.actions else None,
         )
 
     @property
@@ -192,6 +208,9 @@ def pixmap_from_spec(spec, size, device_pixel_ratio):
         return None
     path = unquote(spec[7:]) if spec.startswith("file://") else spec
     if path.startswith("/"):
+        if path.lower().endswith((".svg", ".svgz")):
+            pixmap = QIcon(path).pixmap(QSize(size, size), device_pixel_ratio)
+            return None if pixmap.isNull() else pixmap
         image = QImage(path)
         return None if image.isNull() else scaled_pixmap(image, size, device_pixel_ratio)
     icon = QIcon.fromTheme(spec)
@@ -429,6 +448,8 @@ class NotificationPopup(QWidget):
         self.action_invoked.emit(self.sender().property("action"))
 
     def update_content(self, notification):
+        self.repeat_key = notification.repeat_key
+        self.resident = notification.resident
         device_pixel_ratio = self.devicePixelRatioF()
         summary = rewritten_summary(notification)
         title = summary if self.chrome.summary_in_title else display_name(notification)
@@ -479,6 +500,13 @@ class NotificationPopup(QWidget):
         self.expiry_timer.stop()
         if self.timeout_ms > 0:
             self.expiry_timer.start(milliseconds)
+
+    def extend_expiry(self, milliseconds):
+        if self.timeout_ms == 0:
+            return
+        self.timeout_ms = max(milliseconds, self.expiry_timer.remainingTime()) if milliseconds else 0
+        if not self.underMouse():
+            self.restart_expiry(self.timeout_ms)
 
     def enterEvent(self, _event):
         self.expiry_timer.stop()
@@ -621,7 +649,6 @@ class PopupStack(QObject):
             return
         popup = NotificationPopup(notification, self.host)
         notification_id = popup.notification_id = notification.notification_id
-        popup.resident = notification.resident
         popup.dismissed.connect(self.popup_dismissed)
         popup.action_invoked.connect(self.popup_action)
         self.popups[notification_id] = popup
@@ -698,26 +725,30 @@ class NotificationService(dbus.service.Object):
     def GetCapabilities(self):
         return CAPABILITIES
 
-    @dbus.service.method(INTERFACE, in_signature="susssasa{sv}i", out_signature="u")
-    def Notify(self, app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout):
-        if int(replaces_id) > 0:
-            notification_id = int(replaces_id)
-        else:
-            self.last_id += 1
-            notification_id = self.last_id
-        self.stack.show(
-            Notification(
-                notification_id=notification_id,
-                app_name=str(app_name),
-                app_icon=str(app_icon),
-                summary=str(summary),
-                body=str(body),
-                actions=pair_actions([str(item) for item in actions]),
-                hints={str(key): to_python(value) for key, value in hints.items()},
-                timeout_ms=int(expire_timeout),
-            )
+    @dbus.service.method(INTERFACE, in_signature="susssasa{sv}i", out_signature="u", sender_keyword="sender")
+    def Notify(self, app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout, sender=None):
+        notification = Notification(
+            notification_id=int(replaces_id),
+            app_name=str(app_name),
+            app_icon=str(app_icon),
+            summary=str(summary),
+            body=str(body),
+            actions=pair_actions([str(item) for item in actions]),
+            hints={str(key): to_python(value) for key, value in hints.items()},
+            timeout_ms=int(expire_timeout),
+            action_sender=sender,
         )
-        return dbus.UInt32(notification_id)
+        if not notification.notification_id:
+            if self.stack.popups and chicago95ui.look_settings()["widgetStyle"] == "aero":
+                key = notification.repeat_key
+                for popup in self.stack.popups.values():
+                    if key is not None and popup.repeat_key == key:
+                        popup.extend_expiry(notification.effective_timeout_ms)
+                        return dbus.UInt32(popup.notification_id)
+            self.last_id += 1
+            notification.notification_id = self.last_id
+        self.stack.show(notification)
+        return dbus.UInt32(notification.notification_id)
 
     @dbus.service.method(INTERFACE, in_signature="u", out_signature="")
     def CloseNotification(self, notification_id):

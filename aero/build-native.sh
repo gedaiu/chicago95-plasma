@@ -21,9 +21,9 @@ case "${1:-}" in
   install_built
   exit
   ;;
-"" | --install) ;;
+"" | --install | --build-wobbly | --install-wobbly) ;;
 *)
-  echo "Usage: $0 [--install|--install-built]" >&2
+  echo "Usage: $0 [--install|--install-built|--build-wobbly|--install-wobbly]" >&2
   exit 2
   ;;
 esac
@@ -31,7 +31,7 @@ esac
 fetch_source() {
   local project=$1 revision=$2 digest=$3 source="$work/$1-$2" archive="$work/$1-$2.tar.gz"
   if [ ! -d "$source" ]; then
-    curl -fLsS "https://codeload.github.com/aeroshell-desktop/$project/tar.gz/$revision" -o "$archive"
+    curl -fLsS "https://codeload.github.com/${4:-aeroshell-desktop}/$project/tar.gz/$revision" -o "$archive"
     printf '%s  %s\n' "$digest" "$archive" | sha256sum -c -
     local stage
     stage=$(mktemp -d "$work/source.XXXXXX")
@@ -39,6 +39,37 @@ fetch_source() {
     mv -T "$stage" "$source"
   fi
 }
+
+if [[ "${1:-}" == --build-wobbly || "${1:-}" == --install-wobbly ]]; then
+  if [ "$1" = --install-wobbly ]; then
+    elevate=(sudo)
+    [ -z "${SUDO_ASKPASS:-}" ] || elevate+=(-A)
+    if command -v dnf >/dev/null && rpm -q fedora-release-common >/dev/null 2>&1; then
+      deps=(gcc-c++ cmake ninja-build extra-cmake-modules kf6-kcmutils-devel qt6-qtbase-private-devel qt6-qttools-devel
+        libdrm-devel mesa-libgbm-devel libxkbcommon-devel libinput-devel vulkan-headers libepoxy-devel wayland-devel wayland-protocols-devel)
+      if ! rpm -q kwin-devel "${deps[@]}" >/dev/null 2>&1; then
+        # Use headers for the running installation. An opportunistic compositor upgrade needs a new login.
+        deps+=("kwin-devel-$(rpm -q --qf '%{VERSION}-%{RELEASE}' kwin)")
+        "${elevate[@]}" dnf install --setopt=install_weak_deps=False -y "${deps[@]}"
+      fi
+    fi
+  fi
+  revision=a6d6443a54dc731e5784cf9a0fec77f378a126f9
+  fetch_source BetterWobblyWindows "$revision" 216ed129d09846aa8323b248b106d46f74c09133b423fe01e46ee6fee9114289 GoldenBilly
+  cmake -S "$work/BetterWobblyWindows-$revision" -B "$work/wobbly" -G Ninja -DCMAKE_BUILD_TYPE=Release
+  cmake --build "$work/wobbly"
+  ctest --test-dir "$work/wobbly" --output-on-failure
+  # KWin discovers effects by their module basename. Drop the default CMake lib prefix.
+  dest="$work/wobbly-plugins/kwin/effects"
+  install -Dm755 "$work/wobbly/libbetter_wobblywindows.so" "$dest/plugins/better_wobblywindows.so"
+  install -Dm755 "$work/wobbly/libbetter_wobblywindows_config.so" "$dest/configs/better_wobblywindows_config.so"
+  if [ "$1" = --install-wobbly ]; then
+    plugins=$(qtpaths6 --plugin-dir)/kwin/effects
+    "${elevate[@]}" install -Dm755 "$dest/plugins/better_wobblywindows.so" "$plugins/plugins/better_wobblywindows.so"
+    "${elevate[@]}" install -Dm755 "$dest/configs/better_wobblywindows_config.so" "$plugins/configs/better_wobblywindows_config.so"
+  fi
+  exit
+fi
 
 frame=67e24c0212a955a8684701cdde05c27215618e7b
 glass=4a28963f1f751e93350e86e2b5bf1afb5380fcd6

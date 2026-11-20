@@ -33,9 +33,24 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3 fontconfig fonts-liberation fonts-dejavu-core
+            libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3 fontconfig fonts-liberation fonts-dejavu-core python3-pil potrace libdbus-1-dev libglib2.0-dev
       - name: Python packages
-        run: pip install PySide6 -r requirements-dev.txt
+        run: pip install PySide6 dbus-python -r requirements-dev.txt
+      - name: Windows 7 visual reference assets
+        run: |
+          art="$HOME/.cache/chicago95"
+          icons="$HOME/.local/share/icons"
+          session="$HOME/.local/share/chicago95/session"
+          upstream=https://raw.githubusercontent.com/aeroshell-desktop/aerothemeplasma/f51ca15f4668a81d908505b422e5d560f35fe241/plasma
+          mkdir -p "$art/kvantum-f51ca15" "$icons/Windows-7" "$session"
+          bash aero/fetch-login-art.sh "$art/sddm-f51ca15"
+          cp "$art/sddm-f51ca15/background" "$session/background"
+          bash aero/fetch-desktop-assets.sh cursors "$icons/Windows-7-Aero-Cursors_Default"
+          curl -fsSL --retry 2 "$upstream/look-and-feel/authui7/contents/images/100/Bitmap5002.png" -o "$session/spinner.png"
+          curl -fsSL --retry 2 "$upstream/plasmoids/io.gitgud.wackyideas.SevenStart/contents/ui/orbs/orb.png" -o "$art/windows7-orb.png"
+          echo "AERO_ORB_REFERENCE=$art/windows7-orb.png" >> "$GITHUB_ENV"
+          curl -fsSL --retry 2 "${upstream%/plasma}/misc/kvantum/Windows7Aero/Windows7Aero.svg" -o "$art/kvantum-f51ca15/Windows7Aero.svg"
+          curl -fsSL --retry 2 https://codeload.github.com/B00merang-Artwork/Windows-7/tar.gz/b1577ced806262ae0caad89ed183d1d5b0336852 | tar xz -C "$icons/Windows-7" --strip-components=1
       - name: Tests
         env:
           QT_QPA_PLATFORM: offscreen

@@ -53,7 +53,7 @@ Rectangle {
         property string glyph
         hoverEnabled: true
         background: Image {
-            source: page.art(control.sprite + (control.down && control.sprite !== "access-button" ? "-active" : control.hovered || control.activeFocus ? "-hover" : "") + ".png")
+            source: page.art(control.sprite + (control.down && control.sprite !== "access-button" ? "-active" : control.hovered || control.activeFocus ? "-hover" : "") + ".svg")
         }
         contentItem: Item {
             Image {
@@ -83,7 +83,7 @@ Rectangle {
                 anchors.centerIn: parent
                 width: 126
                 height: 126
-                source: page.art("user.png")
+                source: page.art("user.svg")
             }
             Image {
                 anchors.centerIn: parent
@@ -92,7 +92,7 @@ Rectangle {
                 source: page.userPicture.toString() ? page.userPicture : !page.manual && page.account ? "file:///var/lib/AccountsService/icons/" + encodeURIComponent(page.account) : ""
                 fillMode: Image.PreserveAspectCrop
             }
-            Image { anchors.fill: parent; source: page.art("12223.png") }
+            Image { anchors.fill: parent; source: page.art("12223.svg") }
         }
         Text {
             id: nameLabel
@@ -128,7 +128,7 @@ Rectangle {
             bottomPadding: 0
             font.pixelSize: 13
             selectByMouse: true
-            background: Image { source: page.art(field.activeFocus ? "input-focus.png" : "input.png") }
+            background: Image { source: page.art(field.activeFocus ? "input-focus.svg" : "input.svg") }
         }
         Column {
             id: fields
@@ -157,7 +157,7 @@ Rectangle {
                     height: 30
                     hoverEnabled: true
                     Accessible.name: qsTr("Log on")
-                    background: Image { source: page.art(go.down ? "gopressed.png" : go.hovered || go.activeFocus ? "gohover.png" : "go.png") }
+                    background: Image { source: page.art(go.down ? "gopressed.svg" : go.hovered || go.activeFocus ? "gohover.svg" : "go.svg") }
                     onClicked: page.submit()
                 }
             }
@@ -205,9 +205,9 @@ Rectangle {
                 Item {
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: 110; height: 110
-                    Image { anchors.centerIn: parent; width: 74; height: 74; source: page.art("user.png") }
+                    Image { anchors.centerIn: parent; width: 74; height: 74; source: page.art("user.svg") }
                     Image { anchors.centerIn: parent; width: 74; height: 74; source: tile.modelData ? "file:///var/lib/AccountsService/icons/" + encodeURIComponent(tile.modelData) : ""; fillMode: Image.PreserveAspectCrop }
-                    Image { anchors.fill: parent; source: page.art("12223.png") }
+                    Image { anchors.fill: parent; source: page.art("12223.svg") }
                 }
                 Text { anchors.horizontalCenter: parent.horizontalCenter; text: tile.Accessible.name; color: "white"; font.pixelSize: 15 }
             }
@@ -242,7 +242,7 @@ Rectangle {
         width: 38
         height: 28
         sprite: "access-button"
-        glyph: "12213.png"
+        glyph: "12213.svg"
         Accessible.name: qsTr("Sign-in options")
         onClicked: settings.open()
         Menu {
@@ -284,7 +284,7 @@ Rectangle {
             width: 38
             height: 28
             sprite: "power"
-            glyph: "power-glyph.png"
+            glyph: "power-glyph.svg"
             Accessible.name: qsTr("Shut down")
             enabled: page.greeter.canPowerOff
             onClicked: page.greeter.powerOff()
@@ -299,10 +299,10 @@ Rectangle {
             background: Image {
                 source: page.art((powerOptions.down ? "12301" : powerOptions.hovered
                     ? (powerOptions.activeFocus ? "12298" : "12300")
-                    : (powerOptions.activeFocus ? "12299" : "12302")) + ".png")
+                    : (powerOptions.activeFocus ? "12299" : "12302")) + ".svg")
             }
             contentItem: Item {
-                Image { anchors.centerIn: parent; source: page.art("power-glyph-arrow.png") }
+                Image { anchors.centerIn: parent; source: page.art("power-glyph-arrow.svg") }
             }
             onClicked: powerMenu.open()
             Menu {

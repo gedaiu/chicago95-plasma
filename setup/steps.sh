@@ -441,6 +441,8 @@ apply_pointer_theme() {
     if [ ! -s "$HOME/.local/share/icons/$theme/cursors/left_ptr" ] || [ ! -s "$HOME/.local/share/icons/$theme/cursors/watch" ]; then
       install_aero_asset_pack cursors "$HOME/.local/share/icons/$theme" || return 1
     fi
+    local pack="$HOME/.local/share/icons/$theme"
+    run python3 "$REPO/aero/vector_art.py" cursors "$pack/cursors" "$pack/cursors_scalable" || return 1
   fi
   run plasma-apply-cursortheme "$theme" --size "${SETUP_CURSOR:-32}" >>"$SETUP_LOG" 2>&1 || true
   kconf kcminputrc Mouse cursorTheme "$theme"
@@ -604,6 +606,16 @@ install_aero_icon_aliases() {
   done
 }
 
+select_desktop_icons() {
+  local theme="$1" version
+  kconf kdeglobals Icons Theme "$theme"
+  for version in 3.0 4.0; do
+    kconf "$HOME/.config/gtk-$version/settings.ini" Settings gtk-icon-theme-name "$theme"
+  done
+  set_gtk_interface icon-theme "$theme"
+  edit_xsettings Net/IconThemeName "\"$theme\""
+}
+
 apply_icon_set() {
   local theme=Chicago95 group
   case "${SETUP_ICONS:-chicago95}" in
@@ -621,7 +633,7 @@ apply_icon_set() {
     local vectors="$HOME/.local/share/icons/Windows-7-SVG"
     run python3 "$REPO/aero/vector_art.py" icons "$icons" "$vectors" || return 1
     record "$vectors"
-    kconf kdeglobals Icons Theme Windows-7-SVG
+    select_desktop_icons Windows-7-SVG
     for group in MainToolbarIcons ToolbarIcons; do
       kconf kdeglobals "$group" DefaultEffect none
       kconf kdeglobals "$group" ActiveEffect none
@@ -639,7 +651,7 @@ apply_icon_set() {
   esac
   [ "$theme" = Chicago95 ] && [ "${SETUP_ICONS:-chicago95}" != chicago95 ] && ui_status "That icon set is unavailable; keeping Chicago95"
   install_toolbar_icons "$theme"
-  kconf kdeglobals Icons Theme Chicago95-Toolbar
+  select_desktop_icons Chicago95-Toolbar
   # Toolbar icons are grey until the pointer is over them, as Explorer's were: KIconLoader's effects, which
   # the Plasma platform theme applies to every Qt program's themed icons.
   for group in MainToolbarIcons ToolbarIcons; do
@@ -724,6 +736,10 @@ step_animations() { # the saved animation choices into KWin, KDE's speed and our
     done
     for token in $(choice_effects "$key" "$value"); do chosen[$token]=1; done
   done
+  if [ -n "${chosen[better_wobblywindows]+x}" ]; then
+    kconf kwinrc Effect-better_wobblywindows EmbeddedDXBlur true
+    kconf kwinrc Effect-better_wobblywindows EmbeddedDXBlurApiOnly false
+  fi
   local -A switched=()
   for token in "${order[@]}"; do
     effect=${token%%/*}
@@ -736,6 +752,10 @@ step_animations() { # the saved animation choices into KWin, KDE's speed and our
     [[ "$token" == */* ]] || continue
     kconf kwinrc "Effect-${token%%/*}" "${token#*/}" "$([ -n "${chosen[$token]+x}" ] && echo true || echo false)"
   done
+  if [[ " ${COMPONENTS:-} " != *" look "* && -n "${SETUP_ANIM_WOBBLY:-}" ]] &&
+    [ "$(kreadconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme)" = __aurorae__svg__Chicago95Aero ]; then
+    select_aero_blur
+  fi
 }
 
 default_panel_height() {
@@ -788,32 +808,43 @@ decoration_theme() { # the Aurorae theme of the chosen decoration
 # Windows 7's glass is KWin's blur behind the decoration's mask, kept light: the references blur a sharp edge over
 # about 12 pixels.
 AERO_BLUR_STRENGTH=3
-native_aero_available() {
-  local plugins="${SETUP_QT_PLUGIN_DIR:-$(qtpaths6 --plugin-dir 2>/dev/null)}" data
-  [ -f "$plugins/org.kde.kdecoration3/org.smod.smod.so" ] && [ -f "$plugins/kwin/effects/plugins/aeroglassblur.so" ] || return 1
-  local -a dirs
-  IFS=: read -ra dirs <<<"${XDG_DATA_HOME:-$HOME/.local/share}:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
-  for data in "${dirs[@]}"; do [ ! -f "$data/smod/decorations/Aero.smod.rcc" ] || return 0; done
-  return 1
+native_effect_available() {
+  local plugins="${SETUP_QT_PLUGIN_DIR:-$(qtpaths6 --plugin-dir 2>/dev/null)}"
+  [ -f "$plugins/kwin/effects/plugins/$1.so" ]
+}
+
+select_aero_blur() {
+  local wobbly=no native=false builtin=true
+  if [[ " ${COMPONENTS:-} " == *" animations "* && -n "${SETUP_ANIM_WOBBLY:-}" ]]; then
+    wobbly=$SETUP_ANIM_WOBBLY
+  elif kreadconfig6 --file kwinrc --group Plugins --key wobblywindowsEnabled --type bool --default false 2>/dev/null ||
+    kreadconfig6 --file kwinrc --group Plugins --key better_wobblywindowsEnabled --type bool --default false 2>/dev/null; then
+    wobbly=yes
+  fi
+  # KWin's blur skips the rectangular backdrop while an effect bends the window mesh.
+  if native_effect_available aeroglassblur && [ "$wobbly" = no ]; then
+    native=true
+    builtin=false
+  fi
+  kconf kwinrc Plugins blurEnabled "$builtin"
+  if native_effect_available aeroglassblur || installed_by_setup kconf:kwinrc:Plugins:aeroglassblurEnabled; then
+    kconf kwinrc Plugins aeroglassblurEnabled "$native"
+    GLASS_EFFECT_CHANGED=1
+  fi
+  if [ "$native" = true ]; then
+    kconf kwinrc Effect-aeroglassblur BasicColorization false
+    kconf kwinrc Effect-aeroglassblur ReflectionIntensity 75
+  fi
 }
 
 apply_decoration() {
-  if [ "${SETUP_DECORATION:-classic}" = aero ] && native_aero_available; then
-    kconf kwinrc org.kde.kdecoration2 library org.smod.smod
-    kconf kwinrc org.kde.kdecoration2 theme SMOD
-    kconf kwinrc Plugins blurEnabled false
-    kconf kwinrc Plugins aeroglassblurEnabled true
-    kconf kwinrc Effect-aeroglassblur BasicColorization false
-    kconf kwinrc Effect-aeroglassblur ReflectionIntensity 75
-    return
-  fi
-  if installed_by_setup kconf:kwinrc:Plugins:aeroglassblurEnabled; then
+  if [ "${SETUP_DECORATION:-classic}" = aero ]; then
+    apply_aero_glass
+    select_aero_blur
+  elif installed_by_setup kconf:kwinrc:Plugins:aeroglassblurEnabled; then
     kconf kwinrc Plugins aeroglassblurEnabled false
     kconf kwinrc Plugins blurEnabled true
-  fi
-  if [ "${SETUP_DECORATION:-classic}" = aero ]; then
-    ui_status "Using Aurorae glass. For frame reflections, afterglow and title halos install the native modules with aero/build-native.sh --install."
-    apply_aero_glass
+    GLASS_EFFECT_CHANGED=1
   fi
   kconf kwinrc org.kde.kdecoration2 library org.kde.kwin.aurorae
   kconf kwinrc org.kde.kdecoration2 theme "__aurorae__svg__$(decoration_theme)"
@@ -821,7 +852,6 @@ apply_decoration() {
 
 apply_aero_glass() {
   put_tree "$REPO/aero/aurorae/theme" ~/.local/share/aurorae/themes/Chicago95Aero
-  kconf kwinrc Plugins blurEnabled true
   kconf kwinrc Effect-blur BlurStrength "$AERO_BLUR_STRENGTH"
   kconf kwinrc Effect-blur NoiseStrength 0
   kconf kwinrc Effect-blur Saturation 100 # a percentage; KWin's default saturates the glass, DWM's did not
@@ -918,7 +948,7 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   if [ "${SETUP_TASKBAR_STYLE:-classic}" = aero ]; then
     local style="$HOME/.local/share/plasma/desktoptheme/Chicago95Aero"
     put_tree "$REPO/aero/plasma-style/theme" "$style"
-    if [ "${SETUP_DECORATION:-classic}" = aero ] && native_aero_available; then
+    if [ "${SETUP_DECORATION:-classic}" = aero ] && native_effect_available aeroglassblur; then
       # The panel already paints its calibrated colour and reflection. The native backdrop shader adds both again.
       run kwriteconfig6 --file "$style/plasmarc" --group BlurBehindEffect --key enabled false
     fi
@@ -1024,23 +1054,6 @@ scale_x11_programs() {
   run systemctl --user set-environment "STEAM_FORCE_DESKTOPUI_SCALING=$SETUP_SCALE"
 }
 
-# Fit scalable contours to the three original orb states.
-install_windows_orb() (
-  local dest="$HOME/.local/share/chicago95/icons/windows7-orb.png"
-  local digest=356976eb28cc7b8c25263143c1472fc1b47d889f7844b39aa76c695c8d09187c
-  local url=https://raw.githubusercontent.com/aeroshell-desktop/aerothemeplasma/f51ca15f4668a81d908505b422e5d560f35fe241/plasma/plasmoids/io.gitgud.wackyideas.SevenStart/contents/ui/orbs/orb.png
-  if [ -f "$dest" ] && printf '%s  %s\n' "$digest" "$dest" | sha256sum --check --status; then
-    run python3 "$REPO/aero/vector_art.py" orb "$dest" "${dest%.png}.svg" && record "${dest%.png}.svg"
-    return
-  fi
-  if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then show_copy "$url" "$dest"; return; fi
-  local tmp
-  tmp=$(mktemp) || return 1
-  trap 'rm -f "$tmp"' EXIT
-  curl -fsSL --retry 2 "$url" -o "$tmp" && printf '%s  %s\n' "$digest" "$tmp" | sha256sum --check --status && put_file "$tmp" "$dest" &&
-    python3 "$REPO/aero/vector_art.py" orb "$dest" "${dest%.png}.svg" && record "${dest%.png}.svg"
-)
-
 panel_start_logo() {
   local logo="${SETUP_START_LOGO:-flag}"
   if [ "${SETUP_TASKBAR_STYLE:-classic}" = aero ] && [ -f "$logo" ]; then
@@ -1048,13 +1061,19 @@ panel_start_logo() {
     for kind in flag xp; do
       if cmp -s "$logo" "$REPO/plasmoids/org.chicago95.start/contents/images/logo-$kind-16.png"; then printf '%s' "$kind"; return; fi
     done
+    if [ -s "$HOME/.local/share/chicago95/icons/fedora-orb-logo.svg" ] && cmp -s "$logo" /usr/share/icons/hicolor/32x32/apps/fedora-logo-icon.png; then
+      printf '%s' "$HOME/.local/share/chicago95/icons/fedora-orb-logo.svg"; return
+    fi
     if cmp -s "$logo" "$HOME/.local/share/icons/Windows-7/apps/distributor-logo.png"; then printf flag; return; fi
   fi
   printf '%s' "$logo"
 }
 
 install_aero_plasmoid_files() { # the superbar's parts, beside each plasmoid's own (styleParts.js picks them)
-  local part
+  local part fedora=/usr/share/icons/hicolor/256x256/apps/fedora-logo-icon.png
+  if [ -f "$fedora" ] && [ "${SETUP_TASKBAR_STYLE:-classic}" = aero ]; then
+    run python3 "$REPO/aero/vector_art.py" bitmap "$fedora" "$HOME/.local/share/chicago95/icons/fedora-orb-logo.svg" && record "$HOME/.local/share/chicago95/icons/fedora-orb-logo.svg"
+  fi
   for part in "$REPO"/aero/plasmoids/org.chicago95.*/contents/ui/aero; do
     put_tree "$part" ~/.local/share/plasma/plasmoids/"${part#"$REPO"/aero/plasmoids/}"
   done
@@ -1081,7 +1100,6 @@ step_taskbar() {
   for plasmoid in "$REPO"/plasmoids/org.chicago95.*; do put_tree "$plasmoid" ~/.local/share/plasma/plasmoids/"$(basename "$plasmoid")"; done
   install_luna_plasmoid_files
   install_aero_plasmoid_files
-  if [ "${SETUP_TASKBAR_STYLE:-classic}" = aero ]; then install_windows_orb || ui_status "Windows orb download failed; using the configured logo on the drawn glass."; fi
   put_file "$REPO/plasmoids/panel-layout.js" ~/.local/share/chicago95/panel-layout.js
   put_file "$REPO/config/applications/chicago95-showdesktop.desktop" ~/.local/share/applications/chicago95-showdesktop.desktop
   put_file "$REPO/data/icons/tray-chevron.png" ~/.local/share/chicago95/icons/tray-chevron.png
@@ -1652,7 +1670,9 @@ install_seven_session_art() {
     run mv "$art/spinner.tmp" "$art/spinner.png" || return 1
   fi
   put_file "$art/background" "$target/background"
-  put_file "$art/spinner.png" "$target/spinner.png"
+  put_file "$art/spinner.png" "$target/spinner.png" # Plymouth consumes raster frames.
+  run python3 "$REPO/aero/vector_art.py" bitmap "$art/spinner.png" "$art/spinner.svg" || return 1
+  put_file "$art/spinner.svg" "$target/spinner.svg"
 }
 
 step_splash() { # the loading screen: KSplash shows it after log on, in the login style; its texts and pictures go into settings.js
@@ -1995,7 +2015,6 @@ js_list() { python3 -c 'import json, sys; print(json.dumps([entry for entry in s
 
 apply_taskbar() { # every run: the Start button's text and logo, and the look into each taskbar applet
   [ "$SETUP_IN_PLASMA" = 1 ] && [ "${SETUP_DRY_RUN:-0}" = 0 ] || return 0
-  if [ "${SETUP_TASKBAR_STYLE:-classic}" = aero ] && [ ! -s "$HOME/.local/share/chicago95/icons/windows7-orb.svg" ]; then install_windows_orb || ui_status "Could not install the Windows orb artwork."; fi
   # finish_session queues a shell restart. Wait for the new scripting interface before changing the panel.
   local attempt
   for attempt in {1..20}; do
@@ -2398,7 +2417,7 @@ step_fonts() { # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bar
 refresh_glass_effect() {
   local target=blur previous=aeroglassblur
   local -a effects=(gdbus call --session --dest org.kde.KWin --object-path /Effects --method)
-  if [ "${SETUP_DECORATION:-classic}" = aero ] && native_aero_available; then
+  if kreadconfig6 --file kwinrc --group Plugins --key aeroglassblurEnabled --type bool --default false; then
     target=aeroglassblur
     previous=blur
   fi
@@ -2415,7 +2434,7 @@ finish_session() { # KWin always rereads its settings; plasmashell restarts only
   run systemctl --user daemon-reload
   kwin_reconfigure
   [ "${SETUP_DRY_RUN:-0}" != 1 ] && [ "$SETUP_IN_PLASMA" = 1 ] || return 0
-  if [[ " $COMPONENTS " == *" look "* ]] && installed_by_setup kconf:kwinrc:Plugins:aeroglassblurEnabled; then
+  if [ "${GLASS_EFFECT_CHANGED:-0}" = 1 ]; then
     refresh_glass_effect
   fi
   systemctl --user is-enabled chicago95-notifyd.service >/dev/null 2>&1 && systemctl --user restart chicago95-notifyd.service || true

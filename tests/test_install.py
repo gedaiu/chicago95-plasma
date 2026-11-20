@@ -1781,8 +1781,9 @@ def test_look_1995_writes_no_luna_widget_lines(tmp_path):
         "Fusion" in log,
         ".themes/Chicago95Luna" in log,
         "Tahoma" in log,
-        "xsettingsd" in log,
-    ) == (True, False, False, False, False, False)
+        "Net/ThemeName" in log,
+        "Gtk/FontName" in log,
+    ) == (True, False, False, False, False, False, False)
 
 
 def test_look_1995_after_luna_restores_the_classic_gtk_theme_font_and_pixel_rule(tmp_path):
@@ -2375,7 +2376,7 @@ def test_aero_glass_keeps_kwins_blur_from_saturating_the_desktop_behind_it(tmp_p
     assert "kwriteconfig6 --file kwinrc --group Effect-blur --key Saturation 100" in log
 
 
-def test_installed_native_glass_selects_smod_and_only_the_aero_blur(tmp_path):
+def test_installed_native_glass_uses_the_vector_decoration_and_aero_blur(tmp_path):
     plugins = tmp_path / "plugins"
     for filename in ("org.kde.kdecoration3/org.smod.smod.so", "kwin/effects/plugins/aeroglassblur.so"):
         plugin = plugins / filename
@@ -2387,5 +2388,48 @@ def test_installed_native_glass_selects_smod_and_only_the_aero_blur(tmp_path):
     log = dry_run_log(tmp_path, "--look=aero", "--components=look", environment={"SETUP_QT_PLUGIN_DIR": str(plugins)})
     assert all(
         setting in log
-        for setting in ("library org.smod.smod", "theme SMOD", "aeroglassblurEnabled true", "blurEnabled false")
+        for setting in (
+            "library org.kde.kwin.aurorae",
+            "theme __aurorae__svg__Chicago95Aero",
+            "aeroglassblurEnabled true",
+            "blurEnabled false",
+        )
     )
+
+
+@pytest.mark.parametrize(("wobble", "native", "builtin"), [("yes", "false", "true"), ("no", "true", "false")])
+def test_changing_wobble_on_aero_switches_backdrop_provider(tmp_path, wobble, native, builtin):
+    plugin_dir = tmp_path / "qt-plugins/kwin/effects/plugins"
+    plugin_dir.mkdir(parents=True)
+    (plugin_dir / "aeroglassblur.so").touch()
+    config_reader = tmp_path / "kreadconfig6"
+    config_reader.write_text(
+        '#!/bin/sh\n[ "$*" = "--file kwinrc --group org.kde.kdecoration2 --key theme" ] '
+        "&& echo __aurorae__svg__Chicago95Aero\n"
+    )
+    config_reader.chmod(0o755)
+    saved = tmp_path / "setup.conf"
+    saved.write_text(f"ANIM_WOBBLY={wobble}\n")
+    log = dry_run_log(
+        tmp_path, f"--settings={saved}", "--components=animations", environment={"PATH": f"{tmp_path}:/usr/bin:/bin"}
+    )
+    assert plugin("aeroglassblur", native) in log
+    assert plugin("blur", builtin) in log
+
+
+@pytest.mark.parametrize("available", [True, False])
+def test_live_blur_choice_installs_missing_effect_and_enables_it(tmp_path, available):
+    if available:
+        effect = tmp_path / "qt-plugins/kwin/effects/plugins/better_wobblywindows.so"
+        effect.parent.mkdir(parents=True)
+        effect.touch()
+    log = animations_log(tmp_path, "ANIM_WOBBLY=blurred\n")
+    assert ("build-native.sh --install-wobbly" in log) == (not available)
+    assert plugin("better_wobblywindows", "true") in log
+    assert plugin("wobblywindows", "false") in log
+
+
+def test_explicit_wobble_flag_applies_the_animations_component(tmp_path):
+    log = dry_run_log(tmp_path, "--components=look", "--wobbly=blurred")
+    assert "build-native.sh --install-wobbly" in log
+    assert plugin("better_wobblywindows", "true") in log

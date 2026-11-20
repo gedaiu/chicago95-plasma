@@ -355,6 +355,14 @@ def test_effects_tab_shows_what_kde_does_now_for_every_event_while_nothing_is_sa
     }
 
 
+def test_effects_tab_can_select_live_blur_before_the_plugin_is_installed(control_panel, qt_app):
+    tab = effects_tab(control_panel)
+    combo = tab.combos["ANIM_WOBBLY"]
+    combo.setCurrentIndex(combo.findData("blurred"))
+    assert combo.currentText() == "With live blur (install effect)"
+    assert tab.values()["ANIM_WOBBLY"] == "blurred"
+
+
 def test_effects_tab_reports_a_saved_choice_over_what_kde_does(control_panel, qt_app):
     values = effects_tab(control_panel, {"ANIM_MINIMIZE": "zoom", "ANIM_SPEED": "0"}).values()
 

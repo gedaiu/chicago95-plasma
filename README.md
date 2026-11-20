@@ -49,7 +49,7 @@ desktop, then its taskbar idle, with open windows, crowded, and overflowing
 Choose Windows 7 in Setup or run `./install.sh --look=aero` to select the glass window frames, 40-pixel superbar,
 searchable two-column Start menu, application controls, icon set, sign-in screen and boot screen.
 GTK 3 and GTK 4 load the bundled theme. Qt applications use the Windows7Aero theme when the Qt 6 Kvantum plugin is installed.
-The screenshot below shows the frames and superbar beside their references.
+Choose **Wobble with live blur** during Setup, or add `--wobbly=blurred` to the install command, to keep the glass blurred while dragging. You can also change this under **Control Panel → Display → Effects → Wobbly windows**.
 
 For the title halo, frame reflections and backdrop-dependent afterglow on Plasma 6.8 Wayland, install the native
 decoration and glass effect before applying the preset. [Native build instructions and rendering limits](aero/README.md).

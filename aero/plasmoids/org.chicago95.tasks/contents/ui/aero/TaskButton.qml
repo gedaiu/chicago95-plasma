@@ -9,7 +9,7 @@ import org.kde.kirigami as Kirigami
 Item {
     id: task
     property string text
-    readonly property url folderArt: fileManager ? StandardPaths.locate(StandardPaths.GenericDataLocation, "icons/Windows-7-SVG/apps/file-manager.svg") : ""
+    readonly property url folderArt: fileManager ? StandardPaths.locate(StandardPaths.GenericDataLocation, "icons/Windows-7-SVG/scalable/aero/file-manager.svg") : ""
     property bool fileManager
     property var icon
     property bool hovered: pointer.hovered

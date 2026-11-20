@@ -16,10 +16,9 @@ Item {
     component Frame: Image {
         required property int frameIndex
         width: orb.frameSize
-        height: orb.frameSize
-        anchors.verticalCenter: parent.verticalCenter
+        height: orb.frameSize * 3
+        y: (orb.height - orb.frameSize) / 2 - frameIndex * orb.frameSize
         source: orb.source
-        sourceClipRect: Qt.rect(0, frameIndex * orb.frameSize, orb.frameSize, orb.frameSize)
         smooth: true
     }
     Frame {

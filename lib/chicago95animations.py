@@ -134,6 +134,14 @@ def installed_effects(roots=DEFAULT_ROOTS):
                 settings_command(metadata.get("X-KDE-ConfigModule")),
             ),
         )
+    if roots == DEFAULT_ROOTS:
+        from PySide6.QtCore import QLibraryInfo
+
+        plugins = Path(QLibraryInfo.path(QLibraryInfo.LibraryPath.PluginsPath))
+        if (plugins / "kwin/effects/plugins/better_wobblywindows.so").is_file():
+            found["better_wobblywindows"] = InstalledEffect(
+                "Better Wobbly Windows", None, False, settings_command("better_wobblywindows_config")
+            )
     return found
 
 
@@ -158,9 +166,15 @@ def installed_extras(table, key, installed):
 
 def event_choices(table, key, installed):
     """The event's (label, value) choices: the file's, then the installed effects of its category by name."""
-    return [(choice.label, choice.value) for choice in table.choices[key]] + [
-        (effect.name, installed_id) for installed_id, effect in installed_extras(table, key, installed)
-    ]
+    return [
+        (
+            "With live blur (install effect)"
+            if choice.effects == ("better_wobblywindows",) and "better_wobblywindows" not in installed
+            else choice.label,
+            choice.value,
+        )
+        for choice in table.choices[key]
+    ] + [(effect.name, installed_id) for installed_id, effect in installed_extras(table, key, installed)]
 
 
 def choice_effects(table, key, value):

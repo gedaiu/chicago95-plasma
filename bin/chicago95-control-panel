@@ -2112,6 +2112,10 @@ class StartMenuPreview(QWidget):
             ui = INSTALLED_START_PLASMOID / "aero"
         logo = values.get("START_LOGO", "flag")
         picture = picture_file(logo, repo)
+        fedora = Path("/usr/share/icons/hicolor/32x32/apps/fedora-logo-icon.png")
+        vector = Path.home() / ".local/share/chicago95/icons/fedora-orb-logo.svg"
+        if picture.is_file() and fedora.is_file() and vector.is_file() and filecmp.cmp(picture, fedora, shallow=False):
+            picture = vector
         originals = [start_button_ui(repo=repo).parent / "images" / f"logo-{kind}-16.png" for kind in ("flag", "xp")]
         originals.append(Path.home() / ".local/share/icons/Windows-7/apps/distributor-logo.png")
         windows = logo in ("flag", "xp") or (
