@@ -60,7 +60,7 @@ is set, and skip otherwise.
 generator.
 
 - **The frame** is translucent glass. Its `mask-*` elements make KWin blur what lies behind the frame, and Setup turns
-  on KWin's blur at strength 2 for both stationary and wobbling frames. At 96 DPI, a high-contrast edge spreads across about 7 pixels in the compositor, compared with about 8–9 pixels in the Windows 7 drag reference.
+  on KWin's blur at strength 2 for both stationary and wobbling frames. In the 96 DPI striped-wallpaper test, the edge spans 6.9 pixels at rest and 6.7 during a drag. The reference measures 8.8 pixels. The next KWin setting measures 15.9 and 18.1 pixels respectively.
 - **The lines** are drawn over the glass with the atlas' alphas.
 - **The caption buttons** are vector faces: a centre-column gradient, two-row bands of side shading, and gradient
   edge columns. Each face is within 6 levels of its sprite, and each glyph within 12. They stay sharp at any scale.
@@ -141,7 +141,7 @@ Windows 7 pixel for pixel: the bar, the orb, the pinned slots and their pitch, a
 
 ### Fonts, icons, cursors and event sounds
 
-Setup prefers an installed Segoe UI for Aero and supplies regular and bold Selawik as a fallback. [Microsoft Selawik release](https://github.com/microsoft/Selawik/releases/tag/1.01) · [Bundled font license](../sddm/Chicago95Plasma/fonts/selawik/LICENSE.txt)
+Setup prefers an installed Segoe UI for Aero and supplies regular and bold Selawik as a fallback. The greeter carries its own copy so it can render account names and controls before a home directory is available. [Microsoft Selawik release](https://github.com/microsoft/Selawik/releases/tag/1.01) · [Bundled font license](../sddm/Chicago95Plasma/fonts/selawik/LICENSE.txt)
 
 The Windows 7 preset uses the [B00merang Windows 7 icon theme](https://github.com/B00merang-Artwork/Windows-7), with KDE application IDs mapped to the corresponding icons. Setup uses Pillow and Potrace to build Windows-7-SVG from the icon pack, trace the embedded control artwork in Kvantum and supply KDE scalable cursor frames with the original hotspots and animation delays. Setup downloads the default white [Aero cursor port](https://github.com/lLexian/Windows-7-Aero-Cursors_Linux) and maps the [Windows 7 sound collection](https://github.com/Pendrag00n/Windows7Sounds) to desktop event names. The cursor port credits separate artwork for the open and closed hand. The cursor and sound archives are pinned by revision and SHA-256 and cached for reinstalls.
 
