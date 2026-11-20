@@ -559,10 +559,13 @@ elif [[ " $COMPONENTS " == *" animations "* && "$SETUP_YES" = 0 && -z "${OPT_SET
   4) SETUP_ANIM_WOBBLY=blurred ;;
   esac
 fi
-if [[ " $COMPONENTS " == *" animations "* && "${SETUP_ANIM_WOBBLY:-}" = blurred ]] && ! native_effect_available better_wobblywindows; then
+if [[ " $COMPONENTS " == *" animations "* && "${SETUP_ANIM_WOBBLY:-}" = blurred ]] && ! live_blur_available; then
   ui_status "Building and installing Better Wobbly Windows"
   run "$REPO/aero/build-native.sh" --install-wobbly || setup_abort \
     "Could not install Better Wobbly Windows. Check the build output and the KWin development requirements in aero/README.md."
+  if [ "$SETUP_DRY_RUN" = 0 ] && ! live_blur_available; then
+    setup_abort "KWin cannot load Better Wobbly Windows. Check that the running KWin version matches the installed build and the compositor supports the effect."
+  fi
 fi
 [ -n "${OPT_TASK_BUTTON_WIDTH:-}" ] && SETUP_TASK_BUTTON_WIDTH=$OPT_TASK_BUTTON_WIDTH
 SETUP_DPI=$(awk -v s="$SETUP_SCALE" 'BEGIN{printf "%d", 96*s + 0.5}')

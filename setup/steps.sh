@@ -813,6 +813,17 @@ native_effect_available() {
   [ -f "$plugins/kwin/effects/plugins/$1.so" ]
 }
 
+live_blur_available() {
+  native_effect_available better_wobblywindows || return 1
+  # When KWin is reachable, ask its loader to check the effect ABI and shared libraries.
+  # Offline installs can only check the installed module until the next Plasma login.
+  local supported
+  if [ "${SETUP_IN_PLASMA:-0}" = 1 ] &&
+    supported=$(gdbus call --session --dest org.kde.KWin --object-path /Effects --method org.kde.kwin.Effects.isEffectSupported better_wobblywindows 2>/dev/null); then
+    [ "$supported" = "(true,)" ]
+  fi
+}
+
 select_aero_blur() {
   local wobbly=no native=false builtin=true
   if [[ " ${COMPONENTS:-} " == *" animations "* && -n "${SETUP_ANIM_WOBBLY:-}" ]]; then

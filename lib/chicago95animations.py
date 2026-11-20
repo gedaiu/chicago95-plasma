@@ -168,7 +168,7 @@ def event_choices(table, key, installed):
     """The event's (label, value) choices: the file's, then the installed effects of its category by name."""
     return [
         (
-            "With live blur (install effect)"
+            f"{choice.label} (install effect)"
             if choice.effects == ("better_wobblywindows",) and "better_wobblywindows" not in installed
             else choice.label,
             choice.value,

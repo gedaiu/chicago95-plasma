@@ -24,6 +24,8 @@ Only installation of those three files needs administrator privileges. A build w
 `build/aero-native`. Use `--install-built` to install that local build on the same KWin version. Rebuild after
 a KWin ABI update. Setup uses the installed Aero Glass Blur effect for rigid frames. With Wobbly Windows enabled, Setup selects KWin’s built-in blur, which suspends backdrop painting while the frame bends and resumes it when the window settles. The native reflection and afterglow are unavailable in this combination. For blur that follows the bent frame during movement, choose **Wobble with live blur** during Setup, pass `--wobbly=blurred` to `install.sh`, or select **With live blur** under **Control Panel → Display → Effects → Wobbly windows** and click **Apply**. Setup builds and installs the effect if it is missing, using the development packages listed above and administrator access for the plugin files. This builds [Better Wobbly Windows](https://github.com/GoldenBilly/BetterWobblyWindows/tree/a6d6443a54dc731e5784cf9a0fec77f378a126f9) against your local KWin. Its embedded renderer handles motion and KWin supplies the stationary blur.
 
+On Fedora, Setup checks the live-blur build packages against the installed KWin version, release and architecture and installs missing packages with DNF. On other distributions, install the development packages with your package manager. CMake checks the Qt, KDE Frameworks and KWin development libraries before compilation. In a running Plasma session, Setup also asks KWin whether it can load the effect.
+
 ## Where the numbers come from
 
 There are two sources, and every value names which one it came from:

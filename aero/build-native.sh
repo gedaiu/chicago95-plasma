@@ -46,15 +46,26 @@ if [[ "${1:-}" == --build-wobbly || "${1:-}" == --install-wobbly ]]; then
     [ -z "${SUDO_ASKPASS:-}" ] || elevate+=(-A)
     if command -v dnf >/dev/null && rpm -q fedora-release-common >/dev/null 2>&1; then
       deps=(gcc-c++ cmake ninja-build extra-cmake-modules kf6-kcmutils-devel qt6-qtbase-private-devel qt6-qttools-devel
-        libdrm-devel mesa-libgbm-devel libxkbcommon-devel libinput-devel vulkan-headers libepoxy-devel wayland-devel wayland-protocols-devel)
-      if ! rpm -q kwin-devel "${deps[@]}" >/dev/null 2>&1; then
-        # Use headers for the running installation. An opportunistic compositor upgrade needs a new login.
-        deps+=("kwin-devel-$(rpm -q --qf '%{VERSION}-%{RELEASE}' kwin)")
+        libdrm-devel mesa-libgbm-devel libxkbcommon-devel libinput-devel vulkan-headers vulkan-loader-devel libepoxy-devel wayland-devel wayland-protocols-devel)
+      # Match the installed compositor even when a different kwin-devel is already present.
+      kwin_build=$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' kwin)
+      deps+=("kwin-devel-$kwin_build")
+      if ! rpm -q "${deps[@]}" >/dev/null 2>&1; then
         "${elevate[@]}" dnf install --setopt=install_weak_deps=False -y "${deps[@]}"
+        rpm -q "${deps[@]}" >/dev/null || { echo "The live-blur build dependencies are incomplete." >&2; exit 1; }
       fi
     fi
   fi
+  tools=(cmake ctest ninja tar mktemp install)
+  if [ "$1" = --install-wobbly ]; then tools+=(qtpaths6); fi
   revision=a6d6443a54dc731e5784cf9a0fec77f378a126f9
+  if [ ! -d "$work/BetterWobblyWindows-$revision" ]; then tools+=(curl sha256sum); fi
+  missing=()
+  for tool in "${tools[@]}"; do command -v "$tool" >/dev/null || missing+=("$tool"); done
+  if [ "${#missing[@]}" -gt 0 ]; then
+    echo "Missing commands for the live-blur build: ${missing[*]}" >&2
+    exit 1
+  fi
   fetch_source BetterWobblyWindows "$revision" 216ed129d09846aa8323b248b106d46f74c09133b423fe01e46ee6fee9114289 GoldenBilly
   cmake -S "$work/BetterWobblyWindows-$revision" -B "$work/wobbly" -G Ninja -DCMAKE_BUILD_TYPE=Release
   cmake --build "$work/wobbly"
