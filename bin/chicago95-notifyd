@@ -448,6 +448,7 @@ class NotificationPopup(QWidget):
         self.action_invoked.emit(self.sender().property("action"))
 
     def update_content(self, notification):
+        self.anchor_x = notification.hints.get("x")
         self.repeat_key = notification.repeat_key
         self.resident = notification.resident
         device_pixel_ratio = self.devicePixelRatioF()
@@ -523,7 +524,14 @@ class NotificationPopup(QWidget):
             self.dismissed.emit(CLOSED_DISMISSED)
 
     def paintEvent(self, _event):
-        self.chrome.paint(QPainter(self), self.size(), self.devicePixelRatioF(), self.palette())
+        painter = QPainter(self)
+        if self.chrome.title_in_content and isinstance(self.anchor_x, int):
+            # A Wayland client cannot read its global position. KWin anchors our host
+            # to the screen edge, and the stack places each balloon one margin inside it.
+            left = self.screen().availableGeometry().right() + 1 - SCREEN_MARGIN - self.width()
+            self.chrome.paint(painter, self.size(), self.devicePixelRatioF(), self.palette(), self.anchor_x - left)
+        else:
+            self.chrome.paint(painter, self.size(), self.devicePixelRatioF(), self.palette())
 
     def slide_in(self, target):
         motion, slide_ms = motion_for(SLIDE_IN_MS)

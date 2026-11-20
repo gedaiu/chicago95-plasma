@@ -104,8 +104,11 @@ def render(out, scale):
     dialog.close()
 
     apps = [{"name": f"Application {i:02d} with a long program name", "icon": "file-manager"} for i in range(32)]
+    for entry in apps[24:]:
+        entry["categories"] = ["Accessories"]
     keys = (
-        "home my_documents my_pictures my_music my_computer control_panel printers help shut_down log_off lock restart"
+        "home my_documents my_pictures my_music games my_computer control_panel printers defaults help "
+        "shut_down switch_user log_off lock restart sleep hibernate"
     )
     menu = AeroMenu(
         apps,
@@ -114,6 +117,7 @@ def render(out, scale):
         dict.fromkeys(keys.split(), ["dummy"]),
         "Demo",
         REPO / "aero/icons/file-manager.svg",
+        folder_for=lambda app: app["categories"][0],
     )
     capture(menu, "start")
     menu.toggle_programs()

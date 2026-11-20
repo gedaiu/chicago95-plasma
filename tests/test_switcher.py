@@ -244,3 +244,13 @@ def test_the_switcher_settings_carry_the_2000_face_as_hex(tmp_path):
     assert (
         tmp_path / "settings.js"
     ).read_text() == '.pragma library\nvar previewSize = 160;\nvar look = "2000";\nvar face = "#D4D0C8";\n'
+
+
+def test_aero_switcher_has_glass_header_and_live_previews(qt_app, imports):
+    image = render(qt_app, imports, 1, preview_size=160, look="aero")
+    classic = render(qt_app, imports, 1, preview_size=160, look="1995")
+    # The selected title sits above the previews, and the two edges of the glass have different tints.
+    assert image.getpixel((12, 3)) != image.getpixel((12, image.height - 4))
+    assert min(x for x, _, _, _ in boxes(image, THUMBNAIL)) > 0
+    assert boxes(image, THUMBNAIL)[0][1] > boxes(classic, THUMBNAIL)[0][1]
+    assert not boxes(image, NAVY)

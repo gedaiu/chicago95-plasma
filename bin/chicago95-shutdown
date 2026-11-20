@@ -12,10 +12,11 @@ import functools
 import re
 import shutil
 import subprocess
+from pathlib import Path
 
 import chicago95ui  # noqa: E401,E702
 import dbus
-from PySide6.QtCore import QObject, QPoint, QPointF, QRect, Qt, QTimer, Signal
+from PySide6.QtCore import QObject, QPoint, QPointF, QRect, QStandardPaths, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import (
     QBrush,
     QColor,
@@ -31,6 +32,7 @@ from PySide6.QtGui import (
     QPalette,
     QPixmap,
 )
+from PySide6.QtQuick import QQuickView
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -930,6 +932,28 @@ def luna_screen(app, hold_until_input, status, later_status=None):
     return screen
 
 
+def aero_logoff_screen():
+    relative = "plasma/look-and-feel/chicago95.splashscreen/contents/splash/SevenSession.qml"
+    installed = QStandardPaths.locate(QStandardPaths.GenericDataLocation, relative)
+    source = (
+        Path(installed)
+        if installed
+        else Path(__file__).resolve().parents[1] / "splash/chicago95.splashscreen/contents/splash/SevenSession.qml"
+    )
+    if not source.is_file():
+        return None
+    screen = QQuickView()
+    screen.setFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+    screen.setResizeMode(QQuickView.SizeRootObjectToView)
+    screen.setInitialProperties({"statusText": "Logging off..."})
+    screen.setSource(QUrl.fromLocalFile(str(source)))
+    if not screen.rootObject():
+        screen.deleteLater()
+        return None
+    screen.showFullScreen()
+    return screen
+
+
 def screen_delay(screen):
     return SAFE_SCREEN_DELAY_MS if screen else 0
 
@@ -945,6 +969,7 @@ def main():
     parser.add_argument(
         "--power-off", action="store_true", help="request a normal session shutdown from the Aero power button"
     )
+    parser.add_argument("--switch-user", action="store_true", help="lock this session and open the account chooser")
     parser.add_argument("--restart", action="store_true", help="confirm a restart from the Aero power menu")
     parser.add_argument("--log-off", action="store_true", help="ask to log off instead of the Shut Down choices")
     parser.add_argument("--dry-run", action="store_true", help="print commands instead of running them")
@@ -955,6 +980,10 @@ def main():
 
     app = chicago95ui.make_app("chicago95-shutdown")
     QIcon.setThemeSearchPaths(list(ICON_DIRS) + QIcon.themeSearchPaths())
+
+    if args.switch_user:
+        log_off(SWITCH_USER, args.dry_run, None)
+        return 0
 
     action = SHUT_DOWN if args.power_off else RESTART if args.restart else None
     if args.screenshot:
@@ -980,9 +1009,17 @@ def main():
     if args.log_off:
         choice = log_off_choice()
         if choice == LOG_OFF and not args.dry_run:
-            screen = luna_screen(app, False, "Logging off...")
+            aero = chicago95ui.widget_style() == "aero"
+            screen = aero_logoff_screen() if aero else luna_screen(app, False, "Logging off...")
             action = functools.partial(log_off, choice, False, dbus_caller())
-            return end_session(app, session_bus(), choice, chicago95ui.look_settings(), action, screen_delay(screen))
+            return end_session(
+                app,
+                session_bus(),
+                choice,
+                chicago95ui.look_settings(),
+                action,
+                350 if aero and screen else screen_delay(screen),
+            )
         if choice == LOG_OFF and luna_dialogs_wanted():
             screen = luna_screen(app, True, "Logging off...")
 

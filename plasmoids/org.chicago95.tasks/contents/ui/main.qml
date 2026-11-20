@@ -182,6 +182,45 @@ PlasmoidItem {
         onNewData: (sourceName, data) => disconnectSource(sourceName)
     }
 
+    Component { id: jumpItem; PlasmaExtras.MenuItem {} }
+    function jumpCommand(args) {
+        const path = decodeURIComponent(Qt.resolvedUrl("jumpList.py").toString().replace(/^file:\/\//, ""));
+        return ["python3", path, ...args].map(arg => "'" + String(arg).replace(/'/g, "'\\''") + "'").join(" ");
+    }
+    function openTaskMenu(menu, first, x, y) {
+        if (!root.pagesButtons) { menu.open(x, y); return; }
+        for (const item of menu.jumpItems) {
+            menu.removeMenuItem(item);
+            item.destroy();
+        }
+        menu.jumpItems = [];
+        const launcher = String(menu.launcher || "");
+        const command = jumpCommand([launcher]);
+        jumpReader.pending = {menu, first, launcher, command, x, y};
+        jumpReader.connectSource(command);
+    }
+    Plasma5Support.DataSource {
+        id: jumpReader
+        engine: "executable"
+        property var pending
+        onNewData: (source, data) => {
+            disconnectSource(source);
+            const request = pending;
+            if (!request || source !== request.command) return;
+            pending = null;
+            let entries = [];
+            try { entries = JSON.parse(data.stdout); } catch (error) {}
+            for (const entry of entries) {
+                const item = jumpItem.createObject(request.menu, {text: entry.label});
+                item.clicked.connect(() => runner.connectSource(root.jumpCommand([request.launcher,
+                    entry.action ? "action" : "uri", entry.action || entry.uri])));
+                request.menu.addMenuItem(item, request.first);
+                request.menu.jumpItems.push(item);
+            }
+            request.menu.open(request.x, request.y);
+        }
+    }
+
     TaskManager.VirtualDesktopInfo {
         id: virtualDesktopInfo
     }
@@ -475,7 +514,7 @@ PlasmoidItem {
                                 if (mouseButton === Qt.RightButton) {
                                     launcherMenu.launcher = entry.model.LauncherUrlWithoutIcon;
                                     launcherMenu.visualParent = parent;
-                                    launcherMenu.open(clickX, clickY);
+                                    root.openTaskMenu(launcherMenu, unpinItem, clickX, clickY);
                                 } else {
                                     tasksModel.requestNewInstance(entry.modelIndex);
                                 }
@@ -618,7 +657,7 @@ PlasmoidItem {
                                     windowMenu.task = entry.modelIndex;
                                     windowMenu.window = WindowMenu.windowState(entry.model);
                                     windowMenu.launcher = entry.model.LauncherUrlWithoutIcon;
-                                    windowMenu.open(clickX, clickY);
+                                    root.openTaskMenu(windowMenu, restoreItem, clickX, clickY);
                                 } else if (root.pagesButtons && entry.model.IsGroupParent) {
                                     previews.showToolTip();
                                 } else if (entry.model.IsGroupParent) {
@@ -642,8 +681,10 @@ PlasmoidItem {
 
     PlasmaExtras.Menu {
         id: launcherMenu
+        property var jumpItems: []
         property var launcher
         PlasmaExtras.MenuItem {
+            id: unpinItem
             text: root.pagesButtons ? i18n("Unpin this program from taskbar") : i18n("Remove from Quick Launch")
             onClicked: tasksModel.requestRemoveLauncher(launcherMenu.launcher)
         }
@@ -651,12 +692,14 @@ PlasmoidItem {
 
     PlasmaExtras.Menu {
         id: windowMenu
+        property var jumpItems: []
         property var task
         property var launcher
         property var window: WindowMenu.windowState({})
         readonly property var enabledItems: WindowMenu.enabledItems(window)
 
         PlasmaExtras.MenuItem {
+            id: restoreItem
             text: i18n("Restore")
             enabled: windowMenu.enabledItems.restore
             onClicked: windowMenu.window.minimized ? tasksModel.requestActivate(windowMenu.task) : tasksModel.requestToggleMaximized(windowMenu.task)

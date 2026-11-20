@@ -51,3 +51,19 @@ def test_repeat_keeps_one_balloon_in_place_until_the_renewed_timeout(qt_app, mon
         assert len({send(), send(app="Chat"), send(body="Other message")}) == 3
     finally:
         stack.host.close()
+
+
+def test_balloon_tail_tracks_the_senders_horizontal_position(qt_app, monkeypatch):
+    daemon = load_script("chicago95-notifyd")
+    monkeypatch.setattr(daemon.chicago95ui, "look_settings", lambda: {"widgetStyle": "aero"})
+    popup = daemon.NotificationPopup(daemon.Notification(1, "Mail", "", "Message", "Body", [], {}, 0))
+    try:
+        left = popup.screen().availableGeometry().right() + 1 - daemon.SCREEN_MARGIN - popup.width()
+        for x in (28, popup.width() - 42):
+            popup.update_content(daemon.Notification(1, "Mail", "", "Message", "Body", [], {"x": left + x}, 0))
+            frame = popup.grab().toImage()
+            row = frame.height() - 5
+            opaque = [col for col in range(frame.width()) if frame.pixelColor(col, row).alpha() > 100]
+            assert opaque and abs(sum(opaque) / len(opaque) - x) < 5
+    finally:
+        popup.close()

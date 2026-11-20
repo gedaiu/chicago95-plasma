@@ -576,15 +576,16 @@ def grip_svg(height=40):
     )
 
 
-def tooltip_svg():
+def tooltip_svg(dialog=False):
     # Plasma paints ordinary tooltip labels with the Window colour set. Match their background.
     parts = ['<svg xmlns="http://www.w3.org/2000/svg" width="50" height="24">']
     parts.append(
         '<style id="current-color-scheme">.ColorScheme-Background {color:#f0f0f0;} '
         '.ColorScheme-Text {color:#222;}</style>'
     )
+    face = 'fill="#fafcfe"' if dialog else 'class="ColorScheme-Background" fill="currentColor"'
     for offset, prefix, paint in (
-        (0, "", 'class="ColorScheme-Background" fill="currentColor"'),
+        (0, "", face),
         (26, "mask-", 'fill="black"'),
     ):
         for y, row in enumerate(("top", "", "bottom")):
@@ -616,6 +617,9 @@ def write_theme(out):
     (out / "translucent/widgets/panel-background.svg").write_text(panel_svg(translucent=True))
     for directory in ("widgets", "translucent/widgets"):
         (out / directory / "tooltip.svg").write_text(tooltip_svg())
+    for directory in ("dialogs", "translucent/dialogs", "opaque/dialogs"):
+        (out / directory).mkdir(parents=True, exist_ok=True)
+        (out / directory / "background.svg").write_text(tooltip_svg(dialog=True))
     (out / "plasmarc").write_text("[BlurBehindEffect]\nenabled=true\n")
     (out / "widgets/tasks.svg").write_text(tasks_svg())
     (out / "widgets/startbutton.svg").write_text(orb_svg())

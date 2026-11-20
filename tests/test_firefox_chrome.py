@@ -1,7 +1,12 @@
 """Firefox's own controls drawn in the look, from a userChrome.css that Setup imports into the profile."""
 
+import shutil
+import subprocess
+
 import firefox_chrome
+import pytest
 from conftest import REPO, run_bash_with_steps
+from PIL import Image
 from test_wine_look import SCHEME_1998
 
 IMPORT = '@import url("chicago95-controls.css");'
@@ -80,3 +85,46 @@ def test_setup_run_twice_writes_each_firefox_pref_once(tmp_path):
         1,
         'user_pref("my.own", 1);',
     )
+
+
+def test_aero_controls_replace_classic_sheet_and_keep_profile_rules(tmp_path):
+    setup_firefox(tmp_path)
+    with (tmp_path / "chrome/userChrome.css").open("a") as sheet:
+        sheet.write("#nav-bar { color: red; }\n")
+    assert setup_firefox(tmp_path, "SETUP_WIDGET_STYLE=aero").splitlines() == [IMPORT, "#nav-bar { color: red; }"]
+    installed = tmp_path / "chrome/chicago95-controls.css"
+    assert installed.read_bytes() == (REPO / "aero/firefox-controls.css").read_bytes()
+
+
+@pytest.mark.skipif(not shutil.which("firefox"), reason="Firefox is required to render browser controls")
+def test_firefox_draws_the_installed_aero_dialog_border_and_gradient(tmp_path):
+    setup_firefox(tmp_path, "SETUP_WIDGET_STYLE=aero")
+    (tmp_path / "user.js").write_text('user_pref("layout.css.devPixelsPerPx", "1.0");\n')
+    page, shot = tmp_path / "controls.html", tmp_path / "controls.png"
+    page.write_text(
+        '<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="chrome/userChrome.css">'
+        "<style>dialog{position:static;margin:12px;border:0;padding:0}"
+        "button{width:100px;height:28px;margin:0 3px}</style>"
+        "<dialog open><button>OK</button><button disabled>Apply</button></dialog>"
+    )
+    subprocess.run(
+        [
+            "firefox",
+            "--headless",
+            "--no-remote",
+            "--profile",
+            tmp_path,
+            "--window-size",
+            "320,90",
+            "--screenshot",
+            shot,
+            page.as_uri(),
+        ],
+        check=True,
+        timeout=45,
+        capture_output=True,
+    )
+    with Image.open(shot) as im:
+        border, top, bottom = (im.getpixel((32, y))[:3] for y in (12, 15, 36))
+    assert border == (112, 112, 112)
+    assert top[0] > bottom[0] + 30 and top[0] == top[1] == top[2]

@@ -456,6 +456,13 @@ apply_pointer_theme() {
   for version in 3.0 4.0; do
     run kwriteconfig6 --file "$HOME/.config/gtk-$version/settings.ini" --group Settings --key gtk-cursor-theme-name "$theme"
   done
+  if [ "${SETUP_WIDGET_STYLE:-classic}" = aero ]; then
+    for version in 3.0 4.0; do
+      run kwriteconfig6 --file "$HOME/.config/gtk-$version/settings.ini" --group Settings --key gtk-cursor-theme-size "${SETUP_CURSOR:-32}"
+    done
+    set_gtk_interface cursor-size "${SETUP_CURSOR:-32}"
+    edit_xsettings Gtk/CursorThemeSize "${SETUP_CURSOR:-32}"
+  fi
   set_gtk_interface cursor-theme "$theme"
   edit_xsettings Gtk/CursorThemeName "\"$theme\""
 }
@@ -958,6 +965,12 @@ apply_widget_themes() { # Qt applications (Kvantum, or Fusion without it) and GT
     put_tree "$REPO/aero/gtk/Chicago95Aero" ~/.themes/Chicago95Aero
     set_gtk_theme Chicago95Aero
     edit_xsettings Net/ThemeName '"Chicago95Aero"'
+    if command -v gsettings >/dev/null 2>&1; then
+      case "$(gsettings get org.gnome.desktop.interface enable-animations 2>/dev/null)" in
+      true) edit_xsettings Gtk/EnableAnimations 1 ;;
+      false) edit_xsettings Gtk/EnableAnimations 0 ;;
+      esac
+    fi
     apply_aero_qt_style
     return
   fi
@@ -1572,7 +1585,7 @@ step_explorer() {
     [ "$SETUP_HAS_THUNAR" = 1 ] || ui_status "Thunar not installed; configuring Dolphin instead"
     put_file "$REPO/config/dolphin/dolphinui.rc" ~/.local/share/kxmlgui6/dolphin/dolphinui.rc
     kconf dolphinrc General ShowFullPath true
-    kconf dolphinrc General EditableUrl true
+    if [ "${SETUP_WIDGET_STYLE:-classic}" = aero ]; then kconf dolphinrc General EditableUrl false; else kconf dolphinrc General EditableUrl true; fi
     kconf dolphinrc General ShowStatusBar true
     kconf dolphinrc General ShowSpaceInfo true
     return
@@ -1583,6 +1596,14 @@ step_explorer() {
     pkill -x xfconfd 2>/dev/null || true
     sleep 1
     put_file "$REPO/config/thunar/thunar.xml" "$thunar_xml"
+  fi
+  if [ "${SETUP_WIDGET_STYLE:-classic}" = aero ]; then
+    if [ "${SETUP_IN_PLASMA:-0}" = 1 ] && command -v xfconf-query >/dev/null 2>&1; then
+      run xfconf-query -c thunar -p /last-location-bar -n -t string -s ThunarLocationButtons
+      run xfconf-query -c thunar -p /last-menubar-visible -n -t bool -s false
+    else
+      run python3 "$REPO/setup/thunar-navigation.py" "$thunar_xml"
+    fi
   fi
   backup ~/.config/gtk-3.0/gtk.css
   if ! grep -q 'Chicago95 Thunar' ~/.config/gtk-3.0/gtk.css 2>/dev/null; then
@@ -1597,15 +1618,24 @@ step_explorer() {
   run kwriteconfig6 --file mimeapps.list --group "Default Applications" --key inode/directory thunar.desktop
 }
 
+lockscreen_style() {
+  case "${SETUP_LOGIN_STYLE:-}" in
+  aero | luna) printf '%s' "$SETUP_LOGIN_STYLE" ;;
+  classic) case "${SETUP_START_MENU_STYLE:-1995}" in aero | luna) printf 1995 ;; *) printf '%s' "${SETUP_START_MENU_STYLE:-1995}" ;; esac ;;
+  '') printf '%s' "${SETUP_START_MENU_STYLE:-1995}" ;;
+  *) printf '%s' "$SETUP_LOGIN_STYLE" ;;
+  esac
+}
+
 write_lockscreen_settings() { # <dir>  settings.js: the look the lock screen is drawn in, on the desktop colour
   local dir="$1"
   if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run tee "$dir/settings.js"; else
-    printf '.pragma library\nvar look = %s;\nvar desktopColor = %s;\n' "$(js_string "${SETUP_START_MENU_STYLE:-1995}")" "$(js_string "$(background_color)")" >"$dir/settings.js"
+    printf '.pragma library\nvar look = %s;\nvar desktopColor = %s;\n' "$(js_string "$(lockscreen_style)")" "$(js_string "$(background_color)")" >"$dir/settings.js"
   fi
-  if [ "${SETUP_START_MENU_STYLE:-1995}" = aero ] && [ "${SETUP_DRY_RUN:-0}" != 1 ]; then
+  if [ "$(lockscreen_style)" = aero ] && [ "${SETUP_DRY_RUN:-0}" != 1 ]; then
     printf 'var brandText = %s;\nvar brandLogo = %s;\n' "$(js_string "${SETUP_BANNER_TEXT:-Chicago95}")" "$(js_string "classic/brand-logo.$(extension "$(login_logo)")")" >>"$dir/settings.js"
   fi
-  show_copy "(lock screen look ${SETUP_START_MENU_STYLE:-1995})" "$dir/settings.js"
+  show_copy "(lock screen look $(lockscreen_style))" "$dir/settings.js"
 }
 
 step_lockscreen() {
@@ -1615,7 +1645,7 @@ step_lockscreen() {
   }
   local dst=~/.local/share/plasma/shells/org.kde.plasma.desktop
   local art="${XDG_CACHE_HOME:-$HOME/.cache}/chicago95/sddm-f51ca15"
-  if [ "${SETUP_START_MENU_STYLE:-1995}" = aero ]; then
+  if [ "$(lockscreen_style)" = aero ]; then
     run bash "$REPO/aero/fetch-login-art.sh" "$art" || return 1
   fi
   backup "$dst"
@@ -1630,11 +1660,11 @@ step_lockscreen() {
     show_copy "$entry" "$dst/contents/$(basename "$entry")"
   }; done
   put_tree "$REPO/lockscreen/lockscreen" "$dst/contents/lockscreen"
-  if [ "${SETUP_START_MENU_STYLE:-1995}" = luna ]; then
+  if [ "$(lockscreen_style)" = luna ]; then
     for luna_tree in qml sddm images lockscreen; do put_tree "$REPO/luna/$luna_tree" "$dst/contents/lockscreen/luna/$luna_tree"; done
   else
     put_tree "$SDDM_THEME_SRC" "$dst/contents/lockscreen/classic"
-    if [ "${SETUP_START_MENU_STYLE:-1995}" = aero ]; then
+    if [ "$(lockscreen_style)" = aero ]; then
       put_tree "$art" "$dst/contents/lockscreen/classic/aero-art"
       put_file "$(login_logo)" "$dst/contents/lockscreen/classic/brand-logo.$(extension "$(login_logo)")"
     fi
@@ -2146,6 +2176,7 @@ pattern_picture() { printf '%s' ~/.local/share/chicago95/pattern.png; }
 look_background_color() { # the desktop colour of each look's Windows
   case "${SETUP_START_MENU_STYLE:-1995}" in
   2000 | 2001) printf '#3A6EA5' ;;
+  aero) printf '#1D5C9C' ;;
   luna) printf '#004E98' ;;
   *) printf '#008080' ;;
   esac
@@ -2198,6 +2229,7 @@ step_background() {
 # SETUP_DESKTOP_ICONS lists them (computer, documents, network, recycle); unset or auto takes the look's own, empty none.
 desktop_icon_defaults() {
   case "${SETUP_START_MENU_STYLE:-1995}" in
+  aero) printf 'recycle' ;;
   1995) printf 'computer,network,recycle' ;;
   2001) printf 'documents,computer,network,recycle' ;;
   luna) printf 'documents,computer,recycle' ;;
@@ -2212,6 +2244,10 @@ desktop_icons_chosen() {
 }
 
 desktop_icon_source() { # desktop_icon_source <icon>   the link file in the repository; 2000 calls the network My Network Places
+  if [ "${SETUP_START_MENU_STYLE:-1995}" = aero ] && [ "$1" != recycle ]; then
+    printf '%s' "$REPO/config/desktop/aero/$1.desktop"
+    return
+  fi
   case "$1" in
   computer) printf '%s' "$REPO/config/desktop/my-computer.desktop" ;;
   documents) printf '%s' "$REPO/config/desktop/my-documents.desktop" ;;
@@ -2236,11 +2272,26 @@ desktop_script() { # Folder View as the originals arranged the desktop: 32px ico
 }
 
 step_desktop() {
-  local icon target
+  local icon target old
+  if [ "${SETUP_START_MENU_STYLE:-1995}" = aero ]; then
+    for old in "$REPO"/config/desktop/{my-computer,my-documents,my-network-places,network-neighborhood}.desktop; do
+      target="$HOME/Desktop/$(sed -n 's/^Name=//p' "$old").desktop"
+      if installed_by_setup "$target" && cmp -s "$target" <(sed "s|@HOME@|$HOME|g" "$old"); then
+        backup "$target"
+        run rm -f "$target"
+      fi
+    done
+  fi
   while IFS= read -r icon; do
     target=$(desktop_icon_target "$icon")
     put_file "$(desktop_icon_source "$icon")" "$target"
     substitute_home "$target"
+    if [ "$icon" = computer ] && [ "${SETUP_START_MENU_STYLE:-1995}" = aero ]; then
+      if [ "${SETUP_EXPLORER:-thunar}" = dolphin ] || [ "${SETUP_HAS_THUNAR:-0}" != 1 ]; then
+        run sed -i 's|^Exec=.*|Exec=dolphin computer:/|' "$target"
+      fi
+      run chmod +x "$target"
+    fi
   done < <(desktop_icons_chosen)
   [ "${SETUP_DRY_RUN:-0}" = 1 ] || [ "$SETUP_IN_PLASMA" = 1 ] || {
     ui_status "Plasma is not running; the desktop's icon layout is unchanged"
@@ -2279,7 +2330,11 @@ step_switcher() { # Alt+Tab: our KWin switcher layout, chosen in kwinrc
   write_switcher_settings "$dir/contents/ui"
   kconf kwinrc TabBox LayoutName chicago95
   kconf kwinrc TabBox ShowTabBox true
-  kconf kwinrc TabBox HighlightWindows false
+  if [ "${SETUP_START_MENU_STYLE:-1995}" = aero ]; then
+    kconf kwinrc TabBox HighlightWindows true
+  else
+    kconf kwinrc TabBox HighlightWindows false
+  fi
   kwin_reconfigure
 }
 
@@ -2332,10 +2387,12 @@ theme_firefox() {
   fi
   mkdir -p "$chrome"
   {
-    [ "${SETUP_WIDGET_STYLE:-classic}" != classic ] || printf '%s\n' "$import"
+    [ "${SETUP_WIDGET_STYLE:-classic}" = luna ] || printf '%s\n' "$import"
     [ -f "$chrome/userChrome.css" ] && grep -vxF "$import" "$chrome/userChrome.css" || true
   } >"$chrome/userChrome.css.chicago95" && mv "$chrome/userChrome.css.chicago95" "$chrome/userChrome.css"
-  if [ "${SETUP_WIDGET_STYLE:-classic}" != classic ]; then
+  if [ "${SETUP_WIDGET_STYLE:-classic}" = aero ]; then
+    put_file "$REPO/aero/firefox-controls.css" "$chrome/chicago95-controls.css"
+  elif [ "${SETUP_WIDGET_STYLE:-classic}" != classic ]; then
     rm -f "$chrome/chicago95-controls.css"
   else
     python3 "$REPO/lib/firefox_chrome.py" "$chrome/chicago95-controls.css"
@@ -2428,13 +2485,19 @@ step_fonts() { # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bar
   }
   local family="${SETUP_FONT:-MS W98 UI}" key
   if [ "${SETUP_WIDGET_STYLE:-classic}" = aero ]; then
+    if [ "${SETUP_FONT_SCOPE:-everywhere}" != none ]; then
+      put_tree "$SDDM_THEME_SRC/fonts/selawik" "$HOME/.local/share/fonts/Chicago95/Selawik"
+      put_file "$REPO/aero/fonts/58-chicago95-segoe.conf" "${XDG_CONFIG_HOME:-$HOME/.config}/fontconfig/conf.d/58-chicago95-segoe.conf"
+      run fc-cache "$HOME/.local/share/fonts/Chicago95/Selawik"
+    fi
     if [ "$family" = "MS W98 UI" ] && [ -z "${OPT_FONT:-}" ]; then
-      family=$(fc-match -f '%{family[0]}' 'Segoe UI,Noto Sans')
+      family=$(fc-match -f '%{family[0]}' 'Segoe UI,Selawik,Noto Sans')
     fi
     case "${SETUP_FONT_SCOPE:-everywhere}" in
     everywhere)
       for key in "${APP_FONT_KEYS[@]}"; do kconf kdeglobals General "$key" "$family,9,-1,5,50,0,0,0,0,0"; done
       set_gtk_font "$family 9"
+      run kwriteconfig6 --file "$HOME/.config/gtk-4.0/settings.ini" --group Settings --key gtk-font-name "$family 9"
       ;;
     esac
     [ "${SETUP_FONT_SCOPE:-everywhere}" = none ] || kconf kdeglobals WM activeFont "$family,9,-1,5,50,0,0,0,0,0"

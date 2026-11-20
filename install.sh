@@ -586,6 +586,7 @@ TO_COPY=$(
   {
     fix_font_spaces
     for component in $COMPONENTS; do declare -F "step_$component" >/dev/null && "step_$component"; done
+    step_fonts
   } >/dev/null 2>&1
   echo "$COPIED"
 )

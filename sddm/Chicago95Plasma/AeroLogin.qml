@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import org.kde.plasma.workspace.keyboardlayout as Keyboards
 import QtQuick.Controls.Basic
 
 Rectangle {
@@ -18,8 +19,15 @@ Rectangle {
     property string account: lastUser || users[0] || ""
     property bool choosing: !account
     property bool manual: false
+    property bool largeText: false
     property bool reveal: false
     property int sessionIndex: Math.max(0, lastSession)
+    readonly property string uiFamily: Qt.fontFamilies().includes("Segoe UI") ? "Segoe UI"
+        : fallbackFont.status === FontLoader.Ready ? fallbackFont.name : "sans-serif"
+    FontLoader {
+        id: fallbackFont
+        source: Qt.resolvedUrl("fonts/selawik/selawk.ttf")
+    }
     color: "#105784"
 
     function art(name) { return Qt.resolvedUrl("aero-art/" + name); }
@@ -58,16 +66,18 @@ Rectangle {
             source: page.art(control.sprite + (control.down && control.sprite !== "access-button" ? "-active" : control.hovered || control.activeFocus ? "-hover" : "") + ".svg")
         }
         contentItem: Item {
+            implicitWidth: buttonLabel.implicitWidth
             Image {
                 anchors.centerIn: parent
                 source: control.glyph ? page.art(control.glyph) : ""
             }
             Text {
+                id: buttonLabel
                 anchors.centerIn: parent
                 text: control.text
                 color: "white"
-                font.family: "Segoe UI"
-                font.pixelSize: 12
+                font.family: page.uiFamily
+                font.pixelSize: page.largeText ? 16 : 12
             }
         }
     }
@@ -107,8 +117,10 @@ Rectangle {
             color: "white"
             style: Text.Raised
             styleColor: "#344853"
-            font.family: "Segoe UI"
-            font.pixelSize: 23
+            font.family: page.uiFamily
+            font.pixelSize: page.largeText ? 30 : 23
+            width: Math.min(implicitWidth, parent.width - 32)
+            elide: Text.ElideRight
             text: page.manual ? qsTr("Other user") : page.account
         }
         Text {
@@ -121,18 +133,19 @@ Rectangle {
             style: nameLabel.style
             styleColor: nameLabel.styleColor
             font.family: nameLabel.font.family
-            font.pixelSize: 12
+            font.pixelSize: page.largeText ? 16 : 12
         }
         component CredentialField: TextField {
             id: field
             width: 225
-            height: 24
+            height: page.largeText ? 32 : 24
             color: "#171717"
             placeholderTextColor: "#555555"
             leftPadding: 6
             topPadding: 0
             bottomPadding: 0
-            font.pixelSize: 13
+            font.family: page.uiFamily
+            font.pixelSize: page.largeText ? 18 : 13
             selectByMouse: true
             background: Image { source: page.art(field.activeFocus ? "input-focus.svg" : "input.svg") }
         }
@@ -174,14 +187,15 @@ Rectangle {
             anchors.topMargin: 6
             anchors.horizontalCenter: parent.horizontalCenter
             color: "white"
-            font.pixelSize: 13
+            font.family: page.uiFamily
+            font.pixelSize: page.largeText ? 18 : 13
         }
         GlassButton {
             anchors.top: page.unlockOnly ? portrait.bottom : fields.bottom
             anchors.topMargin: page.unlockOnly ? 138 : 48
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 108
-            height: 28
+            width: Math.max(108, contentItem.implicitWidth + 20)
+            height: page.largeText ? 34 : 28
             objectName: "aeroSwitchUser"
             visible: !page.unlockOnly || page.canSwitchUser
             text: qsTr("Switch User")
@@ -224,7 +238,15 @@ Rectangle {
                     Image { anchors.centerIn: parent; width: 74; height: 74; source: tile.modelData ? "file:///var/lib/AccountsService/icons/" + encodeURIComponent(tile.modelData) : ""; fillMode: Image.PreserveAspectCrop }
                     Image { anchors.fill: parent; source: Qt.resolvedUrl("AeroPortraitFrame.svg") }
                 }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: tile.Accessible.name; color: "white"; font.pixelSize: 15 }
+                Text {
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    text: tile.Accessible.name
+                    elide: Text.ElideRight
+                    color: "white"
+                    font.family: page.uiFamily
+                    font.pixelSize: page.largeText ? 20 : 15
+                }
             }
         }
     }
@@ -242,7 +264,7 @@ Rectangle {
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            font.family: "Segoe UI"
+            font.family: page.uiFamily
             font.pixelSize: 26
             color: "white"
             text: page.brandText
@@ -250,6 +272,7 @@ Rectangle {
     }
     GlassButton {
         id: options
+        objectName: "aeroAccessibility"
         anchors.left: parent.left
         anchors.bottom: parent.bottom
         anchors.leftMargin: 34
@@ -258,13 +281,33 @@ Rectangle {
         height: 28
         sprite: "access-button"
         glyph: "12213.svg"
-        Accessible.name: qsTr("Sign-in options")
+        Accessible.name: qsTr("Ease of Access and sign-in options")
         onClicked: settings.open()
         Menu {
             id: settings
+            font.family: page.uiFamily
+            font.pixelSize: page.largeText ? 17 : 13
             y: -height
+            MenuItem {
+                objectName: "aeroLargeText"
+                text: qsTr("Make text larger")
+                checkable: true
+                checked: page.largeText
+                onTriggered: page.largeText = checked
+            }
+            MenuItem {
+                text: qsTr("On-screen keyboard")
+                enabled: Keyboards.KWinVirtualKeyboard.available
+                onTriggered: {
+                    if (page.manual && !userField.text) userField.forceActiveFocus();
+                    else password.forceActiveFocus();
+                    Keyboards.KWinVirtualKeyboard.forceActivate();
+                }
+            }
             Menu {
                 id: sessionMenu
+                font.family: page.uiFamily
+                font.pixelSize: page.largeText ? 17 : 13
                 title: qsTr("Session")
                 enabled: page.sessions.length > 1
                 Instantiator {
@@ -322,6 +365,8 @@ Rectangle {
             onClicked: powerMenu.open()
             Menu {
                 id: powerMenu
+                font.family: page.uiFamily
+                font.pixelSize: page.largeText ? 17 : 13
                 objectName: "aeroPowerMenu"
                 y: -height
                 x: powerOptions.width - width

@@ -55,7 +55,7 @@ PlasmoidItem {
         height: parent.height
         active: root.isAero
         source: Qt.resolvedUrl("aero/Clock.qml")
-        onLoaded: face.showDesktop.connect(() => runner.connectSource(root.showDesktopCommand))
+        onLoaded: face.openSettings.connect(() => runner.connectSource("systemd-run --user --quiet --collect kcmshell6 kcm_clock"))
     }
     Binding {
         target: aeroClock.item
@@ -67,7 +67,6 @@ PlasmoidItem {
         property: "hourFormat"
         value: Plasmoid.configuration.hourFormat
     }
-    readonly property string showDesktopCommand: "systemd-run --user --quiet --collect gdbus call --session --dest org.kde.kglobalaccel --object-path /component/kwin --method org.kde.kglobalaccel.Component.invokeShortcut 'Show Desktop'"
 
     Text {
         id: clockText
@@ -110,6 +109,7 @@ PlasmoidItem {
     MouseArea {
         width: root.isAero && aeroClock.face ? root.cellWidth - aeroClock.face.stripWidth : root.width
         height: parent.height
-        onDoubleClicked: runner.connectSource("systemd-run --user --quiet --collect kcmshell6 kcm_clock")
+        onClicked: if (root.isAero) aeroClock.face?.toggleCalendar()
+        onDoubleClicked: if (!root.isAero) runner.connectSource("systemd-run --user --quiet --collect kcmshell6 kcm_clock")
     }
 }

@@ -893,14 +893,38 @@ def build_luna_menu():
 def build_menu():
     if banner_settings()["style"] == "aero":
         from chicago95aeromenu import AeroMenu
+        from chicago95update import read_settings
 
         user = getpass.getuser()
+        explorer = read_settings(SETTINGS_FILE.parent / "chicago95/setup.conf").get("EXPLORER", "thunar")
+        computer = (
+            ["thunar", "computer:///"] if explorer == "thunar" and shutil.which("thunar") else ["dolphin", "computer:/"]
+        )
         commands = {
             **luna_commands(),
+            "my_computer": computer,
+            "defaults": ["kcmshell6", "kcm_componentchooser"],
+            "games": {"open_group": "Games"},
+            "switch_user": [SHUTDOWN_TOOL, "--switch-user"],
+            "sleep": ["systemctl", "suspend"],
+            "hibernate": ["systemctl", "hibernate"],
             "shut_down": [SHUTDOWN_TOOL, "--power-off"],
             "home": ["xdg-open", str(Path.home())],
             "lock": ["loginctl", "lock-session"],
             "restart": [SHUTDOWN_TOOL, "--restart"],
+        }
+        login_manager = ("org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager")
+        seat = os.environ.get("XDG_SEAT_PATH", "/org/freedesktop/DisplayManager/Seat0")
+        probes = {
+            "sleep": (*login_manager, "CanSuspend", []),
+            "hibernate": (*login_manager, "CanHibernate", []),
+            "switch_user": (
+                "org.freedesktop.DisplayManager",
+                seat,
+                "org.freedesktop.DBus.Properties",
+                "Get",
+                ["org.freedesktop.DisplayManager.Seat", "CanSwitch"],
+            ),
         }
         return AeroMenu(
             collect_applications(),
@@ -909,6 +933,11 @@ def build_menu():
             commands,
             user,
             chicago95ui.user_picture_path(Path.home(), user, chicago95ui.ACCOUNTS_ICONS),
+            usage_path=CACHE_FILE.with_name("aero-usage.ini"),
+            folder_for=folder_for,
+            power_probes=probes,
+            recent_files=recent_documents(),
+            search_tool=shutil.which("baloosearch6"),
         )
     return build_luna_menu() if is_luna_menu() else build_root_menu()
 

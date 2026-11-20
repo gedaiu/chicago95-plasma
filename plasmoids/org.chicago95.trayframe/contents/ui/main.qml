@@ -103,6 +103,12 @@ PlasmoidItem {
         return own.concat(...Array.from(item.children, child => plasmaIcons(child, depth + 1)));
     }
     function restyleAeroArrow(arrow) {
+        let host = arrow;
+        while (host && !host.hiddenLayout) host = host.parent;
+        if (overflow.item && host) {
+            overflow.item.tray = host;
+            overflow.item.fitDelegates();
+        }
         const icons = plasmaIcons(arrow, 0);
         icons.forEach(icon => icon.visible = false);
         const open = icons.some(icon => String(icon.source).indexOf("down") >= 0 && Math.abs(icon.rotation) < 90);
@@ -247,6 +253,12 @@ PlasmoidItem {
         const origin = root.mapToItem(null, 0, 0).x;
         boxLeft = firstX - arrowWidth - boxPadding - origin;
         boxRight = (clockItem ? clockX + clockItem.width : clockX) - origin + panelEndInset;
+    }
+
+    Loader {
+        id: overflow
+        active: root.isAero
+        source: active ? Qt.resolvedUrl("aero/Overflow.qml") : ""
     }
 
     Timer {

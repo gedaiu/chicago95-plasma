@@ -47,6 +47,7 @@ def test_components_for_login_style_logo_and_edition_are_startmenu_splash_plymou
     dialog, whose branding the Start menu step writes."""
     assert control_panel.components_for(["LOGIN_STYLE", "LOGIN_LOGO", "EDITION"]) == [
         "startmenu",
+        "lockscreen",
         "splash",
         "plymouth",
         "sddm",

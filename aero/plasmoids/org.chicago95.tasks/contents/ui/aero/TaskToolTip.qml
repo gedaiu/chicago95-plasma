@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import org.kde.plasma.workspace.dbus as DBus
 import QtQuick.Window
 import org.kde.kirigami as Kirigami
 import org.kde.pipewire as PipeWire
@@ -18,6 +19,16 @@ Rectangle {
     signal chooseWindow(int row)
     signal closeWindow(int row)
 
+    property string highlightedId: ""
+    function highlight(uuid) {
+        if (highlightedId === uuid) return;
+        highlightedId = uuid;
+        DBus.SessionBus.asyncCall({service: "org.kde.KWin.HighlightWindow", path: "/org/kde/KWin/HighlightWindow",
+            iface: "org.kde.KWin.HighlightWindow", member: "highlightWindows",
+            signature: "(as)", arguments: [uuid ? [uuid] : []]});
+    }
+    onVisibleChanged: if (!visible) highlight("")
+    Component.onDestruction: highlight("")
     readonly property int cardWidth: Math.max(140, previewSize + 8)
     readonly property bool listMode: previewSize <= 0 || ids.length * cardWidth > Screen.desktopAvailableWidth - 32
     readonly property int cardHeight: listMode ? 27 : 30 + Math.round(previewSize * 0.65)
@@ -71,7 +82,15 @@ Rectangle {
             height: tip.cardHeight
             radius: 3
             color: target.containsMouse ? "#527cadce" : "transparent"
-            HoverHandler { id: hover }
+            HoverHandler {
+                id: hover
+                onHoveredChanged: if (!hovered && tip.highlightedId === String(card.modelData)) tip.highlight("")
+            }
+            Timer {
+                interval: 400
+                running: hover.hovered && tip.visible && tip.host?.visible === true
+                onTriggered: tip.highlight(String(card.modelData))
+            }
             Kirigami.Icon {
                 x: 6
                 y: 4

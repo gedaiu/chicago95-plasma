@@ -2,9 +2,23 @@
 
 import ctypes
 import functools
+from pathlib import Path
 
-from PySide6.QtCore import QAbstractListModel, QPoint, QRectF, QSignalBlocker, QSize, Qt, QTimer
-from PySide6.QtDBus import QDBusConnection
+import chicago95animations
+from PySide6.QtCore import (
+    QAbstractListModel,
+    QEvent,
+    QPoint,
+    QProcess,
+    QPropertyAnimation,
+    QRectF,
+    QSettings,
+    QSignalBlocker,
+    QSize,
+    Qt,
+    QTimer,
+)
+from PySide6.QtDBus import QDBusConnection, QDBusMessage, QDBusPendingCallWatcher, QDBusVariant
 from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPainterPath, QPixmap, QRegion
 from PySide6.QtWidgets import (
     QFrame,
@@ -113,12 +127,43 @@ class ProgramModel(QAbstractListModel):
 
 
 class AeroMenu(QWidget):
-    def __init__(self, apps, launch, icon, commands, user, picture=None):
+    def __init__(
+        self,
+        apps,
+        launch,
+        icon,
+        commands,
+        user,
+        picture=None,
+        *,
+        usage_path=None,
+        folder_for=None,
+        search_tool=None,
+        recent_files=(),
+        power_probes=None,
+    ):
         super().__init__(None, Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setWindowTitle("chicago95-startmenu-root")
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setFixedSize(411, 498)
         self.apps = sorted(apps, key=lambda entry: entry["name"].casefold())
+        self.usage = QSettings(str(usage_path), QSettings.IniFormat) if usage_path else None
+        self.groups = {}
+        self.ungrouped = []
+        for app in self.apps:
+            if folder_for and app.get("categories"):
+                self.groups.setdefault(folder_for(app), []).append(app)
+            else:
+                self.ungrouped.append(app)
+        self.open_folders = set()
+        self.search_tool = search_tool
+        self.recent_files = recent_files
+        self.search_process = None
+        self.search_delay = QTimer(self)
+        self.search_delay.setSingleShot(True)
+        self.search_delay.setInterval(150)
+        self.search_delay.timeout.connect(self.find_files)
+        self.fade = QPropertyAnimation(self, b"windowOpacity", self)
         self.launch = launch
         self.all_programs = False
         frame = QFrame(self)
@@ -147,13 +192,17 @@ class AeroMenu(QWidget):
         scroll_style.setParent(scrollbar)
         scrollbar.setStyle(scroll_style)
         self.list.clicked.connect(self.open_item)
-        self.list.activated.connect(self.open_item)
+        self.list.installEventFilter(self)
         programs.addWidget(self.list)
         self.toggle = QPushButton("▸   All Programs")
         self.toggle.clicked.connect(self.toggle_programs)
         programs.addWidget(self.toggle)
         self.search = QLineEdit()
         self.search.setPlaceholderText("Search programs and files")
+        self.search.addAction(
+            QIcon.fromTheme("edit-find", self.style().standardIcon(QStyle.SP_FileDialogContentsView)),
+            QLineEdit.TrailingPosition,
+        )
         self.search.textChanged.connect(self.populate)
         self.search.returnPressed.connect(self.open_first)
         programs.addWidget(self.search)
@@ -167,9 +216,11 @@ class AeroMenu(QWidget):
             ("Documents", "my_documents"),
             ("Pictures", "my_pictures"),
             ("Music", "my_music"),
+            ("Games", "games"),
             ("Computer", "my_computer"),
             ("Control Panel", "control_panel"),
             ("Devices and Printers", "printers"),
+            ("Default Programs", "defaults"),
             ("Help and Support", "help"),
         ]
         for title, command in places:
@@ -196,9 +247,20 @@ class AeroMenu(QWidget):
         arrow.setGeometry(71, 0, 23, 22)
         arrow.setAccessibleName("Shut-down options")
         options = QMenu(self)
-        for label, key in [("Log off", "log_off"), ("Lock", "lock"), ("Restart", "restart")]:
+        for label, key in [
+            ("Switch user", "switch_user"),
+            ("Log off", "log_off"),
+            ("Lock", "lock"),
+            ("Restart", "restart"),
+            ("Sleep", "sleep"),
+            ("Hibernate", "hibernate"),
+        ]:
             if key in commands:
-                options.addAction(label, functools.partial(self.run, commands[key]))
+                if key in ("restart", "sleep") and options.actions():
+                    options.addSeparator()
+                action = options.addAction(label, functools.partial(self.run, commands[key]))
+                if power_probes and key in power_probes:
+                    self.check_capability(action, *power_probes[key])
         arrow.clicked.connect(
             lambda: options.popup(
                 arrow.mapToGlobal(QPoint(arrow.width(), arrow.height() - options.sizeHint().height()))
@@ -241,8 +303,35 @@ class AeroMenu(QWidget):
         self.populate()
         self.search.setFocus()
 
+    def check_capability(self, action, service, path, interface, method, arguments):
+        action.setVisible(False)
+        request = QDBusMessage.createMethodCall(service, path, interface, method)
+        request.setArguments(arguments)
+        watcher = QDBusPendingCallWatcher(QDBusConnection.systemBus().asyncCall(request, 1500), self)
+
+        def finished():
+            reply = watcher.reply()
+            if reply.type() == QDBusMessage.ReplyMessage and reply.arguments():
+                value = reply.arguments()[0]
+                if isinstance(value, QDBusVariant):
+                    value = value.variant()
+                action.setVisible(value is True or value in ("yes", "challenge"))
+            watcher.deleteLater()
+
+        watcher.finished.connect(finished)
+
     def showEvent(self, event):
         super().showEvent(event)
+        if self.usage and not self.all_programs and not self.search.text():
+            self.populate()
+        motion, duration = chicago95animations.own_animation(
+            chicago95animations.live_state(), "ANIM_MENUS", "fade", 120
+        )
+        if motion in ("both", "fade") and QGuiApplication.platformName() != "offscreen":
+            self.fade.setDuration(duration)
+            self.fade.setStartValue(0.0)
+            self.fade.setEndValue(1.0)
+            self.fade.start()
         if QGuiApplication.platformName() in ("wayland", "xcb"):
             enable = blur_behind_function()
             if enable is not None and self.windowHandle() is not None:
@@ -255,6 +344,9 @@ class AeroMenu(QWidget):
         QDBusConnection.sessionBus().registerService("org.chicago95.StartMenuOpen")
 
     def hideEvent(self, event):
+        self.stop_search()
+        self.fade.stop()
+        self.setWindowOpacity(1.0)
         QDBusConnection.sessionBus().unregisterService("org.chicago95.StartMenuOpen")
         super().hideEvent(event)
 
@@ -268,14 +360,84 @@ class AeroMenu(QWidget):
         query = self.search.text().casefold().strip()
         expanded = self.all_programs or bool(query)
         self.toggle.setText("◂   Back" if self.all_programs else "▸   All Programs")
-        entries = self.apps if expanded else self.apps[:10]
+        self.stop_search()
         if query:
-            entries = [app for app in entries if query in app["name"].casefold()]
+            entries = [app for app in self.apps if query in app["name"].casefold()]
+            entries.extend(self.file_entry(path) for path in self.recent_files if query in Path(path).name.casefold())
+            if self.search_tool:
+                self.search_delay.start()
+        elif self.all_programs:
+            entries = list(self.ungrouped)
+            for folder, children in sorted(self.groups.items()):
+                entries.append(
+                    {
+                        "name": folder,
+                        "folder": folder,
+                        "icon": "folder-open" if folder in self.open_folders else "folder",
+                    }
+                )
+                if folder in self.open_folders:
+                    entries.extend(children)
+        else:
+            entries = self.apps
+            if self.usage:
+                entries = sorted(entries, key=lambda app: -self.usage.value(app["path"], 0, type=int))
+            entries = entries[:10]
         side = 16 if expanded else 32
         self.list.setIconSize(QSize(side, side))
         self.model.show_entries(entries, max(side, self.list.fontMetrics().height()) + 3)
         self.list.setCurrentIndex(self.model.index(0))
         self.list.scrollToTop()
+
+    def stop_search(self):
+        self.search_delay.stop()
+        if self.search_process:
+            process = self.search_process
+            self.search_process = None
+            process.kill()
+
+    @staticmethod
+    def file_entry(path):
+        return {"name": Path(path).name, "file": str(path), "icon": "text-x-generic"}
+
+    def find_files(self):
+        query = self.search.text().strip()
+        process = QProcess(self)
+        self.search_process = process
+
+        def finished():
+            if self.search_process is process:
+                self.search_process = None
+                known = {entry.get("file") for entry in self.model.entries}
+                files = []
+                for path in bytes(process.readAllStandardOutput()).decode(errors="replace").splitlines():
+                    if Path(path).is_absolute() and path not in known and Path(path).exists():
+                        files.append(self.file_entry(path))
+                        known.add(path)
+                if files:
+                    first = len(self.model.entries)
+                    self.model.beginInsertRows(self.list.rootIndex(), first, first + len(files) - 1)
+                    self.model.entries.extend(files)
+                    self.model.endInsertRows()
+                    if first == 0:
+                        self.list.setCurrentIndex(self.model.index(0))
+            process.deleteLater()
+
+        def failed(error):
+            if error == QProcess.FailedToStart:
+                if self.search_process is process:
+                    self.search_process = None
+                process.deleteLater()
+
+        process.errorOccurred.connect(failed)
+        process.finished.connect(finished)
+        process.start(self.search_tool, ["--limit", "30", "--", "filename:" + query])
+
+    def eventFilter(self, watched, event):
+        if watched is self.list and event.type() == QEvent.KeyPress and event.key() in (Qt.Key_Return, Qt.Key_Enter):
+            self.open_first()
+            return True
+        return super().eventFilter(watched, event)
 
     def open_item(self, index):
         if index.isValid() and self.isVisible():
@@ -287,6 +449,30 @@ class AeroMenu(QWidget):
             self.run(index.data(Qt.UserRole))
 
     def run(self, target):
+        if isinstance(target, dict):
+            if group := target.get("open_group"):
+                self.all_programs = True
+                self.open_folders.add(group)
+                with QSignalBlocker(self.search):
+                    self.search.clear()
+                self.populate()
+                for index, entry in enumerate(self.model.entries):
+                    if entry.get("folder") == group:
+                        self.list.setCurrentIndex(self.model.index(index))
+                        self.list.scrollTo(self.model.index(index), QListView.PositionAtTop)
+                        break
+                return
+            if folder := target.get("folder"):
+                self.open_folders.symmetric_difference_update({folder})
+                self.populate()
+                row = next(i for i, entry in enumerate(self.model.entries) if entry.get("folder") == folder)
+                self.list.setCurrentIndex(self.model.index(row))
+                return
+            if "file" in target:
+                target = ["xdg-open", target["file"]]
+            elif self.usage and "path" in target:
+                key = target["path"]
+                self.usage.setValue(key, self.usage.value(key, 0, type=int) + 1)
         self.hide()
         self.launch(target)
 

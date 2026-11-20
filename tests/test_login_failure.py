@@ -138,3 +138,24 @@ def test_aero_power_arrow_opens_the_menu_without_requesting_shutdown(qt_app, tmp
         assert requests == ["Restart"]
         QTest.mouseClick(view, Qt.LeftButton, pos=shutdown.mapToScene(QPointF(19, 14)).toPoint())
         assert requests == ["Restart", "Power off"]
+
+
+def test_aero_ease_of_access_enlarges_the_credentials_without_submitting(qt_app, tmp_path):
+    with login_view(qt_app, tmp_path, size=(1024, 768), loginStyle="aero") as view:
+        password = child(view, "aeroPassword")
+        from PySide6.QtGui import QFontDatabase
+
+        expected = "Segoe UI" if "Segoe UI" in QFontDatabase.families() else "Selawik"
+        assert password.property("font").family() == expected
+        switch = child(view, "aeroSwitchUser")
+        before = password.height()
+        normal_switch = view.grabWindow().copy(switch.mapRectToScene(switch.boundingRect()).toRect())
+        options = child(view, "aeroAccessibility")
+        QTest.mouseClick(view, Qt.LeftButton, pos=options.mapToScene(QPointF(10, 10)).toPoint())
+        QTest.keyClick(view, Qt.Key_Down)
+        QTest.keyClick(view, Qt.Key_Return)
+        QTest.qWait(100)
+        assert password.height() > before
+        large_switch = view.grabWindow().copy(switch.mapRectToScene(switch.boundingRect()).toRect())
+        assert large_switch.height() > normal_switch.height()
+        assert large_switch.scaled(normal_switch.size()) != normal_switch

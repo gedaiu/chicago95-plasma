@@ -1,8 +1,8 @@
 # Aero
 
 The Windows 7 preset selects the Aero window frames, superbar, two-column Start menu, application controls,
-Windows 7 icons, SDDM sign-in and boot screen. The launcher searches installed applications and opens the selected
-entry on Enter. The default icon set comes from [B00merang Artwork](https://github.com/B00merang-Artwork/Windows-7).
+Windows 7 icons, SDDM sign-in and boot screen. The launcher ranks programs by use, groups All Programs into folders and searches applications and files.
+File results use the Baloo index when available and the recent-document history as a fallback. The default icon set comes from [B00merang Artwork](https://github.com/B00merang-Artwork/Windows-7).
 Qt 6 applications use [AeroThemePlasma's Kvantum theme](https://github.com/aeroshell-desktop/aerothemeplasma/tree/Plasma/6.8/misc/kvantum/Windows7Aero)
 when Kvantum is installed. Setup uses Fusion otherwise.
 
@@ -130,16 +130,18 @@ Windows 7 pixel for pixel: the bar, the orb, the pinned slots and their pitch, a
   frame cannot know where it lies on the screen, so window frames have none; Windows 7's afterglow, which follows the
   background's brightness, needs a compositor shader.
 - **Aurorae title glow.** The Aero decoration centres the window icon beside the black lettering and draws a soft white glow behind the caption. Systems without the Aurorae QML renderer or Qt graphical effects use the SVG decoration alone.
-- **Superbar menus.** The window picker shows each grouped window using Plasma’s screencast stream. Application-specific jump lists are unavailable.
+- **Superbar menus.** The window picker shows each grouped window using Plasma’s screencast stream. Jump Lists use actions from the application’s desktop entry and documents associated with that application in the recent-file history.
 - **Paging arrow size.** No reference shows the superbar's arrows, so they are 17 wide (Windows' scroll bar width)
   and half the bar tall each, placed one gap after the page's last button.
 - **Unlocked taskbar.** No lossless reference shows one. Windows 7's documentation places the grip left of the
   pinned programs; that the band moves by the gripper's own width is assumed.
 - **Tray icon count.** The darkening's shift with the hidden-icons button is measured; how it moves with the
   number of icons is not, as both references hold three.
-- **The hidden-icons popup** is still Plasma's own, unstyled.
+- **Hidden icons.** The Aero overflow arranges Plasma’s tray items in a compact grid. Individual tray applications supply their own menus.
 
-### Icons, cursors and event sounds
+### Fonts, icons, cursors and event sounds
+
+Setup prefers an installed Segoe UI for Aero and supplies regular and bold Selawik as a fallback. [Microsoft Selawik release](https://github.com/microsoft/Selawik/releases/tag/1.01) · [Bundled font license](../sddm/Chicago95Plasma/fonts/selawik/LICENSE.txt)
 
 The Windows 7 preset uses the [B00merang Windows 7 icon theme](https://github.com/B00merang-Artwork/Windows-7), with KDE application IDs mapped to the corresponding icons. Setup uses Pillow and Potrace to build Windows-7-SVG from the icon pack, trace the embedded control artwork in Kvantum and supply KDE scalable cursor frames with the original hotspots and animation delays. Setup downloads the default white [Aero cursor port](https://github.com/lLexian/Windows-7-Aero-Cursors_Linux) and maps the [Windows 7 sound collection](https://github.com/Pendrag00n/Windows7Sounds) to desktop event names. The cursor port credits separate artwork for the open and closed hand. The cursor and sound archives are pinned by revision and SHA-256 and cached for reinstalls.
 

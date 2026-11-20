@@ -392,3 +392,65 @@ def test_tray_tooltip_is_legible_after_hovering_a_glass_task_preview(desktops, t
     luminance = linear @ [0.2126, 0.7152, 0.0722]
     ink, fill = np.percentile(luminance, [5, 75])
     assert (fill + 0.05) / (ink + 0.05) >= 7
+
+
+def test_single_click_on_the_clock_opens_the_calendar_above_the_clock(desktops, desktop, tmp_path):
+    import numpy as np
+
+    opened = desktops("luna", **reference_session(pointer_steps=["move:975,748", "click:left", "wait:0.6"]))
+    opened.save(tmp_path / "calendar.png")
+    # The stock reference desktop is blue. The calendar and clock share a light flyout above the panel.
+    ours = np.asarray(opened, dtype=int)
+    baseline = np.asarray(desktop, dtype=int)
+    region = ours[420:728, 560:]
+    changed = np.max(np.abs(region - baseline[420:728, 560:]), axis=2) > 35
+    assert (changed & (region.min(axis=2) > 180)).sum() > 30000
+
+
+def test_hidden_icons_open_in_a_compact_popup(hidden_icons_open, tmp_path):
+    import numpy as np
+
+    hidden_icons_open.save(tmp_path / "overflow.png")
+    # A single hidden item takes a small grid. A stock Plasma popup is 24 grid units wide.
+    frame = np.asarray(hidden_icons_open)
+    bright = frame[305:727, 480:].min(axis=2) > 209
+    widths = bright.sum(axis=1)
+    assert 45 <= widths.max() <= 250
+
+
+def test_leaving_show_desktop_restores_the_visible_window(desktops):
+    import numpy as np
+
+    # Hold a real window over the solid blue background and hover the strip without clicking.
+    settings = {"windows": [("Peek test", "qt", (130, 150, 540, 390))]}
+    hover = ["move:1016,747", "wait:1"]
+    during = desktops("luna", **reference_session(**settings, pointer_steps=hover))
+    after = desktops("luna", **reference_session(**settings, pointer_steps=hover + ["move:650,480", "wait:1"]))
+    wallpaper = np.asarray(after)[60, 650]
+    for image, fraction in ((during, 0.95), (after, 0.05)):
+        match = (np.asarray(image)[210:310, 210:420] == wallpaper).all(axis=2).mean()
+        assert match > fraction if image is during else match < fraction
+
+
+def test_pinned_program_context_menu_contains_its_desktop_action(desktops, monkeypatch, tmp_path):
+    import numpy as np
+    import plasma_session
+
+    original = plasma_session.desktop_file
+
+    def with_action(folder, name, title, icon, extra=""):
+        if name == "c95-launcher-0":
+            extra += (
+                "Actions=Compose;\n[Desktop Action Compose]\n"
+                "Name=Compose a new message in this application\nExec=true\n"
+            )
+        return original(folder, name, title, icon, extra)
+
+    monkeypatch.setattr(plasma_session, "desktop_file", with_action)
+    opened = desktops(
+        "luna", **reference_session(launchers=2, pointer_steps=["move:89,748", "click:right", "wait:1.2"])
+    )
+    opened.save(tmp_path / "jump-list.png")
+    # The application's long action label makes the menu wider than the built-in Unpin action.
+    rows = (np.asarray(opened)[640:730, :600].min(axis=2) > 160).sum(axis=1)
+    assert rows.max() > 245

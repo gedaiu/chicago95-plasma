@@ -38,3 +38,25 @@ def test_preview_close_targets_the_hovered_window_without_activating_it(qt_app):
     QTest.mouseClick(view, Qt.LeftButton, Qt.NoModifier, point)
     assert closed.count() == 1 and closed.at(0) == [1] and selected.count() == 0
     view.close()
+
+
+def test_thumbnail_hover_selects_then_releases_the_window_for_peek(qt_app):
+    view = QQuickView()
+    view.setSource(
+        QUrl.fromLocalFile(str(REPO / "aero/plasmoids/org.chicago95.tasks/contents/ui/aero/TaskToolTip.qml"))
+    )
+    tip = view.rootObject()
+    tip.setProperty("ids", ["first", "second"])
+    view.resize(148, 62)
+    view.show()
+    try:
+        assert QTest.qWaitForWindowExposed(view)
+        QTest.mouseMove(view, QPoint(1, 1))
+        QTest.mouseMove(view, QPoint(60, 43))
+        QTest.qWait(550)
+        assert tip.property("highlightedId") == "second"
+        QTest.mouseMove(view, QPoint(1, 1))
+        QTest.qWait(50)
+        assert tip.property("highlightedId") == ""
+    finally:
+        view.close()

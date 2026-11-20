@@ -5,14 +5,16 @@ from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QToolButton, QWidget
 
 
-def paint_balloon(painter, size, _dpr, _palette):
+def paint_balloon(painter, size, _dpr, _palette, anchor=None):
     w, bottom = size.width() - 3, size.height() - 17
     shape = QPainterPath()
     shape.addRoundedRect(QRectF(0.5, 0.5, w, bottom), 4, 4)
     tail = QPainterPath()
-    tail.moveTo(w - 35, bottom - 1)
-    tail.lineTo(w - 17, bottom + 15)
-    tail.lineTo(w - 17, bottom - 1)
+    tip = w - 17 if anchor is None else max(6, min(w - 6, anchor))
+    base = tip - 18 if tip > w / 2 else tip + 18
+    tail.moveTo(base, bottom - 1)
+    tail.lineTo(tip, bottom + 15)
+    tail.lineTo(tip, bottom - 1)
     tail.closeSubpath()
     shape = shape.united(tail)
     painter.setRenderHint(QPainter.Antialiasing)

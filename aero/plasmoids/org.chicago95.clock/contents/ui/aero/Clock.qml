@@ -1,4 +1,6 @@
 import QtQuick
+import org.kde.kwindowsystem
+import org.kde.plasma.core as PlasmaCore
 import org.kde.ksvg as KSvg
 import "../clockFormat.js" as ClockFormat
 
@@ -8,7 +10,26 @@ Item {
     id: clock
     property date now: new Date()
     property string hourFormat: ""
-    signal showDesktop
+    signal openSettings
+    function toggleCalendar() {
+        if (!popup.visible) calendar.month = new Date(now.getFullYear(), now.getMonth(), 1);
+        popup.visible = !popup.visible;
+    }
+    PlasmaCore.Dialog {
+        id: popup
+        visualParent: clock
+        location: PlasmaCore.Types.BottomEdge
+        flags: Qt.Popup
+        hideOnWindowDeactivate: true
+        visible: false
+        mainItem: CalendarFlyout {
+            id: calendar
+            width: implicitWidth
+            height: implicitHeight
+            now: clock.now
+            onSettingsRequested: { popup.visible = false; clock.openSettings(); }
+        }
+    }
 
     readonly property int stripWidth: 15
     readonly property int textWidth: width - stripWidth
@@ -46,7 +67,31 @@ Item {
             id: strip
             anchors.fill: parent
             hoverEnabled: true
-            onClicked: clock.showDesktop()
+            property bool peeking: false
+            Timer {
+                interval: 500
+                id: peekDelay
+                onTriggered: {
+                    if (!KWindowSystem.showingDesktop) {
+                        strip.peeking = true;
+                        KWindowSystem.showingDesktop = true;
+                    }
+                }
+            }
+            function releasePeek() {
+                if (peeking) {
+                    peeking = false;
+                    KWindowSystem.showingDesktop = false;
+                }
+            }
+            onEntered: peekDelay.restart()
+            onPressed: peekDelay.stop()
+            onExited: { peekDelay.stop(); releasePeek(); }
+            Component.onDestruction: releasePeek()
+            onClicked: {
+                if (!peeking) KWindowSystem.showingDesktop = !KWindowSystem.showingDesktop;
+                peeking = false;
+            }
         }
     }
 }

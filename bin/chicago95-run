@@ -45,10 +45,12 @@ RunLayout = namedtuple(
 # 3px frame and 29px title) is 341x154 with the icon at 11,19, the text from 54,20, "Open:" at 11,66, the field at 54,60
 # and the buttons 114 rows down.
 LAYOUTS = {
+    "aero": RunLayout((383, 160), (12, 17), (58, 18), (12, 67), (58, 62), 312, 23, 119, (128, 210, 292), 0, 40),
     "classic": RunLayout((341, 139), (13, 15), (56, 17), (11, 66), (54, 61), 275, 21, 103, (93, 174, 255), 1, 30),
     "luna": RunLayout((341, 154), (11, 19), (54, 20), (11, 66), (54, 60), 275, 21, 114, (93, 174, 255), 0, 40),
 }
 PROMPTS = {
+    "aero": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
     "1995": "Type the name of a program, folder, or document, and {os} will open it for you.",
     "1998": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
     "2000": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
@@ -57,11 +59,17 @@ PROMPTS = {
 
 
 def layout_key(look):
-    return "luna" if look["widgetStyle"] in ("luna", "aero") else "classic"
+    return look["widgetStyle"] if look["widgetStyle"] in ("luna", "aero") else "classic"
 
 
 def prompt_key(look):
-    return "luna" if look["widgetStyle"] in ("luna", "aero") else look["style"] if look["style"] in PROMPTS else "1995"
+    return (
+        look["widgetStyle"]
+        if look["widgetStyle"] in ("luna", "aero")
+        else look["style"]
+        if look["style"] in PROMPTS
+        else "1995"
+    )
 
 
 def read_history(path=None):

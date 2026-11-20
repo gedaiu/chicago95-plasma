@@ -46,9 +46,10 @@ Item {
     readonly property color dark: look === "2000" ? "#404040" : "#000000"
     readonly property color navy: "#000080"
 
+    readonly property bool aero: look === "aero"
     readonly property bool luna: look === "luna"
 
-    width: luna && lunaLoader.item ? lunaLoader.item.width : previews ? 2 * (frame + sidePad) + rowWidth : classicWidth
+    width: luna && lunaLoader.item ? lunaLoader.item.width : previews ? 2 * (frame + sidePad) + rowWidth : aero ? rowWidth + 2 * sidePad : classicWidth
     height: luna && lunaLoader.item ? lunaLoader.item.height : frame + topPad + rows * cellHeight + captionGap + captionHeight + bottomPad + frame
 
     Loader {
@@ -71,23 +72,40 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            color: box.face
+            visible: box.aero
+            radius: 7
+            border.color: "#536a79"
+            gradient: Gradient {
+                GradientStop { position: 0; color: "#e1bad5e8" }
+                GradientStop { position: 0.48; color: "#db88a7ba" }
+                GradientStop { position: 1; color: "#db58778d" }
+            }
+            Rectangle { anchors.fill: parent; anchors.margins: 1; radius: 6; color: "transparent"; border.color: "#baffffff" }
         }
-        // Raised frame: light and white along the top and left, dark and shadow along the bottom and right.
-        Rectangle { x: 0; y: 0; width: parent.width - 1; height: 1; color: box.light }
-        Rectangle { x: 0; y: 0; width: 1; height: parent.height - 1; color: box.light }
-        Rectangle { x: 1; y: 1; width: parent.width - 3; height: 1; color: "#FFFFFF" }
-        Rectangle { x: 1; y: 1; width: 1; height: parent.height - 3; color: "#FFFFFF" }
-        Rectangle { x: 0; y: parent.height - 1; width: parent.width; height: 1; color: box.dark }
-        Rectangle { x: parent.width - 1; y: 0; width: 1; height: parent.height; color: box.dark }
-        Rectangle { x: 1; y: parent.height - 2; width: parent.width - 2; height: 1; color: box.shadow }
-        Rectangle { x: parent.width - 2; y: 1; width: 1; height: parent.height - 2; color: box.shadow }
+        Item {
+            anchors.fill: parent
+            visible: !box.aero
+            Rectangle {
+                anchors.fill: parent
+                color: box.face
+            }
+            // Raised frame: light and white along the top and left, dark and shadow along the bottom and right.
+            Rectangle { x: 0; y: 0; width: parent.width - 1; height: 1; color: box.light }
+            Rectangle { x: 0; y: 0; width: 1; height: parent.height - 1; color: box.light }
+            Rectangle { x: 1; y: 1; width: parent.width - 3; height: 1; color: "#FFFFFF" }
+            Rectangle { x: 1; y: 1; width: 1; height: parent.height - 3; color: "#FFFFFF" }
+            Rectangle { x: 0; y: parent.height - 1; width: parent.width; height: 1; color: box.dark }
+            Rectangle { x: parent.width - 1; y: 0; width: 1; height: parent.height; color: box.dark }
+            Rectangle { x: 1; y: parent.height - 2; width: parent.width - 2; height: 1; color: box.shadow }
+            Rectangle { x: parent.width - 2; y: 1; width: 1; height: parent.height - 2; color: box.shadow }
+
+        }
 
         GridView {
             id: grid
             // A single row sits centred; rows that wrap start at the left pad, as the originals' did.
             x: box.rows === 1 ? Math.floor((box.width - box.rowWidth) / 2) : box.frame + box.sidePad
-            y: box.frame + box.topPad
+            y: box.aero ? box.captionHeight + 7 : box.frame + box.topPad
             width: box.rowWidth
             height: box.rows * box.cellHeight
             cellWidth: box.cellWidth
@@ -108,9 +126,10 @@ Item {
                 // The chosen window's 1px navy frame on the cell's edge.
                 Rectangle {
                     anchors.fill: parent
-                    color: "transparent"
+                    color: box.aero ? "#689bd4f4" : "transparent"
                     border.width: 1
-                    border.color: box.navy
+                    border.color: box.aero ? "#eefaff" : box.navy
+                    radius: box.aero ? 4 : 0
                     visible: cell.chosen
                 }
                 Kirigami.Icon {
@@ -154,9 +173,26 @@ Item {
             }
         }
 
+        Text {
+            visible: box.aero
+            anchors.top: parent.top
+            anchors.topMargin: 8
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: parent.width - 24
+            horizontalAlignment: Text.AlignHCenter
+            text: grid.currentItem ? grid.currentItem.model.caption : ""
+            font.family: "Segoe UI"
+            font.pixelSize: 13
+            color: "#111820"
+            style: Text.Raised
+            styleColor: "#daffffff"
+            elide: Text.ElideRight
+        }
+
         // The chosen window's title, bold, in a sunken field on the face under the grid.
         Item {
             id: caption
+            visible: !box.aero
             x: box.captionInset
             y: grid.y + grid.height + box.captionGap
             width: box.width - 2 * box.captionInset

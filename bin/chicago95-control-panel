@@ -49,6 +49,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtQuickWidgets import QQuickWidget
 from PySide6.QtWidgets import (
+    QApplication,
     QButtonGroup,
     QCheckBox,
     QColorDialog,
@@ -157,7 +158,7 @@ COMPONENTS_BY_KEY = {
     "START_LOGO": ("taskbar", "startmenu"),
     "SAVER": ("screensaver",),
     "IDLE_MIN": ("screensaver",),
-    "LOGIN_STYLE": ("splash", "sddm"),
+    "LOGIN_STYLE": ("splash", "sddm", "lockscreen"),
     # The Shut Down dialog's banner reads them from chicago95rc [Branding], which the Start menu step writes.
     "LOGIN_LOGO": ("splash", "sddm", "plymouth", "startmenu"),
     "EDITION": ("splash", "sddm", "plymouth", "startmenu"),
@@ -2929,8 +2930,56 @@ CLASSIC_WINDOW_CHROME = WindowChrome(
 )
 
 
+def aero_band(content=None, content_height=MENU_BAR_HEIGHT, grip=True, trailing=None):
+    band = QWidget()
+    layout = QHBoxLayout(band)
+    layout.setContentsMargins(4, 0, 4, 0)
+    if content:
+        layout.addWidget(content)
+    band.setFixedHeight(content_height)
+    return band
+
+
+def aero_toolbutton(action, has_menu=False):
+    button = QToolButton()
+    button.setDefaultAction(action)
+    button.setAutoRaise(True)
+    button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+    if has_menu:
+        button.setPopupMode(QToolButton.MenuButtonPopup)
+    return button
+
+
+def aero_status_pane(*widgets):
+    pane = QWidget()
+    layout = QHBoxLayout(pane)
+    layout.setContentsMargins(3, 0, 3, 0)
+    for widget in widgets:
+        layout.addWidget(widget)
+    return pane
+
+
+def aero_status_bar(panes):
+    bar = QStatusBar()
+    for pane, stretch in zip(panes, STATUS_PANE_STRETCHES, strict=True):
+        bar.addWidget(pane, stretch)
+    return bar
+
+
 def window_chrome():
     """The Control Panel's window parts of the look's widget style: the classic ones, or Windows XP's."""
+    if chicago95ui.widget_style() == "aero":
+        return WindowChrome(
+            aero_band,
+            aero_toolbutton,
+            aero_status_bar,
+            aero_status_pane,
+            QWidget,
+            QApplication.style,
+            QTabWidget,
+            QProgressBar,
+            AppearancePreview,
+        )
     if not chicago95ui.luna_widgets():
         return CLASSIC_WINDOW_CHROME
     import chicago95luna

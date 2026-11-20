@@ -21,6 +21,7 @@ from PySide6.QtGui import QColor, QFontMetrics, QIcon, QPainter
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
+    QFormLayout,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -484,7 +485,21 @@ def build_aero_window(facts):
     window.setWindowIcon(QIcon.fromTheme("computer"))
     layout = QVBoxLayout(window)
     tabs = QTabWidget()
-    tabs.addTab(luna_general_page(facts), "General")
+    overview = QWidget()
+    details = QFormLayout(overview)
+    heading = QLabel("View basic information about your computer")
+    heading.setStyleSheet("font-size: 15px; color: #1764a1")
+    details.addRow(heading)
+    for label, value in (
+        ("Operating system", facts.os_name),
+        ("Processor", facts.cpu_model),
+        ("Installed memory (RAM)", facts.memory),
+        ("Computer name", facts.hostname),
+    ):
+        text = QLabel(value)
+        text.setWordWrap(True)
+        details.addRow(label, text)
+    tabs.addTab(overview, "General")
     tabs.addTab(build_device_manager_tab(), "Hardware")
     tabs.addTab(build_performance_tab(facts), "Advanced")
     layout.addWidget(tabs)

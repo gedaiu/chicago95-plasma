@@ -22,6 +22,7 @@ def greeter(tmp_path_factory):
     folder = tmp_path_factory.mktemp("greeter")
     art = folder / "aero-art"
     art.mkdir()
+    shutil.copytree(REPO / "sddm/Chicago95Plasma/fonts", folder / "fonts")
     shutil.copy(src / "background", art)
     for name in ("AeroLogin", "AeroLockScreen"):
         shutil.copy(REPO / f"sddm/Chicago95Plasma/{name}.qml", folder)
