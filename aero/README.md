@@ -129,7 +129,7 @@ Windows 7 pixel for pixel: the bar, the orb, the pinned slots and their pitch, a
 - **Aurorae frame streaks and afterglow.** The superbar draws DWM's streaks from the screen's corner, but an Aurorae
   frame cannot know where it lies on the screen, so window frames have none; Windows 7's afterglow, which follows the
   background's brightness, needs a compositor shader.
-- **Aurorae title glow.** KWin 6's Aurorae draws no halo behind the title.
+- **Aurorae title glow.** The Aero decoration centres the window icon beside the black lettering and draws a soft white glow behind the caption. Systems without the Aurorae QML renderer or Qt graphical effects use the SVG decoration alone.
 - **Superbar menus.** The window picker shows each grouped window using Plasma’s screencast stream. Application-specific jump lists are unavailable.
 - **Paging arrow size.** No reference shows the superbar's arrows, so they are 17 wide (Windows' scroll bar width)
   and half the bar tall each, placed one gap after the page's last button.

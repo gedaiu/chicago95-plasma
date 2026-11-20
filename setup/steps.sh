@@ -368,6 +368,9 @@ from gtk_header import without_gtk4_properties
 begin, end = "/* Chicago95 progress BEGIN */", "/* Chicago95 progress END */"
 text = target.read_text() if target.exists() else ""
 text = re.sub(re.escape(begin) + r".*?" + re.escape(end) + r"\n?", "", text, flags=re.S)
+if sys.argv[3] == "Chicago95Aero":
+    toolbar = "gtk-toolbar-icons-gtk3.css" if sys.argv[4] == "3.0" else "gtk-toolbar-icons.css"
+    text = text.replace(source.with_name(toolbar).read_text(), "")
 if sys.argv[3] == "Chicago95":
     block = (source.read_text() + source.with_name("gtk-frames-classic.css").read_text()
              + input_css(Path.home() / ".themes/Chicago95", sys.argv[4]) + slider_css(sys.argv[4]))
@@ -385,6 +388,8 @@ PYPROGRESS
 # uses for the same import, so the two never stack; whatever the user wrote around the block stays.
 import_gtk4_theme() {
   local target=~/.config/gtk-4.0/gtk.css sheet=~/.themes/$1/gtk-4.0/gtk.css
+  # libadwaita supplies its own base stylesheet. Only apply our overrides at user priority.
+  [ "$1" != Chicago95Aero ] || sheet=~/.themes/Chicago95Aero/gtk-4.0/aero.css
   local begin='/* >>> Chicago95 GTK4 BEGIN - managed by the Chicago95 installer, do not edit */' end='/* <<< Chicago95 GTK4 END */'
   if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then
     printf '  would: import %s into %s\n' "$sheet" "$target" >>"$SETUP_LOG"
@@ -753,7 +758,7 @@ step_animations() { # the saved animation choices into KWin, KDE's speed and our
     kconf kwinrc "Effect-${token%%/*}" "${token#*/}" "$([ -n "${chosen[$token]+x}" ] && echo true || echo false)"
   done
   if [[ " ${COMPONENTS:-} " != *" look "* && -n "${SETUP_ANIM_WOBBLY:-}" ]] &&
-    [ "$(kreadconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme)" = __aurorae__svg__Chicago95Aero ]; then
+    [[ "$(kreadconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme)" =~ ^(__aurorae__svg__Chicago95Aero|org\.chicago95\.aero)$ ]]; then
     select_aero_blur
   fi
 }
@@ -860,8 +865,16 @@ select_aero_blur() {
 }
 
 apply_decoration() {
+  local theme="__aurorae__svg__$(decoration_theme)" renderer package
   if [ "${SETUP_DECORATION:-classic}" = aero ]; then
     apply_aero_glass
+    renderer=$(qtpaths6 --locate-file GenericDataLocation kwin/aurorae/aurorae.qml 2>/dev/null) || renderer=
+    if [ -f "$renderer" ] && [ -f "$(qtpaths6 --query QT_INSTALL_QML)/Qt5Compat/GraphicalEffects/qmldir" ]; then
+      theme=org.chicago95.aero
+      package="$HOME/.local/share/kwin/decorations/$theme"
+      put_tree "$REPO/aero/aurorae/caption" "$package"
+      run python3 "$REPO/aero/aurorae/install_caption.py" "$package" "$HOME/.local/share/aurorae/themes/Chicago95Aero" "$renderer"
+    fi
     select_aero_blur
   elif installed_by_setup kconf:kwinrc:Plugins:aeroglassblurEnabled; then
     kconf kwinrc Plugins aeroglassblurEnabled false
@@ -869,7 +882,7 @@ apply_decoration() {
     GLASS_EFFECT_CHANGED=1
   fi
   kconf kwinrc org.kde.kdecoration2 library org.kde.kwin.aurorae
-  kconf kwinrc org.kde.kdecoration2 theme "__aurorae__svg__$(decoration_theme)"
+  kconf kwinrc org.kde.kdecoration2 theme "$theme"
 }
 
 apply_aero_glass() {
@@ -1476,6 +1489,10 @@ gtk_gradient() { # gtk_gradient <colour[,colour]>   a CSS background for a title
 # own title bars; this block in gtk.css paints them with the window manager's colours, active and inactive. The Luna
 # decoration gets the XP gradient, rounded top corners and caption instead.
 gtk_titlebar_rules() {
+  if [ "${SETUP_DECORATION:-classic}" = aero ]; then
+    python3 "$REPO/aero/gtk/caption.py" "$HOME/.local/share/aurorae/themes/Chicago95Aero"
+    return
+  fi
   if [ "${SETUP_DECORATION:-classic}" = luna ]; then
     python3 "$REPO/luna/gtk/make_luna_gtk.py" --titlebar
     return
@@ -1497,6 +1514,12 @@ RULES
 
 write_gtk_titlebar_css() {
   local begin="/* >>> Chicago95 title bars BEGIN */" end="/* <<< Chicago95 title bars END */" version target block
+  if [ "${SETUP_DECORATION:-classic}" = aero ]; then
+    local buttons="$STATE_DIR/gtk4-caption"
+    backup "$buttons"
+    run python3 "$REPO/aero/gtk/caption.py" --write-buttons "$buttons" || return 1
+    record "$buttons"
+  fi
   for version in 3.0 4.0; do
     block="$begin
 $(GTK_VERSION=$version gtk_titlebar_rules "$@")
@@ -1508,10 +1531,22 @@ $end"
       continue
     fi
     mkdir -p "$(dirname "$target")"
-    {
-      [ -f "$target" ] && sed "/^\/\* >>> Chicago95 title bars BEGIN \*\/$/,/^\/\* <<< Chicago95 title bars END \*\/$/d" "$target"
-      printf '%s\n' "$block"
-    } >"$target.chicago95" && mv "$target.chicago95" "$target"
+    python3 - "$target" "$begin" "$end" 3<<<"$block" <<'PYHEADER'
+import os
+import re
+import sys
+from pathlib import Path
+
+target, begin, end = Path(sys.argv[1]), *sys.argv[2:]
+with os.fdopen(3) as stream:
+    block = stream.read()
+text = target.read_text() if target.exists() else ""
+# Older installs sometimes put the first marker immediately after a user's @import.
+text = re.sub(re.escape(begin) + r".*?" + re.escape(end) + r"\n?", "", text, flags=re.S)
+staging = target.with_suffix(".chicago95")
+staging.write_text(text.rstrip("\n") + ("\n" if text else "") + block)
+staging.replace(target)
+PYHEADER
     record "$target"
   done
 }

@@ -364,6 +364,7 @@ TitleBorderLeft=4
 TitleBorderRight=4
 ButtonHeight={button_height}
 ButtonWidth={maximize}
+ButtonWidthMenu=16
 ButtonWidthMinimize={minimize}
 ButtonWidthMaximizeRestore={maximize}
 ButtonWidthClose={close}

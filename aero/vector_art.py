@@ -122,7 +122,7 @@ def trace(image, crisp=False, shaded=False):
     return group
 
 
-def svg_bytes(source, shaded=False):
+def svg_bytes(source, shaded=False, preserve_bounds=True):
     root = ET.fromstring(source)
     for image in root.iter(tag("image")):
         href = image.attrib.pop(XLINK, "") or image.attrib.pop("href", "")
@@ -136,7 +136,9 @@ def svg_bytes(source, shaded=False):
             x = float(image.attrib.pop("x", 0))
             y = float(image.attrib.pop("y", 0))
             # Kvantum uses element bounds as nine-slice metrics, including clear margins.
-            ET.SubElement(image, tag("rect"), x=str(x), y=str(y), width=str(width), height=str(height), fill="none")
+            # GTK recolours every shape in a symbolic icon, including an unpainted rectangle.
+            if preserve_bounds:
+                ET.SubElement(image, tag("rect"), x=str(x), y=str(y), width=str(width), height=str(height), fill="none")
             sx, sy = width / pixels.width, height / pixels.height
             if image.attrib.pop("preserveAspectRatio", None) != "none":
                 sx = sy = min(sx, sy)
@@ -172,7 +174,8 @@ def icon_theme(source, dest):
                 assets[target] = icon
     by_digest = {}
     for target, icon in assets.items():
-        digest = hashlib.sha256(b"vector-theme-v3" + icon.read_bytes()).hexdigest()
+        version = b"vector-icon-svg-v4" if icon.suffix == ".svg" else b"vector-theme-v3"
+        digest = hashlib.sha256(version + icon.read_bytes()).hexdigest()
         by_digest.setdefault((digest, icon.suffix), []).append((target, icon))
 
     def convert(entry):
@@ -181,7 +184,7 @@ def icon_theme(source, dest):
         if not cached.exists():
             icon = aliases[0][1]
             if ext == ".svg":
-                data = svg_bytes(icon.read_bytes(), shaded=True)
+                data = svg_bytes(icon.read_bytes(), shaded=True, preserve_bounds=False)
             else:
                 with Image.open(icon) as image:
                     data = bitmap_svg(image, shaded=True)

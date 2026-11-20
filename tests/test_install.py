@@ -1371,13 +1371,19 @@ def test_look_luna_installs_the_luna_themes_and_selects_them(tmp_path):
     ) == (True,) * 8
 
 
+def expected_aero_decoration(log):
+    if "install_caption.py" in log:
+        return "org.chicago95.aero"
+    return "__aurorae__svg__Chicago95Aero"
+
+
 def test_aero_decoration_installs_the_glass_theme_selects_it_and_turns_on_kwins_blur(tmp_path):
     log = dry_run_log(tmp_path, "--components=look", "--decoration=aero")
     home = str(tmp_path)
 
     assert (
         f"cp -r {REPO}/aero/aurorae/theme {home}/.local/share/aurorae/themes/Chicago95Aero" in log,
-        "kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme __aurorae__svg__Chicago95Aero" in log,
+        kwriteconfig("kwinrc", "org.kde.kdecoration2", "theme", expected_aero_decoration(log)) in log,
         "kwriteconfig6 --file kwinrc --group Plugins --key blurEnabled true" in log,
         "kwriteconfig6 --file chicago95rc --group Look --key decoration aero" in log,
     ) == (True,) * 4
@@ -1403,7 +1409,7 @@ def test_look_aero_installs_the_glass_decoration_and_the_superbar(tmp_path):
     log = dry_run_log(tmp_path, "--look=aero", "--components=look,taskbar")
 
     assert (
-        "kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme __aurorae__svg__Chicago95Aero" in log,
+        kwriteconfig("kwinrc", "org.kde.kdecoration2", "theme", expected_aero_decoration(log)) in log,
         "plasma-apply-desktoptheme Chicago95Aero" in log,
         " panel=40 " in log,
     ) == (True,) * 3
@@ -2390,7 +2396,7 @@ def test_installed_native_glass_uses_the_vector_decoration_and_aero_blur(tmp_pat
         setting in log
         for setting in (
             "library org.kde.kwin.aurorae",
-            "theme __aurorae__svg__Chicago95Aero",
+            f"theme {expected_aero_decoration(log)}",
             "aeroglassblurEnabled true",
             "blurEnabled false",
         )

@@ -38,3 +38,24 @@ row:selected {
   background-color: #3399ff;
   color: white;
 }
+toolbar, .toolbar {
+  background-image: linear-gradient(to bottom, #fafcfe, #e5edf5);
+  border-bottom: 1px solid #b6c4d1;
+}
+toolbar button.flat, headerbar button.flat, .toolbar button.flat {
+  background: transparent;
+  box-shadow: none;
+  border: 1px solid transparent;
+}
+toolbar button.flat:hover, headerbar button.flat:hover, .toolbar button.flat:hover {
+  background: linear-gradient(to bottom, #f1f8fe, #d9eaf7);
+  border-color: #a6c7df;
+}
+.view:selected, .navigation-sidebar row:selected {
+  background-color: #cce8ff;
+  color: #152e40;
+}
+/* Explorer's toolbar and Places pane use coloured icons, including the arrows inside the navigation orbs. */
+toolbar image, headerbar image, placessidebar image, .navigation-sidebar image {
+  -gtk-icon-style: regular;
+}

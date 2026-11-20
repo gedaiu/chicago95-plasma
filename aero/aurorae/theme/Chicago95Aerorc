@@ -20,6 +20,7 @@ TitleBorderLeft=4
 TitleBorderRight=4
 ButtonHeight=18
 ButtonWidth=27
+ButtonWidthMenu=16
 ButtonWidthMinimize=30
 ButtonWidthMaximizeRestore=27
 ButtonWidthClose=50
