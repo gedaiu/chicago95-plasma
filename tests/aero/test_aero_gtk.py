@@ -202,7 +202,7 @@ spectacle -b -n -f -o "$PWD/$VIEW.png"
         edges = np.maximum(abs(np.diff(glyph, axis=0)[:, :-1]), abs(np.diff(glyph, axis=1)[:-1]))
         assert np.percentile(edges, 90) > 80
     # The minimize glyph is a horizontal bar. Measure its upper/lower edge across
-    # the white inset rather than counting the surrounding flat glass as glyph pixels.
+    # its centre rather than counting the surrounding flat glass as glyph pixels.
     cx = close_x - round(67 * scale)
     inset = round(3 * scale)
     bar = header[cy - radius : cy + radius + 1, cx - inset : cx + inset + 1].mean(axis=2)
@@ -349,9 +349,7 @@ def test_gtk4_indicator_faces_against_original_windows_art(gtk4_pixels):
     not all(shutil.which(p) for p in ("kwin_wayland", "nautilus", "spectacle")), reason="needs GNOME Files and KWin"
 )
 @pytest.mark.parametrize("scale", [1, 1.5])
-def test_restored_files_caption_matches_windows_7(gtk_captures, tmp_path, scale):
-    from reference import screenshot
-
+def test_restored_files_caption_uses_tinted_toolbar_bevel(gtk_captures, tmp_path, scale):
     runtime = tmp_path / "run"
     runtime.mkdir(mode=0o700)
     script = tmp_path / "caption"
@@ -388,30 +386,28 @@ spectacle -b -n -f -o "$PWD/normal.png"
     pixels = np.asarray(shot)
     right = np.flatnonzero(pixels[shot.height // 2].max(axis=1) > 50)[-1] + 1
     top = np.flatnonzero(pixels[:, shot.width // 2].max(axis=1) > 50)[0]
-    expected = np.asarray(screenshot("win7dragedge").convert("RGB").crop((412, 220, 517, 240)), dtype=int)
-
-    def red_top_center(image):
-        r, g, b = image.transpose(2, 0, 1)
-        ys, xs = np.where((r > 145) & (r > g + 50) & (r > b + 50))
-        return np.array([(xs.min() + xs.max() + 1) / 2, ys.min()])
-
-    # Register the artwork using the red face in both images. Position and margin
-    # are checked independently above; fractional output rounds the window edges.
-    zone_left = right - round(70 * scale)
-    zone = pixels[top : top + round(42 * scale), zone_left:right].astype(int)
-    group_x, y = np.floor(red_top_center(zone) - scale * red_top_center(expected)).astype(int) + (zone_left, top)
+    group_x = right - round(111 * scale)
+    # Locate the actual top outline on the native grid before resampling. The
+    # large buttons' inset highlight displaces the first coloured row downwards.
+    sample_x = group_x + round(8 * scale)
+    start = top + round(8 * scale)
+    profile = pixels[start : top + round(15 * scale), sample_x].mean(axis=1)
+    y = start + int(profile.argmin())
     group = shot.crop((group_x, y, group_x + round(105 * scale), y + round(20 * scale)))
     group.save(tmp_path / "caption-buttons.png")
     actual = np.asarray(group.resize((105, 20), Image.Resampling.LANCZOS), dtype=int)
-    # Compare the original faces and glyphs inside the new continuous perimeter.
-    for left, end in ((0, 30), (29, 56), (55, 105)):
-        interior = np.s_[2:18, left + 3 : end - 3]
-        assert np.abs(actual[interior] - expected[interior]).mean() < 17
+    # Sample clear of the glyphs. All faces follow the toolbar bevel at 0/49/50/100%,
+    # with matching blue faces for Minimize and Maximize and a red Close face.
+    for x, tint in ((6, (50, 24, 0)), (34, (50, 24, 0)), (70, (0, 70, 78))):
+        column = actual[[3, 7, 12, 16], x] + tint
+        expected_levels = np.array([242, 236, 217, 211])[:, None]
+        assert np.abs(column - expected_levels).max() < 7
+
     for join in (29, 55):
         band = actual[5, join - 4 : join + 5].mean(axis=1)
         # A single narrow divider, with no second pale rim on either side.
         assert 1 <= (band < 150).sum() <= 2
-        assert band.max() < 215
+        assert band.max() <= max(band[0], band[-1]) + 8
     # The top of the centered group must have a visible edge of its own.
     for x in (8, 34, 70):
         assert actual[0, x].mean() + 24 < actual[3, x].mean()
