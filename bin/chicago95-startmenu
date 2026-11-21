@@ -16,9 +16,7 @@ import shutil
 import signal
 import subprocess
 import sys
-import xml.etree.ElementTree as ElementTree
 from pathlib import Path
-from urllib.parse import unquote, urlparse
 
 DEFAULT_BANNER = {
     "bannerText": "Chicago95",
@@ -78,6 +76,7 @@ sys.path[:0] = [
 ]
 import chicago95animations
 import chicago95ui  # after the environment above, so its defaults do not override it
+from chicago95recent import recent_documents
 from PySide6.QtCore import QEasingCurve, QEvent, QPoint, QPropertyAnimation, QRect, QStandardPaths, Qt, QTimer
 from PySide6.QtGui import (
     QAction,
@@ -256,22 +255,6 @@ def folder_for(entry):
         if categories & members:
             return folder
     return "Other"
-
-
-def recent_documents(limit=12):
-    try:
-        root = ElementTree.parse(Path.home() / ".local/share/recently-used.xbel").getroot()
-    except (OSError, ElementTree.ParseError):
-        return []
-    bookmarks = sorted(root.findall("bookmark"), key=lambda node: node.get("modified", ""), reverse=True)
-    documents = []
-    for node in bookmarks:
-        location = unquote(urlparse(node.get("href", "")).path)
-        if location and os.path.exists(location):
-            documents.append(location)
-        if len(documents) >= limit:
-            break
-    return documents
 
 
 def detached(command):
@@ -936,7 +919,7 @@ def build_menu():
             usage_path=CACHE_FILE.with_name("aero-usage.ini"),
             folder_for=folder_for,
             power_probes=probes,
-            recent_files=recent_documents(),
+            search_history=True,
             search_tool=shutil.which("baloosearch6"),
         )
     return build_luna_menu() if is_luna_menu() else build_root_menu()

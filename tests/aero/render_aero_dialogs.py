@@ -26,7 +26,9 @@ def render(out, scale):
     # No screenshot should acquire a name on the real Start menu's bus.
     os.environ["DBUS_SESSION_BUS_ADDRESS"] = "unix:path=/nonexistent"
     config = Path(os.environ["XDG_CONFIG_HOME"])
-    (config / "chicago95rc").write_text("[Look]\nwidgetStyle=aero\n[StartMenu]\nstyle=aero\n")
+    (config / "chicago95rc").write_text(
+        "[Look]\nwidgetStyle=aero\n[StartMenu]\nstyle=aero\n[Animations]\nANIM_MENUS=none\n"
+    )
     # Use a fixed family even on machines with Microsoft's optional fonts installed.
     fonts = Path(subprocess.check_output(["fc-match", "-f", "%{file}", "DejaVu Sans"], text=True)).parent
     (config / "fonts.conf").write_text(

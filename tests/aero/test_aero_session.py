@@ -432,19 +432,34 @@ def test_leaving_show_desktop_restores_the_visible_window(desktops):
         assert match > fraction if image is during else match < fraction
 
 
-def test_pinned_program_context_menu_contains_its_desktop_action(desktops, monkeypatch, tmp_path):
+def test_pinned_program_jump_list_groups_and_opens_its_recent_document(desktops, monkeypatch, tmp_path):
     import numpy as np
     import plasma_session
 
     original = plasma_session.desktop_file
 
+    document = tmp_path / "Jump List document from this program.txt"
+    document.touch()
+    recorder = tmp_path / "capture"
+    receipt = tmp_path / "opened-file"
+    recorder.write_text(f"#!/bin/sh\nprintf '%s' \"$1\" > '{receipt}'\n")
+    recorder.chmod(0o755)
+
     def with_action(folder, name, title, icon, extra=""):
         if name == "c95-launcher-0":
+            history = folder.parent / "recently-used.xbel"
+            history.write_text(
+                f'<xbel><bookmark href="{document.as_uri()}"><info>'
+                '<application name="Launcher 0"/></info></bookmark></xbel>'
+            )
             extra += (
                 "Actions=Compose;\n[Desktop Action Compose]\n"
                 "Name=Compose a new message in this application\nExec=true\n"
             )
-        return original(folder, name, title, icon, extra)
+        path = original(folder, name, title, icon, extra)
+        if name == "c95-launcher-0":
+            path.write_text(path.read_text().replace("Exec=true", f'Exec="{recorder}" %f', 1))
+        return path
 
     monkeypatch.setattr(plasma_session, "desktop_file", with_action)
     opened = desktops(
@@ -454,3 +469,23 @@ def test_pinned_program_context_menu_contains_its_desktop_action(desktops, monke
     # The application's long action label makes the menu wider than the built-in Unpin action.
     rows = (np.asarray(opened)[640:730, :600].min(axis=2) > 160).sum(axis=1)
     assert rows.max() > 245
+    # The two short headings each sit above a full-width entry in the reference-sized panel.
+    pixels = np.asarray(opened)
+    for y, minimum, maximum in ((619, 15, 55), (640, 160, 225), (661, 15, 55), (682, 160, 225)):
+        text_columns = np.flatnonzero((pixels[y : y + 12, 99:325].min(axis=2) < 210).any(axis=0))
+        assert minimum < text_columns[-1] < maximum
+    desktops(
+        "luna",
+        **reference_session(
+            launchers=2,
+            pointer_steps=[
+                "move:89,748",
+                "click:right",
+                "wait:1.2",
+                "move:160,645",
+                "click:left",
+                "wait:0.6",
+            ],
+        ),
+    )
+    assert receipt.read_text() == str(document)

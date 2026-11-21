@@ -130,10 +130,11 @@ def test_welcome_screen_draws_the_status_and_cycles_the_spinner(qt_app, tmp_path
         origin = spinner.mapToScene(QPointF(0, 0))
         x, y = round(origin.x()), round(origin.y())
         background = ImageOps.fit(Image.open(session / "background").convert("RGB"), (800, 600))
-        spinner.setVisible(False)
+        # Keep its slot in the Row while capturing the backdrop beneath the spinner.
+        spinner.setOpacity(0)
         QTest.qWait(25)
         clean = qimage_to_pil(view.grabWindow())
-        spinner.setVisible(True)
+        spinner.setOpacity(1)
         for frame in (0, 6, 12, 17):
             root.setProperty("frame", frame)
             QTest.qWait(25)

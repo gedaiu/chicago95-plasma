@@ -2,26 +2,31 @@
 
 import ctypes
 import functools
+import json
+import sys
 from pathlib import Path
 
 import chicago95animations
+import chicago95recent
 from PySide6.QtCore import (
     QAbstractListModel,
+    QEasingCurve,
     QEvent,
     QPoint,
     QProcess,
-    QPropertyAnimation,
     QRectF,
     QSettings,
     QSignalBlocker,
     QSize,
     Qt,
     QTimer,
+    QVariantAnimation,
 )
 from PySide6.QtDBus import QDBusConnection, QDBusMessage, QDBusPendingCallWatcher, QDBusVariant
 from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPainterPath, QPixmap, QRegion
 from PySide6.QtWidgets import (
     QFrame,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -100,6 +105,8 @@ class ProgramModel(QAbstractListModel):
         app = self.entries[index.row()]
         if role == Qt.DisplayRole:
             return app["name"]
+        if role in (Qt.ToolTipRole, Qt.AccessibleDescriptionRole):
+            return app.get("file")
         if role == Qt.SizeHintRole:
             return self.row_size
         if role == Qt.UserRole:
@@ -140,6 +147,7 @@ class AeroMenu(QWidget):
         folder_for=None,
         search_tool=None,
         recent_files=(),
+        search_history=False,
         power_probes=None,
     ):
         super().__init__(None, Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
@@ -148,6 +156,8 @@ class AeroMenu(QWidget):
         self.setFixedSize(411, 498)
         self.apps = sorted(apps, key=lambda entry: entry["name"].casefold())
         self.usage = QSettings(str(usage_path), QSettings.IniFormat) if usage_path else None
+        self.folder_for = folder_for
+        self.folder_rows = {}
         self.groups = {}
         self.ungrouped = []
         for app in self.apps:
@@ -158,17 +168,31 @@ class AeroMenu(QWidget):
         self.open_folders = set()
         self.search_tool = search_tool
         self.recent_files = recent_files
-        self.search_process = None
+        self.search_history = search_history
+        self.search_processes = set()
         self.search_delay = QTimer(self)
         self.search_delay.setSingleShot(True)
         self.search_delay.setInterval(150)
         self.search_delay.timeout.connect(self.find_files)
-        self.fade = QPropertyAnimation(self, b"windowOpacity", self)
+        self.surface = QWidget(self)
+        self.surface.resize(self.size())
+        self.opacity = QGraphicsOpacityEffect(self.surface)
+        self.opacity.setEnabled(False)
+        self.surface.setGraphicsEffect(self.opacity)
+        self.opening = QVariantAnimation(self)
+        self.opening.setStartValue(0.0)
+        self.opening.setEndValue(1.0)
+        self.opening.setEasingCurve(QEasingCurve.OutCubic)
+        self.opening.valueChanged.connect(self.draw_opening)
+        self.motion = "none"
         self.launch = launch
         self.all_programs = False
-        frame = QFrame(self)
+        frame = QFrame(self.surface)
         frame.setObjectName("glass")
         frame.setGeometry(0, 23, 411, 475)
+        outline = QPainterPath()
+        outline.addRoundedRect(QRectF(frame.geometry()), 6, 6)
+        self.glass_region = QRegion(outline.toFillPolygon().toPolygon())
         columns = QHBoxLayout(frame)
         columns.setContentsMargins(7, 7, 6, 7)
         columns.setSpacing(5)
@@ -198,6 +222,7 @@ class AeroMenu(QWidget):
         self.toggle.clicked.connect(self.toggle_programs)
         programs.addWidget(self.toggle)
         self.search = QLineEdit()
+        self.search.installEventFilter(self)
         self.search.setPlaceholderText("Search programs and files")
         self.search.addAction(
             QIcon.fromTheme("edit-find", self.style().standardIcon(QStyle.SP_FileDialogContentsView)),
@@ -266,7 +291,7 @@ class AeroMenu(QWidget):
                 arrow.mapToGlobal(QPoint(arrow.width(), arrow.height() - options.sizeHint().height()))
             )
         )
-        avatar = QLabel(self)
+        avatar = QLabel(self.surface)
         avatar.setObjectName("avatar")
         avatar.setGeometry(307, 0, 58, 58)
         avatar.setAlignment(Qt.AlignCenter)
@@ -324,51 +349,71 @@ class AeroMenu(QWidget):
         super().showEvent(event)
         if self.usage and not self.all_programs and not self.search.text():
             self.populate()
-        motion, duration = chicago95animations.own_animation(
+        self.motion, duration = chicago95animations.own_animation(
             chicago95animations.live_state(), "ANIM_MENUS", "fade", 120
         )
-        if motion in ("both", "fade") and QGuiApplication.platformName() != "offscreen":
-            self.fade.setDuration(duration)
-            self.fade.setStartValue(0.0)
-            self.fade.setEndValue(1.0)
-            self.fade.start()
-        if QGuiApplication.platformName() in ("wayland", "xcb"):
+        if self.motion in ("slide", "fade", "both") and duration > 0:
+            self.opening.setDuration(duration)
+            self.draw_opening(0.0)
+            self.opening.start()
+        else:
+            self.draw_opening(1.0)
+        QDBusConnection.sessionBus().registerService("org.chicago95.StartMenuOpen")
+
+    def draw_opening(self, progress):
+        # Keep KWin's root window anchored. Move the contents up from the panel inside that window.
+        sliding = self.motion in ("slide", "both")
+        offset = round(self.height() * (1 - progress)) if sliding else 0
+        self.surface.move(0, offset)
+        fading = self.motion in ("fade", "both") and progress < 1
+        self.opacity.setEnabled(fading)
+        if fading:
+            self.opacity.setOpacity(progress)
+        if QGuiApplication.platformName() in ("wayland", "xcb") and self.windowHandle():
             enable = blur_behind_function()
-            if enable is not None and self.windowHandle() is not None:
+            if enable is not None:
                 from shiboken6 import getCppPointer
 
-                outline = QPainterPath()
-                outline.addRoundedRect(QRectF(self.findChild(QFrame, "glass").geometry()), 6, 6)
-                region = QRegion(outline.toFillPolygon().toPolygon())
-                enable(getCppPointer(self.windowHandle())[0], True, getCppPointer(region)[0])
-        QDBusConnection.sessionBus().registerService("org.chicago95.StartMenuOpen")
+                region = self.glass_region.translated(0, offset).intersected(QRegion(self.rect()))
+                enable(
+                    getCppPointer(self.windowHandle())[0],
+                    progress > 0 and not region.isEmpty(),
+                    getCppPointer(region)[0],
+                )
 
     def hideEvent(self, event):
         self.stop_search()
-        self.fade.stop()
-        self.setWindowOpacity(1.0)
+        self.opening.stop()
+        self.surface.move(0, 0)
+        self.opacity.setEnabled(False)
         QDBusConnection.sessionBus().unregisterService("org.chicago95.StartMenuOpen")
         super().hideEvent(event)
 
     def toggle_programs(self):
+        if self.opening.state() != QVariantAnimation.Stopped:
+            self.opening.stop()
+            self.draw_opening(1.0)
         self.all_programs = not self.all_programs
         with QSignalBlocker(self.search):
             self.search.clear()
         self.populate()
+        (self.list if self.all_programs else self.search).setFocus()
 
     def populate(self):
         query = self.search.text().casefold().strip()
         expanded = self.all_programs or bool(query)
         self.toggle.setText("◂   Back" if self.all_programs else "▸   All Programs")
         self.stop_search()
+        self.folder_rows.clear()
         if query:
             entries = [app for app in self.apps if query in app["name"].casefold()]
             entries.extend(self.file_entry(path) for path in self.recent_files if query in Path(path).name.casefold())
-            if self.search_tool:
+            if self.search_tool or self.search_history:
                 self.search_delay.start()
         elif self.all_programs:
             entries = list(self.ungrouped)
             for folder, children in sorted(self.groups.items()):
+                self.folder_rows[folder] = len(entries)
                 entries.append(
                     {
                         "name": folder,
@@ -391,10 +436,8 @@ class AeroMenu(QWidget):
 
     def stop_search(self):
         self.search_delay.stop()
-        if self.search_process:
-            process = self.search_process
-            self.search_process = None
-            process.kill()
+        while self.search_processes:
+            self.search_processes.pop().kill()
 
     @staticmethod
     def file_entry(path):
@@ -402,15 +445,23 @@ class AeroMenu(QWidget):
 
     def find_files(self):
         query = self.search.text().strip()
+        if self.search_history:
+            self.start_search(sys.executable, [chicago95recent.__file__, query], json.loads)
+        if self.search_tool:
+            self.start_search(self.search_tool, ["--limit", "30", "--", "filename:" + query], str.splitlines)
+
+    def start_search(self, program, arguments, parse):
         process = QProcess(self)
-        self.search_process = process
+        self.search_processes.add(process)
 
         def finished():
-            if self.search_process is process:
-                self.search_process = None
+            if process in self.search_processes:
+                self.search_processes.remove(process)
                 known = {entry.get("file") for entry in self.model.entries}
                 files = []
-                for path in bytes(process.readAllStandardOutput()).decode(errors="replace").splitlines():
+                output = bytes(process.readAllStandardOutput()).decode(errors="replace")
+                paths = parse(output) if process.exitCode() == 0 and output else []
+                for path in paths:
                     if Path(path).is_absolute() and path not in known and Path(path).exists():
                         files.append(self.file_entry(path))
                         known.add(path)
@@ -425,19 +476,45 @@ class AeroMenu(QWidget):
 
         def failed(error):
             if error == QProcess.FailedToStart:
-                if self.search_process is process:
-                    self.search_process = None
+                self.search_processes.discard(process)
                 process.deleteLater()
 
         process.errorOccurred.connect(failed)
         process.finished.connect(finished)
-        process.start(self.search_tool, ["--limit", "30", "--", "filename:" + query])
+        process.start(program, arguments)
 
     def eventFilter(self, watched, event):
-        if watched is self.list and event.type() == QEvent.KeyPress and event.key() in (Qt.Key_Return, Qt.Key_Enter):
-            self.open_first()
-            return True
+        if event.type() == QEvent.KeyPress and event.modifiers() in (Qt.NoModifier, Qt.KeypadModifier):
+            key = event.key()
+            if watched is self.search and key in (Qt.Key_Up, Qt.Key_Down):
+                count = self.model.rowCount()
+                if count:
+                    step = 1 if key == Qt.Key_Down else -1
+                    row = max(0, min(count - 1, self.list.currentIndex().row() + step))
+                    self.list.setCurrentIndex(self.model.index(row))
+                return True
+            if watched is self.list:
+                if key in (Qt.Key_Return, Qt.Key_Enter):
+                    self.open_first()
+                    return True
+                if self.folder_rows and key in (Qt.Key_Left, Qt.Key_Right):
+                    self.navigate_folder(key)
+                    return True
         return super().eventFilter(watched, event)
+
+    def navigate_folder(self, key):
+        current = self.list.currentIndex()
+        if not current.isValid():
+            return
+        entry = current.data(Qt.UserRole)
+        if folder := entry.get("folder"):
+            expanded = folder in self.open_folders
+            if key == Qt.Key_Right and expanded:
+                self.list.setCurrentIndex(self.model.index(current.row() + 1))
+            elif key == Qt.Key_Right or expanded:
+                self.run(entry)
+        elif key == Qt.Key_Left and self.folder_for and entry.get("categories"):
+            self.list.setCurrentIndex(self.model.index(self.folder_rows[self.folder_for(entry)]))
 
     def open_item(self, index):
         if index.isValid() and self.isVisible():
@@ -456,17 +533,16 @@ class AeroMenu(QWidget):
                 with QSignalBlocker(self.search):
                     self.search.clear()
                 self.populate()
-                for index, entry in enumerate(self.model.entries):
-                    if entry.get("folder") == group:
-                        self.list.setCurrentIndex(self.model.index(index))
-                        self.list.scrollTo(self.model.index(index), QListView.PositionAtTop)
-                        break
+                if group in self.folder_rows:
+                    index = self.model.index(self.folder_rows[group])
+                    self.list.setCurrentIndex(index)
+                    self.list.scrollTo(index, QListView.PositionAtTop)
+                self.list.setFocus()
                 return
             if folder := target.get("folder"):
                 self.open_folders.symmetric_difference_update({folder})
                 self.populate()
-                row = next(i for i, entry in enumerate(self.model.entries) if entry.get("folder") == folder)
-                self.list.setCurrentIndex(self.model.index(row))
+                self.list.setCurrentIndex(self.model.index(self.folder_rows[folder]))
                 return
             if "file" in target:
                 target = ["xdg-open", target["file"]]

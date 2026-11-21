@@ -87,9 +87,9 @@ def test_quick_launch_cells_sort_by_dragging_inside_their_tooltip_area():
     assert (
         "DragSortArea {" in tooltip,
         "id: launcherArea" in tooltip,
-        "slot: entry.index - root.firstShown" in tooltip,
-        "count: root.shownLaunchers" in tooltip,
-        "tasksModel.move(root.firstShown + from, root.firstShown + to)" in tooltip,
+        "slot: entry.index - (root.pagesButtons ? root.pageStart : root.firstShown)" in tooltip,
+        "count: root.pagesButtons ? root.pageCount : root.shownLaunchers" in tooltip,
+        "tasksModel.move(entry.index - slot + from, entry.index - slot + to)" in tooltip,
         "Launchers.releasedOffTaskbar(" in tooltip,
         "requestRemoveLauncher(" in tooltip,
         "tasksModel.syncLaunchers()" in tooltip,
@@ -103,9 +103,9 @@ def test_window_buttons_sort_by_dragging_inside_their_own_section():
         "DragSortArea {" in button,
         "origin: root.tasksX" in button,
         "pitch: root.buttonWidth + root.gap" in button,
-        "count: root.windowCount" in button,
-        "slot: entry.index - root.launcherCount" in button,
-        "tasksModel.move(root.launcherCount + from, root.launcherCount + to)" in button,
+        "count: root.pagesButtons ? root.pageCount : root.windowCount" in button,
+        "slot: entry.index - (root.pagesButtons ? root.pageStart : root.launcherCount)" in button,
+        "tasksModel.move(entry.index - slot + from, entry.index - slot + to)" in button,
     ) == (True,) * 6
 
 

@@ -2,7 +2,9 @@
 
 The Windows 7 preset selects the Aero window frames, superbar, two-column Start menu, application controls,
 Windows 7 icons, SDDM sign-in and boot screen. The launcher ranks programs by use, groups All Programs into folders and searches applications and files.
-File results use the Baloo index when available and the recent-document history as a fallback. The default icon set comes from [B00merang Artwork](https://github.com/B00merang-Artwork/Windows-7).
+Use Up and Down in the search box to select a result and Enter to open it. In All Programs, Right expands a folder or enters its first item. Left returns to the folder or collapses it.
+
+File search checks KDE and XBEL recent-document history in the background and searches the Baloo index alongside it when available. Duplicate matches share one row. Hover over a file result to see its full path. The default icon set comes from [B00merang Artwork](https://github.com/B00merang-Artwork/Windows-7).
 Qt 6 applications use [AeroThemePlasma's Kvantum theme](https://github.com/aeroshell-desktop/aerothemeplasma/tree/Plasma/6.8/misc/kvantum/Windows7Aero)
 when Kvantum is installed. Setup uses Fusion otherwise.
 
@@ -130,7 +132,7 @@ Windows 7 pixel for pixel: the bar, the orb, the pinned slots and their pitch, a
   frame cannot know where it lies on the screen, so window frames have none; Windows 7's afterglow, which follows the
   background's brightness, needs a compositor shader.
 - **Aurorae title glow.** The Aero decoration centres the window icon beside the black lettering and draws a soft white glow behind the caption. Systems without the Aurorae QML renderer or Qt graphical effects use the SVG decoration alone.
-- **Superbar menus.** The window picker shows each grouped window using Plasma’s screencast stream. Jump Lists use actions from the application’s desktop entry and documents associated with that application in the recent-file history.
+- **Superbar menus.** The window picker shows each grouped window using Plasma’s screencast stream. Jump Lists show up to ten recent local documents for the selected application, followed by its desktop-entry actions. Setup’s taskbar reads both the shared XBEL history and KDE’s RecentDocuments links, orders documents by their last use in that application and combines duplicate entries.
 - **Paging arrow size.** No reference shows the superbar's arrows, so they are 17 wide (Windows' scroll bar width)
   and half the bar tall each, placed one gap after the page's last button.
 - **Unlocked taskbar.** No lossless reference shows one. Windows 7's documentation places the grip left of the

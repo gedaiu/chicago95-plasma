@@ -1141,6 +1141,7 @@ install_luna_plasmoid_files() {
 step_taskbar() {
   SHELL_CHANGED=1
   for plasmoid in "$REPO"/plasmoids/org.chicago95.*; do put_tree "$plasmoid" ~/.local/share/plasma/plasmoids/"$(basename "$plasmoid")"; done
+  put_file "$REPO/lib/chicago95recent.py" ~/.local/share/plasma/plasmoids/org.chicago95.tasks/contents/ui/chicago95recent.py
   install_luna_plasmoid_files
   install_aero_plasmoid_files
   put_file "$REPO/plasmoids/panel-layout.js" ~/.local/share/chicago95/panel-layout.js

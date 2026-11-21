@@ -75,9 +75,7 @@ def test_the_window_menu_lists_the_system_menu_in_the_originals_order():
 
 def test_right_clicks_open_the_window_and_quick_launch_menus_at_the_pointer():
     text = main_qml()
-
-    assert (
-        "windowMenu.open(clickX, clickY);" in qml_block(text, "id: windowButton"),
-        "launcherMenu.open(clickX, clickY);" in qml_block(text, "id: launcherCell"),
-        "windowMenu.openRelative()" in text or "launcherMenu.openRelative()" in text,
-    ) == (True, True, False)
+    assert "root.openTaskMenu(windowMenu, restoreItem, clickX, clickY);" in qml_block(text, "id: windowButton")
+    assert "root.openTaskMenu(launcherMenu, unpinItem, clickX, clickY);" in qml_block(text, "id: launcherCell")
+    assert "menu.open(x, y)" in qml_block(text, "function openTaskMenu")
+    assert "request.menu.open(request.x, request.y)" in text

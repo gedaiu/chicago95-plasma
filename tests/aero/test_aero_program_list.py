@@ -78,3 +78,119 @@ def test_all_programs_is_ready_before_visible_icons_load(qt_app):
         assert len(requests) < 50
     finally:
         menu.close()
+
+
+@pytest.mark.parametrize("motion", ["none", "slide", "fade", "both"])
+def test_opening_pixels_follow_menu_effect_and_all_programs_stays_immediate(qt_app, monkeypatch, tmp_path, motion):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    (tmp_path / "chicago95rc").write_text(f"[Animations]\nANIM_MENUS={motion}\n")
+    menu = AeroMenu([{"name": "Editor", "icon": ""}], lambda _: None, lambda _: QIcon(), {}, "Demo")
+    try:
+        settled = menu.grab().toImage()
+        glass = settled.pixelColor(403, 345).alpha()
+        assert 0 < glass < 255
+        menu.show()
+        if motion != "none":
+            menu.opening.pause()
+            menu.opening.setCurrentTime(30)
+        halfway = menu.grab().toImage()
+        if motion in ("slide", "both"):
+            assert halfway.pixelColor(60, 50).alpha() == 0
+        else:
+            assert halfway.pixelColor(60, 50).alpha() > 0
+        alpha = halfway.pixelColor(403, 345).alpha()
+        if motion in ("fade", "both"):
+            assert 0 < alpha < glass
+        else:
+            assert alpha == glass
+        menu.toggle.click()
+        assert menu.all_programs and menu.model.rowCount() == 1
+        assert menu.surface.pos().isNull() and not menu.opacity.isEnabled()
+        menu.hide()
+        menu.show()
+        menu.opening.setCurrentTime(menu.opening.duration())
+        assert menu.grab().toImage().pixelColor(60, 50).alpha() == settled.pixelColor(60, 50).alpha()
+        assert menu.surface.pos().isNull() and not menu.opacity.isEnabled()
+    finally:
+        menu.close()
+
+
+def check_highlight(menu, destination):
+    view = menu.list
+    selected = view.visualRect(view.currentIndex())
+    sample = selected.center()
+    sample.setX(selected.right() - 12)
+    pixmap = view.viewport().grab()
+    point = sample * pixmap.devicePixelRatio()
+    assert pixmap.toImage().pixelColor(point).name() == "#def0fc"
+    assert menu.grab().save(str(destination))
+
+
+def test_arrows_select_a_search_result_without_interrupting_typing(qt_app, tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    (tmp_path / "chicago95rc").write_text("[Animations]\nANIM_MENUS=none\n")
+    apps = [{"name": f"Photo {name}", "icon": ""} for name in ("A", "B", "C")]
+    launched = []
+    menu = AeroMenu(apps, launched.append, QIcon.fromTheme, {"control_panel": ["settings"]}, "Demo")
+    try:
+        menu.show()
+        menu.activateWindow()
+        QTest.qWait(30)
+        QTest.keyClicks(menu.search, "Pho")
+        QTest.keyClick(menu.search, Qt.Key_Down)
+        assert menu.list.currentIndex().row() == 1 and menu.search.hasFocus()
+        QTest.keyClicks(menu.search, "to")
+        assert menu.search.text() == "Photo" and menu.list.currentIndex().row() == 0
+        for _ in range(3):
+            QTest.keyClick(menu.search, Qt.Key_Down)
+        assert menu.list.currentIndex().row() == 2
+        QTest.keyClick(menu.search, Qt.Key_Up)
+        selected = menu.list.currentIndex()
+        assert selected.data() == "Photo B"
+        check_highlight(menu, tmp_path / "keyboard-search.png")
+        QTest.keyClick(menu.search, Qt.Key_Return)
+        assert launched == [apps[1]]
+    finally:
+        menu.close()
+
+
+def test_folder_keys_expand_select_child_return_to_parent_and_collapse(qt_app, tmp_path):
+    apps = [
+        {"name": name, "icon": "", "categories": [group]}
+        for name, group in (("Calc", "Accessories"), ("Paint", "Accessories"), ("Solitaire", "Games"))
+    ]
+    launched = []
+    menu = AeroMenu(
+        apps,
+        launched.append,
+        QIcon.fromTheme,
+        {"control_panel": ["settings"]},
+        "Demo",
+        folder_for=lambda app: app["categories"][0],
+    )
+    try:
+        menu.show()
+        menu.activateWindow()
+        menu.toggle.setFocus()
+        QTest.keyClick(menu.toggle, Qt.Key_Space)
+        QTest.qWait(30)
+        view = menu.list
+        assert view.hasFocus() and view.currentIndex().data() == "Accessories"
+        QTest.keyClick(view, Qt.Key_Right)
+        assert view.model().rowCount() == 4 and view.currentIndex().data() == "Accessories"
+        QTest.keyClick(view, Qt.Key_Right)
+        assert view.currentIndex().data() == "Calc"
+        QTest.keyClick(view, Qt.Key_Down)
+        assert view.currentIndex().data() == "Paint"
+        check_highlight(menu, tmp_path / "keyboard-programs.png")
+        QTest.keyClick(view, Qt.Key_Left)
+        assert view.currentIndex().data() == "Accessories" and view.model().rowCount() == 4
+        QTest.keyClick(view, Qt.Key_Left)
+        assert view.model().rowCount() == 2
+        QTest.keyClick(view, Qt.Key_Down)
+        QTest.keyClick(view, Qt.Key_Right)
+        QTest.keyClick(view, Qt.Key_Right)
+        QTest.keyClick(view, Qt.Key_Return)
+        assert launched == [apps[2]]
+    finally:
+        menu.close()

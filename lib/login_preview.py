@@ -174,7 +174,7 @@ def prepare_login_theme(theme_source, folder, banner=None, icon=None):
     folder = Path(folder)
     shutil.copytree(theme_source, folder / "theme", dirs_exist_ok=True)
     art = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "chicago95/sddm-f51ca15"
-    if (art / "background").is_file():
+    if (Path(theme_source) / "AeroLogin.qml").is_file() and (art / "background").is_file():
         shutil.copytree(art, folder / "theme/aero-art", dirs_exist_ok=True)
     if UI_FONT.exists():
         shutil.copy(UI_FONT, folder / "theme")

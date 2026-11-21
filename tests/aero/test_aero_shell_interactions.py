@@ -6,7 +6,7 @@ import sys
 
 from chicago95aeromenu import AeroMenu
 from conftest import REPO, load_script, run_bash_with_steps
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QIcon
 from PySide6.QtQuick import QQuickView
 from PySide6.QtTest import QTest
@@ -136,8 +136,8 @@ def test_jump_list_uses_desktop_actions_and_only_that_apps_documents(tmp_path, m
     helper = REPO / "plasmoids/org.chicago95.tasks/contents/ui/jumpList.py"
     output = subprocess.check_output([sys.executable, str(helper), desktop.as_uri()], text=True)
     assert json.loads(output) == [
-        {"label": "New window", "action": "New"},
         {"label": image.name, "uri": image.as_uri()},
+        {"label": "New window", "action": "New"},
     ]
 
 
@@ -155,3 +155,101 @@ def test_offline_thunar_profile_keeps_other_settings_on_reinstall(tmp_path):
         "last-location-bar": "ThunarLocationButtons",
         "last-menubar-visible": "false",
     }
+
+
+def test_jump_list_merges_kde_history_using_the_apps_own_last_open_time(tmp_path, monkeypatch):
+    import os
+    import time
+    from xml.etree import ElementTree as ET
+
+    helper = REPO / "plasmoids/org.chicago95.tasks/contents/ui/jumpList.py"
+    launcher = tmp_path / "viewer.desktop"
+    recorder = tmp_path / "record"
+    receipt = tmp_path / "opened"
+    recorder.write_text(f"#!/bin/sh\nprintf '%s' \"$1\" > '{receipt}'\n")
+    recorder.chmod(0o755)
+    launcher.write_text(f"[Desktop Entry]\nType=Application\nName=Viewer\nExec={recorder} %f\n")
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    kde = tmp_path / "RecentDocuments"
+    kde.mkdir()
+    history = ET.Element("xbel")
+    for name, owner, stamp in (("First", "Viewer", 3), ("It's second", "viewer.desktop", 2), ("Other", "Else", 4)):
+        document = tmp_path / name
+        document.touch()
+        link = kde / (name + ".desktop")
+        link.write_text(f"[Desktop Entry]\nType=Link\nURL[$e]={document.as_uri()}\nX-KDE-LastOpenedWith={owner}\n")
+        os.utime(link, (stamp, stamp))
+    for name in ("Old", "First"):
+        document = tmp_path / name
+        document.touch()
+        node = ET.SubElement(history, "bookmark", href=document.as_uri(), modified="2026-04-10T12:00:00Z")
+        ET.SubElement(node, "application", name="Viewer", modified="1970-01-01T00:00:01Z")
+        ET.SubElement(node, "application", name="Else", modified="2026-04-10T12:00:00Z")
+    foreign = (tmp_path / "Other").as_uri().replace("file:///", "file://elsewhere/")
+    ET.SubElement(ET.SubElement(history, "bookmark", href=foreign), "application", name="Viewer")
+    ET.ElementTree(history).write(tmp_path / "recently-used.xbel")
+    command = [sys.executable, str(helper), launcher.as_uri()]
+    rows = json.loads(subprocess.check_output(command, text=True))
+    assert [row["label"] for row in rows] == ["First", "It's second", "Old"]
+    subprocess.run([*command, "uri", rows[1]["uri"]], check=True)
+    for _ in range(100):
+        if receipt.exists() and receipt.read_text() == str(tmp_path / "It's second"):
+            break
+        time.sleep(0.02)
+    assert receipt.read_text() == str(tmp_path / "It's second")
+
+
+def test_start_search_combines_kde_and_older_xbel_entries_and_opens_selected_row(qt_app, tmp_path, monkeypatch):
+    from xml.etree import ElementTree
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    kde = tmp_path / "RecentDocuments"
+    kde.mkdir()
+    history = ElementTree.Element("xbel")
+    for index in range(15):
+        newer = tmp_path / f"Current {index}"
+        newer.touch()
+        ElementTree.SubElement(history, "bookmark", href=newer.as_uri(), modified="2025-01-01")
+    old = tmp_path / "Project's older notes.txt"
+    old.touch()
+    ElementTree.SubElement(history, "bookmark", href=old.as_uri(), modified="2023-01-01")
+    foreign = tmp_path / "Project remote"
+    foreign.touch()
+    ElementTree.SubElement(history, "bookmark", href=foreign.as_uri().replace("file:///", "file://another-machine/"))
+    ElementTree.ElementTree(history).write(tmp_path / "recently-used.xbel")
+    report = tmp_path / "Project 100% & final.txt"
+    report.touch()
+    (kde / "report.desktop").write_text(f"[Desktop Entry]\nType=Link\nURL[$e]={report.as_uri()}\n")
+    # The index knows the KDE file too. Both providers must produce just one row for it.
+    backend = tmp_path / "baloosearch6"
+    backend.write_text('#!/bin/sh\nprintf "%s\\n" "$(dirname "$0")/Project 100% & final.txt"\n')
+    backend.chmod(0o755)
+    started = []
+    launcher = load_script("chicago95-startmenu")
+    monkeypatch.setattr(launcher, "banner_settings", lambda: {"style": "aero"})
+    monkeypatch.setattr(launcher, "collect_applications", lambda: [])
+    monkeypatch.setattr(launcher.getpass, "getuser", lambda: "Demo")
+    monkeypatch.setattr(launcher.chicago95ui, "user_picture_path", lambda *_: None)
+    monkeypatch.setattr(launcher, "launch", started.append)
+    monkeypatch.setenv("PATH", f"{tmp_path}:/usr/bin")
+    menu = launcher.build_menu()
+    try:
+        menu.show()
+        menu.search.setText("Current")
+        menu.find_files()
+        menu.search.setText("PROJECT")
+        for _ in range(100):
+            QTest.qWait(20)
+            if not menu.search_delay.isActive() and not menu.search_processes:
+                break
+        paths = [entry["file"] for entry in menu.model.entries]
+        assert sorted(paths) == sorted([str(report), str(old)])
+        first = menu.model.index(paths.index(str(old)))
+        menu.list.setCurrentIndex(first)
+        assert menu.list.visualRect(first).intersects(menu.list.viewport().rect())
+        assert first.data(Qt.ToolTipRole) == str(old)
+        assert menu.grab().save(str(tmp_path / "recent-search.png"))
+        QTest.keyClick(menu.list, Qt.Key_Return)
+        assert started == [["xdg-open", str(old)]]
+    finally:
+        menu.close()

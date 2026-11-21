@@ -159,3 +159,22 @@ def test_aero_ease_of_access_enlarges_the_credentials_without_submitting(qt_app,
         large_switch = view.grabWindow().copy(switch.mapRectToScene(switch.boundingRect()).toRect())
         assert large_switch.height() > normal_switch.height()
         assert large_switch.scaled(normal_switch.size()) != normal_switch
+
+
+def test_aero_switch_user_keeps_long_account_names_inside_their_tiles(qt_app, tmp_path):
+    name = "A very long account display name for a shared computer"
+    with login_view(qt_app, tmp_path, size=(640, 480), loginStyle="aero", user=name, users=(name, "Guest")) as view:
+        switch = child(view, "aeroSwitchUser")
+        QTest.mouseClick(view, Qt.LeftButton, pos=switch.mapToScene(QPointF(12, 12)).toPoint())
+        QTest.qWait(60)
+
+        def visible_items(item):
+            if item.isVisible():
+                yield item
+                for inner in item.childItems():
+                    yield from visible_items(inner)
+
+        label = next(item for item in visible_items(view.rootObject()) if item.property("text") == name)
+        assert label.property("truncated") is True
+        # Render the actual account chooser at its small-screen size.
+        assert not view.grabWindow().isNull()

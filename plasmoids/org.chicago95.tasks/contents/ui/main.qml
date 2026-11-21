@@ -208,14 +208,28 @@ PlasmoidItem {
             const request = pending;
             if (!request || source !== request.command) return;
             pending = null;
+            if (!request.menu.visualParent || String(request.menu.launcher || "") !== request.launcher) return;
             let entries = [];
             try { entries = JSON.parse(data.stdout); } catch (error) {}
+            let lastSection = "";
             for (const entry of entries) {
-                const item = jumpItem.createObject(request.menu, {text: entry.label});
+                const heading = entry.uri ? i18n("Recent") : i18n("Tasks");
+                if (heading !== lastSection) {
+                    const section = jumpItem.createObject(request.menu, {text: heading, enabled: false});
+                    request.menu.addMenuItem(section, request.first);
+                    request.menu.jumpItems.push(section);
+                    lastSection = heading;
+                }
+                const item = jumpItem.createObject(request.menu, {text: entry.label.replace(/&/g, "&&")});
                 item.clicked.connect(() => runner.connectSource(root.jumpCommand([request.launcher,
                     entry.action ? "action" : "uri", entry.action || entry.uri])));
                 request.menu.addMenuItem(item, request.first);
                 request.menu.jumpItems.push(item);
+            }
+            if (entries.length) {
+                const divider = jumpItem.createObject(request.menu, {separator: true});
+                request.menu.addMenuItem(divider, request.first);
+                request.menu.jumpItems.push(divider);
             }
             request.menu.open(request.x, request.y);
         }
