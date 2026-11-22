@@ -475,7 +475,7 @@ HOME_AFTER_SETUP = "home-after-setup"
 DESKTOP_LEAVINGS = ("screen.png", "screen-shot-*.png", "effects.txt")
 
 
-def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_steps=()):
+def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_steps=(), scale=1):
     """Runs the desktop's session, as after logging in again, from the home Setup left; returns the screenshot.
     windows replaces the look's own windows (an empty list: none, for the desktop behind them); windows_first
     opens them before Plasma starts, as a login that restores the last session does; tray_icons is the number of
@@ -514,7 +514,7 @@ def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_
         )
     )
     (work / "drag.png").unlink(missing_ok=True)
-    run_session(work, work / "desktop.sh", environment, screen_size, xwayland=True)
+    run_session(work, work / "desktop.sh", environment, screen_size, xwayland=True, scale=scale)
     enforce_screenshot(work / "screen.png", "the desktop's")
     image = Image.open(work / "screen.png").convert("RGB")
     effects, kwin_log = work / "effects.txt", work / "kwin-desktop.log"

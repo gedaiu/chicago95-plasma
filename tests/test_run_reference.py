@@ -6,7 +6,7 @@ with the original's 3D light (#DFDFDF, the second line of a button's bevel) read
 
 import pytest
 from conftest import needs_ui_font
-from reference import differing_pixels, qimage_to_pil, screenshot
+from reference import differing_pixels, qimage_to_pil, rgb565, screenshot
 from test_install import dry_run_log, kwriteconfig
 
 SIZE = (347, 163)
@@ -97,3 +97,56 @@ def test_classic_run_controls_match_guest_geometry(ours, edition):
     actual = without_light(ours)
     for band in ((57, 82, 332, 84), (57, 100, 332, 103), (93, 124, 333, 127), (93, 144, 333, 147)):
         assert actual.crop(band).tobytes() == native.crop(band).tobytes(), (edition, band)
+
+
+@pytest.mark.parametrize(("style", "guest"), [("2000", "win2000-pro"), ("2001", "xp-sp3-classic")])
+def test_nt_classic_run_matches_guest(qt_app, tmp_path, monkeypatch, style, guest):
+    import chicago95ui
+    from aurorae_model import build_theme
+    from conftest import load_script
+    from reference import LOOK_2000_KDEGLOBALS, installed_look
+
+    native = screenshot(guest + "-run")
+    monkeypatch.setattr(chicago95ui, "DECORATION", build_theme(tmp_path, style))
+    with installed_look(qt_app, f"[StartMenu]\nstyle={style}\n[Look]\nbevel=2000\n", LOOK_2000_KDEGLOBALS):
+        dialog = load_script("chicago95-run").RunDialog({"style": style, "widgetStyle": "classic"}, [], [], [])
+        image = qimage_to_pil(dialog.grab().toImage())
+        dialog.close()
+    assert image.size == native.size
+    if style == "2000":
+        image = rgb565(image)
+        icon = image.crop((14, 40, 46, 72))
+        assert icon.tobytes() == screenshot("win2000-pro-120dpi-run-icon").tobytes()
+    for x in (75, 190, 266):
+        for y in (81, 82, 83, 84, 100, 101, 102, 103):
+            assert image.getpixel((x, y)) == native.getpixel((x, y)), (x, y)
+    for x in (190, 266):
+        for y in (135, 136, 137, 156, 157, 158, 159):
+            assert image.getpixel((x, y)) == native.getpixel((x, y)), (x, y)
+
+
+def test_classic_run_hourglass_matches_96_and_120_dpi_guests(ours):
+    icon = ours.crop((14, 40, 46, 72))
+    for guest in ("win95-osr2-run", "win98-se-run"):
+        assert icon.tobytes() == screenshot(guest).crop((14, 40, 46, 72)).tobytes()
+    for guest in ("win95-osr2", "win98-se"):
+        assert icon.tobytes() == screenshot(guest + "-120dpi-run-icon").tobytes()
+
+
+@pytest.mark.parametrize("guest", ["xp-sp3", "xp-sp3-classic"])
+def test_xp_run_svg_at_120_dpi_matches_the_sp3_guest(qt_app, guest):
+    from conftest import REPO
+    from PIL import Image, ImageChops, ImageStat
+    from PySide6.QtCore import QSize
+    from PySide6.QtGui import QIcon, QImage
+
+    native = screenshot(guest + "-120dpi-run-icon")
+    icon = QIcon(str(REPO / "data/run/xp-run.svg")).pixmap(QSize(32, 32), 1.25)
+    assert icon.width() == icon.height() == 40
+    pixels = icon.toImage().convertToFormat(QImage.Format_RGBA8888)
+    rgba = Image.frombytes("RGBA", (40, 40), bytes(pixels.constBits()))
+    actual = Image.new("RGBA", rgba.size, native.getpixel((0, 0)) + (255,))
+    actual.alpha_composite(rgba)
+    diff = ImageChops.difference(actual.convert("RGB"), native)
+    # Exclude the empty top and bottom margins of the native 40-pixel icon.
+    assert max(ImageStat.Stat(diff.crop((0, 8, 39, 32))).mean) < 25

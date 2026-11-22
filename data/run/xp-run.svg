@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 40 40">
+  <title>Run</title>
+  <defs>
+    <linearGradient id="title" x2="0" y2="1">
+      <stop stop-color="#29519c"/><stop offset=".32" stop-color="#29559c"/>
+      <stop offset=".43" stop-color="#398ede"/><stop offset=".68" stop-color="#0071de"/>
+      <stop offset="1" stop-color="#21a2f7"/>
+    </linearGradient>
+  </defs>
+  <path d="M1.5 12h7m-7 5h6m-6 5h4m-4 5h2" stroke="#90989d"/>
+  <path d="M1.5 11.5h7m-7 5h6m-6 5h4m-4 5h2" stroke="#cbd9e3" stroke-width=".7"/>
+  <g transform="matrix(1 0 -.30 1 13 8.5)">
+    <rect x="1" y="1.5" width="24" height="22" rx="1" fill="#636563"/>
+    <rect x="-.1" y=".3" width="23.7" height="21.8" rx="1" fill="#ece9d8" stroke="#103e92" stroke-width="1.6"/>
+    <path d="M.3.1H23v4.6H.3z" fill="url(#title)"/>
+    <path d="M18 2.4h1.2m1.1 0h1.2" stroke="#f8e8d8" stroke-width=".85"/>
+    <path d="M.7 20.2h22" stroke="#c6cbce" stroke-width="1.7"/>
+    <path d="M3.2 8.6h17v9.1h-17z" fill="white"/>
+    <path d="M3.2 17.7V8.6h17" fill="none" stroke="#aba99b" stroke-width="1.6"/>
+    <path d="M4.2 13.5h2.6V10" fill="none" stroke="#999b97" stroke-width="1.2"/>
+  </g>
+</svg>

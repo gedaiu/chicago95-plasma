@@ -41,28 +41,64 @@ def runs(values):
             start = index
 
 
-def held_stops(values, attributes):
-    """Stops that hold each value across its pixels, a pair per run of equal values."""
-    count = len(values)
-    return "".join(
-        f'<stop offset="{number(round(edge / count, 4))}" {attributes(value)}/>'
-        for start, end, value in runs(values)
-        for edge in (start, end)
-    )
+def gradient_knots(samples, tolerance=4):
+    """Keep the ends and bends of a piecewise-linear colour ramp."""
+    if len(samples) == 1 or all(sample == samples[0] for sample in samples):
+        return [0]
+    kept = [0]
+
+    def split(start, end):
+        if end > start + 1:
+            first, last = samples[start], samples[end]
+            worst, pivot = 0, start
+            for i in range(start + 1, end):
+                t = (i - start) / (end - start)
+                error = max(abs(v - (a + (b - a) * t)) for a, b, v in zip(first, last, samples[i], strict=True))
+                if error > worst:
+                    worst, pivot = error, i
+            if worst > tolerance:
+                split(start, pivot)
+                split(pivot, end)
+                return
+        kept.append(end)
+
+    split(0, len(samples) - 1)
+    return kept
+
+
+def gradient_stops(values, attributes, offset=0, total=None):
+    """Fit ramps through pixel centres, retaining abrupt bevels as hard stops."""
+    samples = []
+    for value in values:
+        if isinstance(value, (float, int)):
+            samples.append((value * 255,))
+        else:
+            colour, alpha = value
+            rgb = bytes.fromhex(colour.lstrip("#"))
+            samples.append(tuple(v * alpha / 255 for v in rgb) + (alpha,))
+    indices = gradient_knots(samples)
+    stops = []
+    for k, i in enumerate(indices):
+        # A large adjacent jump is a painted edge between two surfaces.
+        if k and i == indices[k - 1] + 1 and max(abs(a-b) for a,b in zip(samples[i-1],samples[i],strict=True)) > 48:
+            stops.extend(((i, values[i-1]), (i, values[i])))
+        stops.append((i + .5, values[i]))
+    length = total or len(values)
+    return "".join(f'<stop offset="{number(round((offset + x) / length, 5))}" {attributes(value)}/>' for x,value in stops)
 
 
 def vertical_gradient(gradient_id, column):
-    """One colour per pixel row: the sprite column as a gradient that scales smoothly."""
+    """Fit the fill or border gradient along the vertical axis."""
     return (
         f'<linearGradient id="{gradient_id}" x1="0" y1="0" x2="0" y2="1">'
-        f"{held_stops(column, lambda value: paint(*value))}</linearGradient>"
+        f"{gradient_stops(column, lambda value: paint(*value))}</linearGradient>"
     )
 
 
 def shade_gradient(gradient_id, shade):
     return (
         f'<linearGradient id="{gradient_id}" x1="0" y1="0" x2="1" y2="0">'
-        f"{held_stops(shade, lambda value: f'stop-color="#000000" stop-opacity="{number(value)}"')}"
+        f"{gradient_stops(shade, lambda value: f'stop-color="#000000" stop-opacity="{number(value)}"')}"
         "</linearGradient>"
     )
 
@@ -77,6 +113,8 @@ def face_markup(face, prefix, origin):
     shapes = [f'<rect x="{x0 + edge}" y="{y0}" width="{inner}" height="{height}" fill="url(#{prefix}r)"/>']
     for index, band in enumerate(face["bands"]):
         top, bottom = band["rows"]
+        if not any(band["shade"]):
+            continue
         definitions.append(shade_gradient(f"{prefix}s{index}", band["shade"]))
         shapes.append(
             f'<rect x="{x0 + edge}" y="{y0 + top}" width="{inner}" height="{bottom - top}" '
@@ -324,7 +362,34 @@ def button_face(face):
     }
 
 
-def button_state(kind, window, look, prefix, x0=0):
+# Optical masters in the guest's 144-DPI button coordinates. The high-DPI
+# maximize ring and X have heavier strokes than a scaled 96-DPI glyph.
+LARGE_CAPTION_PATHS = {
+    "minimize": rect(15, 17, 16, 4),
+    "maximize": rect(11, 7, 18, 14) + rect(15, 10, 10, 8),
+    "close": "M29,7h5l3,4 3,-4h5l-6,7 6,7h-5l-3,-4 -3,4h-5l6,-7z",
+    "restore": ("M14,6h15v14h-2V8H14z " + rect(11, 9, 15, 13) + rect(15, 13, 7, 5)),
+}
+
+
+def large_caption_glyph(kind, colours, prefix, x0):
+    body = f"g{prefix}LargeGlyph"
+    gradient = (
+        f'<linearGradient id="{body}" x2="0" y2="1"><stop offset="0" {paint(*colours["top"])}/>'
+        f'<stop offset="1" {paint(*colours["bottom"])}/></linearGradient>'
+    )
+    path = LARGE_CAPTION_PATHS[kind]
+    outline, alpha = colours["outline"]
+    shape = (
+        f'<g transform="translate({x0} 0) scale(0.66666667)">'
+        f'<path d="{path}" stroke="{outline}" stroke-opacity="{number(alpha / 255)}" '
+        f'stroke-width="3" stroke-linejoin="round" fill="none"/>'
+        f'<path d="{path}" fill="url(#{body})" fill-rule="evenodd"/></g>'
+    )
+    return gradient, shape
+
+
+def button_state(kind, window, look, prefix, x0=0, large=False):
     face_name = BUTTON_FACES[kind]
     width = palette.BUTTON_WIDTHS["maximize" if kind == "restore" else kind]
     height = palette.BUTTON_HEIGHT
@@ -336,15 +401,17 @@ def button_state(kind, window, look, prefix, x0=0):
     face_definitions, face_shapes = face_markup(face, f"f{prefix}", (0, 0))
     face_shapes = f'<g transform="translate({x0} 0) scale({width / face["size"][0]} 1)">{face_shapes}</g>'
     glyph_gradient, glyph_shapes = glyph_markup(kind, stops.GLYPHS[kind][look], f"g{prefix}", (x0 + glyph_x, glyph_y))
+    if large:
+        glyph_gradient, glyph_shapes = large_caption_glyph(kind, stops.GLYPHS[kind][look], prefix, x0)
     return face_definitions + glyph_gradient, face_shapes + glyph_shapes
 
 
-def button_svg(kind):
+def button_svg(kind, large=False):
     width = palette.BUTTON_WIDTHS["maximize" if kind == "restore" else kind]
     height = palette.BUTTON_HEIGHT
     definitions, groups = [], []
     for index, (state, (window, look)) in enumerate(AURORAE_STATES.items()):
-        defs, shapes = button_state(kind, window, look, index, index * (width + GAP))
+        defs, shapes = button_state(kind, window, look, index, index * (width + GAP), large)
         definitions.append(defs)
         groups.append(f'<g id="{state}-center">{shapes}</g>')
     total = len(AURORAE_STATES) * (width + GAP)
@@ -409,6 +476,7 @@ def write_theme(out):
     (out / "decoration.svg").write_text(decoration_svg())
     for kind in BUTTON_FACES:
         (out / f"{kind}.svg").write_text(button_svg(kind))
+        (out / f"{kind}-large.svg").write_text(button_svg(kind, large=True))
     (out / "Chicago95Aerorc").write_text(
         RC.format(
             title=palette.TITLE_HEIGHT - 1,

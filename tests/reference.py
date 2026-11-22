@@ -131,3 +131,13 @@ class installed_look:
         Path(chicago95ui.CHICAGO95RC).unlink(missing_ok=True)
         Path(chicago95ui.KDEGLOBALS).unlink(missing_ok=True)
         self.app.setPalette(chicago95ui.retro_palette(chicago95ui.read_scheme()))
+
+
+def rgb565(image):
+    """Quantize an RGB capture to the Cirrus guest's 5:6:5 display modes."""
+    from PIL import Image
+
+    r, g, b = image.convert("RGB").split()
+    five = [(v & 248) | (v >> 5) for v in range(256)]
+    six = [(v & 252) | (v >> 6) for v in range(256)]
+    return Image.merge("RGB", (r.point(five), g.point(six), b.point(five)))

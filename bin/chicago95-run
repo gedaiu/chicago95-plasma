@@ -17,7 +17,7 @@ from collections import namedtuple
 from pathlib import Path
 
 import chicago95ui  # noqa: E401,E702
-from PySide6.QtCore import QEvent, Qt
+from PySide6.QtCore import QEvent, QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter
 from PySide6.QtWidgets import (
     QComboBox,
@@ -46,7 +46,8 @@ RunLayout = namedtuple(
 # and the buttons 114 rows down.
 LAYOUTS = {
     "aero": RunLayout((383, 160), (12, 17), (58, 18), (12, 67), (58, 62), 312, 23, 119, (102, 190, 280), 0, 40),
-    "classic": RunLayout((341, 139), (13, 15), (56, 17), (11, 66), (54, 61), 275, 21, 103, (93, 174, 255), 1, 30),
+    "classic": RunLayout((341, 139), (11, 19), (56, 17), (11, 66), (54, 61), 275, 21, 103, (93, 174, 255), 1, 30),
+    "nt-classic": RunLayout((341, 155), (11, 19), (54, 20), (11, 66), (54, 61), 275, 21, 115, (93, 174, 255), 1, 40),
     "luna": RunLayout((341, 154), (11, 19), (54, 20), (11, 66), (54, 60), 275, 21, 114, (93, 174, 255), 0, 40),
 }
 PROMPTS = {
@@ -54,12 +55,15 @@ PROMPTS = {
     "1995": "Type the name of a program, folder, or document, and {os} will open it for you.",
     "1998": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
     "2000": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
+    "2001": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
     "luna": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
 }
 
 
 def layout_key(look):
-    return look["widgetStyle"] if look["widgetStyle"] in ("luna", "aero") else "classic"
+    if look["widgetStyle"] in ("luna", "aero"):
+        return look["widgetStyle"]
+    return "nt-classic" if look["style"] in ("2000", "2001") else "classic"
 
 
 def prompt_key(look):
@@ -226,7 +230,14 @@ class RunBehaviour:
     def build(self):
         body, layout = self.body, self.layout
         icon = QLabel(body)
-        icon.setPixmap(QIcon.fromTheme("system-run").pixmap(32, 32))
+        graphic = QIcon.fromTheme("system-run")
+        if self.style in ("1995", "1998", "2000", "2001", "luna"):
+            filename = "classic-run.svg" if self.style in ("1995", "1998", "2000") else "xp-run.svg"
+            asset = Path(__file__).resolve().parents[1] / "data/run" / filename
+            if not asset.is_file():
+                asset = Path.home() / ".local/share/chicago95/run" / filename
+            graphic = QIcon(str(asset))
+        icon.setPixmap(graphic.pixmap(QSize(32, 32), self.devicePixelRatioF()))
         icon.setFixedSize(32, 32)
         icon.move(*layout.icon_at)
         prompt = QLabel(chicago95ui.fill_placeholders(PROMPTS[self.style], self.look), body)
@@ -360,10 +371,16 @@ def main():
     parser.add_argument(
         "--widget-style", choices=("classic", "luna", "aero"), help="with --height: the style to measure"
     )
+    parser.add_argument("--menu-style", help="with --height: the Start menu style selected in Setup")
     arguments = parser.parse_args()
     if arguments.height:
         chicago95ui.make_app(INSTANCE_NAME)
-        dialog = RunDialog({"widgetStyle": arguments.widget_style} if arguments.widget_style else None)
+        look = {}
+        if arguments.widget_style:
+            look["widgetStyle"] = arguments.widget_style
+        if arguments.menu_style:
+            look["style"] = arguments.menu_style
+        dialog = RunDialog(look)
         dialog.adjustSize()
         print(dialog.height())
         return 0

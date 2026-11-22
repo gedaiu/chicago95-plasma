@@ -15,8 +15,8 @@ audit_desktop_pixels.py,test_notification_close_and_options,1012,1012,13.89
 audit_desktop_pixels.py,test_control_panel_navigation,7336,7480,31.04
 audit_desktop_pixels.py,test_explorer_navigation,6983,7040,25.17
 audit_desktop_pixels.py,test_firefox_button_face,152,210,2.44
-audit_desktop_pixels.py,test_gtk_fixed_corner[palette button-BUTTON-PUSHBUTTON-0],30,30,71.04
-audit_desktop_pixels.py,test_gtk_fixed_corner[palette disabled-button-BUTTON-PUSHBUTTON-3],25,30,37.60
+audit_desktop_pixels.py,test_gtk_fixed_corner[palette button-BUTTON-PUSHBUTTON-0],16,30,3.98
+audit_desktop_pixels.py,test_gtk_fixed_corner[palette disabled-button-BUTTON-PUSHBUTTON-3],9,30,2.53
 audit_desktop_pixels.py,test_gtk_fixed_corner[palette entry-EDIT-EDITBORDER_NOSCROLL-0],4,4,27.25
 audit_desktop_pixels.py,test_gtk_fixed_corner[palette disabled-entry-EDIT-EDITBORDER_NOSCROLL-3],4,4,9.83
 audit_desktop_pixels.py,test_gtk_fixed_corner[progress empty-horizontal-PROGRESS-BAR-0],60,63,8.98

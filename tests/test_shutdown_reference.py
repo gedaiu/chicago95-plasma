@@ -393,3 +393,13 @@ def test_2001_asks_the_2000_question_in_a_combo_layout(shutdown):
         "What do you want the computer to do?",
         "combo",
     )
+
+
+def test_installed_windows_2000_shutdown_frame(whole_2000):
+    from reference import rgb565
+
+    original = screenshot("win2000-pro-shutdown-dialog")
+    rendered = rgb565(whole_2000)
+    assert rendered.size == original.size
+    for band in [(0, 0, 417, 3), (0, 266, 417, 269), (0, 21, 3, 266)]:
+        assert rendered.crop(band).tobytes() == original.crop(band).tobytes()

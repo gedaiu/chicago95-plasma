@@ -53,3 +53,32 @@ def test_caption_hover_lights_the_glass_below_the_live_close_button(desktops):
     delta = (np.asarray(hot, dtype=int) - np.asarray(normal, dtype=int))[171:174, 520:534].mean(axis=1)
     assert np.all(delta[:, 0] > 25)
     assert np.max(np.abs(delta[:, 0] / delta[0, 0] - native_delta[:, 0] / native_delta[0, 0])) < 0.15
+
+
+@pytest.mark.skipif(bool(missing_programs()), reason=f"needs {', '.join(missing_programs())}")
+def test_kwin_close_glyph_on_a_150_percent_screen(desktops, tmp_path):
+    from reference import screenshot
+
+    desktop = desktops(
+        "luna",
+        **reference_session(
+            settings=[("DECORATION", "aero"), ("BACKGROUND_MODE", "color"), ("BACKGROUND_COLOR", "#101820")],
+            windows=[("High DPI caption", "qt", (160, 150, 559, 449))],
+            scale=1.5,
+        ),
+    )
+    desktop.save(tmp_path / "kwin-150.png")
+    assert desktop.size == (1536, 1152)
+    # Locate the red button on the restored window. Exclude its glass border
+    # and measure the bright glyph body on the physical framebuffer.
+    region = np.asarray(desktop, dtype=int)[210:285, 700:860]
+    y, x = np.where((region[:, :, 0] - region[:, :, 2] > 55) & (region[:, :, 0] > 115))
+    assert x.max() - x.min() > 65
+
+    def glyph_box(pixels):
+        yy, xx = np.where(pixels.min(axis=2) > 198)
+        return (xx.max() - xx.min() + 1, yy.max() - yy.min() + 1)
+
+    glyph = region[y.min() + 4 : y.max() - 2, x.min() + 10 : x.max() - 10]
+    native = np.asarray(screenshot("win7-sp1-144dpi-caption"))[4:25, 91:154]
+    assert glyph_box(glyph) == pytest.approx(glyph_box(native), abs=2)

@@ -1,16 +1,17 @@
 """Compare the rendered caption's enter, leave and focus transitions with three 60 Hz SP1 trials."""
 
 import time
+from pathlib import Path
 
 import numpy as np
 import pytest
-from conftest import REPO
 from PIL import Image
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QColor, QImage
 from PySide6.QtQuick import QQuickView
 from PySide6.QtTest import QTest
 
+REPO = Path(__file__).resolve().parents[2]
 THEME = REPO / "aero/aurorae"
 REFERENCES = REPO / "tests/references"
 
@@ -44,6 +45,10 @@ def native_times(action):
     "action,width", [("close", 50), ("maximize", 27), ("restore", 27), ("minimize", 30), ("focus", 50)]
 )
 def test_caption_rgb_transition_matches_vm(qt_app, action, width):
+    compare_caption_motion(action, width, native_times(action))
+
+
+def compare_caption_motion(action, width, timings):
     button = "close" if action == "focus" else action
     view = QQuickView()
     view.setColor(QColor("#528cb9"))
@@ -66,10 +71,11 @@ def test_caption_rgb_transition_matches_vm(qt_app, action, width):
     def sample():
         img = view.grabWindow().convertToFormat(QImage.Format_RGBA8888)
         data = np.frombuffer(img.constBits(), dtype=np.uint8).reshape(img.height(), img.bytesPerLine() // 4, 4)
-        return data[3:15, 3 : width - 4, :3].copy()
+        scale = img.width() / width
+        return data[round(3 * scale) : round(15 * scale), round(3 * scale) : round((width - 4) * scale), :3].copy()
 
     try:
-        for entering, original in zip((True, False), native_times(action), strict=True):
+        for entering, original in zip((True, False), timings, strict=True):
             frames = [sample()]
             start = time.monotonic()
             timestamps = [0]
@@ -89,3 +95,32 @@ def test_caption_rgb_transition_matches_vm(qt_app, action, width):
             assert min(original) - tolerance <= duration <= max(original) + tolerance, (duration, original)
     finally:
         view.close()
+
+
+def test_live_close_transition_at_144_dpi():
+    import os
+    import subprocess
+    import sys
+
+    # Qt reads the output scale before creating the application instance.
+    subprocess.run(
+        [sys.executable, __file__],
+        check=True,
+        env={**os.environ, "QT_QPA_PLATFORM": "offscreen", "QT_SCALE_FACTOR": "1.5"},
+    )
+
+
+if __name__ == "__main__":
+    from PySide6.QtGui import QGuiApplication
+
+    app = QGuiApplication([])
+    assert app.primaryScreen().devicePixelRatio() == 1.5
+    stem = REFERENCES / "win7-sp1-144dpi-close-motion"
+    pixels = np.asarray(Image.open(stem.with_suffix(".png")))
+    frames = pixels.reshape(3, 9, 16, 10, 13, 3).transpose(0, 1, 3, 2, 4, 5).reshape(3, 90, 16, 13, 3)
+    timestamps = np.loadtxt(stem.with_suffix(".txt"))
+    timings = [
+        [crossing_time(trial[s:e], clock[s:e]) for trial, clock in zip(frames, timestamps, strict=True)]
+        for s, e in ((8, 42), (45, 86))
+    ]
+    compare_caption_motion("close", 50, timings)

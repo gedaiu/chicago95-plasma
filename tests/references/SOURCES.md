@@ -96,6 +96,17 @@ Windows XP (Luna and XP Classic), from Toasty Technology, GUIdebook, Wikipedia a
 | `xplogin.png` | https://guidebookgallery.org/pics/gui/startupshutdown/login/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the Welcome screen) |
 | `xp-sp3-device-manager-bands.png` | Windows XP Professional SP3 English, GRTMPVOL_EN. First 74 client rows of Device Manager at (75, 72), 800×600 desktop, default theme and font size. |
 | `xp-sp3-boot-bar.png` | English Windows XP Professional SP3 x86 volume CD (GRTMPVOL_EN), captured in an offline KVM guest at native 640×480. Eighteen consecutive states of the fully illuminated loading bar, cropped at (255, 351), 126×15 each. Matching states repeated about 1.69 seconds apart. |
+| `win95-osr2-120dpi-run-icon.png`, `win98-se-120dpi-run-icon.png` | Installed Cirrus drivers at 120 DPI and 256 colours. Capture coordinates (22, 580) at 1024×768 on 95 and (22, 836) at 1280×1024 on 98 SE, both 32×32. |
+| `win2000-pro-120dpi-run-icon.png`, `xp-sp3-120dpi-run-icon.png` | 1280×1024, 120 DPI, RGB565. Windows 2000 Run hourglass at (20, 816), 32×32. XP Luna Run at (17, 814), 40×40. |
+| `win2000-pro-120dpi-device-manager-band.png` | Installed Windows 2000 Professional, 1280×1024, 120 DPI. The Action and View menus and five MMC commands share one native band at (4, 30), 630×25. |
+| `win2000-pro-shutdown-dialog.png` | Windows 2000 at 1280×1024, 96 DPI. Alt+F4 from the desktop. Dialog at (431, 251), 417×269. |
+| `xp-sp3-classic-120dpi-run-icon.png` | Windows Classic on a separate XP SP3 disk, 1280×1024 at 120 DPI. Run icon at (19, 816), 40×40. |
+| `win7-sp1-144dpi-radio-normal.png`, `win7-sp1-144dpi-radio-checked.png` | Windows 7 Display control panel at 150%, 1280×960. Smaller and Larger radio faces at (423, 261) and (423, 399), 19×19 each. |
+| `win7-sp1-144dpi-close-motion.png`, `win7-sp1-144dpi-close-motion.txt` | 144-DPI Notepad, 1280×960. Three 90-frame trials at 60 Hz of the 13×16 left interior of the close button at (638, 80). Pointer entered at frame 12 and left at 48. Timestamps are elapsed milliseconds. |
+| `win7-sp1-144dpi-restore.png` | Same 144-DPI Aero guest, maximized Notepad. Restore button at (1163, 0), 40×29. |
+| `win7-sp1-144dpi-caption.png` | Windows 7 SP1 WDDM, 1280×960 at 150% after logging back in. Active restored Notepad button cluster at (545, 75), 160×30. Captured directly from the VirtualBox framebuffer. |
+| `win2000-pro-run.png`, `win2000-pro-taskbar-band.png` | Installed Windows 2000 Professional, Cirrus Logic 5446 driver at 1280×1024, 16-bit colour. Run at (5, 813), 347×179. Taskbar at (535, 996), 8×28. |
+| `xp-sp3-classic-run.png`, `xp-sp3-classic-taskbar-band.png`, `xp-sp3-classic-device-manager-bands.png` | XP Professional SP3 with Windows Classic applied in a separate guest overlay at 800×600. Run at (5, 389), 347×179. Empty taskbar band and the first 74 Device Manager client rows at (75, 66). |
 | `win95-osr2-run.png`, `win98-se-run.png` | English OSR2 and SE reference guests, 640×480 VGA. Empty Run dialog at (5, 285), 347×163. |
 | `win95-osr2-start.png`, `win98-se-start.png` | Root menus opened with Ctrl+Esc on the same guests. OSR2 at (2, 185), 164×271. SE at (2, 114), 177×342. |
 | `win95-osr2-taskbar-band.png`, `win98-se-taskbar-band.png` | Unoccupied section of the respective panels at (535, 452), 8×28. |

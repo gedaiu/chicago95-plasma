@@ -236,8 +236,8 @@ def test_seven_exports_shutdown_with_its_own_spinner_and_status_text(qt_app, tmp
     assert 'if (1 && (Plymouth.GetMode() == "shutdown" || Plymouth.GetMode() == "reboot"))' in script
 
 
-@pytest.mark.parametrize("width,height", [(800, 600), (1024, 768)])
-def test_seven_shutdown_status_matches_sp1(tmp_path, width, height):
+@pytest.mark.parametrize("width,height,scale", [(800, 600, 1), (1024, 768, 1), (1280, 960, 1.5)])
+def test_seven_shutdown_status_matches_sp1(tmp_path, width, height, scale):
     source = tmp_path / "splash"
     output = tmp_path / "theme"
     shutil.copytree(SPLASH, source)
@@ -249,7 +249,9 @@ def test_seven_shutdown_status_matches_sp1(tmp_path, width, height):
             sys.executable,
             str(REPO / "bin/chicago95-post-xp-boot"),
             "--size",
-            f"{width}x{height}",
+            f"{round(width / scale)}x{round(height / scale)}",
+            "--scale",
+            str(scale),
             "--splash",
             str(source),
             "--out",
@@ -258,13 +260,15 @@ def test_seven_shutdown_status_matches_sp1(tmp_path, width, height):
         env={**os.environ, "QT_QPA_PLATFORM": "offscreen", "QT_QUICK_BACKEND": "software"},
         check=True,
     )
-    native = Image.open(REPO / f"tests/references/win7-sp1-shutdown-{width}.png").convert("RGB")
-    x, y = width // 2 - 120, height // 2 - 80
+    reference = "144dpi" if scale == 1.5 else str(width)
+    native = Image.open(REPO / f"tests/references/win7-sp1-shutdown-{reference}.png").convert("RGB")
+    assert Image.open(output / "shutdown.png").size == (width, height)
+    x, y = width // 2 - round(120 * scale), height // 2 - round(80 * scale)
     actual = Image.open(output / "shutdown.png").convert("RGB").crop((x, y, x + native.width, y + native.height))
 
     def text_bounds(picture):
         # Skip the spinner and threshold all channels to exclude the blue background.
-        red, green, blue = picture.crop((38, 0, picture.width, picture.height)).split()
+        red, green, blue = picture.crop((round(38 * scale), 0, picture.width, picture.height)).split()
         ink = ImageChops.darker(ImageChops.darker(red, green), blue)
         bounds = ink.point(lambda v: 255 if v > 230 else 0).getbbox()
         assert bounds
@@ -272,14 +276,18 @@ def test_seven_shutdown_status_matches_sp1(tmp_path, width, height):
 
     left, top, right, bottom = text_bounds(actual)
     ref_left, ref_top, ref_right, ref_bottom = text_bounds(native)
-    assert (top, bottom, (left + right) / 2) == pytest.approx((ref_top, ref_bottom, (ref_left + ref_right) / 2), abs=3)
+    assert (top, bottom, (left + right) / 2) == pytest.approx(
+        (ref_top, ref_bottom, (ref_left + ref_right) / 2), abs=3 * scale
+    )
     script = (output / "Chicago95-7.script").read_text()
-    spinner = re.search(r"ax = (\d+); ay = (\d+); aw = 20; ah = 20;", script)
+    side = round(20 * scale)
+    assert Image.open(output / "shutdown-0.png").size == (side, side)
+    spinner = re.search(rf"ax = (\d+); ay = (\d+); aw = {side}; ah = {side};", script)
     assert spinner
-    assert int(spinner[1]) == pytest.approx(width // 2 - 103, abs=5)
-    assert int(spinner[2]) == pytest.approx(height // 2 - 60, abs=1)
+    assert int(spinner[1]) == pytest.approx(width // 2 - round(103 * scale), abs=5 * scale)
+    assert int(spinner[2]) == pytest.approx(height // 2 - round(60 * scale), abs=1)
     # The default test font can substitute for Segoe UI.
-    assert right - left == pytest.approx(ref_right - ref_left, abs=12)
+    assert right - left == pytest.approx(ref_right - ref_left, abs=12 * scale)
 
 
 @pytest.mark.parametrize("style", [value for _, value in STYLES])

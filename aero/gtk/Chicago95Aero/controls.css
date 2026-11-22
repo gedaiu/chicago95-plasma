@@ -96,7 +96,7 @@ checkbutton:disabled > check:indeterminate {
 checkbutton > radio, radiobutton > radio {
   min-width: 13px; min-height: 13px; border: 0; padding: 0;
   border-radius: 0; box-shadow: none; -gtk-icon-source: none;
-  background: transparent url("gtk-4.0/indicators/radio-normal.svg") center / 13px 13px no-repeat;
+  background: transparent -gtk-scaled(url("gtk-4.0/indicators/radio-normal.svg"), url("gtk-4.0/indicators/radio-normal@2x.svg")) center / 13px 13px no-repeat;
 }
 checkbutton:hover > radio, radiobutton:hover > radio {
   background-image: url("gtk-4.0/indicators/radio-hover.svg");
@@ -109,7 +109,7 @@ checkbutton:disabled > radio, radiobutton:disabled > radio {
 }
 checkbutton > radio:checked, radiobutton > radio:checked {
   -gtk-icon-source: none; color: transparent;
-  background-image: url("gtk-4.0/indicators/radio-checked-normal.svg");
+  background-image: -gtk-scaled(url("gtk-4.0/indicators/radio-checked-normal.svg"), url("gtk-4.0/indicators/radio-checked-normal@2x.svg"));
 }
 checkbutton:hover > radio:checked, radiobutton:hover > radio:checked {
   background-image: url("gtk-4.0/indicators/radio-checked-hover.svg");

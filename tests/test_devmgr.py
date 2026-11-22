@@ -417,7 +417,8 @@ def test_aero_console_bands_match_win7_sp1(
         window.close()
 
 
-def test_luna_console_matches_xp_sp3_command_bands(devmgr, snapshot, qt_app):
+@pytest.mark.parametrize(("style", "capture"), [("luna", "xp-sp3"), ("2001", "xp-sp3-classic")])
+def test_xp_console_matches_sp3_command_bands(devmgr, snapshot, qt_app, style, capture):
     import numpy as np
     from PIL import Image
     from PySide6.QtWidgets import QPushButton, QToolBar
@@ -432,7 +433,7 @@ def test_luna_console_matches_xp_sp3_command_bands(devmgr, snapshot, qt_app):
         assert len(xs) > 0
         return xs.min(), ys.min(), xs.max(), ys.max()
 
-    with themed(qt_app, "luna"):
+    with themed(qt_app, style):
         window = devmgr.DeviceManagerWindow(load=lambda: snapshot)
         try:
             window.show()
@@ -448,9 +449,9 @@ def test_luna_console_matches_xp_sp3_command_bands(devmgr, snapshot, qt_app):
                 "Action pane",
             ]
             # Compare both bands including their one-pixel seam, clear of icons and labels.
-            box = (280, 0, 550, 46)
+            box = (280, 0, 550, 48 if style == "2001" else 46)
             rendered = qimage_to_pil(window.grab().toImage())
-            with Image.open(REPO / "tests/references/xp-sp3-device-manager-bands.png") as native:
+            with Image.open(REPO / f"tests/references/{capture}-device-manager-bands.png") as native:
                 # Check native centres and the glyphs: navy pane borders and the yellow Help mark.
                 for left, right, colour in [(56, 77, "navy"), (87, 109, "yellow"), (111, 132, "navy")]:
                     assert glyph_bounds(rendered, left, right, colour) == pytest.approx(
@@ -487,3 +488,50 @@ def test_classic_device_action_row_matches_guest(devmgr, snapshot, qt_app, width
             )
     finally:
         window.close()
+
+
+def test_windows_2000_console_combines_menus_and_commands(devmgr, snapshot, qt_app, tmp_path):
+    import os
+    import subprocess
+
+    import numpy as np
+    from PIL import Image
+    from PySide6.QtWidgets import QMenuBar, QToolBar
+    from reference import LOOK_2000_KDEGLOBALS, rgb565, screenshot
+    from showcase import themed
+
+    with themed(qt_app, "2000"):
+        window = devmgr.DeviceManagerWindow(load=lambda: snapshot)
+        window.refresh()
+        menus = window.findChild(QMenuBar)
+        toolbar = window.findChild(QToolBar)
+        assert [a.text() for a in menus.actions()] == ["&Action", "&View"]
+        assert menus.y() == toolbar.y()
+        assert [a.text() for a in toolbar.actions() if not a.isSeparator()] == [
+            "Back",
+            "Forward",
+            "Up one level",
+            "Console tree",
+            "Device Manager Help",
+        ]
+        root = window.tree.topLevelItem(0)
+        window.tree.setCurrentItem(root.child(0))
+        assert window.up.isEnabled()
+        window.up.trigger()
+        assert window.tree.currentItem() == root
+        window.close()
+    # Run the installed entry point at the guest's physical scale.
+    (tmp_path / "chicago95rc").write_text("[StartMenu]\nstyle=2000\n[Look]\nwidgetStyle=classic\nbevel=2000\n")
+    (tmp_path / "kdeglobals").write_text(LOOK_2000_KDEGLOBALS)
+    capture = tmp_path / "console.png"
+    subprocess.run(
+        [REPO / "bin/chicago95-devmgr", "--screenshot", capture],
+        check=True,
+        env={**os.environ, "XDG_CONFIG_HOME": str(tmp_path), "QT_QPA_PLATFORM": "offscreen", "QT_SCALE_FACTOR": "1.25"},
+    )
+    original = screenshot("win2000-pro-120dpi-device-manager-band")
+    with Image.open(capture) as live:
+        actual = rgb565(live)
+    # The outer bevels bound a single 25-row band. Sample clear of commands.
+    band = (290, 0, 500, original.height)
+    assert np.abs(np.asarray(actual.crop(band), dtype=int) - np.asarray(original.crop(band), dtype=int)).mean() < 1.7

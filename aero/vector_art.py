@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import numpy as np
 from PIL import Image
 
 SVG = "http://www.w3.org/2000/svg"
@@ -25,100 +26,200 @@ def tag(name):
     return f"{{{SVG}}}{name}"
 
 
-def shaded_layers(palette):
-    """Paint broad opaque colour regions underneath their finer shades, like a layered illustration."""
-    values = palette.getpalette("RGBA")
-    colours = {i: tuple(values[4 * i : 4 * i + 4]) for _, i in palette.getcolors()}
-    counts = {i: count for count, i in palette.getcolors()}
+def colour_channels(rgba):
+    """Premultiplied channels let a transparent edge contribute its actual visible colour."""
+    values = np.asarray(rgba, dtype=float)
+    return np.column_stack((values[:, :3] * values[:, 3:] / 255, values[:, 3]))
 
-    def layer(indices, colour):
-        mask = palette.point([0 if i in indices else 255 for i in range(256)], "L")
-        return colour, mask
 
-    def tones(indices, inherited=None):
-        dominant = max(indices, key=counts.get)
-        if dominant != inherited:
-            yield layer(indices, (*colours[dominant][:3], 255))
-        if len(indices) > 1:
-            ranges = [max(colours[i][c] for i in indices) - min(colours[i][c] for i in indices) for c in range(3)]
-            channel = ranges.index(max(ranges))
-            ordered = sorted(indices, key=lambda i: colours[i][channel])
-            middle = len(ordered) // 2
-            yield from tones(set(ordered[:middle]), dominant)
-            yield from tones(set(ordered[middle:]), dominant)
+def svg_colour(channels):
+    alpha = np.clip(channels[3], 0, 255)
+    rgb = np.clip(np.rint(channels[:3] * 255 / max(1, alpha)), 0, 255).astype(int)
+    return "#" + bytes(rgb.tolist()).hex(), round(alpha / 255, 3)
 
-    opaque = {i for i, c in colours.items() if c[3] >= 225}
-    if opaque:
-        yield from tones(opaque)
-    for i, c in colours.items():
-        if 8 <= c[3] < 225:
-            yield layer({i}, c)
+
+def fit_fill(x, y, channels):
+    """Try a flat colour, directional ramps and an elliptical highlight in order of complexity."""
+    mean = channels.mean(axis=0)
+    flat_error = np.abs(channels - mean).mean()
+    if flat_error <= 2 or len(x) < 8:
+        return flat_error, mean, None
+    coords = np.column_stack((x, y)).astype(float)
+    centre = coords.mean(axis=0)
+    delta = coords - centre
+    # A colour plane's strongest direction is the axis along which the colour changes.
+    slopes = np.linalg.lstsq(delta, channels - mean, rcond=None)[0]
+    axis = np.linalg.eigh(slopes @ slopes.T)[1][:, -1]
+    directions = [("linear", delta @ axis, axis)]
+    radius = np.maximum(np.ptp(coords, axis=0) / 2, 0.5)
+    midpoint = (coords.max(axis=0) + coords.min(axis=0)) / 2
+    directions.append(("radial", np.linalg.norm((coords - midpoint) / radius, axis=1), radius))
+    best = (flat_error, mean, None)
+    for kind, distance, axis_or_radius in directions:
+        low, high = distance.min(), distance.max()
+        if high - low < 0.01:
+            continue
+        t = (distance - low) / (high - low)
+        # Fit only a few colour stops. This preserves a gloss edge without turning
+        # a smooth ramp into a separate contour for each shade.
+        for count in (2, 4, 7):
+            offsets = np.linspace(0, 1, count)
+            basis = np.maximum(0, 1 - np.abs(t[:, None] - offsets) * (count - 1))
+            stops = np.linalg.lstsq(basis, channels, rcond=None)[0]
+            error = np.abs(basis @ stops - channels).mean()
+            if error + 1 < best[0]:
+                if kind == "linear":
+                    geometry = (*(centre + axis_or_radius * low), *(centre + axis_or_radius * high))
+                else:
+                    geometry = (*midpoint, *(axis_or_radius * high))
+                    offsets = (offsets * (high - low) + low) / high
+                best = (error, None, (kind, geometry, offsets, stops))
+            if error < 2:
+                break
+    return best
+
+
+def primitive(mask):
+    """Recognize rectangles and ellipses before fitting free-form outlines."""
+    left, top, right, bottom = mask.getbbox()
+    width, height = right - left, bottom - top
+    region = np.asarray(mask.crop((left, top, right, bottom))) != 0
+    if region.all():
+        return ET.Element(tag("rect"), x=str(left), y=str(top), width=str(width), height=str(height))
+    yy, xx = np.ogrid[:height, :width]
+    ellipse = ((xx + 0.5 - width / 2) / (width / 2)) ** 2 + ((yy + 0.5 - height / 2) / (height / 2)) ** 2 <= 1
+    if min(width, height) >= 5 and np.count_nonzero(region != ellipse) <= 0.03 * region.sum():
+        return ET.Element(
+            tag("ellipse"),
+            cx=f"{left + width / 2:g}",
+            cy=f"{top + height / 2:g}",
+            rx=f"{width / 2:g}",
+            ry=f"{height / 2:g}",
+        )
+    return None
+
+
+def contour(mask, crisp):
+    shape = primitive(mask)
+    if shape is not None:
+        return shape
+    # Fit curves to the silhouette, preserving holes and disjoint islands.
+    buffer = io.BytesIO()
+    scale = 4 if max(mask.size) <= 96 else 1
+    mask = mask.resize((mask.width * scale, mask.height * scale), Image.Resampling.NEAREST)
+    mask.point(lambda v: 0 if v else 255).convert("1").save(buffer, "PPM")
+    output = subprocess.run(
+        ["potrace", "-s", "--flat", "-t", "0", "-a", "0" if crisp else "1", "-O", ".35", "-o", "-", "-"],
+        input=buffer.getvalue(),
+        stdout=subprocess.PIPE,
+        check=True,
+    )
+    doc = ET.fromstring(output.stdout)
+    path = doc.find(".//" + tag("path"))
+    if path is None:
+        return None
+    # Keep the transform on the path; its parent paints gradients in original pixel coordinates.
+    path.set("transform", f"translate(0 {mask.height / scale:g}) scale({0.1 / scale:g} {-0.1 / scale:g})")
+    return path
 
 
 def trace(image, crisp=False, shaded=False):
-    """Fit Bezier contours to the colour regions, retaining transparent regions."""
-    small_icon = shaded and min(image.size) <= 16
-    if small_icon:
-        # Toolbar minis use single-pixel glyphs with deliberately square corners.
-        crisp, shaded = True, False
+    """Fit vector regions and colour ramps; retain outlines for irregular silhouettes."""
     rgba = image.convert("RGBA")
-    # Preserve antialiased glyph detail when the artwork is displayed between native sizes.
-    sample = 2 if (small_icon or not (crisp or shaded)) and image.width == image.height and 9 < image.width <= 64 else 1
-    if sample > 1:
-        rgba = rgba.resize((image.width * sample, image.height * sample), Image.Resampling.LANCZOS)
-    palette = rgba.quantize(colors=160)
-    colours = palette.getpalette("RGBA")
-    if shaded:
-        layers = shaded_layers(palette)
-    else:
-        layers = []
-        backed = False
-        for _, index in sorted(palette.getcolors(), reverse=True):
-            r, g, b, a = colours[4 * index : 4 * index + 4]
-            if a < 8:
-                continue
-            if a >= 245 and not backed:
-                backed = True
-                # Back the opaque shapes with their silhouette so the viewer's own
-                # antialiasing cannot open transparent seams between adjoining colours.
-                layers.insert(0, ((r, g, b, 255), rgba.getchannel("A").point(lambda v: 0 if v >= 245 else 255)))
-            mask = palette.point([0 if i == index else 255 for i in range(256)], "L")
-            layers.append(((r, g, b, a), mask))
+    scale = 3 if not crisp and min(image.size) <= 9 else 1
+    if scale != 1:
+        rgba = rgba.resize((rgba.width * scale, rgba.height * scale), Image.Resampling.BICUBIC)
+    colours = np.asarray(rgba)
+    visible = colours[:, :, 3] >= 8
+    group = ET.Element(tag("g"))
+    if scale != 1:
+        group.set("transform", f"scale({1 / scale:.8f})")
+    if not visible.any():
+        return group
+    # A short palette guides segmentation only; fit colours from the original pixels.
+    indexed = rgba.quantize(colors=48)
+    labels = np.asarray(indexed)
+    coords = np.column_stack(np.nonzero(visible))
+    ids = labels[visible]
+    values = colour_channels(colours[visible])
+    samples = {}
+    for index in np.unique(ids):
+        points = np.flatnonzero(ids == index)
+        samples[int(index)] = points
+    palette = {i: values[points].mean(axis=0) for i, points in samples.items()}
+    # Namespace paint servers even when multiple bitmap elements share one SVG document.
+    name = "paint" + hashlib.blake2s(rgba.tobytes(), digest_size=8).hexdigest()
+    defs = ET.SubElement(group, tag("defs"))
 
-    # Small controls have single-pixel strokes. Trace their interpolated contours
-    # on a finer grid so Potrace cannot collapse a long thin highlight into an oval.
-    tiny = crisp or min(image.size) <= 9
-    factor = 4 if min(image.size) <= 64 else 1
-    unit = 0.1 / (sample * factor)
-    group = ET.Element(tag("g"), transform=f"translate(0 {image.height}) scale({unit} {-unit})")
-    for (r, g, b, a), mask in layers:
-        stream = io.BytesIO()
-        scaled_mask = mask
-        if factor > 1:
-            scaled_mask = mask.resize(
-                (rgba.width * factor, rgba.height * factor),
-                Image.Resampling.NEAREST if tiny else Image.Resampling.BILINEAR,
-            )
-        scaled_mask.convert("1", dither=Image.Dither.NONE).save(stream, "PPM")
-        result = subprocess.run(
-            ["potrace", "-s", "--flat", "-t", "0", "-a", "0" if tiny else "1", "-O", "0.15", "-o", "-", "-"],
-            input=stream.getvalue(),
-            stdout=subprocess.PIPE,
-            check=True,
-        )
-        shape = ET.fromstring(result.stdout).find(".//" + tag("path"))
+    # Back contiguous opaque paint before overlaying neighbouring gradients.
+    # Otherwise antialiased contour edges expose the background between fills.
+    opaque = colours[:, :, 3] >= 245
+    if opaque.any():
+        base = contour(Image.fromarray(opaque.astype("uint8") * 255), crisp)
+        if base is not None:
+            base.set("fill", svg_colour(np.median(colour_channels(colours[opaque]), axis=0))[0])
+            group.append(base)
+
+    def draw(indices):
+        points = np.concatenate([samples[i] for i in indices])
+        # Bound fitting cost independently of output resolution.
+        chosen = points if len(points) <= 768 else points[np.linspace(0, len(points) - 1, 768, dtype=int)]
+        y, x = coords[chosen].T
+        error, solid, ramp = fit_fill(x + 0.5, y + 0.5, values[chosen])
+        if len(indices) > 1 and error > 5:
+            # Separate the most distinct colours, then refit each region against
+            # its spatial coordinates. Adjacent shades of a ramp stay together.
+            channel = np.ptp([palette[i] for i in indices], axis=0).argmax()
+            ordered = sorted(indices, key=lambda i: palette[i][channel])
+            split = len(ordered) // 2
+            draw(ordered[:split])
+            draw(ordered[split:])
+            return
+        selected = np.zeros(visible.shape, dtype=np.uint8)
+        selected[tuple(coords[points].T)] = 255
+        shape = contour(Image.fromarray(selected), crisp)
         if shape is None:
-            continue
-        colour = f"#{r:02x}{g:02x}{b:02x}"
-        shape.set("fill", colour)
-        if not tiny:
-            shape.set("stroke", colour)
-        # Small overlap prevents hairline gaps between adjacent antialiased contours.
-        shape.set("stroke-width", str((8 if sample > 1 else 3) * factor))
-        shape.set("stroke-linejoin", "round")
-        if a < 255:
-            shape.set("opacity", f"{a / 255:.3f}")
+            return
+        if solid is not None:
+            colour, opacity = svg_colour(solid)
+            shape.set("fill", colour)
+            if opacity != 1:
+                shape.set("fill-opacity", str(opacity))
+            group.append(shape)
+            return
+        kind, geom, offsets, stops = ramp
+        gradient_id = name + str(len(defs))
+        if kind == "linear":
+            gradient = ET.SubElement(
+                defs,
+                tag("linearGradient"),
+                {k: f"{v:.3f}" for k, v in zip(("x1", "y1", "x2", "y2"), geom, strict=True)},
+            )
+        else:
+            cx, cy, rx, ry = geom
+            gradient = ET.SubElement(
+                defs,
+                tag("radialGradient"),
+                cx="0",
+                cy="0",
+                r="1",
+                gradientTransform=f"translate({cx:.3f} {cy:.3f}) scale({rx:.3f} {ry:.3f})",
+            )
+        gradient.set("id", gradient_id)
+        gradient.set("gradientUnits", "userSpaceOnUse")
+        for offset, stop in zip(offsets, stops, strict=True):
+            colour, opacity = svg_colour(stop)
+            ET.SubElement(
+                gradient, tag("stop"), offset=f"{offset:.4f}", **{"stop-color": colour, "stop-opacity": str(opacity)}
+            )
+        if shape.get("transform"):
+            units = 40 if max(rgba.size) <= 96 else 10
+            inverse = f"matrix({units} 0 0 {-units} 0 {units * rgba.height})"
+            gradient.set("gradientTransform", (inverse + " " + gradient.get("gradientTransform", "")).strip())
+        shape.set("fill", f"url(#{gradient_id})")
         group.append(shape)
+
+    draw(list(samples))
     return group
 
 
@@ -175,7 +276,7 @@ def icon_theme(source, dest):
                 assets[target] = icon
     by_digest = {}
     for target, icon in assets.items():
-        version = b"vector-icon-svg-v4" if icon.suffix == ".svg" else b"vector-theme-v3"
+        version = b"vector-icon-svg-v5" if icon.suffix == ".svg" else b"vector-theme-v4"
         digest = hashlib.sha256(version + icon.read_bytes()).hexdigest()
         by_digest.setdefault((digest, icon.suffix), []).append((target, icon))
 

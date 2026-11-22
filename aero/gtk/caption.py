@@ -62,11 +62,12 @@ def write_gtk4_faces(directory):
             write_face(directory, kind, state, width, artwork)
 
 
-def write_face(directory, kind, state, width, artwork):
+def write_face(directory, kind, state, width, artwork, large_artwork=None):
     for density, suffix in ((1, ""), (2, "@2x")):
+        face = large_artwork if density == 2 and large_artwork else artwork
         svg = (
             f'<svg xmlns="http://www.w3.org/2000/svg" width="{density * width}" '
-            f'height="{density * FACE_HEIGHT}" viewBox="0 0 {width} {FACE_HEIGHT}">{artwork}</svg>'
+            f'height="{density * FACE_HEIGHT}" viewBox="0 0 {width} {FACE_HEIGHT}">{face}</svg>'
         )
         (directory / f"{kind}-{state}{suffix}.svg").write_text(svg)
 
@@ -77,7 +78,15 @@ def write_gtk3_faces(directory):
         width = palette.BUTTON_WIDTHS["maximize" if kind == "restore" else kind]
         for state, (window, look) in AURORAE_STATES.items():
             defs, shapes = button_state(kind, window, look, "face")
-            write_face(directory, kind, state, width, f"<defs>{defs}</defs>{shapes}")
+            large_defs, large_shapes = button_state(kind, window, look, "face", large=True)
+            write_face(
+                directory,
+                kind,
+                state,
+                width,
+                f"<defs>{defs}</defs>{shapes}",
+                f"<defs>{large_defs}</defs>{large_shapes}",
+            )
 
 
 def caption_css(directory, gtk4):

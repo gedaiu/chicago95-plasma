@@ -132,9 +132,9 @@ detect_install_command() {
   esac
   if wants_vector_tools; then
     case "$SETUP_PKG" in
-      dnf | zypper) SETUP_INSTALL_CMD+=(potrace python3-pillow) ;;
-      apt-get) SETUP_INSTALL_CMD+=(potrace python3-pil) ;;
-      pacman) SETUP_INSTALL_CMD+=(potrace python-pillow) ;;
+      dnf | zypper) SETUP_INSTALL_CMD+=(potrace python3-pillow python3-numpy) ;;
+      apt-get) SETUP_INSTALL_CMD+=(potrace python3-pil python3-numpy) ;;
+      pacman) SETUP_INSTALL_CMD+=(potrace python-pillow python-numpy) ;;
     esac
   fi
 }
@@ -163,7 +163,7 @@ wants_vector_tools() {
     [ "${OPT_TASKBAR_STYLE:-${SETUP_TASKBAR_STYLE:-}}" = aero ] || [ "${OPT_ICONS:-${SETUP_ICONS:-}}" = windows7 ]
 }
 
-vector_tools_available() { command -v potrace >/dev/null && python3 -c 'import PIL.Image' 2>/dev/null; }
+vector_tools_available() { command -v potrace >/dev/null && python3 -c 'import PIL.Image, numpy' 2>/dev/null; }
 
 detect_packages_missing() {
   if wants_vector_tools && ! vector_tools_available; then return 0; fi
@@ -182,7 +182,7 @@ detect_prerequisites() {
     row "Chicago95 checkout" "will clone" "into ~/src/Chicago95"
   else row "Chicago95 checkout" "MISSING" "install git so Setup can clone it"; fi
   if wants_vector_tools; then
-    row "Aero vector artwork" "$(vector_tools_available && echo OK || echo MISSING)" "Potrace and Python Pillow"
+    row "Aero vector artwork" "$(vector_tools_available && echo OK || echo MISSING)" "Potrace, Pillow and NumPy"
   fi
   row "Python modules" "$([ -z "$SETUP_PY_MISSING" ] && echo OK || echo MISSING)" "${SETUP_PY_MISSING:-Start menu, notifications, Clippy}"
   row "xsettingsd" "$([ "$SETUP_HAS_XSETTINGSD" = 1 ] && echo OK || echo missing)" "GTK theme for X11 apps"

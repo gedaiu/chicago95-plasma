@@ -550,3 +550,48 @@ def test_boxes_guest_titlebar_uses_vector_faces_and_fades(aero_gtk_home, tmp_pat
         assert ((progress > 0.1) & (progress < 0.9)).any()
         duration = timestamps[np.flatnonzero(progress >= 0.9)[0]] - timestamps[np.flatnonzero(progress >= 0.1)[0]]
         assert min(native) - 25 <= duration <= max(native) + 25, (duration, native)
+
+
+@pytest.mark.parametrize(("art", "capture", "limit"), [("normal", "normal", 9), ("checked-normal", "checked", 15)])
+def test_large_radio_svg_matches_144_dpi_display_settings(qt_app, art, capture, limit):
+    from test_aero_buttons import rendered
+
+    graphic = REPO / f"aero/gtk/Chicago95Aero/gtk-4.0/indicators/radio-{art}@2x.svg"
+    face = Image.new("RGBA", (20, 20), "white")
+    face.alpha_composite(rendered(graphic.read_text(), face.size))
+    actual = np.asarray(face.convert("RGB").crop((0, 1, 19, 20)), dtype=int)
+    with Image.open(REPO / f"tests/references/win7-sp1-144dpi-radio-{capture}.png") as native:
+        expected = np.asarray(native.convert("RGB"), dtype=int)
+    assert np.abs(actual - expected).mean() < limit
+
+
+@pytest.mark.parametrize("version", ["3.0", "4.0"])
+def test_live_high_density_radio_matches_guest(aero_gtk_home, tmp_path, version):
+    runtime = tmp_path / "run"
+    runtime.mkdir(mode=0o700)
+    script = tmp_path / "radios"
+    script.write_text(
+        f"#!/bin/sh\nexec python3 {quote(str(REPO / 'tests/gtk_showcase.py'))} "
+        f"{version} Chicago95Aero {version} --consistency --only radio\n"
+    )
+    run_session(
+        tmp_path, script,
+        {"HOME": str(aero_gtk_home), "PATH": "/usr/bin:/bin", "XDG_RUNTIME_DIR": str(runtime),
+         "GDK_BACKEND": "wayland", "GSK_RENDERER": "cairo", "GTK_A11Y": "none"}, (350, 200), scale=2,
+    )
+    directory = tmp_path / version
+    for _, label, file in json.loads((directory / "manifest.json").read_text()):
+        if label not in ("radio normal", "radio checked"):
+            continue
+        with Image.open(directory / file) as shot:
+            actual = shot.convert("RGBA")
+        if version == "3.0":
+            actual = actual.crop((24, 24, actual.width - 24, actual.height - 24))
+        assert actual.size == (26, 26)
+        # Compare the device-scale widget to the 150% guest on the same grid.
+        face = Image.new("RGBA", actual.size, "white")
+        face.alpha_composite(actual)
+        native = Image.open(REPO / f"tests/references/win7-sp1-144dpi-radio-{label.split()[1]}.png")
+        sampled = face.resize((20, 20), Image.Resampling.LANCZOS).crop((0, 1, 19, 20)).convert("RGB")
+        error = np.abs(np.asarray(sampled, dtype=int) - np.asarray(native, dtype=int)).mean()
+        assert error < 19, (label, error)

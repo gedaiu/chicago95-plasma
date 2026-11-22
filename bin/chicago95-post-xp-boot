@@ -4,9 +4,10 @@
 import argparse
 import json
 import math
+import os
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QPointF, QUrl
+from PySide6.QtCore import QObject, QPointF, QRect, QUrl
 from PySide6.QtGui import QColor, QGuiApplication, QImage
 from PySide6.QtQuick import QQuickView
 from PySide6.QtTest import QTest
@@ -33,16 +34,23 @@ def export_shutdown(view, splash, out):
     page.setProperty("shuttingDown", True)
     QTest.qWait(100)
     spinner = page.findChild(QObject, "sessionSpinner")
-    pos = spinner.mapToScene(QPointF(0, 0)).toPoint()
+    origin = spinner.mapToScene(QPointF(0, 0))
+    density = view.devicePixelRatio()
+    area = QRect(
+        round(origin.x() * density),
+        round(origin.y() * density),
+        round(spinner.width() * density),
+        round(spinner.height() * density),
+    )
     for frame in range(18):
         page.setProperty("frame", frame)
         QTest.qWait(20)
         image = view.grabWindow()
         if frame == 0 and not image.save(str(out / "shutdown.png")):
             raise OSError("Could not save the shutdown background")
-        if not image.copy(pos.x(), pos.y(), 20, 20).save(str(out / f"shutdown-{frame}.png")):
+        if not image.copy(area).save(str(out / f"shutdown-{frame}.png")):
             raise OSError("Could not save the shutdown animation")
-    return pos
+    return area
 
 
 def render_theme(view, splash, out, size, template):
@@ -100,10 +108,11 @@ def render_theme(view, splash, out, size, template):
     boot.setProperty("animationVisible", True)
     rect = boot.property("animationRect")
     unit = boot.property("unit")
-    x = math.floor(boot.property("offsetX") + rect.x() * unit)
-    y = math.floor(boot.property("offsetY") + rect.y() * unit)
-    width = math.ceil(rect.width() * unit + 1)
-    height = math.ceil(rect.height() * unit + 1)
+    density = view.devicePixelRatio()
+    x = math.floor((boot.property("offsetX") + rect.x() * unit) * density)
+    y = math.floor((boot.property("offsetY") + rect.y() * unit) * density)
+    width = math.ceil(rect.width() * unit * density + 1)
+    height = math.ceil(rect.height() * unit * density + 1)
     count = boot.property("frameCount") if boot.property("drawsAnimation") else 1
     fps = boot.property("fps")
     for index in range(count):
@@ -114,8 +123,8 @@ def render_theme(view, splash, out, size, template):
     name = "Chicago95-" + ("Vista" if boot.property("style") == "vista" else boot.property("style"))
     color = boot.property("color")
     values = {
-        "WIDTH": size[0],
-        "HEIGHT": size[1],
+        "WIDTH": background.width(),
+        "HEIGHT": background.height(),
         "AX": x,
         "AY": y,
         "AW": width,
@@ -130,6 +139,9 @@ def render_theme(view, splash, out, size, template):
     script = template.read_text().replace("@SEVEN@", "1" if seven else "0")
     script = script.replace("@SX@", str(position.x() if seven else 0)).replace(
         "@SY@", str(position.y() if seven else 0)
+    )
+    script = script.replace("@SW@", str(position.width() if seven else 0)).replace(
+        "@SH@", str(position.height() if seven else 0)
     )
     for key, value in values.items():
         script = script.replace(f"@{key}@", str(value))
@@ -147,7 +159,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--splash", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--size", default="1920x1080")
+    parser.add_argument("--size", default="1920x1080", help="logical width and height")
+    parser.add_argument("--scale", type=float, default=1, help="physical pixels per logical pixel")
     parser.add_argument(
         "--template",
         type=Path,
@@ -161,6 +174,9 @@ def main():
     size = tuple(int(part) for part in args.size.lower().split("x"))
     if len(size) != 2 or not all(320 <= dimension <= 7680 for dimension in size):
         parser.error("size must be WIDTHxHEIGHT, between 320 and 7680 pixels per dimension")
+    if not math.isfinite(args.scale) or args.scale <= 0:
+        parser.error("scale must be a positive finite number")
+    os.environ["QT_SCALE_FACTOR"] = str(args.scale)
     build(args.splash, args.out, size, args.template)
 
 

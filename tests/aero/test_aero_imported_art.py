@@ -64,7 +64,6 @@ def test_login_controls_match_their_source_artwork(qt_app, tmp_path):
         pytest.skip("requires the pinned login artwork from aero/fetch-login-art.sh")
     names = [
         "12223",
-        "user",
         "go",
         "gohover",
         "gopressed",

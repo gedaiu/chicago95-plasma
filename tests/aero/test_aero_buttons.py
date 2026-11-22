@@ -68,3 +68,39 @@ def test_vector_glyph_matches_its_96_dpi_sprite_over_glass_within_twelve_levels(
     ]
 
     assert sum(differences) / len(differences) < 12
+
+
+@pytest.mark.parametrize(
+    ("kind", "left", "width"), [("minimize", 0, 45), ("maximize", 45, 40), ("close", 85, 75), ("restore", 0, 40)]
+)
+def test_large_caption_glyph_matches_144_dpi_guest(qt_app, kind, left, width):
+    import numpy as np
+
+    native = Image.open(REPO / "tests/references/win7-sp1-144dpi-caption.png").convert("RGB")
+    from PySide6.QtCore import QRectF, Qt
+    from PySide6.QtGui import QImage, QPainter
+    from PySide6.QtSvg import QSvgRenderer
+    from reference import qimage_to_pil
+
+    asset = REPO / f"aero/aurorae/theme/{kind}-large.svg"
+    renderer = QSvgRenderer(str(asset))
+    assert renderer.elementExists("active-center")
+    pixels = QImage(width, 30, QImage.Format_RGB32)
+    pixels.fill(Qt.black)
+    painter = QPainter(pixels)
+    renderer.render(painter, "active-center", QRectF(0, 0, width, 30))
+    painter.end()
+    actual = qimage_to_pil(pixels)
+    expected = native.crop((left, 0, left + width, 30))
+
+    if kind == "restore":
+        expected = Image.open(REPO / "tests/references/win7-sp1-144dpi-restore.png").convert("RGB")
+        # The maximized caption clips the topmost row at the screen edge.
+        actual = actual.crop((0, 1, width, 30))
+
+    # Isolate the bright glyph body from the bevel and translucent glass.
+    def body(im):
+        return np.asarray(im)[4:25, 6:-6].min(axis=2) > 198
+
+    a, b = body(actual), body(expected)
+    assert (a & b).sum() / (a | b).sum() > 0.82

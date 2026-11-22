@@ -1,9 +1,11 @@
 import QtQuick
+import QtQuick.Window
 import org.kde.ksvg as KSvg
 
 Item {
     id: face
     required property string artwork
+    readonly property string scaledArtwork: Screen.devicePixelRatio >= 1.5 ? artwork.replace(/\.svg$/, "-large.svg") : artwork
     required property bool activeWindow
     required property bool hovered
     required property bool held
@@ -41,7 +43,7 @@ Item {
     }
     KSvg.FrameSvgItem {
         anchors.fill: parent
-        imagePath: face.artwork
+        imagePath: face.scaledArtwork
         prefix: !face.enabled ? "deactivated" + face.suffix : face.held ? "pressed" + face.suffix
                 : face.activeWindow ? "active" : "inactive"
         // Compensate for the translucent hot face composited over this layer.
@@ -49,7 +51,7 @@ Item {
     }
     KSvg.FrameSvgItem {
         anchors.fill: parent
-        imagePath: face.artwork
+        imagePath: face.scaledArtwork
         prefix: "hover" + face.suffix
         opacity: face.highlight
     }

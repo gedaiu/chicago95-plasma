@@ -14,7 +14,7 @@ for asset in background Assets/{12223,user,go,gohover,gopressed,input,input-focu
     mv "$temp/$name" "$dest/$name"
   fi
   svg="$dest/${name%.png}.svg"
-  if [[ "$name" == *.png && ( ! -s "$svg" || "$converter" -nt "$svg" || "$dest/$name" -nt "$svg" ) ]]; then
+  if [[ "$name" == *.png && "$name" != user.png && ( ! -s "$svg" || "$converter" -nt "$svg" || "$dest/$name" -nt "$svg" ) ]]; then
     python3 "$converter" bitmap "$dest/$name" "$svg"
   fi
 done

@@ -100,7 +100,7 @@ Rectangle {
                 anchors.centerIn: parent
                 width: 126
                 height: 126
-                source: page.art("user.svg")
+                source: page.art("user.png")
             }
             Image {
                 anchors.centerIn: parent
@@ -253,7 +253,7 @@ Rectangle {
                 Item {
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: 110; height: 110
-                    Image { anchors.centerIn: parent; width: 74; height: 74; source: page.art("user.svg") }
+                    Image { anchors.centerIn: parent; width: 74; height: 74; source: page.art("user.png") }
                     Image { anchors.centerIn: parent; width: 74; height: 74; source: tile.modelData ? "file:///var/lib/AccountsService/icons/" + encodeURIComponent(tile.modelData) : ""; fillMode: Image.PreserveAspectCrop }
                     Image { anchors.fill: parent; source: Qt.resolvedUrl("AeroPortraitFrame.svg") }
                 }

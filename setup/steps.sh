@@ -1274,6 +1274,7 @@ step_startmenu() {
   # this effect explicitly so both first installs and script updates take effect.
   run gdbus call --session --dest org.kde.KWin --object-path /Effects --method org.kde.kwin.Effects.unloadEffect chicago95shutdown >/dev/null 2>&1 || true
   run gdbus call --session --dest org.kde.KWin --object-path /Effects --method org.kde.kwin.Effects.loadEffect chicago95shutdown >/dev/null 2>&1 || true
+  put_tree "$REPO/data/run" ~/.local/share/chicago95/run
   put_file "$REPO/bin/chicago95-run" ~/.local/bin/chicago95-run
   run chmod +x ~/.local/bin/chicago95-run
   for entry in chicago95-startmenu chicago95-shutdown chicago95-run; do put_file "$REPO/config/applications/$entry.desktop" ~/.local/share/applications/$entry.desktop; done
@@ -1310,7 +1311,7 @@ place_run_dialog() {
 run_window_height() {
   local dialog
   dialog=$(QT_QPA_PLATFORM=offscreen QT_SCALE_FACTOR=1 python3 "$REPO/bin/chicago95-run" --height \
-    --widget-style="${SETUP_WIDGET_STYLE:-classic}" 2>/dev/null | tail -1)
+    --widget-style="${SETUP_WIDGET_STYLE:-classic}" --menu-style="${SETUP_START_MENU_STYLE:-1995}" 2>/dev/null | tail -1)
   [[ "$dialog" =~ ^[0-9]+$ ]] || dialog=$RUN_HEIGHT
   [ "${SETUP_WIDGET_STYLE:-classic}" != classic ] || {
     echo "$dialog"
@@ -1989,7 +1990,8 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
     run cp -r "$REPO/splash/chicago95.splashscreen/contents/splash/." "$build/splash"
     write_splash_settings "$build/splash"
     run env QT_QPA_PLATFORM=offscreen python3 "$REPO/bin/chicago95-post-xp-boot" \
-      --splash "$build/splash" --out "$build" --size "${SETUP_WIDTH:-1920}x${SETUP_HEIGHT:-1080}" || return 1
+      --splash "$build/splash" --out "$build" --size "${SETUP_WIDTH:-1920}x${SETUP_HEIGHT:-1080}" \
+      --scale "${SETUP_SCALE:-1}" || return 1
     run rm -rf "$build/splash"
     theme_src="$build"
   elif [ "$(boot_style)" = luna ]; then

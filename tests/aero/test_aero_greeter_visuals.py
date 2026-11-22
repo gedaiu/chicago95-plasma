@@ -28,6 +28,9 @@ def greeter(tmp_path_factory):
         shutil.copy(REPO / f"sddm/Chicago95Plasma/{name}.qml", folder)
     shutil.copy(REPO / "sddm/Chicago95Plasma/AeroPortraitFrame.svg", folder)
     for icon in src.glob("*.png"):
+        if icon.name == "user.png":
+            shutil.copy(icon, art)
+            continue
         with Image.open(icon) as original:
             (art / icon.with_suffix(".svg").name).write_bytes(vector_art.bitmap_svg(original))
     return folder, src

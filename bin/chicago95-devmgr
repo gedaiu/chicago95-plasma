@@ -500,11 +500,15 @@ class DeviceManagerWindow(QWidget):
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(6)
         style = chicago95ui.widget_style()
-        console = style in ("aero", "luna")
-        luna = style == "luna"
+        console_style = style
+        if style == "classic":
+            edition = chicago95ui.look_settings()["style"]
+            if edition in ("2000", "2001"):
+                console_style = edition
+        console = console_style in ("2000", "2001", "luna", "aero")
         if console:
             available = self.screen().availableGeometry().size() - QSize(16, 38)
-            size = QSize(632, 417) if luna else QSize(782, 521)
+            size = QSize(632, 417) if console_style != "aero" else QSize(782, 521)
             self.resize(size.boundedTo(available))
         else:
             self.resize(420, 480)
@@ -512,7 +516,7 @@ class DeviceManagerWindow(QWidget):
         if console:
             layout.setContentsMargins(0, 0, 0, 0)
             layout.setSpacing(0)
-            self.add_console_commands(layout, luna)
+            self.add_console_commands(layout, console_style)
         else:
             self.add_view_radios(layout)
             layout.addWidget(self.status_label)
@@ -529,8 +533,8 @@ class DeviceManagerWindow(QWidget):
         panel_layout.addWidget(self.tree)
         if console:
             tree_row = QHBoxLayout()
-            inset = 0 if luna else 6
-            tree_row.setContentsMargins(inset, 6, inset, 0)
+            inset = 6 if console_style == "aero" else 0
+            tree_row.setContentsMargins(inset, 2 if console_style == "2000" else 6, inset, 0)
             self.scope_tree = QTreeWidget()
             self.scope_tree.setHeaderHidden(True)
             self.scope_tree.setMaximumWidth(170)
@@ -564,16 +568,36 @@ class DeviceManagerWindow(QWidget):
             self.add_dialog_buttons(layout)
         self.update_buttons()
 
-    def add_console_commands(self, layout, luna):
+    def add_console_commands(self, layout, console_style):
+        classic_nt = console_style in ("2000", "2001")
+        single_band = console_style == "2000"
         menus = QMenuBar()
         menus.setNativeMenuBar(False)
         menus.setFixedHeight(23)
-        layout.addWidget(menus)
-        menus.addMenu("&File").addAction("E&xit", self.close)
+        if single_band:
+            commands = QHBoxLayout()
+            commands.setContentsMargins(0, 0, 0, 0)
+            commands.setSpacing(0)
+            commands.addWidget(menus)
+            layout.addLayout(commands)
+        else:
+            layout.addWidget(menus)
+            menus.addMenu("&File").addAction("E&xit", self.close)
         actions = menus.addMenu("&Action")
         toolbar = QToolBar()
         toolbar.setFixedHeight(23)
-        if luna:
+        if classic_nt:
+            height = 20 if single_band else 24
+            menus.setFixedHeight(height)
+            toolbar.setFixedHeight(height)
+            bands = "background: palette(button); border-top: 1px solid white; border-bottom: 1px solid #808080;"
+            menus.setStyleSheet("QMenuBar {" + bands + "} QMenuBar::item { padding: 2px 6px; }")
+            toolbar.setStyleSheet(
+                "QToolBar {" + bands + "padding-left: 2px; spacing: 1px; } "
+                "QToolButton { border: 0; } QToolButton:hover { background: palette(highlight); } "
+                "QToolBar::separator { width: 7px; }"
+            )
+        elif console_style == "luna":
             menus.setStyleSheet("""
                 QMenuBar { background: qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #f3f3f1,stop:1 #efebdb);
                     border-bottom: 1px solid #d8d2bd; }
@@ -605,14 +629,23 @@ class DeviceManagerWindow(QWidget):
             """)
         toolbar.setIconSize(QSize(16, 16))
         toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)
-        layout.addWidget(toolbar)
+        if single_band:
+            # The two MMC bands have vertical grips at their left edges.
+            menus.setStyleSheet(menus.styleSheet() + "QMenuBar { padding-left: 8px; border-left: 2px groove white; }")
+            toolbar.setStyleSheet(
+                toolbar.styleSheet() + "QToolBar { padding-left: 5px; border-left: 2px groove white; }"
+            )
+            menus.setFixedWidth(92)
+            commands.addWidget(toolbar, 1)
+        else:
+            layout.addWidget(toolbar)
 
         art = Path(__file__).resolve().parents[1] / "data/device-manager"
         if not art.is_dir():
             art = Path.home() / ".local/share/chicago95/device-manager"
 
         def icon(name, fallback, asset=None):
-            if luna and asset and (art / f"luna-{asset}").is_file():
+            if console_style != "aero" and asset and (art / f"luna-{asset}").is_file():
                 return QIcon(str(art / f"luna-{asset}"))
             if asset and (art / asset).is_file():
                 return QIcon(str(art / asset))
@@ -626,7 +659,7 @@ class DeviceManagerWindow(QWidget):
         )
         self.scan_action.setShortcut("F5")
         view = menus.addMenu("&View")
-        help_menu = menus.addMenu("&Help")
+        help_menu = actions if single_band else menus.addMenu("&Help")
         help_action = help_menu.addAction(
             icon("help-contents", QStyle.SP_DialogHelpButton, "help.svg"),
             "Device Manager Help",
@@ -652,6 +685,13 @@ class DeviceManagerWindow(QWidget):
             icon("sidebar-show", QStyle.SP_FileDialogListView, "console-tree.svg"), "Console tree"
         )
         self.scope_action.setCheckable(True)
+        if single_band:
+            self.up = toolbar.addAction(
+                icon("go-up", QStyle.SP_ArrowUp, "up.svg"),
+                "Up one level",
+                lambda: self.tree.setCurrentItem(self.tree.currentItem().parent()),
+            )
+            self.up.setEnabled(False)
         toolbar.addAction(self.scope_action)
         toolbar.addSeparator()
         toolbar.addAction(help_action)
@@ -659,13 +699,14 @@ class DeviceManagerWindow(QWidget):
             icon("sidebar-show-right", QStyle.SP_FileDialogListView, "action-pane.svg"), "Action pane"
         )
         self.pane_action.setCheckable(True)
-        toolbar.addAction(self.pane_action)
-        if not luna:
+        if not single_band:
+            toolbar.addAction(self.pane_action)
+        if console_style == "aero":
             toolbar.addSeparator()
             toolbar.addAction(self.scan_action)
         for command in toolbar.actions():
             if not command.isSeparator():
-                toolbar.widgetForAction(command).setFixedWidth(22)
+                toolbar.widgetForAction(command).setFixedWidth(18 if single_band else 22)
         view.addSeparator()
         modes = QActionGroup(self)
         for title in ("Devices by type", "Devices by connection"):
@@ -686,6 +727,8 @@ class DeviceManagerWindow(QWidget):
         self.update_navigation()
 
     def remember_item(self, item):
+        if hasattr(self, "up"):
+            self.up.setEnabled(item is not None and item.parent() is not None)
         if item is None or (self.history and self.history[self.history_position] is item):
             return
         self.history_position += 1

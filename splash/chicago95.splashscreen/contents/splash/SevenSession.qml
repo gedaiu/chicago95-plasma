@@ -36,6 +36,7 @@ Rectangle {
             color: "white"
             font.family: "Segoe UI"
             font.pixelSize: page.shuttingDown ? 24 : 23
+            font.letterSpacing: page.shuttingDown ? -0.6 : 0
             style: Text.Raised
             styleColor: "#475763"
         }

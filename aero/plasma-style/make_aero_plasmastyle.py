@@ -117,7 +117,7 @@ def row_gradient(gradient_id, row, x0):
     """One row's colours across the face's inner columns, from x0."""
     return (
         f'<linearGradient id="{gradient_id}" x1="{x0}" y1="0" x2="{x0 + len(row)}" y2="0" '
-        f'gradientUnits="userSpaceOnUse">{faces.held_stops(row, lambda value: faces.paint(*value))}</linearGradient>'
+        f'gradientUnits="userSpaceOnUse">{faces.gradient_stops(row, lambda value: faces.paint(*value))}</linearGradient>'
     )
 
 
@@ -136,11 +136,7 @@ def glossy_face_markup(face, prefix, origin):
         gloss["centre"],
         gloss["radii"],
     )
-    base = "".join(
-        f'<stop offset="{number(round((top + edge_row) / height, 4))}" {faces.paint(*colour)}/>'
-        for row, colour in enumerate(face["rows"])
-        for edge_row in (row, row + 1)
-    )
+    base = faces.gradient_stops(face["rows"], lambda colour: faces.paint(*colour), offset=top, total=height)
     definitions = [
         f'<linearGradient id="{prefix}b" x1="0" y1="{y0}" x2="0" y2="{y0 + height}" gradientUnits="userSpaceOnUse">'
         f"{base}</linearGradient>",
