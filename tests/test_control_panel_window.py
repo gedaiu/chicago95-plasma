@@ -523,6 +523,8 @@ def test_themes_applies_xp_with_an_independent_control_panel_style(window, contr
             "WIDGET_STYLE": "luna",
             "BOOT_STYLE": "luna",
             "LOGIN_STYLE": "luna",
+            "ANIM_MINIMIZE": "zoom",
+            "ANIM_MAXIMIZE": "zoom",
             "TASKBAR_STYLE": "luna",
             "START_MENU_STYLE": "luna",
             "SOUND_THEME": "WindowsXP",

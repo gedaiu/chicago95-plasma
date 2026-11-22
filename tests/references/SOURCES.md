@@ -250,6 +250,12 @@ the title were clicked at those frame indices. Restore was captured with Notepad
 maximized. The upper-left desktop coordinates for minimize, maximize, close,
 focus and restore are (758, 99), (787, 99), (813, 99), (813, 99) and (946, 0).
 
+The two `win7-sp1-window-*-motion.png` sheets use the same trial layout and
+timestamps for whole-window transitions. A click on Notepad's Maximize or
+Minimize button starts each transition. A click on Restore or the taskbar button
+returns it to its original bounds. Each tile summarizes the 1024 × 768 desktop
+at 32 × 24 pixels for measuring the displayed change across the workspace.
+
 The Windows 7 shutdown measurements used the same offline SP1 WDDM guest.
 `win7-sp1-shutdown-1024.png` and `win7-sp1-shutdown-800.png` are unscaled
 240 × 68 crops of “Shutting down...” from 1024 × 768 and 800 × 600 displays.

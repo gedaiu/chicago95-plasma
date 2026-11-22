@@ -10,6 +10,7 @@ import os
 import subprocess
 import sys
 import time
+from contextlib import ExitStack
 
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
@@ -92,7 +93,35 @@ def run_step(context, device, step):
         time.sleep(0.05)
 
 
+def record(steps, output):
+    """Record the nested KWin output with its own PipeWire server and Spectacle."""
+
+    def stop(process):
+        if process.poll() is None:
+            process.terminate()
+            process.wait(timeout=10)
+
+    with ExitStack() as processes:
+        processes.callback(stop, subprocess.Popen(["pipewire"]))
+        deadline = time.monotonic() + 10
+        while not os.path.exists(os.path.join(os.environ["XDG_RUNTIME_DIR"], "pipewire-0")):
+            if time.monotonic() >= deadline:
+                raise RuntimeError("the isolated PipeWire server did not start")
+            time.sleep(0.05)
+        processes.callback(stop, subprocess.Popen(["wireplumber"]))
+        time.sleep(1.5)
+        capture = subprocess.Popen(["spectacle", "-R", "s", "-b", "-n", "-o", output])
+        processes.callback(stop, capture)
+        time.sleep(2)
+        main(steps)
+        subprocess.run(["spectacle", "-R", "s", "-b", "-n"], check=True, timeout=15)
+        capture.wait(timeout=15)
+
+
 def main(steps):
+    if steps and steps[0].startswith("record:"):
+        record(steps[1:], steps[0].removeprefix("record:"))
+        return
     context = connect()
     device = resumed_pointer(context)
     LIBEI.ei_device_start_emulating(device, 1)

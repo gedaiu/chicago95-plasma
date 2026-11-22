@@ -30,6 +30,21 @@ Three fresh 60 Hz trials per control from the Windows 7 SP1 VM show a fast hover
 
 Times measure the 10–90% change in displayed button RGB. The revised figures come from rendering the installed decoration's QML component with the project artwork. Both focus directions reached their final face in the first changed frame on both systems. The automated comparisons allow 25 ms for sampling hover transitions and require a visible intermediate frame. They do not measure input latency. [Native capture details and timestamps](../tests/references/SOURCES.md) · [Visual timing tests](../tests/aero/test_aero_caption_motion.py)
 
+### Whole-window motion
+
+Three trials followed Notepad from its original bounds to maximized or minimized and back. A clean installation of the Aero preset in nested KWin repeated those actions on a light Qt window of the same size. Both desktops were 1024 × 768. Times below measure the 10–90% RGB change across the workspace above the taskbar. A one-frame result means both thresholds crossed in the same displayed frame. [Windows 7, previous and revised filmstrips](compare/aero-window-motion.png) · [All 36 timings](compare/aero-window-motion.csv)
+
+| Action | Windows 7 SP1 | Previous KWin Aero | Revised KWin Aero |
+| --- | ---: | ---: | ---: |
+| Maximize | One frame | 117–150 ms | One frame |
+| Restore from maximized | One frame | 117–150 ms | One frame |
+| Minimize to taskbar | 116–117 ms | 100–133 ms | 100–133 ms |
+| Restore from taskbar | 33–50 ms | 100–133 ms | 33–50 ms |
+
+The Windows window began shrinking and becoming transparent together. KWin's original Squash effect held the large, opaque window longer and accelerated at the end. The Aero minimize effect now fades and shrinks the window together and accelerates when restoring. The taskbar button's position determines the destination. Windows and Plasma had different taskbar layouts in these recordings. Display samples were about 17 ms apart on Windows and typically 17–33 ms apart during transitions on KWin. One KWin maximize-restore interval was 50 ms. The captures cannot establish sub-frame equality.
+
+The Windows 7 theme selector and the installer's Aero animations preset apply the new motion. Explicit installer animation choices take precedence. The live test records real button clicks in nested KWin and compares the transitions with the saved SP1 frames. [Whole-window visual test](../tests/aero/test_aero_window_motion.py)
+
 ## Control Panel follow-up
 
 The table under Initial measurements records the original audit. After the Control Panel revision, the same 220 × 34 navigation crop measured **31.87** levels of mean RGB error, down from **61.84**. The Aero shell now puts navigation, breadcrumbs and search on one row. Taskbar settings open in their own 398 × 424 client area. Visual tests compare its tabs and action buttons with the original at 100% and 150% scale. [Updated Control Panel](compare/aero-control-panel.png) · [Taskbar and Start Menu Properties](compare/aero-taskbar-properties.png)

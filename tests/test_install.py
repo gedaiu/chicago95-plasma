@@ -727,6 +727,23 @@ def test_animations_alone_reload_kwin_without_restarting_plasma_or_clearing_its_
     assert ("org.kde.KWin.reconfigure" in log, "qmlcache" in log) == (True, False)
 
 
+def test_switching_full_themes_updates_the_window_animations(tmp_path):
+    values = run_bash_with_steps(
+        tmp_path,
+        "apply_look luna; SETUP_ANIM_MINIMIZE=zoom; apply_look aero; "
+        'echo "$SETUP_ANIM_MINIMIZE $SETUP_ANIM_MAXIMIZE"; apply_look luna; '
+        'echo "$SETUP_ANIM_MINIMIZE $SETUP_ANIM_MAXIMIZE"',
+    )
+    assert values == ["aero aero", "zoom zoom"]
+
+
+def test_explicit_animations_override_aero_window_motion(tmp_path):
+    log = animations_log(tmp_path, "LOOK=aero\nANIM_MINIMIZE=magiclamp\nANIM_MAXIMIZE=stretch\n")
+    assert plugin("magiclamp", "true") in log
+    assert plugin("chicago95aerominimize", "false") in log
+    assert plugin("maximize", "true") in log
+
+
 def test_the_animations_step_installs_the_title_bar_zoom_effect(tmp_path):
     log = animations_log(tmp_path, "ANIM_MINIMIZE=zoom\n")
 

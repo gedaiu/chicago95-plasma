@@ -4438,6 +4438,8 @@ def desktop_theme(look, settings):
         "SPLASH_IMAGE": str(splash_of(settings) / "images/windows98.png") if look == "1998" else "classic",
         "QUICK_LAUNCH": "auto",
         "TASK_GROUPING": "auto",
+        "ANIM_MINIMIZE": "aero" if look == "aero" else "zoom",
+        "ANIM_MAXIMIZE": "aero" if look == "aero" else "zoom",
         **LOOK_PRESETS[look],
         "ICONS": "windowsxp" if look == "2001" else LOOK_PRESETS[look]["ICONS"],
     }

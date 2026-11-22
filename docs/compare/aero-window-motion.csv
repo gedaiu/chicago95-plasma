@@ -5,21 +5,33 @@ Windows 7 SP1,maximize,2,0
 Windows 7 SP1,restore from maximize,2,0
 Windows 7 SP1,maximize,3,0
 Windows 7 SP1,restore from maximize,3,0
-KWin Aero,maximize,1,150
-KWin Aero,restore from maximize,1,150
-KWin Aero,maximize,2,117
-KWin Aero,restore from maximize,2,117
-KWin Aero,maximize,3,133
-KWin Aero,restore from maximize,3,133
+Previous KWin Aero,maximize,1,150
+Previous KWin Aero,restore from maximize,1,150
+Previous KWin Aero,maximize,2,117
+Previous KWin Aero,restore from maximize,2,117
+Previous KWin Aero,maximize,3,133
+Previous KWin Aero,restore from maximize,3,133
+Revised KWin Aero,maximize,1,0
+Revised KWin Aero,restore from maximize,1,0
+Revised KWin Aero,maximize,2,0
+Revised KWin Aero,restore from maximize,2,0
+Revised KWin Aero,maximize,3,0
+Revised KWin Aero,restore from maximize,3,0
 Windows 7 SP1,minimize,1,116
 Windows 7 SP1,restore from minimize,1,50
 Windows 7 SP1,minimize,2,116
 Windows 7 SP1,restore from minimize,2,34
 Windows 7 SP1,minimize,3,117
 Windows 7 SP1,restore from minimize,3,33
-KWin Aero,minimize,1,100
-KWin Aero,restore from minimize,1,117
-KWin Aero,minimize,2,133
-KWin Aero,restore from minimize,2,100
-KWin Aero,minimize,3,117
-KWin Aero,restore from minimize,3,133
+Previous KWin Aero,minimize,1,100
+Previous KWin Aero,restore from minimize,1,117
+Previous KWin Aero,minimize,2,133
+Previous KWin Aero,restore from minimize,2,100
+Previous KWin Aero,minimize,3,117
+Previous KWin Aero,restore from minimize,3,133
+Revised KWin Aero,minimize,1,100
+Revised KWin Aero,restore from minimize,1,50
+Revised KWin Aero,minimize,2,100
+Revised KWin Aero,restore from minimize,2,50
+Revised KWin Aero,minimize,3,133
+Revised KWin Aero,restore from minimize,3,33

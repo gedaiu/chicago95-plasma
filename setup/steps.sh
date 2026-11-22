@@ -131,6 +131,13 @@ detected_distro_name() { distro_branding_lines | awk -F'\t' '$1 == "BANNER_TEXT"
 default_banner_text() { [ "${SETUP_START_MENU_STYLE:-1995}" = 2001 ] && printf 'Windows XP Professional' || printf Chicago95; }
 
 apply_look() {
+  if [ -n "${SETUP_LOOK:-}" ] && [ "$SETUP_LOOK" != aero ] && [ "$1" = aero ]; then
+    SETUP_ANIM_MINIMIZE=aero
+    SETUP_ANIM_MAXIMIZE=aero
+  elif [ "${SETUP_LOOK:-}" = aero ] && [ "$1" != aero ]; then
+    [ "${SETUP_ANIM_MINIMIZE:-aero}" != aero ] || SETUP_ANIM_MINIMIZE=zoom
+    [ "${SETUP_ANIM_MAXIMIZE:-aero}" != aero ] || SETUP_ANIM_MAXIMIZE=zoom
+  fi
   SETUP_LOOK=$1
   SETUP_CONTROL_PANEL_STYLE=auto
   SETUP_SOUND_THEME=${OPT_SOUNDS:-Chicago95}
@@ -736,14 +743,14 @@ event_effects() { # event_effects <event>   every effect its choices name, and t
 step_animations() { # the saved animation choices into KWin, KDE's speed and our own tools; unset events stay as they are
   put_tree "$REPO/kwin-effects/chicago95zoom" ~/.local/share/kwin/effects/chicago95zoom
   put_tree "$REPO/kwin-effects/chicago95aerominimize" ~/.local/share/kwin/effects/chicago95aerominimize
-  if [ "${SETUP_LOOK:-}" = aero ]; then
-    : "${SETUP_ANIM_MINIMIZE:=aero}" "${SETUP_ANIM_MAXIMIZE:=none}"
-  fi
   local key value token effect
   local -A managed=() chosen=()
   local order=()
   for key in $(animation_events); do
     value=$(animation_choice "$key")
+    if [ -z "$value" ] && [ "${SETUP_LOOK:-}" = aero ]; then
+      case "$key" in ANIM_MINIMIZE | ANIM_MAXIMIZE) value=aero ;; esac
+    fi
     [ -n "$value" ] || continue
     case "$key" in
     ANIM_SPEED)
