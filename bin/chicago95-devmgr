@@ -22,7 +22,7 @@ from pathlib import Path
 
 import chicago95ui  # noqa: E702
 from PySide6.QtCore import QPoint, QSize, Qt
-from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPolygon
+from PySide6.QtGui import QActionGroup, QColor, QIcon, QPainter, QPen, QPolygon
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
@@ -32,8 +32,11 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QMenuBar,
     QRadioButton,
+    QStyle,
     QTabWidget,
+    QToolBar,
     QTreeWidget,
     QTreeWidgetItem,
     QTreeWidgetItemIterator,
@@ -495,20 +498,15 @@ class DeviceManagerWindow(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(6)
-        self.by_type_radio = QRadioButton("View devices by &type")
-        self.by_connection_radio = QRadioButton("View devices by &connection")
-        self.by_type_radio.setChecked(True)
-        radios = QButtonGroup(self)
-        radios.addButton(self.by_type_radio)
-        radios.addButton(self.by_connection_radio)
-        radio_row = QHBoxLayout()
-        radio_row.addWidget(self.by_type_radio)
-        radio_row.addWidget(self.by_connection_radio)
-        radio_row.addStretch()
-        layout.addLayout(radio_row)
-        self.by_type_radio.toggled.connect(self.rebuild_tree)
+        aero = chicago95ui.widget_style() == "aero"
         self.status_label = QLabel("Searching for devices...")
-        layout.addWidget(self.status_label)
+        if aero:
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(0)
+            self.add_console_commands(layout)
+        else:
+            self.add_view_radios(layout)
+            layout.addWidget(self.status_label)
         panel = chicago95ui.sunken_panel()
         panel_layout = QVBoxLayout(panel)
         panel_layout.setContentsMargins(0, 0, 0, 0)
@@ -521,6 +519,58 @@ class DeviceManagerWindow(QWidget):
         self.tree.itemSelectionChanged.connect(self.update_buttons)
         panel_layout.addWidget(self.tree)
         layout.addWidget(panel, 1)
+        if aero:
+            self.status_label.setContentsMargins(4, 1, 4, 1)
+            layout.addWidget(self.status_label)
+        else:
+            self.add_dialog_buttons(layout)
+        self.update_buttons()
+
+    def add_console_commands(self, layout):
+        menus = QMenuBar()
+        menus.setNativeMenuBar(False)
+        layout.addWidget(menus)
+        menus.addMenu("&File").addAction("E&xit", self.close)
+        actions = menus.addMenu("&Action")
+        toolbar = QToolBar()
+        toolbar.setIconSize(QSize(16, 16))
+        toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        layout.addWidget(toolbar)
+        for title, icon, fallback, handler in (
+            ("Properties", "document-properties", QStyle.SP_FileDialogDetailedView, self.show_properties),
+            ("Scan for hardware changes", "view-refresh", QStyle.SP_BrowserReload, self.refresh),
+        ):
+            action = actions.addAction(QIcon.fromTheme(icon, self.style().standardIcon(fallback)), title, handler)
+            toolbar.addAction(action)
+            if title == "Properties":
+                self.properties_button = action
+            else:
+                action.setShortcut("F5")
+        view = menus.addMenu("&View")
+        modes = QActionGroup(self)
+        for title in ("Devices by type", "Devices by connection"):
+            mode = view.addAction(title)
+            mode.setCheckable(True)
+            modes.addAction(mode)
+        by_type, self.by_connection_radio = modes.actions()
+        by_type.setChecked(True)
+        modes.triggered.connect(self.rebuild_tree)
+
+    def add_view_radios(self, layout):
+        self.by_type_radio = QRadioButton("View devices by &type")
+        self.by_connection_radio = QRadioButton("View devices by &connection")
+        self.by_type_radio.setChecked(True)
+        radios = QButtonGroup(self)
+        radios.addButton(self.by_type_radio)
+        radios.addButton(self.by_connection_radio)
+        row = QHBoxLayout()
+        row.addWidget(self.by_type_radio)
+        row.addWidget(self.by_connection_radio)
+        row.addStretch()
+        layout.addLayout(row)
+        self.by_type_radio.toggled.connect(self.rebuild_tree)
+
+    def add_dialog_buttons(self, layout):
         self.properties_button = chicago95ui.dialog_button("P&roperties...")
         self.properties_button.clicked.connect(self.show_properties)
         refresh_button = chicago95ui.dialog_button("Re&fresh")
@@ -544,7 +594,6 @@ class DeviceManagerWindow(QWidget):
         dialog_row.addWidget(ok_button)
         dialog_row.addWidget(cancel_button)
         layout.addLayout(dialog_row)
-        self.update_buttons()
 
     def refresh(self):
         self.status_label.setText("Searching for devices...")

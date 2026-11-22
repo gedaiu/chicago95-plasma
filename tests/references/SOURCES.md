@@ -187,3 +187,23 @@ captures at 96 DPI over the plain blue background, so the glass tint is measured
 `win7startmenu-techrepublic.jpg` is https://assets.techrepublic.com/uploads/2010/09/467791.png (446x671, a JPEG
 despite its name): the Start menu's front page with pinned and recent programs and their jump-list arrows. It is lossy,
 so it is for layout and behaviour only, never for colours.
+
+The Windows 7 exact-pixel audit also uses these original-size captures.
+
+| File | Original |
+| --- | --- |
+| `win7controlpanel.png` | [Toasty Technology, Control Panel category and icon views](https://toastytech.com/guis/win7controlpanel.png) |
+| `win7explorer1.png` | [Toasty Technology, Windows Explorer](https://toastytech.com/guis/win7explorer1.png) |
+| `win7-update-balloon.png` | [Windows Update balloon](https://learn.microsoft.com/en-us/windows/win32/uxguide/images/mess-notif-image10.png) in [Microsoft’s notification design guide](https://learn.microsoft.com/en-us/windows/win32/uxguide/mess-notif) |
+
+`win7-flip-guide.png` is the six-window Alt+Tab panel in the [Microsoft Windows 7 Product Guide, PDF page 32](https://core-docs.s3.amazonaws.com/documents/asset/uploaded_file/607323/OS_Windows7ProductGuide.pdf#page=32).
+It is the rectangle (126, 128)–(342, 165), exclusive, of the 468 × 293 embedded image (object 555). The guide reduces the desktop. Use the panel for proportional layout only.
+
+Two JPEG figures supply layout references for application dialogs. Their compression excludes them from RGB comparisons.
+
+- `win7-system-advanced-guide.jpg` is the embedded System Properties screenshot (object 59) on [page 15 of Avid's HP Z230 configuration guide](https://resources.avid.com/SupportFiles/attach/AVIDHPZ230WorkstationTowerSFFConfigguideRevA.pdf#page=15).
+- `win7-run-guide.jpg` is the embedded Run dialog (object 44) on [page 4 of SIL's Running Phonology Assistant under Parallels](https://software.sil.org/phonologyassistant/wp-content/uploads/sites/42/2016/11/RunningPAUnderParallels.pdf#page=4). The administrator notice affects the dialog height. The audit compares horizontal button placement.
+
+`win7-login-guide.png` is the password screen in [Cengage’s Windows 7 Unit A, PDF page 3](https://www.cengage.com/gpms/websites/1285105281/Windows%207%2C%20Unit%20A%20and%20B.pdf#page=3), image object 9. The 246 × 184 figure was converted from the embedded CMYK JPEG to RGB by pdfimages. It gives approximate positions at a 4:3 aspect ratio.
+
+`win7-taskbar-sheet-chrome.png` contains the top and bottom 32 rows of the 398 × 424 Taskbar property sheet client in [DePaul’s Windows 7 Taskbar QuickGuide, PDF page 3](https://offices.depaul.edu/information-services/services/technology-training/operatingsystems/windows7-taskbar.pdf#page=3). The client begins at (8, 30) in image object 33. The crops exclude the guide’s callouts.

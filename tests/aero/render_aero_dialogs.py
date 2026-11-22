@@ -75,6 +75,11 @@ def render(out, scale):
         capture(dialog, name)
         dialog.close()
 
+    run = load_script("chicago95-run").RunDialog(applications=[], path_dirs=[], history=[])
+    run.field.setEditText("regedit")
+    capture(run, "run")
+    run.close()
+
     daemon = load_script("chicago95-notifyd")
     balloon = daemon.NotificationPopup(
         daemon.Notification(1, "Files", "file-manager", "Copy complete", "All files were copied.", [], {}, 0)

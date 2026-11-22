@@ -202,7 +202,8 @@ def test_without_a_compositor_the_screen_is_unknown_and_kscreen_doctor_is_never_
 
 
 @pytest.mark.parametrize("scale", ["1", "1.5", "2"])
-def test_luna_display_tabs_fit_at_desktop_scales(tmp_path, scale):
+@pytest.mark.parametrize("look", ["aero", "luna"])
+def test_display_tabs_fit_at_desktop_scales(tmp_path, scale, look):
     import os
     import subprocess
     import sys
@@ -214,18 +215,15 @@ import sys
 from pathlib import Path
 root = Path.cwd()
 sys.path[:0] = [str(root / "tests"), str(root / "lib"), str(root / "luna/lib")]
-import conftest, chicago95luna
+import conftest
 import os
 os.environ["QT_SCALE_FACTOR"] = sys.argv[2]
-from PySide6.QtWidgets import QApplication
-app = QApplication([])
-assert app.devicePixelRatio() == float(sys.argv[2])
-app.setStyle(chicago95luna.LunaStyle())
-app.setPalette(chicago95luna.luna_palette())
-app.setFont(chicago95luna.luna_font())
 panel = conftest.load_script("chicago95-control-panel")
-panel.chicago95ui.luna_widgets = lambda: True
-settings = {**panel.LOOK_PRESETS["luna"], "LOOK": "luna"}
+look = sys.argv[3]
+panel.chicago95ui.widget_style = lambda: look
+app = panel.chicago95ui.make_app("Display Properties")
+assert app.devicePixelRatio() == float(sys.argv[2])
+settings = {**panel.LOOK_PRESETS[look], "LOOK": look}
 names = ("Background", "Screen Saver", "Appearance", "Effects", "Settings")
 actions = panel.Actions(list_screensavers=lambda: [], lock_timeout_minutes=lambda: 60)
 entries = [(name, panel.build_tab("Display", name, settings, actions)) for name in names]
@@ -241,11 +239,15 @@ for index, (name, tab) in enumerate(entries):
         area = page.tabs.widget(index)
         bars = (area.horizontalScrollBar().maximum(), area.verticalScrollBar().maximum())
         assert bars == (0, 0), (name, item, bars, tab.minimumSizeHint())
+    if look == "aero":
+        bar = page.tabs.tabBar()
+        assert bar.rect().contains(bar.tabRect(page.tabs.count() - 1))
+        assert bar.rect().contains(bar.tabRect(0))
     window.grab().save(str(Path(sys.argv[1]) / f"{name}.png"))
 window.close()
 """
     result = subprocess.run(
-        [sys.executable, "-c", program, str(tmp_path), scale],
+        [sys.executable, "-c", program, str(tmp_path), scale, look],
         cwd=REPO,
         check=False,
         env={**os.environ, "QT_QPA_PLATFORM": "offscreen", "QT_SCALE_FACTOR": scale},

@@ -129,7 +129,7 @@ def test_qml_previews_are_the_screens_at_their_own_size_shrunk_to_fit_the_sheet(
     )
 
 
-def test_a_property_sheet_window_keeps_the_standard_size_whatever_its_pages_ask(control_panel, qt_app, tmp_path):
+def test_display_properties_grows_to_fit_oversized_page_content(control_panel, qt_app, tmp_path):
     from PySide6.QtWidgets import QLabel
 
     tab = control_panel.SettingsTab({}, control_panel.Actions())
@@ -139,7 +139,13 @@ def test_a_property_sheet_window_keeps_the_standard_size_whatever_its_pages_ask(
     page = control_panel.PropertiesPage("Display", [("Background", tab)], lambda changes: True)
     window = control_panel.PropertySheetWindow(page, None)
 
-    assert (window.size().toTuple(), page.tabs.widget(0).widget() is tab) == (control_panel.SHEET_SIZE.toTuple(), True)
+    window.show()
+    qt_app.processEvents()
+    area = page.tabs.widget(0)
+    assert area.viewport().width() >= huge.width()
+    assert area.viewport().height() >= huge.height()
+    assert area.horizontalScrollBar().maximum() == area.verticalScrollBar().maximum() == 0
+    window.close()
 
 
 def test_previews_take_the_theme_and_pictures_from_the_saved_checkout_or_the_installed_copies(control_panel, tmp_path):

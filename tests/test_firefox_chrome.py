@@ -96,15 +96,14 @@ def test_aero_controls_replace_classic_sheet_and_keep_profile_rules(tmp_path):
     assert installed.read_bytes() == (REPO / "aero/firefox-controls.css").read_bytes()
 
 
-@pytest.mark.skipif(not shutil.which("firefox"), reason="Firefox is required to render browser controls")
-def test_firefox_draws_the_installed_aero_dialog_border_and_gradient(tmp_path):
+def render_aero_dialog_buttons(tmp_path, width=100, height=28):
     setup_firefox(tmp_path, "SETUP_WIDGET_STYLE=aero")
     (tmp_path / "user.js").write_text('user_pref("layout.css.devPixelsPerPx", "1.0");\n')
     page, shot = tmp_path / "controls.html", tmp_path / "controls.png"
     page.write_text(
         '<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="chrome/userChrome.css">'
         "<style>dialog{position:static;margin:12px;border:0;padding:0}"
-        "button{width:100px;height:28px;margin:0 3px}</style>"
+        f"button{{width:{width}px;height:{height}px;margin:0 3px}}</style>"
         "<dialog open><button>OK</button><button disabled>Apply</button></dialog>"
     )
     subprocess.run(
@@ -124,6 +123,12 @@ def test_firefox_draws_the_installed_aero_dialog_border_and_gradient(tmp_path):
         timeout=45,
         capture_output=True,
     )
+    return shot
+
+
+@pytest.mark.skipif(not shutil.which("firefox"), reason="Firefox is required to render browser controls")
+def test_firefox_draws_the_installed_aero_dialog_border_and_gradient(tmp_path):
+    shot = render_aero_dialog_buttons(tmp_path)
     with Image.open(shot) as im:
         border, top, bottom = (im.getpixel((32, y))[:3] for y in (12, 15, 36))
     assert border == (112, 112, 112)

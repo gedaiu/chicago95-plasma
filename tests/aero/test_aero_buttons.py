@@ -38,11 +38,12 @@ def over_glass(image):
 @pytest.mark.parametrize("state", range(len(STATES)))
 @pytest.mark.parametrize("window", ["active", "inactive"])
 @pytest.mark.parametrize("face", sorted(FACES))
-def test_vector_face_matches_its_sprite_over_glass_within_six_levels(qt_app, face, window, state):
+def test_vector_face_matches_its_sprite_over_glass_within_six_levels(qt_app, face, window, state, exact_original):
     sprite = state_image(FACES[face][window == "inactive"], state)
     fitted = generator.stops.FACES[face][window][STATES[state]]
     ours = over_glass(rendered(generator.face_svg(fitted), sprite.size))
     theirs = over_glass(sprite)
+    exact_original(theirs, ours)
     differences = [
         abs(a - b)
         for p, q in zip(ours.get_flattened_data(), theirs.get_flattened_data(), strict=True)
@@ -55,10 +56,11 @@ def test_vector_face_matches_its_sprite_over_glass_within_six_levels(qt_app, fac
 @requires_sprites
 @pytest.mark.parametrize("state", range(len(STATES)))
 @pytest.mark.parametrize("glyph", ["close", "minimize", "maximize", "restore"])
-def test_vector_glyph_matches_its_96_dpi_sprite_over_glass_within_twelve_levels(qt_app, glyph, state):
+def test_vector_glyph_matches_its_96_dpi_sprite_over_glass_within_twelve_levels(qt_app, glyph, state, exact_original):
     sprite = glyph_image(glyph, state)
     ours = over_glass(rendered(generator.glyph_svg(glyph, generator.stops.GLYPHS[glyph][STATES[state]]), sprite.size))
     theirs = over_glass(sprite)
+    exact_original(theirs, ours)
     differences = [
         abs(a - b)
         for p, q in zip(ours.get_flattened_data(), theirs.get_flattened_data(), strict=True)

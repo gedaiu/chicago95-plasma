@@ -329,3 +329,35 @@ def test_the_driver_page_shows_the_serial_number_when_lshw_knows_it(devmgr, snap
     controller = next(device for device in snapshot.devices if device.name == "SSD 980 PRO")
 
     assert devmgr.driver_fields(controller)[-1] == ("Serial number:", "S5GXNG0N")
+
+
+@pytest.mark.parametrize("width", [420, 740])
+def test_aero_commands_stay_above_tree_when_resized(devmgr, snapshot, qt_app, monkeypatch, width):
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QPushButton, QToolBar
+
+    monkeypatch.setattr(devmgr.chicago95ui, "widget_style", lambda: "aero")
+    window = devmgr.DeviceManagerWindow(load=lambda: snapshot)
+    try:
+        window.resize(width, 480)
+        window.show()
+        window.refresh()
+        toolbar = window.findChild(QToolBar)
+        props, scan = toolbar.actions()
+        assert not window.findChildren(QPushButton)
+        assert toolbar.actionGeometry(scan).right() < 90
+        assert toolbar.geometry().bottom() < window.tree.mapTo(window, QPoint()).y()
+        assert window.height() - window.tree.mapTo(window, window.tree.rect().bottomRight()).y() < 32
+        # Enabling Properties changes its icon in place in the rendered toolbar.
+        area = toolbar.actionGeometry(props)
+        before = toolbar.grab(area).toImage()
+        device = window.tree.topLevelItem(0).child(0).child(0)
+        window.tree.setCurrentItem(device)
+        qt_app.processEvents()
+        assert props.isEnabled() and toolbar.grab(area).toImage() != before
+        window.by_connection_radio.trigger()
+        assert window.item_texts()[1] == "  Motherboard"
+        scan.trigger()
+        assert window.snapshot is snapshot
+    finally:
+        window.close()

@@ -25,11 +25,14 @@ def over_bar(image):
 
 @requires_sprites
 @pytest.mark.parametrize("state", DRAWN_TASK_STATES)
-def test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column(qt_app, state):
+def test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column(
+    qt_app, state, exact_original
+):
     # Column by column, so a gloss drawn in the wrong place cannot hide in the whole face's average.
     sprite = task_image(TASK_STATES.index(state))
     ours = over_bar(rendered(generator.task_face_svg(state), sprite.size))
     theirs = over_bar(sprite)
+    exact_original(theirs, ours)
     columns = [
         sum(
             max(abs(a - b) for a, b in zip(ours.getpixel((x, y)), theirs.getpixel((x, y)), strict=True))
@@ -111,12 +114,13 @@ def test_start_orb_outside_its_logo_is_windows_7s_within_five_levels(qt_app):
 
 @requires_sprites
 @pytest.mark.parametrize("state", ["normal", "hover", "pressed"])
-def test_show_desktop_face_is_its_sprite_as_drawn_15_wide_within_six_levels(qt_app, state):
+def test_show_desktop_face_is_its_sprite_as_drawn_15_wide_within_six_levels(qt_app, state, exact_original):
     from fit_aero_stops import SHOW_DESKTOP_STATES, show_desktop_image
 
     sprite = show_desktop_image(SHOW_DESKTOP_STATES.index(state))
     ours = over_bar(rendered(generator.show_desktop_face_svg(state), sprite.size))
     theirs = over_bar(sprite)
+    exact_original(theirs, ours)
     differences = [
         abs(a - b)
         for p, q in zip(ours.get_flattened_data(), theirs.get_flattened_data(), strict=True)
@@ -259,13 +263,14 @@ GROUP_SPRITES |= {f"group-selected-{n}": ("TASKITEMGROUPSELECTED", state) for n,
 
 @requires_sprites
 @pytest.mark.parametrize("state", GROUP_SPRITES)
-def test_group_stack_matches_its_sprite_over_the_bar_within_four_levels_in_every_column(qt_app, state):
+def test_group_stack_matches_its_sprite_over_the_bar_within_four_levels_in_every_column(qt_app, state, exact_original):
     # A combined button's stacked edges: one card for two windows, two for three or more, brighter when focused.
     from fit_aero_stops import group_image
 
     sprite = group_image(*GROUP_SPRITES[state])
     ours = over_bar(rendered(generator.group_face_svg(state), sprite.size))
     theirs = over_bar(sprite)
+    exact_original(theirs, ours)
     columns = [
         sum(
             max(abs(a - b) for a, b in zip(ours.getpixel((x, y)), theirs.getpixel((x, y)), strict=True))
@@ -315,9 +320,12 @@ def level_difference(ours, theirs, pixels):
 @pytest.mark.parametrize(
     "state", ["up-normal", "up-hot", "down-pressed", "down-disabled", "left-disabled", "right-hover"]
 )
-def test_scroll_arrow_frame_is_its_sprite_within_a_level_and_its_glyph_within_six_on_average(qt_app, state):
+def test_scroll_arrow_frame_is_its_sprite_within_a_level_and_its_glyph_within_six_on_average(
+    qt_app, state, exact_original
+):
     theirs = over_bar(scroll_arrow_image(state, ARROW_SIZE))
     ours = over_bar(rendered(generator.scroll_arrow_svg(state, ARROW_SIZE), ARROW_SIZE))
+    exact_original(theirs, ours)
     width, height = ARROW_SIZE
     # The glyph's cell and the pixel around it, where its antialiased edges fall.
     left, top = (width - generator.GLYPH_SIZE[0]) // 2 - 1, (height - generator.GLYPH_SIZE[1]) // 2 - 1
@@ -338,13 +346,16 @@ TRAY_BUTTONS = [f"{kind}{state}" for kind in ("", "open-") for state in ("normal
 
 @requires_sprites
 @pytest.mark.parametrize("state", TRAY_BUTTONS)
-def test_tray_button_is_its_sprite_over_the_bar_within_three_levels_on_average_and_48_at_a_stair_corner(qt_app, state):
+def test_tray_button_is_its_sprite_over_the_bar_within_three_levels_on_average_and_48_at_a_stair_corner(
+    qt_app, state, exact_original
+):
     # A straight-edged triangle cannot land on every corner of the sprite's 1-3-5-7 pixel stair.
     from fit_aero_stops import tray_button_image
 
     kind, look = ("open-", state[5:]) if state.startswith("open-") else ("", state)
     sprite = tray_button_image(kind, look)
     ours = over_bar(rendered(generator.tray_button_svg(state), sprite.size))
+    exact_original(over_bar(sprite), ours)
     pixels = [(x, y) for x in range(sprite.width) for y in range(sprite.height)]
     differences = level_difference(ours, over_bar(sprite), pixels)
 
@@ -369,9 +380,10 @@ def grip_image(height):
 
 
 @requires_sprites
-def test_taskbar_grip_is_its_sprite_tiled_down_the_bar_within_a_level(qt_app):
+def test_taskbar_grip_is_its_sprite_tiled_down_the_bar_within_a_level(qt_app, exact_original):
     theirs = over_bar(grip_image(40))
     ours = over_bar(rendered(generator.grip_svg(), (12, 40)))
+    exact_original(theirs, ours)
 
     assert max(level_difference(ours, theirs, [(x, y) for x in range(12) for y in range(40)])) <= 1
 

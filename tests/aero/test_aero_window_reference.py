@@ -50,8 +50,9 @@ def active(qt_app):
         ("top right corner", (770, 0, 791, 30), 19),
     ],
 )
-def test_inactive_frame_region_is_within_its_limit_of_windows_7(inactive, region, box, limit):
+def test_inactive_frame_region_is_within_its_limit_of_windows_7(inactive, region, box, limit, exact_original):
     ours, theirs = inactive
+    exact_original(theirs.crop(box), ours.crop(box))
 
     assert mean_difference(ours.crop(box), theirs.crop(box)) < limit
 
@@ -64,8 +65,9 @@ def test_inactive_frame_region_is_within_its_limit_of_windows_7(inactive, region
         ("top right corner", (ACTIVE_WIDTH - 21, 0, ACTIVE_WIDTH, 30), 35),
     ],
 )
-def test_active_frame_region_is_within_its_limit_of_windows_7(active, region, box, limit):
+def test_active_frame_region_is_within_its_limit_of_windows_7(active, region, box, limit, exact_original):
     ours, theirs = active
+    exact_original(theirs.crop(box), ours.crop(box))
 
     assert mean_difference(ours.crop(box), theirs.crop(box)) < limit
 

@@ -317,32 +317,37 @@ def test_disabled_form_face_is_distinct(gtk4_pixels, kind):
     assert np.all(disabled[5:-5, 5:-5] == 244)
 
 
-def test_gtk4_indicator_faces_against_original_windows_art(gtk4_pixels):
-    from aero_sprites import part_table, sprite_dir, sprites_available
+INDICATOR_STATES = {
+    "normal": 0,
+    "hovered": 1,
+    "pressed": 2,
+    "checked": 4,
+    "checked-hovered": 5,
+    "checked-pressed": 6,
+    "disabled": 7,
+}
+
+
+@pytest.mark.parametrize(
+    ("kind", "state", "index"),
+    [(kind, state, index) for kind in ("checkbox", "radio") for state, index in INDICATOR_STATES.items()]
+    + [("checkbox", "mixed", 8)],
+)
+def test_gtk4_indicator_faces_against_original_windows_art(gtk4_pixels, kind, state, index, exact_original):
+    from aero_sprites import part_table, sprite_dir, sprites_available, straight
 
     if not sprites_available():
         pytest.skip("requires the extracted Windows 7 control artwork")
-    for kind, part_name in (("checkbox", "CHECKBOX"), ("radio", "RADIOBUTTON")):
-        part = part_table()["BUTTON"][part_name]["0"]
-        strip = Image.open(sprite_dir() / part["IMAGEFILE1"]).convert("RGBA")
-        size = strip.width
-        states = {
-            "normal": 0,
-            "hovered": 1,
-            "pressed": 2,
-            "checked": 4,
-            "checked-hovered": 5,
-            "checked-pressed": 6,
-            "disabled": 7,
-        }
-        if kind == "checkbox":
-            states["mixed"] = 8
-        for state, index in states.items():
-            reference = Image.new("RGBA", (size, size), "#f0f0f0")
-            reference.alpha_composite(strip.crop((0, size * index, size, size * (index + 1))))
-            captured = gtk4_pixels[f"{kind} {state}"]
-            error = np.abs(captured - np.asarray(reference.convert("RGB"))).mean()
-            assert error < (23 if kind == "checkbox" else 49), (kind, state, error)
+    part_name = "CHECKBOX" if kind == "checkbox" else "RADIOBUTTON"
+    part = part_table()["BUTTON"][part_name]["0"]
+    strip = straight(Image.open(sprite_dir() / part["IMAGEFILE1"]).convert("RGBA"))
+    size = strip.width
+    reference = Image.new("RGBA", (size, size), "#f0f0f0")
+    reference.alpha_composite(strip.crop((0, size * index, size, size * (index + 1))))
+    captured = gtk4_pixels[f"{kind} {state}"]
+    exact_original(reference, Image.fromarray(captured.astype("uint8")))
+    error = np.abs(captured - np.asarray(reference.convert("RGB"))).mean()
+    assert error < (23 if kind == "checkbox" else 49), (kind, state, error)
 
 
 @pytest.mark.skipif(

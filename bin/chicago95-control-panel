@@ -32,7 +32,19 @@ import chicago95ui  # noqa: E401,E702
 import chicago95update  # noqa: E402
 import login_preview
 import post_xp_boot
-from PySide6.QtCore import QEvent, QPoint, QProcess, QProcessEnvironment, QRect, QSize, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import (
+    QEvent,
+    QPoint,
+    QProcess,
+    QProcessEnvironment,
+    QRect,
+    QSize,
+    Qt,
+    QTimer,
+    QUrl,
+    QVariantAnimation,
+    Signal,
+)
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
@@ -81,6 +93,7 @@ from PySide6.QtWidgets import (
     QStackedWidget,
     QStatusBar,
     QStyle,
+    QStyledItemDelegate,
     QStyleOptionButton,
     QStyleOptionFrame,
     QStyleOptionMenuItem,
@@ -1309,20 +1322,22 @@ class AddressBar(QWidget):
 
     navigate = Signal(tuple)
 
-    def __init__(self, known_pages):
+    def __init__(self, known_pages, aero=False):
         super().__init__()
         self.known_page_tuples = known_pages
         self.crumb_buttons = []
-        self.setFixedHeight(ADDRESS_BOX_HEIGHT)
+        height = max(23, self.fontMetrics().height() + 8) if aero else ADDRESS_BOX_HEIGHT
+        self.setFixedHeight(height)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(QLabel("Address"))
+        if not aero:
+            layout.addWidget(QLabel("Address"))
         self.box = QFrame()
         self.box.setFrameStyle(QFrame.StyledPanel | QFrame.Sunken)
         self.box.setLineWidth(2)
         self.box.setAutoFillBackground(True)
         self.box.setBackgroundRole(QPalette.Base)
-        self.box.setFixedHeight(ADDRESS_BOX_HEIGHT)
+        self.box.setFixedHeight(height)
         box_layout = QHBoxLayout(self.box)
         box_layout.setContentsMargins(0, 0, 0, 0)
         box_layout.setSpacing(0)
@@ -1336,12 +1351,28 @@ class AddressBar(QWidget):
         )
         box_layout.addSpacing(2)
         box_layout.addWidget(self.icon)
+        if aero:
+            box_layout.addWidget(QLabel(" › "))
         crumbs = QWidget()
         self.crumb_layout = QHBoxLayout(crumbs)
         self.crumb_layout.setContentsMargins(2, 0, 2, 0)
         self.crumb_layout.setSpacing(2)
         box_layout.addWidget(crumbs, 1)
-        self.dropdown = ArrowButton()
+        if aero:
+            self.box.setObjectName("aeroBreadcrumb")
+            self.box.setStyleSheet(
+                "QFrame#aeroBreadcrumb { background: #d0e6f7; border: 1px solid #70899c; }"
+                "QToolButton { color: #172632; padding: 0 2px; border: 1px solid transparent; }"
+                "QToolButton:hover { background: #d5eafd; border-color: #92b8d5; }"
+                "QToolButton::menu-indicator { image: none; }"
+            )
+            self.dropdown = QToolButton()
+            self.dropdown.setArrowType(Qt.DownArrow)
+            self.dropdown.setPopupMode(QToolButton.InstantPopup)
+            self.dropdown.setAutoRaise(True)
+        else:
+            self.dropdown = ArrowButton()
+        self.dropdown.setAccessibleName("Go to a Control Panel page")
         self.dropdown.setMenu(self.build_known_pages_menu())
         box_layout.addWidget(self.dropdown)
         layout.addWidget(self.box, 1)
@@ -2940,6 +2971,46 @@ def aero_band(content=None, content_height=MENU_BAR_HEIGHT, grip=True, trailing=
     return band
 
 
+class AeroNavigationButton(QToolButton):
+    def __init__(self):
+        super().__init__()
+        self.glow = QVariantAnimation(self)
+        self.glow.setDuration(140)
+        self.glow.setStartValue(0.0)
+        self.glow.setEndValue(1.0)
+        self.glow.valueChanged.connect(self.update_glow)
+
+    def update_glow(self, _value):
+        self.update()
+
+    def enterEvent(self, event):
+        super().enterEvent(event)
+        self.glow.setDirection(QVariantAnimation.Forward)
+        self.glow.start()
+
+    def leaveEvent(self, event):
+        super().leaveEvent(event)
+        self.glow.setDirection(QVariantAnimation.Backward)
+        self.glow.start()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        strength = self.glow.currentValue()
+        if self.isEnabled() and strength:
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.Antialiasing)
+            painter.setPen(QColor(194, 240, 255, round(210 * strength)))
+            painter.setBrush(QColor(127, 214, 255, round(65 * strength)))
+            painter.drawEllipse(self.rect().adjusted(1, 1, -2, -2))
+
+
+class AeroAppletDelegate(QStyledItemDelegate):
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        if option.state & QStyle.State_MouseOver:
+            option.font.setUnderline(True)
+
+
 def aero_toolbutton(action, has_menu=False):
     button = QToolButton()
     button.setDefaultAction(action)
@@ -3037,7 +3108,11 @@ class PropertiesPage(QWidget):
         self.tabs = window_chrome().tab_control()
         self.settings_tabs = [tab for _name, tab in tabs]
         for name, tab in tabs:
-            self.tabs.addTab(scrolling(tab), name)
+            area = scrolling(tab)
+            if title == "Display":
+                tab.ensurePolished()
+                area.setMinimumSize(tab.minimumSizeHint().expandedTo(tab.minimumSize()))
+            self.tabs.addTab(area, name)
             tab.changed.connect(self.refresh_apply_button)
         self.baseline = self.collect_values()
         self.preview_timer = QTimer(self)
@@ -3139,7 +3214,27 @@ class PropertySheetWindow(QDialog):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(page)
         page.finished.connect(self.hide)
-        self.setFixedSize(SHEET_SIZE)
+        if page.title == "Display":
+            if isinstance(page.tabs, QTabWidget):
+                page.tabs.setUsesScrollButtons(False)
+                page.tabs.tabBar().setElideMode(Qt.ElideNone)
+            self.ensurePolished()
+            self.setFixedSize(SHEET_SIZE.expandedTo(self.minimumSizeHint()))
+        elif page.title == "Taskbar" and chicago95ui.widget_style() == "aero":
+            self.setWindowTitle("Taskbar and Start Menu Properties")
+            page.tabs.tabBar().setStyleSheet(
+                "QTabBar::tab { padding: 2px 6px; border: 1px solid #9197a2; color: #151515;"
+                " background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #fafafa, stop:.49 #ededed,"
+                " stop:.5 #e4e4e4, stop:1 #d4d4d4); margin-top: 2px; }"
+                "QTabBar::tab:selected { margin-top: 0; padding-bottom: 4px; background: white;"
+                " border-bottom-color: white; }"
+                "QTabBar::tab:!selected:hover { background: #e4f2fc; }"
+            )
+            page.tabs.setTabText(0, "Taskbar")
+            page.tabs.setTabText(2, "Toolbars")
+            self.resize(SHEET_SIZE)
+        else:
+            self.setFixedSize(SHEET_SIZE)
 
     def reject(self):
         self.page.cancel()
@@ -3407,11 +3502,10 @@ def row_widget(layout):
     return widget
 
 
-@tab_builder("Taskbar", "Taskbar Options")
-def taskbar_options_tab(settings, actions):
-    tab = SettingsTab(settings, actions)
-    tab.group("Taskbar")
-    tab.number("PANEL", "Taskbar height:", 22, 64, default=28, suffix=" pixels")
+def taskbar_style_and_size_fields(tab, settings):
+    style = taskbar_style_field(tab, settings)
+    form = tab.form
+    height = tab.number("PANEL", "Taskbar height:", 22, 64, default=28, suffix=" pixels")
     width = ButtonWidthField(settings.get("LOOK", "1995"))
     tab.register("TASK_BUTTON_WIDTH", "Taskbar button width:", width, width.value, width.set_value, "0", width.changed)
     tab.previews.append(width)
@@ -3421,17 +3515,17 @@ def taskbar_options_tab(settings, actions):
         [("From the look (1998 on)", "auto"), ("Always", "yes"), ("Never", "no")],
         default="auto",
     )
-    tab.choice(
-        "TASK_GROUPING",
-        "Taskbar buttons:",
-        [
-            ("From the taskbar style (Windows 7 combines)", "auto"),
-            ("Always combine, hide labels", "always"),
-            ("Combine when taskbar is full", "full"),
-            ("Never combine", "never"),
-        ],
-        default="auto",
-    )
+
+    def update_sizes():
+        visible = style.currentData() != "aero"
+        form.setRowVisible(height.parentWidget(), visible)
+        form.setRowVisible(width, visible)
+
+    style.currentIndexChanged.connect(update_sizes)
+    update_sizes()
+
+
+def taskbar_style_field(tab, settings):
     taskbar_style = tab.choice(
         "TASKBAR_STYLE",
         "Taskbar style:",
@@ -3440,15 +3534,42 @@ def taskbar_options_tab(settings, actions):
     )
     taskbar_style.setToolTip(TASKBAR_STYLE_HELP)
     taskbar_style.setWhatsThis(TASKBAR_STYLE_HELP)
-    tab.flag("TASKBAR_AUTOHIDE", "Auto hide", default="no")
-    tab.flag("TASKBAR_ON_TOP", "Always on top", default="yes")
+    return taskbar_style
+
+
+@tab_builder("Taskbar", "Taskbar Options")
+def taskbar_options_tab(settings, actions):
+    tab = SettingsTab(settings, actions)
+    aero = chicago95ui.widget_style() == "aero"
+    tab.group("Taskbar appearance" if aero else "Taskbar")
+    if aero:
+        tab.flag("TASKBAR_AUTOHIDE", "Auto-hide the taskbar", default="no")
+        tab.flag("TASKBAR_ON_TOP", "Keep the taskbar on top of other windows", default="yes")
+    else:
+        taskbar_style_and_size_fields(tab, settings)
+    tab.choice(
+        "TASK_GROUPING",
+        "Taskbar buttons:",
+        [
+            ("Use the taskbar style default" if aero else "From the taskbar style (Windows 7 combines)", "auto"),
+            ("Always combine, hide labels", "always"),
+            ("Combine when taskbar is full", "full"),
+            ("Never combine", "never"),
+        ],
+        default="auto",
+    )
+    if aero:
+        tab.group("Window previews")
+    else:
+        tab.flag("TASKBAR_AUTOHIDE", "Auto hide", default="no")
+        tab.flag("TASKBAR_ON_TOP", "Always on top", default="yes")
     tab.choice(
         "PREVIEW_SIZE",
         "Window previews:",
         [("Off", "off"), ("Small (160 pixels)", "160"), ("Medium (240 pixels)", "240"), ("Large (320 pixels)", "320")],
         default="off",
     )
-    tab.group("Clock")
+    tab.group("Notification area" if aero else "Clock")
     tab.flag("CLOCK_SHOW", "Show clock", default="yes")
     tab.choice(
         "CLOCK_HOURS",
@@ -3462,6 +3583,10 @@ def taskbar_options_tab(settings, actions):
 @tab_builder("Taskbar", "Quick Launch")
 def quick_launch_tab(settings, actions):
     tab = SettingsTab(settings, actions)
+    if chicago95ui.widget_style() == "aero":
+        tab.group("Taskbar style")
+        taskbar_style_and_size_fields(tab, settings)
+        tab.group("Quick Launch programs")
     live = actions.current_launchers()
     initial = ",".join(live if live is not None else default_launchers(DEFAULT_LAUNCHER_FILES))
     field = LauncherList(actions.choose_file)
@@ -4475,19 +4600,25 @@ class ControlPanel(QMainWindow):
         self.showing_page = False
         self.setWindowTitle("Control Panel")
         self.setWindowIcon(QIcon.fromTheme("preferences-system"))
-        self.resize(500, 420)
+        self.aero = chicago95ui.widget_style() == "aero"
+        self.resize(QSize(780, 540) if self.aero else QSize(500, 420))
         self.icon_view = self.build_icon_view()
         self.pages = QStackedWidget()
         self.pages.addWidget(self.icon_view)
         self.setCentralWidget(self.pages)
         self.build_header()
         self.build_status_bar()
+        if self.aero:
+            self.statusBar().hide()
         self.set_view("Large Icons")
         self.show_selection()
         self.refresh_navigation()
 
     def build_icon_view(self):
         view = QListWidget()
+        if self.aero:
+            view.setMouseTracking(True)
+            view.setItemDelegate(AeroAppletDelegate(view))
         view.setMovement(QListView.Static)
         view.setSpacing(0)
         view.setWordWrap(True)
@@ -4522,6 +4653,9 @@ class ControlPanel(QMainWindow):
 
     def build_header(self):
         chrome = window_chrome()
+        if self.aero:
+            self.build_aero_header()
+            return
         self.menu_bar = QMenuBar()
         self.menu_style = chrome.menu_style()
         self.menu_bar.setStyle(self.menu_style)
@@ -4544,6 +4678,110 @@ class ControlPanel(QMainWindow):
         ):
             layout.addWidget(band)
         self.setMenuWidget(self.header)
+
+    def build_aero_header(self):
+        self.header = QWidget()
+        layout = QVBoxLayout(self.header)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        self.toolbar = QFrame()
+        self.toolbar.setObjectName("aeroNavigation")
+        self.toolbar.setStyleSheet(
+            "QFrame#aeroNavigation { border-bottom: 1px solid #7892aa; background: "
+            "qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #a3cdf0, stop:.25 #53a2df, stop:1 #82b8df); }"
+        )
+        row = QHBoxLayout(self.toolbar)
+        row.setContentsMargins(1, 3, 6, 3)
+        row.setSpacing(2)
+        self.toolbar_buttons = {}
+        for name, icon, fallback, distance in (
+            ("Back", "go-previous", QStyle.SP_ArrowBack, -1),
+            ("Forward", "go-next", QStyle.SP_ArrowForward, 1),
+        ):
+            action = QAction(QIcon.fromTheme(icon, self.style().standardIcon(fallback)), name, self)
+            action.triggered.connect(lambda _checked=False, step=distance: self.jump(step))
+            action.setShortcut("Alt+Left" if distance < 0 else "Alt+Right")
+            self.addAction(action)
+            button = AeroNavigationButton()
+            button.setDefaultAction(action)
+            button.setAutoRaise(True)
+            button.setIconSize(QSize(26, 26))
+            button.setFixedSize(27, 27)
+            button.setStyleSheet("QToolButton { border: 0; padding: 0; }")
+            self.toolbar_buttons[name] = button
+            row.addWidget(button)
+        self.back_action = self.toolbar_buttons["Back"].defaultAction()
+        self.forward_action = self.toolbar_buttons["Forward"].defaultAction()
+        self.up_action = QAction("Up", self)
+        self.up_action.setShortcut("Alt+Up")
+        self.up_action.triggered.connect(lambda: self.navigate(parent_location(self.history.current)))
+        self.addAction(self.up_action)
+        history = QToolButton()
+        history.setArrowType(Qt.DownArrow)
+        history.setAccessibleName("Navigation history")
+        history.setAutoRaise(True)
+        history.setFixedWidth(15)
+        history.setPopupMode(QToolButton.InstantPopup)
+        history.setStyleSheet("QToolButton::menu-indicator { image: none; }")
+        menu = QMenu(history)
+        menu.aboutToShow.connect(lambda: self.fill_aero_history(menu))
+        history.setMenu(menu)
+        row.addWidget(history)
+        pages = [HOME_PAGE] + [HOME_PAGE + (applet.name,) for applet in APPLETS if not applet.external_tool]
+        self.address_bar = AddressBar(pages, aero=True)
+        self.address_bar.navigate.connect(self.navigate)
+        row.addWidget(self.address_bar, 3)
+        search = QLineEdit()
+        search.setClearButtonEnabled(True)
+        search.setAccessibleName("Search Control Panel")
+        search.setPlaceholderText("Search Control Panel")
+        search.setMinimumWidth(115)
+        search.setFixedHeight(self.address_bar.height())
+        search.setStyleSheet(
+            "QLineEdit { background: #f5faff; color: #172632; border: 1px solid #6987a1; padding: 0 5px; }"
+        )
+        self.search = search
+        search.textEdited.connect(self.search_applets)
+        row.addWidget(search, 1)
+        layout.addWidget(self.toolbar)
+
+        self.home_heading = QWidget()
+        self.home_heading.setStyleSheet("background: white; color: #174984;")
+        titles = QHBoxLayout(self.home_heading)
+        titles.setContentsMargins(18, 9, 16, 9)
+        heading = QLabel("Adjust your computer’s settings")
+        heading.setStyleSheet("font-size: 15px; color: #003399;")
+        titles.addWidget(heading, 1)
+        titles.addWidget(QLabel("View by:"))
+        self.view_menu = QMenu(self)
+        self.view_button = QToolButton()
+        self.view_button.setAutoRaise(True)
+        self.view_button.setPopupMode(QToolButton.InstantPopup)
+        self.view_button.setMenu(self.view_menu)
+        for name in VIEW_MODES:
+            self.view_menu.addAction(name).triggered.connect(lambda _checked=False, name=name: self.set_view(name))
+        titles.addWidget(self.view_button)
+        layout.addWidget(self.home_heading)
+        self.setMenuWidget(self.header)
+
+    def fill_aero_history(self, menu):
+        menu.clear()
+        for index, page in enumerate(self.history.pages):
+            item = menu.addAction(breadcrumb_text(page))
+            distance = index - self.history.position
+            item.setEnabled(distance != 0)
+            item.triggered.connect(lambda _checked=False, step=distance: self.jump(step))
+
+    def search_applets(self, text):
+        if self.history.current != HOME_PAGE:
+            self.navigate(HOME_PAGE)
+            if self.history.current != HOME_PAGE:
+                self.search.clear()
+                return
+        for row in range(self.icon_view.count()):
+            item = self.icon_view.item(row)
+            applet = item.data(Qt.UserRole)
+            item.setHidden(text.casefold() not in f"{applet.name} {applet.description}".casefold())
 
     def build_menus(self):
         menu_bar = self.menu_bar
@@ -4589,6 +4827,19 @@ class ControlPanel(QMainWindow):
 
     def set_view(self, name):
         view = VIEW_MODES[name]
+        if self.aero:
+            self.view_button.setText(name)
+            if name in ("Large Icons", "Small Icons"):
+                view = ViewMode(
+                    name,
+                    view.icon_size,
+                    QSize(220, view.icon_size + 16),
+                    QListView.ListMode,
+                    QListView.LeftToRight,
+                    True,
+                )
+            self.icon_view.setFrameShape(QFrame.NoFrame)
+            self.icon_view.setStyleSheet("QListWidget { padding: 8px 15px; background: white; color: #006600; }")
         self.icon_view.setViewMode(view.mode)
         self.icon_view.setFlow(view.flow)
         self.icon_view.setWrapping(view.wrapping)
@@ -4609,11 +4860,11 @@ class ControlPanel(QMainWindow):
 
     def show_again(self, page_slug):
         """A later launch asked for the window: its page, if named, then the window up and in front."""
-        if page_slug in PAGE_SLUGS:
-            self.open_applet(PAGE_SLUGS[page_slug])
         self.showNormal()
         self.raise_()
         self.activateWindow()
+        if page_slug in PAGE_SLUGS:
+            self.open_applet(PAGE_SLUGS[page_slug])
 
     def open_applet(self, name):
         applet = APPLET_BY_NAME[name]
@@ -4646,6 +4897,9 @@ class ControlPanel(QMainWindow):
         return PropertiesPage(applet_name, tabs, self.apply_changes)
 
     def navigate(self, page):
+        if self.aero and page[1:2] == ("Taskbar",):
+            self.open_window("Taskbar")
+            return
         if not self.may_go_to(page):
             return
         self.history.visit(page)
@@ -4763,6 +5017,9 @@ class ControlPanel(QMainWindow):
         self.back_action.setEnabled(self.history.can_go_back)
         self.forward_action.setEnabled(self.history.can_go_forward)
         self.up_action.setEnabled(parent_location(current) != current)
+        if self.aero:
+            self.home_heading.setVisible(current == HOME_PAGE)
+            return
         self.back_action.setMenu(self.history_menu(self.history.pages_before, -1))
         self.forward_action.setMenu(self.history_menu(self.history.pages_after, 1))
 
@@ -4790,12 +5047,14 @@ def main():
     if not arguments.screenshot and chicago95ui.send_to_running(INSTANCE_NAME, arguments.page or ""):
         return 0
     window = ControlPanel()
+    if not arguments.screenshot:
+        window.show()
     if arguments.page:
         window.open_applet(PAGE_SLUGS[arguments.page])
     if arguments.screenshot:
-        return 0 if window.grab().save(arguments.screenshot) else 1
+        target = window.applet_windows["Taskbar"] if window.aero and arguments.page == "taskbar" else window
+        return 0 if target.grab().save(arguments.screenshot) else 1
     instance = chicago95ui.SingleInstance(INSTANCE_NAME, window.show_again)  # noqa: F841  kept alive with the window
-    window.show()
     return app.exec()
 
 

@@ -153,3 +153,21 @@ def listening_compositor(short_runtime_dir, monkeypatch):
         compositor.bind(os.path.join(short_runtime_dir, "wayland-test"))
         compositor.listen()
         yield compositor
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--exact-originals", action="store_true", help="Require exact RGB in original Windows 7 comparisons"
+    )
+
+
+@pytest.fixture
+def exact_original(request):
+    def check(original, actual, mask=None):
+        if request.config.getoption("--exact-originals"):
+            from original_pixels import compare
+
+            output = request.getfixturevalue("tmp_path") / "windows7-comparison.png"
+            compare(original, actual, output, mask)
+
+    return check
