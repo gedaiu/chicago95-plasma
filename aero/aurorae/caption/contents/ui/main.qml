@@ -14,6 +14,28 @@ SystemAurorae {
     readonly property Item menuGroup: children.find(item => item.buttons?.length === 1
                                                          && item.buttons[0] === DecorationOptions.DecorationButtonMenu) ?? null
 
+    // Aurorae reserves the title width for the configured buttons. Use the themed
+    // row when the group consists entirely of the Windows caption controls.
+    Repeater {
+        model: 2
+        delegate: Loader {
+            id: groupLoader
+            required property int index
+            readonly property Item group: frame.children.filter(item => item.animate !== undefined
+                && item.buttons !== undefined)[index] ?? null
+            active: group?.buttons?.length > 0 && Array.from(group.buttons).every(type =>
+                [DecorationOptions.DecorationButtonMinimize, DecorationOptions.DecorationButtonMaximizeRestore,
+                 DecorationOptions.DecorationButtonClose].includes(type))
+            x: group?.x ?? 0
+            y: group?.y ?? 0
+            Binding { target: groupLoader.group; property: "visible"; value: false; when: groupLoader.active }
+            sourceComponent: CaptionButtons {
+                buttons: groupLoader.group.buttons
+                theme: frame.auroraeTheme
+            }
+        }
+    }
+
     Binding {
         target: frame.menuGroup
         property: "anchors.topMargin"

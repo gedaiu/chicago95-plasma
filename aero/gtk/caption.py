@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "aurorae"))
-from make_aero_aurorae import AURORAE_STATES, BUTTON_FACES, GAP, palette, stops  # noqa: E402
+from make_aero_aurorae import AURORAE_STATES, BUTTON_FACES, GAP, palette  # noqa: E402
 
 # The large toolbar button uses a four-stop bevel with its split at 49/50%.
 # Tint those same grey levels for each window action.
@@ -22,7 +22,7 @@ CELL_WIDTHS = {
     "minimize": palette.BUTTON_WIDTHS["minimize"] - 1,
     "maximize": palette.BUTTON_WIDTHS["maximize"] - 1,
 }
-FACE_HEIGHT = 20  # includes the shadow and white highlight below the 18px button
+FACE_HEIGHT = palette.BUTTON_HEIGHT
 
 
 def write_gtk4_faces(directory):
@@ -98,13 +98,13 @@ headerbar windowcontrols button > image, headerbar button.titlebutton > image {
         rules.append("""
 headerbar windowcontrols { border-spacing: 0; }
 """)
-    for kind, face in BUTTON_FACES.items():
+    for kind in BUTTON_FACES:
         button = "maximize" if kind == "restore" else kind
         prefix = "window.maximized " if kind == "restore" else ""
         selectors = [
             prefix + "headerbar " + part + "." + button for part in ("windowcontrols button", "button.titlebutton")
         ]
-        width, height = stops.FACES[face]["active"]["normal"]["size"]
+        width, height = palette.BUTTON_WIDTHS[button], palette.BUTTON_HEIGHT
         stride = width + GAP
         sheet = (assets / f"{kind}.svg").as_uri()
         for index, (state, (window, look)) in enumerate(AURORAE_STATES.items()):
@@ -126,7 +126,7 @@ headerbar windowcontrols { border-spacing: 0; }
                 )
                 continue
             rules.append(
-                f'{selector} {{ min-width: {width}px; background-image: url("{sheet}"); '
+                f'{selector} {{ min-width: {width}px; min-height: {height}px; background-image: url("{sheet}"); '
                 f"background-size: {len(AURORAE_STATES) * stride}px {height}px; "
                 f"background-position: {-index * stride}px center; }}"
             )

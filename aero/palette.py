@@ -28,8 +28,8 @@ BORDER = 8  # sides and bottom: outer, highlight, 4 glass, client light, client 
 TITLE_HEIGHT = 30  # outer, highlight, 26 glass, client light, client dark
 TOP_RADIUS, BOTTOM_RADIUS = 6, 5
 # The caption buttons, right to left from 6 pixels inside the outer edge, directly under the outer line; neighbours
-# share their border pixel (Notepad's at x 412..441..467..516, rows 220..237). DWM draws each 22-row sprite into 18.
-BUTTON_HEIGHT = 18
+# share their border pixel (Notepad's at x 412..441..467..516, rows 220..239 including the lower highlight).
+BUTTON_HEIGHT = 20
 BUTTON_WIDTHS = {"minimize": 30, "maximize": 27, "close": 50}
 BUTTON_RIGHT_INSET = 6
 # Where a caption button's glyph is centred: its face's content margins (left, right, top, bottom) in the atlas.

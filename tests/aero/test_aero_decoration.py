@@ -79,7 +79,7 @@ def test_layout_is_the_measured_windows_7_frame():
         "TitleEdgeTop": 1,
         "TitleHeight": 29,
         "TitleEdgeRight": 6,
-        "ButtonHeight": 18,
+        "ButtonHeight": 20,
         "ButtonWidthMinimize": 30,
         "ButtonWidthMaximizeRestore": 27,
         "ButtonWidthClose": 50,

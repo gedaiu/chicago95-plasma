@@ -38,7 +38,7 @@ There are two sources, and every value names which one it came from:
   `aero/aurorae/stops.py`).
 - **`tests/references/win7*.png`**, Toasty Technology's lossless 96 DPI captures (`tests/references/SOURCES.md`).
   They give the geometry DWM draws on screen: an 8-pixel border, a 30-row title, 6/5 corner radii, and the 30/27/50
-  buttons 18 rows tall, 6 pixels inside the edge. They also give the glass colour over a plain desktop.
+  buttons 20 rows tall including their lower outline and highlight, 6 pixels inside the edge. They also give the glass colour over a plain desktop.
 
 ## Reading aero.msstyles
 

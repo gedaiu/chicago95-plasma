@@ -311,25 +311,33 @@ AURORAE_STATES = {
 BUTTON_FACES = {"minimize": "caption-end", "maximize": "caption", "restore": "caption", "close": "close"}
 
 
-def glyph_origin(face, glyph):
-    """The glyph centred in the face's content box."""
-    width, height = stops.FACES[face]["active"]["normal"]["size"]
-    left, right, top, bottom = palette.BUTTON_CONTENT[face]
-    (glyph_width, glyph_height), _ = GLYPH_SHAPES[glyph]
-    return (
-        left + (width - left - right - glyph_width) / 2,
-        top + (height - top - bottom - glyph_height) / 2,
-    )
+def button_face(face):
+    # The atlas duplicates its top and bottom highlights for stretching. At
+    # 96 DPI DWM paints each highlight once, preserving the dark lower edge.
+    return {
+        **face,
+        "size": (face["size"][0], face["size"][1] - 2),
+        "rows": face["rows"][1:-1],
+        "left": [column[1:-1] for column in face["left"]],
+        "right": [column[1:-1] for column in face["right"]],
+        "bands": [{**band, "rows": (band["rows"][0] - 1, band["rows"][1] - 1)} for band in face["bands"]],
+    }
 
 
 def button_svg(kind):
     face_name = BUTTON_FACES[kind]
-    width, height = stops.FACES[face_name]["active"]["normal"]["size"]
-    glyph_x, glyph_y = glyph_origin(face_name, kind)
+    width = palette.BUTTON_WIDTHS["maximize" if kind == "restore" else kind]
+    height = palette.BUTTON_HEIGHT
+    glyph_width, glyph_height = GLYPH_SHAPES[kind][0]
+    left, right, top, bottom = palette.BUTTON_CONTENT[face_name]
+    glyph_x = round((width - glyph_width + left - right) / 2)
+    glyph_y = round((height - glyph_height + top - bottom) / 2)
     definitions, groups = [], []
     for index, (state, (window, look)) in enumerate(AURORAE_STATES.items()):
         x0 = index * (width + GAP)
-        face_definitions, face_shapes = face_markup(stops.FACES[face_name][window][look], f"f{index}", (x0, 0))
+        face = button_face(stops.FACES[face_name][window][look])
+        face_definitions, face_shapes = face_markup(face, f"f{index}", (0, 0))
+        face_shapes = f'<g transform="translate({x0} 0) scale({width / face["size"][0]} 1)">{face_shapes}</g>'
         glyph_gradient, glyph_shapes = glyph_markup(
             kind, stops.GLYPHS[kind][look], f"g{index}", (x0 + glyph_x, glyph_y)
         )

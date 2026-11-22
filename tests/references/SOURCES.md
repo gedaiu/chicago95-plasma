@@ -240,6 +240,16 @@ opening was checked with both keyboard and mouse. The tests measure change
 between displayed frames. Input latency and individual GPU refresh timing are
 outside these comparisons.
 
+The five `win7-sp1-caption-*-motion.png` sheets record Notepad's minimize, maximize,
+restore and close button hover transitions and a separate change of window focus.
+Each has three successive trials of 120 frames, ten frames per row, in reading
+order. Each frame is an unscaled 25-pixel-high crop. The accompanying text file
+contains monotonic timestamps in milliseconds, one row per trial. Pointer entry
+was requested at frame 15 and exit at frame 70. For focus, the desktop and then
+the title were clicked at those frame indices. Restore was captured with Notepad
+maximized. The upper-left desktop coordinates for minimize, maximize, close,
+focus and restore are (758, 99), (787, 99), (813, 99), (813, 99) and (946, 0).
+
 The Windows 7 shutdown measurements used the same offline SP1 WDDM guest.
 `win7-sp1-shutdown-1024.png` and `win7-sp1-shutdown-800.png` are unscaled
 240 × 68 crops of “Shutting down...” from 1024 × 768 and 800 × 600 displays.

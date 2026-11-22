@@ -46,8 +46,8 @@ def active(qt_app):
     [
         ("right border", (783, 30, 791, 530), 6),
         ("bottom border", (8, 532, 783, 540), 8),
-        ("caption buttons", (678, 0, 785, 19), 20),
-        ("top right corner", (770, 0, 791, 30), 19),
+        ("caption buttons", (678, 0, 785, 19), 16),
+        ("top right corner", (770, 0, 791, 30), 18),
     ],
 )
 def test_inactive_frame_region_is_within_its_limit_of_windows_7(inactive, region, box, limit, exact_original):
@@ -61,8 +61,8 @@ def test_inactive_frame_region_is_within_its_limit_of_windows_7(inactive, region
     ("region", "box", "limit"),
     [
         ("right border", (ACTIVE_WIDTH - 8, 30, ACTIVE_WIDTH, 350), 12),
-        ("caption buttons", (ACTIVE_WIDTH - 111, 0, ACTIVE_WIDTH - 6, 19), 32),
-        ("top right corner", (ACTIVE_WIDTH - 21, 0, ACTIVE_WIDTH, 30), 35),
+        ("caption buttons", (ACTIVE_WIDTH - 111, 0, ACTIVE_WIDTH - 6, 19), 20),
+        ("top right corner", (ACTIVE_WIDTH - 21, 0, ACTIVE_WIDTH, 30), 29),
     ],
 )
 def test_active_frame_region_is_within_its_limit_of_windows_7(active, region, box, limit, exact_original):
@@ -76,3 +76,17 @@ def test_outer_line_over_inactive_glass_is_the_screenshots_line_colour(inactive)
     ours, theirs = inactive
 
     assert max(abs(a - b) for a, b in zip(ours.getpixel((790, 300)), theirs.getpixel((790, 300)), strict=True)) <= 4
+
+
+@pytest.mark.parametrize("window", ["active", "inactive"])
+def test_caption_lower_rim_matches_windows_7(window, request):
+    ours, theirs = request.getfixturevalue(window)
+    # Interior columns of minimize, maximize and close, clear of the glyphs.
+    for offset in (105, 70, 39):
+        x = ours.width - offset
+        strip = (x, 17, x + 1, 22)
+        for image in (theirs, ours):
+            samples = list(image.crop(strip).convert("L").get_flattened_data())
+            assert samples.index(min(samples)) == 2  # dark outline at y=19
+            assert samples.index(max(samples)) == 3  # highlight at y=20
+        assert mean_difference(ours.crop(strip), theirs.crop(strip)) < 22

@@ -4,6 +4,32 @@ November 22, 2026. The theme differs visibly from Windows 7 in the Start menu, w
 
 ![Initial audit before corrections, with original Windows 7 crops, theme renders and amplified pixel differences](compare/report-aero-originals.png)
 
+## Window caption buttons
+
+At 96 DPI, the minimize, maximize and close buttons occupy 20 painted rows. The last two rows are a dark outline and a bright highlight. The earlier theme compressed the face and glyph together into 18 rows. The revised decoration keeps the glyph at its native pixel size. The comparison uses the same regions and reference captures for both revisions.
+
+| Region | Earlier mean RGB error (0–255) | Revised |
+| --- | ---: | ---: |
+| Active caption buttons | 31.32 | 18.17 |
+| Inactive caption buttons | 19.52 | 14.88 |
+| Active top-right corner | 34.68 | 27.26 |
+| Inactive top-right corner | 18.12 | 16.96 |
+
+The original audit crop ends above the bottom outline. An additional test samples all three buttons through the outline and highlight and checks their row positions in both focus states. The active glass around the buttons is still darker than the reference. [Windows 7, previous theme and revised theme at 2×](compare/aero-caption-buttons.png)
+
+### Caption hover and focus timing
+
+Three fresh 60 Hz trials per control from the Windows 7 SP1 VM show a fast hover entry and a slower fade on exit. The earlier decoration switched both instantly. The Aero caption now animates each button independently and draws the coloured halo beyond its edges. The live KWin test checks the halo's falloff against the original Close button. Custom groups containing additional KDE controls use Aurorae's standard renderer.
+
+| Caption control | Windows hover entry | Revised entry | Windows hover exit | Revised exit |
+| --- | ---: | ---: | ---: | ---: |
+| Close | 16–33 ms | 33 ms | 117–150 ms | 130 ms |
+| Maximize | 50–67 ms | 65 ms | 116–133 ms | 130 ms |
+| Restore | 50–83 ms | 65 ms | 116–134 ms | 131 ms |
+| Minimize | 50–84 ms | 65 ms | 117–133 ms | 131 ms |
+
+Times measure the 10–90% change in displayed button RGB. The revised figures come from rendering the installed decoration's QML component with the project artwork. Both focus directions reached their final face in the first changed frame on both systems. The automated comparisons allow 25 ms for sampling hover transitions and require a visible intermediate frame. They do not measure input latency. [Native capture details and timestamps](../tests/references/SOURCES.md) · [Visual timing tests](../tests/aero/test_aero_caption_motion.py)
+
 ## Control Panel follow-up
 
 The table under Initial measurements records the original audit. After the Control Panel revision, the same 220 × 34 navigation crop measured **31.87** levels of mean RGB error, down from **61.84**. The Aero shell now puts navigation, breadcrumbs and search on one row. Taskbar settings open in their own 398 × 424 client area. Visual tests compare its tabs and action buttons with the original at 100% and 150% scale. [Updated Control Panel](compare/aero-control-panel.png) · [Taskbar and Start Menu Properties](compare/aero-taskbar-properties.png)

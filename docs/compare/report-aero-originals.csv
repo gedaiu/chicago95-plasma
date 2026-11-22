@@ -106,11 +106,11 @@ test_aero_taskbar.py,test_tray_button_is_its_sprite_over_the_bar_within_three_le
 test_aero_taskbar.py,test_taskbar_grip_is_its_sprite_tiled_down_the_bar_within_a_level,24,480,0.02
 test_aero_window_reference.py,test_inactive_frame_region_is_within_its_limit_of_windows_7[right border-box0-6],3896,4000,5.18
 test_aero_window_reference.py,test_inactive_frame_region_is_within_its_limit_of_windows_7[bottom border-box1-8],6171,6200,7.52
-test_aero_window_reference.py,test_inactive_frame_region_is_within_its_limit_of_windows_7[caption buttons-box2-20],2031,2033,19.52
-test_aero_window_reference.py,test_inactive_frame_region_is_within_its_limit_of_windows_7[top right corner-box3-19],630,630,18.12
+test_aero_window_reference.py,test_inactive_frame_region_is_within_its_limit_of_windows_7[caption buttons-box2-16],2029,2033,14.88
+test_aero_window_reference.py,test_inactive_frame_region_is_within_its_limit_of_windows_7[top right corner-box3-18],630,630,16.96
 test_aero_window_reference.py,test_active_frame_region_is_within_its_limit_of_windows_7[right border-box0-12],2560,2560,11.79
-test_aero_window_reference.py,test_active_frame_region_is_within_its_limit_of_windows_7[caption buttons-box1-32],1903,1995,31.32
-test_aero_window_reference.py,test_active_frame_region_is_within_its_limit_of_windows_7[top right corner-box2-35],618,630,34.68
+test_aero_window_reference.py,test_active_frame_region_is_within_its_limit_of_windows_7[caption buttons-box1-20],1902,1995,18.17
+test_aero_window_reference.py,test_active_frame_region_is_within_its_limit_of_windows_7[top right corner-box2-29],618,630,27.26
 test_devmgr.py,test_aero_console_bands_match_win7_sp1[basic-client0],2693,3910,27.41
 test_devmgr.py,test_aero_console_bands_match_win7_sp1[aero-client1],2601,3910,16.82
 test_aero_greeter_visuals.py,test_lock_password_bounds_match_sp1[1024-768-win7-sp1-aero-lock],401,816,1.85

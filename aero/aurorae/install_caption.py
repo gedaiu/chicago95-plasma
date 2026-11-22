@@ -8,7 +8,10 @@ from pathlib import Path
 
 def configure(package, artwork, renderer):
     ui = package / "contents/ui"
-    (ui / "qmldir").write_text(f"SystemAurorae 1.0 {renderer.resolve().as_uri()}\n")
+    (ui / "qmldir").write_text(
+        f"SystemAurorae 1.0 {renderer.resolve().as_uri()}\n"
+        f"SystemDecorationButton 1.0 {renderer.with_name('DecorationButton.qml').resolve().as_uri()}\n"
+    )
     rc = configparser.ConfigParser()
     rc.optionxform = str
     rc.read(artwork / "Chicago95Aerorc")

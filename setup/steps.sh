@@ -735,6 +735,10 @@ event_effects() { # event_effects <event>   every effect its choices name, and t
 
 step_animations() { # the saved animation choices into KWin, KDE's speed and our own tools; unset events stay as they are
   put_tree "$REPO/kwin-effects/chicago95zoom" ~/.local/share/kwin/effects/chicago95zoom
+  put_tree "$REPO/kwin-effects/chicago95aerominimize" ~/.local/share/kwin/effects/chicago95aerominimize
+  if [ "${SETUP_LOOK:-}" = aero ]; then
+    : "${SETUP_ANIM_MINIMIZE:=aero}" "${SETUP_ANIM_MAXIMIZE:=none}"
+  fi
   local key value token effect
   local -A managed=() chosen=()
   local order=()

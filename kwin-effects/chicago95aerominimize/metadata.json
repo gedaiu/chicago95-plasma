@@ -1,0 +1,15 @@
+{
+  "KPackageStructure": "KWin/Effect",
+  "KPlugin": {
+    "Authors": [{ "Name": "Chicago95 setup" }],
+    "Category": "Appearance",
+    "Description": "Fade and scale a window to or from its taskbar button with Windows 7 Aero timing",
+    "EnabledByDefault": false,
+    "Id": "chicago95aerominimize",
+    "License": "GPL",
+    "Name": "Windows 7 Aero Minimize"
+  },
+  "X-KDE-Ordering": 60,
+  "X-KWin-Exclusive-Category": "minimize",
+  "X-Plasma-API": "javascript"
+}
