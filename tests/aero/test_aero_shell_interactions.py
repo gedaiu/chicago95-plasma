@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 
+import pytest
 from chicago95aeromenu import AeroMenu
 from conftest import REPO, load_script, run_bash_with_steps
 from PySide6.QtCore import Qt, QUrl
@@ -11,7 +12,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtQuick import QQuickView
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QMenu, QTabWidget
-from reference import qimage_to_pil
+from reference import qimage_to_pil, screenshot
 
 
 def test_start_folder_launch_updates_frequency_and_search_opens_file(qt_app, tmp_path):
@@ -69,14 +70,16 @@ def test_indexed_file_appears_asynchronously(qt_app, tmp_path):
     assert launched == [["xdg-open", str(document)]]
 
 
-def test_calendar_renders_a_month_and_an_analog_clock(qt_app):
+def test_calendar_renders_a_month_and_an_analog_clock(qt_app, exact_original):
     view = QQuickView()
     view.setSource(
         QUrl.fromLocalFile(str(REPO / "aero/plasmoids/org.chicago95.clock/contents/ui/aero/CalendarFlyout.qml"))
     )
     assert not view.errors()
     root = view.rootObject()
-    view.resize(340, 222)
+    native = screenshot("win7-sp1-aero-calendar")
+    assert (root.implicitWidth(), root.implicitHeight()) == native.size
+    view.resize(*native.size)
     view.setResizeMode(QQuickView.SizeRootObjectToView)
     view.show()
     QTest.qWait(80)
@@ -84,8 +87,19 @@ def test_calendar_renders_a_month_and_an_analog_clock(qt_app):
     # Calendar numbers occupy the left part and the clock rim and hands the right.
     for box in ((8, 72, 220, 180), (240, 65, 329, 176)):
         assert sum(n for n, rgb in im.crop(box).getcolors(100000) if max(rgb[:3]) < 165) > 50
+
+    # The clock silhouette and the settings footer are independent of the calendar date.
+    def clock_edges(picture):
+        xs = [x for x in range(186, 334) if min(picture.getpixel((x, 106))[:3]) < 240]
+        return min(xs), max(xs)
+
+    assert clock_edges(im) == pytest.approx(clock_edges(native), abs=2)
+    assert im.getpixel((10, 230))[:3] == native.getpixel((10, 230))[:3]
     assert root.property("month").isValid()
     view.close()
+    # A fixed piece of the outer rim excludes the moving clock hands.
+    rim = (225, 44, 281, 54)
+    exact_original(native.crop(rim), im.crop(rim))
 
 
 def test_aero_uses_platform_controls_and_logoff_art(qt_app, monkeypatch):

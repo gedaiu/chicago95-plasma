@@ -194,3 +194,26 @@ def test_folder_keys_expand_select_child_return_to_parent_and_collapse(qt_app, t
         assert launched == [apps[2]]
     finally:
         menu.close()
+
+
+def test_default_opening_matches_displayed_sp1_frames(qt_app, monkeypatch, tmp_path):
+    from PIL import Image
+    from reference import screenshot
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    native = screenshot("win7-sp1-start-opening")
+    background = native.crop((0, 0, 10, 10))
+    menu = AeroMenu([], lambda _: None, lambda _: QIcon(), {}, "Demo")
+    try:
+        menu.show()
+        for i in range(1, 5):
+            # Compare from the first displayed frame, excluding shell launch latency.
+            rendered = menu.grab().toImage()
+            region = rendered.copy(206, 550 - (728 - menu.height()), 10, 10)
+            packed = region.convertToFormat(region.Format.Format_RGBA8888)
+            rgba = Image.frombytes("RGBA", (10, 10), packed.bits())
+            observed = Image.alpha_composite(background.convert("RGBA"), rgba).convert("RGB")
+            assert observed.tobytes() == native.crop((10 * i, 0, 10 * i + 10, 10)).tobytes()
+            QTest.qWait(17)
+    finally:
+        menu.close()

@@ -343,21 +343,75 @@ def test_aero_commands_stay_above_tree_when_resized(devmgr, snapshot, qt_app, mo
         window.show()
         window.refresh()
         toolbar = window.findChild(QToolBar)
-        props, scan = toolbar.actions()
+        props, scan = window.properties_button, window.scan_action
+        commands = [a for a in toolbar.actions() if not a.isSeparator()]
         assert not window.findChildren(QPushButton)
-        assert toolbar.actionGeometry(scan).right() < 90
+        assert [action.text() for action in commands] == [
+            "Back",
+            "Forward",
+            "Console tree",
+            "Device Manager Help",
+            "Action pane",
+            "Scan for hardware changes",
+        ]
+        centres = [toolbar.actionGeometry(a).center().x() for a in commands]
+        assert centres == pytest.approx([12, 35, 67, 98, 121, 151], abs=4)
         assert toolbar.geometry().bottom() < window.tree.mapTo(window, QPoint()).y()
         assert window.height() - window.tree.mapTo(window, window.tree.rect().bottomRight()).y() < 32
-        # Enabling Properties changes its icon in place in the rendered toolbar.
-        area = toolbar.actionGeometry(props)
+        # Selecting a device enables Back in place, as well as its Properties command.
+        area = toolbar.actionGeometry(window.back)
         before = toolbar.grab(area).toImage()
         device = window.tree.topLevelItem(0).child(0).child(0)
         window.tree.setCurrentItem(device)
         qt_app.processEvents()
         assert props.isEnabled() and toolbar.grab(area).toImage() != before
+        window.back.trigger()
+        assert window.tree.currentItem() is window.tree.topLevelItem(0)
+        window.forward.trigger()
+        assert window.tree.currentItem() is device
+        window.scope_action.trigger()
+        assert window.scope_tree.isVisible()
+        window.pane_action.trigger()
+        assert window.pane_action.isChecked()
         window.by_connection_radio.trigger()
         assert window.item_texts()[1] == "  Motherboard"
         scan.trigger()
         assert window.snapshot is snapshot
+    finally:
+        window.close()
+
+
+@pytest.mark.parametrize(("style", "client"), [("basic", (9, 30)), ("aero", (80, 72))])
+def test_aero_console_bands_match_win7_sp1(
+    devmgr, snapshot, qt_app, monkeypatch, tmp_path, style, client, exact_original
+):
+    import numpy as np
+    from PIL import Image
+
+    monkeypatch.setattr(devmgr.chicago95ui, "widget_style", lambda: "aero")
+    window = devmgr.DeviceManagerWindow(load=lambda: snapshot)
+    try:
+        window.resize(782, 521)
+        window.show()
+        window.refresh()
+        qt_app.processEvents()
+        capture = tmp_path / "device-manager.png"
+        assert window.grab().save(str(capture))
+        reference = REPO / f"tests/references/win7-sp1-{style}-device-manager.png"
+        with Image.open(capture) as surface, Image.open(reference) as original:
+            # Sample both complete command bands clear of the commands.
+            x, y = client
+            actual = np.asarray(surface.convert("RGB").crop((300, 0, 350, 46)), dtype=int)
+            expected = np.asarray(original.convert("RGB").crop((x + 300, y, x + 350, y + 46)), dtype=int)
+            assert np.abs(actual - expected).mean() < 3
+            # A continuous white tree extends to the status bar, including across the former buttons.
+            for picture, left, top in [(surface, 0, 0), (original, x, y)]:
+                band = picture.convert("RGB").crop((left + 80, top + 460, left + 700, top + 490))
+                assert band.getextrema() == ((255, 255),) * 3
+            expected_icons = original.convert("RGB").crop((x, y + 23, x + 170, y + 46))
+            icons = surface.convert("RGB").crop((0, 23, 170, 46))
+            difference = np.abs(np.asarray(icons, dtype=int) - np.asarray(expected_icons, dtype=int))
+            assert difference.mean() < (20 if style == "aero" else 30)
+            exact_original(expected_icons, icons)
     finally:
         window.close()

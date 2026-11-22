@@ -64,6 +64,8 @@ decoration), beside the originals' where a screenshot shows them, are in
 
 Open **Control Panel → Themes** to apply a desktop theme, including its icons, colours, window frames, taskbar, Start menu, sign-in and boot screens, and sounds. **Control Panel style** follows the desktop by default. To override it in Setup, use `--control-panel-style=classic|luna|aero` or restore the default with `--control-panel-style=auto`. Reopen Control Panel after applying a style change.
 
+The Windows 7 visual audit lists the components compared with an original SP1 installation, the measured differences and the remaining coverage gaps. [Windows 7 pixel audit](docs/windows-7-pixel-audit.md)
+
 Both XP presets select the Windows XP sound scheme. Choose it independently with `--sounds=WindowsXP` or under **Control Panel → Sounds**. The scheme includes all 26 recordings from the default XP archive, converted to Ogg Vorbis. [Sound archive](https://lelegofrog.github.io/winwavxp.html)
 
 A look is a preset. It fills in the window decoration, the controls (widget style), the taskbar, the Start
@@ -189,6 +191,8 @@ screen or as flags:
 ### Control Panel
 
 ![The Control Panel](docs/control-panel.png)
+
+With the Windows 7 Control Panel style, the home page groups settings into eight categories. Choose **Appearance and Personalization → Change the theme** to open the theme selector, or use **View by** to switch to large or small icons. [Windows 7 Category View](docs/compare/aero-control-panel-category.png)
 
 `chicago95-control-panel` (Start, Settings, Control Panel, or Properties in the
 right-click menu of the Start button and the taskbar) is one Windows 98

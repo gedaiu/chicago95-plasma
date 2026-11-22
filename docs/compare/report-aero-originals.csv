@@ -1,9 +1,9 @@
 Test file,Test case,Changed pixels,Compared pixels,Mean absolute RGB error (0-255)
-audit_desktop_pixels.py,test_menu_chrome[places-glass],11025,11025,9.55
-audit_desktop_pixels.py,test_menu_chrome[programs-search-box],8459,11340,25.37
-audit_desktop_pixels.py,test_menu_chrome[shut-down-button],2592,2592,43.30
-audit_desktop_pixels.py,test_menu_chrome[start-search-box],8460,11340,25.65
-audit_desktop_pixels.py,test_menu_chrome[power-menu],6215,6327,28.69
+audit_desktop_pixels.py,test_menu_chrome[places-glass],10987,11025,5.88
+audit_desktop_pixels.py,test_menu_chrome[programs-search-box],4010,11340,9.42
+audit_desktop_pixels.py,test_menu_chrome[shut-down-button],2591,2592,22.68
+audit_desktop_pixels.py,test_menu_chrome[start-search-box],4026,11340,9.73
+audit_desktop_pixels.py,test_menu_chrome[power-menu],1347,6327,18.70
 audit_desktop_pixels.py,test_desktop_region[background-box0],0,7200,0.00
 audit_desktop_pixels.py,test_desktop_region[empty-panel-box1],17381,19200,0.78
 audit_desktop_pixels.py,test_desktop_region[orb-ring-box2],642,648,4.44
@@ -12,7 +12,7 @@ audit_desktop_pixels.py,test_desktop_region[show-desktop-box4],580,600,3.62
 audit_desktop_pixels.py,test_notification_area[hidden-arrow],411,420,2.34
 audit_desktop_pixels.py,test_notification_area[tray-shade],1961,2380,1.23
 audit_desktop_pixels.py,test_notification_close_and_options,1012,1012,13.89
-audit_desktop_pixels.py,test_control_panel_navigation,7480,7480,61.84
+audit_desktop_pixels.py,test_control_panel_navigation,7402,7480,31.87
 audit_desktop_pixels.py,test_explorer_navigation,7040,7040,65.39
 audit_desktop_pixels.py,test_firefox_button_face,152,210,2.44
 audit_desktop_pixels.py,test_gtk_fixed_corner[palette button-BUTTON-PUSHBUTTON-0],30,30,71.04
@@ -111,3 +111,9 @@ test_aero_window_reference.py,test_inactive_frame_region_is_within_its_limit_of_
 test_aero_window_reference.py,test_active_frame_region_is_within_its_limit_of_windows_7[right border-box0-12],2560,2560,11.79
 test_aero_window_reference.py,test_active_frame_region_is_within_its_limit_of_windows_7[caption buttons-box1-32],1903,1995,31.32
 test_aero_window_reference.py,test_active_frame_region_is_within_its_limit_of_windows_7[top right corner-box2-35],618,630,34.68
+test_devmgr.py,test_aero_console_bands_match_win7_sp1[basic-client0],2693,3910,27.41
+test_devmgr.py,test_aero_console_bands_match_win7_sp1[aero-client1],2601,3910,16.82
+test_aero_greeter_visuals.py,test_lock_password_bounds_match_sp1[1024-768-win7-sp1-aero-lock],401,816,1.85
+test_aero_greeter_visuals.py,test_lock_password_bounds_match_sp1[800-600-win7-sp1-aero-lock-800],398,816,0.79
+test_aero_shell_interactions.py,test_calendar_renders_a_month_and_an_analog_clock,466,560,24.73
+test_aero_control_panel.py,test_category_detail_sidebar_and_heading_against_sp1[1],25533,25920,0.90

@@ -88,10 +88,12 @@ Rectangle {
         Item {
             id: portrait
             anchors.horizontalCenter: parent.horizontalCenter
-            // Reserve the footer on short displays when the session offers user switching.
+            // Center the locked account group above its footer, measured at 600px and 768px.
+            readonly property int preferredY: page.unlockOnly
+                ? Math.round(parent.height * 0.525) - 166 : Math.round(parent.height / 2) - 134
             y: page.unlockOnly && page.canSwitchUser
-                ? Math.max(-15, Math.min(Math.round(parent.height / 2) - 134, parent.height - 432))
-                : Math.round(parent.height / 2) - 134
+                ? Math.max(-15, Math.min(preferredY, parent.height - 432))
+                : preferredY
             width: 190
             height: 190
             Image {
@@ -112,7 +114,7 @@ Rectangle {
         Text {
             id: nameLabel
             anchors.top: portrait.bottom
-            anchors.topMargin: page.unlockOnly ? 7 : 0
+            anchors.topMargin: 0
             anchors.horizontalCenter: parent.horizontalCenter
             color: "white"
             style: Text.Raised
@@ -138,7 +140,7 @@ Rectangle {
         component CredentialField: TextField {
             id: field
             width: 225
-            height: page.largeText ? 32 : 24
+            height: page.largeText ? 32 : page.unlockOnly ? 25 : 24
             color: "#171717"
             placeholderTextColor: "#555555"
             leftPadding: 6
@@ -147,12 +149,29 @@ Rectangle {
             font.family: page.uiFamily
             font.pixelSize: page.largeText ? 18 : 13
             selectByMouse: true
-            background: Image { source: page.art(field.activeFocus ? "input-focus.svg" : "input.svg") }
+            background: Item {
+                Rectangle {
+                    anchors.fill: parent
+                    visible: page.unlockOnly
+                    color: "#80ffffff"
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: 1
+                        color: "white"
+                        border.color: "#666666"
+                    }
+                }
+                Image {
+                    anchors.fill: parent
+                    visible: !page.unlockOnly
+                    source: page.art(field.activeFocus ? "input-focus.svg" : "input.svg")
+                }
+            }
         }
         Column {
             id: fields
             anchors.top: lockedLabel.visible ? lockedLabel.bottom : nameLabel.bottom
-            anchors.topMargin: 8
+            anchors.topMargin: page.unlockOnly ? 6 : 8
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 4
             CredentialField {

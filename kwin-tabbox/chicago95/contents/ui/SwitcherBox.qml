@@ -50,7 +50,7 @@ Item {
     readonly property bool luna: look === "luna"
 
     width: luna && lunaLoader.item ? lunaLoader.item.width : previews ? 2 * (frame + sidePad) + rowWidth : aero ? rowWidth + 2 * sidePad : classicWidth
-    height: luna && lunaLoader.item ? lunaLoader.item.height : frame + topPad + rows * cellHeight + captionGap + captionHeight + bottomPad + frame
+    height: luna && lunaLoader.item ? lunaLoader.item.height : aero ? grid.y + grid.height + 14 : frame + topPad + rows * cellHeight + captionGap + captionHeight + bottomPad + frame
 
     Loader {
         id: lunaLoader

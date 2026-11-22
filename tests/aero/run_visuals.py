@@ -31,6 +31,7 @@ if __name__ == "__main__":
                 "-q",
                 "-rs",
                 *aero_tests,
+                "tests/test_devmgr.py::test_aero_console_bands_match_win7_sp1",
                 "tests/test_boot_visual_states.py",
                 "tests/test_post_xp_boot.py",
                 "tests/test_login_failure.py",

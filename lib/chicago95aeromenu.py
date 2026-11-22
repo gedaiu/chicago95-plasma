@@ -201,7 +201,11 @@ class AeroMenu(QWidget):
         left.setFixedWidth(252)
         columns.addWidget(left)
         programs = QVBoxLayout(left)
-        programs.setContentsMargins(4, 4, 4, 8)
+        programs.setContentsMargins(0, 0, 0, 0)
+        programs.setSpacing(0)
+        entries = QVBoxLayout()
+        entries.setContentsMargins(4, 4, 4, 0)
+        programs.addLayout(entries, 1)
         self.list = QListView()
         self.model = ProgramModel(self.list, icon)
         self.list.setModel(self.model)
@@ -217,20 +221,36 @@ class AeroMenu(QWidget):
         scrollbar.setStyle(scroll_style)
         self.list.clicked.connect(self.open_item)
         self.list.installEventFilter(self)
-        programs.addWidget(self.list)
+        entries.addWidget(self.list)
         self.toggle = QPushButton("▸   All Programs")
         self.toggle.clicked.connect(self.toggle_programs)
-        programs.addWidget(self.toggle)
+        entries.addWidget(self.toggle)
         self.search = QLineEdit()
         self.search.installEventFilter(self)
         self.search.setPlaceholderText("Search programs and files")
-        self.search.addAction(
-            QIcon.fromTheme("edit-find", self.style().standardIcon(QStyle.SP_FileDialogContentsView)),
-            QLineEdit.TrailingPosition,
-        )
+        lens = QPixmap()
+        lens.loadFromData(b'''<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+            <path d="M7 9l-4 4" stroke="#345677" stroke-width="2.5"/>
+            <circle cx="10" cy="6" r="3.6" fill="white" stroke="#3387bc" stroke-width="2"/>
+        </svg>''')
+        self.search.addAction(QIcon(lens), QLineEdit.TrailingPosition)
+        self.search.setFixedHeight(22)
+
+        def search_font(text):
+            font = self.search.font()
+            font.setItalic(not text)
+            self.search.setFont(font)
+
+        search_font(self.search.text())
+        self.search.textChanged.connect(search_font)
         self.search.textChanged.connect(self.populate)
         self.search.returnPressed.connect(self.open_first)
-        programs.addWidget(self.search)
+        well = QFrame()
+        well.setObjectName("searchWell")
+        search_row = QHBoxLayout(well)
+        search_row.setContentsMargins(12, 10, 16, 11)
+        search_row.addWidget(self.search)
+        programs.addWidget(well)
         links = QVBoxLayout()
         links.setSpacing(1)
         links.setContentsMargins(7, 0, 6, 0)
@@ -272,6 +292,15 @@ class AeroMenu(QWidget):
         arrow.setGeometry(71, 0, 23, 22)
         arrow.setAccessibleName("Shut-down options")
         options = QMenu(self)
+        options.setStyleSheet("""
+            QMenu { border: 1px solid #bebcc0; background: #f5f5f5; padding: 1px; }
+            QMenu::item { height: 20px; padding: 0 12px 0 24px; color: black;
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #ececec,
+                stop:.18 #ececec,stop:.19 #dedede,stop:.20 white,stop:.21 #f5f5f5); }
+            QMenu::item:selected { background: #dceefb; }
+            QMenu::item:disabled { color: #777; }
+            QMenu::separator { height: 1px; margin: 2px 2px 2px 23px; background: #d5d5d5; }
+        """)
         for label, key in [
             ("Switch user", "switch_user"),
             ("Log off", "log_off"),
@@ -302,9 +331,10 @@ class AeroMenu(QWidget):
         self.setStyleSheet("""
             * { font-family: "Segoe UI", "Noto Sans"; font-size: 12px; color: #172838; }
             #glass { border: 1px solid #263b50; border-radius: 6px;
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                stop:0 rgba(130,163,184,185), stop:0.37 rgba(31,51,68,185), stop:0.5 rgba(15,24,32,185),
-                stop:0.82 rgba(13,22,29,185), stop:1 rgba(110,141,159,185)); }
+                background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                stop:0 rgba(81,116,145,185), stop:.11 rgba(48,72,94,185), stop:.25 rgba(22,38,52,185),
+                stop:.43 rgba(14,18,23,185), stop:.61 rgba(21,27,35,185), stop:.78 rgba(32,48,65,185),
+                stop:1 rgba(62,105,141,185)); }
             #avatar { border: 2px solid #c1d6e3; border-radius: 5px; background: #5b859c; }
             #programs { background: white; border: 1px solid #8192a2; border-radius: 4px; }
             QListView { background: white; border: none; outline: none; }
@@ -323,7 +353,9 @@ class AeroMenu(QWidget):
             QScrollBar:vertical { width: 16px; }
             #programs QPushButton { color: #172838; border-top: 1px solid #d4dce3; }
             #programs QPushButton:hover { background: #def0fc; }
-            QLineEdit { background: white; border: 1px solid #8497a8; padding: 3px; }
+            #searchWell { border-top: 1px solid #ccd9ea; background: qlineargradient(
+                x1:0,y1:0,x2:0,y2:1,stop:0 #d9e3f0,stop:.12 #f1f5fb,stop:1 #f1f5fb); }
+            QLineEdit { background: white; border: 1px solid #adadad; border-top-color: #646464; padding: 0 5px; }
         """)
         self.populate()
         self.search.setFocus()
@@ -350,7 +382,7 @@ class AeroMenu(QWidget):
         if self.usage and not self.all_programs and not self.search.text():
             self.populate()
         self.motion, duration = chicago95animations.own_animation(
-            chicago95animations.live_state(), "ANIM_MENUS", "fade", 120
+            chicago95animations.live_state(), "ANIM_MENUS", "none", 120
         )
         if self.motion in ("slide", "fade", "both") and duration > 0:
             self.opening.setDuration(duration)

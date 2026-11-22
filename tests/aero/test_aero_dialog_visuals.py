@@ -64,3 +64,26 @@ def test_background_shows_through_menu_and_preview_glass(pictures):
             scale = surface.width / logical_width
             x, y = (round(value * scale) for value in point)
             assert 1 - surface.convert("RGBA").getpixel((x, y))[3] / 255 == pytest.approx(transmission, abs=0.02)
+
+
+def test_search_field_interior_matches_sp1_at_native_scale(pictures):
+    from reference import screenshot
+
+    output, portraits = pictures
+    scale = float(portraits.name)
+    with Image.open(output / "start.png") as render:
+        actual = render.convert("RGB").resize((411, round(render.height / scale)), Image.Resampling.NEAREST)
+    native = screenshot("win7-sp1-aero-start")
+
+    def white_span(image, coordinates):
+        indices = [i for i, point in enumerate(coordinates) if image.getpixel(point) == (255, 255, 255)]
+        return min(indices), max(indices)
+
+    # Sample clear lines inside the search field. Anchor the menu at the top of the 40px taskbar.
+    def field_spans(image, top):
+        horizontal = white_span(image, [(x, 688 - top) for x in range(15, 250)])
+        vertical = white_span(image, [(205, y - top) for y in range(681, 715)])
+        return horizontal, vertical
+
+    for measured, expected in zip(field_spans(actual, 728 - actual.height), field_spans(native, 0), strict=True):
+        assert measured == pytest.approx(expected, abs=1)

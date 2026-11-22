@@ -49,6 +49,37 @@ def test_control_panel_and_taskbar_against_windows_7(tmp_path, scale):
     reference = screenshot("win7controlpanel").crop((9, 41, 229, 75))
     assert np.abs(np.asarray(navigation, dtype=float) - np.asarray(reference)).mean() < 39
 
+    # Align the original client at its navigation strip. Both first-row headings are unobscured.
+    original_home = screenshot("win7controlpanel").crop((9, 41, 789, 581))
+    normalized_home = home.resize(original_home.size, Image.Resampling.LANCZOS)
+
+    def heading_origin(image):
+        red, green, blue = np.moveaxis(np.asarray(image, dtype=int), 2, 0)
+        y, x = np.where((green > red + 40) & (green > blue + 40))
+        assert x.size > 50
+        return (x.min(), y.min())
+
+    for left in (125, 440):
+        region = (left, 100, left + 215, 130)
+        assert heading_origin(normalized_home.crop(region)) == pytest.approx(
+            heading_origin(original_home.crop(region)), abs=5
+        )
+
+    # The clean SP1 VM starts with a different account heading and a 20px wider client.
+    # Its right column moves by half that width difference. Navigation starts at screen y=24.
+    vm_home = screenshot("win7-sp1-basic-category")
+    for left, offset in ((129, 0), (445, 10)):
+        rendered = normalized_home.crop((left, 97, left + 180, 127))
+        native = vm_home.crop((left + offset, 121, left + offset + 180, 151))
+        assert heading_origin(rendered) == pytest.approx(heading_origin(native), abs=4)
+
+    # The same headings in the restored 800px Aero window on the 1024px desktop.
+    glass_home = screenshot("win7-sp1-aero-category")
+    for left in (129, 445):
+        ours = normalized_home.crop((left, 97, left + 180, 127))
+        theirs = glass_home.crop((left + 130, 201, left + 310, 231))
+        assert heading_origin(ours) == pytest.approx(heading_origin(theirs), abs=5)
+
     sheet = render("taskbar", ["--page", "taskbar"])
     assert sheet.size == (round(398 * scale), round(424 * scale))
     sheet = sheet.resize((398, 424), Image.Resampling.LANCZOS)
@@ -73,6 +104,10 @@ def test_control_panel_and_taskbar_against_windows_7(tmp_path, scale):
 
     assert action_centres(sheet.crop((0, 392, 398, 424))) == pytest.approx(
         action_centres(original.crop((0, 32, 398, 64))), abs=3
+    )
+    native_sheet = screenshot("win7-sp1-aero-taskbar-properties")
+    assert action_centres(sheet.crop((0, 392, 398, 424))) == pytest.approx(
+        action_centres(native_sheet.crop((0, 392, 398, 424))), abs=3
     )
 
 
@@ -157,6 +192,7 @@ def test_aero_navigation_glow_and_applet_hover(qt_app, monkeypatch, tmp_path):
         button.glow.setCurrentTime(0)
         assert button.grab().toImage() == frames[0]
         button.click()
+        window.set_view("Large Icons")
         view = window.icon_view
         rect = view.visualItemRect(view.item(0))
         QTest.mouseMove(view.viewport(), view.visualItemRect(view.item(1)).center())
@@ -165,3 +201,179 @@ def test_aero_navigation_glow_and_applet_hover(qt_app, monkeypatch, tmp_path):
         assert view.viewport().grab(rect).toImage() != idle
     finally:
         window.close()
+
+
+def test_aero_categories_open_applets_and_restore_home(qt_app, monkeypatch, tmp_path):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QPushButton
+
+    panel = load_script("chicago95-control-panel")
+    monkeypatch.setattr(panel.chicago95ui, "widget_style", lambda: "aero")
+    launched = []
+    actions = panel.Actions(start_process=lambda program, arguments: launched.append(program))
+    window = panel.ControlPanel(settings_path=tmp_path / "setup.conf", actions=actions)
+    window.show()
+    try:
+        buttons = {button.text(): button for button in window.category_view.findChildren(QPushButton)}
+        assert window.pages.currentWidget() is window.category_view
+        assert {name for _, tasks in panel.AERO_CATEGORIES.values() for _, name, _ in tasks} == set(
+            panel.APPLET_BY_NAME
+        )
+        category = "Appearance and Personalization"
+        link = buttons["Change the theme"]
+        QTest.mouseMove(window.toolbar, window.toolbar.rect().center())
+        qt_app.processEvents()
+        idle = link.grab().toImage()
+        QTest.mouseMove(link, link.rect().center())
+        qt_app.processEvents()
+        assert link.grab().toImage() != idle
+        buttons[category].setFocus()
+        QTest.keyClick(buttons[category], Qt.Key_Return)
+        assert window.address_bar.crumbs() == ["Control Panel", category]
+        detail = window.pages.currentWidget()
+        links = {button.text(): button for button in detail.findChildren(QPushButton)}
+        assert {"Personalization", "Display", "Taskbar and Start Menu", "Fonts"} <= links.keys()
+        links["Customize the Start menu"].click()
+        taskbar = window.applet_windows["Taskbar"]
+        assert taskbar.page.tabs.tabText(taskbar.page.tabs.currentIndex()) == "Start Menu"
+        taskbar.reject()
+        links["Hardware and Sound"].click()
+        assert window.address_bar.crumbs()[-1] == "Hardware and Sound"
+        window.back_action.trigger()
+        assert window.pages.currentWidget() is detail
+        window.back_action.trigger()
+        assert window.pages.currentWidget() is window.category_view
+        window.forward_action.trigger()
+        window.up_action.trigger()
+        QTest.mouseClick(buttons["Adjust screen resolution"], Qt.LeftButton)
+        display = window.applet_windows["Display"]
+        assert display.isVisible() and display.page.tabs.currentIndex() == display.page.tab_names().index("Settings")
+        display.reject()
+        buttons["Change the theme"].click()
+        assert window.history.current == panel.HOME_PAGE + ("Themes",)
+        window.back_action.trigger()
+        window.search.setFocus()
+        QTest.keyClicks(window.search, "Taskbar")
+        assert window.pages.currentWidget() is window.icon_view
+        window.search.selectAll()
+        QTest.keyClick(window.search, Qt.Key_Backspace)
+        assert window.pages.currentWidget() is window.category_view
+        for action in window.view_menu.actions():
+            action.trigger()
+            assert window.pages.currentWidget() is (
+                window.category_view if action.text() == "Category" else window.icon_view
+            )
+        window.set_view("Category")
+        for _, tasks in panel.AERO_CATEGORIES.values():
+            for label, name, tab in tasks:
+                buttons[label].click()
+                applet = panel.APPLET_BY_NAME[name]
+                if applet.external_tool:
+                    assert launched[-1] == panel.tool_path(applet.external_tool)
+                    continue
+                sheet = window.applet_sheet(name)
+                assert sheet.isVisible()
+                if tab:
+                    assert sheet.tab_names()[sheet.tabs.currentIndex()] == tab
+                if name in window.applet_windows:
+                    window.applet_windows[name].reject()
+                else:
+                    window.navigate(panel.HOME_PAGE)
+    finally:
+        window.close()
+
+
+def test_category_hover_fill_matches_clean_sp1(qt_app, monkeypatch, tmp_path):
+    from PySide6.QtCore import QEvent, QPoint
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QFrame, QPushButton
+
+    panel = load_script("chicago95-control-panel")
+    monkeypatch.setattr(panel.chicago95ui, "widget_style", lambda: "aero")
+    window = panel.ControlPanel(settings_path=tmp_path / "setup.conf")
+    window.show()
+    try:
+        card = window.category_view.findChild(QFrame, "categoryCard")
+        heading = card.findChild(QPushButton)
+        native = screenshot("win7-sp1-category-hover")
+        motion = screenshot("win7-sp1-category-hover-opening")
+        patch = card.mapTo(window, QPoint(card.width() - 8, card.height() // 2))
+        QTest.mouseMove(window.toolbar, window.toolbar.rect().center())
+        assert window.grab().toImage().pixelColor(patch).getRgb()[:3] == motion.getpixel((4, 4))
+        QTest.mouseMove(heading, QPoint(12, 6))
+        qt_app.processEvents()
+        for frame in range(1, 5):
+            actual = window.grab().toImage().pixelColor(patch).getRgb()[:3]
+            assert actual == pytest.approx(motion.getpixel((frame * 8 + 4, 4)), abs=3)
+            QTest.qWait(17)
+        image = card.grab().toImage()
+        for fraction in (0, 0.2, 0.5, 0.8, 1):
+            actual = image.pixelColor(image.width() - 8, round(fraction * (image.height() - 1))).getRgb()[:3]
+            expected = native.getpixel((native.width - 8, round(fraction * (native.height - 1))))
+            assert actual == pytest.approx(expected, abs=3)
+        qt_app.sendEvent(card, QEvent(QEvent.Leave))
+        qt_app.processEvents()
+        idle = window.grab().toImage()
+        point = card.mapTo(window, QPoint(card.width() - 8, card.height() // 2))
+        assert idle.pixelColor(point).name() == "#ffffff"
+    finally:
+        window.close()
+
+
+@pytest.mark.parametrize("scale", [1, 1.5])
+def test_display_pages_fit_without_changing_pixels_when_scrollbars_are_hidden(tmp_path, scale):
+    config = control_panel_config(tmp_path)
+    subprocess.run(
+        [sys.executable, str(REPO / "tests/aero/render_display_pages.py"), str(tmp_path)],
+        env={
+            **os.environ,
+            "XDG_CONFIG_HOME": str(config),
+            "QT_SCALE_FACTOR": str(scale),
+            "QT_QPA_PLATFORM": "offscreen",
+        },
+        check=True,
+        timeout=45,
+    )
+
+
+@pytest.mark.parametrize("scale", [1, 1.5])
+def test_category_detail_sidebar_and_heading_against_sp1(tmp_path, scale, exact_original):
+    config = control_panel_config(tmp_path)
+    program = """
+import runpy, sys
+from PySide6.QtWidgets import QScrollArea
+panel = runpy.run_path(sys.argv[1])
+app = panel['chicago95ui'].make_app('Control Panel')
+window = panel['ControlPanel']()
+window.show()
+window.navigate(panel['HOME_PAGE'] + ('Appearance and Personalization',))
+app.processEvents()
+page = window.pages.currentWidget()
+area = page.findChild(QScrollArea)
+assert area.horizontalScrollBar().maximum() == area.verticalScrollBar().maximum() == 0
+assert page.grab().save(sys.argv[2])
+"""
+    current = tmp_path / "category-detail.png"
+    subprocess.run(
+        [sys.executable, "-c", program, str(REPO / "bin/chicago95-control-panel"), str(current)],
+        env={**os.environ, "XDG_CONFIG_HOME": str(config), "QT_SCALE_FACTOR": str(scale)},
+        check=True,
+        timeout=30,
+    )
+    original = screenshot("win7-sp1-aero-category-detail")
+    image = Image.open(current).convert("RGB")
+    image = image.resize(tuple(round(length / scale) for length in image.size), Image.Resampling.LANCZOS)
+    for picture in (image, original):
+        row = np.asarray(picture)[350, :250]
+        assert np.flatnonzero(row.min(axis=1) > 249)[0] == pytest.approx(199, abs=1)
+
+    def heading_origin(picture):
+        r, g, b = np.moveaxis(np.asarray(picture.crop((256, 10, 425, 44))), 2, 0).astype(int)
+        y, x = np.where((g - r > 45) & (g - b > 45))
+        return x.min(), y.min()
+
+    assert heading_origin(image) == pytest.approx(heading_origin(original), abs=5)
+    if scale == 1:
+        sidebar = (10, 310, 190, 454)
+        exact_original(original.crop(sidebar), image.crop(sidebar))

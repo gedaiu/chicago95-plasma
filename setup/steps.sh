@@ -1407,6 +1407,7 @@ step_extras() { # System Properties, Device Manager, Kubernetes Viewer, Dial-Up,
     put_file "$REPO/bin/chicago95-$tool" ~/.local/bin/chicago95-$tool
     run chmod +x ~/.local/bin/chicago95-$tool
   done
+  put_tree "$REPO/data/device-manager" ~/.local/share/chicago95/device-manager
   put_tree "$REPO/data/sounds" ~/.local/share/chicago95/sounds
   put_file "$REPO/config/autostart/chicago95-startup.desktop" ~/.config/autostart/chicago95-startup.desktop
   substitute_home ~/.config/autostart

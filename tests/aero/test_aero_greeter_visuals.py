@@ -61,8 +61,9 @@ def test_portrait_credentials_power_and_failure_render_in_place(qt_app, greeter,
             img = Image.open(src / f"{name}.png").convert("RGBA").resize(size, Image.Resampling.LANCZOS)
             expected.alpha_composite(img, xy)
 
-        paste("user", (337, 198), (126, 126))
-        paste("12223", (305, 166), (190, 190))
+        portrait_top = 149 if locked else 166
+        paste("user", (337, portrait_top + 32), (126, 126))
+        paste("12223", (305, portrait_top), (190, 190))
         paste("access-button", (34, 538), (38, 28))
         paste("12213", (41, 540), (24, 24))
         if not locked:
@@ -71,13 +72,14 @@ def test_portrait_credentials_power_and_failure_render_in_place(qt_app, greeter,
         field = view.rootObject().findChild(QObject, "aeroPassword")
         origin = field.mapToScene(QPointF(0, 0)).toPoint()
         x, y = origin.x(), origin.y()
-        paste("go", (x + 229, y - 3), (30, 30))
+        arrow_y = y - (2 if locked else 3)
+        paste("go", (x + 229, arrow_y), (30, 30))
         # Include the button area even on unlock, where it must show the wallpaper.
         for name, box in (
-            ("portrait", (305, 166, 495, 356)),
+            ("portrait", (305, portrait_top, 495, portrait_top + 190)),
             ("access", (34, 538, 72, 566)),
             ("power", (708, 538, 746, 566)),
-            ("submit", (x + 229, y - 3, x + 259, y + 27)),
+            ("submit", (x + 229, arrow_y, x + 259, arrow_y + 30)),
         ):
             diff = ImageChops.difference(actual.crop(box), expected.convert("RGB").crop(box))
             if max(ImageStat.Stat(diff).mean) > 19:
@@ -209,3 +211,44 @@ def test_unlock_switch_user_button_clears_input_and_fits_above_branding(qt_app, 
         assert sum(diff.histogram()[25:]) > 500
     finally:
         view.close()
+
+
+@pytest.mark.parametrize(
+    "width,height,reference", [(1024, 768, "win7-sp1-aero-lock"), (800, 600, "win7-sp1-aero-lock-800")]
+)
+def test_lock_password_bounds_match_sp1(qt_app, greeter, tmp_path, width, height, reference, exact_original):
+    import numpy as np
+    from reference import screenshot
+
+    folder, _ = greeter
+    scene = folder / "sp1-lock.qml"
+    scene.write_text(
+        f'import QtQuick\nAeroLockScreen {{ width: {width}; height: {height}; userName: "Reference"; '
+        "canSwitchUser: true; authenticator: QtObject { signal failed(int kind) } }"
+    )
+    view = QQuickView()
+    view.setSource(QUrl.fromLocalFile(str(scene)))
+    assert not view.errors()
+    view.show()
+    try:
+        QTest.qWait(80)
+        actual = qimage_to_pil(view.grabWindow())
+    finally:
+        view.close()
+    actual.save(tmp_path / "lock.png")
+
+    def bounds(im):
+        # The password prompt occupies the left side. Sample its unprinted right half.
+        a = np.asarray(im.convert("RGB"))
+        left, top = width // 2 - 132, height // 2 + 70
+        ys = np.flatnonzero(a[top : top + 82, left + 140 : left + 212].min(axis=(1, 2)) >= 240) + top
+        assert len(ys)
+        xs = np.flatnonzero(a[ys[2], left : left + 250].min(axis=1) >= 240) + left
+        return xs.min(), ys.min(), xs.max(), ys.max()
+
+    native = screenshot(reference)
+    left, top, right, _ = bounds(native)
+    assert bounds(actual) == pytest.approx(bounds(native), abs=2)
+    # Fixed top edge excludes prompt text and the blinking caret.
+    edge = (left + 8, top - 3, right - 8, top + 1)
+    exact_original(native.crop(edge), actual.crop(edge))

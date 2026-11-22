@@ -207,3 +207,35 @@ Two JPEG figures supply layout references for application dialogs. Their compres
 `win7-login-guide.png` is the password screen in [Cengage’s Windows 7 Unit A, PDF page 3](https://www.cengage.com/gpms/websites/1285105281/Windows%207%2C%20Unit%20A%20and%20B.pdf#page=3), image object 9. The 246 × 184 figure was converted from the embedded CMYK JPEG to RGB by pdfimages. It gives approximate positions at a 4:3 aspect ratio.
 
 `win7-taskbar-sheet-chrome.png` contains the top and bottom 32 rows of the 398 × 424 Taskbar property sheet client in [DePaul’s Windows 7 Taskbar QuickGuide, PDF page 3](https://offices.depaul.edu/information-services/services/technology-training/operatingsystems/windows7-taskbar.pdf#page=3). The client begins at (8, 30) in image object 33. The crops exclude the guide’s callouts.
+
+`win7-sp1-basic-device-manager.png` and `win7-sp1-basic-category.png` are
+lossless, full-screen captures from a clean, offline Windows 7 Professional
+SP1 x86 installation from the owner's English DVD. Captured at 800 × 600
+and the default 96 DPI with the standard VGA adapter. Use their client areas
+for MMC alignment and Category View layout. The title bars show Windows 7 Basic.
+
+`win7-sp1-category-hover.png` is the unscaled 328 × 80 crop at (70, 127)
+from the same guest, with the pointer over System and Security. It includes
+the selection outline and fill from top to bottom.
+
+The other SP1 captures use the same installation with the VirtualBox WDDM
+display driver and Windows Aero enabled. DwmIsCompositionEnabled returned true.
+The desktop was 1024 × 768 at 96 DPI unless stated otherwise. All crops below
+are lossless and retain the guest pixel grid.
+
+| File | Captured surface |
+| --- | --- |
+| `win7-sp1-aero-category.png`, `win7-sp1-aero-device-manager.png`, `win7-sp1-aero-start.png` | Full desktop with the named window or menu open |
+| `win7-sp1-aero-category-detail.png` | The Appearance and Personalization category body at (9, 65), 781 × 483. The pointer was moved outside the window. |
+| `win7-sp1-aero-taskbar-properties.png` | 398 × 424 Taskbar and Start Menu Properties client |
+| `win7-sp1-aero-lock.png`, `win7-sp1-aero-lock-800.png` | Locked session with its credential field, at 1024 × 768 and 800 × 600 |
+| `win7-sp1-aero-calendar.png` | Calendar client at (672, 465), 336 × 247 |
+| [Screen Resolution](../../docs/compare/win7-sp1-screen-resolution.png) | Native display settings opened with `control desk.cpl` |
+| `win7-sp1-category-hover-opening.png` | Five consecutive 8 × 8 samples at (362, 163) over the System and Security card, from its last idle frame through its first four highlighted frames |
+| `win7-sp1-start-opening.png` | Five consecutive 10 × 10 samples at desktop (206, 550), beginning with the last frame before the Start program pane appears |
+| `win7-sp1-start-orb-hover.png` | Twenty-five consecutive 7 × 12 samples at desktop (7, 740), left of the logo, beginning when the pointer moved onto the orb |
+
+The motion samples came from the presented virtual display at 60 Hz. The Start
+opening was checked with both keyboard and mouse. The tests measure change
+between displayed frames. Input latency and individual GPU refresh timing are
+outside these comparisons.

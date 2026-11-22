@@ -119,3 +119,43 @@ def test_windows_orb_states_match_the_original_strip_at_both_scales(qt_app):
                 reference = expected.resize(actual.size, Image.Resampling.BILINEAR)
                 for y in range(round(15 * scale), round(26 * scale)):
                     assert abs(contrast(actual, scale, y) - contrast(reference, scale, y)) < 12, (scale, y)
+
+
+def test_orb_hover_rise_time_matches_sp1(qt_app):
+    from time import monotonic
+
+    import numpy as np
+    import pytest
+    from reference import qimage_to_pil, screenshot
+
+    native = np.asarray(screenshot("win7-sp1-start-orb-hover").convert("RGB"), dtype=float)
+    reference = np.stack(np.hsplit(native, native.shape[1] // 7))
+
+    def rise_ms(times, frames):
+        delta = np.abs(frames - frames[0]).mean(axis=(1, 2, 3))
+        assert delta[-1] > 8
+        low, high = [np.flatnonzero(delta >= fraction * delta[-1])[0] for fraction in (0.1, 0.9)]
+        return times[high] - times[low]
+
+    view = QQuickView()
+    view.setColor(QColor("#386486"))
+    view.setSource(QUrl.fromLocalFile(str(ORB)))
+    root = view.rootObject()
+    root.setProperty("source", QUrl.fromLocalFile(str(ORB.with_name("windows7-orb.svg"))))
+    view.show()
+    try:
+        QTest.qWait(80)
+        frames, times = [], []
+        start = monotonic()
+        while monotonic() - start < 0.55:
+            image = qimage_to_pil(view.grabWindow()).convert("RGB").resize((54, 40))
+            frames.append(np.asarray(image.crop((7, 12, 14, 24)), dtype=float))
+            times.append((monotonic() - start) * 1000)
+            if len(frames) == 1:
+                root.setProperty("hovered", True)
+            QTest.qWait(10)
+        # Three displayed frames allow for independent guest and Qt sampling clocks.
+        expected = rise_ms(np.arange(len(reference)) * 1000 / 60, reference)
+        assert rise_ms(times, np.stack(frames)) == pytest.approx(expected, abs=50)
+    finally:
+        view.close()

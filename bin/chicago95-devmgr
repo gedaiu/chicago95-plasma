@@ -33,10 +33,12 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMenuBar,
+    QMessageBox,
     QRadioButton,
     QStyle,
     QTabWidget,
     QToolBar,
+    QToolButton,
     QTreeWidget,
     QTreeWidgetItem,
     QTreeWidgetItemIterator,
@@ -493,12 +495,16 @@ class DeviceManagerWindow(QWidget):
         self.load = load
         self.setWindowTitle("Device Manager")
         self.setWindowIcon(QIcon.fromTheme("computer"))
-        self.resize(420, 480)
         self.snapshot = None
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(6)
         aero = chicago95ui.widget_style() == "aero"
+        if aero:
+            available = self.screen().availableGeometry().size() - QSize(16, 38)
+            self.resize(QSize(782, 521).boundedTo(available))
+        else:
+            self.resize(420, 480)
         self.status_label = QLabel("Searching for devices...")
         if aero:
             layout.setContentsMargins(0, 0, 0, 0)
@@ -518,8 +524,36 @@ class DeviceManagerWindow(QWidget):
         self.tree.itemDoubleClicked.connect(lambda _item, _column: self.show_properties())
         self.tree.itemSelectionChanged.connect(self.update_buttons)
         panel_layout.addWidget(self.tree)
-        layout.addWidget(panel, 1)
         if aero:
+            tree_row = QHBoxLayout()
+            tree_row.setContentsMargins(6, 6, 6, 0)
+            self.scope_tree = QTreeWidget()
+            self.scope_tree.setHeaderHidden(True)
+            self.scope_tree.setMaximumWidth(170)
+            self.scope_tree.addTopLevelItem(QTreeWidgetItem(["Device Manager"]))
+            self.scope_tree.itemClicked.connect(lambda: self.tree.setCurrentItem(self.tree.topLevelItem(0)))
+            self.scope_action.toggled.connect(self.scope_tree.setVisible)
+            self.scope_tree.hide()
+            tree_row.addWidget(self.scope_tree)
+            tree_row.addWidget(panel, 1)
+            action_pane = QWidget()
+            pane_layout = QVBoxLayout(action_pane)
+            pane_layout.addWidget(QLabel("Actions"))
+            for action in (self.properties_button, self.scan_action):
+                button = QToolButton()
+                button.setDefaultAction(action)
+                button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+                pane_layout.addWidget(button)
+            pane_layout.addStretch()
+            self.pane_action.toggled.connect(action_pane.setVisible)
+            action_pane.hide()
+            tree_row.addWidget(action_pane)
+            self.tree.currentItemChanged.connect(self.remember_item)
+            layout.addLayout(tree_row, 1)
+        else:
+            layout.addWidget(panel, 1)
+        if aero:
+            self.status_label.setFixedHeight(21)
             self.status_label.setContentsMargins(4, 1, 4, 1)
             layout.addWidget(self.status_label)
         else:
@@ -529,24 +563,83 @@ class DeviceManagerWindow(QWidget):
     def add_console_commands(self, layout):
         menus = QMenuBar()
         menus.setNativeMenuBar(False)
+        menus.setFixedHeight(23)
+        menus.setStyleSheet("""
+            QMenuBar { border-bottom: 1px solid #b4b4b4;
+                background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #fefeff,
+                stop:.39 #e5eaf5,stop:.43 #d3daed,stop:1 #d3daed); }
+            QMenuBar::item { background: transparent; padding: 4px 8px 2px; }
+            QMenuBar::item:selected { background: #c4dcf0; }
+        """)
         layout.addWidget(menus)
         menus.addMenu("&File").addAction("E&xit", self.close)
         actions = menus.addMenu("&Action")
         toolbar = QToolBar()
+        toolbar.setFixedHeight(23)
+        toolbar.setStyleSheet("""
+            QToolBar { min-height: 21px; border: 0; border-top: 1px solid #f4f7fc; border-bottom: 1px solid #b6bccc;
+                spacing: 1px; background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                stop:0 #d3daed,stop:.32 #d3daed,stop:1 #e1e6f5); }
+            QToolButton { border: 0; padding: 2px 0 0 2px; } QToolButton:hover { background: #c4dcf0; }
+            QToolBar::separator { width: 7px; }
+        """)
         toolbar.setIconSize(QSize(16, 16))
         toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)
         layout.addWidget(toolbar)
-        for title, icon, fallback, handler in (
-            ("Properties", "document-properties", QStyle.SP_FileDialogDetailedView, self.show_properties),
-            ("Scan for hardware changes", "view-refresh", QStyle.SP_BrowserReload, self.refresh),
-        ):
-            action = actions.addAction(QIcon.fromTheme(icon, self.style().standardIcon(fallback)), title, handler)
-            toolbar.addAction(action)
-            if title == "Properties":
-                self.properties_button = action
-            else:
-                action.setShortcut("F5")
+
+        art = Path(__file__).resolve().parents[1] / "data/device-manager"
+        if not art.is_dir():
+            art = Path.home() / ".local/share/chicago95/device-manager"
+
+        def icon(name, fallback, asset=None):
+            if asset and (art / asset).is_file():
+                return QIcon(str(art / asset))
+            return QIcon.fromTheme(name, self.style().standardIcon(fallback))
+
+        self.properties_button = actions.addAction(
+            icon("document-properties", QStyle.SP_FileDialogDetailedView), "Properties", self.show_properties
+        )
+        self.scan_action = actions.addAction(
+            icon("view-refresh", QStyle.SP_BrowserReload, "scan.svg"), "Scan for hardware changes", self.refresh
+        )
+        self.scan_action.setShortcut("F5")
         view = menus.addMenu("&View")
+        help_menu = menus.addMenu("&Help")
+        help_action = help_menu.addAction(
+            icon("help-contents", QStyle.SP_DialogHelpButton, "help.svg"),
+            "Device Manager Help",
+            lambda: QMessageBox.information(
+                self,
+                "Device Manager",
+                "Expand a category and double-click a device to see its properties. "
+                "Press F5 to scan for hardware changes.",
+            ),
+        )
+        help_action.setShortcut("F1")
+        self.history = []
+        self.history_position = -1
+        self.back = toolbar.addAction(icon("go-previous", QStyle.SP_ArrowBack), "Back", lambda: self.go_to_item(-1))
+        self.forward = toolbar.addAction(icon("go-next", QStyle.SP_ArrowForward), "Forward", lambda: self.go_to_item(1))
+        self.update_navigation()
+        toolbar.addSeparator()
+        self.scope_action = view.addAction(
+            icon("sidebar-show", QStyle.SP_FileDialogListView, "console-tree.svg"), "Console tree"
+        )
+        self.scope_action.setCheckable(True)
+        toolbar.addAction(self.scope_action)
+        toolbar.addSeparator()
+        toolbar.addAction(help_action)
+        self.pane_action = view.addAction(
+            icon("sidebar-show-right", QStyle.SP_FileDialogListView, "action-pane.svg"), "Action pane"
+        )
+        self.pane_action.setCheckable(True)
+        toolbar.addAction(self.pane_action)
+        toolbar.addSeparator()
+        toolbar.addAction(self.scan_action)
+        for command in toolbar.actions():
+            if not command.isSeparator():
+                toolbar.widgetForAction(command).setFixedWidth(22)
+        view.addSeparator()
         modes = QActionGroup(self)
         for title in ("Devices by type", "Devices by connection"):
             mode = view.addAction(title)
@@ -555,6 +648,22 @@ class DeviceManagerWindow(QWidget):
         by_type, self.by_connection_radio = modes.actions()
         by_type.setChecked(True)
         modes.triggered.connect(self.rebuild_tree)
+
+    def update_navigation(self):
+        self.back.setEnabled(self.history_position > 0)
+        self.forward.setEnabled(self.history_position + 1 < len(self.history))
+
+    def go_to_item(self, step):
+        self.history_position += step
+        self.tree.setCurrentItem(self.history[self.history_position])
+        self.update_navigation()
+
+    def remember_item(self, item):
+        if item is None or (self.history and self.history[self.history_position] is item):
+            return
+        self.history_position += 1
+        self.history[self.history_position :] = [item]
+        self.update_navigation()
 
     def add_view_radios(self, layout):
         self.by_type_radio = QRadioButton("View devices by &type")
@@ -604,7 +713,13 @@ class DeviceManagerWindow(QWidget):
     def rebuild_tree(self):
         if self.snapshot is None:
             return
-        build_tree(self.tree, self.snapshot, self.by_connection_radio.isChecked())
+        if hasattr(self, "history"):
+            self.history.clear()
+            self.history_position = -1
+            self.update_navigation()
+        root = build_tree(self.tree, self.snapshot, self.by_connection_radio.isChecked())
+        if hasattr(self, "history"):
+            self.tree.setCurrentItem(root)
         self.status_label.setText(summary_text(self.snapshot))
         self.update_buttons()
 
