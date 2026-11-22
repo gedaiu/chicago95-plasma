@@ -12,8 +12,8 @@ audit_desktop_pixels.py,test_desktop_region[show-desktop-box4],580,600,3.62
 audit_desktop_pixels.py,test_notification_area[hidden-arrow],411,420,2.34
 audit_desktop_pixels.py,test_notification_area[tray-shade],1961,2380,1.23
 audit_desktop_pixels.py,test_notification_close_and_options,1012,1012,13.89
-audit_desktop_pixels.py,test_control_panel_navigation,7402,7480,31.87
-audit_desktop_pixels.py,test_explorer_navigation,7040,7040,65.39
+audit_desktop_pixels.py,test_control_panel_navigation,7336,7480,31.04
+audit_desktop_pixels.py,test_explorer_navigation,6983,7040,25.17
 audit_desktop_pixels.py,test_firefox_button_face,152,210,2.44
 audit_desktop_pixels.py,test_gtk_fixed_corner[palette button-BUTTON-PUSHBUTTON-0],30,30,71.04
 audit_desktop_pixels.py,test_gtk_fixed_corner[palette disabled-button-BUTTON-PUSHBUTTON-3],25,30,37.60
@@ -69,13 +69,13 @@ test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[checkbox
 test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[checkbox-checked-hovered-5],121,169,14.81
 test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[checkbox-checked-pressed-6],121,169,15.64
 test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[checkbox-disabled-7],166,169,17.18
-test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-normal-0],149,169,22.50
-test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-hovered-1],150,169,25.11
-test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-pressed-2],151,169,33.75
-test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-checked-4],150,169,31.28
-test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-checked-hovered-5],150,169,35.55
-test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-checked-pressed-6],150,169,42.77
-test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-disabled-7],148,169,24.21
+test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-normal-0],120,169,4.90
+test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-hovered-1],126,169,4.43
+test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-pressed-2],127,169,5.40
+test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-checked-4],120,169,7.89
+test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-checked-hovered-5],127,169,9.30
+test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-checked-pressed-6],128,169,7.77
+test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-disabled-7],117,169,7.21
 test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[checkbox-mixed-8],81,169,8.20
 test_aero_taskbar.py,test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[normal],579,2400,0.50
 test_aero_taskbar.py,test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[hover],526,2400,0.35

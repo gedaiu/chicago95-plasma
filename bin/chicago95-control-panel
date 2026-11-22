@@ -38,6 +38,7 @@ from PySide6.QtCore import (
     QProcess,
     QProcessEnvironment,
     QRect,
+    QRectF,
     QSize,
     Qt,
     QTimer,
@@ -53,13 +54,13 @@ from PySide6.QtGui import (
     QFontMetrics,
     QGuiApplication,
     QIcon,
-    QImage,
     QLinearGradient,
     QPainter,
     QPalette,
     QPixmap,
 )
 from PySide6.QtQuickWidgets import QQuickWidget
+from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
@@ -2701,11 +2702,19 @@ class AppearancePreview(QWidget):
     def __init__(self):
         super().__init__()
         self.active, self.inactive, self.desktop, self.look = "#000080", "#808080", "#008080", "1995"
+        self.sample_windows = (self.INACTIVE, self.ACTIVE, self.MESSAGE)
         self.active_title = QRect()
         self.setFixedSize(self.SIZE)
 
     def show_colors(self, active, inactive, desktop, look):
         self.active, self.inactive, self.desktop, self.look = active, inactive, desktop, look
+        if look == "1998":
+            # Native 96-DPI Display Properties, measured from the SE guest.
+            self.setFixedSize(355, 193)
+            self.sample_windows = (QRect(10, 10, 317, 151), QRect(14, 33, 335, 133), QRect(22, 118, 213, 69))
+        else:
+            self.setFixedSize(self.SIZE)
+            self.sample_windows = (self.INACTIVE, self.ACTIVE, self.MESSAGE)
         self.update()
 
     def face(self):
@@ -2715,11 +2724,12 @@ class AppearancePreview(QWidget):
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor(self.desktop.split(",")[0]))
         self.sunken(painter, self.rect())
-        self.window(painter, self.INACTIVE, "Inactive Window", self.inactive, buttons=3)
-        self.active_title = self.window(painter, self.ACTIVE, "Active Window", self.active, buttons=3)
-        self.menu_and_text(painter, self.ACTIVE)
-        self.window(painter, self.MESSAGE, "Message Box", self.active, buttons=1)
-        self.message(painter, self.MESSAGE)
+        inactive, active, message = self.sample_windows
+        self.window(painter, inactive, "Inactive Window", self.inactive, buttons=3)
+        self.active_title = self.window(painter, active, "Active Window", self.active, buttons=3)
+        self.menu_and_text(painter, active)
+        self.window(painter, message, "Message Box", self.active, buttons=1)
+        self.message(painter, message)
 
     def sunken(self, painter, rect):
         colours = chicago95ui.bevel_colors(self.face(), chicago95ui.bevel_for_style(self.look))
@@ -2785,23 +2795,40 @@ class AppearancePreview(QWidget):
         for word, kind in (("Normal", "normal"), ("Disabled", "disabled"), ("Selected", "selected")):
             width = painter.fontMetrics().horizontalAdvance(word) + 12
             cell = QRect(x - 6, menu.top(), width, menu.height())
-            if kind == "selected":
+            if self.look == "1998" and kind == "selected":
+                cell = QRect(menu.left() + 98, menu.top(), 54, 17)
+                painter.fillRect(cell, Qt.white)
+                painter.fillRect(cell.adjusted(0, 0, -1, -1), QColor("#808080"))
+                painter.fillRect(cell.adjusted(1, 1, -1, -1), self.face())
+                painter.setPen(Qt.black)
+            elif kind == "selected":
                 painter.fillRect(cell, self.palette().highlight())
-            painter.setPen(
-                self.palette().highlightedText().color()
-                if kind == "selected"
-                else chicago95ui.bevel_colors(self.face(), chicago95ui.bevel_for_style(self.look))["shadow"]
-                if kind == "disabled"
-                else QColor("#000000")
-            )
+                painter.setPen(self.palette().highlightedText().color())
+            elif kind == "disabled":
+                if self.look == "1998":
+                    painter.setPen(Qt.white)
+                    painter.drawText(cell.translated(1, 1), Qt.AlignCenter, word)
+                painter.setPen(chicago95ui.bevel_colors(self.face(), chicago95ui.bevel_for_style(self.look))["shadow"])
+            else:
+                painter.setPen(Qt.black)
             painter.drawText(cell, Qt.AlignCenter, word)
             x += width
         text = QRect(menu.left() + 2, menu.bottom() + 3, menu.width() - 4, rect.bottom() - menu.bottom() - 8)
+        if self.look == "1998":
+            frame = QRect(menu.left(), menu.bottom() + 1, menu.width(), rect.bottom() - menu.bottom() - 4)
+            self.sunken(painter, frame)
+            text = frame.adjusted(2, 2, -2, -2)
         painter.fillRect(text, QColor("#FFFFFF"))
         scroll = QRect(text.right() - 15, text.top(), 16, text.height())
         painter.fillRect(scroll, self.face())
         for arrow in (QRect(scroll.left(), scroll.top(), 16, 16), QRect(scroll.left(), scroll.bottom() - 15, 16, 16)):
             self.raised(painter, arrow)
+            down = arrow.top() != scroll.top()
+            for row in range(4):
+                half_width = 3 - row if down else row
+                painter.fillRect(
+                    arrow.center().x() - half_width, arrow.top() + 6 + row, 2 * half_width + 1, 1, Qt.black
+                )
         painter.setPen(QColor("#000000"))
         painter.setFont(chicago95ui.ui_font(13, bold=True))
         painter.drawText(text.adjusted(4, 2, -20, 0), Qt.AlignTop | Qt.AlignLeft, "Window Text")
@@ -2810,9 +2837,17 @@ class AppearancePreview(QWidget):
         painter.setFont(chicago95ui.ui_font())
         painter.setPen(QColor("#000000"))
         painter.drawText(rect.adjusted(8, 4 + self.TITLE_HEIGHT + 4, 0, 0), Qt.AlignTop | Qt.AlignLeft, "Message Text")
-        button = QRect(rect.center().x() - 37, rect.bottom() - 28, 75, 23)
-        painter.fillRect(button, QColor("#000000"))
-        self.raised(painter, button.adjusted(1, 1, -1, -1))
+        if self.look == "1998":
+            button = QRect(rect.left() + 70, rect.bottom() - 29, 72, 24)
+            painter.fillRect(button, Qt.black)
+            painter.fillRect(button.adjusted(0, 0, -1, -1), Qt.white)
+            painter.fillRect(button.adjusted(1, 1, -1, -1), QColor("#808080"))
+            painter.fillRect(button.adjusted(1, 1, -2, -2), self.face())
+            painter.setFont(chicago95ui.ui_font(12, bold=True))
+        else:
+            button = QRect(rect.center().x() - 37, rect.bottom() - 28, 75, 23)
+            painter.fillRect(button, QColor("#000000"))
+            self.raised(painter, button.adjusted(1, 1, -1, -1))
         painter.drawText(button, Qt.AlignCenter, "OK")
 
 
@@ -2864,15 +2899,16 @@ class AppearanceSwitch(QStackedWidget):
         self.mocks = {"classic": AppearancePreview(), "luna": chicago95lunacontrolpanel.LunaAppearancePreview()}
         for mock in self.mocks.values():
             self.addWidget(mock)
-        self.setFixedSize(AppearancePreview.SIZE)
         self.show_style("luna" if chicago95ui.luna_widgets() else "classic")
 
     def show_style(self, widget_style):
         self.setCurrentWidget(self.mocks.get(widget_style, self.mocks["classic"]))
+        self.setFixedSize(self.currentWidget().size())
 
     def show_colors(self, active, inactive, desktop, look):
         for mock in self.mocks.values():
             mock.show_colors(active, inactive, desktop, look)
+        self.setFixedSize(self.currentWidget().size())
 
     def refresh(self, values):
         self.show_style(values.get("WIDGET_STYLE", "classic"))
@@ -3340,22 +3376,14 @@ def page_rect(rect):
     return rect.translated(-TAB_PAGE_FRAME, -TAB_PAGE_FRAME)
 
 
-PICTURE_FACE = QColor("#C0C0C0").rgb()  # the 16-colour pictures' button face, repainted in the look's own
-
-
-def control_panel_picture(name, face=None):
-    """A picture of the Control Panel's own (data/control-panel), from the install or the repository, its grey
-    button-face pixels repainted in `face` (a QColor), as the originals mapped their bitmaps' 3D colours."""
+def control_panel_art(name):
     installed = CHICAGO95_DATA / "control-panel" / name
-    image = QImage(str(installed if installed.exists() else REPO_DIR / "data/control-panel" / name)).convertToFormat(
-        QImage.Format_ARGB32
-    )
-    if face is not None and face.rgb() != PICTURE_FACE:
-        for y in range(image.height()):
-            for x in range(image.width()):
-                if image.pixel(x, y) == PICTURE_FACE:
-                    image.setPixel(x, y, face.rgb())
-    return QPixmap.fromImage(image)
+    return (installed if installed.exists() else REPO_DIR / "data/control-panel" / name).read_bytes()
+
+
+@functools.lru_cache(maxsize=32)
+def control_panel_picture(name, face="#c0c0c0"):
+    return QSvgRenderer(control_panel_art(name).replace(b"#c0c0c0", face.encode("ascii")))
 
 
 class MousePicture(QWidget):
@@ -3371,9 +3399,8 @@ class MousePicture(QWidget):
         self.update()
 
     def paintEvent(self, _event):
-        QPainter(self).drawPixmap(
-            0, 0, control_panel_picture("mouse-left.png" if self.left_handed else "mouse-right.png")
-        )
+        svg = control_panel_picture("mouse-left.svg" if self.left_handed else "mouse-right.svg")
+        svg.render(QPainter(self), QRectF(QPoint(0, 0), svg.defaultSize()))
 
 
 class ClickTestArea(QFrame):
@@ -3402,13 +3429,15 @@ class ClickTestArea(QFrame):
 
     def paintEvent(self, event):
         super().paintEvent(event)
-        face = self.palette().window().color()
-        closed = control_panel_picture("jack-closed.png", face)
-        picture = control_panel_picture("jack-open.png", face) if self.open else closed
+        svg = control_panel_picture(
+            "jack-open.svg" if self.open else "jack-closed.svg", self.palette().window().color().name()
+        )
+        # Both pictures share the right and bottom edges inside the native test area.
         inside = self.contentsRect()
-        # The closed box sits in the lower half, as the original's; the open one grows upwards from the same floor.
-        floor = inside.center().y() + closed.height() + 2
-        QPainter(self).drawPixmap(inside.center().x() - picture.width() // 2, floor - picture.height(), picture)
+        size = svg.defaultSize()
+        x = inside.center().x() + 17 - size.width()
+        y = inside.center().y() + 18 - size.height()
+        svg.render(QPainter(self), QRectF(QPoint(x, y), size))
 
 
 class MouseButtonsTab(SettingsTab):
@@ -4132,92 +4161,6 @@ def appearance_tab(settings, actions):
 MONITOR_SCREEN = (152, 112)  # the Screen Saver tab's monitor (tests/references/win98screensaver.png)
 
 
-MONITOR_CASE = (184, 147)  # the monitor drawn on the Screen Saver tab (tests/references/win98screensaver.png)
-MONITOR_STAND_LEFT = 48
-MONITOR_STAND = (  # its stand, row by row from the case's bottom: S shadow, K black, W white, g power light
-    "S..SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSK",
-    "S..SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSKKKKSSS...........SSSSSSSSSSSSSK",
-    ".WW.....................................................KggW...W.........S...........SSK",
-    ".WW.....................................................KggW...W.........S..........SSSK",
-    "..WW....................................................KWWW...WSSSSSSSSSS.........SSSK",
-    "...WW.............................................................................SSSK",
-    "....WSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSK",
-    ".....SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSK",
-    ".......KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
-)
-
-
-def monitor_case_row(row):
-    """One row of the case: a dithered white bevel top and left, a dithered shadow bottom and right, and the sunken
-    frame round the 152x112 screen ('t'). '.' is the face colour."""
-    width, height = MONITOR_CASE
-    cells = ["."] * width
-
-    def put(first, last, mark, step=1, start=None):
-        for column in range(first if start is None else start, last + 1, step):
-            cells[column] = mark
-
-    if row == 0:
-        put(1, width - 2, "W")
-    elif row == 1:
-        put(0, width - 2, "W")
-        cells[-1] = "S"
-    elif row in (2, 3):
-        put(0, 3 - (row == 3), "W")
-        put(4, width - 3, "W", 2, 5 if row == 2 else 4)
-        put(width - 2, width - 1, "S")
-    elif row in (height - 5, height - 4):
-        put(0, 1, "W")
-        cells[2 if row == height - 4 else 3] = "W"
-        put(6 if row == height - 5 else 5, width - 5, "S", 2)
-        put(width - 3, width - 1, "S")
-    elif row == height - 3:
-        put(0, 1, "W")
-        put(2, width - 1, "S")
-    elif row == height - 2:
-        put(1, width - 2, "S")
-        cells[-1] = "K"
-    elif row == height - 1:
-        cells[1] = "S"
-        put(2, width - 2, "K")
-    else:
-        put(0, 1, "W")
-        cells[3 if row % 2 == 0 else 2] = "W"
-        if row % 2 == 0:
-            put(width - 3, width - 1, "S")
-        else:
-            cells[width - 4] = "S"
-            put(width - 2, width - 1, "S")
-    screen_left, screen_top = 16, 17
-    screen_right, screen_bottom = screen_left + MONITOR_SCREEN[0] - 1, screen_top + MONITOR_SCREEN[1] - 1
-    if row == screen_top - 2 or row == screen_bottom + 1:
-        put(screen_left - 2, screen_right + 1, "S")
-        cells[screen_right + 2] = "W"
-    elif row == screen_top - 1:
-        cells[screen_left - 2] = "S"
-        put(screen_left - 1, screen_right, "K")
-        cells[screen_right + 1] = "S"
-        cells[screen_right + 2] = "W"
-    elif screen_top <= row <= screen_bottom:
-        cells[screen_left - 2] = "S"
-        cells[screen_left - 1] = "K"
-        put(screen_left, screen_right, "t")
-        cells[screen_right + 1] = "S"
-        cells[screen_right + 2] = "W"
-    elif row == screen_bottom + 2:
-        put(screen_left - 2, screen_right + 2, "W")
-    return "".join(cells)
-
-
-def monitor_rows():
-    case = [monitor_case_row(row) for row in range(MONITOR_CASE[1])]
-    stand = [
-        "." * MONITOR_STAND_LEFT + line + "." * (MONITOR_CASE[0] - MONITOR_STAND_LEFT - len(line))
-        for line in MONITOR_STAND
-    ]
-    return case + stand
-
-
 def cover_rect(picture, screen):
     """Where a picture that covers the screen goes: scaled to reach both edges, keeping its shape, centred."""
     scale = max(screen.width() / picture.width(), screen.height() / picture.height())
@@ -4234,10 +4177,12 @@ class MonitorPreview(QWidget):
     def __init__(self, desktop_colour):
         super().__init__()
         self.desktop_colour = QColor(desktop_colour)
-        self.rows = monitor_rows()
+        self.art = control_panel_art("display-monitor.svg")
+        self.case = QSvgRenderer(self)
+        self.case_shadow = None
         self.picture = QPixmap()
         self.pattern, self.wallpaper, self.fill = None, QPixmap(), "center"
-        self.setFixedSize(MONITOR_CASE[0], len(self.rows))
+        self.setFixedSize(184, 169)
 
     def show_desktop(self, colour, pattern, wallpaper, fill):
         """The desktop as the Background tab sets it: its colour, an 8 by 8 pattern over it, or a wallpaper."""
@@ -4288,18 +4233,13 @@ class MonitorPreview(QWidget):
 
     def paintEvent(self, _event):
         painter = QPainter(self)
-        colours = {
-            "W": QColor("#FFFFFF"),
-            "K": QColor("#000000"),
-            "S": self.palette().dark().color(),
-            "t": self.desktop_colour,
-            "g": QColor("#00FF00"),
-        }
+        shadow = self.palette().dark().color().name()
+        if shadow != self.case_shadow:
+            self.case.load(self.art.replace(b"#808080", shadow.encode("ascii")))
+            self.case_shadow = shadow
         painter.fillRect(self.rect(), self.palette().window())
-        for y, line in enumerate(self.rows):
-            for x, mark in enumerate(line):
-                if mark in colours:
-                    painter.fillRect(x, y, 1, 1, colours[mark])
+        self.case.render(painter)
+        painter.fillRect(self.screen_rect(), self.desktop_colour)
         self.paint_desktop(painter)
         if not self.picture.isNull():
             painter.drawPixmap(self.screen_rect(), self.picture)

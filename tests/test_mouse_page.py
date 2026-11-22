@@ -166,43 +166,30 @@ def test_mouse_keys_are_applied_by_the_mouse_component(control_panel):
     ] * 3 and "mouse" in control_panel.INSTALL_ORDER
 
 
-def test_the_mouse_picture_is_the_originals_83_by_80_with_the_primary_button_in_navy(control_panel, qt_app):
-    """Left-handed: the same mouse, the navy moved from the left button to the right one, not a mirror image."""
-    right = control_panel.control_panel_picture("mouse-right.png").toImage()
-    left = control_panel.control_panel_picture("mouse-left.png").toImage()
-    navy, white = "#000080", "#ffffff"
-    left_button, right_button, cord = (10, 20), (40, 13), (8, 2)
+def picture_image(control_panel, name, face="#c0c0c0"):
+    from PySide6.QtGui import QImage, QPainter
 
-    assert (
-        right.size().toTuple(),
-        [right.pixelColor(*at).name() for at in (left_button, right_button)],
-        [left.pixelColor(*at).name() for at in (left_button, right_button)],
-        left.pixelColor(*cord) == right.pixelColor(*cord),
-    ) == ((83, 80), [navy, white], [white, navy], True)
+    svg = control_panel.control_panel_picture(name + ".svg", face)
+    image = QImage(svg.defaultSize(), QImage.Format_RGB32)
+    painter = QPainter(image)
+    svg.render(painter)
+    painter.end()
+    return image
 
 
-def test_the_test_areas_box_is_the_originals_closed_and_taller_when_open(control_panel, qt_app):
-    closed = control_panel.control_panel_picture("jack-closed.png")
-    opened = control_panel.control_panel_picture("jack-open.png")
+@pytest.mark.parametrize("name", ["mouse-right", "mouse-left", "jack-open", "jack-closed"])
+def test_mouse_art_matches_windows_98_se_guest(control_panel, qt_app, name):
+    from reference import qimage_to_pil, screenshot
 
-    assert (
-        closed.isNull(),
-        opened.isNull(),
-        opened.height() > closed.height() * 2,
-        opened.width() <= closed.width() * 3,
-    ) == (
-        False,
-        False,
-        True,
-        True,
-    )
+    actual = qimage_to_pil(picture_image(control_panel, name)).convert("RGB")
+    expected = screenshot("win98-se-" + name).convert("RGB")
+    assert actual.size == expected.size
+    assert actual.tobytes() == expected.tobytes()
 
 
 def test_the_pictures_grey_face_is_repainted_in_the_looks_face_colour(control_panel, qt_app):
-    from PySide6.QtGui import QColor
-
-    classic = control_panel.control_panel_picture("mouse-right.png").toImage()
-    warm = control_panel.control_panel_picture("mouse-right.png", QColor("#D4D0C8")).toImage()
+    classic = picture_image(control_panel, "mouse-right")
+    warm = picture_image(control_panel, "mouse-right", "#d4d0c8")
     corner, button = (0, 79), (10, 20)
 
     assert (classic.pixelColor(*corner).name(), warm.pixelColor(*corner).name(), warm.pixelColor(*button).name()) == (
@@ -210,3 +197,18 @@ def test_the_pictures_grey_face_is_repainted_in_the_looks_face_colour(control_pa
         "#d4d0c8",
         "#000080",
     )
+
+
+@pytest.mark.parametrize(("opened", "name", "offset"), [(False, "jack-closed", (31, 43)), (True, "jack-open", (25, 20))])
+def test_double_click_art_sits_at_the_native_position(control_panel, qt_app, opened, name, offset):
+    from reference import qimage_to_pil, screenshot
+
+    tab = buttons_tab(control_panel)
+    area = tab.test_area
+    if opened:
+        area.clicked_at(0)
+        area.clicked_at(100)
+    actual = qimage_to_pil(area.grab().toImage())
+    native = screenshot("win98-se-" + name)
+    x, y = offset
+    assert actual.crop((x, y, x + native.width, y + native.height)).tobytes() == native.tobytes()

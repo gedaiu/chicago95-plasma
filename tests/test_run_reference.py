@@ -86,3 +86,14 @@ def test_setup_installs_run_with_its_place_above_the_taskbar_and_the_originals_k
         )
         in log,
     ) == (True, True, True, True, True, True, True)
+
+
+@pytest.mark.parametrize("edition", ["win95-osr2-run", "win98-se-run"])
+def test_classic_run_controls_match_guest_geometry(ours, edition):
+    native = screenshot(edition)
+    assert native.size == ours.size
+    # The combo box and buttons share a layout on 95 and 98. Compare their
+    # outlines separately from focus, the text cursor and the selected font.
+    actual = without_light(ours)
+    for band in ((57, 82, 332, 84), (57, 100, 332, 103), (93, 124, 333, 127), (93, 144, 333, 147)):
+        assert actual.crop(band).tobytes() == native.crop(band).tobytes(), (edition, band)

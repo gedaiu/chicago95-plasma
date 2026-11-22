@@ -166,6 +166,7 @@ def write(path, data):
 
 
 def icon_theme(source, dest):
+    polished = Path(__file__).with_name("icons")
     assets = {}
     for icon in source.rglob("*"):
         if icon.suffix.lower() in (".png", ".svg") and icon.is_file():
@@ -202,15 +203,26 @@ def icon_theme(source, dest):
         for _ in pool.map(convert, by_digest.items()):
             pass
     # The Explorer and power icons have drawn gradients and fine detail at toolbar sizes.
-    polished = Path(__file__).with_name("icons")
     art = dest / "scalable" / "aero"
     for path in polished.glob("*.svg"):
         write(art / path.name, path.read_bytes())
     for name in ("system-file-manager", "org.kde.dolphin", "org.xfce.thunar"):
         write(art / f"{name}.svg", (polished / "file-manager.svg").read_bytes())
+    # GTK 3 at 150% requests scale 2. Without a matching directory it can
+    # select a 48px, scale-1 fixed icon and display it at 48 logical pixels.
+    hidpi = dest / "scalable" / "aero@2"
+    if not hidpi.exists():
+        hidpi.symlink_to("aero", target_is_directory=True)
     index = (source / "index.theme").read_text().replace("Name=Windows-7", "Name=Windows 7 (SVG)")
-    index = index.replace("Directories=", "Directories=scalable/aero,", 1)
-    index += "\n[scalable/aero]\nSize=32\nMinSize=1\nMaxSize=512\nType=Scalable\n"
+    # GTK prefers the last matching scalable directory at the requested size.
+    lines = index.splitlines()
+    for position, line in enumerate(lines):
+        if line.startswith("Directories="):
+            lines[position] = line.rstrip(",") + ",scalable/aero,scalable/aero@2"
+            break
+    index = "\n".join(lines) + "\n"
+    for folder, scale in (("aero", 1), ("aero@2", 2)):
+        index += f"\n[scalable/{folder}]\nSize=24\nScale={scale}\nMinSize=1\nMaxSize=512\nType=Scalable\n"
     write(dest / "index.theme", index.encode())
 
 

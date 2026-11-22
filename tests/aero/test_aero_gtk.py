@@ -361,6 +361,17 @@ def test_disabled_form_face_is_distinct(gtk_pixels, kind):
     assert np.all(disabled[5:-5, 5:-5] == 244)
 
 
+@pytest.mark.parametrize(("label", "state"), [("button", 0), ("disabled-button", 3)])
+def test_push_button_corner_against_windows_art(gtk_pixels, label, state):
+    from aero_sprites import fixed_corner, sprites_available
+
+    if not sprites_available():
+        pytest.skip("requires the extracted Windows 7 control artwork")
+    corner = np.asarray(fixed_corner("BUTTON", "PUSHBUTTON", state), dtype=int)
+    height, width = corner.shape[:2]
+    assert np.abs(gtk_pixels["palette " + label][:height, :width] - corner).mean() < 6
+
+
 INDICATOR_STATES = {
     "normal": 0,
     "hovered": 1,
@@ -391,7 +402,7 @@ def test_gtk4_indicator_faces_against_original_windows_art(gtk4_pixels, kind, st
     captured = gtk4_pixels[f"{kind} {state}"]
     exact_original(reference, Image.fromarray(captured.astype("uint8")))
     error = np.abs(captured - np.asarray(reference.convert("RGB"))).mean()
-    assert error < (23 if kind == "checkbox" else 49), (kind, state, error)
+    assert error < (23 if kind == "checkbox" else 11), (kind, state, error)
 
 
 @pytest.mark.skipif(

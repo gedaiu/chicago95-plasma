@@ -55,6 +55,8 @@ System Properties, from other pages:
 | `win98effects.png` | https://www.tech2u.com.au/training/tech2u/win98_2/desktop07.gif (Windows 98: Display Properties, Effects tab: grouped check boxes) |
 | `win98viewmenu.png` | https://www.tech2u.com.au/training/tech2u/win98_1/appear01.gif (Windows 98: an open View menu at 1:1: check marks, a bullet, submenu arrows, separators) |
 | `win98mouse.png` | https://www.tech2u.com.au/training/tech2u/win98_2/mouse01.gif (Windows 98: Mouse Properties: radio buttons, a slider with Slow and Fast labels) |
+| `win98-se-shutdown-dialog.png` | Installed English Windows 98 SE guest, 640×480 VGA. Alt+F4 from the desktop opened the shutdown dialog. |
+| `win98-se-shutdown-vm.png` | Same guest, shutdown wordmark captured at 640×400, 0.877 seconds after confirming. Box-filtered to 160×120 to compare with the 4:3 Plymouth composition. |
 | `win98-se-shutdown-preview.png` | Windows 98 Second Edition CD, installed LOGOW.SYS (320×400 indexed bitmap), corrected to 4:3 and box-filtered to 160×120 for the composition test. |
 | `win98shutdown2.png` | https://www.tech2u.com.au/training/tech2u/win98_1/shutdown02.gif (Windows 98: Shut Down Windows: radio buttons and a Help button) |
 | `win98copying.png` | https://www.tech2u.com.au/training/tech2u/win98_1/copying03.gif (Windows 98: the Copying dialog: a progress bar with Cancel) |
@@ -94,6 +96,15 @@ Windows XP (Luna and XP Classic), from Toasty Technology, GUIdebook, Wikipedia a
 | `xplogin.png` | https://guidebookgallery.org/pics/gui/startupshutdown/login/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the Welcome screen) |
 | `xp-sp3-device-manager-bands.png` | Windows XP Professional SP3 English, GRTMPVOL_EN. First 74 client rows of Device Manager at (75, 72), 800×600 desktop, default theme and font size. |
 | `xp-sp3-boot-bar.png` | English Windows XP Professional SP3 x86 volume CD (GRTMPVOL_EN), captured in an offline KVM guest at native 640×480. Eighteen consecutive states of the fully illuminated loading bar, cropped at (255, 351), 126×15 each. Matching states repeated about 1.69 seconds apart. |
+| `win95-osr2-run.png`, `win98-se-run.png` | English OSR2 and SE reference guests, 640×480 VGA. Empty Run dialog at (5, 285), 347×163. |
+| `win95-osr2-start.png`, `win98-se-start.png` | Root menus opened with Ctrl+Esc on the same guests. OSR2 at (2, 185), 164×271. SE at (2, 114), 177×342. |
+| `win95-osr2-taskbar-band.png`, `win98-se-taskbar-band.png` | Unoccupied section of the respective panels at (535, 452), 8×28. |
+| `win98-se-device-actions.png`, `win98-se-appearance.png` | English SE guest. System Properties action row at (28, 365), 353×23. Display Properties Appearance sample at (47, 60), 355×193. |
+| `win98-se-display-monitor.png` | Display Properties Background tab, complete monitor and stand at (132, 60), 184×169. |
+| `win98-se-mouse-right.png`, `win98-se-mouse-left.png`, `win98-se-jack-closed.png`, `win98-se-jack-open.png` | English SE Mouse Properties. Both handedness states at (204, 128), 83×80. Double-click test box at (343, 328), 25×17 closed, and (337, 305), 31×40 open. |
+| `win98-se-boot-strips.png`, `win98-se-boot-strips.txt` | English SE cold boot on an emulated Pentium II. Sixteen samples of the bottom seven VGA rows at 640×400. The text file records host timestamps and relative phases. |
+| `w2k-setup-back.png` | Windows 2000 Professional graphical Setup Back button at (323, 396), 75×23. |
+| `xp-sp3-start-menu.png`, `xp-sp3-taskbar-band.png` | English XP SP3 guest, 800×600 Luna desktop. Root menu at (0, 93), 380×477. Empty taskbar at (398, 570), 8×30. |
 | `win95-osr2-device-actions.png` | Windows 95 OSR2 System Properties, Device Manager tab. Four-button action row at (28, 365), 353×23. |
 | `win95-osr2-display-radios.png` | Windows 95 OSR2 English, 640×480 Standard VGA desktop. Off and on radio buttons from Display Properties, Background tab, cropped at (357, 370) and (410, 370), each 12×12. |
 | `xpsplash.png` | https://guidebookgallery.org/pics/gui/startupshutdown/splash/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the boot splash) |

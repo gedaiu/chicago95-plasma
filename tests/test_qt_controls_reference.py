@@ -375,6 +375,18 @@ def test_2000_push_button_edges_are_the_2000_originals_white_face_shadow_and_dar
     with installed_look(qt_app, "[StartMenu]\nstyle=2000\n", LOOK_2000_KDEGLOBALS):
         image = gallery.render_control(qt_app, gallery.push_buttons, inspect=note_buttons)
     x, y, width, height = boxes["Cancel"]
+    wizard = screenshot("w2k-setup-back")
+    assert (width, height) == wizard.size
+
+    # Setup runs with a different palette. In both palettes the non-default
+    # button has white at the top, then face, shadow and dark in that order.
+    def bevel_roles(pixels):
+        values = sorted(set(pixels), key=sum)
+        return [values.index(pixel) for pixel in pixels]
+
+    assert bevel_roles([image.getpixel((x + 5, y + row)) for row in range(height)]) == bevel_roles(
+        [wizard.getpixel((5, row)) for row in range(height)]
+    )
     middle = y + height // 2
     ours = [image.getpixel((x + offset, middle)) for offset in (0, 1, width - 2, width - 1)]
     theirs = [screenshot("w2kshutdown").getpixel((column, 313)) for column in (359, 360, 432, 433)]

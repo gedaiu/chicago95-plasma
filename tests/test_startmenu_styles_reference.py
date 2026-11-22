@@ -111,13 +111,17 @@ def banner_blue(image, above_bottom):
 
 @needs_ui_font
 def test_rows_are_spaced_like_the_original(pair):
-    _, reference, ours = pair
+    look, reference, ours = pair
+    if look == "1998":
+        reference = screenshot("win98-se-start")
     assert row_pitch(ours) == row_pitch(reference)
 
 
 @needs_ui_font
 def test_item_text_starts_where_the_original_starts_it(pair):
-    _, reference, ours = pair
+    look, reference, ours = pair
+    if look == "1998":
+        reference = screenshot("win98-se-start")
     assert abs(text_left(ours) - text_left(reference)) <= 1, (text_left(ours), text_left(reference))
 
 
@@ -181,3 +185,16 @@ def test_2000_banner_parts_match_the_originals_word_by_word(startmenu, qt_app, t
         actual,
         expected,
     )
+
+
+@pytest.mark.parametrize(("look", "guest"), [("1995", "win95-osr2"), ("1998", "win98-se")])
+def test_start_menu_rows_and_frame_against_vga_guests(startmenu, qt_app, tmp_path, look, guest):
+    native = screenshot(guest + "-start")
+    settings = STYLES["1998"]["settings"] if look == "1998" else "[StartMenu]\nstyle=1995\nbannerText=Windows95\n"
+    ours = render_start_menu(startmenu, qt_app, tmp_path, settings)
+    assert row_pitch(ours) == row_pitch(native) == 32
+    assert abs(text_left(ours) - text_left(native)) <= 1
+    for x, y in [(0, 20), (1, 20), (-2, 20), (-1, 20), (60, -2), (60, -1)]:
+        actual = ours.getpixel((x % ours.width, y % ours.height))
+        expected = native.getpixel((x % native.width, y % native.height))
+        assert (actual if actual != (223, 223, 223) else (192, 192, 192)) == expected, (x, y)

@@ -117,10 +117,10 @@ STYLES = {
         dark="#000000",
     ),
     "1998": dict(
-        row=36,
-        text_gap=0,
+        row=32,
+        text_gap=4,
         text_drop=2,
-        icon_x=33,
+        icon_x=30,
         banner_font=18,
         banner_stretch=100,
         banner_start=5,

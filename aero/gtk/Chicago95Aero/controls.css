@@ -6,20 +6,21 @@ toolbar {
   color: #151515;
 }
 button {
-  border: 1px solid #707070;
-  border-radius: 3px;
+  border: 1px solid transparent;
+  border-radius: 3.6px;
+  background-clip: padding-box;
   background-image: linear-gradient(to bottom, #f7f7f7, #e8e8e8 49%, #dcdcdc 50%, #cfcfcf);
-  box-shadow: inset 0 0 0 1px #fafafa;
+  box-shadow: inset 0 0 0 2px #fafafa, inset 0 0 0 1px #707070;
   color: #151515;
   text-shadow: none;
 }
 button:hover {
-  border-color: #3c7fb1;
+  box-shadow: inset 0 0 0 2px #e9f6ff, inset 0 0 0 1px #3c7fb1;
   background-image: linear-gradient(to bottom, #eaf6fd, #d9effc 49%, #bee5fc 50%, #a7d9f5);
 }
 button:active,
 button:checked {
-  border-color: #2c628b;
+  box-shadow: inset 0 0 0 2px #c4e5f6, inset 0 0 0 1px #2c628b;
   background-image: linear-gradient(to bottom, #c4e5f6, #98d2ef);
 }
 entry,
@@ -60,8 +61,8 @@ toolbar image, headerbar image, placessidebar image, .navigation-sidebar image {
   -gtk-icon-style: regular;
 }
 
-checkbutton > check, checkbutton > radio, radiobutton > radio,
-checkbutton > check:checked, checkbutton > radio:checked, radiobutton > radio:checked, checkbutton > check:indeterminate {
+checkbutton > check,
+checkbutton > check:checked, checkbutton > check:indeterminate {
   min-width: 11px;
   min-height: 11px;
   padding: 0;
@@ -71,27 +72,53 @@ checkbutton > check:checked, checkbutton > radio:checked, radiobutton > radio:ch
   -gtk-icon-source: none;
 }
 checkbutton > check { border-radius: 0; }
-checkbutton > radio, radiobutton > radio { border-radius: 100%; }
-checkbutton:hover > check, checkbutton:hover > radio, radiobutton:hover > radio,
-checkbutton:hover > check:checked, checkbutton:hover > radio:checked, radiobutton:hover > radio:checked,
+checkbutton:hover > check,
+checkbutton:hover > check:checked,
 checkbutton:hover > check:indeterminate {
   background: linear-gradient(135deg, #79c6f9, #c4eafd 55%, #effaff);
   border-color: #5586a3;
 }
-checkbutton:active > check, checkbutton:active > radio, radiobutton:active > radio,
-checkbutton:active > check:checked, checkbutton:active > radio:checked, radiobutton:active > radio:checked,
+checkbutton:active > check,
+checkbutton:active > check:checked,
 checkbutton:active > check:indeterminate {
   background: linear-gradient(135deg, #5eb6f7, #b4e3fc 55%, #e0f4fe);
   border-color: #2c628b;
 }
 checkbutton > check:checked { -gtk-icon-source: url("gtk-4.0/indicators/check.svg"); }
 checkbutton > check:indeterminate { -gtk-icon-source: url("gtk-4.0/indicators/mixed.svg"); }
-checkbutton > radio:checked, radiobutton > radio:checked { -gtk-icon-source: url("gtk-4.0/indicators/radio.svg"); }
-checkbutton:disabled > check, checkbutton:disabled > radio, radiobutton:disabled > radio,
-checkbutton:disabled > check:checked, checkbutton:disabled > radio:checked, radiobutton:disabled > radio:checked,
+checkbutton:disabled > check,
+checkbutton:disabled > check:checked,
 checkbutton:disabled > check:indeterminate {
   background: linear-gradient(135deg, #e6e6e6, #fcfcfc);
   border-color: #b1b1b1;
+}
+/* The 12px circular well is offset inside a 13px Windows radio-button cell. */
+checkbutton > radio, radiobutton > radio {
+  min-width: 13px; min-height: 13px; border: 0; padding: 0;
+  border-radius: 0; box-shadow: none; -gtk-icon-source: none;
+  background: transparent url("gtk-4.0/indicators/radio-normal.svg") center / 13px 13px no-repeat;
+}
+checkbutton:hover > radio, radiobutton:hover > radio {
+  background-image: url("gtk-4.0/indicators/radio-hover.svg");
+}
+checkbutton:active > radio, radiobutton:active > radio {
+  background-image: url("gtk-4.0/indicators/radio-pressed.svg");
+}
+checkbutton:disabled > radio, radiobutton:disabled > radio {
+  background-image: url("gtk-4.0/indicators/radio-disabled.svg");
+}
+checkbutton > radio:checked, radiobutton > radio:checked {
+  -gtk-icon-source: none; color: transparent;
+  background-image: url("gtk-4.0/indicators/radio-checked-normal.svg");
+}
+checkbutton:hover > radio:checked, radiobutton:hover > radio:checked {
+  background-image: url("gtk-4.0/indicators/radio-checked-hover.svg");
+}
+checkbutton:active > radio:checked, radiobutton:active > radio:checked {
+  background-image: url("gtk-4.0/indicators/radio-checked-pressed.svg");
+}
+checkbutton:disabled > radio:checked, radiobutton:disabled > radio:checked {
+  background-image: url("gtk-4.0/indicators/radio-checked-disabled.svg");
 }
 button:disabled, entry:disabled {
   color: #838383;
@@ -99,6 +126,11 @@ button:disabled, entry:disabled {
   border-color: #adb2b5;
   box-shadow: inset 0 0 0 1px white;
   text-shadow: none;
+}
+button:disabled {
+  border-color: transparent;
+  background-clip: padding-box;
+  box-shadow: inset 0 0 0 2px #fcfcfc, inset 0 0 0 1px #adb2b5;
 }
 progressbar trough {
   padding: 0;

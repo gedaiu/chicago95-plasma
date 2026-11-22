@@ -305,3 +305,14 @@ def test_clock_lettering_is_the_originals_size(qt_app, look):
     ink = QFontMetrics(font).tightBoundingRect(text)
     assert ink.height() - 1 <= CLOCK_INK_HEIGHT <= ink.height(), ink
     assert width is None or abs(ink.width() - width) <= 1, (ink, width)
+
+
+@pytest.mark.parametrize(("look", "guest"), [("1995", "win95-osr2"), ("1998", "win98-se")])
+def test_classic_panel_band_against_vga_guest(styles, look, guest):
+    native = screenshot(guest + "-taskbar-band")
+    actual = render_frame(styles[look] / "widgets/panel-background.svg", "", 640, HEIGHT, borders={"top"})
+    for y in range(HEIGHT):
+        pixel = actual.getpixel((539, y))[:3]
+        # The VGA guest substitutes face grey for the theme's intermediate light grey.
+        expected = (192, 192, 192) if pixel == (223, 223, 223) else pixel
+        assert expected == native.getpixel((4, y)), (look, y)

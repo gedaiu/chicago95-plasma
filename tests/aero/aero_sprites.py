@@ -15,6 +15,7 @@ from functools import cache
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
 Margins = namedtuple("Margins", "left right top bottom")
 Part = namedtuple("Part", "image_file image_count margins atlas_rect properties")
@@ -65,3 +66,14 @@ def straight(image):
         ]
     )
     return result
+
+def fixed_corner(theme_class, part_name, state):
+    """Top-left unstretched corner of a control state on the standard dialog background."""
+    component = part(theme_class, part_name)
+    with Image.open(sprite_dir() / component.image_file) as image:
+        strip = straight(image.convert("RGBA"))
+    y = state * (strip.height // component.image_count)
+    width, height = component.margins.left, component.margins.top
+    original = Image.new("RGBA", (width, height), "#f0f0f0")
+    original.alpha_composite(strip.crop((0, y, width, y + height)))
+    return original.convert("RGB")

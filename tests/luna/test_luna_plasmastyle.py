@@ -534,3 +534,11 @@ def test_svg_stays_within_its_element_byte_and_gradient_budget(theme, name):
         len(text.encode()) <= size,
         len(GRADIENT.findall(text)) <= gradients,
     ) == (True, True, True)
+
+
+def test_panel_band_matches_installed_sp3_guest(theme):
+    native = screenshot("xp-sp3-taskbar-band")
+    panel = qimage_to_pil(rendered(theme, "widgets/panel-background.svg", "", 800, 30))
+    assert panel.height == native.height
+    for y in range(native.height):
+        assert close(panel.getpixel((400, y)), native.getpixel((4, y))), y

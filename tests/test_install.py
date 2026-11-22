@@ -1945,9 +1945,24 @@ def test_windows_98_boot_has_its_own_artwork_and_retains_password_prompts(tmp_pa
         assert Image.open(frame).crop((0, 0, 640, 472)).tobytes() == Image.open(art).crop((0, 0, 640, 472)).tobytes()
     assert len(list(target.glob("win95_boot_*.png"))) == 20
 
+    import numpy as np
+
+    captures = REPO / "tests/references"
+    native_strip = Image.open(captures / "win98-se-boot-strips.png").convert("RGB")
+    offsets = np.loadtxt(captures / "win98-se-boot-strips.txt", usecols=1, dtype=int)
+    assert native_strip.size == (640, 7 * len(offsets))
+    # The first observed native strip corresponds to phase 17 of the Plymouth image.
+    for index, offset in enumerate(offsets):
+        native = native_strip.crop((0, 7 * index, 640, 7 * (index + 1))).resize((640, 8), Image.Resampling.NEAREST)
+        with Image.open(target / f"win95_boot_{(17 + offset) % 20}.png") as frame:
+            rendered = frame.crop((0, 472, 640, 480))
+        assert np.abs(np.asarray(rendered, dtype=int) - np.asarray(native, dtype=int)).mean() < 3
+
     # Compare the whole cloud/wordmark composition and the caption's ink box to LOGOW.SYS.
     with Image.open(target / "win95_shutdown-01.png") as frame:
         preview = frame.resize((160, 120), Image.Resampling.BOX)
+    with Image.open(REPO / "tests/references/win98-se-shutdown-vm.png") as captured:
+        assert max(ImageStat.Stat(ImageChops.difference(preview, captured)).mean) < 4
     with Image.open(REPO / "tests/references/win98-se-shutdown-preview.png") as native:
         assert max(ImageStat.Stat(ImageChops.difference(preview, native)).mean) < 3
         for image in (preview, native):

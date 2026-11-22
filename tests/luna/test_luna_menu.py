@@ -507,3 +507,15 @@ def test_a_recent_folder_is_listed_by_its_own_name(qt_app):
     menu.fill_recent_menu(recent)
 
     assert [action.text() for action in recent.actions()] == ["Pictures", "a.txt"]
+
+
+def test_start_menu_chrome_against_installed_sp3_guest(grab):
+    import numpy as np
+
+    actual = grab[0].convert("RGB")
+    native = screenshot("xp-sp3-start-menu")
+    assert actual.size == native.size
+    # Exclude the account, program names, machine-specific icons and commands.
+    for box in ((145, 0, 340, 63), (185, 70, 194, 420), (2, 439, 115, 475)):
+        delta = np.abs(np.asarray(actual.crop(box), dtype=int) - np.asarray(native.crop(box), dtype=int))
+        assert delta.mean() < 6, (box, delta.mean())

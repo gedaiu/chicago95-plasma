@@ -665,7 +665,8 @@ def our_radio(qt_app, checked):
 def test_our_radio_button_is_the_originals_circle_pixel_for_pixel(qt_app, checked, original_top):
     original = black_mask(reference_image("win98shutdown2"), 61, original_top)
 
-    assert black_mask(our_radio(qt_app, checked), 0, 0) == original
+    guest = black_mask(reference_image("win98-se-shutdown-dialog"), 219, original_top + 100)
+    assert black_mask(our_radio(qt_app, checked), 0, 0) == original == guest
 
 
 def test_our_exclusive_menu_item_is_marked_with_a_bullet_not_a_tick(control_panel, qt_app, tmp_path):
@@ -802,6 +803,9 @@ def test_our_whole_monitor_drawing_is_the_originals_pixel_for_pixel(control_pane
     left, top = MONITOR_ORIGIN
     monitor, image, face = our_monitor(control_panel, qt_app)
     original = reference_image("win98screensaver")
+    guest = reference_image("win98-se-display-monitor")
+    assert guest.size == (monitor.width(), monitor.height())
+    assert original.crop((left, top, left + guest.width, top + guest.height)).tobytes() == guest.tobytes()
     ours = [monitor_classes(image, [(x, y) for x in range(monitor.width())], face) for y in range(monitor.height())]
     theirs = [
         monitor_classes(original, [(x + left, y + top) for x in range(monitor.width())], (192, 192, 192))

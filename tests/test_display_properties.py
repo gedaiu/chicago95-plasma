@@ -202,7 +202,7 @@ def test_without_a_compositor_the_screen_is_unknown_and_kscreen_doctor_is_never_
 
 
 @pytest.mark.parametrize("scale", ["1", "1.5", "2"])
-@pytest.mark.parametrize("look", ["aero", "luna"])
+@pytest.mark.parametrize("look", ["1998", "aero", "luna"])
 def test_display_tabs_fit_at_desktop_scales(tmp_path, scale, look):
     import os
     import subprocess
@@ -220,7 +220,7 @@ import os
 os.environ["QT_SCALE_FACTOR"] = sys.argv[2]
 panel = conftest.load_script("chicago95-control-panel")
 look = sys.argv[3]
-panel.chicago95ui.widget_style = lambda: look
+panel.chicago95ui.widget_style = lambda: "classic" if look == "1998" else look
 app = panel.chicago95ui.make_app("Display Properties")
 assert app.devicePixelRatio() == float(sys.argv[2])
 settings = {**panel.LOOK_PRESETS[look], "LOOK": look}
@@ -256,3 +256,31 @@ window.close()
         timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_windows_98_appearance_preview_matches_guest_window_positions(control_panel, qt_app):
+    from reference import qimage_to_pil, screenshot
+
+    switch = control_panel.AppearanceSwitch()
+    switch.show_style("classic")
+    switch.show_colors("#000080", "#808080", "#008080", "1998")
+    actual = qimage_to_pil(switch.grab().toImage()).convert("RGB")
+    native = screenshot("win98-se-appearance").convert("RGB")
+    assert actual.size == native.size
+    # The neutral VGA chrome can differ by palette. Compare the uninterrupted
+    # navy title rows and the teal desktop silhouette, including their boundaries.
+    for colour in ((0, 0, 128), (0, 128, 128)):
+        for y in (8, 12, 32, 37, 54, 57, 115, 123, 163, 187):
+            for x in (5, 11, 15, 23, 105, 170, 235, 310, 340, 350):
+                assert (actual.getpixel((x, y)) == colour) == (native.getpixel((x, y)) == colour), (x, y, colour)
+    import numpy as np
+
+    def colour_mask(image, rgb):
+        return (np.asarray(image) == rgb).all(axis=2)
+
+    assert np.array_equal(colour_mask(actual, (0, 128, 128)), colour_mask(native, (0, 128, 128)))
+    # Include both scroll arrows inside the sample window. The arrowheads are four rows high.
+    for box in ((328, 80, 342, 88), (328, 146, 342, 159)):
+        assert np.array_equal(colour_mask(actual.crop(box), (0, 0, 0)), colour_mask(native.crop(box), (0, 0, 0)))
+    for band in ((116, 56, 170, 57), (116, 72, 170, 73), (92, 157, 164, 158), (92, 180, 164, 181)):
+        assert actual.crop(band).tobytes() == native.crop(band).tobytes(), band

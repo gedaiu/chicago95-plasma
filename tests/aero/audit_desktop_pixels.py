@@ -9,13 +9,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 from aero_model import REFERENCE_DESKTOP
-from conftest import REPO, run_bash_with_steps
+from conftest import REPO
 from original_pixels import compare
 from PIL import Image
-from plasma_session import missing_programs, run_session
+from plasma_session import missing_programs
 from reference import screenshot
 from test_aero_greeter_visuals import greeter  # noqa: F401
-from test_aero_gtk import gtk4_pixels, gtk_captures  # noqa: F401
+from test_aero_gtk import aero_gtk_home, gtk4_pixels, gtk_captures  # noqa: F401
 from test_aero_session import desktop, hidden_tray_icons  # noqa: F401
 from test_aero_thunar import aero_icons, thunar_window  # noqa: F401
 from test_switcher import imports  # noqa: F401
@@ -95,7 +95,7 @@ def test_notification_close_and_options(menu_renders, tmp_path):
         compare(original, actual.crop(box), tmp_path / "windows7-comparison.png")
 
 
-def test_control_panel_navigation(tmp_path, aero_icons):
+def test_control_panel_navigation(tmp_path, aero_icons):  # noqa: F811
     from test_aero_control_panel import control_panel_config
 
     config = control_panel_config(tmp_path, aero_icons)
@@ -116,7 +116,7 @@ def test_control_panel_navigation(tmp_path, aero_icons):
         )
 
 
-def test_explorer_navigation(tmp_path, thunar_window):
+def test_explorer_navigation(tmp_path, thunar_window):  # noqa: F811
     compare(
         screenshot("win7explorer1").crop((7, 31, 227, 63)),
         thunar_window.crop((0, 0, 220, 32)),
@@ -167,17 +167,12 @@ def test_switcher_space_below_thumbnails(qt_app, imports, tmp_path):  # noqa: F8
     ids=lambda value: value if isinstance(value, str) else str(value),
 )
 def test_gtk_fixed_corner(gtk4_pixels, control, theme_class, part_name, state, tmp_path):  # noqa: F811
-    from aero_sprites import part, sprite_dir, sprites_available, straight
+    from aero_sprites import fixed_corner, sprites_available
 
     if not sprites_available():
         pytest.skip("requires the extracted Windows 7 control artwork")
-    component = part(theme_class, part_name)
-    strip = straight(Image.open(sprite_dir() / component.image_file).convert("RGBA"))
-    height = strip.height // component.image_count
-    width, top = component.margins.left, component.margins.top
-    corner = strip.crop((0, height * state, width, height * state + top))
-    original = Image.new("RGBA", corner.size, "#f0f0f0")
-    original.alpha_composite(corner)
+    original = fixed_corner(theme_class, part_name, state)
+    width, top = original.size
     captured = gtk4_pixels[control]
     x = y = 0
     if theme_class == "SCROLLBAR":

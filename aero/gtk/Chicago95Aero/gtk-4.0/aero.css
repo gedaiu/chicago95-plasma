@@ -91,7 +91,7 @@
 .nautilus-window headerbar stack > box.linked > entry + button:hover { background: #d9eaf7; }
 
 checkbutton > check, checkbutton > radio { -gtk-icon-size: 11px; }
-checkbutton:disabled > check, checkbutton:disabled > radio { filter: grayscale(1) opacity(.75); }
+checkbutton:disabled > check { filter: grayscale(1) opacity(.75); }
 scrollbar trough { background: #f0f0f0; border-radius: 0; }
 scrollbar slider {
   padding: 0;

@@ -464,7 +464,8 @@ def test_luna_console_matches_xp_sp3_command_bands(devmgr, snapshot, qt_app):
 
 
 @pytest.mark.parametrize("width", [420, 720])
-def test_classic_device_action_row_matches_windows_95(devmgr, snapshot, qt_app, width):
+@pytest.mark.parametrize("capture", ["win95-osr2-device-actions", "win98-se-device-actions"])
+def test_classic_device_action_row_matches_guest(devmgr, snapshot, qt_app, width, capture):
     from PIL import Image
     from reference import qimage_to_pil
 
@@ -475,7 +476,7 @@ def test_classic_device_action_row_matches_windows_95(devmgr, snapshot, qt_app, 
         qt_app.processEvents()
         first = window.properties_button.geometry()
         assert first.left() == window.layout().contentsMargins().left()
-        with Image.open(REPO / "tests/references/win95-osr2-device-actions.png") as original:
+        with Image.open(REPO / f"tests/references/{capture}.png") as original:
             y = first.bottom()
             actual = qimage_to_pil(window.grab().toImage()).crop((first.x(), y, first.x() + original.width, y + 1))
             # The dark bottom bevel spans exactly the button width and leaves each gap visible.

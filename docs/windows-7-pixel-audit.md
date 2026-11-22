@@ -104,7 +104,7 @@ Time zero is the final click on Shut down in the Windows Start menu or in the pr
 
 ## GTK 3 and GTK 4 controls
 
-Both toolkits now use the Aero faces for checkboxes, radio buttons, progress bars, tabs and disabled form controls. GTK 3 paints the scrollbar grips with orientation-specific CSS and uses grey artwork for disabled indicators. GTK 4 retains its Files header layout and toolbar-style caption buttons. At native scale the checked and mixed checkboxes match between the two toolkits in the visual tests. The checked, hovered radio differs by about 1.17 levels of mean absolute RGB error. These comparisons use the rendered widgets with the showcase margins removed. [Side-by-side toolkit renders](compare/aero-gtk-toolkit-controls.png)
+Both toolkits now use the Aero faces for checkboxes, radio buttons, progress bars, tabs and disabled form controls. GTK 3 paints the scrollbar grips with orientation-specific CSS and uses grey artwork for disabled indicators. GTK 4 retains its Files header layout and toolbar-style caption buttons. At native scale the checked and mixed checkboxes match between the two toolkits in the visual tests. The radio buttons use separate SVG faces for normal, hover, press, checked and disabled states. The checked, hovered radio differs by 1.69 levels of mean absolute RGB error between toolkits. Against Windows artwork, the checked, pressed GTK 4 radio improved from 42.77 to 7.77 levels. Errors across all seven tested radio states range from 4.43 to 9.30. These comparisons use the rendered widgets with the showcase margins removed. [Side-by-side toolkit renders](compare/aero-gtk-toolkit-controls.png)
 
 ## Initial measurements before the corrections
 
