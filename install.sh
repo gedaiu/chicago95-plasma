@@ -242,14 +242,27 @@ choose_sounds() {
 choose_look() {
   local choice marked=1
   case "${SETUP_LOOK:-}" in 1998) marked=2 ;; 2000) marked=3 ;; 2001) marked=4 ;; luna) marked=5 ;; aero) marked=6 ;; custom) marked=7 ;; esac
-  choice=$(ui_choose "Look" "Which desktop theme should Setup apply?" "$marked" \
-    "1995: solid navy title bars, grey banner" \
-    "1998: navy-to-blue title bars, navy banner with a blue glow, taller menu rows" \
-    "2000: warm grey windows, navy-to-light-blue title bars, black-to-blue banner" \
-    "Windows XP Classic: the 2000 windows with the Windows XP Start menu" \
-    "Windows XP: Luna window frames, controls, taskbar and Start menu" \
-    "Windows 7: Aero glass frames, widgets, superbar, Start menu, icons and sign-in screen" \
-    "Your own colours")
+  local themes=(1995 1998 2000 2001 luna aero) options=(
+    "1995: solid navy title bars, grey banner"
+    "1998: navy-to-blue title bars, navy banner with a blue glow, taller menu rows"
+    "2000: warm grey windows, navy-to-light-blue title bars, black-to-blue banner"
+    "Windows XP Classic: the 2000 windows with the Windows XP Start menu"
+    "Windows XP: Luna window frames, controls, taskbar and Start menu"
+    "Windows 7: Aero glass frames, widgets, superbar, Start menu, icons and sign-in screen"
+    "Your own colours"
+  )
+  if [ "$SETUP_YES" = 0 ] && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && command -v xdg-open >/dev/null; then
+    options+=("Preview desktop themes…")
+  fi
+  while :; do
+    choice=$(ui_choose "Look" "Which desktop theme should Setup apply?" "$marked" "${options[@]}")
+    [ "$choice" = 8 ] || break
+    choice=$(ui_choose "Preview desktop theme" "Open a desktop preview in your image viewer." 1 "${options[@]:0:6}" "Back")
+    if [ "$choice" -le 6 ]; then
+      xdg-open "$REPO/data/control-panel/theme-previews/${themes[$((choice - 1))]}.jpg" >/dev/null 2>&1 ||
+        ui_message "Preview unavailable" "The desktop image viewer could not open this preview."
+    fi
+  done
   [ "$choice" = "$marked" ] && [ -n "${SETUP_LOOK:-}" ] && return 0 # the remembered look keeps its saved colours
   case "$choice" in
   1) apply_look 1995 ;;

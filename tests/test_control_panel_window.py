@@ -536,8 +536,9 @@ def test_themes_applies_xp_with_an_independent_control_panel_style(window, contr
     assert not page.changed_values()
 
 
-def test_theme_selector_previews_each_preset_before_apply(window, control_panel, qt_app, tmp_path):
-    from PIL import Image, ImageChops, ImageStat
+def test_theme_selector_previews_each_preset_before_apply(window, control_panel, qt_app):
+    from PySide6.QtCore import QRect
+    from PySide6.QtGui import QPixmap
     from PySide6.QtTest import QTest
 
     window.show()
@@ -551,21 +552,19 @@ def test_theme_selector_previews_each_preset_before_apply(window, control_panel,
     qt_app.processEvents()
     for label, look in control_panel.START_MENU_STYLES:
         index = selector.findData(look)
-        selector.highlighted.emit(index)
+        if index:
+            QTest.keyClick(selector.view(), Qt.Key_Down)
+        qt_app.processEvents()
         assert not selector.itemIcon(index).isNull()
         assert preview.accessibleName() == f"{label} desktop preview"
-        shot = tmp_path / f"{look}.png"
-        assert preview.grab().save(str(shot))
-        with Image.open(shot) as actual, Image.open(REPO / f"data/control-panel/theme-previews/{look}.jpg") as expected:
-            width = min(actual.width, round(actual.height * 4 / 3))
-            height = round(width * 3 / 4)
-            left, top = (actual.width - width) // 2, (actual.height - height) // 2
-            actual = actual.convert("RGB").crop((left, top, left + width, top + height))
-            # Compare at thumbnail size to smooth differences in Qt and Pillow's image resampling.
-            difference = ImageChops.difference(
-                actual.resize((64, 48), Image.Resampling.LANCZOS), expected.resize((64, 48), Image.Resampling.LANCZOS)
-            )
-            assert max(ImageStat.Stat(difference).mean) < 5, look
+        screenshot = preview.grab()
+        source = QPixmap(str(REPO / f"data/control-panel/theme-previews/{look}.jpg"))
+        expected = source.scaled(screenshot.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        crop = QRect(expected.rect())
+        crop.moveCenter(screenshot.rect().center())
+        assert screenshot.copy(crop).toImage().convertToFormat(
+            QImage.Format_RGB32
+        ) == expected.toImage().convertToFormat(QImage.Format_RGB32), look
     QTest.keyClick(selector.view(), Qt.Key_Escape)
     qt_app.processEvents()
     assert preview.look == baseline["LOOK"]

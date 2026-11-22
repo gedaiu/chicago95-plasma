@@ -4394,6 +4394,7 @@ class DesktopThemePreview(QWidget):
         source = repo_of(settings) / "data/control-panel/theme-previews"
         installed = CHICAGO95_DATA / "control-panel/theme-previews"
         selector.setIconSize(QSize(32, 24))
+        selector.view().setItemDelegate(QStyledItemDelegate(selector.view()))
         for look in LOOK_PRESETS:
             path = source / f"{look}.jpg"
             image = QPixmap(str(path if path.is_file() else installed / path.name))
