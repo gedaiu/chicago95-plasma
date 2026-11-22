@@ -68,6 +68,7 @@ dropdown{state} arrow {{ background-image: {image("down", insensitive)}; }}
 spinbutton:not(.vertical){state} button.up {{ background-image: {image("up", insensitive)}; }}
 spinbutton:not(.vertical){state} button.down {{ background-image: {image("down", insensitive)}; }}""")
     if not luna:
+        rules.append("entry:not(:disabled) { background-color: white; background-image: none; }")
         rules.append(f"""{buttons}, combobox button:active, combobox button:checked,
 dropdown > button.toggle:active, dropdown > button.toggle:checked, spinbutton:not(.vertical) {{
   border: none; padding: 2px;

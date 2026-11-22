@@ -499,17 +499,20 @@ class DeviceManagerWindow(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(6)
-        aero = chicago95ui.widget_style() == "aero"
-        if aero:
+        style = chicago95ui.widget_style()
+        console = style in ("aero", "luna")
+        luna = style == "luna"
+        if console:
             available = self.screen().availableGeometry().size() - QSize(16, 38)
-            self.resize(QSize(782, 521).boundedTo(available))
+            size = QSize(632, 417) if luna else QSize(782, 521)
+            self.resize(size.boundedTo(available))
         else:
             self.resize(420, 480)
         self.status_label = QLabel("Searching for devices...")
-        if aero:
+        if console:
             layout.setContentsMargins(0, 0, 0, 0)
             layout.setSpacing(0)
-            self.add_console_commands(layout)
+            self.add_console_commands(layout, luna)
         else:
             self.add_view_radios(layout)
             layout.addWidget(self.status_label)
@@ -524,9 +527,10 @@ class DeviceManagerWindow(QWidget):
         self.tree.itemDoubleClicked.connect(lambda _item, _column: self.show_properties())
         self.tree.itemSelectionChanged.connect(self.update_buttons)
         panel_layout.addWidget(self.tree)
-        if aero:
+        if console:
             tree_row = QHBoxLayout()
-            tree_row.setContentsMargins(6, 6, 6, 0)
+            inset = 0 if luna else 6
+            tree_row.setContentsMargins(inset, 6, inset, 0)
             self.scope_tree = QTreeWidget()
             self.scope_tree.setHeaderHidden(True)
             self.scope_tree.setMaximumWidth(170)
@@ -552,7 +556,7 @@ class DeviceManagerWindow(QWidget):
             layout.addLayout(tree_row, 1)
         else:
             layout.addWidget(panel, 1)
-        if aero:
+        if console:
             self.status_label.setFixedHeight(21)
             self.status_label.setContentsMargins(4, 1, 4, 1)
             layout.addWidget(self.status_label)
@@ -560,29 +564,45 @@ class DeviceManagerWindow(QWidget):
             self.add_dialog_buttons(layout)
         self.update_buttons()
 
-    def add_console_commands(self, layout):
+    def add_console_commands(self, layout, luna):
         menus = QMenuBar()
         menus.setNativeMenuBar(False)
         menus.setFixedHeight(23)
-        menus.setStyleSheet("""
-            QMenuBar { border-bottom: 1px solid #b4b4b4;
-                background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #fefeff,
-                stop:.39 #e5eaf5,stop:.43 #d3daed,stop:1 #d3daed); }
-            QMenuBar::item { background: transparent; padding: 4px 8px 2px; }
-            QMenuBar::item:selected { background: #c4dcf0; }
-        """)
         layout.addWidget(menus)
         menus.addMenu("&File").addAction("E&xit", self.close)
         actions = menus.addMenu("&Action")
         toolbar = QToolBar()
         toolbar.setFixedHeight(23)
-        toolbar.setStyleSheet("""
-            QToolBar { min-height: 21px; border: 0; border-top: 1px solid #f4f7fc; border-bottom: 1px solid #b6bccc;
-                spacing: 1px; background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-                stop:0 #d3daed,stop:.32 #d3daed,stop:1 #e1e6f5); }
-            QToolButton { border: 0; padding: 2px 0 0 2px; } QToolButton:hover { background: #c4dcf0; }
-            QToolBar::separator { width: 7px; }
-        """)
+        if luna:
+            menus.setStyleSheet("""
+                QMenuBar { background: qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #f3f3f1,stop:1 #efebdb);
+                    border-bottom: 1px solid #d8d2bd; }
+                QMenuBar::item { background: transparent; padding: 2px 6px; }
+                QMenuBar::item:selected { background: palette(highlight); color: palette(highlighted-text); }
+            """)
+            toolbar.setStyleSheet("""
+                QToolBar { min-height: 21px; padding: 0 0 0 2px; background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                    stop:0 #f0efe4,stop:.86 #ebe9da,stop:1 #dedcc6);
+                    border-top: 1px solid white; border-bottom: 1px solid #cdcabb; spacing: 1px; }
+                QToolButton { border: 0; }
+                QToolButton:hover { background: palette(highlight); }
+                QToolBar::separator { width: 7px; }
+            """)
+        else:
+            menus.setStyleSheet("""
+                QMenuBar { border-bottom: 1px solid #b4b4b4;
+                    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #fefeff,
+                    stop:.39 #e5eaf5,stop:.43 #d3daed,stop:1 #d3daed); }
+                QMenuBar::item { background: transparent; padding: 4px 8px 2px; }
+                QMenuBar::item:selected { background: #c4dcf0; }
+            """)
+            toolbar.setStyleSheet("""
+                QToolBar { min-height: 21px; border: 0; border-top: 1px solid #f4f7fc; border-bottom: 1px solid #b6bccc;
+                    spacing: 1px; background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                    stop:0 #d3daed,stop:.32 #d3daed,stop:1 #e1e6f5); }
+                QToolButton { border: 0; padding: 2px 0 0 2px; } QToolButton:hover { background: #c4dcf0; }
+                QToolBar::separator { width: 7px; }
+            """)
         toolbar.setIconSize(QSize(16, 16))
         toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)
         layout.addWidget(toolbar)
@@ -592,6 +612,8 @@ class DeviceManagerWindow(QWidget):
             art = Path.home() / ".local/share/chicago95/device-manager"
 
         def icon(name, fallback, asset=None):
+            if luna and asset and (art / f"luna-{asset}").is_file():
+                return QIcon(str(art / f"luna-{asset}"))
             if asset and (art / asset).is_file():
                 return QIcon(str(art / asset))
             return QIcon.fromTheme(name, self.style().standardIcon(fallback))
@@ -618,8 +640,12 @@ class DeviceManagerWindow(QWidget):
         help_action.setShortcut("F1")
         self.history = []
         self.history_position = -1
-        self.back = toolbar.addAction(icon("go-previous", QStyle.SP_ArrowBack), "Back", lambda: self.go_to_item(-1))
-        self.forward = toolbar.addAction(icon("go-next", QStyle.SP_ArrowForward), "Forward", lambda: self.go_to_item(1))
+        self.back = toolbar.addAction(
+            icon("go-previous", QStyle.SP_ArrowBack, "back.svg"), "Back", lambda: self.go_to_item(-1)
+        )
+        self.forward = toolbar.addAction(
+            icon("go-next", QStyle.SP_ArrowForward, "forward.svg"), "Forward", lambda: self.go_to_item(1)
+        )
         self.update_navigation()
         toolbar.addSeparator()
         self.scope_action = view.addAction(
@@ -634,8 +660,9 @@ class DeviceManagerWindow(QWidget):
         )
         self.pane_action.setCheckable(True)
         toolbar.addAction(self.pane_action)
-        toolbar.addSeparator()
-        toolbar.addAction(self.scan_action)
+        if not luna:
+            toolbar.addSeparator()
+            toolbar.addAction(self.scan_action)
         for command in toolbar.actions():
             if not command.isSeparator():
                 toolbar.widgetForAction(command).setFixedWidth(22)
@@ -680,18 +707,25 @@ class DeviceManagerWindow(QWidget):
         self.by_type_radio.toggled.connect(self.rebuild_tree)
 
     def add_dialog_buttons(self, layout):
-        self.properties_button = chicago95ui.dialog_button("P&roperties...")
+        self.properties_button = chicago95ui.dialog_button("P&roperties")
         self.properties_button.clicked.connect(self.show_properties)
         refresh_button = chicago95ui.dialog_button("Re&fresh")
         refresh_button.clicked.connect(self.refresh)
         action_row = QHBoxLayout()
-        for button in (
-            self.properties_button,
-            refresh_button,
-            chicago95ui.dialog_button("R&emove", enabled=False),
-            chicago95ui.dialog_button("Pri&nt...", enabled=False),
+        action_row.setSpacing(6)
+        for width, button in zip(
+            (84, 84, 84, 83),
+            (
+                self.properties_button,
+                refresh_button,
+                chicago95ui.dialog_button("R&emove", enabled=False),
+                chicago95ui.dialog_button("Pri&nt...", enabled=False),
+            ),
+            strict=True,
         ):
+            button.setFixedWidth(width)
             action_row.addWidget(button)
+        action_row.addStretch()
         layout.addLayout(action_row)
         ok_button = chicago95ui.dialog_button("OK")
         ok_button.setDefault(True)

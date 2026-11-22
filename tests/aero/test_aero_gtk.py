@@ -2,6 +2,7 @@
 
 import json
 import shutil
+from pathlib import Path
 from shlex import quote
 
 import numpy as np
@@ -12,7 +13,7 @@ from plasma_session import run_session
 
 
 @pytest.fixture(scope="module")
-def gtk_captures(tmp_path_factory):
+def aero_gtk_home(tmp_path_factory):
     if not shutil.which("kwin_wayland"):
         pytest.skip("requires a nested Wayland compositor")
     tmp_path = tmp_path_factory.mktemp("aero-gtk")
@@ -32,6 +33,12 @@ def gtk_captures(tmp_path_factory):
     run_bash_with_steps(
         tmp_path, 'SETUP_DECORATION=aero; import_gtk4_theme Chicago95Aero; write_gtk_titlebar_css "" "" ""'
     )
+    return tmp_path
+
+
+@pytest.fixture(scope="module")
+def gtk_captures(aero_gtk_home):
+    tmp_path = aero_gtk_home
     script = tmp_path / "render"
     script.write_text(
         "#!/bin/sh\nset -e\n"
@@ -461,3 +468,74 @@ spectacle -b -n -f -o "$PWD/normal.png"
         # A smooth ramp from rim to toolbar would pass the lightness check above.
         column = pixels[y + round(17 * scale) : y + round(22 * scale), group_x + round(x * scale)].mean(axis=1)
         assert np.diff(column).max() > 75
+
+
+@pytest.mark.parametrize("density", [1, 2])
+def test_boxes_guest_titlebar_uses_vector_faces_and_fades(aero_gtk_home, tmp_path, density):
+    import io
+    import subprocess
+
+    if not Path("/usr/bin/gnome-boxes").exists():
+        pytest.skip("requires the Boxes display toolbar template")
+    script = tmp_path / "capture"
+    script.write_text(
+        f"#!/bin/sh\nkscreen-doctor output.Virtual-0.scale.{density} >/dev/null || exit 1\n"
+        f"exec python3 {quote(str(REPO / 'tests/aero/boxes_header_capture.py'))} {tmp_path}/frames\n"
+    )
+    runtime = tmp_path / "run"
+    runtime.mkdir(mode=0o700)
+    run_session(
+        tmp_path,
+        script,
+        {
+            "HOME": str(aero_gtk_home),
+            "XDG_RUNTIME_DIR": str(runtime),
+            "GDK_BACKEND": "wayland",
+            "GDK_SCALE": str(density),
+            "GTK_A11Y": "none",
+        },
+        (800, 400),
+        scale=density,
+    )
+    frames = tmp_path / "frames"
+    boxes = json.loads((frames / "layout.json").read_text())
+    normal = Image.open(frames / "normal.png")
+    assert normal.width == 700 * density
+    assert normal.height <= 40 * density
+    assert boxes["back"][2] <= 32
+    x, y, w, h = boxes["close"]
+    assert (boxes["minimize"][2], boxes["maximize"][2], w) == (30, 27, 50)
+    assert boxes["minimize"][0] + 30 == boxes["maximize"][0]
+    assert boxes["maximize"][0] + 27 == x
+    assert y <= 4
+    crop = tuple(v * density for v in (x, y, x + w, y + h))
+
+    # Compare the close glyph against the SVG rasterized directly on the output grid.
+    # Upscaling the 1× icon instead raises the 2× glyph's mean RGB error above 17.
+    svg = (
+        aero_gtk_home
+        / ".local/share/chicago95/gtk4-caption/gtk3"
+        / ("close-active@2x.svg" if density == 2 else "close-active.svg")
+    )
+    vector = Image.open(io.BytesIO(subprocess.check_output(["rsvg-convert", svg]))).convert("RGBA")
+    background = normal.crop(((x - 80) * density, y * density, (x - 80) * density + 1, (y + h) * density)).resize(
+        vector.size
+    )
+    expected = Image.alpha_composite(background, vector).convert("RGB")
+    glyph = tuple(v * density for v in (w // 2 - 6, 4, w // 2 + 6, h - 4))
+    original = np.asarray(expected.crop(glyph), dtype=int)
+    rendered = np.asarray(normal.crop(crop).convert("RGB").crop(glyph), dtype=int)
+    assert np.abs(rendered - original).mean() < 2
+
+    def region(name):
+        return np.asarray(Image.open(frames / (name + ".png")).convert("RGB").crop(crop), dtype=int)
+
+    from test_aero_caption_motion import native_times
+
+    assert np.abs(region("rest") - region("hover")).mean() > 8
+    for label, native in zip(("hover", "rest"), native_times("close"), strict=True):
+        timestamps, level = np.asarray(json.loads((frames / (label + ".json")).read_text())).T
+        progress = (level - level[0]) / (level[-1] - level[0])
+        assert ((progress > 0.1) & (progress < 0.9)).any()
+        duration = timestamps[np.flatnonzero(progress >= 0.9)[0]] - timestamps[np.flatnonzero(progress >= 0.1)[0]]
+        assert min(native) - 25 <= duration <= max(native) + 25, (duration, native)

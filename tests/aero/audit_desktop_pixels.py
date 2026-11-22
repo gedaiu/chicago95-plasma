@@ -17,6 +17,7 @@ from reference import screenshot
 from test_aero_greeter_visuals import greeter  # noqa: F401
 from test_aero_gtk import gtk4_pixels, gtk_captures  # noqa: F401
 from test_aero_session import desktop, hidden_tray_icons  # noqa: F401
+from test_aero_thunar import aero_icons, thunar_window  # noqa: F401
 from test_switcher import imports  # noqa: F401
 
 
@@ -94,17 +95,6 @@ def test_notification_close_and_options(menu_renders, tmp_path):
         compare(original, actual.crop(box), tmp_path / "windows7-comparison.png")
 
 
-@pytest.fixture
-def aero_icons(tmp_path):
-    source = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "icons/Windows-7-SVG"
-    if not (source / "index.theme").is_file():
-        pytest.skip("requires the Windows 7 SVG icon theme from Setup")
-    folder = tmp_path / ".local/share/icons"
-    folder.mkdir(parents=True)
-    (folder / source.name).symlink_to(source)
-    return source.name
-
-
 def test_control_panel_navigation(tmp_path, aero_icons):
     from test_aero_control_panel import control_panel_config
 
@@ -126,56 +116,12 @@ def test_control_panel_navigation(tmp_path, aero_icons):
         )
 
 
-def test_explorer_navigation(tmp_path, aero_icons):
-    if not all(shutil.which(name) for name in ("thunar", "kwin_wayland", "spectacle")):
-        pytest.skip("needs Thunar, KWin and Spectacle")
-    # Preseed the isolated profile so Setup preserves it and updates navigation in place.
-    profile = tmp_path / ".config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml"
-    profile.parent.mkdir(parents=True)
-    shutil.copyfile(REPO / "config/thunar/thunar.xml", profile)
-    (tmp_path / ".themes").mkdir()
-    (tmp_path / ".themes/Chicago95Aero").symlink_to(REPO / "aero/gtk/Chicago95Aero")
-    run_bash_with_steps(tmp_path, "SETUP_HAS_THUNAR=1 SETUP_WIDGET_STYLE=aero step_explorer")
-    (tmp_path / ".config/gtk-3.0/settings.ini").write_text(f"[Settings]\ngtk-icon-theme-name={aero_icons}\n")
-    # Put just the client at the top left so the toolbar crop is independent of KWin decorations.
-    (tmp_path / ".config/kwinrulesrc").write_text(
-        "[General]\nrules=thunar\n[thunar]\nwmclass=thunar\nwmclassmatch=2\n"
-        "position=0,0\npositionrule=2\nnoborder=true\nnoborderrule=2\n"
+def test_explorer_navigation(tmp_path, thunar_window):
+    compare(
+        screenshot("win7explorer1").crop((7, 31, 227, 63)),
+        thunar_window.crop((0, 0, 220, 32)),
+        tmp_path / "windows7-comparison.png",
     )
-    runtime = tmp_path / "run"
-    runtime.mkdir(mode=0o700)
-    script = tmp_path / "capture"
-    script.write_text(
-        '#!/bin/sh\nset -eu\nthunar "$HOME" >thunar.log 2>&1 &\n'
-        "gdbus wait --session --timeout 15 org.xfce.Thunar\n"
-        'for i in 1 2 3 4 5 6; do sleep 1; spectacle -b -n -f -o "$PWD/window.png"\n'
-        """python3 -c 'from PIL import Image; import sys; """
-        """sys.exit(Image.open("window.png").convert("RGB").getbbox() is None)' && break\ndone\n"""
-    )
-    run_session(
-        tmp_path,
-        script,
-        {
-            "HOME": str(tmp_path),
-            "XDG_RUNTIME_DIR": str(runtime),
-            "GDK_BACKEND": "wayland",
-            "GIO_USE_VFS": "local",
-            "GIO_USE_VOLUME_MONITOR": "unix",
-            "XDG_SESSION_TYPE": "wayland",
-            "PATH": "/usr/bin:/bin",
-            "GTK_THEME": "Chicago95Aero",
-            "GTK_A11Y": "none",
-        },
-        (1024, 768),
-    )
-    with Image.open(tmp_path / "window.png") as actual:
-        assert actual.size == (1024, 768)
-        assert actual.convert("RGB").crop((0, 0, 220, 32)).getbbox(), "Thunar toolbar did not appear"
-        compare(
-            screenshot("win7explorer1").crop((7, 31, 227, 63)),
-            actual.crop((0, 0, 220, 32)),
-            tmp_path / "windows7-comparison.png",
-        )
 
 
 @pytest.mark.skipif(not shutil.which("firefox"), reason="requires Firefox")

@@ -379,3 +379,16 @@ def test_2000_push_button_edges_are_the_2000_originals_white_face_shadow_and_dar
     ours = [image.getpixel((x + offset, middle)) for offset in (0, 1, width - 2, width - 1)]
     theirs = [screenshot("w2kshutdown").getpixel((column, 313)) for column in (359, 360, 432, 433)]
     assert all(close(mine, original, TOLERANCE) for mine, original in zip(ours, theirs, strict=False)), (ours, theirs)
+
+
+def test_display_properties_radios_match_windows_95_osr2(gallery, qt_app):
+    image = gallery.render_control(qt_app, gallery.radio_buttons)
+    states = indicator_crops(image, (0, 0, image.width, image.height), image.getpixel((2, 2)), 2)
+    original = screenshot("win95-osr2-display-radios")
+    palette = (0, 128, 192, 255)
+    for index, actual in enumerate(states):
+        expected = original.crop((0, index * 12, 12, index * 12 + 12))
+        # Standard VGA exposes four neutral colours here. Midlight (#dfdfdf)
+        # maps to the face (#c0c0c0) on the guest's 16-colour desktop.
+        vga = actual.point(lambda value: min(palette, key=lambda grey: abs(grey - value)))
+        assert vga.tobytes() == expected.tobytes()

@@ -27,7 +27,6 @@ BLOCK_AREA = ((250, 400), (340, 375))
 FOOTER_AREA = ((10, 260), (420, 470))
 BLOCK_ROWS = range(354, 363)
 TROUGH_ROWS = range(349, 369)
-SWEEP_WIDTH = 144
 
 
 def is_lit(colour):
@@ -95,11 +94,12 @@ def test_trough_profile_down_its_left_part_matches_the_reference_within_12(refer
     )
 
 
-def test_blocks_slide_right_by_a_quarter_of_the_sweep_when_the_phase_grows_by_a_quarter(qt_app):
-    first = render_luna_splash(qt_app, properties={"phase": 0.25})
-    second = render_luna_splash(qt_app, properties={"phase": 0.5})
-    boxes = [bounding_box(image, is_block_blue, *BLOCK_AREA) for image in (first, second)]
-    assert boxes[1][0] - boxes[0][0] == SWEEP_WIDTH // 4
+@pytest.mark.parametrize("step", range(18))
+def test_each_step_matches_the_english_sp3_vm_capture(qt_app, step):
+    frame = render_luna_splash(qt_app, properties={"phase": (step + 0.5) / 18})
+    with Image.open(Path(__file__).parents[1] / "references/xp-sp3-boot-bar.png") as strip:
+        expected = strip.crop((0, step * 15, 126, (step + 1) * 15)).convert("RGB")
+    assert frame.crop((255, 351, 381, 366)).tobytes() == expected.tobytes()
 
 
 def test_blocks_are_clipped_inside_the_trough_at_the_start_of_the_sweep(qt_app):
@@ -143,3 +143,41 @@ def test_preview_compares_the_splash_with_the_reference(reference, ours):
     sheet.paste(reference, (640, 0))
     sheet.save(PREVIEW_DIR / "splash-compare.png")
     assert sheet.size == (1280, 480)
+
+
+def test_live_sweep_visits_the_native_frames_at_the_sp3_rate(qt_app):
+    from time import monotonic
+
+    from PySide6.QtCore import QTimer, QUrl
+    from PySide6.QtQuick import QQuickView
+    from reference import qimage_to_pil
+
+    with Image.open(Path(__file__).parents[1] / "references/xp-sp3-boot-bar.png") as strip:
+        frames = {strip.crop((0, i * 15, 126, (i + 1) * 15)).convert("RGB").tobytes(): i for i in range(18)}
+    view = QQuickView()
+    view.setSource(QUrl.fromLocalFile(str(Path(__file__).parent / "harness/LunaSplashHarness.qml")))
+    view.show()
+    seen = []
+
+    def sample():
+        bar = qimage_to_pil(view.grabWindow()).crop((255, 351, 381, 366))
+        state = frames.get(bar.tobytes())
+        if not seen or state != seen[-1][0]:
+            seen.append((state, monotonic()))
+
+    timer = QTimer()
+    timer.timeout.connect(sample)
+    try:
+        view.rootObject().setProperty("animated", True)
+        timer.start(20)
+        QTimer.singleShot(3700, qt_app.quit)
+        qt_app.exec()
+    finally:
+        timer.stop()
+        view.close()
+
+    starts = [i for i, (state, _) in enumerate(seen) if state == 0]
+    begin, end = starts[-2:]
+    assert [state for state, _ in seen[begin:end]] == list(range(18))
+    # The VM repeated the same state after 1.67–1.70 s. Allow two capture intervals.
+    assert seen[end][1] - seen[begin][1] == pytest.approx(1.688, abs=0.05)

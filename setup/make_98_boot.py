@@ -1,10 +1,12 @@
-"""Adapt the upstream Plymouth theme's prompt handling to the Windows 98 boot artwork."""
+"""Build Windows 98 boot and shutdown artwork for the upstream Plymouth theme."""
 
 import argparse
 import shutil
 from pathlib import Path
 
 from PIL import Image, ImageChops
+from PySide6.QtGui import QImage, QPainter
+from PySide6.QtSvg import QSvgRenderer
 
 
 def build(source, artwork, target):
@@ -22,6 +24,22 @@ def build(source, artwork, target):
         frame = image.copy()
         frame.paste(ImageChops.offset(strip, phase * image.width // 20, 0), (0, 472))
         frame.save(target / f"win95_boot_{phase}.png")
+
+    # LOGOW.SYS uses the same clouds and branding. Replace the cycling strip
+    # with sky and put the caption at the measured 640×480 display coordinates.
+    shutdown = image.copy()
+    shutdown.paste(image.crop((0, 464, 640, 472)).transpose(Image.Transpose.FLIP_TOP_BOTTOM), (0, 472))
+    svg = QSvgRenderer(str(Path(__file__).with_name("windows98-shutdown-caption.svg")))
+    if not svg.isValid():
+        raise ValueError("Invalid Windows 98 shutdown caption")
+    caption = QImage(svg.defaultSize(), QImage.Format_RGBA8888)
+    caption.fill(0)
+    painter = QPainter(caption)
+    svg.render(painter)
+    painter.end()
+    overlay = Image.frombytes("RGBA", (caption.width(), caption.height()), bytes(caption.constBits()))
+    shutdown.paste(overlay, (220, 446), overlay)
+    shutdown.save(target / "win95_shutdown-01.png")
 
 
 if __name__ == "__main__":

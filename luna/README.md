@@ -28,11 +28,15 @@ from `quickLaunchBand.js`' `metrics("luna")`. The tray: the notch at x width-93 
 
 ## The luna.msstyles sprites
 
-`tests/luna/test_luna_sprites.py` compares the taskbar pieces with the sprites of Microsoft's `luna.msstyles`. They are
-not in the repository and are not redistributed: clone https://github.com/freitagdavid/QuickXP, run its extract script
-over your own copy of `luna.msstyles`, and point `LUNA_MSSTYLES_DIR` at the folder that holds `images/BLUE_<NAME>_BMP.png`
-(and `settings/NORMALBLUE.ini`, which gives each part's state count and sizing margins). Without the folder those tests
-skip. What was fitted from them: the Quick Launch grip's dot colours (`TASKBARGRIPPER`), the flat blue hot and pressed
+`tests/luna/test_luna_sprites.py` compares the taskbar pieces with the sprites of Microsoft's `luna.msstyles`. To run the comparisons from your own 32-bit XP installation CD, install `isoinfo`, `cabextract`, `wrestool` and Pillow, then run these commands from the repository root.
+
+```sh
+export LUNA_MSSTYLES_DIR="$HOME/.cache/chicago95/xp-luna"
+python3 tests/luna/extract_media_sprites.py "/path/to/windows-xp.iso" "$LUNA_MSSTYLES_DIR"
+python3 -m pytest -q tests/luna/test_luna_menu.py tests/luna/test_luna_window.py tests/luna/test_luna_sprites.py
+```
+
+The extractor reads `I386/LUNA.MS_` directly from the CD and keeps the bitmaps and sizing data locally. The tests also accept an existing QuickXP extraction with `images/BLUE_<NAME>_BMP.png` and `settings/NORMALBLUE.ini`. Without these fixtures the sprite comparisons skip. What was fitted from them: the Quick Launch grip's dot colours (`TASKBARGRIPPER`), the flat blue hot and pressed
 Quick Launch button (`TASKBANDBUTTONNOEDGE`), the `>>` glyph's exact pixels and colours (`TASKBARCHEVRON`), the hidden icons
 button's sphere (`TRAYCHEVRONHORIZONTAL`) and the taskbar background rows (`TASKBARBACKGROUND`).
 

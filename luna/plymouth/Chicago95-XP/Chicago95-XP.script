@@ -1,6 +1,7 @@
 screen_width = Window.GetWidth();
 screen_height = Window.GetHeight();
-unit = screen_height / 480;
+unit = Math.Min(screen_width / 640, screen_height / 480);
+layout_y = (screen_height - 480 * unit) / 2;
 layout_x = (screen_width - 640 * unit) / 2;
 asset_scale = 1;
 if (screen_height >= 960)
@@ -25,40 +26,30 @@ else
 
 logo = Sprite(logo_image.Scale(Math.Int(logo_image.GetWidth() * fit), Math.Int(logo_image.GetHeight() * fit)));
 # Centred on the XP wordmark's centre: the 244 pixel wordmark lands at x 209; a branded logo, wider, around it.
-logo.SetPosition(Math.Int(layout_x + 331 * unit - logo_image.GetWidth() * fit / 2), Math.Int(123 * unit), 1);
+logo.SetPosition(Math.Int(layout_x + 331 * unit - logo_image.GetWidth() * fit / 2), Math.Int(layout_y + 123 * unit), 1);
 
 trough = Sprite(trough_image.Scale(Math.Int(trough_image.GetWidth() * fit), Math.Int(trough_image.GetHeight() * fit)));
-trough.SetPosition(Math.Int(layout_x + 255 * unit), Math.Int(351 * unit), 1);
+trough.SetPosition(Math.Int(layout_x + 255 * unit), Math.Int(layout_y + 351 * unit), 1);
 
-block_count = 3;
-block_pitch = 8;
-inner_left = 257;
-inner_width = 122;
-group_width = block_pitch * block_count - 2;
-frames_per_sweep = 50;
-frame = 0;
-
-scaled_block = block_image.Scale(Math.Int(block_image.GetWidth() * fit), Math.Int(block_image.GetHeight() * fit));
-for (i = 0; i < block_count; i++)
+# The native SP3 sweep repeats after 18 steps (about 1.69 seconds).
+tick = 0;
+for (i = 0; i < 3; i++)
   {
-    blocks[i] = Sprite(scaled_block);
+    block = block_image.Crop(i * 8 * asset_scale, 0, 6 * asset_scale, 9 * asset_scale);
+    blocks[i] = Sprite(block.Scale(Math.Max(1, Math.Int(6 * unit)), Math.Max(1, Math.Int(9 * unit))));
     blocks[i].SetOpacity(0);
   }
 
 fun refresh_callback()
   {
-    phase = (frame % frames_per_sweep) / frames_per_sweep;
-    group_left = inner_left - group_width + phase * (inner_width + group_width);
-    for (i = 0; i < block_count; i++)
+    step = Math.Int(tick / 3);
+    for (i = 0; i < 3; i++)
       {
-        block_left = group_left + i * block_pitch;
-        fits = block_left >= inner_left && block_left + 6 <= inner_left + inner_width;
-        blocks[i].SetPosition(Math.Int(layout_x + block_left * unit), Math.Int(354 * unit), 2);
-        if (fits)
-          blocks[i].SetOpacity(1);
-        else
-          blocks[i].SetOpacity(0);
+        slot = step - 3 + i;
+        blocks[i].SetPosition(Math.Int(layout_x + (259 + slot * 8) * unit), Math.Int(layout_y + 354 * unit), 2);
+        blocks[i].SetOpacity(slot >= 0 && slot < 15);
       }
-    frame++;
+    tick = (tick + 1) % 54;
   }
+Plymouth.SetRefreshRate(32);
 Plymouth.SetRefreshFunction(refresh_callback);

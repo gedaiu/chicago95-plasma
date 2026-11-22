@@ -415,3 +415,74 @@ def test_aero_console_bands_match_win7_sp1(
             exact_original(expected_icons, icons)
     finally:
         window.close()
+
+
+def test_luna_console_matches_xp_sp3_command_bands(devmgr, snapshot, qt_app):
+    import numpy as np
+    from PIL import Image
+    from PySide6.QtWidgets import QPushButton, QToolBar
+    from reference import qimage_to_pil
+    from showcase import themed
+
+    def glyph_bounds(image, left, right, colour):
+        pixels = np.asarray(image.convert("RGB").crop((left, 24, right, 45)), dtype=int)
+        r, g, b = pixels.transpose(2, 0, 1)
+        mask = (b > 80) & (r < 45) & (g < 45) if colour == "navy" else (r > 160) & (g > 160) & (b < 70)
+        ys, xs = np.where(mask)
+        assert len(xs) > 0
+        return xs.min(), ys.min(), xs.max(), ys.max()
+
+    with themed(qt_app, "luna"):
+        window = devmgr.DeviceManagerWindow(load=lambda: snapshot)
+        try:
+            window.show()
+            window.refresh()
+            qt_app.processEvents()
+            assert not window.findChildren(QPushButton)
+            commands = window.findChild(QToolBar).actions()
+            assert [action.text() for action in commands if not action.isSeparator()] == [
+                "Back",
+                "Forward",
+                "Console tree",
+                "Device Manager Help",
+                "Action pane",
+            ]
+            # Compare both bands including their one-pixel seam, clear of icons and labels.
+            box = (280, 0, 550, 46)
+            rendered = qimage_to_pil(window.grab().toImage())
+            with Image.open(REPO / "tests/references/xp-sp3-device-manager-bands.png") as native:
+                # Check native centres and the glyphs: navy pane borders and the yellow Help mark.
+                for left, right, colour in [(56, 77, "navy"), (87, 109, "yellow"), (111, 132, "navy")]:
+                    assert glyph_bounds(rendered, left, right, colour) == pytest.approx(
+                        glyph_bounds(native, left, right, colour), abs=2
+                    )
+                original = np.asarray(native.convert("RGB").crop(box), dtype=int)
+            actual = np.asarray(rendered.crop(box), dtype=int)
+            assert np.abs(actual - original).mean() < 4
+        finally:
+            window.close()
+
+
+@pytest.mark.parametrize("width", [420, 720])
+def test_classic_device_action_row_matches_windows_95(devmgr, snapshot, qt_app, width):
+    from PIL import Image
+    from reference import qimage_to_pil
+
+    window = devmgr.DeviceManagerWindow(load=lambda: snapshot)
+    try:
+        window.resize(width, 480)
+        window.show()
+        qt_app.processEvents()
+        first = window.properties_button.geometry()
+        assert first.left() == window.layout().contentsMargins().left()
+        with Image.open(REPO / "tests/references/win95-osr2-device-actions.png") as original:
+            y = first.bottom()
+            actual = qimage_to_pil(window.grab().toImage()).crop((first.x(), y, first.x() + original.width, y + 1))
+            # The dark bottom bevel spans exactly the button width and leaves each gap visible.
+            expected = original.crop((0, original.height - 1, original.width, original.height))
+            assert (
+                actual.convert("L").point(lambda v: v < 64).tobytes()
+                == expected.convert("L").point(lambda v: v < 64).tobytes()
+            )
+    finally:
+        window.close()

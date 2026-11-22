@@ -324,7 +324,7 @@ def button_face(face):
     }
 
 
-def button_svg(kind):
+def button_state(kind, window, look, prefix, x0=0):
     face_name = BUTTON_FACES[kind]
     width = palette.BUTTON_WIDTHS["maximize" if kind == "restore" else kind]
     height = palette.BUTTON_HEIGHT
@@ -332,17 +332,21 @@ def button_svg(kind):
     left, right, top, bottom = palette.BUTTON_CONTENT[face_name]
     glyph_x = round((width - glyph_width + left - right) / 2)
     glyph_y = round((height - glyph_height + top - bottom) / 2)
+    face = button_face(stops.FACES[face_name][window][look])
+    face_definitions, face_shapes = face_markup(face, f"f{prefix}", (0, 0))
+    face_shapes = f'<g transform="translate({x0} 0) scale({width / face["size"][0]} 1)">{face_shapes}</g>'
+    glyph_gradient, glyph_shapes = glyph_markup(kind, stops.GLYPHS[kind][look], f"g{prefix}", (x0 + glyph_x, glyph_y))
+    return face_definitions + glyph_gradient, face_shapes + glyph_shapes
+
+
+def button_svg(kind):
+    width = palette.BUTTON_WIDTHS["maximize" if kind == "restore" else kind]
+    height = palette.BUTTON_HEIGHT
     definitions, groups = [], []
     for index, (state, (window, look)) in enumerate(AURORAE_STATES.items()):
-        x0 = index * (width + GAP)
-        face = button_face(stops.FACES[face_name][window][look])
-        face_definitions, face_shapes = face_markup(face, f"f{index}", (0, 0))
-        face_shapes = f'<g transform="translate({x0} 0) scale({width / face["size"][0]} 1)">{face_shapes}</g>'
-        glyph_gradient, glyph_shapes = glyph_markup(
-            kind, stops.GLYPHS[kind][look], f"g{index}", (x0 + glyph_x, glyph_y)
-        )
-        definitions += [face_definitions, glyph_gradient]
-        groups.append(f'<g id="{state}-center">{face_shapes}{glyph_shapes}</g>')
+        defs, shapes = button_state(kind, window, look, index, index * (width + GAP))
+        definitions.append(defs)
+        groups.append(f'<g id="{state}-center">{shapes}</g>')
     total = len(AURORAE_STATES) * (width + GAP)
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{total}" height="{height}">'

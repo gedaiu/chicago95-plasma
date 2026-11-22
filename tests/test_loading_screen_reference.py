@@ -10,7 +10,7 @@ from contextlib import contextmanager
 
 import pytest
 from conftest import REPO, needs_ui_font
-from reference import bounding_box, close, differing_pixels, qimage_to_pil, screenshot
+from reference import bounding_box, differing_pixels, qimage_to_pil, screenshot
 
 SPLASH = REPO / "splash/chicago95.splashscreen/contents/splash"
 LOGO_AND_NAME = (100, 20, 560, 365)  # masked: the original's logo, wordmark and edition
@@ -142,11 +142,9 @@ def test_mark_frames_match_the_original_within_40_levels_per_6px_block(reference
     assert differing == []
 
 
-def test_progress_bar_is_165_by_10_at_273_436(reference, ours):
-    def bar(image):
-        return bounding_box(image, lambda c: close(c, (0x7D, 0x81, 0x96), 20), (260, 450), (430, 450))
-
-    assert bar(ours)[:2] == bar(reference)[:2] == (273, 436)
+def test_half_full_progress_bar_matches_native_windows_2000(ours):
+    original = screenshot("win2000-boot-bar")
+    assert ours.crop((273, 436, 438, 446)).tobytes() == original.tobytes()
 
 
 @needs_ui_font

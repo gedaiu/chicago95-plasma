@@ -1,5 +1,5 @@
 """Draws the XP boot screen's pictures: the wordmark (rendered from luna/images/windows-xp-logo.svg) with the
-edition name below it, the progress trough and one progress block, at 1x and 2x (a 640x480 layout)."""
+edition name below it, the SVG progress trough and moving group of three blocks, at 1x and 2x (a 640x480 layout)."""
 
 import subprocess
 import sys
@@ -16,8 +16,8 @@ SUPERSAMPLE = 4
 WORDMARK_SCALE = 1.85
 WORDMARK_UNITS = (132, 95)
 TROUGH_UNITS = (126, 15)
-BLOCK_UNITS = (6, 9)
-BLOCK_STOPS = ((0, (40, 56, 199)), (1, (89, 121, 239)), (2, (134, 158, 243)), (4, (89, 121, 239)), (5, (40, 56, 199)))
+BLOCK_UNITS = (22, 9)
+SPLASH = Path(__file__).resolve().parents[1] / "splash"
 EDITION_NAME = "Professional"
 EDITION_LEFT_UNITS = 8
 EDITION_BASELINE_UNITS = 93.6
@@ -71,32 +71,11 @@ def size_at(name, multiplier):
 
 
 def draw_trough(multiplier):
-    scale = multiplier * SUPERSAMPLE
-    width, height = (unit * scale for unit in TROUGH_UNITS)
-    canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    drawer = ImageDraw.Draw(canvas)
-    drawer.rounded_rectangle((0, 0, width - 1, height - 1), radius=4 * scale, fill=(178, 178, 178, 255))
-    drawer.rounded_rectangle(
-        (scale, scale, width - 1 - scale, height - 1 - scale), radius=3 * scale, fill=(65, 65, 65, 255)
-    )
-    drawer.rounded_rectangle(
-        (2 * scale, 2 * scale, width - 1 - 2 * scale, height - 1 - 2 * scale), radius=2 * scale, fill=(0, 0, 0, 255)
-    )
-    return canvas.resize(size_at("trough", multiplier), Image.LANCZOS)
-
-
-def block_colour(row):
-    below = max(stop for stop, _ in BLOCK_STOPS if stop <= row)
-    return dict(BLOCK_STOPS)[below]
+    return render_logo.render_to_image((SPLASH / "boot-trough.svg").read_bytes(), *size_at("trough", multiplier))
 
 
 def draw_block(multiplier):
-    width, height = size_at("block", multiplier)
-    canvas = Image.new("RGBA", (width, height))
-    drawer = ImageDraw.Draw(canvas)
-    for row in range(height):
-        drawer.line([(0, row), (width, row)], fill=(*block_colour(int(row / multiplier)), 255))
-    return canvas
+    return render_logo.render_to_image((SPLASH / "boot-blocks.svg").read_bytes(), *size_at("block", multiplier))
 
 
 DRAWERS = {"logo": draw_logo, "trough": draw_trough, "block": draw_block}

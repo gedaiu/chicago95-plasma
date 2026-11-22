@@ -6,6 +6,7 @@ with. All are from Nathan's Toasty Technology page, http://toastytech.com/guis/ 
 | File | Source |
 | --- | --- |
 | `w2kadmin.png` | http://toastytech.com/guis/w2kadmin.png |
+| `win2000-boot-bar.png` | Windows 2000 Professional English OEM CD, native 640×480 boot screen. Nine of eighteen blocks filled, cropped at (273, 436), 165×10. |
 | `w2kboot.png` | http://toastytech.com/guis/w2kboot.png |
 | `w2kfilebrowser.png` | http://toastytech.com/guis/w2kfilebrowser.png |
 | `w2klogon.png` | http://toastytech.com/guis/w2klogon.png |
@@ -54,6 +55,7 @@ System Properties, from other pages:
 | `win98effects.png` | https://www.tech2u.com.au/training/tech2u/win98_2/desktop07.gif (Windows 98: Display Properties, Effects tab: grouped check boxes) |
 | `win98viewmenu.png` | https://www.tech2u.com.au/training/tech2u/win98_1/appear01.gif (Windows 98: an open View menu at 1:1: check marks, a bullet, submenu arrows, separators) |
 | `win98mouse.png` | https://www.tech2u.com.au/training/tech2u/win98_2/mouse01.gif (Windows 98: Mouse Properties: radio buttons, a slider with Slow and Fast labels) |
+| `win98-se-shutdown-preview.png` | Windows 98 Second Edition CD, installed LOGOW.SYS (320×400 indexed bitmap), corrected to 4:3 and box-filtered to 160×120 for the composition test. |
 | `win98shutdown2.png` | https://www.tech2u.com.au/training/tech2u/win98_1/shutdown02.gif (Windows 98: Shut Down Windows: radio buttons and a Help button) |
 | `win98copying.png` | https://www.tech2u.com.au/training/tech2u/win98_1/copying03.gif (Windows 98: the Copying dialog: a progress bar with Cancel) |
 | `win98changeicon.png` | https://www.tech2u.com.au/training/tech2u/win98_2/desktop08.gif (Windows 98 Change Icon: a focused text field with selected text, an icon list with a horizontal scroll bar) |
@@ -90,6 +92,10 @@ Windows XP (Luna and XP Classic), from Toasty Technology, GUIdebook, Wikipedia a
 | `xpfulldesktop.png` | https://guidebookgallery.org/pics/gui/desktop/full/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the desktop with inactive and active windows) |
 | `xpemptydesktop.png` | https://guidebookgallery.org/pics/gui/desktop/empty/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the Bliss desktop with its icons and taskbar) |
 | `xplogin.png` | https://guidebookgallery.org/pics/gui/startupshutdown/login/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the Welcome screen) |
+| `xp-sp3-device-manager-bands.png` | Windows XP Professional SP3 English, GRTMPVOL_EN. First 74 client rows of Device Manager at (75, 72), 800×600 desktop, default theme and font size. |
+| `xp-sp3-boot-bar.png` | English Windows XP Professional SP3 x86 volume CD (GRTMPVOL_EN), captured in an offline KVM guest at native 640×480. Eighteen consecutive states of the fully illuminated loading bar, cropped at (255, 351), 126×15 each. Matching states repeated about 1.69 seconds apart. |
+| `win95-osr2-device-actions.png` | Windows 95 OSR2 System Properties, Device Manager tab. Four-button action row at (28, 365), 353×23. |
+| `win95-osr2-display-radios.png` | Windows 95 OSR2 English, 640×480 Standard VGA desktop. Off and on radio buttons from Display Properties, Background tab, cropped at (357, 370) and (410, 370), each 12×12. |
 | `xpsplash.png` | https://guidebookgallery.org/pics/gui/startupshutdown/splash/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the boot splash) |
 | `xpshuttingdown.png` | https://guidebookgallery.org/pics/gui/startupshutdown/shuttingdown/winxppro.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, the shutting-down screen) |
 | `xpappearance.png` | https://guidebookgallery.org/pics/gui/settings/appearance/winxppro-1-1.png (GUIdebook, Marcin Wichary, https://guidebookgallery.org/screenshots/winxppro: Windows XP, Display Properties, Appearance tab) |

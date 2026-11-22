@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "aurorae"))
-from make_aero_aurorae import AURORAE_STATES, BUTTON_FACES, GAP, palette  # noqa: E402
+from make_aero_aurorae import AURORAE_STATES, BUTTON_FACES, button_state, palette  # noqa: E402
 
 # The large toolbar button uses a four-stop bevel with its split at 49/50%.
 # Tint those same grey levels for each window action.
@@ -59,18 +59,28 @@ def write_gtk4_faces(directory):
                 f'rx="2" fill="none" stroke="#fafafa"/>'
                 f'{divider}<g fill="none" stroke="{glyph_colour}">{GLYPHS[kind]}</g>'
             )
-            # GTK rasterizes CSS background images at their intrinsic size. Supply both
-            # densities so 1x stays pixel-aligned and fractional outputs get a HiDPI source.
-            for density, suffix in ((1, ""), (2, "@2x")):
-                svg = (
-                    f'<svg xmlns="http://www.w3.org/2000/svg" width="{density * width}" '
-                    f'height="{density * FACE_HEIGHT}" '
-                    f'viewBox="0 0 {width} {FACE_HEIGHT}">{artwork}</svg>'
-                )
-                (directory / f"{kind}-{state}{suffix}.svg").write_text(svg)
+            write_face(directory, kind, state, width, artwork)
 
 
-def caption_css(assets, gtk4_directory=None):
+def write_face(directory, kind, state, width, artwork):
+    for density, suffix in ((1, ""), (2, "@2x")):
+        svg = (
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{density * width}" '
+            f'height="{density * FACE_HEIGHT}" viewBox="0 0 {width} {FACE_HEIGHT}">{artwork}</svg>'
+        )
+        (directory / f"{kind}-{state}{suffix}.svg").write_text(svg)
+
+
+def write_gtk3_faces(directory):
+    directory.mkdir(parents=True, exist_ok=True)
+    for kind in BUTTON_FACES:
+        width = palette.BUTTON_WIDTHS["maximize" if kind == "restore" else kind]
+        for state, (window, look) in AURORAE_STATES.items():
+            defs, shapes = button_state(kind, window, look, "face")
+            write_face(directory, kind, state, width, f"<defs>{defs}</defs>{shapes}")
+
+
+def caption_css(directory, gtk4):
     rules = [
         """
 headerbar, headerbar.titlebar, .titlebar.default-decoration {
@@ -94,9 +104,38 @@ headerbar windowcontrols button > image, headerbar button.titlebutton > image {
 }
 """
     ]
-    if gtk4_directory is not None:
+    if gtk4:
         rules.append("""
 headerbar windowcontrols { border-spacing: 0; }
+""")
+    else:
+        rules.append("""
+headerbar.titlebar { padding: 0 5px; }
+headerbar.titlebar .title, headerbar.titlebar .subtitle { margin: 0; padding: 0; }
+headerbar.titlebar .title { font-size: 12px; font-weight: normal; text-shadow: 0 0 3px white; }
+headerbar.titlebar .subtitle { font-size: 10px; }
+headerbar.titlebar button.titlebutton + button.titlebutton:dir(ltr) { margin-left: -6px; }
+headerbar.titlebar button.titlebutton + button.titlebutton:dir(rtl) { margin-right: -6px; }
+headerbar.titlebar button.image-button:not(.titlebutton) {
+  min-width: 22px; min-height: 22px; margin: 0; padding: 0 2px;
+  background: transparent; border: 1px solid transparent; box-shadow: none;
+}
+headerbar.titlebar button.image-button:not(.titlebutton):hover {
+  background: linear-gradient(#f3faff, #ccdfef); border-color: #869caf;
+}
+headerbar.titlebar button.image-button:not(.titlebutton):active,
+headerbar.titlebar button.image-button:not(.titlebutton):checked {
+  background: #bed5e8; border-color: #718da4;
+}
+headerbar.titlebar button.image-button:not(.titlebutton) image { -gtk-icon-style: symbolic; }
+headerbar button.titlebutton { margin-bottom: 12px;
+  transition: background-image 160ms linear, box-shadow 160ms linear; }
+headerbar button.titlebutton.close { transition-duration: 176ms; }
+headerbar button.titlebutton:hover { transition-duration: 80ms; box-shadow: 0 1px 4px #60d2ff; }
+headerbar button.titlebutton.close:hover { transition-duration: 40ms; box-shadow: 0 1px 4px #ff805e; }
+headerbar button.titlebutton:active, headerbar button.titlebutton:disabled {
+  transition-duration: 0ms; box-shadow: none;
+}
 """)
     for kind in BUTTON_FACES:
         button = "maximize" if kind == "restore" else kind
@@ -104,10 +143,8 @@ headerbar windowcontrols { border-spacing: 0; }
         selectors = [
             prefix + "headerbar " + part + "." + button for part in ("windowcontrols button", "button.titlebutton")
         ]
-        width, height = palette.BUTTON_WIDTHS[button], palette.BUTTON_HEIGHT
-        stride = width + GAP
-        sheet = (assets / f"{kind}.svg").as_uri()
-        for index, (state, (window, look)) in enumerate(AURORAE_STATES.items()):
+        width = CELL_WIDTHS[button] if gtk4 else palette.BUTTON_WIDTHS[button]
+        for state, (window, look) in AURORAE_STATES.items():
             suffix = (":backdrop" if window == "inactive" else "") + {
                 "normal": "",
                 "hot": ":hover",
@@ -115,29 +152,22 @@ headerbar windowcontrols { border-spacing: 0; }
                 "disabled": ":disabled",
             }[look]
             selector = ", ".join(s + suffix for s in selectors)
-            if gtk4_directory is not None:
-                cell_width = CELL_WIDTHS[button]
-                graphic = (gtk4_directory / f"{kind}-{state}.svg").as_uri()
-                hidpi = (gtk4_directory / f"{kind}-{state}@2x.svg").as_uri()
-                rules.append(
-                    f"{selector} {{ min-width: {cell_width}px; min-height: {FACE_HEIGHT}px; "
-                    f'background: -gtk-scaled(url("{graphic}"), url("{hidpi}")) center / '
-                    f"{cell_width}px {FACE_HEIGHT}px no-repeat; }}"
-                )
-                continue
+            graphic = (directory / f"{kind}-{state}.svg").as_uri()
+            hidpi = (directory / f"{kind}-{state}@2x.svg").as_uri()
             rules.append(
-                f'{selector} {{ min-width: {width}px; min-height: {height}px; background-image: url("{sheet}"); '
-                f"background-size: {len(AURORAE_STATES) * stride}px {height}px; "
-                f"background-position: {-index * stride}px center; }}"
+                f"{selector} {{ min-width: {width}px; min-height: {FACE_HEIGHT}px; "
+                f'background-image: -gtk-scaled(url("{graphic}"), url("{hidpi}")); '
+                f"background-size: {width}px {FACE_HEIGHT}px; background-position: center; }}"
             )
     return "\n".join(rules)
 
 
 if __name__ == "__main__":
     if sys.argv[1] == "--write-buttons":
-        write_gtk4_faces(Path(sys.argv[2]))
+        directory = Path(sys.argv[2])
+        write_gtk4_faces(directory)
+        write_gtk3_faces(directory / "gtk3")
     else:
-        directory = (
-            Path.home() / ".local/share/chicago95/gtk4-caption" if os.environ.get("GTK_VERSION") == "4.0" else None
-        )
-        print(caption_css(Path(sys.argv[1]), directory))
+        directory = Path(sys.argv[1])
+        gtk4 = os.environ.get("GTK_VERSION") == "4.0"
+        print(caption_css(directory if gtk4 else directory / "gtk3", gtk4))

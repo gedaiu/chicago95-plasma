@@ -1924,7 +1924,7 @@ def test_xp_classic_uses_xp_boot_and_icons_with_classic_logon(tmp_path):
 def test_windows_98_boot_has_its_own_artwork_and_retains_password_prompts(tmp_path):
     import importlib.util
 
-    from PIL import Image
+    from PIL import Image, ImageChops, ImageStat
 
     spec = importlib.util.spec_from_file_location("boot98", REPO / "setup/make_98_boot.py")
     module = importlib.util.module_from_spec(spec)
@@ -1944,6 +1944,16 @@ def test_windows_98_boot_has_its_own_artwork_and_retains_password_prompts(tmp_pa
     for frame in target.glob("win95_boot_*.png"):
         assert Image.open(frame).crop((0, 0, 640, 472)).tobytes() == Image.open(art).crop((0, 0, 640, 472)).tobytes()
     assert len(list(target.glob("win95_boot_*.png"))) == 20
+
+    # Compare the whole cloud/wordmark composition and the caption's ink box to LOGOW.SYS.
+    with Image.open(target / "win95_shutdown-01.png") as frame:
+        preview = frame.resize((160, 120), Image.Resampling.BOX)
+    with Image.open(REPO / "tests/references/win98-se-shutdown-preview.png") as native:
+        assert max(ImageStat.Stat(ImageChops.difference(preview, native)).mean) < 3
+        for image in (preview, native):
+            caption = image.crop((45, 108, 125, 119)).getchannel("R").point(lambda v: 255 if v < 120 else 0)
+            left, top, right, bottom = caption.getbbox()
+            assert (left, top, right, bottom) == (10, 4, 63, 8)
 
 
 def test_the_users_picture_is_their_face_file_when_they_have_one(tmp_path):

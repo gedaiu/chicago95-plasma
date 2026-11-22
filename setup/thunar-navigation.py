@@ -11,6 +11,7 @@ tree = ElementTree.parse(path)
 for name, kind, value in (
     ("last-location-bar", "string", "ThunarLocationButtons"),
     ("last-menubar-visible", "bool", "false"),
+    ("last-toolbar-items", "string", "back:1,forward:1,location-bar:1,search:1,menu:1"),
 ):
     element = tree.find(f"property[@name='{name}']")
     if element is None:

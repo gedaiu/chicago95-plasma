@@ -1523,7 +1523,7 @@ gtk_gradient() { # gtk_gradient <colour[,colour]>   a CSS background for a title
 # decoration gets the XP gradient, rounded top corners and caption instead.
 gtk_titlebar_rules() {
   if [ "${SETUP_DECORATION:-classic}" = aero ]; then
-    python3 "$REPO/aero/gtk/caption.py" "$HOME/.local/share/aurorae/themes/Chicago95Aero"
+    python3 "$REPO/aero/gtk/caption.py" "$STATE_DIR/gtk4-caption"
     return
   fi
   if [ "${SETUP_DECORATION:-classic}" = luna ]; then
@@ -1621,6 +1621,7 @@ step_explorer() {
     if [ "${SETUP_IN_PLASMA:-0}" = 1 ] && command -v xfconf-query >/dev/null 2>&1; then
       run xfconf-query -c thunar -p /last-location-bar -n -t string -s ThunarLocationButtons
       run xfconf-query -c thunar -p /last-menubar-visible -n -t bool -s false
+      run xfconf-query -c thunar -p /last-toolbar-items -n -t string -s back:1,forward:1,location-bar:1,search:1,menu:1
     else
       run python3 "$REPO/setup/thunar-navigation.py" "$thunar_xml"
     fi

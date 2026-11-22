@@ -339,48 +339,24 @@ Rectangle {
             text: root.loadingText
         }
 
-        // Sunken progress bar: grey shadow on top, darker on the left, white bottom-right, the bar's own grey
-        // inside, 8px navy blocks 1px apart.
-        Item {
+        // Windows 2000 Professional, 1×. The shadow owns the two diagonal corners.
+        Rectangle {
             x: root.layoutX + root.px(273)
             y: root.px(436)
             width: root.px(165)
             height: root.px(10)
-            Rectangle {
-                x: 0
-                y: 0
-                width: root.px(1)
-                height: parent.height
-                color: "#7d8196"
-            }
-            Rectangle {
-                x: 0
-                y: 0
-                width: parent.width
-                height: root.px(1)
-                color: "#898689"
-            }
-            Rectangle {
-                x: 0
-                y: parent.height - height
-                width: root.px(1)
-                height: root.px(1)
-                color: "#898689"
-            }
-            // The shadow owns the bottom-left and top-right corner pixels; the white edges start one pixel in.
+            color: "#808080"
             Rectangle {
                 x: root.px(1)
-                y: parent.height - root.px(1)
-                width: parent.width - root.px(1)
-                height: root.px(1)
-                color: "#f7f7f7"
-            }
-            Rectangle {
-                x: parent.width - root.px(1)
                 y: root.px(1)
-                width: root.px(1)
-                height: parent.height - root.px(1)
-                color: "#f7f7f7"
+                width: parent.width - x
+                height: parent.height - y
+                color: "white"
+                Rectangle {
+                    width: parent.width - root.px(1)
+                    height: parent.height - root.px(1)
+                    color: "#c0c0c0"
+                }
             }
             Repeater {
                 model: Math.round(Math.min(root.stage, root.stages) / root.stages * 18)
@@ -390,7 +366,7 @@ Rectangle {
                     y: root.px(1)
                     width: root.px(8)
                     height: root.px(8)
-                    color: "#0025a0"
+                    color: "#00289f"
                 }
             }
         }

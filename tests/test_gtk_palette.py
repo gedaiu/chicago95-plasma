@@ -36,7 +36,7 @@ def test_theme_colours_change_without_recolouring_text_fields_or_transparency(tm
     assert Image.open(source / "control.png").getpixel((0, 0)) == (192, 192, 192, 255)
 
 
-@pytest.mark.parametrize("look", ("2000", "2001"))
+@pytest.mark.parametrize("look", ("1995", "1998", "2000", "2001"))
 def test_native_gtk_controls_match_the_window_palette(qt_app, tmp_path, look):
     import json
     import shutil
@@ -46,25 +46,30 @@ def test_native_gtk_controls_match_the_window_palette(qt_app, tmp_path, look):
 
     if not shutil.which("kwin_wayland"):
         pytest.skip("native GTK checks require isolated KWin")
+    classic_grey = look in ("1995", "1998")
+    face = (192, 192, 192) if classic_grey else (212, 208, 200)
+    selection = (0, 0, 128) if classic_grey else (10, 36, 106)
     with themed(qt_app, look):
         scheme = chicago95ui.read_scheme()
-        assert scheme["face"].getRgb()[:3] == (212, 208, 200)
+        assert scheme["face"].getRgb()[:3] == face
     gtk_controls(look, tmp_path, audit=True, audit_kinds=("palette", "dropdown", "spinbox"))
     for version in ("3.0", "4.0"):
         output = tmp_path / f"gtk-{version}"
         for _group, label, filename in json.loads((output / "manifest.json").read_text()):
             image = Image.open(output / filename).convert("RGBA")
-            background = Image.new("RGBA", image.size, "#d4d0c8")
+            background = Image.new("RGBA", image.size, face)
             background.alpha_composite(image)
             colours = list(background.convert("RGB").get_flattened_data())
-            assert (192, 192, 192) not in colours, f"{version} {label} retained the Windows 95 face"
-            assert colours.count((212, 208, 200)) > 50
+            if not classic_grey:
+                assert (192, 192, 192) not in colours, f"{version} {label} retained the Windows 95 face"
+            if label not in ("palette entry", "palette selection"):
+                assert colours.count(face) > 50, (version, label)
             if label == "palette entry":
-                assert colours.count((255, 255, 255)) > 100
+                assert background.getpixel((image.width // 2, image.height // 2))[:3] == (255, 255, 255)
             if label == "palette selection":
-                assert colours.count((10, 36, 106)) > 20
+                assert colours.count(selection) > 20
             if label in ("palette button", "palette disabled-button", "palette disabled-entry"):
-                assert background.convert("RGB").getpixel((image.width // 2, image.height // 2)) == (212, 208, 200)
+                assert background.convert("RGB").getpixel((image.width // 2, image.height // 2)) == face
 
 
 def test_installed_theme_keeps_a_pristine_copy_for_scheme_changes(tmp_path):

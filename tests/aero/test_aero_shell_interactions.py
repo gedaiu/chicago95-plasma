@@ -163,11 +163,12 @@ def test_offline_thunar_profile_keeps_other_settings_on_reinstall(tmp_path):
     for _ in range(2):
         subprocess.run([sys.executable, REPO / "setup/thunar-navigation.py", profile], check=True)
     properties = ElementTree.parse(profile).getroot().findall("property")
-    assert len(properties) == 3
+    assert len(properties) == 4
     assert {item.get("name"): item.get("value") for item in properties} == {
         "last-view": "ThunarIconView",
         "last-location-bar": "ThunarLocationButtons",
         "last-menubar-visible": "false",
+        "last-toolbar-items": "back:1,forward:1,location-bar:1,search:1,menu:1",
     }
 
 

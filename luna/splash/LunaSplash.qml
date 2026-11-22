@@ -1,12 +1,4 @@
-/*
- * The Windows XP boot splash at 640x480, the layout measured from tests/references/xpsplash.png.
- *
- * Fitted gradients. The reference is a 256-colour screenshot, so each block's profile was read from the
- * columns 308..312 / 316..320 / 324..328 averaged, rows 354..362 (the 9 rows of a block), and reduced to the
- * fewest linear stops that stay within 12 per channel of the 3-row moving average (max deviation 0.3, 6.0, 6.7).
- * Positions are fractions of the block's 9px height, sampled at pixel centres: row k is (k + 0.5) / 9.
- * The three blocks of a group are three different slices of the animated sheen, so each has its own stops.
- */
+// Windows XP SP3, measured at 640 × 480. Each sweep has 18 discrete states.
 import QtQuick 2.15
 import "../qml"
 
@@ -27,22 +19,10 @@ Rectangle {
     readonly property real layoutX: (width - 640 * unit) / 2
     readonly property real layoutY: (height - 480 * unit) / 2
     readonly property real wordmarkScale: 1.85
-    readonly property int sweepMilliseconds: 1000
-    readonly property int blockCount: 3
-    readonly property real blockPitch: 8
-    readonly property real groupWidth: blockPitch * blockCount - 2
-    readonly property real troughInnerWidth: 122
-    readonly property string navy: "#2838c7"
-    readonly property string blue: "#5979ef"
-    readonly property string sheen: "#869ef3"
-    readonly property real blockHeight: 9
+    readonly property int sweepMilliseconds: 1688
+    readonly property int step: Math.min(17, Math.floor(phase * 18))
 
     color: "#000000"
-
-    component Block: Rectangle {
-        width: 6 * root.unit
-        height: root.blockHeight * root.unit
-    }
 
     NumberAnimation on phase {
         running: root.animated
@@ -66,118 +46,26 @@ Rectangle {
         company: root.company
     }
 
-    Rectangle {
-        id: trough
+    Image {
         x: root.layoutX + 255 * root.unit
         y: root.layoutY + 351 * root.unit
         width: 126 * root.unit
         height: 15 * root.unit
-        radius: 4 * root.unit
-        color: "#000000"
-        border.width: root.unit
-        border.color: "#b2b2b2"
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: root.unit
-            radius: 3 * root.unit
-            color: "transparent"
-            border.width: root.unit
-            border.color: "#414141"
-        }
+        source: "boot-trough.svg"
+        smooth: false
+
         Item {
-            x: 2 * root.unit
-            y: 2 * root.unit
-            width: root.troughInnerWidth * root.unit
-            height: parent.height - 4 * root.unit
+            x: 4 * root.unit
+            y: 3 * root.unit
+            width: 118 * root.unit
+            height: 9 * root.unit
             clip: true
-            Row {
-                x: (-root.groupWidth + root.phase * (root.troughInnerWidth + root.groupWidth)) * root.unit
-                y: 1 * root.unit
-                spacing: 2 * root.unit
-                Block {
-                    gradient: Gradient {
-                        GradientStop {
-                            position: 0.056
-                            color: root.navy
-                        }
-                        GradientStop {
-                            position: 0.167
-                            color: root.blue
-                        }
-                        GradientStop {
-                            position: 0.278
-                            color: root.sheen
-                        }
-                        GradientStop {
-                            position: 0.389
-                            color: root.sheen
-                        }
-                        GradientStop {
-                            position: 0.5
-                            color: root.blue
-                        }
-                        GradientStop {
-                            position: 0.611
-                            color: root.navy
-                        }
-                    }
-                }
-                Block {
-                    gradient: Gradient {
-                        GradientStop {
-                            position: 0.056
-                            color: root.navy
-                        }
-                        GradientStop {
-                            position: 0.167
-                            color: root.blue
-                        }
-                        GradientStop {
-                            position: 0.278
-                            color: root.sheen
-                        }
-                        GradientStop {
-                            position: 0.389
-                            color: root.sheen
-                        }
-                        GradientStop {
-                            position: 0.58
-                            color: root.blue
-                        }
-                        GradientStop {
-                            position: 0.7
-                            color: root.navy
-                        }
-                    }
-                }
-                Block {
-                    gradient: Gradient {
-                        GradientStop {
-                            position: 0.056
-                            color: root.navy
-                        }
-                        GradientStop {
-                            position: 0.167
-                            color: root.blue
-                        }
-                        GradientStop {
-                            position: 0.278
-                            color: root.sheen
-                        }
-                        GradientStop {
-                            position: 0.5
-                            color: root.sheen
-                        }
-                        GradientStop {
-                            position: 0.7
-                            color: root.blue
-                        }
-                        GradientStop {
-                            position: 0.78
-                            color: root.navy
-                        }
-                    }
-                }
+            Image {
+                x: (root.step - 3) * 8 * root.unit
+                width: 22 * root.unit
+                height: parent.height
+                source: "boot-blocks.svg"
+                smooth: false
             }
         }
     }
