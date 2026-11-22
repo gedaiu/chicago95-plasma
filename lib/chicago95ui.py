@@ -15,12 +15,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+from PySide6.QtCore import QCoreApplication
+
 CHICAGO95RC = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "chicago95rc")
 
 
 def widget_style():
     settings = configparser.ConfigParser(interpolation=None, strict=False)
     settings.read(CHICAGO95RC)
+    if QCoreApplication.instance() and QCoreApplication.applicationName() == "Control Panel":
+        override = settings.get("Look", "controlPanelStyle", fallback="auto")
+        if override in ("classic", "luna", "aero"):
+            return override
     return settings.get("Look", "widgetStyle", fallback="classic")
 
 

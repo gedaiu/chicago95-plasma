@@ -21,6 +21,7 @@ APPLET_NAMES = [
     "Sounds",
     "System",
     "Taskbar",
+    "Themes",
     "Updates",
 ]
 
@@ -57,7 +58,7 @@ def test_control_panel_lists_its_applets_alphabetically(window):
 
 
 def test_status_bar_counts_the_objects_when_nothing_is_selected(window):
-    assert window.status_message.text() == "14 object(s)"
+    assert window.status_message.text() == "15 object(s)"
 
 
 def test_status_bar_shows_the_selected_applets_description(window):
@@ -317,7 +318,7 @@ def test_status_bar_is_empty_on_an_applet_page_and_counts_again_on_the_control_p
     on_page = window.status_message.text()
     window.back_action.trigger()
 
-    assert (on_page, window.status_message.text()) == ("", "14 object(s)")
+    assert (on_page, window.status_message.text()) == ("", "15 object(s)")
 
 
 def saved_settings_with_a_setup_checkout(window, tmp_path, **settings):
@@ -473,7 +474,7 @@ def test_status_bar_shows_the_object_count_the_place_icon_and_a_size_grip(window
         window.status_message.text(),
         window.status_place_icon.pixmap().isNull(),
         window.statusBar().grip.isVisible(),
-    ) == ("14 object(s)", False, True)
+    ) == ("15 object(s)", False, True)
 
 
 def test_size_grip_hides_while_the_window_is_maximized_and_returns_when_restored(window, qt_app):
@@ -500,3 +501,76 @@ def test_address_bar_shows_only_the_current_pages_crumbs_after_moving_between_ap
     ]
 
     assert visible == ["Control Panel", "Mouse"]
+
+
+def test_themes_applies_xp_with_an_independent_control_panel_style(window, control_panel):
+    control_panel.write_settings(
+        window.settings_path,
+        {"REPO": str(REPO), "LOOK": "aero", "SOUND_THEME": "Windows7", "COMPONENTS": "switcher explorer"},
+    )
+    window.open_applet("Themes")
+    page = window.applet_sheet("Themes")
+    theme, style = page.findChildren(QComboBox)
+    theme.setCurrentIndex(theme.findData("luna"))
+    style.setCurrentIndex(style.findData("classic"))
+    assert page.apply()
+    saved = control_panel.read_settings(window.settings_path)
+    assert (
+        saved.items()
+        >= {
+            "LOOK": "luna",
+            "CONTROL_PANEL_STYLE": "classic",
+            "WIDGET_STYLE": "luna",
+            "BOOT_STYLE": "luna",
+            "LOGIN_STYLE": "luna",
+            "TASKBAR_STYLE": "luna",
+            "START_MENU_STYLE": "luna",
+            "SOUND_THEME": "WindowsXP",
+            "ICONS": "windowsxp",
+            "PANEL": "30",
+        }.items()
+    )
+    assert {"look", "sounds", "startmenu", "taskbar", "sddm", "plymouth", "switcher", "explorer"} <= set(
+        window.ran[-1][-1].split("=")[1].split(",")
+    )
+    assert not page.changed_values()
+
+
+def test_theme_selector_previews_each_preset_before_apply(window, control_panel, qt_app, tmp_path):
+    from PIL import Image, ImageChops, ImageStat
+    from PySide6.QtTest import QTest
+
+    window.show()
+    window.open_applet("Themes")
+    page = window.applet_sheet("Themes")
+    preview = page.findChild(control_panel.DesktopThemePreview)
+    selector = preview.selector
+    qt_app.processEvents()
+    baseline = page.baseline.copy()
+    selector.showPopup()
+    qt_app.processEvents()
+    for label, look in control_panel.START_MENU_STYLES:
+        index = selector.findData(look)
+        selector.highlighted.emit(index)
+        assert not selector.itemIcon(index).isNull()
+        assert preview.accessibleName() == f"{label} desktop preview"
+        shot = tmp_path / f"{look}.png"
+        assert preview.grab().save(str(shot))
+        with Image.open(shot) as actual, Image.open(REPO / f"data/control-panel/theme-previews/{look}.jpg") as expected:
+            width = min(actual.width, round(actual.height * 4 / 3))
+            height = round(width * 3 / 4)
+            left, top = (actual.width - width) // 2, (actual.height - height) // 2
+            actual = actual.convert("RGB").crop((left, top, left + width, top + height))
+            # Compare at thumbnail size to smooth differences in Qt and Pillow's image resampling.
+            difference = ImageChops.difference(
+                actual.resize((64, 48), Image.Resampling.LANCZOS), expected.resize((64, 48), Image.Resampling.LANCZOS)
+            )
+            assert max(ImageStat.Stat(difference).mean) < 5, look
+    QTest.keyClick(selector.view(), Qt.Key_Escape)
+    qt_app.processEvents()
+    assert preview.look == baseline["LOOK"]
+    assert page.collect_values() == baseline and not window.ran
+    selector.setCurrentIndex(selector.findData("luna"))
+    assert preview.look == "luna" and not window.ran
+    page.discard_changes()
+    assert preview.look == baseline["LOOK"]

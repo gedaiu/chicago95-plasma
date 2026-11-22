@@ -1441,6 +1441,7 @@ def test_look_luna_writes_the_component_keys_to_chicago95rc(tmp_path):
         if "would: kwriteconfig6 --file chicago95rc" in line
     ] == [
         "--group Look --key decoration luna",
+        "--group Look --key controlPanelStyle auto",
         "--group Look --key widgetStyle luna",
         "--group Look --key bevel 2000",
         "--group Look --key taskbarStyle luna",
@@ -2439,3 +2440,11 @@ def test_explicit_wobble_flag_applies_the_animations_component(tmp_path):
     log = dry_run_log(tmp_path, "--components=look", "--wobbly=blurred")
     assert "build-native.sh --install-wobbly" in log
     assert plugin("better_wobblywindows", "true") in log
+
+
+def test_xp_setup_accepts_an_independent_control_panel_style(tmp_path):
+    result = run_setup(tmp_path, "--look=luna", "--control-panel-style=aero", "--components=sounds")
+    assert result.returncode == 0, result.stderr
+    saved = (tmp_path / ".config/chicago95/setup.conf").read_text().splitlines()
+    assert {"CONTROL_PANEL_STYLE=aero", "WIDGET_STYLE=luna", "LOOK=luna", "SOUND_THEME=WindowsXP"} <= set(saved)
+    assert (tmp_path / ".local/share/sounds/WindowsXP/stereo/desktop-login.ogg").is_file()

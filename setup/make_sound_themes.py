@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Builds the freedesktop sound themes in data/sound-themes/ from the original sound archives.
 
-    python3 -I setup/make_sound_themes.py ~/Downloads/Windows98Sounds.zip ~/Downloads/WIN2000R_v2.7z
+    python3 -I setup/make_sound_themes.py ~/Downloads/Windows98Sounds.zip ~/Downloads/WIN2000R_v2.7z [xpwav.zip]
 
 Each scheme folder becomes <Id>/index.theme plus stereo/<event>.ogg. Events a scheme lacks fall back
 to Chicago95 through Inherits=. The output is committed; this only runs again when the sources change.
@@ -36,6 +36,36 @@ WINDOWS_98_EVENTS = {
     "menu command": ["menu-click"],
 }
 
+# Windows XP default scheme from https://lelegofrog.github.io/winwavxp.html (xpwav.zip).
+WINDOWS_XP_EVENTS = {
+    "startup": ["system-ready"],
+    "shutdown": ["system-shutdown"],
+    "logon sound": ["desktop-login"],
+    "logoff sound": ["desktop-logout"],
+    "critical stop": ["dialog-error"],
+    "exclamation": ["dialog-warning"],
+    "ding": ["bell", "bell-window-system"],
+    "default": ["dialog-question"],
+    "notify": ["message-new-instant"],
+    "balloon": ["dialog-information"],
+    "error": ["software-error"],
+    "information bar": ["browser-information"],
+    "pop-up blocked": ["browser-popup-blocked"],
+    "start": ["link-pressed"],
+    "hardware insert": ["device-added"],
+    "hardware remove": ["device-removed"],
+    "hardware fail": ["device-error"],
+    "battery critical": ["battery-caution"],
+    "battery low": ["battery-low"],
+    "print complete": ["complete-print"],
+    "recycle": ["trash-empty"],
+    "minimize": ["window-minimized"],
+    "restore": ["window-unminimized"],
+    "menu command": ["menu-click"],
+    "ringin": ["phone-incoming-call"],
+    "ringout": ["phone-outgoing-calling"],
+}
+
 WINDOWS_2000_EVENTS = {
     "windows logon": ["desktop-login"],
     "windows logoff": ["desktop-logout", "system-shutdown"],
@@ -63,7 +93,7 @@ def event_name(wav_name: str, scheme: str) -> str:
     stem = Path(wav_name).stem.lower()
     stem = re.sub(r"\s*remastered$", "", stem)
     stem = stem.removeprefix(scheme.lower()).strip()
-    return EVENT_ALIASES.get(stem, stem) if scheme != "Windows 2000" else stem
+    return EVENT_ALIASES.get(stem, stem) if scheme not in ("Windows 2000", "Windows XP") else stem
 
 
 def theme_id(scheme: str) -> str:
@@ -95,7 +125,7 @@ def extract(archive: Path, into: Path):
     subprocess.run(["7z", "x", "-y", f"-o{into}", str(archive)], check=True, stdout=subprocess.DEVNULL)
 
 
-def main(windows_98_zip: str, windows_2000_7z: str):
+def main(windows_98_zip: str, windows_2000_7z: str, windows_xp_zip: str | None = None):
     with tempfile.TemporaryDirectory() as unpacked_98, tempfile.TemporaryDirectory() as unpacked_2000:
         extract(Path(windows_98_zip), Path(unpacked_98))
         extract(Path(windows_2000_7z), Path(unpacked_2000))
@@ -104,6 +134,11 @@ def main(windows_98_zip: str, windows_2000_7z: str):
             build_theme(scheme, list(folder.glob("*.wav")), WINDOWS_98_EVENTS)
         build_theme("Windows 2000", list(Path(unpacked_2000).rglob("*.wav")), WINDOWS_2000_EVENTS)
 
+    if windows_xp_zip:
+        with tempfile.TemporaryDirectory() as unpacked:
+            extract(Path(windows_xp_zip), Path(unpacked))
+            build_theme("Windows XP", list(Path(unpacked).rglob("*.wav")), WINDOWS_XP_EVENTS)
+
 
 if __name__ == "__main__":
-    main(*sys.argv[1:3])
+    main(*sys.argv[1:])

@@ -7,8 +7,8 @@ from conftest import REPO
 THEMES = sorted((REPO / "data/sound-themes").iterdir())
 
 
-def test_sound_themes_hold_windows_98_windows_2000_and_the_16_plus_schemes():
-    assert (len(THEMES), {"Windows98", "Windows2000"} <= {theme.name for theme in THEMES}) == (19, True)
+def test_sound_themes_hold_windows_98_2000_xp_and_plus_schemes():
+    assert (len(THEMES), {"Windows98", "Windows2000", "WindowsXP"} <= {theme.name for theme in THEMES}) == (20, True)
 
 
 @pytest.mark.parametrize("theme", THEMES, ids=lambda theme: theme.name)

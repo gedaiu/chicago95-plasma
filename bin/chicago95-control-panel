@@ -139,6 +139,7 @@ COMPONENTS_BY_KEY = {
     "LOOK": ("look", "taskbar", "startmenu"),
     "DECORATION": ("look",),
     "WIDGET_STYLE": ("look",),
+    "CONTROL_PANEL_STYLE": ("look",),
     "BEVEL": ("look",),
     "TASKBAR_STYLE": ("taskbar", "look"),
     "START_MENU_STYLE": ("startmenu",),
@@ -411,6 +412,7 @@ APPLETS = (
         ("preferences-system-windows", "start-here"),
         "Changes the Start button, Start menu, taskbar and Quick Launch.",
     ),
+    Applet("Themes", ("preferences-desktop-theme", "preferences-desktop"), "Applies a complete desktop theme."),
     Applet(
         "Updates",
         ("system-software-update", "update-none"),
@@ -432,6 +434,7 @@ PAGE_TABS = {
     "Passwords": ("Log On", "Branding"),
     "Sounds": ("Sounds",),
     "Taskbar": ("Taskbar Options", "Start Menu", "Quick Launch"),
+    "Themes": ("Desktop Theme",),
     "Updates": ("Updates",),
 }
 
@@ -447,6 +450,7 @@ PAGE_SLUGS = {
     "passwords": "Passwords",
     "sounds": "Sounds",
     "taskbar": "Taskbar",
+    "themes": "Themes",
     "updates": "Updates",
 }
 
@@ -3108,7 +3112,7 @@ class PropertiesPage(QWidget):
         self.tabs = window_chrome().tab_control()
         self.settings_tabs = [tab for _name, tab in tabs]
         for name, tab in tabs:
-            area = scrolling(tab)
+            area = tab if title == "Themes" else scrolling(tab)
             if title == "Display":
                 tab.ensurePolished()
                 area.setMinimumSize(tab.minimumSizeHint().expandedTo(tab.minimumSize()))
@@ -3143,8 +3147,13 @@ class PropertiesPage(QWidget):
 
     def changed_values(self):
         changed = {key: value for key, value in self.collect_values().items() if self.baseline.get(key) != value}
-        if changed.get("LOOK") == "aero":
-            preset = LOOK_PRESETS["aero"]
+        if self.title == "Themes":
+            look = changed.get("LOOK")
+            if look in LOOK_PRESETS:
+                return self.collect_values()
+            return changed
+        if changed.get("LOOK") in ("2001", "luna", "aero"):
+            preset = desktop_theme(changed["LOOK"], self.settings_tabs[0].saved)
             changed.update({key: preset[key] for key in ("LOGIN_STYLE", "BOOT_STYLE", "SOUND_THEME")})
         return with_custom_look(changed)
 
@@ -3923,14 +3932,7 @@ def appearance_tab(settings, actions):
     tab.previews.append(tab.preview)
     tab.outer.insertWidget(0, tab.preview)
     tab.scheme = chicago95ui.classic_combo(QComboBox())
-    for label, value in (
-        ("Windows 95", "1995"),
-        ("Windows 98", "1998"),
-        ("Windows 2000", "2000"),
-        ("Windows XP Classic", "2001"),
-        ("Windows XP", "luna"),
-        ("Custom", "custom"),
-    ):
+    for label, value in [*START_MENU_STYLES, ("Custom", "custom")]:
         tab.scheme.addItem(label, value)
     tab.save_as_button = chicago95ui.dialog_button("Sa&ve As...", enabled=False)
     tab.delete_button = chicago95ui.dialog_button("&Delete", enabled=False)
@@ -4337,7 +4339,129 @@ SOUND_EVENTS = (
     ("window-maximized", "Maximize"),
     ("window-minimized", "Minimize"),
     ("menu-popup", "Menu Popup"),
+    ("system-ready", "System startup"),
+    ("system-shutdown", "System shutdown"),
+    ("device-added", "Device connected"),
+    ("device-removed", "Device disconnected"),
+    ("battery-low", "Low battery"),
+    ("complete-print", "Print complete"),
+    ("device-error", "Device failed"),
+    ("battery-caution", "Critical battery"),
+    ("message-new-instant", "Notification"),
+    ("window-unminimized", "Restore window"),
+    ("menu-click", "Menu command"),
+    ("software-error", "Program error"),
+    ("browser-information", "Browser information bar"),
+    ("browser-popup-blocked", "Pop-up blocked"),
+    ("link-pressed", "Start navigation"),
+    ("phone-incoming-call", "Incoming call"),
+    ("phone-outgoing-calling", "Outgoing call"),
 )
+
+
+def desktop_theme(look, settings):
+    login, boot, sound, height = {
+        "1995": ("classic", "classic", "Chicago95", "28"),
+        "1998": ("classic", "classic", "Windows98", "28"),
+        "2000": ("2000", "2000", "Windows2000", "28"),
+        "2001": ("2000", "luna", "WindowsXP", "28"),
+        "luna": ("luna", "luna", "WindowsXP", "30"),
+        "aero": ("aero", "7", "Windows7", "40"),
+    }[look]
+    return {
+        "LOGIN_STYLE": login,
+        "BOOT_STYLE": boot,
+        "SOUND_THEME": sound,
+        "PANEL": height,
+        "CONTROL_PANEL_STYLE": "auto",
+        "START_LOGO": "flag",
+        "BANNER_TEXT": "Chicago95",
+        "BACKGROUND_MODE": "color",
+        "DESKTOP_ICONS": "auto",
+        "SPLASH_IMAGE": str(splash_of(settings) / "images/windows98.png") if look == "1998" else "classic",
+        "QUICK_LAUNCH": "auto",
+        "TASK_GROUPING": "auto",
+        **LOOK_PRESETS[look],
+        "ICONS": "windowsxp" if look == "2001" else LOOK_PRESETS[look]["ICONS"],
+    }
+
+
+class DesktopThemePreview(QWidget):
+    def __init__(self, selector, settings):
+        super().__init__()
+        self.selector = selector
+        self.images = {}
+        source = repo_of(settings) / "data/control-panel/theme-previews"
+        installed = CHICAGO95_DATA / "control-panel/theme-previews"
+        selector.setIconSize(QSize(32, 24))
+        for look in LOOK_PRESETS:
+            path = source / f"{look}.jpg"
+            image = QPixmap(str(path if path.is_file() else installed / path.name))
+            self.images[look] = image
+            selector.setItemIcon(selector.findData(look), QIcon(image))
+        self.setMinimumSize(160, 120)
+        selector.highlighted.connect(self.show_index)
+        selector.currentIndexChanged.connect(self.show_index)
+        selector.view().installEventFilter(self)
+        self.show_index(selector.currentIndex())
+
+    def show_index(self, index):
+        self.look = self.selector.itemData(index)
+        self.setAccessibleName(f"{self.selector.itemText(index)} desktop preview")
+        self.update()
+
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Hide:
+            self.show_index(self.selector.currentIndex())
+        return super().eventFilter(watched, event)
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        image = self.images.get(self.look)
+        if image is None or image.isNull():
+            painter.drawText(self.rect(), Qt.AlignCenter, "No preset preview")
+            return
+        size = image.size().scaled(self.size(), Qt.KeepAspectRatio)
+        target = QRect(QPoint(), size)
+        target.moveCenter(self.rect().center())
+        scaled = image.scaled(size * self.devicePixelRatioF(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        painter.drawPixmap(target, scaled, scaled.rect())
+
+
+@tab_builder("Themes", "Desktop Theme")
+def themes_tab(settings, actions):
+    tab = SettingsTab(settings, actions)
+    theme = tab.choice("LOOK", "Desktop theme:", [*START_MENU_STYLES, ("Custom", "custom")], "1995")
+    theme.model().item(theme.findData("custom")).setEnabled(False)
+    label = QLabel(
+        "Applies window frames, controls, desktop colours, icons, taskbar, Start menu, "
+        "sign-in and boot screens, and sounds."
+    )
+    label.setWordWrap(True)
+    tab.form.addRow(label)
+    panel_style = tab.choice(
+        "CONTROL_PANEL_STYLE", "Control Panel style:", [("Follow desktop theme", "auto"), *COMPONENT_STYLES], "auto"
+    )
+    tab.outer.takeAt(tab.outer.count() - 1)  # give the preview the space below the two selectors
+    tab.outer.addWidget(DesktopThemePreview(theme, settings), 1)
+    saved_look = settings.get("LOOK")
+    defaults = desktop_theme(saved_look if saved_look in LOOK_PRESETS else "1995", settings)
+    values = {}
+    for key, default in defaults.items():
+        if key != "CONTROL_PANEL_STYLE":
+            tab.track(key, lambda key=key: values[key], lambda value, key=key: values.update({key: value}), default)
+
+    def select_theme():
+        look = theme.currentData()
+        if tab.loading or look not in LOOK_PRESETS:
+            return
+        values.update(desktop_theme(look, settings))
+        panel_style.setCurrentIndex(panel_style.findData("auto"))
+        tab.notify()
+
+    theme.currentIndexChanged.connect(select_theme)
+    theme.activated.connect(select_theme)
+    return tab
 
 
 @tab_builder("Sounds", "Sounds")
@@ -4346,8 +4470,9 @@ def sounds_tab(settings, actions):
     themes = [(name, theme_id) for theme_id, name in installed_sound_themes(actions.sound_roots)]
     if not themes:
         themes.append(("Chicago95", "Chicago95"))
-    if not any(theme_id == "Windows7" for _, theme_id in themes):
-        themes.append(("Windows 7", "Windows7"))
+    for label, scheme_id in (("Windows XP", "WindowsXP"), ("Windows 7", "Windows7")):
+        if not any(theme_id == scheme_id for _, theme_id in themes):
+            themes.append((label, scheme_id))
     scheme = tab.choice("SOUND_THEME", "Scheme:", themes, default="Chicago95")
     events = QListWidget()
     for event, label in SOUND_EVENTS:
@@ -4987,6 +5112,11 @@ class ControlPanel(QMainWindow):
             )
             return False
         components = components_for(changes)
+        page = self.current_applet_page()
+        if page and page.title == "Themes" and "LOOK" in changes:
+            installed = set(settings.get("COMPONENTS", "").split())
+            refresh = installed.intersection({"switcher", "explorer", "notifications"})
+            components = [component for component in INSTALL_ORDER if component in components or component in refresh]
         if components:
             self.actions.run_setup(self, setup_command(repo, self.settings_path, components))
         return True

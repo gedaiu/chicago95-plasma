@@ -98,7 +98,7 @@ kconf() {
 }
 
 # The choices the Control Panel saves in ~/.config/chicago95/setup.conf, one KEY=value per line; KEY sets SETUP_KEY.
-SETTINGS_KEYS="LOOK DECORATION WIDGET_STYLE TASKBAR_STYLE START_MENU_STYLE BEVEL TITLE_ACTIVE TITLE_INACTIVE BANNER_BG BANNER_FG ICONS FONT FONT_SCOPE CURSOR PANEL MOUSE_HAND DOUBLE_CLICK_MS POINTER_SPEED
+SETTINGS_KEYS="LOOK CONTROL_PANEL_STYLE DECORATION WIDGET_STYLE TASKBAR_STYLE START_MENU_STYLE BEVEL TITLE_ACTIVE TITLE_INACTIVE BANNER_BG BANNER_FG ICONS FONT FONT_SCOPE CURSOR PANEL MOUSE_HAND DOUBLE_CLICK_MS POINTER_SPEED
     TASK_BUTTON_WIDTH QUICK_LAUNCH TASK_GROUPING LAUNCHERS TASKBAR_AUTOHIDE TASKBAR_ON_TOP CLOCK_SHOW CLOCK_HOURS START_TEXT START_LOGO BANNER_TEXT
     SAVER IDLE_MIN LOGIN_STYLE LOGIN_TITLE LOGIN_MESSAGE LOGIN_ICON LOGIN_LOGO EDITION TAGLINE COMPANY COMPANY_LOGO
     BOOT_LOGO BOOT_NAME BOOT_TEXT BOOT_FOOTER BOOT_BACKGROUND BOOT_FOREGROUND BOOT_ACCENT BOOT_FONT
@@ -132,6 +132,8 @@ default_banner_text() { [ "${SETUP_START_MENU_STYLE:-1995}" = 2001 ] && printf '
 
 apply_look() {
   SETUP_LOOK=$1
+  SETUP_CONTROL_PANEL_STYLE=auto
+  SETUP_SOUND_THEME=${OPT_SOUNDS:-Chicago95}
   SETUP_DECORATION=classic
   SETUP_WIDGET_STYLE=classic
   SETUP_TASKBAR_STYLE=classic
@@ -146,12 +148,15 @@ apply_look() {
   case "$1" in
   1995) set -- "#000080;#808080;#808080;#C0C0C0" ;;
   1998)
+    SETUP_SOUND_THEME=${OPT_SOUNDS:-Windows98}
     SETUP_START_MENU_STYLE=1998
     SETUP_SPLASH_IMAGE="$REPO/splash/chicago95.splashscreen/contents/splash/images/windows98.png"
     SETUP_ICONS=${OPT_ICONS:-se98}
     set -- "#000080,#1084D0;#808080,#C0C0C0;#00007B,#00007B@95,#0000B0@70,#0000F8@45,#0000EE@20,#0000A9@0;#FFFFFF"
     ;;
   2000 | 2001)
+    SETUP_SOUND_THEME=${OPT_SOUNDS:-Windows2000}
+    [ "$1" != 2001 ] || SETUP_SOUND_THEME=${OPT_SOUNDS:-WindowsXP}
     SETUP_START_MENU_STYLE=$1
     SETUP_BEVEL=2000
     SETUP_FACE="212,208,200"
@@ -165,6 +170,7 @@ apply_look() {
     set -- "#0A246A,#A6CAF0;#808080,#C0C0C0;#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0;#FFFFFF"
     ;;
   luna)
+    SETUP_SOUND_THEME=${OPT_SOUNDS:-WindowsXP}
     SETUP_DECORATION=luna
     SETUP_WIDGET_STYLE=luna
     SETUP_TASKBAR_STYLE=luna
@@ -1014,6 +1020,7 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   kconf kwinrc org.kde.kdecoration2 ButtonsOnRight IAX
   # chicago95-sync-colors draws the bevels with the look's colours, and reads the look from here.
   run kwriteconfig6 --file chicago95rc --group Look --key decoration "${SETUP_DECORATION:-classic}"
+  run kwriteconfig6 --file chicago95rc --group Look --key controlPanelStyle "${SETUP_CONTROL_PANEL_STYLE:-auto}"
   run kwriteconfig6 --file chicago95rc --group Look --key widgetStyle "${SETUP_WIDGET_STYLE:-classic}"
   run kwriteconfig6 --file chicago95rc --group Look --key bevel "${SETUP_BEVEL:-1995}"
   run kwriteconfig6 --file chicago95rc --group Look --key taskbarStyle "${SETUP_TASKBAR_STYLE:-classic}"
@@ -1417,7 +1424,7 @@ step_mouse() { # the double-click time, and for every pointer KWin has configure
   done < <(sed -n 's/^\[Libinput\]\[\([^]]*\)\]\[\([^]]*\)\]\[\([^]]*\)\]$/\1\t\2\t\3/p' ~/.config/kcminputrc 2>/dev/null)
 }
 
-step_sounds() { # the Windows 98, Plus! and Windows 2000 sound themes, and the one chosen for events
+step_sounds() { # install the bundled sound themes and select the scheme for desktop events
   local theme
   for theme in "$REPO"/data/sound-themes/*/; do
     theme=${theme%/}

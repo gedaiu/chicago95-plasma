@@ -13,10 +13,11 @@
 #     --start-text=Start  --start-logo=flag|penguin|/path/to/image  --banner-text=Chicago95
 #     --look=1995|1998|2000|2001|luna|aero|"active;inactive;banner background;banner text"  (colours: #RRGGBB, a,b = gradient)
 #     --decoration=classic|luna|aero  --widget-style=classic|luna|aero  --taskbar-style=classic|luna|aero  (each overrides the look's choice)
+#     --control-panel-style=auto|classic|luna|aero  (auto follows the widget style)
 #     --wobbly=blurred|yes|no  bending windows with live blur, ordinary wobble, or off
 #     --start-menu-style=1995|1998|2000|2001|luna|aero
 #     --login-style=classic|2000|luna|aero  --boot-style=classic|2000|luna|vista|7|8|8.1|10|11  --icons=chicago95|se98|classicos2000|windowsxp|windows7
-#     --sounds=Chicago95|Windows98|Windows2000|Windows7|Plus98-Jungle|...  (data/sound-themes/)
+#     --sounds=Chicago95|Windows98|Windows2000|WindowsXP|Windows7|Plus98-Jungle|...  (data/sound-themes/)
 #     --branding=distro|windows  name the screens after this computer's distribution (detected) or keep the look's Windows names
 #     --settings=FILE  choices saved by the Control Panel (KEY=value lines), applied over the defaults
 #     --task-button-width=160  longest a task button on the taskbar may be, in pixels
@@ -55,6 +56,8 @@ for arg in "$@"; do
   --wobbly=*) echo "Expected --wobbly=blurred, yes or no" >&2; exit 2 ;;
   --icons=*) OPT_ICONS="${arg#*=}" ;;
   --decoration=*) OPT_DECORATION="${arg#*=}" ;;
+  --control-panel-style=auto | --control-panel-style=classic | --control-panel-style=luna | --control-panel-style=aero) OPT_CONTROL_PANEL_STYLE="${arg#*=}" ;;
+  --control-panel-style=*) echo "Expected --control-panel-style=auto, classic, luna or aero" >&2; exit 2 ;;
   --widget-style=*) OPT_WIDGET_STYLE="${arg#*=}" ;;
   --taskbar-style=*) OPT_TASKBAR_STYLE="${arg#*=}" ;;
   --start-menu-style=*) OPT_START_MENU_STYLE="${arg#*=}" ;;
@@ -221,7 +224,7 @@ ask_colors() { # ask_colors <prompt> <current>   repeats until the answer is one
 
 choose_sounds() {
   local themes=(Chicago95) names=("Chicago95 (Windows 95)") theme choice
-  for theme in Windows98 Windows2000 "$REPO"/data/sound-themes/Plus98-*/; do
+  for theme in Windows98 Windows2000 WindowsXP "$REPO"/data/sound-themes/Plus98-*/; do
     theme=${theme%/}
     theme=${theme##*/}
     themes+=("$theme")
@@ -239,7 +242,7 @@ choose_sounds() {
 choose_look() {
   local choice marked=1
   case "${SETUP_LOOK:-}" in 1998) marked=2 ;; 2000) marked=3 ;; 2001) marked=4 ;; luna) marked=5 ;; aero) marked=6 ;; custom) marked=7 ;; esac
-  choice=$(ui_choose "Look" "How should title bars and the Start menu banner look?" "$marked" \
+  choice=$(ui_choose "Look" "Which desktop theme should Setup apply?" "$marked" \
     "1995: solid navy title bars, grey banner" \
     "1998: navy-to-blue title bars, navy banner with a blue glow, taller menu rows" \
     "2000: warm grey windows, navy-to-light-blue title bars, black-to-blue banner" \
@@ -500,6 +503,15 @@ if [ -n "${OPT_LOOK:-}" ] || [ -z "${SETUP_LOOK:-}" ]; then apply_look "${OPT_LO
 [ -n "${OPT_LOOK:-}" ] || choose_look
 [ -n "${OPT_LOOK:-}${OPT_DECORATION:-}" ] || choose_decoration
 [ -n "${OPT_LOOK:-}${OPT_TASKBAR_STYLE:-}" ] || choose_taskbar_style
+if [ "$SETUP_YES" = 0 ] && [ -z "${OPT_CONTROL_PANEL_STYLE:-}${OPT_SETTINGS:-}" ] && [[ " $COMPONENTS " == *" look "* ]]; then
+  panel_styles=(auto classic luna aero)
+  marked=1
+  for index in "${!panel_styles[@]}"; do
+    [ "${panel_styles[$index]}" = "${SETUP_CONTROL_PANEL_STYLE:-auto}" ] && marked=$((index + 1))
+  done
+  choice=$(ui_choose "Control Panel" "Which style should Control Panel use?" "$marked" "Follow desktop theme" "Classic" "Windows XP" "Windows 7")
+  SETUP_CONTROL_PANEL_STYLE=${panel_styles[$((choice - 1))]}
+fi
 SETUP_DECORATION=${OPT_DECORATION:-${SETUP_DECORATION:-classic}}
 SETUP_WIDGET_STYLE=${OPT_WIDGET_STYLE:-${SETUP_WIDGET_STYLE:-classic}}
 SETUP_TASKBAR_STYLE=${OPT_TASKBAR_STYLE:-${SETUP_TASKBAR_STYLE:-classic}}
@@ -548,6 +560,7 @@ SETUP_SAVER=${OPT_SAVER:-${SETUP_SAVER:-deepstars}}
 SETUP_SOUND_THEME=${OPT_SOUNDS:-${SETUP_SOUND_THEME:-Chicago95}}
 [[ " $COMPONENTS " == *" sounds "* ]] && [ -z "${OPT_SOUNDS:-}" ] && choose_sounds
 [ -n "${OPT_SETTINGS:-}" ] && load_settings "$OPT_SETTINGS"
+SETUP_CONTROL_PANEL_STYLE=${OPT_CONTROL_PANEL_STYLE:-${SETUP_CONTROL_PANEL_STYLE:-auto}}
 if [ -n "${OPT_WOBBLY:-}" ]; then
   SETUP_ANIM_WOBBLY=$OPT_WOBBLY
   [[ " $COMPONENTS " == *" animations "* ]] || COMPONENTS+=" animations"
