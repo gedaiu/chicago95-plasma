@@ -1,3 +1,41 @@
 @import url("resource:///org/gtk/libgtk/theme/Adwaita/gtk-contained.css");
 
 @import url("../controls.css");
+
+/* GTK 3 uses orientation selectors for the grip and gradient direction. */
+scrollbar trough { background: #f0f0f0; border-radius: 0; }
+scrollbar slider { margin: 1px; padding: 0; border: 1px solid #959695; border-radius: 2px; box-shadow: inset 0 0 0 1px #f7f7f7; }
+scrollbar.horizontal slider {
+  min-height: 13px; min-width: 15px;
+  background: url("../gtk-4.0/indicators/grip-horizontal.svg") center no-repeat, linear-gradient(to bottom, #ededed, #e3e3e5 49%, #d9dadc 50%, #d3d3d5);
+}
+scrollbar.horizontal slider:hover {
+  border-color: #6691ab;
+  background: url("../gtk-4.0/indicators/grip-horizontal.svg") center no-repeat, linear-gradient(to bottom, #e9f6fd, #aad8ed);
+}
+scrollbar.horizontal slider:active {
+  border-color: #3d7698;
+  background: url("../gtk-4.0/indicators/grip-horizontal.svg") center no-repeat, linear-gradient(to bottom, #c6e8f8, #80bbd8);
+}
+scrollbar.vertical slider {
+  min-width: 13px; min-height: 15px;
+  background: url("../gtk-4.0/indicators/grip-vertical.svg") center no-repeat, linear-gradient(to right, #ededed, #e3e3e5 49%, #d9dadc 50%, #d3d3d5);
+}
+scrollbar.vertical slider:hover {
+  border-color: #6691ab;
+  background: url("../gtk-4.0/indicators/grip-vertical.svg") center no-repeat, linear-gradient(to right, #e9f6fd, #aad8ed);
+}
+scrollbar.vertical slider:active {
+  border-color: #3d7698;
+  background: url("../gtk-4.0/indicators/grip-vertical.svg") center no-repeat, linear-gradient(to right, #c6e8f8, #80bbd8);
+}
+scrollbar:disabled slider {
+  border-color: #bdbdbd;
+  background: linear-gradient(#f7f7f7, #e9e9e9);
+  box-shadow: inset 0 0 0 1px white;
+}
+
+/* GTK 3 has no CSS filter for the disabled glyph. */
+checkbutton:disabled > check:checked { -gtk-icon-source: url("check-disabled.svg"); }
+checkbutton:disabled > check:indeterminate { -gtk-icon-source: url("mixed-disabled.svg"); }
+radiobutton:disabled > radio:checked { -gtk-icon-source: url("radio-disabled.svg"); }

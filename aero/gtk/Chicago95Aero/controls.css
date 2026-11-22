@@ -59,3 +59,77 @@ toolbar button.flat:hover, headerbar button.flat:hover, .toolbar button.flat:hov
 toolbar image, headerbar image, placessidebar image, .navigation-sidebar image {
   -gtk-icon-style: regular;
 }
+
+checkbutton > check, checkbutton > radio, radiobutton > radio,
+checkbutton > check:checked, checkbutton > radio:checked, radiobutton > radio:checked, checkbutton > check:indeterminate {
+  min-width: 11px;
+  min-height: 11px;
+  padding: 0;
+  border: 1px solid #8e8f8f;
+  background: linear-gradient(135deg, #aeb3b9, #e8e8e8 55%, #fafafa);
+  box-shadow: inset 0 0 0 1px #f4f4f4;
+  -gtk-icon-source: none;
+}
+checkbutton > check { border-radius: 0; }
+checkbutton > radio, radiobutton > radio { border-radius: 100%; }
+checkbutton:hover > check, checkbutton:hover > radio, radiobutton:hover > radio,
+checkbutton:hover > check:checked, checkbutton:hover > radio:checked, radiobutton:hover > radio:checked,
+checkbutton:hover > check:indeterminate {
+  background: linear-gradient(135deg, #79c6f9, #c4eafd 55%, #effaff);
+  border-color: #5586a3;
+}
+checkbutton:active > check, checkbutton:active > radio, radiobutton:active > radio,
+checkbutton:active > check:checked, checkbutton:active > radio:checked, radiobutton:active > radio:checked,
+checkbutton:active > check:indeterminate {
+  background: linear-gradient(135deg, #5eb6f7, #b4e3fc 55%, #e0f4fe);
+  border-color: #2c628b;
+}
+checkbutton > check:checked { -gtk-icon-source: url("gtk-4.0/indicators/check.svg"); }
+checkbutton > check:indeterminate { -gtk-icon-source: url("gtk-4.0/indicators/mixed.svg"); }
+checkbutton > radio:checked, radiobutton > radio:checked { -gtk-icon-source: url("gtk-4.0/indicators/radio.svg"); }
+checkbutton:disabled > check, checkbutton:disabled > radio, radiobutton:disabled > radio,
+checkbutton:disabled > check:checked, checkbutton:disabled > radio:checked, radiobutton:disabled > radio:checked,
+checkbutton:disabled > check:indeterminate {
+  background: linear-gradient(135deg, #e6e6e6, #fcfcfc);
+  border-color: #b1b1b1;
+}
+button:disabled, entry:disabled {
+  color: #838383;
+  background: #f4f4f4;
+  border-color: #adb2b5;
+  box-shadow: inset 0 0 0 1px white;
+  text-shadow: none;
+}
+progressbar trough {
+  padding: 0;
+  border: 1px solid #9d9d9d;
+  border-radius: 2px;
+  background: linear-gradient(to bottom, #fcfcfc, #dbdbdb 49%, #cacaca 50%, #eaeaea);
+}
+progressbar progress {
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(to bottom, #cdffcd, #9ceeac 49%, #00d328 50%, #1ce233);
+}
+progressbar.horizontal trough, progressbar.horizontal progress { min-height: 12px; min-width: 0; }
+progressbar.vertical trough, progressbar.vertical progress { min-width: 12px; min-height: 0; }
+progressbar.vertical trough { background-image: linear-gradient(to right, #fcfcfc, #dbdbdb 49%, #cacaca 50%, #eaeaea); }
+progressbar.vertical progress { background-image: linear-gradient(to right, #cdffcd, #9ceeac 49%, #00d328 50%, #1ce233); }
+notebook > header { background: #f0f0f0; box-shadow: none; }
+notebook > header > tabs > tab {
+  min-height: 19px;
+  padding: 0 7px;
+  margin: 0;
+  border: 1px solid #898c95;
+  border-radius: 2px;
+  color: #151515;
+  background: linear-gradient(#fcfcfc, #ebebeb 49%, #ddd 50%, #cfcfcf);
+  box-shadow: inset 0 0 0 1px #ffffff;
+}
+notebook > header > tabs > tab:hover { border-color: #3c7fb1; background: linear-gradient(#eaf6fd, #bee5fc); }
+notebook > header > tabs > tab:checked { background: white; box-shadow: none; }
+notebook > header.top > tabs > tab:checked { border-bottom-color: white; }
+notebook > header.bottom > tabs > tab:checked { border-top-color: white; }
+notebook > header.left > tabs > tab:checked { border-right-color: white; }
+notebook > header.right > tabs > tab:checked { border-left-color: white; }
+notebook > header > tabs > tab:disabled { color: #838383; background: #f4f4f4; }

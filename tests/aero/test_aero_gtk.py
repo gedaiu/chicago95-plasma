@@ -39,7 +39,7 @@ def gtk_captures(tmp_path_factory):
             f"python3 {quote(str(REPO / 'tests/gtk_showcase.py'))} {version} Chicago95Aero "
             f"{version} --consistency --only {controls}"
             for version, controls in [
-                ("3.0", "caption"),
+                ("3.0", "caption,checkbox,radio,progress,scrollbar,tabs,palette"),
                 ("4.0", "caption,checkbox,radio,progress,scrollbar,tabs,palette"),
             ]
         )
@@ -232,22 +232,59 @@ spectacle -b -n -f -o "$PWD/$VIEW.png"
     assert (pane.min(axis=2) == 255).sum() > 5000
 
 
-@pytest.fixture(scope="module")
-def gtk4_pixels(gtk_captures):
-    directory = gtk_captures / "4.0"
+def widget_pixels(directory):
     result = {}
     for _, label, filename in json.loads((directory / "manifest.json").read_text()):
         shot = Image.open(directory / filename).convert("RGBA")
         canvas = Image.new("RGBA", shot.size, "#f0f0f0")
         canvas.alpha_composite(shot)
+        if directory.name == "3.0":
+            # GTK 3 captures the window with the showcase's 12px margins.
+            canvas = canvas.crop((12, 12, canvas.width - 12, canvas.height - 12))
         result[label] = np.asarray(canvas.convert("RGB"), dtype=int)
     return result
 
 
+@pytest.fixture(scope="module")
+def gtk4_pixels(gtk_captures):
+    return widget_pixels(gtk_captures / "4.0")
+
+
+@pytest.fixture(scope="module")
+def gtk3_pixels(gtk_captures):
+    return widget_pixels(gtk_captures / "3.0")
+
+
+@pytest.fixture(params=["gtk3_pixels", "gtk4_pixels"], scope="module")
+def gtk_pixels(request):
+    return request.getfixturevalue(request.param)
+
+
+@pytest.mark.parametrize(
+    "label,limit",
+    [
+        ("checkbox checked", 2),
+        ("checkbox mixed", 2),
+        ("radio checked-hovered", 3),
+        ("radio disabled", 7),
+        ("palette button", 2),
+        ("palette entry", 2),
+        ("progress half-horizontal", 2),
+        ("scrollbar pressed-vertical", 2),
+        ("tabs first-top", 5),
+    ],
+)
+def test_control_face_matches_across_gtk_versions(gtk3_pixels, gtk4_pixels, label, limit):
+    gtk3 = gtk3_pixels[label]
+    gtk4 = gtk4_pixels[label]
+    assert gtk3.shape == gtk4.shape
+    assert np.abs(gtk3 - gtk4).mean() < limit
+
+
 @pytest.mark.parametrize("kind", ["checkbox", "radio"])
-def test_indicator_size_glyph_and_interaction_states(gtk4_pixels, kind):
+def test_indicator_size_glyph_and_interaction_states(gtk_pixels, kind):
     def shot(state):
-        return gtk4_pixels[f"{kind} {state}"]
+        return gtk_pixels[f"{kind} {state}"]
 
     assert shot("normal").shape[:2] == (13, 13)
     for state in ("normal", "hovered", "pressed"):
@@ -263,9 +300,9 @@ def test_indicator_size_glyph_and_interaction_states(gtk4_pixels, kind):
 
 
 @pytest.mark.parametrize("direction", ["horizontal", "vertical"])
-def test_progress_track_fill_and_direction(gtk4_pixels, direction):
+def test_progress_track_fill_and_direction(gtk_pixels, direction):
     def filled(state):
-        shot = gtk4_pixels[f"progress {state}-{direction}"]
+        shot = gtk_pixels[f"progress {state}-{direction}"]
         if direction == "vertical":
             shot = shot.transpose(1, 0, 2)[:, ::-1]
         assert shot.shape[0] == 14
@@ -281,9 +318,9 @@ def test_progress_track_fill_and_direction(gtk4_pixels, direction):
 
 
 @pytest.mark.parametrize("direction", ["horizontal", "vertical"])
-def test_scroll_thumb_geometry_position_and_feedback(gtk4_pixels, direction):
+def test_scroll_thumb_geometry_position_and_feedback(gtk_pixels, direction):
     def shot(state):
-        image = gtk4_pixels[f"scrollbar {state}-{direction}"]
+        image = gtk_pixels[f"scrollbar {state}-{direction}"]
         return image if direction == "horizontal" else image.transpose(1, 0, 2)
 
     normal = shot("normal")
@@ -299,8 +336,8 @@ def test_scroll_thumb_geometry_position_and_feedback(gtk4_pixels, direction):
 
 
 @pytest.mark.parametrize("side", ["top", "bottom", "left", "right"])
-def test_notebook_paints_the_selected_tab_and_hover_face(gtk4_pixels, side):
-    first, second, hover = [gtk4_pixels[f"tabs {state}-{side}"] for state in ("first", "second", "hovered")]
+def test_notebook_paints_the_selected_tab_and_hover_face(gtk_pixels, side):
+    first, second, hover = [gtk_pixels[f"tabs {state}-{side}"] for state in ("first", "second", "hovered")]
 
     def white(pixels):
         return pixels.min(axis=2) > 250
@@ -311,8 +348,8 @@ def test_notebook_paints_the_selected_tab_and_hover_face(gtk4_pixels, side):
 
 
 @pytest.mark.parametrize("kind", ["entry", "button"])
-def test_disabled_form_face_is_distinct(gtk4_pixels, kind):
-    normal, disabled = [gtk4_pixels[f"palette {prefix}{kind}"] for prefix in ("", "disabled-")]
+def test_disabled_form_face_is_distinct(gtk_pixels, kind):
+    normal, disabled = [gtk_pixels[f"palette {prefix}{kind}"] for prefix in ("", "disabled-")]
     assert np.abs(normal - disabled).mean() > 5
     assert np.all(disabled[5:-5, 5:-5] == 244)
 
