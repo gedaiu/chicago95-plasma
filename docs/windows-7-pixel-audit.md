@@ -43,6 +43,24 @@ The Run button positions, Advanced System Properties action row and six-window A
 | Lock screen | The credential field now lands within two pixels of all four original bounds at both tested resolutions. Across its top edge and the adjoining background the mean RGB error is 1.85 at 1024 × 768 and 0.79 at 800 × 600. [Original locked session](../tests/references/win7-sp1-aero-lock.png) |
 | Calendar | The 336 × 247 client, analog clock span and settings footer match their geometry or colour checks. The fixed rim crop still differs at 466 of 560 pixels. [Original calendar](../tests/references/win7-sp1-aero-calendar.png) |
 
+## Shutdown from the desktop to power-off
+
+The original spent about half a second showing only the desktop wallpaper after its windows closed. A brief black interval followed, then the blue screen showed **Logging off...** for one or two capture intervals before changing to **Shutting down...**. In Plasma, the panel stayed visible until the black handoff, and Plymouth opened directly on **Shutting down...**. [Side-by-side shutdown recording](compare/win7-sp1-shutdown-comparison.webm)
+
+| Measurement | Windows 7 Professional SP1 | Fedora KDE 44 with revised Plymouth theme |
+| --- | ---: | ---: |
+| Final click to desktop disappearing | 1.03–1.20 s | 2.40–2.44 s |
+| Black handoff before the first blue status screen | 0.20–0.23 s | 0.20 s |
+| Final click to first blue status screen | 1.23–1.40 s | 2.60–2.63 s |
+| Final click to “Shutting down...” | 1.30–1.47 s | 2.60–2.63 s |
+| Time on the blue background, including both Windows captions | 1.20–3.67 s | 1.13–2.85 s |
+| Median time for one spinner revolution in each trial | 0.834 s | 0.834–0.866 s |
+| Final click to hypervisor-reported power-off | 2.52–4.95 s | 3.73–5.48 s |
+
+The original 18-pose spinner was faster than the theme's earlier 15 fps setting (a nominal 1.20 s per revolution). Plymouth at 21 fps reproduced the Windows period to within one captured frame. The shutdown caption previously began at y=376 on the 1024 × 768 export. It now begins at y=326, the original position. Tests also check the 800 × 600 layout. The configured font affects the horizontal lettering bounds. [Caption and spinner comparison at native scale](compare/win7-sp1-shutdown-position.png)
+
+Time zero is the final click on Shut down in the Windows Start menu or in the project's confirmation dialog. Each display was sampled against a monotonic clock at 30 Hz and 1024 × 768. Windows ran in the offline WDDM reference VM. Fedora ran in a disposable QEMU/KVM guest built from Fedora KDE 44 release 1.7, with the distribution's Plasma desktop, the project's shutdown command, the exported theme and the real Plymouth power-off service. No applications had unsaved work. Power-off was detected separately from screen colour. The first Windows trial recorded the final black frame without a hypervisor power-off timestamp. Fedora displayed the blue screen through the last sample in both final trials; one also contained a single dark frame during that screen. Three Windows trials and two final Fedora trials supply these ranges. Individual transitions are resolved to roughly one frame (33 ms). Service load, open applications and hardware can change the timings. The theme adds no timer to prolong shutdown. [Per-trial measurements in seconds](compare/win7-sp1-shutdown-timing.csv)
+
 ## Initial measurements before the corrections
 
 | Surface                    | Original versus theme                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -83,7 +101,7 @@ Windows XP offered both Category View and Classic View. The latter exposed apple
 | Mouse               | Converted cursors have source-art comparisons, hotspot checks and animation-frame checks. Button mapping, acceleration and double-click timing are behavioral.                                                                                                          |
 | Lock screen         | The actual lock QML is rendered with simulated authentication. Portrait, submit, failure and switch-user states have artwork or placement checks. Native full-screen lock captures at two resolutions constrain the password field. The complete backdrop and account artwork are outside the field comparison.                                                                  |
 | Splash              | Welcome and the session spinner have rendered-frame and source-art checks. The session handoff lacks a synchronized Windows sequence.                                                                                                                                   |
-| Plymouth            | Boot lettering has the two exact video crops. Animation tests cover frames and timing, and export tests check preview parity. Hardware transitions and the complete Windows shutdown sequence remain unverified.                                                        |
+| Plymouth            | Boot lettering has the two exact video crops. Animation tests cover frames and timing, and export tests check preview parity. VM recordings cover desktop teardown, the shutdown screen and power-off. Physical display and firmware behaviour remain unmeasured.                                                        |
 | SDDM                | The sign-in field position matches the published 4:3 layout within measurement uncertainty. Login controls and failure states have separate source-art and QML checks. Full-screen RGB fidelity remains unverified.                                                     |
 | Firefox             | Headless Firefox renders a fixture using the stylesheet installed by Setup. The left button edge has a native Windows control reference. Whole browser chrome is outside this comparison.                                                                               |
 

@@ -30,7 +30,7 @@ def export_shutdown(view, splash, out):
         raise ValueError("\n".join(error.toString() for error in view.errors()))
     page = view.rootObject()
     page.setProperty("animated", False)
-    page.setProperty("statusText", "Shutting down...")
+    page.setProperty("shuttingDown", True)
     QTest.qWait(100)
     spinner = page.findChild(QObject, "sessionSpinner")
     pos = spinner.mapToScene(QPointF(0, 0)).toPoint()

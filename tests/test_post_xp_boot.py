@@ -2,7 +2,11 @@
 
 import ctypes
 import json
+import os
+import re
 import shutil
+import subprocess
+import sys
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -225,7 +229,57 @@ def test_seven_exports_shutdown_with_its_own_spinner_and_status_text(qt_app, tmp
     assert Image.open(output / "shutdown.png").getpixel((0, 0))[:3] == (29, 86, 138)
     assert Image.open(output / "background.png").getpixel((0, 0))[:3] == (0, 0, 0)
     script = (output / "Chicago95-7.script").read_text()
+    # Eighteen displayed poses recurred every 0.834 s in the 30 Hz Aero captures.
+    shutdown_branch = script.split('image_name = "shutdown.png";', 1)[1].split("}", 1)[0]
+    fps = float(shutdown_branch.split("fps = ", 1)[1].split(";", 1)[0])
+    assert 18 / fps == pytest.approx(0.834, abs=1 / 30)
     assert 'if (1 && (Plymouth.GetMode() == "shutdown" || Plymouth.GetMode() == "reboot"))' in script
+
+
+@pytest.mark.parametrize("width,height", [(800, 600), (1024, 768)])
+def test_seven_shutdown_status_matches_sp1(tmp_path, width, height):
+    source = tmp_path / "splash"
+    output = tmp_path / "theme"
+    shutil.copytree(SPLASH, source)
+    (source / "settings.js").write_text(
+        load_script("chicago95-control-panel").LoadingPreview.settings_js({"BOOT_STYLE": "7", "BOOT_FRAMES": "1"})
+    )
+    subprocess.run(
+        [
+            sys.executable,
+            str(REPO / "bin/chicago95-post-xp-boot"),
+            "--size",
+            f"{width}x{height}",
+            "--splash",
+            str(source),
+            "--out",
+            str(output),
+        ],
+        env={**os.environ, "QT_QPA_PLATFORM": "offscreen", "QT_QUICK_BACKEND": "software"},
+        check=True,
+    )
+    native = Image.open(REPO / f"tests/references/win7-sp1-shutdown-{width}.png").convert("RGB")
+    x, y = width // 2 - 120, height // 2 - 80
+    actual = Image.open(output / "shutdown.png").convert("RGB").crop((x, y, x + native.width, y + native.height))
+
+    def text_bounds(picture):
+        # Skip the spinner and threshold all channels to exclude the blue background.
+        red, green, blue = picture.crop((38, 0, picture.width, picture.height)).split()
+        ink = ImageChops.darker(ImageChops.darker(red, green), blue)
+        bounds = ink.point(lambda v: 255 if v > 230 else 0).getbbox()
+        assert bounds
+        return bounds
+
+    left, top, right, bottom = text_bounds(actual)
+    ref_left, ref_top, ref_right, ref_bottom = text_bounds(native)
+    assert (top, bottom, (left + right) / 2) == pytest.approx((ref_top, ref_bottom, (ref_left + ref_right) / 2), abs=3)
+    script = (output / "Chicago95-7.script").read_text()
+    spinner = re.search(r"ax = (\d+); ay = (\d+); aw = 20; ah = 20;", script)
+    assert spinner
+    assert int(spinner[1]) == pytest.approx(width // 2 - 103, abs=5)
+    assert int(spinner[2]) == pytest.approx(height // 2 - 60, abs=1)
+    # The default test font can substitute for Segoe UI.
+    assert right - left == pytest.approx(ref_right - ref_left, abs=12)
 
 
 @pytest.mark.parametrize("style", [value for _, value in STYLES])

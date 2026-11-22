@@ -239,3 +239,12 @@ The motion samples came from the presented virtual display at 60 Hz. The Start
 opening was checked with both keyboard and mouse. The tests measure change
 between displayed frames. Input latency and individual GPU refresh timing are
 outside these comparisons.
+
+The Windows 7 shutdown measurements used the same offline SP1 WDDM guest.
+`win7-sp1-shutdown-1024.png` and `win7-sp1-shutdown-800.png` are unscaled
+240 × 68 crops of “Shutting down...” from 1024 × 768 and 800 × 600 displays.
+Their upper-left corners are (392, 304) and (280, 220), respectively.
+The native spinner's changing pixels span a 20 × 20 square at (409, 324)
+and (297, 240). The 1024 × 768 time series sampled the presented guest at
+30 Hz from the final Start menu click. The 800 × 600 capture contributes
+geometry only. [Shutdown timings and method](../../docs/windows-7-pixel-audit.md#shutdown-from-the-desktop-to-power-off)

@@ -19,7 +19,8 @@ if (@SEVEN@ && (Plymouth.GetMode() == "shutdown" || Plymouth.GetMode() == "reboo
     prefix = "shutdown-";
     frame_count = 18;
     loop_start = 0;
-    fps = 15;
+    # This rate reproduced the SP1 spinner cycle (0.83 s) on the Plymouth display.
+    fps = 21;
     ax = @SX@; ay = @SY@; aw = 20; ah = 20;
   }
 background = Sprite(Image(image_name).Scale(Math.Int(@WIDTH@ * scale), Math.Int(@HEIGHT@ * scale)));

@@ -4,7 +4,8 @@ import "settings.js" as Settings
 
 Rectangle {
     id: page
-    property string statusText: qsTr("Welcome")
+    property bool shuttingDown: false
+    property string statusText: shuttingDown ? qsTr("Shutting down...") : qsTr("Welcome")
     property int frame: 0
     property bool animated: true
     readonly property url art: StandardPaths.locate(StandardPaths.GenericDataLocation, "chicago95/session/background")
@@ -16,6 +17,9 @@ Rectangle {
     Image { anchors.fill: parent; source: page.art; fillMode: Image.PreserveAspectCrop }
     Row {
         anchors.centerIn: parent
+        // The SP1 shutdown row sits 50 logical pixels above centre at both 600 and 768 px.
+        anchors.verticalCenterOffset: page.shuttingDown ? -50 : 0
+        anchors.horizontalCenterOffset: page.shuttingDown ? -2 : 0
         spacing: 8
         Item {
             objectName: "sessionSpinner"
@@ -31,7 +35,7 @@ Rectangle {
             text: page.statusText
             color: "white"
             font.family: "Segoe UI"
-            font.pixelSize: 23
+            font.pixelSize: page.shuttingDown ? 24 : 23
             style: Text.Raised
             styleColor: "#475763"
         }
@@ -39,7 +43,7 @@ Rectangle {
     Timer {
         running: page.animated && page.visible
         repeat: true
-        interval: 67
+        interval: page.shuttingDown ? 46 : 67
         onTriggered: page.frame = (page.frame + 1) % 18
     }
     Row {
