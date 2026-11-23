@@ -146,3 +146,46 @@ def caption_glyph(kind, color, x, y):
 
 def disabled_caption_glyph(kind, shadow, x, y):
     return caption_glyph(kind, HILIGHT, x + 1, y + 1) + caption_glyph(kind, shadow, x, y)
+
+
+CAPTION_W_120, CAPTION_H_120 = 20, 18
+CAPTION_120_GLYPHS = {
+    "minimize": "M5 13h8v2H5z",
+    "maximize": "M4 4h11v11H4zM5 6h9v8H5z",
+    "restore": "M7 4h9v7h-3v4H4V8h3zM8 6v2h5v2h2V6zM5 10v4h7v-4z",
+    "close": (
+        "M6 5h2v1h1v1h1v1h1v-1h1v-1h1v-1h2v2h-1v1h-1v1h-1v1h1v1h1v1h1v2"
+        "h-2v-1h-1v-1h-1v-1h-1v1h-1v1h-1v1H6v-2h1v-1h1v-1h1V9H8V8H7V7H6z"
+    ),
+}
+
+
+def _caption_face_120(colours, pressed):
+    """Paint the device-sized bevel whose outer rule is one physical pixel wide."""
+    face, _light, shadow, dark = colours
+    if pressed:
+        return (
+            rect(0, 0, CAPTION_W_120, CAPTION_H_120, face)
+            + f'<path d="M0 0H20V1H1V18H0z" fill="{dark}"/>'
+            + f'<path d="M1 1H19V2H2V17H1z" fill="{shadow}"/>'
+        )
+    return (
+        rect(0, 0, CAPTION_W_120, CAPTION_H_120, face)
+        + f'<path d="M0 0H20V1H1V18H0z" fill="{HILIGHT}"/>'
+        + f'<path d="M19 1H20V18H1V17H19z" fill="{shadow}"/>'
+    )
+
+
+def _caption_glyph_120(kind, color, offset):
+    """The 120-DPI glyph outlines measured on the Classic guest captions."""
+    return (
+        f'<path d="{CAPTION_120_GLYPHS[kind]}" fill="{color}" fill-rule="evenodd"'
+        f' transform="translate({offset} {offset})"/>'
+    )
+
+
+def caption_button_120(kind, colours, pressed, disabled):
+    body = _caption_face_120(colours, pressed)
+    if disabled:
+        return body + _caption_glyph_120(kind, HILIGHT, 1) + _caption_glyph_120(kind, colours[2], 0)
+    return body + _caption_glyph_120(kind, "#000000", int(pressed))

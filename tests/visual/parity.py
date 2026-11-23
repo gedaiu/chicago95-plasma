@@ -69,6 +69,14 @@ DISABLED_APP = "org.chicago95.test.caption-disabled"
 class AeroCaptionWindow(Window):
     RC_NAME = "Chicago95Aerorc"
 
+    def __init__(self, theme, width, height, scale=1):
+        super().__init__(theme, width, height)
+        # Match Theme.js in the installed QML decoration. The plain SVG
+        # fallback uses the spacing from Chicago95Aerorc.
+        if scale >= 1.5:
+            self.layout["ButtonSpacing"] = 0
+            self.layout["ButtonWidthMaximizeRestore"] = 40 / 1.5
+
 
 @pytest.fixture(scope="module")
 def installed():
@@ -212,7 +220,7 @@ def live_kwin(installed, visual_output):
 def live_gtk(installed):
     @cache
     def capture(look, scale):
-        session = installed(look, scale) if look == "luna" else installed(look)
+        session = installed(look, scale) if look in (*CLASSIC, "luna") else installed(look)
         home = session.work / "home"
         script = session.work / "caption-gtk.sh"
         commands = ["#!/bin/sh", "set -eu"]
@@ -245,17 +253,18 @@ def live_gtk(installed):
     return capture
 
 
-def kwin_window(theme, look, width, height):
+def kwin_window(theme, look, width, height, aero_scale=1):
     if look == "luna":
         from luna.luna_model import LunaWindow
 
         return LunaWindow(width, height)
-    window = AeroCaptionWindow if look == "aero" else Window
-    return window(theme, width, height)
+    if look == "aero":
+        return AeroCaptionWindow(theme, width, height, aero_scale)
+    return Window(theme, width, height)
 
 
-def kwin_maximized_window(theme, look, width, height):
-    model = kwin_window(theme, look, width, height)
+def kwin_maximized_window(theme, look, width, height, aero_scale=1):
+    model = kwin_window(theme, look, width, height, aero_scale)
     for key in ("TitleEdgeTop", "TitleEdgeLeft", "TitleEdgeRight"):
         model.layout[key] = model.layout[key + "Maximized"]
     model.layout["ButtonMarginTop"] = model.layout.get("ButtonMarginTopMaximized", 0)
@@ -269,21 +278,25 @@ def kwin_face(capture, theme, look, scale, state, index):
     assert path.is_file(), f"Missing nested KWin capture {path.name}"
     with Image.open(path) as frame:
         screen = frame.convert("RGB")
+    config = configparser.ConfigParser()
+    config.read(directory / "home/.config/kwinrc")
+    decoration = config.get("org.kde.kdecoration2", "theme", fallback="")
+    aero_scale = scale if decoration == "org.chicago95.aero" else 1
     if state == "restore":
         left, top = 0, 0
-        model = kwin_maximized_window(theme, look, round(screen.width / scale), round(screen.height / scale))
+        model = kwin_maximized_window(theme, look, round(screen.width / scale), round(screen.height / scale), aero_scale)
     elif state.startswith("disabled"):
         left, top, right, bottom = disabled
-        model = kwin_window(theme, look, round(right - left), round(bottom - top))
+        model = kwin_window(theme, look, round(right - left), round(bottom - top), aero_scale)
     else:
         left, top, right, bottom = PRESS_WINDOWS[index] if state == "pressed" else WINDOW
-        model = kwin_window(theme, look, right - left + 1, bottom - top + 1)
+        model = kwin_window(theme, look, right - left + 1, bottom - top + 1, aero_scale)
     rect = model.button_rects()["IAX"[index]]
+    if state == "restore" and decoration == "org.chicago95.aero":
+        rect.translate(0, -1 / scale)
     if (look in CLASSIC and scale == 1.25) or (look == "luna" and scale % 1):
-        config = configparser.ConfigParser()
-        config.read(directory / "home/.config/kwinrc")
         wrapper = "classic" if look in CLASSIC else "luna"
-        if config.get("org.kde.kdecoration2", "theme", fallback="") == f"org.chicago95.{wrapper}":
+        if decoration == f"org.chicago95.{wrapper}":
             # The caption wrapper snaps the paint layer's origin, independently
             # of the window's own origin and Aurorae's hit rectangle.
             def pixel(position):
@@ -302,7 +315,7 @@ def kwin_face(capture, theme, look, scale, state, index):
         rect.adjust(2 if index == 2 else 0, 1, 0, -1)
     return screen.crop(
         tuple(
-            round(edge * scale)
+            max(0, round(edge * scale))
             for edge in (
                 left + rect.left(),
                 top + rect.top(),
@@ -377,6 +390,8 @@ def test_caption_matches_windows_pixels(theme, renderer, state, index, svg_theme
     else:
         version = {"gtk3": "3.0", "gtk4": "4.0"}[renderer]
         actual = gtk_face(live_gtk(look, scale) / f"caption-gtk-{version}", state, index)
+        if look in ("2000", "2001"):
+            actual = rgb565(actual)
     directory = visual_output / theme / "caption" / renderer / state / button
     exact(expected, actual, directory, visible_pixels(look, state, expected.size))
 

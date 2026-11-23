@@ -1635,7 +1635,8 @@ RULES
   if [ "${SETUP_BEVEL:-1995}" = 2000 ]; then
     caption_args+=(--face "$(face_hex)" --light "$(face_hex)" --dark "#404040")
   fi
-  python3 "$REPO/lib/gtk_header.py" --gtk "${GTK_VERSION:-4.0}" --active "$1" --inactive "$2" --inactive-text "$3" "${caption_args[@]}"
+  python3 "$REPO/lib/gtk_header.py" --gtk "${GTK_VERSION:-4.0}" --dpi "${SETUP_DPI:-96}" \
+    --active "$1" --inactive "$2" --inactive-text "$3" "${caption_args[@]}"
 }
 
 write_gtk_titlebar_css() {

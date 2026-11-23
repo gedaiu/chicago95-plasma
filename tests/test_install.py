@@ -1367,19 +1367,22 @@ def test_a_dry_run_of_any_tool_installs_the_session_environment(tmp_path):
     assert "config/environment.d/chicago95.conf" in log and ".config/environment.d/chicago95.conf" in log
 
 
-def test_the_look_paints_gtk_drawn_title_bars_in_its_active_and_inactive_colours(tmp_path):
+@pytest.mark.parametrize(("dpi", "image_height", "svg_height"), [(96, "14", 14), (120, "14.4", 18)])
+def test_the_look_paints_gtk_drawn_title_bars_in_its_active_and_inactive_colours(tmp_path, dpi, image_height, svg_height):
     (tmp_path / ".config/gtk-3.0").mkdir(parents=True)
     (tmp_path / ".config/gtk-3.0/gtk.css").write_text("@import 'colors.css';\n")
     for _ in range(2):
         run_bash_with_steps(
             tmp_path,
-            f"SETUP_DRY_RUN=0; MANIFEST={tmp_path}/manifest; STATE_DIR={tmp_path}; "
+            f"SETUP_DRY_RUN=0; SETUP_DPI={dpi}; MANIFEST={tmp_path}/manifest; STATE_DIR={tmp_path}; "
             'write_gtk_titlebar_css "#0A246A,#A6CAF0" "#808080,#C0C0C0" "rgb(212,208,200)"',
         )
     gtk3 = (tmp_path / ".config/gtk-3.0/gtk.css").read_text()
     gtk4 = (tmp_path / ".config/gtk-4.0/gtk.css").read_text()
     caption = tmp_path / "gtk-classic-caption/close-disabled.svg"
     assert caption.is_file() and all(caption.as_uri() in sheet for sheet in (gtk3, gtk4))
+    assert f'viewBox="0 0 {round(16 * dpi / 96)} {svg_height}"' in caption.read_text()
+    assert all(f"background-size: 16px {image_height}px;" in sheet for sheet in (gtk3, gtk4))
 
     assert (
         gtk3.count("Chicago95 title bars BEGIN"),

@@ -30,7 +30,7 @@ if AERO_CAPTION_CROPS:
     from aero.gtk.caption import CELL_WIDTHS, FACE_HEIGHT, GTK4_CAPTION_TOP, palette
 elif CLASSIC_CAPTION_CROPS:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "aurorae"))
-    from bevel import CAPTION_H, CAPTION_W
+    from bevel import CAPTION_H, CAPTION_H_120, CAPTION_W
 elif LUNA_CAPTION_CROPS:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "luna/aurorae"))
     from make_luna_aurorae import BUTTON as LUNA_CAPTION_SIZE
@@ -474,7 +474,8 @@ def gtk_caption_regions(header, root, label, scale, origin):
             elif LUNA_CAPTION_CROPS:
                 image_width = image_height = LUNA_CAPTION_SIZE
             else:
-                image_width, image_height = CAPTION_W, CAPTION_H
+                image_width = CAPTION_W
+                image_height = CAPTION_H_120 / scale if scale == 1.25 else CAPTION_H
             left = (x + (width - image_width) / 2) * scale
             vertical_inset = GTK4_CAPTION_TOP if V4 and AERO_CAPTION_CROPS else (height - image_height) / 2
             top = (y + vertical_inset) * scale

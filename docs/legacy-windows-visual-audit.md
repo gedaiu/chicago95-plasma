@@ -60,6 +60,14 @@ The 60 Classic SVG face comparisons pass at strict RGB tolerance at 120 DPI. The
 | XP Luna | 3.75 | 3.57 | 2.56 | 2.83 | 2.87 | 4.17 |
 | Windows 7 Aero | 9.57 | 17.91 | 22.38 | 21.56 | 16.73 | 9.57 |
 
+Live KWin captures at 125% also pass all 48 Classic face comparisons. The wrapper requests the 120-DPI face at its
+logical size, and KSVG rasterizes it once at the output scale. GTK 3 and GTK 4 share the device-size vector outlines
+when Setup configures 120 DPI. The 144 GTK comparisons across the six themes still show differences. In the four
+Classic themes, fractional positioning spreads the face across an extra row or column. The tested Luna faces have the
+native dimensions and differ in RGB. The 12 Luna and 12 Aero live KWin face comparisons also differ in RGB.
+Aero Restore now clips its top device row at the screen edge when maximized, giving the same 40×29 visible face
+as the 144-DPI VM. [Exact tests by renderer](../tests/visual/parity.py)
+
 On Windows 98 SE, minimizing Notepad left its white client visible as a shrinking title bar travelled toward the taskbar. The system menu was gone at 0.178 s and the desktop had settled by 0.339 s from recording start.
 
 In the XP SP3 Device Manager minimize recording, the system menu dismissed at 0.181 seconds, the first captured

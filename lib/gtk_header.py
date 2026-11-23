@@ -18,7 +18,17 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "aurorae"))
-from bevel import CAPTION_H, CAPTION_W, caption_face, caption_glyph, disabled_caption_glyph, svg  # noqa: E402
+from bevel import (  # noqa: E402
+    CAPTION_H,
+    CAPTION_H_120,
+    CAPTION_W,
+    CAPTION_W_120,
+    caption_button_120,
+    caption_face,
+    caption_glyph,
+    disabled_caption_glyph,
+    svg,
+)
 
 # GTK 4 names the side of its window controls. GTK 3 and custom headers
 # expose the same actions as titlebutton widgets.
@@ -54,11 +64,13 @@ TOOLS = f"{STRIP} button.image-button, {STRIP} splitbutton > button"
 SPLIT_ARROW = f"{STRIP} splitbutton > menubutton > button"
 
 
-def face_url(kind, colours, pressed, disabled, assets):
+def face_url(kind, colours, pressed, disabled, assets, high_dpi):
     shift = 1 if pressed else 0
-    glyph = disabled_caption_glyph(kind, colours[2], 0, 0) if disabled else caption_glyph(kind, "#000000", shift, shift)
-    body = caption_face(0, 0, colours, pressed) + glyph
-    artwork = svg(CAPTION_W, CAPTION_H, body)
+    if high_dpi:
+        artwork = svg(CAPTION_W_120, CAPTION_H_120, caption_button_120(kind, colours, pressed, disabled))
+    else:
+        glyph = disabled_caption_glyph(kind, colours[2], 0, 0) if disabled else caption_glyph(kind, "#000000", shift, shift)
+        artwork = svg(CAPTION_W, CAPTION_H, caption_face(0, 0, colours, pressed) + glyph)
     if assets is not None:
         state = "disabled" if disabled else "pressed" if pressed else "normal"
         path = assets / f"{kind}-{state}.svg"
@@ -85,15 +97,17 @@ def rule(selector, **properties):
     return f"{selector} {{\n{body}}}\n"
 
 
-def caption_css(face, light, shadow, dark, assets=None):
+def caption_css(face, light, shadow, dark, assets=None, dpi=96):
     colours = (face, light, shadow, dark)
+    high_dpi = dpi == 120
+    face_height = CAPTION_H_120 * 96 / dpi if high_dpi else CAPTION_H
     if assets is not None:
         assets.mkdir(parents=True, exist_ok=True)
     rules = [
         rule(
             buttons(),
             min_width=f"{CAPTION_W}px",
-            min_height=f"{CAPTION_H}px",
+            min_height=f"{face_height:g}px",
             padding="0",
             margin="0",
             border="none",
@@ -103,7 +117,7 @@ def caption_css(face, light, shadow, dark, assets=None):
             background_color="transparent",
             background_repeat="no-repeat",
             background_position="center",
-            background_size=f"{CAPTION_W}px {CAPTION_H}px",
+            background_size=f"{CAPTION_W}px {face_height:g}px",
         ),
         rule(buttons(".close"), margin_left=f"{CLOSE_GAP}px"),
         # libadwaita pads the glyph 4px a side, which would widen each button to 24px around the 16px face.
@@ -128,7 +142,7 @@ def caption_css(face, light, shadow, dark, assets=None):
                     border="none",
                     box_shadow="none",
                     background_color="transparent",
-                    background_image=face_url(kind, colours, pressed, disabled, assets),
+                    background_image=face_url(kind, colours, pressed, disabled, assets, high_dpi),
                 )
             )
     return "".join(rules)
@@ -374,6 +388,7 @@ def list_view_css():
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--gtk", default="4.0", help="the GTK version the sheet is for: 3.0 draws its own frames")
+    parser.add_argument("--dpi", type=int, default=96)
     parser.add_argument("--active", default="#000080")
     parser.add_argument("--inactive", default="#808080")
     parser.add_argument("--inactive-text", default="#C0C0C0")
@@ -384,7 +399,7 @@ def main():
     parser.add_argument("--caption-assets", type=Path, help="write standalone SVG faces for GTK to load from disk")
     args = parser.parse_args()
     sheet = (
-        caption_css(args.face, args.light, args.shadow, args.dark, args.caption_assets)
+        caption_css(args.face, args.light, args.shadow, args.dark, args.caption_assets, args.dpi)
         + header_css(args.active, args.inactive, args.inactive_text, args.face)
         + path_bar_css(args.light, args.shadow, args.dark)
         + list_view_css()

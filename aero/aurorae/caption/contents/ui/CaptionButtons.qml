@@ -6,6 +6,7 @@ Item {
     id: group
     required property var buttons
     required property var theme
+    readonly property real outputScale: decoration.client.scale || 1
     implicitWidth: row.implicitWidth
     implicitHeight: row.implicitHeight
 
@@ -34,9 +35,13 @@ Item {
                        * group.theme.buttonSizeFactor
                 height: group.theme.buttonHeight * group.theme.buttonSizeFactor
                 CaptionFace {
-                    anchors.fill: parent
+                    // A maximized Aero frame loses the top device row of the
+                    // button face at the screen edge. Keep the hit target full size.
+                    y: decoration.client.maximized ? -1 / group.outputScale : 0
+                    width: button.width
+                    height: button.height
                     haloLayer: halos
-                    haloPosition: Qt.point(button.x, button.y)
+                    haloPosition: Qt.point(button.x, button.y + y)
                     artwork: button.closeButton ? group.theme.closeButtonPath : button.minimizeButton ? group.theme.minimizeButtonPath
                              : decoration.client.maximized ? group.theme.restoreButtonPath : group.theme.maximizeButtonPath
                     activeWindow: decoration.client.active

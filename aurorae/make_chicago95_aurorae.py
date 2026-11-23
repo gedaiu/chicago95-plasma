@@ -16,7 +16,19 @@ in from the title's end, the window icon 16px square 1px below the title's top.
 import argparse
 from pathlib import Path
 
-from bevel import caption_face, caption_glyph, disabled_caption_glyph, rect, ring_color, run_length_rows, svg
+from bevel import (
+    CAPTION_120_GLYPHS,
+    CAPTION_H_120,
+    CAPTION_W_120,
+    caption_button_120,
+    caption_face,
+    caption_glyph,
+    disabled_caption_glyph,
+    rect,
+    ring_color,
+    run_length_rows,
+    svg,
+)
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("--out", type=Path, default=Path.home() / ".local/share/aurorae/themes/Chicago95")
@@ -156,42 +168,11 @@ def glyph(kind, color, dx=0, dy=0):
 
 CLOSE_GAP = 2
 CAPTION_SCALE_120 = 1.25
-CAPTION_FACE_120_W, CAPTION_FACE_120_H = 20, 18
-CAPTION_120_GLYPHS = {
-    "minimize": "M5 13h8v2H5z",
-    "maximize": "M4 4h11v11H4zM5 6h9v8H5z",
-    "restore": "M7 4h9v7h-3v4H4V8h3zM8 6v2h5v2h2V6zM5 10v4h7v-4z",
-    "close": (
-        "M6 5h2v1h1v1h1v1h1v-1h1v-1h1v-1h2v2h-1v1h-1v1h-1v1h1v1h1v1h1v2"
-        "h-2v-1h-1v-1h-1v-1h-1v1h-1v1h-1v1H6v-2h1v-1h1v-1h1V9H8V8H7V7H6z"
-    ),
-}
-
-
-def caption_face_120(pressed):
-    if pressed:
-        return (
-            rect(0, 0, 20, 18, FACE)
-            + f'<path d="M0 0H20V1H1V18H0z" fill="{DARK}"/>'
-            + f'<path d="M1 1H19V2H2V17H1z" fill="{SHADOW}"/>'
-        )
-    return (
-        rect(0, 0, 20, 18, FACE)
-        + f'<path d="M0 0H20V1H1V18H0z" fill="{HILIGHT}"/>'
-        + f'<path d="M19 1H20V18H1V17H19z" fill="{SHADOW}"/>'
-    )
-
-
-def caption_glyph_120(kind, color, offset):
-    return (
-        f'<path d="{CAPTION_120_GLYPHS[kind]}" fill="{color}" fill-rule="evenodd"'
-        f' transform="translate({offset} {offset})"/>'
-    )
 
 
 def button_svg(kind, high_dpi=False):
     gap = (3 if high_dpi else CLOSE_GAP) if kind == "close" else 0
-    width = CAPTION_FACE_120_W if high_dpi else BTN_W
+    width = CAPTION_W_120 if high_dpi else BTN_W
     height = int(BTN_H * CAPTION_SCALE_120) if high_dpi else BTN_H
     states = {
         "active-center": (False, GLYPH, 0),
@@ -206,11 +187,8 @@ def button_svg(kind, high_dpi=False):
     groups = []
     for idx, (element_id, (pressed, color, shift)) in enumerate(states.items()):
         if high_dpi:
-            body = caption_face_120(pressed)
-            if color == SHADOW:
-                body += caption_glyph_120(kind, HILIGHT, 1)
-            body += caption_glyph_120(kind, color, shift)
-            inset = (height - CAPTION_FACE_120_H) // 2
+            body = caption_button_120(kind, (FACE, LIGHT, SHADOW, DARK), pressed, element_id.startswith("deactivated"))
+            inset = (height - CAPTION_H_120) // 2
             body = f'<g transform="translate(0,{inset})">{body}</g>'
         elif color == SHADOW:
             body = button_face(pressed)
