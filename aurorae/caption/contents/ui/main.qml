@@ -7,6 +7,7 @@ import "Theme.js" as Theme
 SystemAurorae {
     id: frame
     readonly property real outputScale: decoration.client.scale || 1
+    readonly property bool classicCaptionAt120Dpi: auroraeTheme.followsScheme && outputScale === 1.25
     readonly property var buttonGroups: children.filter(item =>
         item.animate !== undefined && item.buttons !== undefined)
     readonly property var auroraeTheme: {
@@ -45,7 +46,7 @@ SystemAurorae {
     // Paint the caption SVG elements on the output's pixel grid. Keep
     // Aurorae's button positions, input handling and state transitions.
     Repeater {
-        model: frame.auroraeTheme.alignCaptionPixels && frame.outputScale % 1 !== 0 ? 2 : 0
+        model: frame.classicCaptionAt120Dpi || (frame.auroraeTheme.alignCaptionPixels && frame.outputScale % 1 !== 0) ? 2 : 0
         delegate: Item {
             id: groupDelegate
             required property int index
@@ -96,7 +97,9 @@ SystemAurorae {
                         scale: 1 / frame.outputScale
                         transformOrigin: Item.TopLeft
                         smooth: false
-                        imagePath: stateDelegate.modelData.imagePath
+                        imagePath: frame.classicCaptionAt120Dpi
+                            ? stateDelegate.modelData.imagePath.replace(/\.svg$/, "-120.svg")
+                            : stateDelegate.modelData.imagePath
                         elementId: stateDelegate.modelData.prefix + "-center"
                         opacity: stateDelegate.modelData.opacity * stateDelegate.control.opacity
                         visible: opacity > 0 && stateDelegate.control.visible

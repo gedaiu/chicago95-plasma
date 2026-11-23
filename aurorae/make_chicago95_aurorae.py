@@ -155,10 +155,44 @@ def glyph(kind, color, dx=0, dy=0):
 
 
 CLOSE_GAP = 2
+CAPTION_SCALE_120 = 1.25
+CAPTION_FACE_120_W, CAPTION_FACE_120_H = 20, 18
+CAPTION_120_GLYPHS = {
+    "minimize": "M5 13h8v2H5z",
+    "maximize": "M4 4h11v11H4zM5 6h9v8H5z",
+    "restore": "M7 4h9v7h-3v4H4V8h3zM8 6v2h5v2h2V6zM5 10v4h7v-4z",
+    "close": (
+        "M6 5h2v1h1v1h1v1h1v-1h1v-1h1v-1h2v2h-1v1h-1v1h-1v1h1v1h1v1h1v2"
+        "h-2v-1h-1v-1h-1v-1h-1v1h-1v1h-1v1H6v-2h1v-1h1v-1h1V9H8V8H7V7H6z"
+    ),
+}
 
 
-def button_svg(kind):
-    gap = CLOSE_GAP if kind == "close" else 0
+def caption_face_120(pressed):
+    if pressed:
+        return (
+            rect(0, 0, 20, 18, FACE)
+            + f'<path d="M0 0H20V1H1V18H0z" fill="{DARK}"/>'
+            + f'<path d="M1 1H19V2H2V17H1z" fill="{SHADOW}"/>'
+        )
+    return (
+        rect(0, 0, 20, 18, FACE)
+        + f'<path d="M0 0H20V1H1V18H0z" fill="{HILIGHT}"/>'
+        + f'<path d="M19 1H20V18H1V17H19z" fill="{SHADOW}"/>'
+    )
+
+
+def caption_glyph_120(kind, color, offset):
+    return (
+        f'<path d="{CAPTION_120_GLYPHS[kind]}" fill="{color}" fill-rule="evenodd"'
+        f' transform="translate({offset} {offset})"/>'
+    )
+
+
+def button_svg(kind, high_dpi=False):
+    gap = (3 if high_dpi else CLOSE_GAP) if kind == "close" else 0
+    width = CAPTION_FACE_120_W if high_dpi else BTN_W
+    height = int(BTN_H * CAPTION_SCALE_120) if high_dpi else BTN_H
     states = {
         "active-center": (False, GLYPH, 0),
         "hover-center": (False, GLYPH, 0),
@@ -171,21 +205,30 @@ def button_svg(kind):
     }
     groups = []
     for idx, (element_id, (pressed, color, shift)) in enumerate(states.items()):
-        body = button_face(pressed)
-        if color == SHADOW:
+        if high_dpi:
+            body = caption_face_120(pressed)
+            if color == SHADOW:
+                body += caption_glyph_120(kind, HILIGHT, 1)
+            body += caption_glyph_120(kind, color, shift)
+            inset = (height - CAPTION_FACE_120_H) // 2
+            body = f'<g transform="translate(0,{inset})">{body}</g>'
+        elif color == SHADOW:
+            body = button_face(pressed)
             body += disabled_caption_glyph(kind, color, 0, BTN_H - FACE_H - 1)
         else:
-            body += glyph(kind, color, shift, shift)
-        cell = BTN_W + gap + 4
+            body = button_face(pressed) + glyph(kind, color, shift, shift)
+        cell = width + gap + 4
         groups.append(
             f'<g id="{element_id}" transform="translate({idx * cell},0)">'
-            f'{rect(0, 0, gap + BTN_W, BTN_H, "none")}<g transform="translate({gap},0)">{body}</g></g>'
+            f'{rect(0, 0, gap + width, height, "none")}<g transform="translate({gap},0)">{body}</g></g>'
         )
-    return svg(len(states) * (BTN_W + gap + 4), BTN_H, "\n".join(groups))
+    return svg(len(states) * (width + gap + 4), height, "\n".join(groups))
 
 
 for name in ["close", "minimize", "maximize", "restore", "help", "alldesktops", "keepabove", "keepbelow", "shade"]:
     (OUT / f"{name}.svg").write_text(button_svg(name))
+    if name in CAPTION_120_GLYPHS:
+        (OUT / f"{name}-120.svg").write_text(button_svg(name, high_dpi=True))
 
 # KWin centres the caption in a box TitleEdgeTop down and TitleHeight tall: a pixel lower and shorter
 # than the title band puts it on the originals' rows, with the buttons where they were (TitleEdgeTop +

@@ -8,7 +8,7 @@ from PIL import Image
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtSvg import QSvgRenderer
-from reference import REFERENCES, qimage_to_pil, theme_references
+from reference import REFERENCES, qimage_to_pil, rgb565, theme_references
 
 BUTTONS = ("minimize", "maximize", "close")
 STATES = ("rest", "hover", "pressed", "disabled", "restore", "cancelled")
@@ -29,7 +29,6 @@ DISABLED_CLOSE_MATTES = ("dark", "light", "blue")
 # Upper bounds from the native-size comparisons below. Strict mode uses
 # zero RGB differences for each button and reports the pixel count.
 RGB_LIMITS = {
-    "classic": {"rest": 52, "hover": 50, "pressed": 36, "disabled": 41, "restore": 81},
     "luna": {"rest": 44, "hover": 40, "pressed": 37, "disabled": 25, "restore": 44},
     "aero": {"rest": 11, "hover": 19, "pressed": 24, "disabled": 26, "restore": 18},
 }
@@ -56,14 +55,14 @@ def caption_pixels(theme, button, state, look, glass):
     image = QImage(rgb, width, height, width * 3, QImage.Format_RGB888).convertToFormat(QImage.Format_RGB32)
     painter = QPainter(image)
     try:
-        source = theme / f"{button}{'-large' if look == 'aero' else ''}.svg"
+        suffix = "-120" if look in CLASSIC else "-large" if look == "aero" else ""
+        source = theme / f"{button}{suffix}.svg"
         bounds = QRectF(0, 0, width, height)
         if look in CLASSIC:
             # The classic SVG cell carries an extra row above and below the
             # actual face, and Close starts after its two-unit space.
-            sx, sy = width / 16, height / 14
-            gap = 2 if button == "close" else 0
-            bounds = QRectF(-gap * sx, -sy, (16 + gap) * sx, 16 * sy)
+            gap = 3 if button == "close" else 0
+            bounds = QRectF(-gap, -1, width + gap, height + 2)
         if look == "aero" and state == "restore":
             # A maximized native Aero caption clips the top physical row.
             bounds = QRectF(0, -1, width, height + 1)
@@ -72,7 +71,8 @@ def caption_pixels(theme, button, state, look, glass):
         renderer.render(painter, ELEMENTS[state], bounds)
     finally:
         painter.end()
-    return qimage_to_pil(image)
+    rendered = qimage_to_pil(image)
+    return rgb565(rendered) if look in ("2000", "2001") else rendered
 
 
 def disabled_close_matte(matte):
@@ -115,9 +115,9 @@ def caption_reference(look):
 
 @pytest.mark.parametrize("look", LOOKS)
 @pytest.mark.parametrize(
-    ("state", "index"), [(state, index) for state in STATES[:-1] for index in state_buttons(state)]
+    ("state", "index"), [(state, index) for state in STATES for index in state_buttons(state)]
 )
-def test_caption_svg_stays_within_windows_rgb_budget(caption_themes, exact_original, look, state, index):
+def test_caption_svg_matches_windows_reference(caption_themes, exact_original, look, state, index):
     sheet = caption_reference(look)
     button = "restore" if state == "restore" else BUTTONS[index]
     expected, glass = face_region(sheet, look, state, index)
@@ -125,8 +125,11 @@ def test_caption_svg_stays_within_windows_rgb_budget(caption_themes, exact_origi
     mask = visible_pixels(look, state, expected.size)
     exact_original(expected, actual, mask)
     difference = np.abs(np.asarray(actual, dtype=int) - np.asarray(expected, dtype=int))
-    limits = RGB_LIMITS["classic" if look in CLASSIC else look]
-    assert difference[mask].mean() < limits[state], (look, state, button, difference[mask].mean())
+    if look in CLASSIC:
+        assert not difference[mask].any(), (look, state, button, difference[mask].mean())
+        return
+    limit = RGB_LIMITS[look]["rest" if state == "cancelled" else state]
+    assert difference[mask].mean() < limit, (look, state, button, difference[mask].mean())
 
 
 @pytest.mark.parametrize("matte", DISABLED_CLOSE_MATTES)
