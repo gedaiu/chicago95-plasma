@@ -220,6 +220,9 @@ The tests capture the painted caption faces and record the widget allocations se
 Setup uses standalone SVG files for the classic, Luna and Aero caption faces. The GTK 4 fixtures take the buttons
 from GTK's own `Gtk.WindowControls` after the compositor configures the window, check their state flags, and
 include the native frame in the snapshot at its original size using the window's renderer.
+For Luna in GTK 3, the strict comparisons use the compositor's screenshot. This includes scaling
+that happens after GTK submits its integer-scale buffer. A solid marker in the test window ties
+the on-screen frame to the GTK widget coordinates used to crop each button.
 For Luna at 120 DPI, Setup selects the larger SVG glyphs for both GTK and Aurorae. The live comparisons
 pass the reference scale to Setup so the comparison uses the artwork that would be installed at that DPI.
 The larger faces preserve the five-pixel edge regions from Luna's sizing margins, with shared vector paths

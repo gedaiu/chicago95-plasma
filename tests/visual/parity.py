@@ -14,7 +14,7 @@ import pytest
 from aurorae_model import Window
 from conftest import REPO, load_script
 from original_pixels import compare
-from PIL import Image, ImageFilter
+from PIL import Image, ImageColor, ImageFilter
 from plasma_session import HOME_AFTER_SETUP, install, missing_programs, run_session, show, work_folder
 from reference import REFERENCES, qimage_to_pil, render_start_menu, theme_references
 from showcase import start_menus, themed
@@ -225,6 +225,8 @@ def live_gtk(installed):
                 f"{quote(sys.executable)} {quote(str(REPO / 'tests/gtk_showcase.py'))} "
                 f"{version} {quote(theme)} {quote(str(directory))} --consistency --only caption --caption-crops"
             )
+            if look == "luna" and version == "3.0":
+                command += " --compositor-captions"
             commands.append(command)
         script.write_text("\n".join(commands) + "\n")
         env = {
@@ -306,12 +308,29 @@ def kwin_face(capture, theme, look, scale, state, index):
     )
 
 
+def marker_bounds(image, colour):
+    rows, columns = np.where(np.all(np.asarray(image) == ImageColor.getrgb(colour), axis=-1))
+    assert len(rows) > 0, "GTK compositor capture is missing the geometry marker"
+    return columns.min(), rows.min(), columns.max() + 1, rows.max() + 1
+
+
 def gtk_face(directory, state, index):
     records = json.loads((directory / "caption-crops.json").read_text())
     suffix = f"-{BUTTONS[index]}" if state in ("hover", "pressed") else ""
     record = records[f"caption {GTK_STATES[state]}{suffix}"]
+    box = record["faces"][BUTTONS[index]]
     with Image.open(directory / record["frame"]) as frame:
-        return frame.crop(record["faces"][BUTTONS[index]]).convert("RGB")
+        if "compositor" not in record:
+            return frame.crop(box).convert("RGB")
+        marker = marker_bounds(frame.convert("RGB"), record["marker"])
+    with Image.open(directory / record["compositor"]) as captured:
+        screen = captured.convert("RGB")
+    placed = marker_bounds(screen, record["marker"])
+    for dimension in (0, 1):
+        assert abs((placed[dimension + 2] - placed[dimension]) - (marker[dimension + 2] - marker[dimension])) <= 1
+    dx, dy = placed[0] - marker[0], placed[1] - marker[1]
+    x0, y0, x1, y1 = box
+    return screen.crop((x0 + dx, y0 + dy, x1 + dx, y1 + dy))
 
 
 @pytest.fixture(scope="module")

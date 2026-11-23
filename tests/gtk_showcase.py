@@ -6,6 +6,7 @@ Invoked inside a disposable KWin session by showcase.gtk_controls; never uses th
 import json
 import math
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -14,6 +15,8 @@ import gi
 VERSION, THEME, OUTPUT = sys.argv[1:4]
 AUDIT = "--consistency" in sys.argv[4:]
 CAPTION_CROPS = "--caption-crops" in sys.argv[4:]
+COMPOSITOR_CAPTIONS = "--compositor-captions" in sys.argv[4:]
+CAPTION_MARKER_COLOUR = "#e10ccf"
 gi.require_version("Gtk", VERSION)
 from gi.repository import GLib, Gtk  # noqa: E402
 
@@ -488,6 +491,13 @@ def gtk_caption_regions(header, root, label, scale, origin):
     return allocations, faces
 
 
+def apply_gtk3_caption_state(header):
+    for button in header._caption_buttons.values():
+        flag = button._caption_flag
+        if flag is not None:
+            button.set_state_flags(flag, False)
+
+
 def main():
     Gtk.init() if V4 else Gtk.init([])
     settings = Gtk.Settings.get_default()
@@ -530,6 +540,14 @@ def main():
         native_caption = label.startswith("caption ") and (not V4 or NATIVE_GTK4_CAPTION)
         if native_caption:
             box.remove(children[0])
+        if COMPOSITOR_CAPTIONS:
+            # A solid marker ties the widget crop coordinates to the on-screen
+            # frame without relying on the window manager's shadow geometry.
+            box.set_size_request(360, 140)
+            box.get_style_context().add_class("capture-marker")
+            provider = Gtk.CssProvider()
+            provider.load_from_data(f".capture-marker {{ background-color: {CAPTION_MARKER_COLOUR}; }}".encode())
+            box.get_style_context().add_provider(provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
         # A real window, never Gtk.OffscreenWindow: only a real one follows the screen's scale.
         window = Gtk.Window()
         if CAPTION_CROPS and label == "caption restore":
@@ -640,6 +658,8 @@ def main():
                         child.event(press)
         if native_caption and V4:
             GLib.timeout_add(200, prepare_gtk4_caption, children[0])
+        elif COMPOSITOR_CAPTIONS:
+            GLib.timeout_add(200, prepare_compositor_caption, children[0])
         else:
             GLib.timeout_add(200, capture)
         return False
@@ -654,6 +674,11 @@ def main():
                 button.set_sensitive(False)
             if flag is not None and kind == target:
                 button.set_state_flags(flag, False)
+        GLib.timeout_add(100, capture)
+        return False
+
+    def prepare_compositor_caption(header):
+        apply_gtk3_caption_state(header)
         GLib.timeout_add(100, capture)
         return False
 
@@ -677,10 +702,7 @@ def main():
                 )
             )
         if not V4 and label.startswith("caption "):
-            for button in children[0].get_children():
-                flag = getattr(button, "_caption_flag", None)
-                if flag is not None:
-                    button.set_state_flags(flag, False)
+            apply_gtk3_caption_state(children[0])
         path = output / f"{position}.png"
         origin = (0, 0)
         if V4:
@@ -743,6 +765,15 @@ def main():
         if CAPTION_CROPS and label.startswith("caption "):
             allocations, faces = gtk_caption_regions(children[0], root, label, device_scale, origin)
             caption_crops[label] = {"frame": path.name, "allocations": allocations, "faces": faces}
+            if COMPOSITOR_CAPTIONS:
+                screen = output / f"{position}-compositor.png"
+                try:
+                    subprocess.run(["spectacle", "-b", "-n", "-f", "-o", str(screen)], check=True, timeout=15)
+                except (OSError, subprocess.SubprocessError):
+                    loop.quit()
+                    raise
+                caption_crops[label]["compositor"] = screen.name
+                caption_crops[label]["marker"] = CAPTION_MARKER_COLOUR
         manifest.append([group, label, path.name])
         window.destroy()
         position += 1
@@ -751,6 +782,8 @@ def main():
 
     GLib.idle_add(show_next)
     loop.run()
+    if position != len(catalogue):
+        raise SystemExit("GTK capture ended before all samples were written")
 
 
 if __name__ == "__main__":
