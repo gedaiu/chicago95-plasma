@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="16" height="16" viewBox="0 0 16 16">
+  <defs>
+    <pattern id="stipple" patternUnits="userSpaceOnUse" width="2" height="2">
+      <path d="M0 0h1v1H0zM1 1h1v1H1z" fill="gray"/>
+    </pattern>
+    <path id="folder" d="M.5 3.5 2.5 1.5h4l2 2h5l1 1v9h-14z"/>
+    <path id="up" d="M3 7.5 6 4.5l3 3H7v2h4v1.5H5.5V7.5z"/>
+  </defs>
+  <use xlink:href="#folder" transform="translate(1 1)" fill="none" stroke="white"/>
+  <use xlink:href="#folder" fill="url(#stipple)" stroke="gray"/>
+  <use xlink:href="#up" transform="translate(1 1)" fill="white"/>
+  <use xlink:href="#up" fill="gray"/>
+</svg>

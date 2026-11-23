@@ -8,10 +8,22 @@ THUMB_DISABLED = ("#F5F4EA", "#BFBCAD")
 THUMB_SIZE = (11, 21)
 
 
-def thumb_shades(state, length):
+def thumb_accent(state):
+    return {
+        "normal": ("#81DC83", "#49C94B"),
+        "hover": THUMB_HOVER_ACCENT,
+        "pressed": ("#409D42", "#2D8F30"),
+        "disabled": ("#DAD8CD", "#C9C7BA"),
+    }[state]
+
+
+def thumb_stops(state):
     stops = THUMB_DISABLED if state == "disabled" else THUMB_STOPS
-    if state == "pressed":
-        stops = stops[::-1]
+    return stops[::-1] if state == "pressed" else stops
+
+
+def thumb_shades(state, length):
+    stops = thumb_stops(state)
     colours = [tuple(bytes.fromhex(colour[1:])) for colour in stops]
     rows = []
     for index in range(length):
@@ -35,12 +47,7 @@ def thumb_pixels(width, height, horizontal, state, point=None, scale=1):
     shades = thumb_shades(state, length)
     device_across, device_length = across * scale, length * scale
     pixels = [[None] * device_across for _ in range(device_length)]
-    accent = {
-        "normal": ("#81DC83", "#49C94B"),
-        "hover": THUMB_HOVER_ACCENT,
-        "pressed": ("#409D42", "#2D8F30"),
-        "disabled": ("#DAD8CD", "#C9C7BA"),
-    }[state]
+    accent = thumb_accent(state)
     taper_start = (length - across // 2 - 1) * scale + scale // 2
     for device_y in range(device_length):
         y = device_y // scale

@@ -258,13 +258,28 @@ def uniform_cells(rows, scale):
     return sum(row.count("#") for row in rows) * max(1, round(scale)) ** 2
 
 
-def test_check_box_tick_at_one_and_a_half_scale_is_drawn_in_even_two_pixel_cells(style):
-    option = button_option(style, QRect(0, 0, 13, 13), QStyle.State_On)
-    image = painted_at_scale(
-        1.5, 13, 13, lambda painter: style.drawPrimitive(QStyle.PE_IndicatorCheckBox, option, painter)
-    )
+@pytest.mark.parametrize(("scale", "side"), [(1, 13), (1.5, 16), (2, 25)])
+def test_check_mark_matches_xp_dpi_resource(style, scale, side):
+    import numpy as np
 
-    assert count_of(image, "#21A121") == uniform_cells(luna_style.CHECK_TICK, 1.5)
+    from .luna_sprites import sprite, sprites_available
+
+    if not sprites_available():
+        pytest.skip("requires the Blue Luna resources from the XP media")
+    option = button_option(style, QRect(0, 0, 13, 13), QStyle.State_On)
+    image = painted_at_scale(scale, 13, 13, lambda p: style.drawPrimitive(QStyle.PE_IndicatorCheckBox, option, p))
+    native = sprite("button.checkbox", 4, f"CheckBox{side}.bmp").convert("RGB")
+
+    def mask(im):
+        rgb = np.asarray(im, dtype=int)
+        return rgb[:, :, 1] - rgb[:, :, 0] > 64
+
+    actual = mask(qimage_to_pil(image).resize(native.size, Image.Resampling.LANCZOS))
+    expected = mask(native)
+    if scale == 1:
+        assert np.array_equal(actual, expected)
+    else:
+        assert (actual & expected).sum() / (actual | expected).sum() > 0.90
 
 
 def test_spin_box_arrows_at_one_and_a_half_scale_are_whole_device_pixels_without_blended_edges(style):
@@ -295,7 +310,11 @@ def test_unchecked_check_box_has_no_green(style):
 def test_selected_radio_button_has_round_border_and_green_dot(style):
     image = paint_indicator(style, QStyle.PE_IndicatorRadioButton, QStyle.State_On)
 
-    assert [hex_at(image, 0, 0), hex_at(image, 6, 6)] == [WINDOW_FACE, "#21A121"]
+    assert hex_at(image, 0, 0) == WINDOW_FACE
+    # The SP3 13px radio has a highlight above and to the left of the centre.
+    centre = image.pixelColor(6, 6).getRgb()[:3]
+    assert centre == pytest.approx((56, 185, 53), abs=4)
+    assert image.pixelColor(5, 5).green() > centre[1] > image.pixelColor(7, 7).green()
     assert hex_at(image, 0, 6) != WINDOW_FACE
 
 

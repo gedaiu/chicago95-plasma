@@ -17,16 +17,13 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageChops
 
-DEFAULT_DIR = Path(
-    "/tmp/claude-1000/-home-gedaiu-workspace-chicago95-plasma/6679116e-4ef6-4478-b441-c6cd1dc95f4a/scratchpad/refs2/"
-    "gh_freitagdavid_QuickXP/QuickXP/themes/luna/luna"
-)
 Margins = namedtuple("Margins", "left right top bottom")
 Part = namedtuple("Part", "image_file image_count margins")
 
 
 def sprite_dir():
-    return Path(os.environ.get("LUNA_MSSTYLES_DIR", DEFAULT_DIR))
+    cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+    return Path(os.environ.get("LUNA_MSSTYLES_DIR", cache / "chicago95/xp-luna"))
 
 
 def sprites_available():

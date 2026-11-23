@@ -67,13 +67,20 @@ def straight(image):
     )
     return result
 
-def fixed_corner(theme_class, part_name, state):
-    """Top-left unstretched corner of a control state on the standard dialog background."""
+
+def control_state(theme_class, part_name, state):
+    """One complete native sprite state on the standard dialog background."""
     component = part(theme_class, part_name)
     with Image.open(sprite_dir() / component.image_file) as image:
         strip = straight(image.convert("RGBA"))
-    y = state * (strip.height // component.image_count)
-    width, height = component.margins.left, component.margins.top
-    original = Image.new("RGBA", (width, height), "#f0f0f0")
-    original.alpha_composite(strip.crop((0, y, width, y + height)))
+    height = strip.height // component.image_count
+    y = state * height
+    original = Image.new("RGBA", (strip.width, height), "#f0f0f0")
+    original.alpha_composite(strip.crop((0, y, strip.width, y + height)))
     return original.convert("RGB")
+
+
+def fixed_corner(theme_class, part_name, state):
+    """Top-left unstretched corner of a control state on the standard dialog background."""
+    margins = part(theme_class, part_name).margins
+    return control_state(theme_class, part_name, state).crop((0, 0, margins.left, margins.top))

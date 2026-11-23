@@ -19,8 +19,22 @@ Every colour and size was sampled from the 1x originals in tests/references (x, 
   menu, progress, header   not in the references: the plan's values (white menu, #ACA899 frame, 23px rows)
 """
 
+from functools import lru_cache
+
 from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt
-from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPainterPath, QPalette, QPen, QPolygonF, QRegion
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QIcon,
+    QPainter,
+    QPainterPath,
+    QPalette,
+    QPen,
+    QPolygonF,
+    QRadialGradient,
+    QRegion,
+)
+from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QApplication, QFrame, QProxyStyle, QStyle, QStyleOptionButton, QTabBar
 
 BUTTON_BORDER = "#003C74"
@@ -64,7 +78,7 @@ INDICATOR_GLOW_DARK = "#FAC45D"
 INDICATOR_BORDER_DISABLED = "#CAC8BB"
 INDICATOR_MARK = "#21A121"
 INDICATOR_MARK_DISABLED = "#CAC8BB"
-CHECK_TICK = [
+MENU_TICK = [
     ".....##",
     "....###",
     "#..###.",
@@ -422,24 +436,54 @@ def paint_check_box(painter, option):
     if option.state & QStyle.State_NoChange:
         painter.fillRect(box.adjusted(3, 3, -3, -3), QColor(mark))
     elif option.state & QStyle.State_On:
-        paint_pixels(painter, box.left() + 3, box.top() + 3, CHECK_TICK, mark)
+        from chicago95lunamarks import native_size, tick_arms
+
+        scale = painter.device().devicePixelRatioF()
+        source = native_size(scale)
+        painter.translate(box.left(), box.top())
+        side = round(box.width() * scale) / (source * scale)
+        painter.scale(side, side)
+        painter.setRenderHint(QPainter.Antialiasing, scale > 1)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor(mark))
+        for arm in tick_arms(source):
+            painter.drawPolygon(QPolygonF([QPointF(x, y) for x, y in arm]))
     painter.restore()
 
 
+@lru_cache(maxsize=15)
+def radio_face_renderer(size, state):
+    from chicago95lunamarks import radio_face_svg
+
+    return QSvgRenderer(radio_face_svg(size, state, size).encode())
+
+
 def paint_radio_button(painter, option):
+    from chicago95lunamarks import RADIO_DISABLED, RADIO_GLOSS, RADIO_RADIUS, native_size
+
     box = indicator_box(option.rect)
-    border, mark = indicator_colours(option)
+    scale = painter.device().devicePixelRatioF()
+    source = native_size(scale)
+    state = indicator_state(option)
+    checked = bool(option.state & QStyle.State_On)
     painter.save()
-    painter.setRenderHint(QPainter.Antialiasing, False)
-    painter.setClipPath(rounded_path(box, INDICATOR_SIZE / 2), Qt.IntersectClip)
-    paint_indicator_fill(painter, box, option)
-    painter.setClipping(False)
-    painter.setRenderHint(QPainter.Antialiasing)
-    stroke_rounded(painter, box, INDICATOR_SIZE / 2, border)
-    if option.state & QStyle.State_On:
+    radio_face_renderer(source, "checked" if checked and state == "normal" else state).render(painter, QRectF(box))
+    if checked:
+        radius = RADIO_RADIUS[source] * box.width() / source
+        centre = QRectF(box).center()
         painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor(mark))
-        painter.drawEllipse(QRectF(box.adjusted(4, 4, -4, -4)))
+        painter.setRenderHint(QPainter.Antialiasing, scale > 1)
+        if option.state & QStyle.State_Enabled:
+            x, y, extent, colours = RADIO_GLOSS[source]
+            gradient = QRadialGradient(
+                centre + QPointF((x - 0.5) * 2 * radius, (y - 0.5) * 2 * radius), extent * 2 * radius
+            )
+            for i, colour in enumerate(colours):
+                gradient.setColorAt(i / 2, QColor(colour))
+            painter.setBrush(gradient)
+        else:
+            painter.setBrush(QColor(RADIO_DISABLED))
+        painter.drawEllipse(centre, radius, radius)
     painter.restore()
 
 
@@ -500,7 +544,7 @@ def paint_menu_icon(painter, option, colour):
         painter.restore()
         return
     if option.checked:
-        paint_centred_pixels(painter, column, CHECK_TICK, colour.name())
+        paint_centred_pixels(painter, column, MENU_TICK, colour.name())
 
 
 def paint_menu_texts(painter, option, colour):

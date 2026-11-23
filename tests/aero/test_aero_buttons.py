@@ -97,6 +97,11 @@ def test_large_caption_glyph_matches_144_dpi_guest(qt_app, kind, left, width):
         expected = Image.open(REPO / "tests/references/win7-sp1-144dpi-restore.png").convert("RGB")
         # The maximized caption clips the topmost row at the screen edge.
         actual = actual.crop((0, 1, width, 30))
+        observed, guest = (np.asarray(im, dtype=int)[4:25, 7:33] for im in (actual, expected))
+        bright, native_bright = [(im.min(2) > 198) & (np.ptp(im, axis=2) < 12) for im in (observed, guest)]
+        assert np.array_equal(bright, native_bright)
+        assert np.array_equal(observed[native_bright], guest[native_bright])
+        return
 
     # Isolate the bright glyph body from the bevel and translucent glass.
     def body(im):
@@ -104,3 +109,130 @@ def test_large_caption_glyph_matches_144_dpi_guest(qt_app, kind, left, width):
 
     a, b = body(actual), body(expected)
     assert (a & b).sum() / (a | b).sum() > 0.82
+
+
+@pytest.mark.parametrize(
+    ("kind", "width", "left", "dpi96_limit", "dpi144_limit"),
+    [("minimize", 30, 0, 16, 17), ("maximize", 27, 45, 24, 18), ("close", 50, 85, 14, 17), ("restore", 27, 0, 17, 9)],
+)
+@pytest.mark.parametrize("large", [False, True], ids=["96dpi", "144dpi"])
+def test_complete_caption_face_against_guest(
+    qt_app, exact_original, kind, width, left, dpi96_limit, dpi144_limit, large
+):
+    import numpy as np
+    from test_aero_imported_art import render
+
+    theme = REPO / "aero/aurorae/theme"
+    restore = kind == "restore"
+    if large:
+        width = 40 if kind in ("maximize", "restore") else round(width * 1.5)
+        height, matte, limit = 30, (62, 106, 148), dpi144_limit
+        name = "144dpi-restore" if restore else "144dpi-caption"
+        top = 0
+    else:
+        height, matte, limit = 20, (109, 146, 181), dpi96_limit
+        name = f"caption-{kind}-motion"
+        left, top = 0, 0 if restore else 2
+    reference = Image.open(REPO / f"tests/references/win7-sp1-{name}.png").convert("RGB")
+    expected = reference.crop((left, top, left + width, top + height - restore))
+    asset = theme / f"{kind}{'-large' if large else ''}.svg"
+    button = render(asset.read_bytes(), (width, height), "active-center")
+    glass = Image.new("RGBA", button.size, matte)
+    glass.alpha_composite(button)
+    # The maximized guest caption clips its first row at the screen edge.
+    actual = glass.convert("RGB").crop((0, int(restore), width, height))
+    exact_original(expected, actual)
+    difference = np.abs(np.asarray(actual, dtype=int) - np.asarray(expected, dtype=int))
+    assert difference.mean() < limit
+
+
+@pytest.mark.parametrize(
+    ("kind", "left", "width", "limit", "joined_edges"),
+    [
+        ("minimize", 0, 45, 12, [-1]),
+        ("maximize", 45, 40, 7, [0, -1]),
+        ("close", 85, 75, 7.5, []),
+    ],
+)
+@pytest.mark.parametrize("top", [0, 30, 60], ids=["dark", "light", "blue"])
+def test_144dpi_resting_caption_over_native_glass(qt_app, exact_original, kind, left, width, limit, joined_edges, top):
+    import numpy as np
+    from test_aero_imported_art import render
+
+    capture = Image.open(REPO / "tests/references/win7-sp1-144dpi-caption-mattes.png")
+    asset = REPO / f"aero/aurorae/theme/{kind}-large.svg"
+    button = render(asset.read_bytes(), (width, 30), "active-center")
+    glass = capture.crop((1, top, 2, top + 30)).resize(button.size, Image.Resampling.NEAREST).convert("RGBA")
+    glass.alpha_composite(button)
+    expected = capture.crop((2 + left, top, 2 + left + width, top + 30))
+    actual = glass.convert("RGB")
+    exact_original(expected, actual)
+    difference = np.abs(np.asarray(actual, dtype=int) - np.asarray(expected, dtype=int))
+    assert difference.mean() < limit
+    if joined_edges:
+        assert np.all(difference[:, joined_edges].mean(axis=(0, 2)) < 4.5)
+    if kind == "close":
+        # The inset highlights and red bevel are visible above the rounded corners.
+        assert np.all(difference[:25, [1, -3, -2]].mean(axis=(0, 2)) < 7)
+
+
+@pytest.mark.parametrize("large", [False, True], ids=["96dpi", "144dpi"])
+def test_close_bevel_retains_glass_transparency_in_each_state(qt_app, large):
+    from test_aero_imported_art import render
+
+    asset = REPO / "aero/aurorae/theme" / ("close-large.svg" if large else "close.svg")
+    width, height = (75, 30) if large else (50, 20)
+    for state in generator.AURORAE_STATES:
+        button = render(asset.read_bytes(), (width, height), state + "-center")
+        assert button.getpixel((0, height - 1))[3] == 0
+        top = button.getpixel((width // 2, 0))
+        assert min(top[:3]) >= 248
+        if state in ("active", "hover", "pressed"):
+            assert top == (252, 252, 252, 255)
+        red, green, blue, alpha = button.getpixel((width // 2, height - 1))
+        assert max(red, green, blue) - min(red, green, blue) < 5
+        assert 80 <= alpha <= 180
+
+
+@pytest.mark.parametrize(("kind", "width", "radius"), [("minimize", 30, 2), ("close", 50, 2)])
+def test_caption_lower_corner_keeps_its_circular_rim_when_enlarged(qt_app, kind, width, radius):
+    import numpy as np
+    from test_aero_imported_art import render
+
+    asset = REPO / f"aero/aurorae/theme/{kind}.svg"
+    scale = 16
+    alpha = np.asarray(render(asset.read_bytes(), (width * scale, 20 * scale), "active-center"))[:, :, 3]
+    outer_radius = radius + 0.5
+    side = int(scale * outer_radius)
+    # Sample the outer edge around the quarter circle and leave one sample
+    # either side of the boundary for the renderer's antialiasing.
+    y, x = np.indices((side, side))
+    distance = np.hypot((x + 0.5) / scale - outer_radius, (y + 0.5) / scale)
+    corner = alpha[-side:, :side]
+    assert np.all(corner[distance < outer_radius - 1 / scale] > 40)
+    rim = (distance > outer_radius - 0.6) & (distance < outer_radius - 0.125)
+    assert np.all((160 <= corner[rim]) & (corner[rim] <= 175))
+    assert np.all(corner[distance > outer_radius + 1 / scale] <= 4)
+
+
+@pytest.mark.parametrize("state_index", range(8))
+def test_optional_commands_have_distinct_visible_symbols_in_each_state(qt_app, state_index):
+    import xml.etree.ElementTree as ET
+
+    from PIL import ImageChops
+
+    masks = set()
+    theme = REPO / "aero/aurorae/theme"
+    for name in ("help", "shade", "keepabove", "keepbelow", "alldesktops"):
+        tree = ET.parse(theme / f"{name}.svg").getroot()
+        size = int(tree.get("width")), int(tree.get("height"))
+        group = tree.findall("{*}g")[state_index]
+        x = state_index * (generator.palette.BUTTON_WIDTHS["maximize"] + generator.GAP)
+        area = (x, 0, x + generator.palette.BUTTON_WIDTHS["maximize"], size[1])
+        face = over_glass(rendered(ET.tostring(tree, encoding="unicode"), size)).crop(area)
+        group.remove(group[-1])
+        background = over_glass(rendered(ET.tostring(tree, encoding="unicode"), size)).crop(area)
+        mask = ImageChops.difference(face, background).convert("L").point(lambda value: 255 if value > 2 else 0)
+        assert mask.histogram()[255] >= 12, name
+        masks.add(mask.tobytes())
+    assert len(masks) == 5

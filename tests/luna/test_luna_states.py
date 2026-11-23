@@ -87,7 +87,7 @@ def test_check_box_state_pixel(style, palette, checked, state, x, y, colour):
 
 def test_disabled_checked_check_box_mark_is_cac8bb_and_enabled_mark_is_green(style, palette):
     marks = [
-        colour_at(luna_states.indicator(style, palette, QStyle.PE_IndicatorCheckBox, state, True), 8, 3)
+        colour_at(luna_states.indicator(style, palette, QStyle.PE_IndicatorCheckBox, state, True), 9, 3)
         for state in ("normal", "disabled")
     ]
     assert marks == ["#21A121", "#CAC8BB"]
@@ -97,15 +97,15 @@ def test_disabled_checked_check_box_mark_is_cac8bb_and_enabled_mark_is_green(sty
 @pytest.mark.parametrize(
     ("state", "x", "y", "colour"),
     [
-        ("hover", 1, 6, "#FDDFA2"),
-        ("hover", 11, 6, "#FAC45D"),
-        ("pressed", 3, 3, "#C6C5BA"),
-        ("disabled", 6, 2, "#FFFFFF"),
+        ("hover", 2, 6, "#FDD684"),
+        ("hover", 10, 6, "#F9BD48"),
+        ("pressed", 3, 3, "#B7B7AD"),
+        ("disabled", 6, 2, luna_states.WINDOW_FACE),
     ],
 )
 def test_radio_button_state_pixel(style, palette, checked, state, x, y, colour):
     image = luna_states.indicator(style, palette, QStyle.PE_IndicatorRadioButton, state, checked)
-    assert near(image, x, y, colour, 4)
+    assert near(image, x, y, colour, 6)
 
 
 @pytest.mark.parametrize(

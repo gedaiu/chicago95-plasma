@@ -86,7 +86,7 @@ REQUIRED_IDS = sorted(
         ),
     }
 )
-ALLOWED_TAGS = {"svg", "defs", "g", "rect", "path", "circle", "polygon", "linearGradient", "stop"}
+ALLOWED_TAGS = {"svg", "defs", "g", "rect", "path", "circle", "polygon", "linearGradient", "radialGradient", "stop"}
 TOTAL_BUDGET, GROUP_BUDGET, ELEMENT_BUDGET = 125_000, 14_000, 1_800
 
 

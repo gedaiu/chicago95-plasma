@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="50" height="48" viewBox="0 0 50 48">
+  <defs>
+    <linearGradient id="silver" gradientUnits="userSpaceOnUse" x1="4" y1="24" x2="25" y2="41">
+      <stop stop-color="#dfdfdf"/><stop offset="1" stop-color="#969696"/>
+    </linearGradient>
+    <linearGradient id="blue" gradientUnits="userSpaceOnUse" x1="42" y1="13" x2="27" y2="39">
+      <stop stop-color="#75c3de"/><stop offset="1" stop-color="#2282cd"/>
+    </linearGradient>
+    <path id="before" d="M-1 41 25 23.6V41z"/>
+    <path id="after" d="M28.5 9.4 45.6 40.5 28.5 40.5z"/>
+    <path id="turn" d="M9.3 17.1Q8.6 8.2 15.4 7.9V5.1l7.5 4.3-7.5 5.1v-3.2q-4.4.3-6.1 5.8z"/>
+    <g id="arrows">
+      <use xlink:href="#turn" transform="matrix(1.03 0 0 1.02 -0.5 0)"/>
+    </g>
+    <filter id="soft" x="-30%" y="-30%" width="170%" height="170%"><feGaussianBlur stdDeviation="1.15"/></filter>
+  </defs>
+  <g transform="translate(1.9 2)" opacity=".16" filter="url(#soft)">
+    <use xlink:href="#before"/><use xlink:href="#after"/><use xlink:href="#arrows"/>
+  </g>
+  <use xlink:href="#before" fill="url(#silver)" opacity="0.75"/>
+  <use xlink:href="#after" fill="url(#blue)" stroke="#1a6aaa" stroke-linejoin="round"/>
+  <use xlink:href="#arrows" fill="#1076dc"/>
+</svg>

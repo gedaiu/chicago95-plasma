@@ -121,6 +121,127 @@ def test_qt_and_gtk_checkboxes_share_mark_pixels(qt_app, gtk_images, state):
         assert mark_pixels(ours), "a selected/mixed checkbox must contain a visible mark"
 
 
+@pytest.fixture(scope="module")
+def double_density_images(tmp_path_factory, gtk_images):
+    from showcase import gtk_controls
+
+    folder = tmp_path_factory.mktemp("luna-double-density")
+    gtk_controls("luna", folder, audit=True, audit_kinds=("checkbox", "radio", "slider-after"), scale=2)
+    return load_images(folder, FACE)
+
+
+@pytest.mark.parametrize(("density", "size"), [(1, 13), (2, 25)])
+@pytest.mark.parametrize(
+    ("kind", "part", "bitmap"), [("checkbox", "checkbox", "CheckBox"), ("radio", "radiobutton", "RadioButton")]
+)
+def test_gtk_selection_mark_matches_xp_dpi_resource(
+    gtk_images, double_density_images, density, size, kind, part, bitmap
+):
+    import numpy as np
+
+    from .luna_sprites import flattened, sprite, sprites_available
+
+    if not sprites_available():
+        pytest.skip("requires the Blue Luna resources from the XP media")
+
+    def green_mark(image):
+        rgb = np.asarray(image.convert("RGB"), dtype=int)
+        return rgb[:, :, 1] - rgb[:, :, 0] > 64
+
+    images = gtk_images if density == 1 else double_density_images
+    # These are distinct native resources. Windows selects the 25px mark at 185 DPI.
+    for state, frame in (("checked", 4), ("checked-hovered", 5), ("checked-pressed", 6)):
+        native = sprite(f"button.{part}", frame, f"{bitmap}{size}.bmp")
+        expected = green_mark(native)
+        for version in ("3.0", "4.0"):
+            image = images[version, kind, state]
+            assert image.size == (13 * density, 13 * density)
+            normalized = image.resize(native.size, Image.Resampling.LANCZOS)
+            actual = green_mark(normalized)
+            if state == "checked":
+                reference = flattened(native, FACE).convert("RGB")
+                mean_error = np.abs(np.asarray(normalized, dtype=int) - np.asarray(reference, dtype=int)).mean()
+                limit = {"checkbox": {1: 1.1, 2: 6.0}, "radio": {1: 14.3, 2: 5.7}}[kind][density]
+                assert mean_error <= limit
+            if density == 1 or kind == "checkbox" or state != "checked-hovered":
+                assert np.array_equal(actual, expected)
+            else:
+                assert (actual & expected).sum() / (actual | expected).sum() > 0.94
+
+
+@pytest.mark.parametrize(("density", "size"), [(1, 13), (2, 25)])
+def test_radio_faces_match_xp_in_each_captured_state(gtk_images, double_density_images, density, size):
+    import numpy as np
+
+    from .luna_sprites import flattened, sprite, sprites_available
+
+    if not sprites_available():
+        pytest.skip("requires the Blue Luna resources from the XP media")
+    images = gtk_images if density == 1 else double_density_images
+    for state, frame, limits in (
+        ("normal", 0, (10.7, 4.0)),
+        ("hovered", 1, (11.3, 4.0)),
+        ("pressed", 2, (10.1, 3.7)),
+        ("checked", 4, (14.3, 5.7)),
+        ("checked-hovered", 5, (14.8, 5.6)),
+        ("checked-pressed", 6, (13, 5.1)),
+        ("disabled", 7, (4.5, 1.7)),
+    ):
+        native = sprite("button.radiobutton", frame, f"RadioButton{size}.bmp")
+        reference = np.asarray(flattened(native, FACE).convert("RGB"), dtype=int)
+        for version in ("3.0", "4.0"):
+            sample = images[version, "radio", state].resize(native.size, Image.Resampling.LANCZOS)
+            error = np.abs(np.asarray(sample, dtype=int) - reference).mean()
+            assert error <= limits[density - 1], (version, state, error)
+
+
+@pytest.mark.parametrize(("density", "size"), [(1, 13), (2, 25)])
+def test_checkbox_frame_matches_xp_in_every_captured_state(gtk_images, double_density_images, density, size):
+    from .luna_sprites import sprite, sprites_available
+
+    if not sprites_available():
+        pytest.skip("requires the Blue Luna resources from the XP media")
+    images = gtk_images if density == 1 else double_density_images
+    frames = {
+        "normal": 0,
+        "focused": 0,
+        "hovered": 1,
+        "pressed": 2,
+        "checked": 4,
+        "checked-hovered": 5,
+        "checked-pressed": 6,
+        "disabled": 7,
+        "mixed": 8,
+    }
+    for state, frame in frames.items():
+        native = sprite("button.checkbox", frame, f"CheckBox{size}.bmp").convert("RGB")
+        for version in ("3.0", "4.0"):
+            image = images[version, "checkbox", state]
+            assert image.size == (density * 13, density * 13)
+            for edge in range(4):
+                # Rotate both controls to inspect each side in physical pixels.
+                border = native.getpixel((size // 2, 0))
+                assert set(image.crop((0, 0, image.width, 1)).get_flattened_data()) == {border}, (state, edge)
+                assert image.getpixel((image.width // 2, 1)) != border
+                native = native.transpose(Image.Transpose.ROTATE_90)
+                image = image.transpose(Image.Transpose.ROTATE_90)
+
+
+@pytest.mark.parametrize("version", ("3.0", "4.0"))
+@pytest.mark.parametrize("orientation", ("horizontal", "vertical"))
+def test_double_density_slider_pointer_tapers_each_physical_row(double_density_images, version, orientation):
+    import numpy as np
+
+    image = np.asarray(double_density_images[version, "slider-after", f"normal-{orientation}"], dtype=int)
+    if orientation == "vertical":
+        image = image.transpose(1, 0, 2)
+    border = (image == (181, 196, 205)).all(axis=2) | (image == (119, 136, 146)).all(axis=2)
+    y, x = np.where(border)
+    tip = image[y.min() + 31 : y.min() + 42, x.min() : x.min() + 22]
+    ink = np.abs(tip - (236, 233, 216)).max(axis=2) > 8
+    assert ink.sum(axis=1).tolist() == list(range(22, 0, -2))
+
+
 @pytest.mark.parametrize("version", ("3.0", "4.0"))
 def test_indicator_states_change_pixels(gtk_images, version):
     for kind in ("checkbox", "radio"):
@@ -371,6 +492,7 @@ def test_luna_slider_thumb_matches_qt_and_has_a_smooth_gradient(
     qt_app, gtk_images, orientation, state, point, tmp_path
 ):
     import chicago95luna
+    from chicago95lunaslider import thumb_shades
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QSlider, QStyleOptionSlider
 
@@ -412,6 +534,7 @@ def test_luna_slider_thumb_matches_qt_and_has_a_smooth_gradient(
         assert qt.getpixel((5, end) if horizontal else (end, 5)) != (236, 233, 216)
     if state in ("normal", "start", "end"):
         assert (73, 201, 75) in set(qt.get_flattened_data()), "normal thumb must have the reference's green accent"
+    interpolated = {tuple(bytes.fromhex(colour[1:])) for colour in thumb_shades(state, 21)}
     for version in ("3.0", "4.0"):
         actual = gtk_images[version, "slider" if point is None else f"slider-{point}", f"{state}-{orientation}"]
         track_column = (
@@ -436,7 +559,13 @@ def test_luna_slider_thumb_matches_qt_and_has_a_smooth_gradient(
         thumb.save(tmp_path / f"gtk-{version}.png")
         qt.save(tmp_path / "qt.png")
         assert thumb.size == qt.size
-        assert thumb.tobytes() == qt.tobytes(), f"{version}: thumb differs from Qt; see {tmp_path}"
+        # The SVG gradient and Qt's RGB interpolation can round one level apart.
+        # The bounds, border, accents and pointer must occupy the same pixels.
+        delta = ImageChops.difference(thumb, qt)
+        assert max(high for _, high in delta.getextrema()) <= 1, f"{version}: see {tmp_path}"
+        for pixel, reference in zip(thumb.get_flattened_data(), qt.get_flattened_data(), strict=True):
+            if reference not in interpolated:
+                assert pixel == reference
 
 
 @pytest.mark.parametrize("orientation", ("horizontal", "vertical"))
@@ -496,7 +625,12 @@ def test_luna_switches_match_in_both_positions_and_states(gtk_images, active, st
     a.save(tmp_path / "gtk3.png")
     b.save(tmp_path / "gtk4.png")
     assert a.size == b.size == (36, 19)
-    assert a.tobytes() == b.tobytes(), f"switch {label} differs; see {tmp_path}"
+    delta = ImageChops.difference(a, b)
+    # GTK 3 and GTK 4 round premultiplied alpha differently on the four
+    # curved outer corners. Compare the opaque face, marks and thumb exactly.
+    assert max(high for _, high in delta.getextrema()) <= 1
+    assert delta.crop((2, 0, 34, 19)).getbbox() is None
+    assert delta.crop((0, 2, 36, 17)).getbbox() is None
     for version, image in (("3.0", a), ("4.0", b)):
         normal = gtk_images[version, "switch", f"{'on' if active else 'off'}-normal"]
         if state != "normal":

@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -569,17 +570,27 @@ class DeviceManagerWindow(QWidget):
         self.update_buttons()
 
     def add_console_commands(self, layout, console_style):
+        art = Path(__file__).resolve().parents[1] / "data/device-manager"
+        if not art.is_dir():
+            art = Path.home() / ".local/share/chicago95/device-manager"
+
         classic_nt = console_style in ("2000", "2001")
         single_band = console_style == "2000"
         menus = QMenuBar()
         menus.setNativeMenuBar(False)
         menus.setFixedHeight(23)
         if single_band:
-            commands = QHBoxLayout()
+            command_band = QFrame()
+            command_band.setObjectName("mmcBand")
+            command_band.setStyleSheet(
+                "QFrame#mmcBand { background: qlineargradient(x1:0,y1:0,x2:0,y2:1, "
+                "stop:0 white, stop:.045 white, stop:.046 palette(button), stop:.95 palette(button), "
+                "stop:.951 #808080, stop:1 #808080); }"
+            )
+            commands = QHBoxLayout(command_band)
             commands.setContentsMargins(0, 0, 0, 0)
             commands.setSpacing(0)
-            commands.addWidget(menus)
-            layout.addLayout(commands)
+            layout.addWidget(command_band)
         else:
             layout.addWidget(menus)
             menus.addMenu("&File").addAction("E&xit", self.close)
@@ -604,14 +615,16 @@ class DeviceManagerWindow(QWidget):
                 QMenuBar::item { background: transparent; padding: 2px 6px; }
                 QMenuBar::item:selected { background: palette(highlight); color: palette(highlighted-text); }
             """)
-            toolbar.setStyleSheet("""
-                QToolBar { min-height: 21px; padding: 0 0 0 2px; background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-                    stop:0 #f0efe4,stop:.86 #ebe9da,stop:1 #dedcc6);
+            toolbar.setStyleSheet(
+                """
+                QToolBar { min-height: 21px; padding: 0 0 0 2px;
+                    border-image: url("BAND_IMAGE") 1 0 1 0 stretch stretch;
                     border-top: 1px solid white; border-bottom: 1px solid #cdcabb; spacing: 1px; }
                 QToolButton { border: 0; }
                 QToolButton:hover { background: palette(highlight); }
                 QToolBar::separator { width: 7px; }
-            """)
+            """.replace("BAND_IMAGE", str(art / "luna-command-band.svg"))
+            )
         else:
             menus.setStyleSheet("""
                 QMenuBar { border-bottom: 1px solid #b4b4b4;
@@ -627,28 +640,47 @@ class DeviceManagerWindow(QWidget):
                 QToolButton { border: 0; padding: 2px 0 0 2px; } QToolButton:hover { background: #c4dcf0; }
                 QToolBar::separator { width: 7px; }
             """)
-        toolbar.setIconSize(QSize(16, 16))
+        if console_style in ("luna", "2001"):
+            top = 2 if console_style == "luna" else 1
+            toolbar.setStyleSheet(toolbar.styleSheet() + f"QToolButton {{ padding: {top}px 0 0 0; }}")
+        icon_side = 13 if single_band else 16
+        toolbar.setIconSize(QSize(icon_side, icon_side))
         toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)
         if single_band:
-            # The two MMC bands have vertical grips at their left edges.
-            menus.setStyleSheet(menus.styleSheet() + "QMenuBar { padding-left: 8px; border-left: 2px groove white; }")
+            menus.setMinimumWidth(80)
+            menus.setStyleSheet(menus.styleSheet() + "QMenuBar::item { padding: 6px 6px 0; }")
             toolbar.setStyleSheet(
-                toolbar.styleSheet() + "QToolBar { padding-left: 5px; border-left: 2px groove white; }"
+                toolbar.styleSheet()
+                + "QToolBar { padding: 0; spacing: 0; } QToolButton { padding: 0 2px 2px 0; }"
+                + "QToolBar::separator { width: 0; margin: 2px 2px 2px 3px; "
+                + "border-left: 1px solid gray; border-right: 1px solid white; }"
             )
-            menus.setFixedWidth(92)
-            commands.addWidget(toolbar, 1)
+            # Each MMC band starts with a raised grip and a small left inset.
+            for widget, inset, stretch in ((menus, 4, 0), (toolbar, 3, 1)):
+                commands.addSpacing(3)
+                handle = QFrame()
+                handle.setFixedSize(3, 15)
+                handle.setStyleSheet(
+                    "background: palette(button); border: 1px solid white; "
+                    "border-right-color: gray; border-bottom-color: gray;"
+                )
+                commands.addWidget(handle, 0, Qt.AlignVCenter)
+                commands.addSpacing(inset)
+                commands.addWidget(widget, stretch)
         else:
             layout.addWidget(toolbar)
 
-        art = Path(__file__).resolve().parents[1] / "data/device-manager"
-        if not art.is_dir():
-            art = Path.home() / ".local/share/chicago95/device-manager"
-
         def icon(name, fallback, asset=None):
-            if console_style != "aero" and asset and (art / f"luna-{asset}").is_file():
-                return QIcon(str(art / f"luna-{asset}"))
-            if asset and (art / asset).is_file():
-                return QIcon(str(art / asset))
+            if asset:
+                luna = art / f"luna-{asset}"
+                path = luna if console_style != "aero" and luna.is_file() else art / asset
+                if path.is_file():
+                    result = QIcon(str(path))
+                    palette = "2000" if classic_nt else console_style
+                    disabled = art / f"{palette}-{Path(asset).stem}-disabled.svg"
+                    if disabled.is_file():
+                        result.addFile(str(disabled), mode=QIcon.Disabled)
+                    return result
             return QIcon.fromTheme(name, self.style().standardIcon(fallback))
 
         self.properties_button = actions.addAction(
@@ -691,6 +723,7 @@ class DeviceManagerWindow(QWidget):
                 "Up one level",
                 lambda: self.tree.setCurrentItem(self.tree.currentItem().parent()),
             )
+            toolbar.widgetForAction(self.up).setStyleSheet("padding: 0 0 2px 0;")
             self.up.setEnabled(False)
         toolbar.addAction(self.scope_action)
         toolbar.addSeparator()

@@ -1,4 +1,4 @@
-"""Optional zero-tolerance checks alongside the normal Aero regression budgets."""
+"""Optional zero-tolerance checks alongside the normal Windows reference regression budgets."""
 
 import numpy as np
 import pytest

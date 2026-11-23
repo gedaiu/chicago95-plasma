@@ -61,7 +61,9 @@ def run_length_rows(x0, y0, w, h, color_at):
     return "".join(out)
 
 
-def nine_slice(prefix, x0, y0, size, border, rings, interior, margin, tile_center=False, interior_size=None):
+def nine_slice(
+    prefix, x0, y0, size, border, rings, interior, margin, tile_center=False, interior_size=None, center_fill=None
+):
     """Emit FrameSvg pieces for a square `size` frame with `border` px edges.
 
     `interior(px, py)` gives the colour inside the rings in frame coordinates.
@@ -87,11 +89,11 @@ def nine_slice(prefix, x0, y0, size, border, rings, interior, margin, tile_cente
         piece("bottomright", size - b, size - b, b, b),
     ]
     center_w = interior_size or inner
-    parts.append(
-        f'<g id="{prefix}center">'
-        + run_length_rows(x0 + b, y0 + b, center_w, center_w, lambda cx, cy: interior(b + cx, b + cy))
-        + "</g>"
-    )
+    if center_fill is not None:
+        centre = rect(x0 + b, y0 + b, center_w, center_w, center_fill)
+    else:
+        centre = run_length_rows(x0 + b, y0 + b, center_w, center_w, lambda cx, cy: interior(b + cx, b + cy))
+    parts.append(f'<g id="{prefix}center">{centre}</g>')
     sides = margin if isinstance(margin, tuple) else (margin, margin, margin, margin)
     for side, value in zip(("top", "bottom", "left", "right"), sides, strict=False):
         parts.append(hidden(f"{prefix}hint-{side}-margin", x0, y0 + size + 2, value, value))
@@ -108,45 +110,35 @@ def caption_face(x, y, colours, pressed):
     face, light, shadow, dark = colours
     tl1, br1, tl2, br2 = (dark, HILIGHT, shadow, light) if pressed else (HILIGHT, dark, light, shadow)
     w, h = CAPTION_W, CAPTION_H
-    return (
-        rect(x, y, w, h, face)
-        + rect(x, y, w, 1, tl1)
-        + rect(x, y, 1, h, tl1)
-        + rect(x, y + h - 1, w, 1, br1)
-        + rect(x + w - 1, y, 1, h, br1)
-        + rect(x + 1, y + 1, w - 2, 1, tl2)
-        + rect(x + 1, y + 1, 1, h - 2, tl2)
-        + rect(x + 1, y + h - 2, w - 2, 1, br2)
-        + rect(x + w - 2, y + 1, 1, h - 2, br2)
-    )
+
+    def rim(inset, top_left, bottom_right):
+        # The darker side owns both shared corner pixels.
+        left, top = x + inset, y + inset
+        width, height = w - 2 * inset, h - 2 * inset
+        end, foot = left + width, top + height
+        light_edge = f"M{left} {top}H{end - 1}v1H{left + 1}V{foot - 1}h-1z"
+        dark_edge = f"M{end - 1} {top}h1V{foot}H{left}v-1H{end - 1}z"
+        return f'<path d="{light_edge}" fill="{top_left}"/><path d="{dark_edge}" fill="{bottom_right}"/>'
+
+    return rect(x, y, w, h, face) + rim(0, tl1, br1) + rim(1, tl2, br2)
 
 
-# Glyphs as (x, y, width, height) runs on the 16x14 face, measured from the originals' buttons.
+# Closed outlines retain the deliberately stepped pixels of the classic 16×14 masters.
 GLYPHS = {
-    "close": [
-        (4, 3, 2, 1),
-        (10, 3, 2, 1),
-        (5, 4, 2, 1),
-        (9, 4, 2, 1),
-        (6, 5, 4, 1),
-        (7, 6, 2, 1),
-        (6, 7, 4, 1),
-        (5, 8, 2, 1),
-        (9, 8, 2, 1),
-        (4, 9, 2, 1),
-        (10, 9, 2, 1),
-    ],
-    "minimize": [(4, 9, 6, 2)],
-    "maximize": [(3, 2, 9, 2), (3, 2, 1, 9), (11, 2, 1, 9), (3, 10, 9, 1)],
-    "restore": [(5, 1, 6, 2), (10, 1, 1, 6), (8, 6, 3, 1), (2, 4, 6, 2), (2, 4, 1, 6), (7, 4, 1, 6), (2, 9, 6, 1)],
-    "help": [(6, 2, 4, 1), (5, 3, 2, 2), (9, 3, 2, 2), (8, 5, 2, 1), (7, 6, 2, 2), (7, 9, 2, 2)],
-    "alldesktops": [(7, 2, 2, 3), (4, 5, 8, 2), (5, 7, 6, 1), (7, 8, 2, 4)],
-    "keepabove": [(7, 2, 2, 2), (5, 4, 6, 2), (3, 6, 10, 2), (4, 9, 8, 2)],
-    "keepbelow": [(4, 2, 8, 2), (3, 5, 10, 2), (5, 7, 6, 2), (7, 9, 2, 2)],
-    "shade": [(3, 3, 10, 2), (3, 6, 10, 2)],
+    "close": (
+        "M4 4h1v1h1v1h1v1h-1v1h-1v1h-1v1h2v-1h1v-1h2v1h1v1h2v-1h-1v-1h-1v-1"
+        "h-1v-1h1v-1h1v-1h1v-1h-2v1h-1v1h-2v-1h-1v-1h-2z"
+    ),
+    "minimize": "M10 9h-6v2h6z",
+    "maximize": "M3 11h9v-9h-9zM4 4h7v6h-7z",
+    "restore": "M2 10h6v-3h3v-6h-6v2h5v3h-2v-2h-6zM3 9v-3h4v3z",
+    "help": "M6 2v1h-1v2h2v-2h2v2h-1v1h-1v2h2v-2h1v-1h1v-2h-1v-1zM7 11h2v-2h-2z",
+    "alldesktops": "M7 5h-3v2h1v1h2v4h2v-4h2v-1h1v-2h-3v-3h-2z",
+    "keepabove": "M7 4h-2v2h-2v2h10v-2h-2v-2h-2v-2h-2zM4 11h8v-2h-8z",
+    "keepbelow": "M4 4h8v-2h-8zM3 7h2v2h2v2h2v-2h2v-2h2v-2h-10z",
+    "shade": "M3 3v2h10v-2zM3 6v2h10v-2z",
 }
 
 
 def caption_glyph(kind, color, x, y):
-    """The glyph's runs on a face whose corner is (x, y)."""
-    return "".join(rect(x + gx, y + gy, w, h, color) for gx, gy, w, h in GLYPHS[kind])
+    return f'<path transform="translate({x} {y})" d="{GLYPHS[kind]}" fill="{color}" fill-rule="evenodd"/>'

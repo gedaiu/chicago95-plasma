@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <defs>
+    <linearGradient id="rim" x2="0" y2="1"><stop stop-color="#5c5c5c"/><stop offset="1" stop-color="#747474"/></linearGradient>
+    <linearGradient id="bevel"><stop stop-color="#ccc"/><stop offset="1" stop-color="#9f9f9f"/></linearGradient>
+    <linearGradient id="face" x1=".25" y1=".25" x2=".85" y2=".85">
+      <stop stop-color="#9a9a9a"/><stop offset=".46" stop-color="#aaa"/><stop offset="1" stop-color="#676767"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(16 0) scale(-1 1)">
+    <path d="M.5 8.5l7-7v4h8v6h-8v4z" fill="url(#bevel)" stroke="url(#rim)" stroke-linejoin="round"/>
+    <path d="M2 8.5l4.5-4.6v2.6H14v3.8H6.5v2.6z" fill="url(#face)"/>
+  </g>
+</svg>

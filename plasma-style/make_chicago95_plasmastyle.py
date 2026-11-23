@@ -189,10 +189,27 @@ def arrow_button(element_id, direction, x0, y0, rings):
 
 def scrollbar_svg():
     size = 24
-    parts = []
+    parts = [
+        '<defs><pattern id="track-checker" width="2" height="2" patternUnits="userSpaceOnUse">'
+        f'<rect width="2" height="2" fill="{FACE}"/><path d="M0 0h1v1H0zM1 1h1v1H1z" fill="{HILIGHT}"/>'
+        "</pattern></defs>"
+    ]
     col = 0
     for prefix in ("background-vertical-", "background-horizontal-"):
-        parts.append(nine_slice(prefix, col * (size + 16), 0, size, 1, [(FACE, FACE)], dither, 0, tile_center=True))
+        parts.append(
+            nine_slice(
+                prefix,
+                col * (size + 16),
+                0,
+                size,
+                1,
+                [(FACE, FACE)],
+                dither,
+                0,
+                tile_center=True,
+                center_fill="url(#track-checker)",
+            )
+        )
         col += 1
     for prefix, rings in (("slider-", RAISED_2), ("mouseover-slider-", RAISED_2), ("sunken-slider-", SUNKEN_2)):
         parts.append(nine_slice(prefix, col * (size + 16), 0, size, 2, rings, flat, 0))

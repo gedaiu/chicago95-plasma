@@ -1386,9 +1386,10 @@ class AddressBar(QWidget):
 
     def __init__(self, known_pages, aero=False):
         super().__init__()
+        self.aero = aero
         self.known_page_tuples = known_pages
         self.crumb_buttons = []
-        height = max(23, self.fontMetrics().height() + 8) if aero else ADDRESS_BOX_HEIGHT
+        height = max(24, self.fontMetrics().height() + 8) if aero else ADDRESS_BOX_HEIGHT
         self.setFixedHeight(height)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1399,7 +1400,7 @@ class AddressBar(QWidget):
         self.box.setLineWidth(2)
         self.box.setAutoFillBackground(True)
         self.box.setBackgroundRole(QPalette.Base)
-        self.box.setFixedHeight(height)
+        self.box.setFixedHeight(height - 2 if aero else height)
         box_layout = QHBoxLayout(self.box)
         box_layout.setContentsMargins(0, 0, 0, 0)
         box_layout.setSpacing(0)
@@ -1421,9 +1422,15 @@ class AddressBar(QWidget):
         self.crumb_layout.setSpacing(2)
         box_layout.addWidget(crumbs, 1)
         if aero:
+            layout.setContentsMargins(1, 1, 1, 1)
+            self.setAttribute(Qt.WA_StyledBackground, True)
+            self.setObjectName("aeroAddressFrame")
+            self.setStyleSheet("QWidget#aeroAddressFrame { background: rgba(255, 255, 255, 95); }")
             self.box.setObjectName("aeroBreadcrumb")
             self.box.setStyleSheet(
-                "QFrame#aeroBreadcrumb { background: #d0e6f7; border: 1px solid #70899c; }"
+                "QFrame#aeroBreadcrumb { border: 1px solid #435564; border-bottom-color: #799db9;"
+                " background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #f5faff,stop:.055 #d0e6f7,"
+                "stop:.945 #d0e6f7,stop:1 #eff7fc); }"
                 "QToolButton { color: #172632; padding: 0 2px; border: 1px solid transparent; }"
                 "QToolButton:hover { background: #d5eafd; border-color: #92b8d5; }"
                 "QToolButton::menu-indicator { image: none; }"
@@ -1451,7 +1458,7 @@ class AddressBar(QWidget):
         clear_layout(self.crumb_layout)
         self.crumb_buttons = []
         for depth, part in enumerate(page, start=1):
-            if depth > 1:
+            if depth > 1 and not self.aero:
                 self.crumb_layout.addWidget(QLabel(">"))
             crumb = QToolButton()
             crumb.setText(part)
@@ -1460,6 +1467,23 @@ class AddressBar(QWidget):
             self.crumb_layout.addWidget(crumb)
             crumb.show()
             self.crumb_buttons.append(crumb)
+            if self.aero:
+                prefix = page[:depth]
+                children = [p for p in self.known_page_tuples if p[:-1] == prefix]
+                if children:
+                    arrow = QToolButton()
+                    arrow.setAutoRaise(True)
+                    arrow.setAccessibleName(f"Locations in {part}")
+                    arrow.setFixedWidth(13)
+                    arrow.setArrowType(Qt.RightArrow)
+                    arrow.setPopupMode(QToolButton.InstantPopup)
+                    menu = QMenu(arrow)
+                    for child in children:
+                        menu.addAction(child[-1]).triggered.connect(
+                            lambda _checked=False, target=child: self.navigate.emit(target)
+                        )
+                    arrow.setMenu(menu)
+                    self.crumb_layout.addWidget(arrow)
         self.crumb_layout.addStretch(1)
 
     def crumbs(self):
@@ -3069,8 +3093,9 @@ def aero_band(content=None, content_height=MENU_BAR_HEIGHT, grip=True, trailing=
 
 
 class AeroNavigationButton(QToolButton):
-    def __init__(self):
+    def __init__(self, forward=False):
         super().__init__()
+        self.forward = forward
         self.glow = QVariantAnimation(self)
         self.glow.setDuration(140)
         self.glow.setStartValue(0.0)
@@ -3091,6 +3116,16 @@ class AeroNavigationButton(QToolButton):
         self.glow.start()
 
     def paintEvent(self, event):
+        if not self.isEnabled():
+            painter = QPainter(self)
+            if self.forward:
+                painter.translate(self.width(), 0)
+                painter.scale(-1, 1)
+            size = self.iconSize()
+            bounds = QRectF(0, 0, size.width(), size.height())
+            bounds.moveCenter(QRectF(self.rect()).center())
+            control_panel_picture("aero-navigation-disabled.svg").render(painter, bounds)
+            return
         super().paintEvent(event)
         strength = self.glow.currentValue()
         if self.isEnabled() and strength:
@@ -3382,8 +3417,8 @@ def control_panel_art(name):
 
 
 @functools.lru_cache(maxsize=32)
-def control_panel_picture(name, face="#c0c0c0"):
-    return QSvgRenderer(control_panel_art(name).replace(b"#c0c0c0", face.encode("ascii")))
+def control_panel_picture(name):
+    return QSvgRenderer(control_panel_art(name))
 
 
 class MousePicture(QWidget):
@@ -3429,9 +3464,7 @@ class ClickTestArea(QFrame):
 
     def paintEvent(self, event):
         super().paintEvent(event)
-        svg = control_panel_picture(
-            "jack-open.svg" if self.open else "jack-closed.svg", self.palette().window().color().name()
-        )
+        svg = control_panel_picture("jack-open.svg" if self.open else "jack-closed.svg")
         # Both pictures share the right and bottom edges inside the native test area.
         inside = self.contentsRect()
         size = svg.defaultSize()
@@ -4831,7 +4864,7 @@ class ControlPanel(QMainWindow):
             action.triggered.connect(lambda _checked=False, step=distance: self.jump(step))
             action.setShortcut("Alt+Left" if distance < 0 else "Alt+Right")
             self.addAction(action)
-            button = AeroNavigationButton()
+            button = AeroNavigationButton(forward=distance > 0)
             button.setDefaultAction(action)
             button.setAutoRaise(True)
             button.setIconSize(QSize(26, 26))
@@ -4849,7 +4882,7 @@ class ControlPanel(QMainWindow):
         history.setArrowType(Qt.DownArrow)
         history.setAccessibleName("Navigation history")
         history.setAutoRaise(True)
-        history.setFixedWidth(15)
+        history.setFixedWidth(9)
         history.setPopupMode(QToolButton.InstantPopup)
         history.setStyleSheet("QToolButton::menu-indicator { image: none; }")
         menu = QMenu(history)

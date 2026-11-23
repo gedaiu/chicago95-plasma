@@ -5,6 +5,7 @@
 #   ./install.sh                 interactive, Chicago95 Setup look
 #   ./install.sh --yes           every default component, no questions
 #   ./install.sh --components base,look,taskbar,startmenu
+#   ./install.sh --yes --components=icons --icons=windows7
 #   ./install.sh --dry-run       show what would change, touch nothing
 #   ./install.sh --plain         no full-screen UI (logs, CI, screen readers)
 #   Options (asked interactively, or given as flags):
@@ -445,7 +446,15 @@ py_ok=1
 # Earlier runs' choices and components are this run's defaults; flags and the screens still change them.
 SAVED_SETTINGS=~/.config/chicago95/setup.conf
 [ -f "$SAVED_SETTINGS" ] && load_settings "$SAVED_SETTINGS"
+previous_look=${SETUP_LOOK:-}
+# A remembered look keeps its saved colours (a custom one has nothing else); a flag or a first run applies the look.
+if [ -n "${OPT_LOOK:-}" ] || [ -z "${SETUP_LOOK:-}" ]; then apply_look "${OPT_LOOK:-1995}"; fi
+[ -n "${OPT_LOOK:-}" ] || choose_look
 remembered() { # remembered <component> <default>   1 when an earlier run installed it, 0 when it was left out
+  if [ "$1" = look ] && { [ "$SETUP_YES" = 0 ] || [ -n "${OPT_LOOK:-}" ] || [ "$SETUP_LOOK" != "$previous_look" ]; }; then
+    echo 1
+    return
+  fi
   [ -n "${SETUP_COMPONENTS:-}" ] && [ "$2" = 1 ] || {
     echo "$2"
     return
@@ -456,8 +465,8 @@ if [ -n "$WANTED" ]; then
   COMPONENTS=$(printf '%s' "$WANTED" | tr ',' ' ')
 else
   COMPONENTS=$(ui_pick_components \
-    "base:Chicago95 base theme (GTK, icons, cursors, sounds):$(remembered base 1)" \
-    "look:Window decoration, Plasma style, colours, widget style:$(remembered look 1)" \
+    "base:Chicago95 base files (GTK, cursors, sounds and fallback icons):$(remembered base 1)" \
+    "look:Apply desktop look (caption buttons, icon theme, Plasma style, colours and widgets):$(remembered look 1)" \
     "animations:Animations (windows, menus, notifications, taskbar):$(remembered animations 1)" \
     "taskbar:Taskbar (Start button, Quick Launch, task buttons, tray, clock):$(remembered taskbar 1)" \
     "startmenu:Start menu and Shut Down dialog:$(remembered startmenu $py_ok)" \
@@ -511,9 +520,6 @@ done < <(ui_pick_options \
   "font|UI font family|${OPT_FONT:-${SETUP_FONT:-MS W98 UI}}")
 SETUP_FONT_SCOPE=${OPT_FONT_SCOPE:-${SETUP_FONT_SCOPE:-everywhere}}
 [ -n "${OPT_FONT_SCOPE:-}" ] || choose_font_scope
-# A remembered look keeps its saved colours (a custom one has nothing else); a flag or a first run applies the look.
-if [ -n "${OPT_LOOK:-}" ] || [ -z "${SETUP_LOOK:-}" ]; then apply_look "${OPT_LOOK:-1995}"; fi
-[ -n "${OPT_LOOK:-}" ] || choose_look
 [ -n "${OPT_LOOK:-}${OPT_DECORATION:-}" ] || choose_decoration
 [ -n "${OPT_LOOK:-}${OPT_TASKBAR_STYLE:-}" ] || choose_taskbar_style
 if [ "$SETUP_YES" = 0 ] && [ -z "${OPT_CONTROL_PANEL_STYLE:-}${OPT_SETTINGS:-}" ] && [[ " $COMPONENTS " == *" look "* ]]; then
@@ -573,6 +579,10 @@ SETUP_SAVER=${OPT_SAVER:-${SETUP_SAVER:-deepstars}}
 SETUP_SOUND_THEME=${OPT_SOUNDS:-${SETUP_SOUND_THEME:-Chicago95}}
 [[ " $COMPONENTS " == *" sounds "* ]] && [ -z "${OPT_SOUNDS:-}" ] && choose_sounds
 [ -n "${OPT_SETTINGS:-}" ] && load_settings "$OPT_SETTINGS"
+if [ -n "${OPT_ICONS:-}" ]; then
+  SETUP_ICONS=$OPT_ICONS
+  [[ " $COMPONENTS " == *" look "* || " $COMPONENTS " == *" icons "* ]] || COMPONENTS+=" icons"
+fi
 SETUP_CONTROL_PANEL_STYLE=${OPT_CONTROL_PANEL_STYLE:-${SETUP_CONTROL_PANEL_STYLE:-auto}}
 if [ -n "${OPT_WOBBLY:-}" ]; then
   SETUP_ANIM_WOBBLY=$OPT_WOBBLY
@@ -624,6 +634,7 @@ TO_COPY=$(
 fix_font_spaces
 for component in $COMPONENTS; do
   case $component in
+  icons) step_icons || setup_abort "Could not apply the selected icon theme." ;;
   base | look | animations | taskbar | startmenu | notifications | clippy | extras | controlpanel | sounds | background | desktop | switcher | screensaver | winamp | explorer | mouse | lockscreen | splash | plymouth | sddm | firefox) "step_$component" ;;
   *) printf 'unknown component: %s\n' "$component" >>"$SETUP_LOG" ;;
   esac

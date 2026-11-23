@@ -104,7 +104,9 @@ Windows XP (Luna and XP Classic), from Toasty Technology, GUIdebook, Wikipedia a
 | `win7-sp1-144dpi-radio-normal.png`, `win7-sp1-144dpi-radio-checked.png` | Windows 7 Display control panel at 150%, 1280×960. Smaller and Larger radio faces at (423, 261) and (423, 399), 19×19 each. |
 | `win7-sp1-144dpi-close-motion.png`, `win7-sp1-144dpi-close-motion.txt` | 144-DPI Notepad, 1280×960. Three 90-frame trials at 60 Hz of the 13×16 left interior of the close button at (638, 80). Pointer entered at frame 12 and left at 48. Timestamps are elapsed milliseconds. |
 | `win7-sp1-144dpi-restore.png` | Same 144-DPI Aero guest, maximized Notepad. Restore button at (1163, 0), 40×29. |
+| `win7-sp1-mmc-commands.png` | Six 16×16 RGBA cells read from the installed Windows 7 Professional SP1 x86 VM. In order, Back, Forward, Console Tree, Help and Action Pane are zero-based cells 0, 1, 10, 15 and 17 of System32/mmc.exe RT_BITMAP 202. Scan is cell 0 of System32/devmgr.dll RT_BITMAP 358. The four commands visible in their enabled state in the Aero screenshot composite over its clear toolbar to within one level per RGB channel. |
 | `win7-sp1-144dpi-caption.png` | Windows 7 SP1 WDDM, 1280×960 at 150% after logging back in. Active restored Notepad button cluster at (545, 75), 160×30. Captured directly from the VirtualBox framebuffer. |
+| `win7-sp1-144dpi-caption-mattes.png` | VirtualBox WDDM Aero guest at 1280×960 and 144 DPI. Native active Notepad stays at the same position in all three framebuffer screenshots. A temporary full-screen WinForms window behind it cycles through `#181818`, `#E8E8E8` and `#446688`. The three 30-row bands start with the solid backdrop sample in column 0 and the adjacent glass at original x=800 in column 1. Columns 2–161 contain the unscaled button group from (836, 181). |
 | `win2000-pro-run.png`, `win2000-pro-taskbar-band.png` | Installed Windows 2000 Professional, Cirrus Logic 5446 driver at 1280×1024, 16-bit colour. Run at (5, 813), 347×179. Taskbar at (535, 996), 8×28. |
 | `xp-sp3-classic-run.png`, `xp-sp3-classic-taskbar-band.png`, `xp-sp3-classic-device-manager-bands.png` | XP Professional SP3 with Windows Classic applied in a separate guest overlay at 800×600. Run at (5, 389), 347×179. Empty taskbar band and the first 74 Device Manager client rows at (75, 66). |
 | `win95-osr2-run.png`, `win98-se-run.png` | English OSR2 and SE reference guests, 640×480 VGA. Empty Run dialog at (5, 285), 347×163. |
@@ -291,4 +293,26 @@ Their upper-left corners are (392, 304) and (280, 220), respectively.
 The native spinner's changing pixels span a 20 × 20 square at (409, 324)
 and (297, 240). The 1024 × 768 time series sampled the presented guest at
 30 Hz from the final Start menu click. The 800 × 600 capture contributes
-geometry only. [Shutdown timings and method](../../docs/windows-7-pixel-audit.md#shutdown-from-the-desktop-to-power-off)
+geometry only. At 1280 × 960 and 144 DPI, `win7-sp1-shutdown-144dpi.png` is a native 360 × 102 crop. The spinner spans 30 × 30 pixels at desktop (487, 390). Its poses repeated after 0.833–0.867 seconds in the presented-frame capture. [Shutdown timings and method](../../docs/windows-7-pixel-audit.md#shutdown-from-the-desktop-to-power-off)
+
+## Caption interaction states
+
+The six `caption-states-*.png` fixtures are native framebuffer crops of Notepad
+on the Windows 95 OSR2, Windows 98 SE, Windows 2000 Professional, XP SP3 Classic,
+XP SP3 Luna and Windows 7 SP1 Aero reference VMs. The look names in the filenames
+are `1995`, `1998`, `2000`, `2001`, `luna` and `aero`. The classic and XP
+captures were taken at 120 DPI and the Aero capture at 144 DPI.
+
+Each sheet has six bands for rest, hover, held press, disabled, Restore, and
+the result of releasing a held button after dragging the pointer away. The
+first column contains adjacent title background pixels. The remaining columns
+contain Minimize, Maximize and Close in order, with inter-button gaps removed.
+For hover and press each face comes from a separate trial on that button. The
+test excludes the lower-right cursor region on the legacy QEMU guests. The
+Restore slot comes from clicking Maximize on Notepad. Aero clips the first row
+of that button at the top of the screen.
+
+The disabled band includes Maximize and Close from a separate native Win32
+window. Its style includes `WS_MINIMIZEBOX`, and leaves out
+`WS_MAXIMIZEBOX`. Its system menu greys `SC_CLOSE` via `EnableMenuItem`.
+All PNGs preserve the unscaled guest pixels from their selected areas.

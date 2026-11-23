@@ -5,6 +5,7 @@ docs/compare/
 test-output/
 report/
 # QML JavaScript libraries start with ".pragma library", which is not valid JavaScript
+aero/aurorae/caption/contents/ui/Theme.js
 plasmoids/org.chicago95.clock/contents/ui/clockFormat.js
 plasmoids/org.chicago95.tasks/contents/ui/launchers.js
 plasmoids/org.chicago95.tasks/contents/ui/quickLaunch.js

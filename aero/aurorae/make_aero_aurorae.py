@@ -9,7 +9,9 @@ the lines DWM's atlas draws (aero/palette.py). The caption buttons are vector fa
 """
 
 import importlib.util
+import re
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 HERE = Path(__file__).resolve().parent
 
@@ -32,19 +34,11 @@ def paint(colour, alpha):
     return f'stop-color="{colour}" stop-opacity="{number(round(alpha / 255, 3))}"'
 
 
-def runs(values):
-    """(start, end, value) for each run of equal neighbouring values."""
-    start = 0
-    for index in range(1, len(values) + 1):
-        if index == len(values) or values[index] != values[start]:
-            yield start, index, values[start]
-            start = index
-
-
-def gradient_knots(samples, tolerance=4):
+def gradient_knots(samples, tolerance=4, positions=None):
     """Keep the ends and bends of a piecewise-linear colour ramp."""
     if len(samples) == 1 or all(sample == samples[0] for sample in samples):
         return [0]
+    positions = range(len(samples)) if positions is None else positions
     kept = [0]
 
     def split(start, end):
@@ -52,7 +46,7 @@ def gradient_knots(samples, tolerance=4):
             first, last = samples[start], samples[end]
             worst, pivot = 0, start
             for i in range(start + 1, end):
-                t = (i - start) / (end - start)
+                t = (positions[i] - positions[start]) / (positions[end] - positions[start])
                 error = max(abs(v - (a + (b - a) * t)) for a, b, v in zip(first, last, samples[i], strict=True))
                 if error > worst:
                     worst, pivot = error, i
@@ -66,7 +60,7 @@ def gradient_knots(samples, tolerance=4):
     return kept
 
 
-def gradient_stops(values, attributes, offset=0, total=None):
+def gradient_stops(values, attributes, offset=0, total=None, positions=None):
     """Fit ramps through pixel centres, retaining abrupt bevels as hard stops."""
     samples = []
     for value in values:
@@ -76,31 +70,55 @@ def gradient_stops(values, attributes, offset=0, total=None):
             colour, alpha = value
             rgb = bytes.fromhex(colour.lstrip("#"))
             samples.append(tuple(v * alpha / 255 for v in rgb) + (alpha,))
-    indices = gradient_knots(samples)
+    positions = range(len(values)) if positions is None else positions
+    indices = gradient_knots(samples, positions=positions)
     stops = []
     for k, i in enumerate(indices):
         # A large adjacent jump is a painted edge between two surfaces.
-        if k and i == indices[k - 1] + 1 and max(abs(a-b) for a,b in zip(samples[i-1],samples[i],strict=True)) > 48:
-            stops.extend(((i, values[i-1]), (i, values[i])))
-        stops.append((i + .5, values[i]))
-    length = total or len(values)
-    return "".join(f'<stop offset="{number(round((offset + x) / length, 5))}" {attributes(value)}/>' for x,value in stops)
+        if (
+            k
+            and positions[i] == positions[indices[k - 1]] + 1
+            and max(abs(a - b) for a, b in zip(samples[i - 1], samples[i], strict=True)) > 48
+        ):
+            stops.extend(((positions[i], values[i - 1]), (positions[i], values[i])))
+        stops.append((positions[i] + 0.5, values[i]))
+    length = total or positions[-1] + 1
+    return "".join(
+        f'<stop offset="{number(round((offset + x) / length, 5))}" {attributes(value)}/>' for x, value in stops
+    )
 
 
-def vertical_gradient(gradient_id, column):
-    """Fit the fill or border gradient along the vertical axis."""
+def sprite_sheet(width, height, definitions, groups):
+    """Share identical paint servers across states while keeping every public element ID."""
+    paints, aliases, unique = {}, {}, []
+    for paint in ET.fromstring("<defs>" + "".join(definitions) + "</defs>"):
+        name = paint.attrib.pop("id")
+        shape = ET.tostring(paint, encoding="unicode")
+        if shape in paints:
+            aliases[name] = paints[shape]
+        else:
+            paints[shape] = name
+            paint.set("id", name)
+            unique.append(ET.tostring(paint, encoding="unicode"))
+    art = re.sub(r"url\(#([^)]+)\)", lambda match: f"url(#{aliases.get(match[1], match[1])})", "\n".join(groups))
     return (
-        f'<linearGradient id="{gradient_id}" x1="0" y1="0" x2="0" y2="1">'
-        f"{gradient_stops(column, lambda value: paint(*value))}</linearGradient>"
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">'
+        f"<defs>{''.join(unique)}</defs>\n{art}\n</svg>\n"
+    )
+
+
+def vertical_gradient(gradient_id, column, positions=None, *, height=None):
+    """Fit the fill or border gradient along the vertical axis."""
+    units = ' gradientUnits="userSpaceOnUse"' if height is not None else ""
+    return (
+        f'<linearGradient id="{gradient_id}" x1="0" y1="0" x2="0" y2="{height or 1}"{units}>'
+        f"{gradient_stops(column, lambda value: paint(*value), positions=positions)}</linearGradient>"
     )
 
 
 def shade_gradient(gradient_id, shade):
-    return (
-        f'<linearGradient id="{gradient_id}" x1="0" y1="0" x2="1" y2="0">'
-        f"{gradient_stops(shade, lambda value: f'stop-color="#000000" stop-opacity="{number(value)}"')}"
-        "</linearGradient>"
-    )
+    stops = gradient_stops(shade, lambda value: f'stop-color="#000000" stop-opacity="{number(value)}"')
+    return f'<linearGradient id="{gradient_id}" x1="0" y1="0" x2="1" y2="0">{stops}</linearGradient>'
 
 
 def face_markup(face, prefix, origin):
@@ -145,9 +163,9 @@ def rect(x, y, width, height):
 
 # Glyph shapes in their 96 DPI sprite's pixel coordinates (BUTTON<KIND>GLYPH96): (box, layers drawn in order), each
 # layer an "outline" or "body" path, filled even-odd so a ring is an outer and an inner rectangle.
-CLOSE_ARMS = ("M2.1,3H4.9L10.9,11H8.1z", "M8.1,3H10.9L4.9,11H2.1z")
+CLOSE_CROSS = "M1.4 3H4.67L6.5 5.33 8.33 3h3.27L7.67 7l3.93 4H8.33L6.5 8.67 4.67 11H1.4l3.93-4z"
 GLYPH_SHAPES = {
-    "close": ((13, 14), [("stroke", arm) for arm in CLOSE_ARMS] + [("body", arm) for arm in CLOSE_ARMS]),
+    "close": ((13, 14), [("stroke", CLOSE_CROSS), ("body", CLOSE_CROSS)]),
     "minimize": ((14, 14), [("outline", rect(0, 7, 14, 5)), ("body", rect(2, 8, 10, 3))]),
     "maximize": (
         (16, 14),
@@ -156,9 +174,8 @@ GLYPH_SHAPES = {
     "restore": (
         (14, 14),
         [
-            ("outline", rect(3, 0, 11, 11)),
-            ("body", rect(4, 2, 8, 8)),
-            ("outline", rect(0, 3, 11, 11) + rect(5, 7, 2, 2)),
+            ("outline", "M3 0h11v11h-3v3H0V3h3z" + rect(5, 7, 2, 2)),
+            ("body", "M4 2h8v8h-1V3H4z"),
             ("body", rect(2, 4, 8, 8) + rect(4, 6, 4, 4)),
         ],
     ),
@@ -367,43 +384,296 @@ def button_face(face):
 LARGE_CAPTION_PATHS = {
     "minimize": rect(15, 17, 16, 4),
     "maximize": rect(11, 7, 18, 14) + rect(15, 10, 10, 8),
-    "close": "M29,7h5l3,4 3,-4h5l-6,7 6,7h-5l-3,-4 -3,4h-5l6,-7z",
-    "restore": ("M14,6h15v14h-2V8H14z " + rect(11, 9, 15, 13) + rect(15, 13, 7, 5)),
+    "close": "M28.5 7h5l3.5 3.5 3.5-3.5h5l-7 7 7 7h-5L37 17.5 33.5 21h-5l7-7z",
+    "restore": ("M14,6h15v13h-2V8H14z " + rect(11, 9, 15, 13) + rect(15, 13, 7, 5)),
 }
 
 
-def large_caption_glyph(kind, colours, prefix, x0):
+DOUBLE_DENSITY_STRAIGHT_GLYPHS = {
+    "minimize": rect(20, 23, 21, 5),
+    "maximize": rect(15, 9, 24, 19) + rect(20, 13, 13, 11),
+}
+# GTK rasterizes this glyph on a 2× grid before the compositor scales it.
+GTK_RESTORE_PATH = "M14,6h15v14h-2V8H14z " + rect(11, 9, 15, 13) + rect(15, 13, 7, 5)
+
+
+def large_caption_glyph(kind, colours, prefix, x0, pixel_density=None):
     body = f"g{prefix}LargeGlyph"
-    gradient = (
-        f'<linearGradient id="{body}" x2="0" y2="1"><stop offset="0" {paint(*colours["top"])}/>'
-        f'<stop offset="1" {paint(*colours["bottom"])}/></linearGradient>'
-    )
-    path = LARGE_CAPTION_PATHS[kind]
+    native_restore = kind == "restore" and pixel_density is None
+    if colours["top"] == colours["bottom"]:
+        stops_markup = f"<stop {paint(*colours['top'])}/>"
+    else:
+        # The SP1 glyph stays white across the top bevel, then shades to grey.
+        if kind == "minimize":
+            samples = ((0.125, 255), (0.375, 244), (0.625, 232), (0.875, 225))
+        elif native_restore:
+            samples = (
+                (5.5 / 16, 255),
+                (6.5 / 16, 245),
+                (7.5 / 16, 239),
+                (8.5 / 16, 234),
+                (13.5 / 16, 220),
+                (15.5 / 16, 216),
+            )
+        else:
+            samples = (
+                (4.5 / 14, 255),
+                (5.5 / 14, 242),
+                (6.5 / 14, 236),
+                (7.5 / 14, 232),
+                (10.5 / 14, 223),
+                (13.5 / 14, 216),
+            )
+        stops_markup = "".join(
+            f'<stop offset="{at}" stop-color="#{shade:02x}{shade:02x}{shade:02x}"/>' for at, shade in samples
+        )
+    gradient = f'<linearGradient id="{body}" x2="0" y2="1">{stops_markup}</linearGradient>'
+    # A GTK HiDPI icon is rasterized at twice the logical size before it is
+    # displayed. Keep axis-aligned glyph edges on that source pixel grid.
+    double_density = pixel_density == 2 and kind in DOUBLE_DENSITY_STRAIGHT_GLYPHS
+    path = DOUBLE_DENSITY_STRAIGHT_GLYPHS[kind] if double_density else LARGE_CAPTION_PATHS[kind]
+    if kind == "restore" and not native_restore:
+        path = GTK_RESTORE_PATH
+    scale = ".5" if double_density else "0.66666667"
+    # Restore uses the 40-pixel maximized cell, which is narrower than a
+    # simple 1.5× scale of its 27-unit SVG canvas.
+    transform = f"scale({scale})"
+    if native_restore:
+        transform = f"scale({palette.BUTTON_WIDTHS['maximize'] / 40:g} {scale})"
     outline, alpha = colours["outline"]
     shape = (
-        f'<g transform="translate({x0} 0) scale(0.66666667)">'
+        f'<g transform="translate({x0:g} 0) {transform}">'
         f'<path d="{path}" stroke="{outline}" stroke-opacity="{number(alpha / 255)}" '
-        f'stroke-width="3" stroke-linejoin="round" fill="none"/>'
+        f'stroke-width="{3 if kind == "close" else 2}" '
+        f'stroke-linejoin="{"round" if kind == "close" else "miter"}" fill="none"/>'
         f'<path d="{path}" fill="url(#{body})" fill-rule="evenodd"/></g>'
     )
     return gradient, shape
 
 
-def button_state(kind, window, look, prefix, x0=0, large=False):
+def caption_rim(left, top, right, bottom, left_radius, right_radius, *, left_edge=True, right_edge=True):
+    """The lower corners and two sides of a caption cell."""
+    edge = f"M{left:g} {top:g}V{bottom - left_radius:g}" if left_edge else f"M{left:g} {bottom:g}"
+    if left_radius:
+        edge += f"a{left_radius} {left_radius} 0 0 0 {left_radius} {left_radius}"
+    edge += f"H{right - right_radius:g}"
+    if right_radius:
+        edge += f"a{right_radius} {right_radius} 0 0 0 {right_radius} -{right_radius}"
+    return edge + (f"V{top:g}" if right_edge else "")
+
+
+# Gradient anchors for the active, resting 144-DPI buttons. Estimate the
+# face paint over the adjacent glass in the dark, light and blue VM captures.
+# Row indices refer to the 30-pixel native face before scaling.
+LARGE_ACTIVE_FACE = {
+    "minimize": (
+        (0, "#FCFCFC", 255), (1, "#F5F5F5", 158), (3, "#F5F5F5", 158),
+        (7, "#DEDFDE", 130), (12, "#D1D2D2", 122), (15, "#30302F", 56),
+        (19, "#161619", 51), (21, "#1C1C23", 53), (26, "#9098AE", 80),
+        (27, "#EAEBF1", 150), (28, "#010101", 154), (29, "#FDFDFD", 170),
+    ),
+    "maximize": (
+        (0, "#FCFCFC", 255), (1, "#F6F6F6", 174), (3, "#F5F5F5", 174),
+        (7, "#E2E2E2", 153), (12, "#DADADA", 145), (15, "#7E7E7E", 89),
+        (21, "#6C6D70", 79), (26, "#A8ADBF", 99), (27, "#EDEEF2", 160),
+        (28, "#262627", 183), (29, "#FDFDFD", 177),
+    ),
+    "close": (
+        (0, "#FCFCFC", 255), (1, "#FDAEA1", 221), (7, "#EF8572", 221),
+        (12, "#EC7E6B", 221), (15, "#D43418", 221), (21, "#D3351A", 221),
+        (26, "#E17B5B", 220), (27, "#F3B7A5", 220), (28, "#582B23", 249),
+        (29, "#FEFEFE", 196),
+    ),
+}
+
+# The straight shared seam uses a dark trailing edge on Minimize and a
+# translucent leading highlight on Maximize. Each occupies one 144-DPI pixel.
+LARGE_ACTIVE_JOINED_EDGES = {
+    "minimize": {
+        "right": (
+            (0, "#828282", 215), (1, "#808080", 210), (12, "#616161", 186),
+            (15, "#262625", 151), (21, "#1C1E1E", 146), (27, "#45454A", 157),
+            (28, "#232325", 181), (29, "#FDFDFD", 175),
+        ),
+    },
+    "maximize": {
+        "left": (
+            (0, "#FCFCFC", 255), (1, "#FDFDFD", 215), (12, "#F2F2F2", 200),
+            (15, "#DFDEDF", 172), (21, "#DDDDDF", 169), (27, "#F8F8FA", 208),
+            (28, "#232325", 181), (29, "#FEFEFE", 175),
+        ),
+        "right": (
+            (0, "#FCFCFC", 255), (1, "#FAFBFA", 204), (12, "#ECECEC", 190),
+            (15, "#CECECF", 159), (21, "#CCCBCD", 155), (27, "#EEEFF4", 177),
+            (28, "#343434", 196), (29, "#FEFEFE", 190),
+        ),
+    },
+}
+
+# The red bevel inside the outer grey rim turns into the dark lower lip.
+LARGE_CLOSE_INNER_BEVEL = (
+    (0, "#5B4743", 255), (1, "#58433E", 253), (12, "#492D27", 251),
+    (15, "#380D04", 249), (21, "#370E05", 249), (25, "#491904", 247),
+    (28, "#582B23", 249), (29, "#582B23", 249),
+)
+
+LARGE_CLOSE_INNER_HIGHLIGHTS = (
+    (
+        (0, "#FCFCFC", 255), (1, "#F3D8D3", 221), (6, "#EAC4BF", 221),
+        (12, "#E7BFB9", 220), (15, "#D59A92", 220), (21, "#D79992", 219),
+        (26, "#E1B9B2", 218), (29, "#FDFDFD", 192),
+    ),
+    (
+        (0, "#FCFCFC", 255), (1, "#F1CFC9", 223), (6, "#E4B7B0", 224),
+        (12, "#E0B0A9", 222), (15, "#CC8279", 222), (21, "#CD8378", 223),
+        (26, "#A78E8D", 219), (29, "#FFFFFF", 132),
+    ),
+)
+
+
+def caption_gradient(gradient_id, profile, height):
+    anchors, colours, alphas = zip(*profile, strict=True)
+    return vertical_gradient(gradient_id, list(zip(colours, alphas, strict=True)), anchors, height=height)
+
+
+def caption_surface(kind, face, width, prefix, large, *, optical_face=()):
+    """Paint the glass face and bevels with independently translucent gradients."""
+    height = palette.BUTTON_HEIGHT
+    large_close = kind == "close" and bool(optical_face)
+    left_radius = 2 if kind in ("minimize", "close") else 0
+    right_radius = 2 if large_close else 3 if kind == "close" else 0
+    stroke = 2 / 3 if large else 1
+    half = stroke / 2
+    bottom, right = height - half, width - half
+    joined = LARGE_ACTIVE_JOINED_EDGES.get(kind, {}) if optical_face else {}
+    edge = caption_rim(
+        half, half, right, bottom, left_radius, right_radius,
+        left_edge="left" not in joined, right_edge="right" not in joined,
+    )
+    # Keep the body inside the stroke. The two translucent paints should not
+    # stack on straight edges and make the lower highlight opaque.
+    surface = (
+        caption_rim(stroke, 0, width - stroke, height - stroke, max(0, left_radius - half), max(0, right_radius - half))
+        + "Z"
+    )
+    body = f"{prefix}Gloss"
+    shade = f"{prefix}Sides"
+    rows = face["rows"]
+    # At 144 DPI the bevel and dark lip each occupy one physical row. The
+    # central colour bands absorb the additional height of the optical master.
+    positions = (0, 1, 2, 3, 4, 5, 6, 7, 12, 15, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29) if large else None
+    if optical_face:
+        definitions = caption_gradient(body, optical_face, height)
+    else:
+        definitions = vertical_gradient(body, rows, positions, height=height)
+    side_samples = [band["shade"][2] for band in face["bands"] if len(band["shade"]) > 2]
+    strength = sum(side_samples) / len(side_samples) if side_samples else 0
+    definitions += (
+        f'<linearGradient id="{shade}" x2="1" y2="0">'
+        f'<stop stop-opacity="{strength:.3f}"/><stop offset=".4" stop-opacity="0"/>'
+        f'<stop offset=".6" stop-opacity="0"/><stop offset="1" stop-opacity="{strength:.3f}"/></linearGradient>'
+    )
+    # The atlas repeats the outside highlights for nine-slice stretching.
+    # Follow the circular rim with a single stroke and keep the shaded seam
+    # on the inside. The next cell supplies the divider on joined edges.
+    light, alpha = rows[-1]
+    left_column = face["left"][-1 if kind == "minimize" else 0]
+    left_seam = f"{prefix}Left"
+    bevels = []
+    if "left" not in joined:
+        definitions += vertical_gradient(left_seam, left_column, positions, height=height)
+        bevels.append(
+            f'<rect x="0" y="{stroke:g}" width="{stroke:g}" height="{bottom - left_radius - stroke:g}" '
+            f'fill="url(#{left_seam})"/>'
+        )
+    for side, profile in joined.items():
+        gradient = f"{prefix}{side.title()}"
+        definitions += caption_gradient(gradient, profile, height)
+        x = 0 if side == "left" else width - stroke
+        bevels.append(
+            f'<rect x="{x:g}" y="0" width="{stroke:g}" height="{height - stroke:g}" fill="url(#{gradient})"/>'
+        )
+    if large_close:
+        inner = f"{prefix}InnerBevel"
+        definitions += caption_gradient(inner, LARGE_CLOSE_INNER_BEVEL, height)
+        radius = right_radius - stroke
+        x, y = right - stroke, bottom - stroke
+        inner_edge = f"M{x:g} {half:g}V{y - radius:g}a{radius:g} {radius:g} 0 0 1 -{radius:g} {radius:g}"
+        bevels.append(
+            f'<path d="{inner_edge}" stroke-width="{stroke:g}" stroke="url(#{inner})" '
+            'stroke-linecap="square" fill="none"/>'
+        )
+        # Paint each highlight in a cutout in the glass face so its alpha
+        # stays independent of the main fill.
+        for index, (x, profile) in enumerate(
+            zip((stroke, width - 3 * stroke), LARGE_CLOSE_INNER_HIGHLIGHTS, strict=True)
+        ):
+            highlight = f"{prefix}InnerHighlight{index}"
+            definitions += caption_gradient(highlight, profile, height)
+            path = rect(x, 0, stroke, height - 4 * stroke)
+            surface += path
+            bevels.append(f'<path d="{path}" fill="url(#{highlight})"/>')
+    fill_rule = ' fill-rule="evenodd"' if large_close else ""
+    return definitions, (
+        f'<path d="{surface}" fill="url(#{body})"{fill_rule}/>'
+        f'<path d="{surface}" fill="url(#{shade})"{fill_rule}/>'
+        f'<path d="{edge}" stroke="{light}" stroke-opacity="{alpha / 255:.3f}" stroke-width="{stroke:g}" '
+        'stroke-linecap="square" fill="none"/>'
+        + "".join(bevels)
+    )
+
+
+def button_state(kind, window, look, prefix, x0=0, large=False, *, cell_width=None, pixel_density=None):
     face_name = BUTTON_FACES[kind]
-    width = palette.BUTTON_WIDTHS["maximize" if kind == "restore" else kind]
+    original_width = palette.BUTTON_WIDTHS["maximize" if kind == "restore" else kind]
+    width = original_width if cell_width is None else cell_width
     height = palette.BUTTON_HEIGHT
     glyph_width, glyph_height = GLYPH_SHAPES[kind][0]
     left, right, top, bottom = palette.BUTTON_CONTENT[face_name]
     glyph_x = round((width - glyph_width + left - right) / 2)
     glyph_y = round((height - glyph_height + top - bottom) / 2)
     face = button_face(stops.FACES[face_name][window][look])
-    face_definitions, face_shapes = face_markup(face, f"f{prefix}", (0, 0))
-    face_shapes = f'<g transform="translate({x0} 0) scale({width / face["size"][0]} 1)">{face_shapes}</g>'
+    optical_face = LARGE_ACTIVE_FACE.get(kind, ()) if large and (window, look) == ("active", "normal") else ()
+    face_definitions, face_shapes = caption_surface(kind, face, width, f"f{prefix}", large, optical_face=optical_face)
+    face_shapes = f'<g transform="translate({x0} 0)">{face_shapes}</g>'
     glyph_gradient, glyph_shapes = glyph_markup(kind, stops.GLYPHS[kind][look], f"g{prefix}", (x0 + glyph_x, glyph_y))
     if large:
-        glyph_gradient, glyph_shapes = large_caption_glyph(kind, stops.GLYPHS[kind][look], prefix, x0)
+        glyph_gradient, glyph_shapes = large_caption_glyph(
+            kind, stops.GLYPHS[kind][look], prefix, x0 + (width - original_width) / 2, pixel_density
+        )
     return face_definitions + glyph_gradient, face_shapes + glyph_shapes
+
+
+# Optional KWin decoration commands share the Windows caption face. Their
+# symbols also remain visible when a custom button group uses stock Aurorae.
+EXTRA_CAPTION_GLYPHS = {
+    "help": (
+        "M9 6q0-4 4.5-4t4.5 3.5q0 2-2.4 3.5-1.6 1-1.6 2.6h-2.5q0-2.7 2.1-4.1"
+        "Q15.7 6 15.7 5q0-1.1-2.1-1.1T11.5 6z M11.5 13h2.6v2.6h-2.6z"
+    ),
+    "keepabove": "M7 11l6.5-6 6.5 6-2 2-4.5-4.3L9 13z",
+    "keepbelow": "M7 8l2-2 4.5 4.3L18 6l2 2-6.5 6z",
+    "shade": "M7 6h13v3H7z",
+    "alldesktops": "M10 3h7v2h-1v4l2 2v1h-4v4l-1 1v-5H9v-1l2-2V5h-1z",
+}
+
+
+def extra_caption_svg(kind):
+    width = palette.BUTTON_WIDTHS["maximize"]
+    definitions, groups = [], []
+    for i, (state, (window, look)) in enumerate(AURORAE_STATES.items()):
+        face = button_face(stops.FACES["caption"][window][look])
+        defs, background = caption_surface("extra", face, width, f"f{i}", False)
+        definitions.append(defs)
+        colours = stops.GLYPHS["maximize"][look]
+        colour, alpha = colours["top"]
+        outline, _ = colours["outline"]
+        glyph = (
+            f'<path d="{EXTRA_CAPTION_GLYPHS[kind]}" fill="{colour}" stroke="{outline}" '
+            f'stroke-width="1" stroke-linejoin="round" opacity="{number(alpha / 255)}"/>'
+        )
+        groups.append(f'<g id="{state}-center" transform="translate({i * (width + GAP)} 0)">{background}{glyph}</g>')
+    return sprite_sheet(len(groups) * (width + GAP), palette.BUTTON_HEIGHT, definitions, groups)
 
 
 def button_svg(kind, large=False):
@@ -415,10 +685,7 @@ def button_svg(kind, large=False):
         definitions.append(defs)
         groups.append(f'<g id="{state}-center">{shapes}</g>')
     total = len(AURORAE_STATES) * (width + GAP)
-    return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{total}" height="{height}">'
-        f"<defs>{''.join(definitions)}</defs>\n" + "\n".join(groups) + "\n</svg>\n"
-    )
+    return sprite_sheet(total, height, definitions, groups)
 
 
 RC = """[General]
@@ -477,6 +744,8 @@ def write_theme(out):
     for kind in BUTTON_FACES:
         (out / f"{kind}.svg").write_text(button_svg(kind))
         (out / f"{kind}-large.svg").write_text(button_svg(kind, large=True))
+    for kind in EXTRA_CAPTION_GLYPHS:
+        (out / f"{kind}.svg").write_text(extra_caption_svg(kind))
     (out / "Chicago95Aerorc").write_text(
         RC.format(
             title=palette.TITLE_HEIGHT - 1,

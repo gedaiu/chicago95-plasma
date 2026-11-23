@@ -43,6 +43,7 @@ def thunar_window(tmp_path, aero_icons, request):
     )
     runtime = tmp_path / "run"
     runtime.mkdir(mode=0o700)
+    shutil.copyfile(REPO / "tests/eis_pointer.py", tmp_path / "eis_pointer.py")
     script = tmp_path / "capture"
     script.write_text(
         f"#!/bin/sh\nset -eu\nkscreen-doctor output.Virtual-0.scale.{scale} >/dev/null\n"
@@ -52,12 +53,17 @@ def thunar_window(tmp_path, aero_icons, request):
         'for i in 1 2 3 4 5 6; do sleep 1; spectacle -b -n -f -o "$PWD/window.png"\n'
         """python3 -c 'from PIL import Image; import sys; """
         """sys.exit(Image.open("window.png").convert("RGB").getbbox() is None)' && break\ndone\n"""
+        # Go up two breadcrumbs and then back once so both arrows are enabled.
+        "python3 eis_pointer.py wait:0.5 move:211,15 click:left wait:0.5 move:153,15 click:left "
+        "wait:0.5 move:15,15 click:left move:520,75 wait:0.5\n"
+        'spectacle -b -n -f -o "$PWD/history.png"\n'
     )
     run_session(
         tmp_path,
         script,
         {
             "HOME": str(tmp_path),
+            "WORK": str(tmp_path),
             "XDG_RUNTIME_DIR": str(runtime),
             "GDK_BACKEND": "wayland",
             "GIO_USE_VFS": "local",
@@ -75,7 +81,7 @@ def thunar_window(tmp_path, aero_icons, request):
 
 
 @pytest.mark.parametrize("thunar_window", [1, 1.5], indirect=True)
-def test_thunar_navigation_matches_explorer_band(thunar_window):
+def test_thunar_navigation_matches_explorer_band(thunar_window, tmp_path):
     # The Explorer client begins at x=7, y=31. Compare a clear part of the
     # address field and the glass above it, independent of the folder name.
     original = screenshot("win7explorer1").convert("RGB").crop((7, 31, 525, 63))
@@ -95,11 +101,40 @@ def test_thunar_navigation_matches_explorer_band(thunar_window):
     first_white = start + np.flatnonzero(rows[start:].min(axis=1) > 248)[0]
     assert abs(first_white / scale - original.height) <= 2
 
-    # Measure each orb against the clear glass directly above it.
-    def orb_height(image, density, x):
-        column = pixels(image, (x, 0, x + 1, 29), density).mean(axis=1)
-        edge = np.flatnonzero(np.abs(column - column[0]).max(axis=1) > 16)
-        return (edge[-1] - edge[0] + 1) / density
+    field = pixels(thunar_window, (480, 0, 481, 29), scale).mean(axis=1)
+    interior = np.flatnonzero(np.abs(field - field[round(15 * scale)]).max(axis=1) < 3)
+    centreline = (interior[0] + interior[-1]) / 2
+    # Measure the painted bounds of both arrows in both history states.
+    with Image.open(tmp_path / "history.png") as active:
+        for image, enabled in ((thunar_window, False), (active.convert("RGB"), True)):
+            heights, centres = [], []
+            for left, right in ((3, 32), (34, 64)):
+                button = pixels(image, (left, 0, right, 29), scale)
+                glass = np.median(button[: round(2 * scale)], axis=0)
+                y, x = np.where(np.abs(button - glass).max(axis=2) > 22)
+                assert (button.min(axis=2).max() > 224) == enabled
+                assert 18 * scale <= np.ptp(x) + 1 <= 21 * scale
+                heights.append(np.ptp(y) + 1)
+                centres.append((y.min() + y.max()) / 2)
+            assert all(18 * scale <= height <= 21 * scale for height in heights)
+            assert abs(heights[0] - heights[1]) <= 1
+            assert abs(centres[0] - centres[1]) <= 0.5
+            assert all(abs(centre - centreline) <= scale for centre in centres)
 
-    for x in (15, 44):
-        assert abs(orb_height(thunar_window, scale, x) - orb_height(original, 1, x)) <= 6
+    # Explorer repeats this separator after each directory. Thunar opens /usr/share/icons
+    # here, so its path includes the root plus three directory buttons.
+    native_divider = np.asarray(original.crop((96, 10, 104, 21))).max(axis=2) < 115
+    logical = thunar_window.resize((1024, 768), Image.Resampling.LANCZOS) if scale != 1 else thunar_window
+    ink = np.asarray(logical).max(axis=2) < 115
+    matches = [x for x in range(90, 400) if np.count_nonzero(ink[10:21, x : x + 8] != native_divider) <= 7]
+    assert len(matches) == 4
+    assert min(np.diff(matches)) > 20
+
+    # Compare the visible drive artwork with the address field's centreline.
+    # Its transparent SVG canvas used to hide a three-pixel vertical offset.
+    upper, lower = round(7 * scale), round(24 * scale)
+    drive = pixels(thunar_window, (94, 7, 116, 24), scale)
+    visible = np.abs(drive - field[upper:lower, None]).max(axis=2) > 42
+    rows = upper + np.flatnonzero(visible.any(axis=1))
+    assert 6 * scale <= np.ptp(rows) + 1 <= 10 * scale
+    assert abs((rows[0] + rows[-1]) / 2 - centreline) <= scale

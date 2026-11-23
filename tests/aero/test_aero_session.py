@@ -175,7 +175,8 @@ def test_combined_button_ends_in_one_stacked_card_over_its_last_8_columns(two_wi
         for y in range(40):
             *colour, alpha = strip.getpixel((x, y))
             behind = ours.getpixel((125 + x, y))
-            expected = [c * alpha / 255 + b * (1 - alpha / 255) for c, b in zip(colour, behind, strict=True)]
+            # The compositor presents 8-bit channels. Quantize the reference blend on that same grid.
+            expected = [round((c * alpha + b * (255 - alpha)) / 255) for c, b in zip(colour, behind, strict=True)]
             differences.append(max(abs(a - b) for a, b in zip(ours.getpixel((111 + x, y)), expected, strict=True)))
 
     assert max(differences) <= 8

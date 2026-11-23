@@ -10,6 +10,8 @@ Item {
     required property bool hovered
     required property bool held
     required property bool closeButton
+    property Item haloLayer
+    property point haloPosition
     readonly property bool hot: enabled && hovered && !held
     readonly property string suffix: activeWindow ? "" : "-inactive"
     property real highlight: hot ? 1 : 0
@@ -23,7 +25,11 @@ Item {
     // The native halo falls to about three quarters of its previous opacity
     // per pixel outside the bottom edge. Paint the rings outside the face.
     Item {
-        anchors.fill: parent
+        parent: face.haloLayer ?? face
+        x: face.haloPosition.x
+        y: face.haloPosition.y
+        width: face.width
+        height: face.height
         opacity: face.highlight
         visible: opacity > 0
         Repeater {
@@ -41,18 +47,26 @@ Item {
             }
         }
     }
-    KSvg.FrameSvgItem {
-        anchors.fill: parent
+    component FaceLayer: KSvg.SvgItem {
+        // KSvg rasterizes the element at an integer item size. A 40-pixel
+        // Maximize cell at 150% is 26⅔ logical pixels wide.
+        readonly property real rasterScale: Number.isInteger(face.width) && Number.isInteger(face.height)
+                                            ? 1 : Screen.devicePixelRatio
+        width: face.width * rasterScale
+        height: face.height * rasterScale
+        scale: 1 / rasterScale
+        transformOrigin: Item.TopLeft
+        smooth: false
         imagePath: face.scaledArtwork
-        prefix: !face.enabled ? "deactivated" + face.suffix : face.held ? "pressed" + face.suffix
-                : face.activeWindow ? "active" : "inactive"
+    }
+    FaceLayer {
+        elementId: (!face.enabled ? "deactivated" + face.suffix : face.held ? "pressed" + face.suffix
+                : face.activeWindow ? "active" : "inactive") + "-center"
         // Compensate for the translucent hot face composited over this layer.
         opacity: (1 - face.highlight) / (1 - 0.85 * face.highlight)
     }
-    KSvg.FrameSvgItem {
-        anchors.fill: parent
-        imagePath: face.scaledArtwork
-        prefix: "hover" + face.suffix
+    FaceLayer {
+        elementId: "hover" + face.suffix + "-center"
         opacity: face.highlight
     }
 }

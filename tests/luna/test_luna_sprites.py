@@ -1,24 +1,18 @@
 """Our Luna taskbar pieces against the sprites of luna.msstyles (the QuickXP extract; see luna/README.md).
 
 The sprites are Microsoft's and are not in the repository: LUNA_MSSTYLES_DIR names the extracted folder that holds
-images/BLUE_<NAME>_BMP.png (the default is the author's scratchpad copy); without it these tests skip.
+images/BLUE_<NAME>_BMP.png; without it these tests skip.
 """
-
-import os
-from pathlib import Path
 
 import pytest
 from PIL import Image
 from reference import close
 
+from .luna_sprites import sprite_dir
 from .test_luna_plasmastyle import generator, rendered, theme  # noqa: F401
 from .test_luna_taskbar import installed, qml_root, render  # noqa: F401
 
-DEFAULT_DIRECTORY = Path(
-    "/tmp/claude-1000/-home-gedaiu-workspace-chicago95-plasma/6679116e-4ef6-4478-b441-c6cd1dc95f4a/scratchpad"
-    "/refs2/gh_freitagdavid_QuickXP/QuickXP/themes/luna/luna"
-)
-SPRITES = Path(os.environ.get("LUNA_MSSTYLES_DIR", DEFAULT_DIRECTORY))
+SPRITES = sprite_dir()
 TOLERANCE = 12
 BACKGROUND_ROWS = (15, 11)  # the taskbar background's top and bottom margins; the middle stretches
 BAND_HOVER_BUDGET, GRIP_BUDGET = 0.35, 0.1

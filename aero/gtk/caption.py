@@ -1,4 +1,4 @@
-"""Generate Aero captions for GTK3 and tinted toolbar-style window controls for GTK4."""
+"""Generate the Windows 7 caption faces and header layout for GTK 3 and GTK 4."""
 
 import os
 import sys
@@ -7,59 +7,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "aurorae"))
 from make_aero_aurorae import AURORAE_STATES, BUTTON_FACES, button_state, palette  # noqa: E402
 
-# The large toolbar button uses a four-stop bevel with its split at 49/50%.
-# Tint those same grey levels for each window action.
-BLUE_TINT = (50, 24, 0)
-RED_TINT = (0, 70, 78)
-GLYPHS = {
-    "minimize": '<path d="M10 12h10" stroke-width="2"/>',
-    "maximize": '<path d="M8.5 5.5h10v8h-10z M9 7.5h9"/>',
-    "restore": '<path d="M10 6V4h9v8h-2 M7 7.5h9v7H7z"/>',
-    "close": '<path d="m21 6 8 8m0-8-8 8" stroke-width="2.5"/>',
-}
 CELL_WIDTHS = {
     **palette.BUTTON_WIDTHS,
     "minimize": palette.BUTTON_WIDTHS["minimize"] - 1,
     "maximize": palette.BUTTON_WIDTHS["maximize"] - 1,
 }
 FACE_HEIGHT = palette.BUTTON_HEIGHT
-
-
-def write_gtk4_faces(directory):
-    directory.mkdir(parents=True, exist_ok=True)
-    for kind in BUTTON_FACES:
-        width = CELL_WIDTHS["maximize" if kind == "restore" else kind]
-        tint = RED_TINT if kind == "close" else BLUE_TINT
-        for state, (window, look) in AURORAE_STATES.items():
-            strength = {"normal": 1, "hot": 1.3, "pressed": 1.45, "disabled": 0.15}[look]
-            if window == "inactive":
-                strength *= 0.50
-            levels = (247, 232, 220, 207)
-            offsets = (0, 49, 50, 100)
-            if look == "pressed":
-                levels, offsets = (207, 232), (0, 100)
-            gradient = []
-            for offset, level in zip(offsets, levels, strict=True):
-                colour = "".join(f"{max(0, round(level - strength * channel)):02x}" for channel in tint)
-                gradient.append(f'<stop offset="{offset}%" stop-color="#{colour}"/>')
-
-            # Extend joined sides outside the viewport so only the two ends are rounded.
-            left = 0 if kind == "minimize" else -4
-            right = width if kind == "close" else width + 4
-            glyph_colour = "#777" if look == "disabled" else "#151515"
-            border = "#707070" if look == "normal" else "#586976"
-            divider = "" if kind == "minimize" else f'<path d="M.5 1v{FACE_HEIGHT - 2}" stroke="{border}"/>'
-            artwork = (
-                f'<defs><linearGradient id="face" x2="0" y2="1">{"".join(gradient)}</linearGradient>'
-                f'<linearGradient id="rim" x2="0" y2="1"><stop offset=".85" stop-color="{border}"/>'
-                '<stop offset="1" stop-color="#808b94"/></linearGradient></defs>'
-                f'<rect x="{left + 0.5}" y=".5" width="{right - left - 1}" height="{FACE_HEIGHT - 1}" '
-                f'rx="3" fill="url(#face)" stroke="url(#rim)"/>'
-                f'<rect x="{left + 1.5}" y="1.5" width="{right - left - 3}" height="{FACE_HEIGHT - 3}" '
-                f'rx="2" fill="none" stroke="#fafafa"/>'
-                f'{divider}<g fill="none" stroke="{glyph_colour}">{GLYPHS[kind]}</g>'
-            )
-            write_face(directory, kind, state, width, artwork)
 
 
 def write_face(directory, kind, state, width, artwork, large_artwork=None):
@@ -72,13 +25,19 @@ def write_face(directory, kind, state, width, artwork, large_artwork=None):
         (directory / f"{kind}-{state}{suffix}.svg").write_text(svg)
 
 
-def write_gtk3_faces(directory):
+def write_caption_faces(directory, gtk4=False):
     directory.mkdir(parents=True, exist_ok=True)
+    widths = CELL_WIDTHS if gtk4 else palette.BUTTON_WIDTHS
     for kind in BUTTON_FACES:
-        width = palette.BUTTON_WIDTHS["maximize" if kind == "restore" else kind]
+        width = widths["maximize" if kind == "restore" else kind]
         for state, (window, look) in AURORAE_STATES.items():
-            defs, shapes = button_state(kind, window, look, "face")
-            large_defs, large_shapes = button_state(kind, window, look, "face", large=True)
+            defs, shapes = button_state(kind, window, look, "face", cell_width=width)
+            # GTK 3's wider Maximize cell uses the existing fractional-scale
+            # ring. The narrow GTK 4 cell benefits from the aligned version.
+            pixel_density = 2 if gtk4 or kind in ("minimize", "restore") else None
+            large_defs, large_shapes = button_state(
+                kind, window, look, "face", large=True, cell_width=width, pixel_density=pixel_density
+            )
             write_face(
                 directory,
                 kind,
@@ -174,8 +133,8 @@ headerbar button.titlebutton:active, headerbar button.titlebutton:disabled {
 if __name__ == "__main__":
     if sys.argv[1] == "--write-buttons":
         directory = Path(sys.argv[2])
-        write_gtk4_faces(directory)
-        write_gtk3_faces(directory / "gtk3")
+        write_caption_faces(directory, gtk4=True)
+        write_caption_faces(directory / "gtk3")
     else:
         directory = Path(sys.argv[1])
         gtk4 = os.environ.get("GTK_VERSION") == "4.0"

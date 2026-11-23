@@ -33,7 +33,7 @@ def configure(package, artwork, renderer):
         "keepBelow",
         "allDesktops",
     ):
-        svg = artwork / f"{name}.svg"
+        svg = artwork / f"{name.lower()}.svg"
         layout[name + "ButtonPath"] = str(svg) if svg.is_file() else ""
         if name not in ("restore", "maximize"):
             layout.setdefault("buttonWidth" + name[0].upper() + name[1:], layout["buttonWidth"])

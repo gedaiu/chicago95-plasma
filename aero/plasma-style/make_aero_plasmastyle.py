@@ -117,7 +117,8 @@ def row_gradient(gradient_id, row, x0):
     """One row's colours across the face's inner columns, from x0."""
     return (
         f'<linearGradient id="{gradient_id}" x1="{x0}" y1="0" x2="{x0 + len(row)}" y2="0" '
-        f'gradientUnits="userSpaceOnUse">{faces.gradient_stops(row, lambda value: faces.paint(*value))}</linearGradient>'
+        'gradientUnits="userSpaceOnUse">'
+        f"{faces.gradient_stops(row, lambda value: faces.paint(*value))}</linearGradient>"
     )
 
 
@@ -204,10 +205,7 @@ def faces_svg(faces_by_state, markup=faces.face_markup):
         definitions.append(face_definitions)
         groups.append(f'<g id="{state}-center">{shapes}</g>{hint_margins(state)}')
     total = len(faces_by_state) * (width + GAP)
-    return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{total}" height="{height}">'
-        f"<defs>{''.join(definitions)}</defs>\n" + "\n".join(groups) + "\n</svg>\n"
-    )
+    return faces.sprite_sheet(total, height, definitions, groups)
 
 
 def tasks_svg():
@@ -332,7 +330,8 @@ def tray_shade_svg():
         knots = "".join(
             f'<stop offset="{number(round((column * tray_shade.STEP + tray_shade.STEP / 2) / dark, 4))}" '
             f'stop-color="#000000" stop-opacity="{number(round(alpha / 255, 3))}"/>'
-            for column, alpha in enumerate(row)
+            for column in faces.gradient_knots([(value,) for value in row], tolerance=1)
+            for alpha in (row[column],)
         )
         definitions.append(f'<linearGradient id="tray{index}" x1="0" y1="0" x2="1" y2="0">{knots}</linearGradient>')
         top = index * tray_shade.BAND
@@ -360,11 +359,13 @@ def reflection_svg():
         return f"{number(round(position * math.cos(lean), 3))}", f"{number(round(-position * math.sin(lean), 3))}"
 
     (x1, y1), (x2, y2) = point(first), point(last)
+    profile = [(grey * alpha / 255, alpha) for _, grey, alpha in reflection.STOPS]
+    knots = faces.gradient_knots(profile, tolerance=0.6, positions=[stop[0] for stop in reflection.STOPS])
     stops_markup = "".join(
         f'<stop offset="{number(round((position - first) / (last - first), 5))}" '
         f'stop-color="#{grey:02X}{grey:02X}{grey:02X}" '
         f'stop-opacity="{number(round(alpha / 255 * reflection.OPACITY / 100, 4))}"/>'
-        for position, grey, alpha in reflection.STOPS
+        for position, grey, alpha in (reflection.STOPS[i] for i in knots)
     )
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
@@ -549,26 +550,23 @@ def tray_buttons_svg():
         bounds = f'<rect x="{index * (width + GAP)}" y="0" width="{width}" height="{height}" fill="none"/>'
         groups.append(f'<g id="{state}">{bounds}{shapes}</g>')
     total = len(states) * (width + GAP)
-    return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{total}" height="{height}">'
-        f"<defs>{''.join(definitions)}</defs>\n" + "\n".join(groups) + "\n</svg>\n"
-    )
+    return faces.sprite_sheet(total, height, definitions, groups)
 
 
 def grip_svg(height=40):
     """The grip an unlocked taskbar shows before its band: the gripper's dots down the bar, as 1-pixel squares."""
     rows = range(palette.GRIP_FIRST_ROW, height - palette.GRIP_MARGIN - 1, palette.GRIP_ROW_PITCH)
-    squares = "".join(
-        f'<rect x="{x + dx}" y="{y + dy}" width="1" height="1" fill="{colour}" '
+    dot = "".join(
+        f'<rect x="{dx}" y="{dy}" width="1" height="1" fill="{colour}" '
         f'fill-opacity="{faces.number(round(alpha / 255, 4))}"/>'
-        for x in palette.GRIP_COLUMNS
-        for y in rows
         for dy, dot_row in enumerate(palette.GRIP_DOT)
         for dx, (colour, alpha) in enumerate(dot_row)
     )
+    marks = "".join(f'<use href="#dot" x="{x}" y="{y}"/>' for x in palette.GRIP_COLUMNS for y in rows)
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{palette.GRIP_WIDTH}" height="{height}">'
-        f'<g id="grip"><rect width="{palette.GRIP_WIDTH}" height="{height}" fill="none"/>{squares}</g></svg>\n'
+        f'<defs><g id="dot">{dot}</g></defs><g id="grip">'
+        f'<rect width="{palette.GRIP_WIDTH}" height="{height}" fill="none"/>{marks}</g></svg>\n'
     )
 
 
@@ -577,7 +575,7 @@ def tooltip_svg(dialog=False):
     parts = ['<svg xmlns="http://www.w3.org/2000/svg" width="50" height="24">']
     parts.append(
         '<style id="current-color-scheme">.ColorScheme-Background {color:#f0f0f0;} '
-        '.ColorScheme-Text {color:#222;}</style>'
+        ".ColorScheme-Text {color:#222;}</style>"
     )
     face = 'fill="#fafcfe"' if dialog else 'class="ColorScheme-Background" fill="currentColor"'
     for offset, prefix, paint in (

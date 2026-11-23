@@ -7,7 +7,7 @@ from plasma_session import missing_programs
 
 
 @pytest.mark.skipif(bool(missing_programs()), reason=f"needs {', '.join(missing_programs())}")
-def test_caption_centres_the_icon_and_illuminates_black_letters(desktops, tmp_path):
+def test_caption_centres_the_icon_and_illuminates_black_letters(desktops, tmp_path, exact_original):
     desktop = desktops(
         "luna",
         **reference_session(
@@ -15,7 +15,13 @@ def test_caption_centres_the_icon_and_illuminates_black_letters(desktops, tmp_pa
             windows=[("sample - Thunar", "qt", (160, 150, 559, 449))],
         ),
     )
+    from caption_cluster import compare_cluster, native_cluster
+
     desktop.save(tmp_path / "caption.png")
+    scores, group = compare_cluster(desktop.crop((420, 140, 575, 190)), 1)
+    group.save(tmp_path / "caption-buttons.png")
+    exact_original(native_cluster(1)[0], group)
+    assert scores == (1, 1, 1), scores
     pixels = np.asarray(desktop.convert("RGB"), dtype=int)
     caption = pixels[153:177, 160:303]
     icons = caption[:, :27]
@@ -32,11 +38,16 @@ def test_caption_centres_the_icon_and_illuminates_black_letters(desktops, tmp_pa
 
 
 @pytest.mark.skipif(bool(missing_programs()), reason=f"needs {', '.join(missing_programs())}")
-def test_caption_hover_lights_the_glass_below_the_live_close_button(desktops):
+@pytest.mark.parametrize("scale", [1, 1.5])
+def test_caption_hover_lights_the_glass_below_the_live_close_button(desktops, tmp_path, scale):
     options = reference_session(windows=[("Caption hover", "qt", (160, 150, 559, 449))])
-    normal = desktops("luna", **options)
-    hot = desktops("luna", **options, pointer_steps=["move:530,159"])
-    for screen in (hot, normal):
+    normal = desktops("luna", **options, scale=scale)
+    hot = desktops("luna", **options, scale=scale, pointer_steps=["move:530,159"])
+    neighbour = desktops("luna", **options, scale=scale, pointer_steps=["move:490,159"])
+    normal.save(tmp_path / "caption-rest.png")
+    hot.save(tmp_path / "caption-hover.png")
+    neighbour.save(tmp_path / "caption-neighbour-hover.png")
+    for screen in (hot, normal, neighbour):
         errors = [
             line
             for line in screen.info["kwin_log"].splitlines()
@@ -44,6 +55,21 @@ def test_caption_hover_lights_the_glass_below_the_live_close_button(desktops):
             and any(term in line for term in ("Error", "Unable to assign", "Binding loop", "not a type"))
         ]
         assert not errors, errors
+    # Locate the darker pixel of each divider. A neighbouring halo may tint
+    # the glass behind a seam, while the seam itself still limits that tint.
+    y = round(159 * scale)
+    for x, other_hover in ((477, hot), (504, neighbour)):
+        columns = range(round(x * scale) - 2, round(x * scale) + 3)
+        seam = min(columns, key=lambda column: sum(normal.getpixel((column, y))))
+        rest = np.asarray(normal.getpixel((seam, y)), dtype=int)
+        nearest = np.asarray(other_hover.getpixel((seam, y)), dtype=int)
+        assert np.max(np.abs(rest - nearest)) < 20, (scale, x, rest, nearest)
+    for hovered, face in ((neighbour, (479, 153, 502, 168)), (hot, (507, 153, 547, 168))):
+        box = tuple(round(v * scale) for v in face)
+        delta = np.asarray(hovered.crop(box), dtype=int) - np.asarray(normal.crop(box), dtype=int)
+        assert np.abs(delta).mean() > 5
+    if scale == 1.5:
+        return  # The halo profile below uses the 96 DPI recording.
     # The first three rows below the button, against the same rows in the guest.
     from reference import screenshot
 
@@ -56,8 +82,8 @@ def test_caption_hover_lights_the_glass_below_the_live_close_button(desktops):
 
 
 @pytest.mark.skipif(bool(missing_programs()), reason=f"needs {', '.join(missing_programs())}")
-def test_kwin_close_glyph_on_a_150_percent_screen(desktops, tmp_path):
-    from reference import screenshot
+def test_kwin_caption_glyphs_on_a_150_percent_screen(desktops, tmp_path, exact_original):
+    from caption_cluster import compare_cluster, native_cluster
 
     desktop = desktops(
         "luna",
@@ -69,16 +95,33 @@ def test_kwin_close_glyph_on_a_150_percent_screen(desktops, tmp_path):
     )
     desktop.save(tmp_path / "kwin-150.png")
     assert desktop.size == (1536, 1152)
-    # Locate the red button on the restored window. Exclude its glass border
-    # and measure the bright glyph body on the physical framebuffer.
-    region = np.asarray(desktop, dtype=int)[210:285, 700:860]
-    y, x = np.where((region[:, :, 0] - region[:, :, 2] > 55) & (region[:, :, 0] > 115))
-    assert x.max() - x.min() > 65
+    scores, group = compare_cluster(desktop.crop((625, 210, 860, 286)), 1.5)
+    group.save(tmp_path / "caption-buttons.png")
+    native, _ = native_cluster(1.5)
+    exact_original(native, group)
+    assert scores == (1, 1, 1), scores
+    # All four grey levels of the Minimize bar should reach the same columns.
+    # A half-pixel offset previously produced a visible step along its top.
+    assert np.array_equal(np.asarray(group)[17:21, 15:31], np.asarray(native)[17:21, 15:31])
 
-    def glyph_box(pixels):
-        yy, xx = np.where(pixels.min(axis=2) > 198)
-        return (xx.max() - xx.min() + 1, yy.max() - yy.min() + 1)
 
-    glyph = region[y.min() + 4 : y.max() - 2, x.min() + 10 : x.max() - 10]
-    native = np.asarray(screenshot("win7-sp1-144dpi-caption"))[4:25, 91:154]
-    assert glyph_box(glyph) == pytest.approx(glyph_box(native), abs=2)
+@pytest.mark.skipif(bool(missing_programs()), reason=f"needs {', '.join(missing_programs())}")
+def test_clicking_maximize_draws_restore_on_a_150_percent_screen(desktops, tmp_path, exact_original):
+    from caption_cluster import compare_cluster, native_cluster
+    from PIL import ImageOps
+
+    desktop = desktops(
+        "luna",
+        **reference_session(
+            settings=[("DECORATION", "aero"), ("BACKGROUND_MODE", "color"), ("BACKGROUND_COLOR", "#101820")],
+            windows=[("High DPI caption", "qt", (160, 150, 559, 449))],
+            scale=1.5,
+            pointer_steps=["move:490,159", "click:left", "move:440,300", "wait:0.6"],
+        ),
+    )
+    # Windows clips the first row of a maximized caption against the screen edge.
+    corner = desktop.crop((desktop.width - 210, 0, desktop.width, 50))
+    scores, group = compare_cluster(ImageOps.expand(corner, border=(0, 1, 0, 0)), 1.5, maximized=True)
+    group.save(tmp_path / "maximized-caption.png")
+    exact_original(native_cluster(1.5, maximized=True)[0], group)
+    assert scores == (1, 1, 1), scores

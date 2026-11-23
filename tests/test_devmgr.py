@@ -381,7 +381,72 @@ def test_aero_commands_stay_above_tree_when_resized(devmgr, snapshot, qt_app, mo
         window.close()
 
 
-@pytest.mark.parametrize(("style", "client"), [("basic", (9, 30)), ("aero", (80, 72))])
+@pytest.mark.parametrize(("style", "art"), [("aero", "aero"), ("luna", "luna"), ("2001", "2000"), ("2000", "2000")])
+@pytest.mark.parametrize("scale", [1.5, 2.0])
+def test_disabled_console_arrows_render_at_display_resolution(devmgr, snapshot, qt_app, style, art, scale):
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QIcon, QImage, QPainter
+    from PySide6.QtSvg import QSvgRenderer
+    from PySide6.QtWidgets import QToolBar
+    from reference import installed_look
+
+    widgets = "classic" if style in ("2000", "2001") else style
+    with installed_look(qt_app, f"[StartMenu]\nstyle={style}\n[Look]\nwidgetStyle={widgets}\n", ""):
+        window = devmgr.DeviceManagerWindow(load=lambda: snapshot)
+        try:
+            window.refresh()
+            size = window.findChild(QToolBar).iconSize()
+            for direction in ("back", "forward"):
+                action = getattr(window, direction)
+                assert not action.isEnabled()
+                physical = action.icon().pixmap(size, scale, QIcon.Disabled)
+                assert physical.size() == size * scale
+                actual = physical.toImage().convertToFormat(QImage.Format_ARGB32_Premultiplied)
+                expected = QImage(actual.size(), actual.format())
+                expected.fill(Qt.transparent)
+                painter = QPainter(expected)
+                QSvgRenderer(str(REPO / f"data/device-manager/{art}-{direction}-disabled.svg")).render(painter)
+                painter.end()
+                assert bytes(actual.constBits()) == bytes(expected.constBits())
+        finally:
+            window.close()
+
+
+@pytest.mark.parametrize(
+    ("scale", "limits"),
+    [(1.0, (9, 10, 2, 11, 2, 14)), (1.5, (11, 12, 14, 16, 14, 17)), (2.0, (11, 11, 9, 14, 9, 16))],
+)
+def test_enabled_mmc_commands_match_guest_resources(devmgr, snapshot, qt_app, monkeypatch, scale, limits):
+    import numpy as np
+    from PIL import Image
+    from PySide6.QtGui import QImage
+    from PySide6.QtWidgets import QToolBar
+
+    monkeypatch.setattr(devmgr.chicago95ui, "widget_style", lambda: "aero")
+    window = devmgr.DeviceManagerWindow(load=lambda: snapshot)
+    try:
+        toolbar = window.findChild(QToolBar)
+        actions = [action for action in toolbar.actions() if not action.isSeparator()]
+        with Image.open(REPO / "tests/references/win7-sp1-mmc-commands.png") as strip:
+            for index, (action, limit) in enumerate(zip(actions, limits, strict=True)):
+                glyph = (
+                    action.icon().pixmap(toolbar.iconSize(), scale).toImage().convertToFormat(QImage.Format_RGBA8888)
+                )
+                assert glyph.width() == glyph.height() == round(16 * scale)
+                actual = Image.frombytes("RGBA", (glyph.width(), glyph.height()), bytes(glyph.constBits()))
+                native = strip.crop((index * 16, 0, (index + 1) * 16, 16))
+                for colour in ("#d3daed", "#25364a"):
+                    # Two backgrounds expose missing transparency at the silhouette as well as errors inside it.
+                    pixels = Image.alpha_composite(Image.new("RGBA", actual.size, colour), actual)
+                    pixels = pixels.convert("RGB").resize(native.size, Image.Resampling.LANCZOS)
+                    expected = Image.alpha_composite(Image.new("RGBA", native.size, colour), native).convert("RGB")
+                    delta = np.abs(np.asarray(pixels, dtype=int) - np.asarray(expected, dtype=int))
+                    assert delta.mean() < limit, (action.text(), colour)
+    finally:
+        window.close()
+
+
+@pytest.mark.parametrize(("style", "client"), [("basic", (14, 30)), ("aero", (80, 72))])
 def test_aero_console_bands_match_win7_sp1(
     devmgr, snapshot, qt_app, monkeypatch, tmp_path, style, client, exact_original
 ):
@@ -411,7 +476,13 @@ def test_aero_console_bands_match_win7_sp1(
             expected_icons = original.convert("RGB").crop((x, y + 23, x + 170, y + 46))
             icons = surface.convert("RGB").crop((0, 23, 170, 46))
             difference = np.abs(np.asarray(icons, dtype=int) - np.asarray(expected_icons, dtype=int))
-            assert difference.mean() < (20 if style == "aero" else 30)
+            assert difference.mean() < (4.5 if style == "aero" else 7)
+            # These guest positions include the antialiased command edges and surrounding face.
+            commands = [(2, 22, 7), (25, 45, 7.5), (56, 76, 1.5), (88, 105, 10), (110, 130, 1.5)]
+            if style == "aero":
+                commands.append((141, 161, 10))  # Scan is visible in the Aero reference.
+            for left, right, limit in commands:
+                assert difference[2:21, left:right].mean() < limit, (left, right)
             exact_original(expected_icons, icons)
     finally:
         window.close()
@@ -452,11 +523,34 @@ def test_xp_console_matches_sp3_command_bands(devmgr, snapshot, qt_app, style, c
             box = (280, 0, 550, 48 if style == "2001" else 46)
             rendered = qimage_to_pil(window.grab().toImage())
             with Image.open(REPO / f"tests/references/{capture}-device-manager-bands.png") as native:
+                # Disabled navigation uses the guest's embossed glyph and theme-specific palette.
+                top = 26 if style == "2001" else 25
+                for left in (2, 25):
+                    arrow = (left, top, left + 20, top + 20)
+                    actual = np.asarray(rendered.convert("RGB").crop(arrow), dtype=int)
+                    expected = np.asarray(native.convert("RGB").crop(arrow), dtype=int)
+                    assert np.abs(actual - expected).mean() < (3.5 if style == "2001" else 2)
+                band = (200, 23, 620, 46)
+                actual = np.asarray(rendered.convert("RGB").crop(band), dtype=int)
+                expected = np.asarray(native.convert("RGB").crop(band), dtype=int)
+                assert np.abs(actual - expected).mean() < 1.2
                 # Check native centres and the glyphs: navy pane borders and the yellow Help mark.
                 for left, right, colour in [(56, 77, "navy"), (87, 109, "yellow"), (111, 132, "navy")]:
                     assert glyph_bounds(rendered, left, right, colour) == pytest.approx(
                         glyph_bounds(native, left, right, colour), abs=2
                     )
+                for left, right in ((56, 77), (111, 132)):
+                    x, y, x2, y2 = glyph_bounds(native, left, right, "navy")
+                    region = (left + x, 24 + y, left + x2 + 1, 24 + y2 + 1)
+                    expected = np.asarray(native.convert("RGB").crop(region), dtype=int)
+                    actual = np.asarray(rendered.convert("RGB").crop(region), dtype=int)
+                    assert expected.shape == (12, 14, 3)
+                    assert np.abs(actual - expected).mean() < 3
+                help_y = 28 if style == "2001" else 27
+                help_box = (91, help_y, 105, help_y + 15)
+                expected_help = np.asarray(native.convert("RGB").crop(help_box), dtype=int)
+                actual_help = np.asarray(rendered.convert("RGB").crop(help_box), dtype=int)
+                assert np.abs(actual_help - expected_help).mean() < (9 if style == "2001" else 9.8)
                 original = np.asarray(native.convert("RGB").crop(box), dtype=int)
             actual = np.asarray(rendered.crop(box), dtype=int)
             assert np.abs(actual - original).mean() < 4
@@ -532,6 +626,20 @@ def test_windows_2000_console_combines_menus_and_commands(devmgr, snapshot, qt_a
     original = screenshot("win2000-pro-120dpi-device-manager-band")
     with Image.open(capture) as live:
         actual = rgb565(live)
+    # Compare each command at its guest position, including the surrounding face.
+    for left, right, limit in ((124, 146, 3), (147, 168, 3.5), (179, 200, 5), (201, 222, 1.5), (232, 253, 4.5)):
+        box = (left, 2, right, 23)
+        pixels = np.asarray(actual.crop(box), dtype=int)
+        native = np.asarray(original.crop(box), dtype=int)
+        assert np.abs(pixels - native).mean() < limit, box
+    # Match the menu text baseline despite different font antialiasing.
+    for left, right in ((12, 64), (65, 108)):
+        bounds = []
+        for image in (original, actual):
+            ink = np.asarray(image.crop((left, 1, right, 24)))[:, :, :3].max(axis=2) < 140
+            y, x = np.nonzero(ink)
+            bounds.append((x.min(), y.min(), y.max()))
+        assert bounds[1] == pytest.approx(bounds[0], abs=1)
     # The outer bevels bound a single 25-row band. Sample clear of commands.
     band = (290, 0, 500, original.height)
     assert np.abs(np.asarray(actual.crop(band), dtype=int) - np.asarray(original.crop(band), dtype=int)).mean() < 1.7

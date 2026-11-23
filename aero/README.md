@@ -147,6 +147,8 @@ Setup prefers an installed Segoe UI for Aero and supplies regular and bold Selaw
 
 The Windows 7 preset uses the [B00merang Windows 7 icon theme](https://github.com/B00merang-Artwork/Windows-7), with KDE application IDs mapped to the corresponding icons. Setup uses Pillow and Potrace to build Windows-7-SVG from the icon pack, trace the embedded control artwork in Kvantum and supply KDE scalable cursor frames with the original hotspots and animation delays. Setup downloads the default white [Aero cursor port](https://github.com/lLexian/Windows-7-Aero-Cursors_Linux) and maps the [Windows 7 sound collection](https://github.com/Pendrag00n/Windows7Sounds) to desktop event names. The cursor port credits separate artwork for the open and closed hand. The cursor and sound archives are pinned by revision and SHA-256 and cached for reinstalls.
 
+Setup applies the icon theme to KDE, GTK 3 and GTK 4. The generated index uses the standard Places and Applications contexts so KDE can find the folder, Recycle Bin and program icons. To reapply the icons alone, run `./install.sh --yes --components=icons --icons=windows7`.
+
 ## Visual regression tests
 
 Run `python3 tests/aero/run_visuals.py` from a Plasma 6 development machine. The command fails if any comparison fails or skips. It uses the local Aero Setup assets, the extracted `aero.msstyles` described above, and the nested Plasma/KWin test harness. Set `AERO_ORB_REFERENCE` to the original 54 × 162 SevenStart PNG when the old installer’s cached copy is unavailable. On other distributions, point `AERO_FEDORA_REFERENCE` at Fedora’s 256-pixel `fedora-logo-icon.png` to check the custom orb.

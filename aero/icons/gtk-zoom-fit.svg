@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <defs>
+    <linearGradient id="enamel" x1="0" x2="0" y1="4" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0068d3" stop-opacity=".94"/>
+      <stop offset="1" stop-color="#001d85" stop-opacity=".99"/>
+    </linearGradient>
+  </defs>
+  <path d="M17.4 28.1 4.7 38.1q-.8.8 0 1.7l3.4 3.4q.8.8 1.7-.1l10.9-12.2z" fill="url(#enamel)"/>
+  <circle id="lens" cx="27.5" cy="20.5" r="11.8" fill="white" fill-opacity=".565"/>
+  <circle cx="27.5" cy="20.5" r="13.9" fill="none" stroke="url(#enamel)" stroke-width="4.6"/>
+</svg>

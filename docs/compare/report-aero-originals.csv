@@ -5,47 +5,47 @@ audit_desktop_pixels.py,test_menu_chrome[shut-down-button],2591,2592,22.68
 audit_desktop_pixels.py,test_menu_chrome[start-search-box],4026,11340,9.73
 audit_desktop_pixels.py,test_menu_chrome[power-menu],1347,6327,18.70
 audit_desktop_pixels.py,test_desktop_region[background-box0],0,7200,0.00
-audit_desktop_pixels.py,test_desktop_region[empty-panel-box1],17381,19200,0.78
-audit_desktop_pixels.py,test_desktop_region[orb-ring-box2],642,648,4.44
-audit_desktop_pixels.py,test_desktop_region[running-button-box3],748,800,1.12
-audit_desktop_pixels.py,test_desktop_region[show-desktop-box4],580,600,3.62
-audit_desktop_pixels.py,test_notification_area[hidden-arrow],411,420,2.34
-audit_desktop_pixels.py,test_notification_area[tray-shade],1961,2380,1.23
+audit_desktop_pixels.py,test_desktop_region[empty-panel-box1],16951,19200,0.73
+audit_desktop_pixels.py,test_desktop_region[orb-ring-box2],641,648,4.43
+audit_desktop_pixels.py,test_desktop_region[running-button-box3],766,800,1.23
+audit_desktop_pixels.py,test_desktop_region[show-desktop-box4],588,600,3.96
+audit_desktop_pixels.py,test_notification_area[hidden-arrow],409,420,2.36
+audit_desktop_pixels.py,test_notification_area[tray-shade],1916,2380,1.22
 audit_desktop_pixels.py,test_notification_close_and_options,1012,1012,13.89
-audit_desktop_pixels.py,test_control_panel_navigation,7336,7480,31.04
-audit_desktop_pixels.py,test_explorer_navigation,6983,7040,25.17
+audit_desktop_pixels.py,test_control_panel_navigation,7386,7480,25.75
+audit_desktop_pixels.py,test_explorer_navigation,6983,7040,25.33
 audit_desktop_pixels.py,test_firefox_button_face,152,210,2.44
 audit_desktop_pixels.py,test_gtk_fixed_corner[palette button-BUTTON-PUSHBUTTON-0],16,30,3.98
 audit_desktop_pixels.py,test_gtk_fixed_corner[palette disabled-button-BUTTON-PUSHBUTTON-3],9,30,2.53
 audit_desktop_pixels.py,test_gtk_fixed_corner[palette entry-EDIT-EDITBORDER_NOSCROLL-0],4,4,27.25
 audit_desktop_pixels.py,test_gtk_fixed_corner[palette disabled-entry-EDIT-EDITBORDER_NOSCROLL-3],4,4,9.83
 audit_desktop_pixels.py,test_gtk_fixed_corner[progress empty-horizontal-PROGRESS-BAR-0],60,63,8.98
-audit_desktop_pixels.py,test_gtk_fixed_corner[scrollbar normal-horizontal-SCROLLBAR-THUMBBTNHORZ-0],88,88,40.49
-audit_desktop_pixels.py,test_gtk_fixed_corner[scrollbar normal-vertical-SCROLLBAR-THUMBBTNVERT-0],40,40,52.29
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-active-0],0,682,0.00
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-active-1],340,682,3.50
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-active-2],336,682,4.65
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-active-3],0,682,0.00
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-inactive-0],0,682,0.00
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-inactive-1],363,682,3.48
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-inactive-2],353,682,4.61
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-inactive-3],0,682,0.00
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-end-active-0],33,682,1.57
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-end-active-1],360,682,4.66
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-end-active-2],367,682,5.78
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-end-active-3],33,682,1.57
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-end-inactive-0],35,682,1.01
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-end-inactive-1],361,682,4.47
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-end-inactive-2],371,682,5.73
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-end-inactive-3],35,682,1.01
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[close-active-0],544,1122,2.91
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[close-active-1],558,1122,2.75
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[close-active-2],701,1122,3.18
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[close-active-3],539,1122,2.31
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[close-inactive-0],32,1122,0.61
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[close-inactive-1],558,1122,2.73
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[close-inactive-2],701,1122,3.16
-test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[close-inactive-3],32,1122,0.61
+audit_desktop_pixels.py,test_gtk_fixed_corner[scrollbar normal-horizontal-SCROLLBAR-THUMBBTNHORZ-0],63,88,3.39
+audit_desktop_pixels.py,test_gtk_fixed_corner[scrollbar normal-vertical-SCROLLBAR-THUMBBTNVERT-0],39,40,5.28
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-active-0],228,682,0.63
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-active-1],459,682,3.89
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-active-2],424,682,4.82
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-active-3],228,682,0.63
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-inactive-0],26,682,0.04
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-inactive-1],473,682,3.79
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-inactive-2],436,682,4.75
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-inactive-3],26,682,0.04
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-end-active-0],223,682,2.13
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-end-active-1],456,682,4.95
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-end-active-2],441,682,5.94
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-end-active-3],223,682,2.12
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-end-inactive-0],63,682,1.05
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-end-inactive-1],450,682,4.83
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-end-inactive-2],449,682,5.91
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[caption-end-inactive-3],63,682,1.05
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[close-active-0],747,1122,3.20
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[close-active-1],721,1122,3.08
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[close-active-2],835,1122,3.48
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[close-active-3],773,1122,2.61
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[close-inactive-0],78,1122,0.65
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[close-inactive-1],722,1122,3.06
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[close-inactive-2],836,1122,3.46
+test_aero_buttons.py,test_vector_face_matches_its_sprite_over_glass_within_six_levels[close-inactive-3],78,1122,0.65
 test_aero_buttons.py,test_vector_glyph_matches_its_96_dpi_sprite_over_glass_within_twelve_levels[close-0],98,182,10.32
 test_aero_buttons.py,test_vector_glyph_matches_its_96_dpi_sprite_over_glass_within_twelve_levels[close-1],98,182,10.32
 test_aero_buttons.py,test_vector_glyph_matches_its_96_dpi_sprite_over_glass_within_twelve_levels[close-2],98,182,10.32
@@ -77,20 +77,20 @@ test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-ch
 test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-checked-pressed-6],128,169,7.77
 test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[radio-disabled-7],117,169,7.21
 test_aero_gtk.py,test_gtk4_indicator_faces_against_original_windows_art[checkbox-mixed-8],81,169,8.20
-test_aero_taskbar.py,test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[normal],579,2400,0.50
-test_aero_taskbar.py,test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[hover],526,2400,0.35
-test_aero_taskbar.py,test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[pressed],526,2400,0.35
-test_aero_taskbar.py,test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[focus],494,2400,0.32
-test_aero_taskbar.py,test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[focus-hover],494,2400,0.32
-test_aero_taskbar.py,test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[focus-pressed],494,2400,0.32
-test_aero_taskbar.py,test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[attention],86,2400,0.55
-test_aero_taskbar.py,test_show_desktop_face_is_its_sprite_as_drawn_15_wide_within_six_levels[normal],100,600,0.78
-test_aero_taskbar.py,test_show_desktop_face_is_its_sprite_as_drawn_15_wide_within_six_levels[hover],97,600,0.47
-test_aero_taskbar.py,test_show_desktop_face_is_its_sprite_as_drawn_15_wide_within_six_levels[pressed],91,600,0.25
-test_aero_taskbar.py,test_group_stack_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[group-2],0,320,0.00
-test_aero_taskbar.py,test_group_stack_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[group-3],0,320,0.00
-test_aero_taskbar.py,test_group_stack_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[group-selected-2],0,320,0.00
-test_aero_taskbar.py,test_group_stack_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[group-selected-3],0,320,0.00
+test_aero_taskbar.py,test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[normal],1068,2400,0.67
+test_aero_taskbar.py,test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[hover],1021,2400,0.54
+test_aero_taskbar.py,test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[pressed],1030,2400,0.54
+test_aero_taskbar.py,test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[focus],1524,2400,0.69
+test_aero_taskbar.py,test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[focus-hover],1522,2400,0.69
+test_aero_taskbar.py,test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[focus-pressed],1520,2400,0.69
+test_aero_taskbar.py,test_task_button_face_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[attention],1692,2400,0.97
+test_aero_taskbar.py,test_show_desktop_face_is_its_sprite_as_drawn_15_wide_within_six_levels[normal],449,600,1.50
+test_aero_taskbar.py,test_show_desktop_face_is_its_sprite_as_drawn_15_wide_within_six_levels[hover],367,600,0.88
+test_aero_taskbar.py,test_show_desktop_face_is_its_sprite_as_drawn_15_wide_within_six_levels[pressed],427,600,0.75
+test_aero_taskbar.py,test_group_stack_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[group-2],93,320,0.21
+test_aero_taskbar.py,test_group_stack_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[group-3],153,320,0.37
+test_aero_taskbar.py,test_group_stack_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[group-selected-2],108,320,0.24
+test_aero_taskbar.py,test_group_stack_matches_its_sprite_over_the_bar_within_four_levels_in_every_column[group-selected-3],165,320,0.38
 test_aero_taskbar.py,test_scroll_arrow_frame_is_its_sprite_within_a_level_and_its_glyph_within_six_on_average[up-normal],131,340,0.54
 test_aero_taskbar.py,test_scroll_arrow_frame_is_its_sprite_within_a_level_and_its_glyph_within_six_on_average[up-hot],122,340,0.88
 test_aero_taskbar.py,test_scroll_arrow_frame_is_its_sprite_within_a_level_and_its_glyph_within_six_on_average[down-pressed],131,340,0.54
@@ -98,21 +98,21 @@ test_aero_taskbar.py,test_scroll_arrow_frame_is_its_sprite_within_a_level_and_it
 test_aero_taskbar.py,test_scroll_arrow_frame_is_its_sprite_within_a_level_and_its_glyph_within_six_on_average[left-disabled],125,340,0.53
 test_aero_taskbar.py,test_scroll_arrow_frame_is_its_sprite_within_a_level_and_its_glyph_within_six_on_average[right-hover],116,340,0.88
 test_aero_taskbar.py,test_tray_button_is_its_sprite_over_the_bar_within_three_levels_on_average_and_48_at_a_stair_corner[normal],49,420,1.32
-test_aero_taskbar.py,test_tray_button_is_its_sprite_over_the_bar_within_three_levels_on_average_and_48_at_a_stair_corner[hot],62,420,1.36
-test_aero_taskbar.py,test_tray_button_is_its_sprite_over_the_bar_within_three_levels_on_average_and_48_at_a_stair_corner[pressed],62,420,1.42
+test_aero_taskbar.py,test_tray_button_is_its_sprite_over_the_bar_within_three_levels_on_average_and_48_at_a_stair_corner[hot],205,420,2.17
+test_aero_taskbar.py,test_tray_button_is_its_sprite_over_the_bar_within_three_levels_on_average_and_48_at_a_stair_corner[pressed],226,420,1.98
 test_aero_taskbar.py,test_tray_button_is_its_sprite_over_the_bar_within_three_levels_on_average_and_48_at_a_stair_corner[open-normal],46,420,1.18
-test_aero_taskbar.py,test_tray_button_is_its_sprite_over_the_bar_within_three_levels_on_average_and_48_at_a_stair_corner[open-hot],63,420,1.15
-test_aero_taskbar.py,test_tray_button_is_its_sprite_over_the_bar_within_three_levels_on_average_and_48_at_a_stair_corner[open-pressed],59,420,1.31
+test_aero_taskbar.py,test_tray_button_is_its_sprite_over_the_bar_within_three_levels_on_average_and_48_at_a_stair_corner[open-hot],222,420,1.92
+test_aero_taskbar.py,test_tray_button_is_its_sprite_over_the_bar_within_three_levels_on_average_and_48_at_a_stair_corner[open-pressed],228,420,1.87
 test_aero_taskbar.py,test_taskbar_grip_is_its_sprite_tiled_down_the_bar_within_a_level,24,480,0.02
 test_aero_window_reference.py,test_inactive_frame_region_is_within_its_limit_of_windows_7[right border-box0-6],3896,4000,5.18
 test_aero_window_reference.py,test_inactive_frame_region_is_within_its_limit_of_windows_7[bottom border-box1-8],6171,6200,7.52
-test_aero_window_reference.py,test_inactive_frame_region_is_within_its_limit_of_windows_7[caption buttons-box2-16],2029,2033,14.88
-test_aero_window_reference.py,test_inactive_frame_region_is_within_its_limit_of_windows_7[top right corner-box3-18],630,630,16.96
+test_aero_window_reference.py,test_inactive_frame_region_is_within_its_limit_of_windows_7[caption buttons-box2-16],2029,2033,14.79
+test_aero_window_reference.py,test_inactive_frame_region_is_within_its_limit_of_windows_7[top right corner-box3-18],630,630,15.75
 test_aero_window_reference.py,test_active_frame_region_is_within_its_limit_of_windows_7[right border-box0-12],2560,2560,11.79
-test_aero_window_reference.py,test_active_frame_region_is_within_its_limit_of_windows_7[caption buttons-box1-20],1902,1995,18.17
-test_aero_window_reference.py,test_active_frame_region_is_within_its_limit_of_windows_7[top right corner-box2-29],618,630,27.26
-test_devmgr.py,test_aero_console_bands_match_win7_sp1[basic-client0],2693,3910,27.41
-test_devmgr.py,test_aero_console_bands_match_win7_sp1[aero-client1],2601,3910,16.82
+test_aero_window_reference.py,test_active_frame_region_is_within_its_limit_of_windows_7[caption buttons-box1-20],1941,1995,17.16
+test_aero_window_reference.py,test_active_frame_region_is_within_its_limit_of_windows_7[top right corner-box2-29],629,630,23.65
+test_devmgr.py,test_aero_console_bands_match_win7_sp1[basic-client0],2273,3910,6.00
+test_devmgr.py,test_aero_console_bands_match_win7_sp1[aero-client1],2262,3910,3.54
 test_aero_greeter_visuals.py,test_lock_password_bounds_match_sp1[1024-768-win7-sp1-aero-lock],401,816,1.85
 test_aero_greeter_visuals.py,test_lock_password_bounds_match_sp1[800-600-win7-sp1-aero-lock-800],398,816,0.79
 test_aero_shell_interactions.py,test_calendar_renders_a_month_and_an_analog_clock,466,560,24.73

@@ -267,15 +267,6 @@ ARROW_STATES = {"normal": ARROW, "focused": ARROW, "pressed": ARROW_PRESSED, "di
 ARROW_DIRECTIONS = ("up", "down", "left", "right", "plus", "minus")
 GLYPH_SIZE = 9
 INDICATOR_SIZE = 13
-CHECK_TICK = (
-    ".....##",
-    "....###",
-    "#..###.",
-    "##.##..",
-    ".###...",
-    "..##...",
-    "...#...",
-)
 CHECK_KINDS = {"checkbox": ("", "checked", "tristate"), "radio": ("", "checked")}
 CHECK_LOOK = {
     "normal": {"border": CHECK_BORDER, "fill": "check", "glow": None},

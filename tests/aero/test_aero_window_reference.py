@@ -46,7 +46,7 @@ def active(qt_app):
     [
         ("right border", (783, 30, 791, 530), 6),
         ("bottom border", (8, 532, 783, 540), 8),
-        ("caption buttons", (678, 0, 785, 19), 16),
+        ("caption buttons", (678, 0, 785, 21), 16),
         ("top right corner", (770, 0, 791, 30), 18),
     ],
 )
@@ -61,8 +61,8 @@ def test_inactive_frame_region_is_within_its_limit_of_windows_7(inactive, region
     ("region", "box", "limit"),
     [
         ("right border", (ACTIVE_WIDTH - 8, 30, ACTIVE_WIDTH, 350), 12),
-        ("caption buttons", (ACTIVE_WIDTH - 111, 0, ACTIVE_WIDTH - 6, 19), 20),
-        ("top right corner", (ACTIVE_WIDTH - 21, 0, ACTIVE_WIDTH, 30), 29),
+        ("caption buttons", (ACTIVE_WIDTH - 111, 0, ACTIVE_WIDTH - 6, 21), 20),
+        ("top right corner", (ACTIVE_WIDTH - 21, 0, ACTIVE_WIDTH, 30), 25),
     ],
 )
 def test_active_frame_region_is_within_its_limit_of_windows_7(active, region, box, limit, exact_original):
@@ -79,14 +79,14 @@ def test_outer_line_over_inactive_glass_is_the_screenshots_line_colour(inactive)
 
 
 @pytest.mark.parametrize("window", ["active", "inactive"])
-def test_caption_lower_rim_matches_windows_7(window, request):
+def test_caption_lower_rim_matches_guest_bevel_order(window, request):
     ours, theirs = request.getfixturevalue(window)
-    # Interior columns of minimize, maximize and close, clear of the glyphs.
+    # Compare the dark outline and bright highlight at all three buttons.
     for offset in (105, 70, 39):
         x = ours.width - offset
         strip = (x, 17, x + 1, 22)
-        for image in (theirs, ours):
+        for image in (ours, theirs):
             samples = list(image.crop(strip).convert("L").get_flattened_data())
-            assert samples.index(min(samples)) == 2  # dark outline at y=19
-            assert samples.index(max(samples)) == 3  # highlight at y=20
+            assert samples.index(min(samples)) == 2
+            assert samples.index(max(samples)) == 3
         assert mean_difference(ours.crop(strip), theirs.crop(strip)) < 22

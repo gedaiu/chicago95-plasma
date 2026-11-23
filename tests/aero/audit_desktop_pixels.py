@@ -15,7 +15,7 @@ from PIL import Image
 from plasma_session import missing_programs
 from reference import screenshot
 from test_aero_greeter_visuals import greeter  # noqa: F401
-from test_aero_gtk import aero_gtk_home, gtk4_pixels, gtk_captures  # noqa: F401
+from test_aero_gtk import aero_gtk_home, gtk4_pixels, gtk_captures, scroll_thumb_image  # noqa: F401
 from test_aero_session import desktop, hidden_tray_icons  # noqa: F401
 from test_aero_thunar import aero_icons, thunar_window  # noqa: F401
 from test_switcher import imports  # noqa: F401
@@ -174,13 +174,9 @@ def test_gtk_fixed_corner(gtk4_pixels, control, theme_class, part_name, state, t
     original = fixed_corner(theme_class, part_name, state)
     width, top = original.size
     captured = gtk4_pixels[control]
-    x = y = 0
     if theme_class == "SCROLLBAR":
-        # The GTK gallery positions the thumb on an otherwise empty trough.
-        occupied = (captured != (240, 240, 240)).any(axis=2)
-        rows, columns = np.nonzero(occupied)
-        x, y = int(columns.min()), int(rows.min())
-    actual = Image.fromarray(captured.astype("uint8")).crop((x, y, x + width, y + top))
+        captured = scroll_thumb_image(captured, control.split("-")[-1])
+    actual = Image.fromarray(captured[:top, :width].astype("uint8"))
     compare(original, actual, tmp_path / "windows7-comparison.png")
 
 

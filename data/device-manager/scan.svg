@@ -1,11 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <defs><linearGradient id="screen" x2="1" y2="1">
-    <stop stop-color="#193382"/><stop offset=".5" stop-color="#488ce5"/><stop offset="1" stop-color="#d3f1ff"/>
-  </linearGradient></defs>
-  <path fill="#858a90" d="M1 4h4v10H1zm7 5h3v3h2v1H6v-1h2z"/>
-  <path fill="#c5c9ca" d="M1 5h2v7H1zM4 0h12v10H4z"/>
-  <path fill="url(#screen)" d="M5 1h10v8H5z"/>
-  <circle cx="8" cy="8.5" r="3.5" stroke="#5c697c" fill="#b6d4e8" fill-opacity=".75"/>
-  <path stroke="#546171" stroke-width="2" d="m10.5 11 4.5 4"/>
-  <path stroke="#e9f6fe" d="M6 8c0-1 .6-1.7 1.5-2"/>
+  <defs>
+    <linearGradient id="case" x2="1" y2=".8"><stop stop-color="#d6d4ce"/><stop offset="1" stop-color="#cdccbf"/></linearGradient>
+    <linearGradient id="shadow" x2=".4" y2="1"><stop stop-color="#c3c2bd"/><stop offset="1" stop-color="#a1a1a0"/></linearGradient>
+    <linearGradient id="rim"><stop stop-color="#a1a1a0"/><stop offset="1" stop-color="#bcbbb6"/></linearGradient>
+    <radialGradient id="display" cx=".74" cy=".22" r=".76">
+      <stop stop-color="#edf4ff"/><stop offset=".38" stop-color="#a9beff"/>
+      <stop offset=".62" stop-color="#5573ee"/><stop offset=".85" stop-color="#0b26c9"/>
+      <stop offset="1" stop-color="#182594"/>
+    </radialGradient>
+    <linearGradient id="glass" x1=".4" x2=".6" y2="1">
+      <stop stop-color="#f5feff"/><stop offset=".34" stop-color="#a8c9f7"/>
+      <stop offset=".52" stop-color="#b5cbf1"/><stop offset=".78" stop-color="#e0ebeb"/>
+      <stop offset="1" stop-color="#adc3d1"/>
+    </linearGradient>
+    <linearGradient id="lens" x1=".4" x2=".6" y2="1">
+      <stop stop-color="#9da8b7"/><stop offset=".5" stop-color="#667b95"/><stop offset="1" stop-color="#575758"/>
+    </linearGradient>
+  </defs>
+  <rect y="4" width="5" height="10" rx="1" fill="url(#shadow)"/>
+  <rect x="1" y="5" width="3" height="8" fill="#c3c3c3"/>
+  <rect x="2" y="5" width="1" height="7" fill="#939393"/>
+  <path d="M1 5h2v2H1z" fill="#9a9b9d"/><path d="M2 5h1v2H2z" fill="#4e4f53"/>
+  <path d="M1 7h2v1H1z" fill="#79e545"/>
+  <path d="M8 10h3v2h2v2H6v-1.5l2-.5z" fill="url(#shadow)"/>
+  <rect x="3" width="13" height="11" rx=".65" fill="url(#shadow)"/>
+  <rect x="3" width="12" height="10" rx=".4" fill="url(#case)"/>
+  <rect x="4" y="1" width="10" height="8" fill="url(#rim)"/>
+  <rect x="5" y="2" width="9" height="7" fill="url(#display)"/>
+  <path d="m11.3 10.1 3.7 3.8" stroke="#777980" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="m12 10.8 3.2 3.1" stroke="#dddce0" stroke-width=".95" stroke-linecap="round"/>
+  <circle cx="9.6" cy="8.5" r="3.25" fill="url(#glass)" stroke="url(#lens)" stroke-width="1"/>
 </svg>

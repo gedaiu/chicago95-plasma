@@ -517,7 +517,7 @@ def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_
     run_session(work, work / "desktop.sh", environment, screen_size, xwayland=True, scale=scale)
     enforce_screenshot(work / "screen.png", "the desktop's")
     image = Image.open(work / "screen.png").convert("RGB")
-    effects, kwin_log = work / "effects.txt", work / "kwin-desktop.log"
+    effects, kwin_log = work / "effects.txt", work / ("kwin-desktop.log" if scale == 1 else "kwin-scaled-desktop.log")
     image.info["loaded_effects"] = effects.read_text() if effects.exists() else ""
     image.info["kwin_log"] = kwin_log.read_text(errors="replace") if kwin_log.exists() else ""
     if (work / "drag.png").exists():

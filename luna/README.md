@@ -36,7 +36,7 @@ python3 tests/luna/extract_media_sprites.py "/path/to/windows-xp.iso" "$LUNA_MSS
 python3 -m pytest -q tests/luna/test_luna_menu.py tests/luna/test_luna_window.py tests/luna/test_luna_sprites.py
 ```
 
-The extractor reads `I386/LUNA.MS_` directly from the CD and keeps the bitmaps and sizing data locally. The tests also accept an existing QuickXP extraction with `images/BLUE_<NAME>_BMP.png` and `settings/NORMALBLUE.ini`. Without these fixtures the sprite comparisons skip. What was fitted from them: the Quick Launch grip's dot colours (`TASKBARGRIPPER`), the flat blue hot and pressed
+The extractor reads `I386/LUNA.MS_` directly from the CD and keeps the bitmaps and sizing data locally. The tests also accept an existing QuickXP extraction with `images/BLUE_<NAME>_BMP.png` and `settings/NORMALBLUE.ini`. The default fixture directory is `~/.cache/chicago95/xp-luna` (under `XDG_CACHE_HOME` when set). The indicator tests compare checkbox and radio marks against the separate 96, 118 and 185 DPI resources. Without these fixtures the sprite comparisons skip. What was fitted from them: the Quick Launch grip's dot colours (`TASKBARGRIPPER`), the flat blue hot and pressed
 Quick Launch button (`TASKBANDBUTTONNOEDGE`), the `>>` glyph's exact pixels and colours (`TASKBARCHEVRON`), the hidden icons
 button's sphere (`TRAYCHEVRONHORIZONTAL`) and the taskbar background rows (`TASKBARBACKGROUND`).
 

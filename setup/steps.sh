@@ -570,6 +570,13 @@ install_icon_pack() { # install_icon_pack se98|classicos2000|windowsxp   -> 0 wh
     built="$source/build/ClassicOS-2000"
     ;;
   esac
+  if [ "$1" = windows7 ] && [ ! -d "$source" ]; then
+    local installed="$HOME/.local/share/icons/$theme"
+    if [ -s "$installed/index.theme" ] && [ -s "$installed/apps/file-manager.png" ] &&
+      [ -s "$installed/apps/32/system-file-manager.png" ] && [ -s "$installed/filesystems/user-desktop.png" ]; then
+      return 0
+    fi
+  fi
   if [ ! -d "$source" ]; then
     ui_status "Downloading the $theme icon set..."
     run git clone --depth 1 "$repo" "$source" >>"$SETUP_LOG" 2>&1 || return 1
@@ -634,12 +641,23 @@ install_aero_icon_aliases() {
 select_desktop_icons() {
   local theme="$1" version
   kconf kdeglobals Icons Theme "$theme"
+  local changeicons
+  changeicons=$(command -v plasma-changeicons || true)
+  if [ -z "$changeicons" ] && [ -x /usr/libexec/plasma-changeicons ]; then changeicons=/usr/libexec/plasma-changeicons; fi
+  if [ -z "$changeicons" ] && command -v qtpaths6 >/dev/null; then
+    changeicons="$(qtpaths6 --query QT_INSTALL_LIBEXECS)/plasma-changeicons"
+  fi
+  if [ -x "$changeicons" ] && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+    run "$changeicons" "$theme"
+  fi
   for version in 3.0 4.0; do
     kconf "$HOME/.config/gtk-$version/settings.ini" Settings gtk-icon-theme-name "$theme"
   done
   set_gtk_interface icon-theme "$theme"
   edit_xsettings Net/IconThemeName "\"$theme\""
 }
+
+step_icons() { apply_icon_set; }
 
 apply_icon_set() {
   local theme=Chicago95 group
@@ -888,13 +906,34 @@ select_aero_blur() {
   fi
 }
 
+reload_aero_caption() (
+  [ "${SETUP_DRY_RUN:-0}" = 0 ] && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] || return 0
+  local plugins group=org.kde.kdecoration2
+  plugins=$(qtpaths6 --plugin-dir) || return 0
+  [ -f "$plugins/org.kde.kdecoration3/org.kde.breeze.so" ] || return 0
+
+  # KWin can retain Aurorae's QML and rasterized SVGs while the same plugin
+  # stays loaded. Recreate the decoration without restarting the compositor.
+  trap 'kwriteconfig6 --file kwinrc --group "$group" --key library org.kde.kwin.aurorae
+        kwriteconfig6 --file kwinrc --group "$group" --key theme org.chicago95.aero
+        kwin_reconfigure' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  kwriteconfig6 --file kwinrc --group "$group" --key library org.kde.breeze
+  kwriteconfig6 --file kwinrc --group "$group" --key theme Breeze
+  kwin_reconfigure
+)
+
 apply_decoration() {
-  local theme="__aurorae__svg__$(decoration_theme)" renderer package
+  local theme="__aurorae__svg__$(decoration_theme)" renderer package reapply_aero=0
   if [ "${SETUP_DECORATION:-classic}" = aero ]; then
     apply_aero_glass
     renderer=$(qtpaths6 --locate-file GenericDataLocation kwin/aurorae/aurorae.qml 2>/dev/null) || renderer=
     if [ -f "$renderer" ] && [ -f "$(qtpaths6 --query QT_INSTALL_QML)/Qt5Compat/GraphicalEffects/qmldir" ]; then
       theme=org.chicago95.aero
+      if [ "$(kreadconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme)" = "$theme" ]; then
+        reapply_aero=1
+      fi
       package="$HOME/.local/share/kwin/decorations/$theme"
       put_tree "$REPO/aero/aurorae/caption" "$package"
       run python3 "$REPO/aero/aurorae/install_caption.py" "$package" "$HOME/.local/share/aurorae/themes/Chicago95Aero" "$renderer"
@@ -907,6 +946,7 @@ apply_decoration() {
   fi
   kconf kwinrc org.kde.kdecoration2 library org.kde.kwin.aurorae
   kconf kwinrc org.kde.kdecoration2 theme "$theme"
+  if [ "$reapply_aero" = 1 ]; then reload_aero_caption; fi
 }
 
 apply_aero_glass() {
@@ -1016,7 +1056,7 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   apply_decoration
   kconf kwinrc org.kde.kdecoration2 BorderSize Normal
   run plasma-apply-colorscheme "$(gtk_theme_name)" >>"$SETUP_LOG" 2>&1 || true
-  apply_icon_set
+  apply_icon_set || setup_abort "Could not apply the selected icon theme."
   if [ "${SETUP_WIDGET_STYLE:-classic}" = aero ] || [ "$(kreadconfig6 --file kcminputrc --group Mouse --key cursorTheme 2>/dev/null)" = Windows-7-Aero-Cursors_Default ]; then
     apply_pointer_theme || return 1
   fi
@@ -1940,6 +1980,7 @@ step_sddm() { # login screen; system files, so it asks for the administrator pas
     run bash "$REPO/aero/fetch-login-art.sh" "$art" || return 1
     run sudo mkdir -p "$SDDM_THEME_DIR/aero-art"
     run sudo cp -r "$art/." "$SDDM_THEME_DIR/aero-art/" || return 1
+    run sudo rm -f -- "$SDDM_THEME_DIR/aero-art/user.svg"
     brand_logo=$(login_logo)
     run sudo cp "$brand_logo" "$SDDM_THEME_DIR/brand-logo.$(extension "$brand_logo")" || return 1
   fi

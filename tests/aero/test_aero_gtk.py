@@ -199,21 +199,13 @@ spectacle -b -n -f -o "$PWD/$VIEW.png"
     right_gap = image.width - (round(930 * scale) + x.max() + 1)
     assert 6 * scale <= right_gap <= 10 * scale
     assert 44 * scale <= np.ptp(x) <= 50 * scale
-    # Require a crisp light-to-dark outline on each glyph at the actual output scale.
-    close_x = round((x.min() + x.max()) / 2) + round(930 * scale)
-    cy = round((y.min() + y.max()) / 2)
-    radius = round(5 * scale)
-    for offset in (0, 38.5):  # centres of Close and Restore
-        cx = round(close_x - offset * scale)
-        glyph = header[cy - radius : cy + radius + 1, cx - radius : cx + radius + 1].mean(axis=2)
-        edges = np.maximum(abs(np.diff(glyph, axis=0)[:, :-1]), abs(np.diff(glyph, axis=1)[:-1]))
-        assert np.percentile(edges, 90) > 80
-    # The minimize glyph is a horizontal bar. Measure its upper/lower edge across
-    # its centre rather than counting the surrounding flat glass as glyph pixels.
-    cx = close_x - round(67 * scale)
-    inset = round(3 * scale)
-    bar = header[cy - radius : cy + radius + 1, cx - inset : cx + inset + 1].mean(axis=2)
-    assert np.median(np.abs(np.diff(bar, axis=0)).max(axis=0)) > 90
+    from caption_cluster import compare_cluster
+
+    region = image.crop((round(850 * scale), 0, image.width, round(50 * scale)))
+    scores, buttons = compare_cluster(region, scale, maximized=True)
+    buttons.save(tmp_path / "maximized-caption.png")
+    limits = (0.88, 0.65, 0.98) if scale == 1 else (0.60, 0.72, 0.72)
+    assert all(score >= limit for score, limit in zip(scores, limits, strict=True)), scores
     # Both location modes share one rounded outline. The straight top and bottom
     # edges stop short of the left and right sides by the radius of each corner.
     field = header[: round(42 * scale), round(270 * scale) : round(790 * scale)]
@@ -324,6 +316,41 @@ def test_progress_track_fill_and_direction(gtk_pixels, direction):
     assert filled("rtl")[-6 if direction == "horizontal" else 5]
 
 
+def scroll_thumb_image(capture, direction):
+    """Crop the thumb including the native sprite's one-pixel exterior."""
+    horizontal = direction == "horizontal"
+    image = capture if horizontal else capture.transpose(1, 0, 2)
+    ink = np.flatnonzero((image[image.shape[0] // 2] != (240, 240, 240)).any(axis=1))
+    start, stop = ink[0] - 1, ink[-1] + 2
+    assert 0 <= start < stop <= image.shape[1]
+    thumb = image[:, start:stop]
+    return thumb if horizontal else thumb.transpose(1, 0, 2)
+
+
+@pytest.mark.parametrize(("state", "index"), [("normal", 0), ("hovered", 1), ("pressed", 2)])
+@pytest.mark.parametrize("direction", ["horizontal", "vertical"])
+def test_scroll_thumb_against_windows_art(gtk_pixels, direction, state, index):
+    from aero_sprites import control_state, part, sprites_available
+
+    if not sprites_available():
+        pytest.skip("requires the extracted Windows 7 control artwork")
+    horizontal = direction == "horizontal"
+    name = "THUMBBTNHORZ" if horizontal else "THUMBBTNVERT"
+    original = np.asarray(control_state("SCROLLBAR", name, index), dtype=int)
+    actual = scroll_thumb_image(gtk_pixels[f"scrollbar {state}-{direction}"], direction)
+    margins = part("SCROLLBAR", name).margins
+    corner = np.s_[:margins.top, :margins.left]
+    assert np.abs(actual[corner] - original[corner]).mean() < (6 if horizontal else 8.5)
+
+    # Windows stretches the centre strip between the fixed caps. Sample the
+    # painted face before the separately drawn grip, including both rims.
+    if not horizontal:
+        original = original.transpose(1, 0, 2)
+        actual = actual.transpose(1, 0, 2)
+    cap = margins.left if horizontal else margins.top
+    assert np.abs(actual[:, cap + 1:cap + 4] - original[:, cap:cap + 1]).mean() < 4
+
+
 @pytest.mark.parametrize("direction", ["horizontal", "vertical"])
 def test_scroll_thumb_geometry_position_and_feedback(gtk_pixels, direction):
     def shot(state):
@@ -409,7 +436,7 @@ def test_gtk4_indicator_faces_against_original_windows_art(gtk4_pixels, kind, st
     not all(shutil.which(p) for p in ("kwin_wayland", "nautilus", "spectacle")), reason="needs GNOME Files and KWin"
 )
 @pytest.mark.parametrize("scale", [1, 1.5])
-def test_restored_files_caption_uses_tinted_toolbar_bevel(gtk_captures, tmp_path, scale):
+def test_restored_files_caption_matches_windows_7_glyphs(gtk_captures, tmp_path, scale, exact_original):
     runtime = tmp_path / "run"
     runtime.mkdir(mode=0o700)
     script = tmp_path / "caption"
@@ -421,9 +448,29 @@ gsettings set org.gnome.nautilus.window-state maximized false
 gsettings set org.gnome.nautilus.window-state initial-size '(890, 550)'
 gsettings set org.gnome.desktop.wm.preferences button-layout ':minimize,maximize,close'
 nautilus "$HOME" >files.log 2>&1 &
-gdbus wait --session --timeout 10 org.gnome.Nautilus
-sleep 1.5
-spectacle -b -n -f -o "$PWD/normal.png"
+for attempt in $(seq 12); do
+    sleep 0.5
+    spectacle -b -n -f -o "$PWD/normal.png"
+    python3 - <<'PYREADY' && exit 0
+from pathlib import Path
+from PIL import Image
+import numpy as np
+shot = Image.open("normal.png").convert("RGB")
+red, green, blue = np.asarray(shot, dtype=int).transpose(2, 0, 1)
+y, x = np.where((red > 145) & (red > green + 50) & (red > blue + 50))
+if x.size < 100:
+    raise SystemExit(1)
+# A window can appear partway through the compositor's opening animation.
+# Wait for consecutive identical caption pixels at the same screen position.
+region = (int(x.max()) - 180, int(y.min()) - 10, int(x.max()) + 12, int(y.min()) + 42)
+sample = repr(region).encode() + shot.crop(region).tobytes()
+previous = Path("previous-caption.bin")
+stable = previous.exists() and previous.read_bytes() == sample
+previous.write_bytes(sample)
+raise SystemExit(0 if stable else 1)
+PYREADY
+done
+exit 1
 """)
     run_session(
         tmp_path,
@@ -443,46 +490,17 @@ spectacle -b -n -f -o "$PWD/normal.png"
         scale=scale,
     )
     shot = Image.open(tmp_path / "normal.png").convert("RGB")
-    pixels = np.asarray(shot)
-    right = np.flatnonzero(pixels[shot.height // 2].max(axis=1) > 50)[-1] + 1
-    top = np.flatnonzero(pixels[:, shot.width // 2].max(axis=1) > 50)[0]
-    group_x = right - round(111 * scale)
-    # Locate the actual top outline on the native grid before resampling. The
-    # large buttons' inset highlight displaces the first coloured row downwards.
-    sample_x = group_x + round(8 * scale)
-    start = top + round(8 * scale)
-    profile = pixels[start : top + round(15 * scale), sample_x].mean(axis=1)
-    y = start + int(profile.argmin())
-    group = shot.crop((group_x, y, group_x + round(105 * scale), y + round(20 * scale)))
-    group.save(tmp_path / "caption-buttons.png")
-    actual = np.asarray(group.resize((105, 20), Image.Resampling.LANCZOS), dtype=int)
-    # Sample clear of the glyphs. All faces follow the toolbar bevel at 0/49/50/100%,
-    # with matching blue faces for Minimize and Maximize and a red Close face.
-    for x, tint in ((6, (50, 24, 0)), (34, (50, 24, 0)), (70, (0, 70, 78))):
-        column = actual[[3, 7, 12, 16], x] + tint
-        expected_levels = np.array([242, 236, 217, 211])[:, None]
-        assert np.abs(column - expected_levels).max() < 7
+    from caption_cluster import compare_cluster, native_cluster
 
-    for join in (29, 55):
-        band = actual[5, join - 4 : join + 5].mean(axis=1)
-        # A single narrow divider, with no second pale rim on either side.
-        assert 1 <= (band < 150).sum() <= 2
-        assert band.max() <= max(band[0], band[-1]) + 8
-    # The top of the centered group must have a visible edge of its own.
-    for x in (8, 34, 70):
-        assert actual[0, x].mean() + 24 < actual[3, x].mean()
-    # The rounded perimeter supplies the sole bottom line. A second sprite shadow
-    # here used to make the edge darker than the top rim across all three buttons.
-    for x in (8, 34, 70):
-        assert actual[-2:, x].mean(axis=1).min() > actual[0, x].mean() + 10
-        # Inspect native output pixels, including the toolbar immediately below.
-        # A smooth ramp from rim to toolbar would pass the lightness check above.
-        column = pixels[y + round(17 * scale) : y + round(22 * scale), group_x + round(x * scale)].mean(axis=1)
-        assert np.diff(column).max() > 75
+    scores, group = compare_cluster(shot, scale)
+    group.save(tmp_path / "caption-buttons.png")
+    exact_original(native_cluster(scale)[0], group)
+    limits = (0.95, 0.95, 0.98) if scale == 1 else (0.82, 0.93, 0.79)
+    assert all(score >= limit for score, limit in zip(scores, limits, strict=True)), scores
 
 
 @pytest.mark.parametrize("density", [1, 2])
-def test_boxes_guest_titlebar_uses_vector_faces_and_fades(aero_gtk_home, tmp_path, density):
+def test_boxes_guest_titlebar_uses_vector_faces_and_fades(aero_gtk_home, tmp_path, density, exact_original):
     import io
     import subprocess
 
@@ -520,6 +538,11 @@ def test_boxes_guest_titlebar_uses_vector_faces_and_fades(aero_gtk_home, tmp_pat
     assert boxes["maximize"][0] + 27 == x
     assert y <= 4
     crop = tuple(v * density for v in (x, y, x + w, y + h))
+    if density == 1:
+        from reference import screenshot
+
+        expected = screenshot("win7-sp1-caption-close-motion").crop((0, 2, w, h + 2))
+        exact_original(expected, normal.crop(crop))
 
     # Compare the close glyph against the SVG rasterized directly on the output grid.
     # Upscaling the 1× icon instead raises the 2× glyph's mean RGB error above 17.
@@ -550,6 +573,19 @@ def test_boxes_guest_titlebar_uses_vector_faces_and_fades(aero_gtk_home, tmp_pat
         assert ((progress > 0.1) & (progress < 0.9)).any()
         duration = timestamps[np.flatnonzero(progress >= 0.9)[0]] - timestamps[np.flatnonzero(progress >= 0.1)[0]]
         assert min(native) - 25 <= duration <= max(native) + 25, (duration, native)
+
+
+@pytest.mark.parametrize(("subdirectory", "widths"), [("gtk3", (30, 27, 50)), ("", (29, 26, 50))])
+def test_caption_svg_is_rasterized_at_the_button_size(aero_gtk_home, subdirectory, widths):
+    import xml.etree.ElementTree as ET
+
+    assets = aero_gtk_home / ".local/share/chicago95/gtk4-caption" / subdirectory
+    for kind, width in zip(("minimize", "maximize", "close", "restore"), (*widths, widths[1]), strict=True):
+        for density, suffix in ((1, ""), (2, "@2x")):
+            svg = ET.parse(assets / f"{kind}-active{suffix}.svg").getroot()
+            assert svg.get("viewBox") == f"0 0 {width} 20"
+            assert int(svg.get("width")) == density * width
+            assert int(svg.get("height")) == density * 20
 
 
 @pytest.mark.parametrize(("art", "capture", "limit"), [("normal", "normal", 9), ("checked-normal", "checked", 15)])

@@ -38,6 +38,7 @@ def load_module(name, path):
 
 palette = load_module("luna_palette", LUNA_ROOT / "palette.py")
 stops = load_module("luna_kvantum_stops", HERE / "stops.py")
+marks = load_module("luna_checkbox_art", LUNA_ROOT / "lib/chicago95lunamarks.py")
 plasma_stops = load_module("luna_plasma_stops", LUNA_ROOT / "plasma-style/stops.py")
 
 
@@ -235,22 +236,6 @@ def add_arrows(sheet):
             )
 
 
-def pixel_path(pattern, left, top, colour):
-    segments = []
-    for row_index, row in enumerate(pattern):
-        start = 0
-        while start < len(row):
-            if row[start] != "#":
-                start += 1
-                continue
-            end = start
-            while end < len(row) and row[end] == "#":
-                end += 1
-            segments.append(f"M{left + start} {top + row_index}h{end - start}v1h-{end - start}z")
-            start = end
-    return f'<path d="{"".join(segments)}" fill="{colour}"/>'
-
-
 def square_glow(size, light, dark):
     shapes = []
     for depth in (1, 2):
@@ -264,34 +249,36 @@ def square_glow(size, light, dark):
     return "".join(shapes)
 
 
-def round_glow(centre, light, dark):
-    return "".join(
-        f'<circle cx="{centre}" cy="{centre}" r="{centre - depth - 0.5}" fill="none" stroke="{colour}"/>'
-        for depth, colour in ((1, light), (2, dark))
-    )
-
-
-def indicator_shapes(sheet, look, round_shape, mark_colour):
+def indicator_shapes(sheet, state, round_shape, mark_colour):
     size = stops.INDICATOR_SIZE
-    paint = sheet.paint(look["fill"])
+    look = stops.CHECK_LOOK[state]
     centre = size / 2
-    glow = look["glow"] or ()
     if round_shape:
-        body = f'<circle cx="{centre}" cy="{centre}" r="{centre - 0.5}" fill="{paint}" stroke="{look["border"]}"/>'
-        mark = f'<circle cx="{centre}" cy="{centre}" r="2.5" fill="{mark_colour}"/>' if mark_colour else ""
-        return body + (round_glow(centre, *glow) if glow else "") + mark
+        face = "hover" if state == "focused" else "checked" if mark_colour and state == "normal" else state
+        gradient, body = marks.radio_face(size, face)
+        if gradient and gradient not in sheet.definitions:
+            sheet.definitions.append(gradient)
+        mark = ""
+        if mark_colour:
+            gradient = marks.radio_gradient(size)
+            if gradient not in sheet.definitions:
+                sheet.definitions.append(gradient)
+            fill = marks.RADIO_DISABLED if mark_colour == stops.CHECK_MARK_DISABLED else "url(#radioMark)"
+            mark = f'<circle cx="{centre}" cy="{centre}" r="{marks.RADIO_RADIUS[size]}" fill="{fill}"/>'
+        return body + mark
+    paint = sheet.paint(look["fill"])
+    glow = look["glow"] or ()
     body = (
         f'<rect x=".5" y=".5" width="{size - 1}" height="{size - 1}" rx="1" fill="{paint}" stroke="{look["border"]}"/>'
     )
-    offset = (size - len(stops.CHECK_TICK[0])) // 2
-    mark = pixel_path(stops.CHECK_TICK, offset, offset, mark_colour) if mark_colour else ""
+    mark = marks.tick_svg(size, mark_colour) if mark_colour else ""
     return body + (square_glow(size, *glow) if glow else "") + mark
 
 
 def add_indicators(sheet):
     for kind, variants in stops.CHECK_KINDS.items():
         for variant in variants:
-            for state, look in stops.CHECK_LOOK.items():
+            for state in stops.CHECK_LOOK:
                 mark = None
                 if variant:
                     mark = (
@@ -302,7 +289,7 @@ def add_indicators(sheet):
                     name,
                     stops.INDICATOR_SIZE,
                     stops.INDICATOR_SIZE,
-                    indicator_shapes(sheet, look, kind == "radio", mark),
+                    indicator_shapes(sheet, state, kind == "radio", mark),
                     True,
                 )
 

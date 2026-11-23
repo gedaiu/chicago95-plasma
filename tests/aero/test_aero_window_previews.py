@@ -1,11 +1,19 @@
+import pytest
 from conftest import REPO
 from PySide6.QtCore import QPoint, Qt, QUrl
 from PySide6.QtQuick import QQuickView
 from PySide6.QtTest import QSignalSpy, QTest
+from screencast_stubs import write_stubs
 
 
-def test_clicking_the_second_window_in_a_group_selects_that_window(qt_app):
-    view = QQuickView()
+@pytest.fixture
+def view(qt_app, tmp_path):
+    window = QQuickView()
+    window.engine().addImportPath(str(write_stubs(tmp_path / "qml-stubs")))
+    return window
+
+
+def test_clicking_the_second_window_in_a_group_selects_that_window(view):
     view.setSource(
         QUrl.fromLocalFile(str(REPO / "aero/plasmoids/org.chicago95.tasks/contents/ui/aero/TaskToolTip.qml"))
     )
@@ -22,8 +30,7 @@ def test_clicking_the_second_window_in_a_group_selects_that_window(qt_app):
     view.close()
 
 
-def test_preview_close_targets_the_hovered_window_without_activating_it(qt_app):
-    view = QQuickView()
+def test_preview_close_targets_the_hovered_window_without_activating_it(view):
     view.setSource(
         QUrl.fromLocalFile(str(REPO / "aero/plasmoids/org.chicago95.tasks/contents/ui/aero/TaskToolTip.qml"))
     )
@@ -40,8 +47,7 @@ def test_preview_close_targets_the_hovered_window_without_activating_it(qt_app):
     view.close()
 
 
-def test_thumbnail_hover_selects_then_releases_the_window_for_peek(qt_app):
-    view = QQuickView()
+def test_thumbnail_hover_selects_then_releases_the_window_for_peek(view):
     view.setSource(
         QUrl.fromLocalFile(str(REPO / "aero/plasmoids/org.chicago95.tasks/contents/ui/aero/TaskToolTip.qml"))
     )

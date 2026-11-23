@@ -19,6 +19,7 @@ def input_css(theme, version, luna=False):
 
     # Repeated states outrank the base themes' toggle-button, entry, and disabled rules.
     buttons = "combobox button.combo, combobox button, dropdown > button.toggle"
+    box_spacing = " border-spacing: 0;" if version == "4.0" else ""
     rules = [
         f"""/* Shared native dropdown/spin-box geometry; GTK retains its native button arrangement. */
 combobox, dropdown {{ padding: 0; margin: 0; border: none; background: transparent; }}
@@ -33,7 +34,7 @@ dropdown > button.toggle:active {{ background: #FFFFFF; border-color: {border}; 
 combobox:disabled button, dropdown:disabled > button.toggle, spinbutton:disabled {{
   background-color: {face}; background-image: none; color: {disabled}; text-shadow: none;
 }}
-combobox button > box, dropdown > button > box {{ margin: 0; padding: 0; border-spacing: 0; }}
+combobox button > box, dropdown > button > box {{ margin: 0; padding: 0;{box_spacing} }}
 combobox cellview, dropdown > button > box > stack > row {{
   padding: 0 2px; margin: 0; border: none; background: transparent; box-shadow: none;
   color: inherit; text-shadow: none;

@@ -1183,6 +1183,24 @@ def test_a_flag_still_wins_over_the_remembered_choice(tmp_path):
     assert read_saved_settings(tmp_path)["SOUND_THEME"] == "Windows2000"
 
 
+def test_explicit_icons_apply_with_a_partial_component_list(tmp_path):
+    config = tmp_path / ".config/chicago95"
+    config.mkdir(parents=True)
+    (config / "setup.conf").write_text("LOOK=luna\nICONS=windowsxp\nCOMPONENTS=animations\n")
+    log = dry_run_log(tmp_path, "--components=animations", "--icons=windows7")
+    assert kwriteconfig("kdeglobals", "Icons", "Theme", "Windows-7-SVG") in log
+    assert "kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme " not in log
+
+
+def test_explicit_desktop_look_includes_icons_after_partial_setup(tmp_path):
+    config = tmp_path / ".config/chicago95"
+    config.mkdir(parents=True)
+    (config / "setup.conf").write_text("LOOK=luna\nCOMPONENTS=animations\n")
+    log = dry_run_log(tmp_path, "--look=aero")
+    assert "Components: look animations" in log
+    assert kwriteconfig("kdeglobals", "Icons", "Theme", "Windows-7-SVG") in log
+
+
 def test_the_components_of_earlier_runs_are_remembered_and_picked_again_by_default(tmp_path):
     run_setup(tmp_path, "--components=sounds,background")
     run_setup(tmp_path, "--components=lockscreen")
@@ -1404,6 +1422,45 @@ def test_aero_decoration_installs_the_glass_theme_selects_it_and_turns_on_kwins_
         "kwriteconfig6 --file kwinrc --group Plugins --key blurEnabled true" in log,
         "kwriteconfig6 --file chicago95rc --group Look --key decoration aero" in log,
     ) == (True,) * 4
+
+
+def test_reapplying_aero_reloads_running_decoration_without_restarting_kwin(tmp_path):
+    plugin = tmp_path / "org.kde.kdecoration3/org.kde.breeze.so"
+    plugin.parent.mkdir()
+    plugin.touch()
+    compat = tmp_path / "Qt5Compat/GraphicalEffects/qmldir"
+    compat.parent.mkdir(parents=True)
+    compat.touch()
+    (tmp_path / "aurorae.qml").touch()
+    commands = run_bash_with_steps(
+        tmp_path,
+        """
+        DBUS_SESSION_BUS_ADDRESS=test
+        SETUP_DECORATION=aero
+        qtpaths6() {
+          if [ "$1" = --locate-file ]; then printf '%s/aurorae.qml\n' "$PWD"; else pwd; fi
+        }
+        kreadconfig6() { echo org.chicago95.aero; }
+        apply_aero_glass() { :; }
+        select_aero_blur() { :; }
+        put_tree() { :; }
+        run() { :; }
+        kconf() { printf '%s\n' "${*: -2}"; }
+        kwriteconfig6() { printf '%s\n' "${*: -2}"; }
+        kwin_reconfigure() { echo reconfigure; }
+        apply_decoration
+        """,
+    )
+    assert commands == [
+        "library org.kde.kwin.aurorae",
+        "theme org.chicago95.aero",
+        "library org.kde.breeze",
+        "theme Breeze",
+        "reconfigure",
+        "library org.kde.kwin.aurorae",
+        "theme org.chicago95.aero",
+        "reconfigure",
+    ]
 
 
 def test_aero_taskbar_installs_the_superbar_style_and_parts_and_a_40_pixel_panel(tmp_path):

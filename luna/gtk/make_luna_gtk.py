@@ -112,7 +112,6 @@ HOVER_SHADOW = corner_glow(stops.HOVER_RING_LIGHT, stops.HOVER_RING_DARK)
 DEFAULT_SHADOW = band_shadow(
     stops.DEFAULT_RING_TOP, stops.DEFAULT_RING_BOTTOM, stops.DEFAULT_RING_SIDES, stops.DEFAULT_RING_SIDES
 )
-CHECK_SHADOW = corner_glow(stops.CHECK_GLOW[:1] * 2, stops.CHECK_GLOW[1:] * 2)
 
 
 # The scroll bar's stepper buttons (chicago95lunascroll.py's measurements): GTK 4 has no steppers, so the trough
@@ -154,110 +153,91 @@ def data_uri(svg):
     return 'url("data:image/svg+xml;base64,' + base64.b64encode(svg.encode()).decode() + '")'
 
 
-# The measured CHECK_TICK pattern traced through its pixel centres: down the short arm, up the long one.
-TICK_PATH = ((0.5, 3.0), (3.5, 6.0), (6.5, 1.0))
-TICK_WIDTH = 2.2
-TICK_SUPERSAMPLE = 4
+def checkbox_frame_svg(colour, scale):
+    # The 13px and 25px XP resources both have a single physical pixel of outline.
+    side = stops.INDICATOR_SIZE * scale
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{side}" height="{side}">'
+        f'<rect x=".5" y=".5" width="{side - 1}" height="{side - 1}" '
+        f'fill="none" stroke="{colour}"/></svg>\n'
+    )
 
 
-def png_bytes(image):
-    import io
-
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
-    return buffer.getvalue()
-
-
-def magnified(image, scale):
-    """Only for artwork made of axis-aligned bands, where doubling is the exact larger shape."""
-    from PIL import Image
-
-    return image.resize((image.width * scale, image.height * scale), Image.Resampling.NEAREST)
-
-
-def device_box(left, top, right, bottom, scale):
-    """Inclusive logical pixel box to the inclusive device pixel box that covers the same area."""
-    return (left * scale, top * scale, (right + 1) * scale - 1, (bottom + 1) * scale - 1)
-
-
-def tick_stroke(draw, offset, colour, scale):
-    """The measured 7x7 tick as a stroke, for scales where its pixel pattern would show stairs."""
-    magnification = scale * TICK_SUPERSAMPLE
-    points = [((x + offset) * magnification, (y + offset) * magnification) for x, y in TICK_PATH]
-    draw.line(points, fill=colour, width=round(TICK_WIDTH * magnification), joint="curve")
-
-
-def indicator_png(kind, colour, scale=1):
-    # PNG works with GTK3 even on systems whose GdkPixbuf has no SVG loader.
-    from PIL import Image, ImageDraw
-
-    size = stops.INDICATOR_SIZE * scale
-    image = Image.new("RGBA", (size, size))
-    draw = ImageDraw.Draw(image)
-    offset = (stops.INDICATOR_SIZE - len(stops.CHECK_TICK[0])) // 2
-    if kind == "tick" and scale == 1:
-        for y, row in enumerate(stops.CHECK_TICK):
-            for x, pixel in enumerate(row):
-                if pixel == "#":
-                    draw.point((x + offset, y + offset), fill=colour)
-    elif kind == "tick":
-        stroke = Image.new("RGBA", (size * TICK_SUPERSAMPLE, size * TICK_SUPERSAMPLE))
-        tick_stroke(ImageDraw.Draw(stroke), offset, colour, scale)
-        image = stroke.resize((size, size), Image.Resampling.LANCZOS)
+def indicator_svg(kind, colour, scale=1):
+    side = stops.INDICATOR_SIZE
+    if kind == "tick":
+        # Windows XP picks the larger of these resources from 185 DPI.
+        side = 13 if scale == 1 else 25
+        mark = kvantum.marks.tick_svg(side, colour)
+        if scale == 1:
+            mark = f'<g shape-rendering="crispEdges">{mark}</g>'
     elif kind == "mixed":
-        draw.rectangle(device_box(3, 3, 9, 9, scale), fill=colour)
+        mark = f'<rect x="3" y="3" width="7" height="7" fill="{colour}"/>'
     else:
-        draw.ellipse(device_box(4, 4, 8, 8, scale), fill=colour)
-    return png_bytes(image)
+        side = 13 if scale == 1 else 25
+        radius = kvantum.marks.RADIO_RADIUS[side]
+        disabled = colour == stops.CHECK_MARK_DISABLED
+        fill = kvantum.marks.RADIO_DISABLED if disabled else "url(#radioMark)"
+        mark = "" if disabled else f"<defs>{kvantum.marks.radio_gradient(side)}</defs>"
+        snap = ' shape-rendering="crispEdges"' if scale == 1 else ""
+        mark += f'<circle cx="{side / 2}" cy="{side / 2}" r="{radius}" fill="{fill}"{snap}/>'
+    physical = stops.INDICATOR_SIZE * scale
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{physical}" height="{physical}" '
+        f'viewBox="0 0 {side} {side}">{mark}</svg>\n'
+    )
 
 
-def tab_png(selected, hovered, position, fill=False, edge=False, scale=1):
-    from PIL import Image
-
-    image = Image.new("RGBA", (5, 21))
-    gradient = [
-        "#FFFFFF",
-        "#FEFEFE",
-        "#FCFCFB",
-        "#FAFAF9",
-        "#F8F8F6",
-        "#F6F6F3",
-        "#F6F6F2",
-        "#F5F5F1",
-        "#F4F4F0",
-        "#F3F3EF",
-        "#F3F3EE",
-        "#F2F2ED",
-        "#F1F1ED",
-        "#F1F1EC",
-        "#F0F0EB",
-        "#F0F0EA",
-    ]
-    for y in range(21):
-        for x in range(5):
-            colour = None
-            if selected:
-                colour = ("#E68B2C", "#FFC83C", "#FFC73C")[y] if y < 3 else "#FCFCFE"
-                if x in (0, 4) and y > 0:
-                    colour = "#919B9C"
-            elif 2 <= y <= 19:
-                colour = "#91A7B4" if y == 2 else "#ECEBE6" if y == 19 else gradient[y - 3]
-                if hovered and y in (2, 3):
-                    colour = "#FFC73C"
-                if x in (0, 4):
-                    colour = "#919B9C"
-            if colour:
-                image.putpixel((x, y), (*bytes.fromhex(colour[1:]), 255))
-    if fill or edge:
-        image = image.crop((0, 0, 1, 21) if edge else (2, 0, 3, 21))
-    transforms = {
-        "bottom": Image.Transpose.FLIP_TOP_BOTTOM,
-        "left": Image.Transpose.ROTATE_90,
-        "right": Image.Transpose.ROTATE_270,
-    }
-    if position in transforms:
-        image = image.transpose(transforms[position])
-    return png_bytes(magnified(image, scale))
+def checkbox_rules():
+    # Each layer occupies the full indicator. Keeping the outline in the SVG lets
+    # the two density variants retain the one-device-pixel edge from XP.
+    yield block(
+        "check, checkbutton > check",
+        min_width="13px",
+        min_height="13px",
+        margin="0 3px 0 0",
+        padding="0",
+        border="0",
+        border_radius="0",
+        background_repeat="no-repeat",
+        background_position="center",
+        box_shadow="none",
+    )
+    for selected, mark_kind in (("", None), (":checked", "tick"), (":indeterminate", "mixed")):
+        for state in ("", ":hover", ":active", ":disabled"):
+            disabled = state == ":disabled"
+            frame = density_pair("checkbox-frame-disabled" if disabled else "checkbox-frame")
+            layers = [frame]
+            if mark_kind:
+                colour = stops.CHECK_MARK_DISABLED if disabled else stops.CHECK_MARK
+                layers.append(indicator_icon(mark_kind, colour))
+            if state == ":hover":
+                # XP surrounds the pale centre with a gold gradient.
+                centre = "#F4F4F2" if selected else "#E7E7E3"
+                layers.extend(
+                    [
+                        f"linear-gradient({centre}, {centre})",
+                        "linear-gradient(to bottom right, #FFF0CF 12%, #F8B330 88%)",
+                    ]
+                )
+                sizes = ["100% 100%"] * (len(layers) - 2) + ["calc(100% - 5px) calc(100% - 5px)", "100% 100%"]
+            else:
+                if disabled:
+                    colours = "#FFFFFF, #FFFFFF"
+                elif state == ":active":
+                    colours = "#B0B0A7 14%, #D7D5C8 50%, #F1EFDF 86%"
+                elif selected:
+                    colours = "#E2E2DD 14%, #F3F3F1 50%, #FFFFFF 86%"
+                else:
+                    colours = "#DCDCD7 14%, #F1F1EF 50%, #FFFFFF 86%"
+                layers.append(f"linear-gradient(to bottom right, {colours})")
+                sizes = ["100% 100%"] * len(layers)
+            yield block(
+                "check" + selected + state,
+                background_image=", ".join(layers),
+                background_size=", ".join(sizes),
+                box_shadow="none",
+            )
 
 
 def notebook_rules():
@@ -301,14 +281,36 @@ def notebook_rules():
         )
         yield block(header + " + stack", **{f"border-{position}-width": "0"})
         for state, selected, hovered in (("", False, False), (":hover", False, True), (":checked", True, False)):
-            artwork = f"{position}-{int(selected)}-{int(hovered)}"
+            if selected:
+                edge_fill = "#E68B2C 0px, #E68B2C 1px, #919B9C 1px, #919B9C 100%"
+                body_fill = "#E68B2C 0px, #E68B2C 1px, #FFC83C 1px, #FFC83C 2px, #FFC73C 2px, #FFC73C 3px, #FCFCFE 3px"
+            else:
+                edge_fill = (
+                    "transparent 0px, transparent 2px, #919B9C 2px, #919B9C calc(100% - 1px), "
+                    "transparent calc(100% - 1px)"
+                )
+                accent = "#FFC73C 2px, #FFC73C 4px, #FFFFFF 4px" if hovered else "#91A7B4 2px, #91A7B4 3px, #FFFFFF 3px"
+                # The native 21px tab has a faster falloff near its white edge.
+                # Place each colour at its sample centre to interpolate between rows at higher DPI.
+                face = "#F0F0EA calc(100% - 2px)"
+                if horizontal:
+                    colours = (
+                        "FEFEFE FCFCFB FAFAF9 F8F8F6 F6F6F3 F6F6F2 F5F5F1 F4F4F0 "
+                        "F3F3EF F3F3EE F2F2ED F1F1ED F1F1EC F0F0EB F0F0EA"
+                    ).split()
+                    face = ", ".join(f"#{colour} {row + 4.5}px" for row, colour in enumerate(colours))
+                body_fill = (
+                    f"transparent 0px, transparent 2px, {accent}, {face}, "
+                    "#ECEBE6 calc(100% - 2px), #ECEBE6 calc(100% - 1px), transparent calc(100% - 1px)"
+                )
             yield block(
                 header + " > tabs > tab" + state,
                 border_width="0",
                 border_image_source="none",
                 background_image=(
-                    f"{scaled_asset(f'tab-edge-{artwork}')}, {scaled_asset(f'tab-edge-{artwork}')}, "
-                    f"{scaled_asset(f'tab-fill-{artwork}')}"
+                    f"linear-gradient(to {edge}, {edge_fill}), "
+                    f"linear-gradient(to {edge}, {edge_fill}), "
+                    f"linear-gradient(to {edge}, {body_fill})"
                 ),
                 background_size="1px 100%, 1px 100%, 1px 100%" if horizontal else "100% 1px, 100% 1px, 100% 1px",
                 background_repeat="no-repeat, no-repeat, " + ("repeat-x" if horizontal else "repeat-y"),
@@ -319,83 +321,42 @@ def notebook_rules():
                 min_width="0" if horizontal else "21px",
                 padding="0 6px" if horizontal else "6px 0",
             )
-            if not horizontal:
-                direction = "right" if position == "left" else "left"
-                if selected:
-                    edge_fill = "#E68B2C 0px, #E68B2C 1px, #919B9C 1px, #919B9C 100%"
-                    body_fill = (
-                        "#E68B2C 0px, #E68B2C 1px, #FFC83C 1px, #FFC83C 2px, #FFC73C 2px, #FFC73C 3px, #FCFCFE 3px"
-                    )
-                else:
-                    edge_fill = (
-                        "transparent 0px, transparent 2px, #919B9C 2px, #919B9C calc(100% - 1px), "
-                        "transparent calc(100% - 1px)"
-                    )
-                    accent = (
-                        "#FFC73C 2px, #FFC73C 4px, #FFFFFF 4px" if hovered else "#91A7B4 2px, #91A7B4 3px, #FFFFFF 3px"
-                    )
-                    body_fill = (
-                        f"transparent 0px, transparent 2px, {accent}, #F0F0EA calc(100% - 2px), "
-                        "#ECEBE6 calc(100% - 2px), #ECEBE6 calc(100% - 1px), transparent calc(100% - 1px)"
-                    )
-                yield block(
-                    header + " > tabs > tab" + state,
-                    background_image=(
-                        f"linear-gradient(to {direction}, {edge_fill}), "
-                        f"linear-gradient(to {direction}, {edge_fill}), "
-                        f"linear-gradient(to {direction}, {body_fill})"
-                    ),
-                )
-    yield block("notebook > header.top > tabs > tab:not(:checked) label", transform="translateY(1px)")
-    yield block("notebook > header.bottom > tabs > tab:not(:checked) label", transform="translateY(-1px)")
+    yield block("notebook > header.top > tabs > tab:not(:checked) label", padding="2px 0 0")
+    yield block("notebook > header.bottom > tabs > tab:not(:checked) label", padding="0 0 2px")
     yield block("notebook > header > tabs > tab:disabled", color=stops.DISABLED_TEXT)
 
 
-def switch_png(part, active=False, state="normal", scale=1):
-    """Shared pixel artwork avoids different GTK built-in icons and corner rasterisation."""
-    from PIL import Image, ImageColor, ImageDraw
-
+def switch_svg(part, active=False, state="normal"):
     thumb = part == "thumb"
-    logical_width, logical_height = (17, 17) if thumb else (36, 19)
-    width, height = logical_width * scale, logical_height * scale
-    image = Image.new("RGBA", (width, height))
-    draw = ImageDraw.Draw(image)
+    width, height = (17, 17) if thumb else (36, 19)
     border = stops.DISABLED_BORDER if state == "disabled" else stops.CHECK_BORDER
     if thumb and state == "hovered":
         border = "#E59700"
-    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=2 * scale, fill=border)
+    face = f'<rect width="{width}" height="{height}" rx="2" fill="{border}"/>'
     if thumb:
         name = {"pressed": "check-pressed", "disabled": "white-disabled"}.get(state, "button-body")
-        gradient = GRADIENTS[name]
-        for y in range(scale, height - scale):
-            t = (y - scale) / (height - 2 * scale - 1)
-            for (left, first), (right, last) in zip(gradient, gradient[1:], strict=False):
-                if left <= t <= right:
-                    weight = (t - left) / max(right - left, 1e-9)
-                    colour = tuple(
-                        round(a + (b - a) * weight)
-                        for a, b in zip(ImageColor.getrgb(first), ImageColor.getrgb(last), strict=True)
-                    )
-                    draw.line((scale, y, width - 1 - scale, y), fill=colour)
-                    break
-    else:
-        draw.rectangle(
-            (scale, scale, width - 1 - scale, height - 1 - scale),
-            fill=SELECTION if active and state != "disabled" else FACE,
+        colours = "".join(f'<stop offset="{t}" stop-color="{c}"/>' for t, c in GRADIENTS[name])
+        content = (
+            '<defs><linearGradient id="fill" gradientUnits="userSpaceOnUse" x1="0" y1="1.5" x2="0" y2="15.5">'
+            f'{colours}</linearGradient></defs>{face}<rect x="1" y="1" width="15" height="15" fill="url(#fill)"/>'
         )
-        colour = stops.DISABLED_TEXT if state == "disabled" else "#FFFFFF" if active else "#000000"
-        # Put the mark in both halves; the thumb covers one. GTK4 mirrors its
-        # thumb in RTL, while GTK3 retains its physical left/right placement.
-        for offset in (0, 17):
-            if active:
-                draw.rectangle(device_box(8 + offset, 5, 9 + offset, 13, scale), fill=colour)
-            else:
-                draw.ellipse(device_box(5 + offset, 5, 13 + offset, 13, scale), outline=colour, width=2 * scale)
+    else:
+        fill = SELECTION if active and state != "disabled" else FACE
+        ink = stops.DISABLED_TEXT if state == "disabled" else "#fff" if active else "#000"
+        content = face + f'<rect x="1" y="1" width="34" height="17" fill="{fill}"/>'
+        # The thumb covers one mark. GTK 4 mirrors the thumb in right-to-left layouts.
+        for x in (9, 26):
+            content += (
+                f'<path d="M{x} 5v9" stroke="{ink}" stroke-width="2"/>'
+                if active
+                else f'<circle cx="{x + 0.5}" cy="9.5" r="3.625" fill="none" stroke="{ink}" stroke-width="2"/>'
+            )
         if state == "focused":
-            for x in range(2, logical_width - 2, 2):
-                draw.rectangle(device_box(x, 2, x, 2, scale), fill="#000000")
-                draw.rectangle(device_box(x, logical_height - 3, x, logical_height - 3, scale), fill="#000000")
-    return png_bytes(image)
+            content += '<path d="M2 2.5h32m-32 14h32" stroke="black" stroke-dasharray="1 1"/>'
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+        f'viewBox="0 0 {width} {height}">{content}</svg>\n'
+    )
 
 
 def switch_rules():
@@ -438,10 +399,11 @@ def switch_rules():
             ("focused", ":focus"),
             ("disabled", ":disabled"),
         ):
+            track = state if state in ("disabled", "focused") else "normal"
             yield block(
                 selector + pseudo,
                 color="transparent",
-                background_image=scaled_asset(f"switch-{int(active)}-{state}"),
+                background_image=f'url("assets/switch-{int(active)}-{track}.svg")',
             )
     for state, pseudo in (
         ("normal", ""),
@@ -450,22 +412,44 @@ def switch_rules():
         ("focused", ":focus"),
         ("disabled", ":disabled"),
     ):
-        yield block(f"switch{pseudo} slider", background_image=scaled_asset(f"switch-thumb-{state}"))
+        thumb = "normal" if state == "focused" else state
+        yield block(f"switch{pseudo} slider", background_image=f'url("assets/switch-thumb-{thumb}.svg")')
 
 
-def slider_png(horizontal, state, point=None, scale=1):
-    from PIL import Image
-
+def slider_svg(horizontal, state, point=None, scale=1):
     width, height = slider.THUMB_SIZE if horizontal else slider.THUMB_SIZE[::-1]
-    image = Image.new("RGBA", (width * scale, height * scale))
-    image.putdata(
-        [
-            (*bytes.fromhex(pixel[1:]), 255) if pixel else (0, 0, 0, 0)
-            for row in slider.thumb_pixels(width, height, horizontal, state, point, scale)
-            for pixel in row
-        ]
+    colours = slider.thumb_stops(state)
+    gradient = "".join(f'<stop offset="{i / (len(colours) - 1)}" stop-color="{c}"/>' for i, c in enumerate(colours))
+    light, dark = slider.THUMB_BORDER_LIGHT, slider.THUMB_BORDER_DARK
+    top, bottom = slider.thumb_accent(state)
+    if point:
+        # Overlapping outlines form the light and dark bevel on the two sides
+        # of the pointer. Each diagonal continues in a straight line at any scale.
+        body = (
+            f'<path d="M0 0h11v15.5L5.5 21 0 15.5z" fill="{dark}"/>'
+            f'<path d="M0 0h10v15.5L5.5 20h-1L0 15.5z" fill="{light}"/>'
+            '<path d="M1 1h9v14.5L5.5 20 1 15.5z" fill="url(#fill)"/>'
+            f'<path d="M1.5 16h1l3.5 3.5-.5.5z" fill="{top}"/>'
+            f'<path d="M8.5 16h1l-4 4-.5-.5z" fill="{bottom}"/>'
+        )
+    else:
+        body = (
+            f'<rect width="11" height="21" fill="{dark}"/><rect width="10" height="20" fill="{light}"/>'
+            '<rect x="1" y="1" width="9" height="19" fill="url(#fill)"/>'
+            f'<path d="M1 18.5h9" stroke="{bottom}"/><path d="M1 19.5h9" stroke="{top}"/>'
+        )
+    body += f'<path d="M1 1.5h9" stroke="{top}"/><path d="M1 2.5h9" stroke="{bottom}"/>'
+    if point == "before":
+        body = f'<g transform="translate(0 21) scale(1 -1)">{body}</g>'
+    if not horizontal:
+        body = f'<g transform="matrix(0 1 1 0 0 0)">{body}</g>'
+    if point and scale == 1:
+        body = f'<g shape-rendering="crispEdges">{body}</g>'
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width * scale}" height="{height * scale}" '
+        f'viewBox="0 0 {width} {height}"><defs><linearGradient id="fill" gradientUnits="userSpaceOnUse" '
+        f'x1="0" y1=".5" x2="0" y2="20.5">{gradient}</linearGradient></defs>{body}</svg>\n'
     )
-    return png_bytes(image)
 
 
 def scale_rules():
@@ -531,13 +515,13 @@ def scale_rules():
         for state, pseudo in (("normal", ""), ("hover", ":hover"), ("pressed", ":active"), ("disabled", ":disabled")):
             yield block(
                 f"scale.{orientation} slider{pseudo}",
-                background_image=scaled_asset(f"slider-{orientation}-{state}"),
+                background_image=f'url("assets/slider-{orientation}-{state}.svg")',
             )
             for point in ("before", "after"):
                 other = "after" if point == "before" else "before"
                 yield block(
                     f"scale.{orientation}.marks-{point}:not(.marks-{other}) slider{pseudo}",
-                    background_image=scaled_asset(f"slider-{orientation}-{state}-{point}"),
+                    background_image=density_pair(f"slider-{orientation}-{state}-{point}"),
                 )
 
 
@@ -573,16 +557,15 @@ def scale_backend_rules(version):
     return "\n".join(rules)
 
 
-def scrollbar_grip_png(horizontal, scale=1):
-    """Four alternating dark/light ridges, with a transparent trailing pixel for centring."""
-    from PIL import Image
-
-    image = Image.new("RGBA", (9, 11) if horizontal else (11, 9))
-    for band in range(8):
-        colour = (152, 186, 233, 255) if band % 2 == 0 else (236, 242, 251, 255)
-        for across in range(11):
-            image.putpixel((band, across) if horizontal else (across, band), colour)
-    return png_bytes(magnified(image, scale))
+def scrollbar_grip_svg(horizontal):
+    """Four bevel ridges with a transparent trailing pixel for centring."""
+    width, height = (9, 11) if horizontal else (11, 9)
+    transform = "" if horizontal else ' transform="matrix(0 1 1 0 0 0)"'
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">\n'
+        f'  <g{transform}><rect width="8" height="11" fill="#ecf2fb"/>'
+        '<path d="M.5 0v11m2-11v11m2-11v11m2-11v11" stroke="#98bae9"/></g>\n</svg>\n'
+    )
 
 
 def scrollbar_thumb_rules():
@@ -591,7 +574,7 @@ def scrollbar_thumb_rules():
             fill = vertical(gradient).replace("to bottom", f"to {direction}")
             yield block(
                 f"scrollbar.{orientation} slider{state}",
-                background_image=f"{scaled_asset(f'scroll-grip-{orientation}')}, {fill}",
+                background_image=f'url("assets/scroll-grip-{orientation}.svg"), {fill}',
                 background_repeat="no-repeat, no-repeat",
                 background_position="center, center",
                 background_size="9px 11px, 100% 100%" if orientation == "horizontal" else "11px 9px, 100% 100%",
@@ -599,24 +582,42 @@ def scrollbar_thumb_rules():
         yield block(f"scrollbar.{orientation} slider:disabled", background_image="none")
 
 
-def scaled_asset(name):
-    return f'-gtk-scaled(url("assets/{name}.png"), url("assets/{name}@2.png"))'
+def density_pair(name):
+    return f'-gtk-scaled(url("assets/{name}.svg"), url("assets/{name}@2.svg"))'
 
 
 def indicator_icon(kind, colour):
-    return scaled_asset(f"{kind}-{colour.lstrip('#')}")
+    name = f"{kind}-{colour.lstrip('#')}"
+    if kind != "mixed":
+        return density_pair(name)
+    return f'url("assets/{name}.svg")'
 
 
-def tick_icon(colour):
-    return indicator_icon("tick", colour)
-
-
-def mixed_icon(colour):
-    return indicator_icon("mixed", colour)
-
-
-def dot_icon(colour):
-    return indicator_icon("dot", colour)
+def radio_rules():
+    yield block(
+        "radio, checkbutton > radio, radiobutton > radio",
+        min_width="13px",
+        min_height="13px",
+        padding="0",
+        margin="0 3px 0 0",
+        border="0",
+        background_color="transparent",
+        background_repeat="no-repeat",
+        background_position="center",
+        box_shadow="none",
+    )
+    for checked in ("", ":checked"):
+        for pseudo, state in (
+            ("", "checked" if checked else "normal"),
+            (":hover", "hover"),
+            (":active", "pressed"),
+            (":disabled", "disabled"),
+        ):
+            layers = [density_pair("radio-face-" + state)]
+            if checked:
+                colour = stops.CHECK_MARK_DISABLED if state == "disabled" else stops.CHECK_MARK
+                layers.insert(0, indicator_icon("dot", colour))
+            yield block("radio" + checked + pseudo, background_image=", ".join(layers))
 
 
 def block(selectors, **properties):
@@ -843,51 +844,8 @@ def widget_rules():
             background_image=vertical("blue-button-pressed"),
             box_shadow="none",
         ),
-        block(
-            "check, radio, checkbutton > check, checkbutton > radio, radiobutton > radio",
-            min_width=f"{stops.INDICATOR_SIZE - 2}px",
-            min_height=f"{stops.INDICATOR_SIZE - 2}px",
-            padding="0",
-            margin="0 3px 0 0",
-            border="1px solid " + stops.CHECK_BORDER,
-            background_image=vertical("check"),
-            background_color="#FFFFFF",
-            color="#000000",
-        ),
-        block("check", border_radius="0"),
-        block("radio", border_radius="100%"),
-        block("check:hover, radio:hover", box_shadow=CHECK_SHADOW),
-        block("check:active, radio:active", background_image=vertical("check-pressed")),
-        block(
-            "check:checked, check:indeterminate",
-            background_image=f"{tick_icon(stops.CHECK_MARK)}, {vertical('check')}",
-            background_repeat="no-repeat",
-            background_position="center",
-        ),
-        block("check:indeterminate", background_image=f"{mixed_icon(stops.CHECK_MARK)}, {vertical('check')}"),
-        block(
-            "radio:checked",
-            background_image=f"{dot_icon(stops.CHECK_MARK)}, {vertical('check')}",
-            background_repeat="no-repeat",
-            background_position="center",
-        ),
-        block(
-            "check:disabled, radio:disabled",
-            border_color=stops.CHECK_BORDER_DISABLED,
-            background_image=vertical("white-disabled"),
-        ),
-        block(
-            "check:checked:disabled, check:indeterminate:disabled",
-            background_image=f"{tick_icon(stops.CHECK_MARK_DISABLED)}, {vertical('white-disabled')}",
-        ),
-        block(
-            "check:indeterminate:disabled",
-            background_image=f"{mixed_icon(stops.CHECK_MARK_DISABLED)}, linear-gradient(to bottom, #FFFFFF, #FFFFFF)",
-        ),
-        block(
-            "radio:checked:disabled",
-            background_image=f"{dot_icon(stops.CHECK_MARK_DISABLED)}, {vertical('white-disabled')}",
-        ),
+        *radio_rules(),
+        *checkbox_rules(),
         *notebook_rules(),
         block(
             "menu, .menu, .popup, popover.background > contents, popover.menu > contents",
@@ -1220,44 +1178,40 @@ def build_index():
     )
 
 
-def png_assets():
-    """Every PNG asset by name, as a function of the device scale."""
-    assets = {}
-    for orientation in ("horizontal", "vertical"):
-        horizontal = orientation == "horizontal"
-        assets[f"scroll-grip-{orientation}"] = lambda scale, h=horizontal: scrollbar_grip_png(h, scale)
-        for state in ("normal", "hover", "pressed", "disabled"):
-            assets[f"slider-{orientation}-{state}"] = lambda scale, h=horizontal, s=state: slider_png(h, s, None, scale)
-            for point in ("before", "after"):
-                assets[f"slider-{orientation}-{state}-{point}"] = lambda scale, h=horizontal, s=state, p=point: (
-                    slider_png(h, s, p, scale)
-                )
-    for state in ("normal", "hovered", "pressed", "focused", "disabled"):
-        assets[f"switch-thumb-{state}"] = lambda scale, s=state: switch_png("thumb", state=s, scale=scale)
-        for active in (False, True):
-            assets[f"switch-{int(active)}-{state}"] = lambda scale, a=active, s=state: switch_png("track", a, s, scale)
-    for position in ("top", "bottom", "left", "right"):
-        for selected, hovered in ((False, False), (False, True), (True, False)):
-            artwork = f"{position}-{int(selected)}-{int(hovered)}"
-            assets[f"tab-edge-{artwork}"] = lambda scale, p=position, s=selected, h=hovered: tab_png(
-                s, h, p, edge=True, scale=scale
-            )
-            assets[f"tab-fill-{artwork}"] = lambda scale, p=position, s=selected, h=hovered: tab_png(
-                s, h, p, fill=True, scale=scale
-            )
-    for kind in ("tick", "mixed", "dot"):
-        for colour in (stops.CHECK_MARK, stops.CHECK_MARK_DISABLED):
-            assets[f"{kind}-{colour.lstrip('#')}"] = lambda scale, k=kind, c=colour: indicator_png(k, c, scale)
-    return assets
-
-
 def write_theme(out):
     for version in VERSIONS:
         assets = out / f"gtk-{version}" / "assets"
         assets.mkdir(parents=True, exist_ok=True)
-        for name, draw in png_assets().items():
-            (assets / f"{name}.png").write_bytes(draw(1))
-            (assets / f"{name}@2.png").write_bytes(draw(2))
+        for orientation in ("horizontal", "vertical"):
+            horizontal = orientation == "horizontal"
+            for state in ("normal", "hover", "pressed", "disabled"):
+                name = f"slider-{orientation}-{state}"
+                (assets / f"{name}.svg").write_text(slider_svg(horizontal, state))
+                for point in ("before", "after"):
+                    (assets / f"{name}-{point}.svg").write_text(slider_svg(horizontal, state, point))
+                    (assets / f"{name}-{point}@2.svg").write_text(slider_svg(horizontal, state, point, 2))
+        for state in ("normal", "hovered", "pressed", "disabled"):
+            (assets / f"switch-thumb-{state}.svg").write_text(switch_svg("thumb", state=state))
+        for state in ("normal", "disabled", "focused"):
+            for active in (False, True):
+                (assets / f"switch-{int(active)}-{state}.svg").write_text(switch_svg("track", active, state))
+        for orientation in ("horizontal", "vertical"):
+            (assets / f"scroll-grip-{orientation}.svg").write_text(scrollbar_grip_svg(orientation == "horizontal"))
+        for state in ("normal", "checked", "hover", "pressed", "disabled"):
+            for size, physical, suffix in ((13, 13, ""), (25, 26, "@2")):
+                (assets / f"radio-face-{state}{suffix}.svg").write_text(
+                    kvantum.marks.radio_face_svg(size, state, physical)
+                )
+        for suffix, colour in (("", stops.CHECK_BORDER), ("-disabled", stops.CHECK_BORDER_DISABLED)):
+            for scale in (1, 2):
+                density = "" if scale == 1 else "@2"
+                (assets / f"checkbox-frame{suffix}{density}.svg").write_text(checkbox_frame_svg(colour, scale))
+        for kind in ("tick", "mixed", "dot"):
+            for colour in (stops.CHECK_MARK, stops.CHECK_MARK_DISABLED):
+                name = f"{kind}-{colour.lstrip('#')}"
+                (assets / f"{name}.svg").write_text(indicator_svg(kind, colour))
+                if kind != "mixed":
+                    (assets / f"{name}@2.svg").write_text(indicator_svg(kind, colour, 2))
         for direction in STEPPER_ARROWS:
             for disabled in (False, True):
                 suffix = "-disabled" if disabled else ""

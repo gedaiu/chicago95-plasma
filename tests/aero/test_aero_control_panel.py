@@ -47,7 +47,7 @@ def test_control_panel_and_taskbar_against_windows_7(tmp_path, scale):
     home = render("home", [])
     navigation = home.resize((780, 540), Image.Resampling.LANCZOS).crop((0, 0, 220, 34))
     reference = screenshot("win7controlpanel").crop((9, 41, 229, 75))
-    assert np.abs(np.asarray(navigation, dtype=float) - np.asarray(reference)).mean() < 39
+    assert np.abs(np.asarray(navigation, dtype=float) - np.asarray(reference)).mean() < 31
 
     # Align the original client at its navigation strip. Both first-row headings are unobscured.
     original_home = screenshot("win7controlpanel").crop((9, 41, 789, 581))
@@ -75,6 +75,16 @@ def test_control_panel_and_taskbar_against_windows_7(tmp_path, scale):
 
     # The same headings in the restored 800px Aero window on the 1024px desktop.
     glass_home = screenshot("win7-sp1-aero-category")
+    native_band = np.asarray(glass_home.crop((130, 104, 350, 138)), dtype=int)
+    ours = np.asarray(navigation, dtype=int)
+    # On initial launch both arrow faces in the SP1 VM are disabled.
+    arrow_faces = np.s_[3:29, 2:56]
+    assert np.abs(ours[arrow_faces] - native_band[arrow_faces]).mean() < 28
+    # Find the dark inner bevel against the blue toolbar on two axes.
+    for band in (ours, native_band):
+        assert band[9, 65:74].mean(axis=1).argmin() + 65 == 71
+        assert band[:9, 215].mean(axis=1).argmin() == 5
+
     for left in (129, 445):
         ours = normalized_home.crop((left, 97, left + 180, 127))
         theirs = glass_home.crop((left + 130, 201, left + 310, 231))
@@ -117,6 +127,16 @@ def test_aero_search_navigation_and_taskbar_sheet(qt_app, tmp_path, monkeypatch)
     window = panel.ControlPanel(settings_path=tmp_path / "setup.conf")
     window.show()
     try:
+        from PySide6.QtWidgets import QToolButton
+
+        arrow = next(
+            b
+            for b in window.address_bar.findChildren(QToolButton)
+            if b.accessibleName() == "Locations in Control Panel"
+        )
+        next(a for a in arrow.menu().actions() if a.text() == "Hardware and Sound").trigger()
+        assert window.history.current == panel.HOME_PAGE + ("Hardware and Sound",)
+        window.back_action.trigger()
         window.search_applets("Taskbar")
         assert not window.icon_view.item(next(i for i, a in enumerate(panel.APPLETS) if a.name == "Taskbar")).isHidden()
         assert window.icon_view.item(0).isHidden()

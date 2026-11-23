@@ -1,7 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <rect x=".5" y="2.5" width="15" height="12" fill="#f9fbff" stroke="#657383"/>
-  <path fill="#bec4ca" d="M1 3h14v2H1z"/>
-  <path fill="#ccd3da" d="M10 7h5v7h-5z"/>
-  <path fill="#5085b4" d="M11 8h2v1h-2zm0 2h2v1h-2zm0 2h2v1h-2z"/>
-  <path fill="#6cb948" d="M4 7l3 3-3 3v-1H3V9h1z"/>
+  <defs>
+    <linearGradient id="paper" x2="0" y2="1">
+      <stop stop-color="#f8f8f8"/><stop offset="1" stop-color="#f2f2f2"/>
+    </linearGradient>
+  </defs>
+  <rect y="3" width="16" height="13" fill="#8f9297"/>
+  <rect x="1" y="4" width="14" height="3" fill="#d3d9e0"/>
+  <path d="M1 5.5h14" fill="none" stroke="#6d788e"/>
+  <path d="M11.5 4v1m2-1v1" stroke="#677891"/>
+  <path d="M1 7.5h14" stroke="#9aa1aa"/>
+  <rect x="1" y="8" width="14" height="7" fill="url(#paper)"/>
+  <path d="M9.5 8v7" stroke="#dbe0e5"/>
+  <path d="M10.5 8v7" stroke="#6d788e"/>
+  <path d="M12 9.5h2m-2 2h2m-2 2h2" stroke="#648fbd"/>
+  <path d="M13 9.5h1m-1 2h1m-1 2h1" stroke="#4a84c1"/>
+  <g transform="translate(15 0) scale(-1 1)">
+    <path d="M11 8.8v5.4l-3.4-2.7z" fill="#54b730"/>
+    <circle cx="9.5" cy="11.5" r=".65" fill="#77dc67"/>
+  </g>
 </svg>

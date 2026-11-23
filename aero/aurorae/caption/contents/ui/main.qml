@@ -8,7 +8,7 @@ import "Theme.js" as Theme
 SystemAurorae {
     id: frame
     readonly property var auroraeTheme: Theme.metrics(decorationSettings.borderSize,
-                                                     decoration.readConfig("ButtonSize", 1))
+                                                     decoration.readConfig("ButtonSize", 1), decoration.client.scale)
     readonly property Item titleLabel: children.find(item => item.elide !== undefined
                                                           && item.textFormat !== undefined) ?? null
     readonly property Item menuGroup: children.find(item => item.buttons?.length === 1
@@ -26,8 +26,11 @@ SystemAurorae {
             active: group?.buttons?.length > 0 && Array.from(group.buttons).every(type =>
                 [DecorationOptions.DecorationButtonMinimize, DecorationOptions.DecorationButtonMaximizeRestore,
                  DecorationOptions.DecorationButtonClose].includes(type))
-            x: group?.x ?? 0
-            y: group?.y ?? 0
+            // Aurorae positions the row in logical units. At fractional scale its
+            // upper border can fall halfway between two output pixels.
+            readonly property real outputScale: decoration.client.scale || 1
+            x: Math.round((group?.x ?? 0) * outputScale) / outputScale
+            y: Math.round((group?.y ?? 0) * outputScale) / outputScale
             Binding { target: groupLoader.group; property: "visible"; value: false; when: groupLoader.active }
             sourceComponent: CaptionButtons {
                 buttons: groupLoader.group.buttons

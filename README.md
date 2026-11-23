@@ -350,7 +350,11 @@ Screen resolution) for any other Wine prefix.
 | JSON, YAML, CSS, Markdown           | prettier, run through `npx`                                                                            |
 | XML, `.desktop`                     | xmllint, desktop-file-validate                                                                         |
 
-`pip install --user -r requirements-dev.txt` brings ruff, shellcheck and shfmt, and `npm ci` the JavaScript tooling (`make` does that itself). A tool that is missing is skipped locally and is an error in CI. SVG files are generated and left alone. The KDE-derived `lockscreen/` and `data/qml/` QML is formatted but not linted, and qmllint only gates on every message when the Plasma QML modules are installed.
+`pip install --user -r requirements-dev.txt` brings ruff, shellcheck and shfmt, and `npm ci` the JavaScript tooling (`make` does that itself). A tool that is missing is skipped locally and is an error in CI. Formatting tools skip SVG files. The KDE-derived `lockscreen/` and `data/qml/` QML is formatted but not linted, and qmllint only gates on every message when the Plasma QML modules are installed.
+
+### SVG artwork
+
+Theme artwork uses editable lines, curves, basic shapes, repeating patterns and fitted gradients. Apply this rule to every theme and to artwork produced during installation. Give a continuous edge one stroke and colour wherever the reference shows a uniform edge. Keep reference captures and photographs in their native bitmap formats. Run `python3 -m pytest tests/test_theme_svg_art.py` to render every shipped SVG at 100%, 150% and 200%. The per-theme visual suites compare individual controls and animation states with their original references.
 
 ## Tests
 

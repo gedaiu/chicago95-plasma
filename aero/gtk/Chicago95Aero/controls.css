@@ -165,3 +165,45 @@ notebook > header.bottom > tabs > tab:checked { border-top-color: white; }
 notebook > header.left > tabs > tab:checked { border-right-color: white; }
 notebook > header.right > tabs > tab:checked { border-left-color: white; }
 notebook > header > tabs > tab:disabled { color: #838383; background: #f4f4f4; }
+
+/* The Windows thumb reserves one pixel outside the rim. The transverse
+   gradient paints the two bevel highlights and the split in the glossy face. */
+scrollbar trough { background: #f0f0f0; border-radius: 0; }
+scrollbar slider {
+  margin: 1px; padding: 0; border: 1px solid #969696; border-radius: 2.5px;
+  background-position: center; background-repeat: no-repeat;
+  background-size: auto, 100% 100%;
+  background-origin: padding-box; background-clip: padding-box;
+}
+scrollbar slider:hover { border-color: #3c7fb1 #356f9b #346e99 #3c7fb1; }
+scrollbar slider:active { border-color: #18598a; }
+scrollbar.horizontal slider {
+  min-height: 13px; min-width: 15px;
+  box-shadow: inset 1px 0 #f2f2f2, inset -1px 0 #eaeaea;
+  background-image: url("gtk-4.0/indicators/grip-horizontal.svg"),
+    url("gtk-4.0/indicators/thumb-horizontal.svg");
+}
+scrollbar.horizontal slider:hover {
+  box-shadow: inset 1px 0 #fbfdfe, inset -1px 0 #dbdddf;
+  background-image: url("gtk-4.0/indicators/grip-horizontal.svg"),
+    url("gtk-4.0/indicators/thumb-horizontal-hover.svg");
+}
+scrollbar.horizontal slider:active {
+  background-image: url("gtk-4.0/indicators/grip-horizontal.svg"),
+    url("gtk-4.0/indicators/thumb-horizontal-active.svg");
+}
+scrollbar.vertical slider {
+  min-width: 13px; min-height: 15px;
+  box-shadow: inset 0 1px #f2f2f2, inset 0 -1px #eaeaea;
+  background-image: url("gtk-4.0/indicators/grip-vertical.svg"),
+    url("gtk-4.0/indicators/thumb-vertical.svg");
+}
+scrollbar.vertical slider:hover {
+  box-shadow: inset 0 1px #fbfdfe, inset 0 -1px #dbdddf;
+  background-image: url("gtk-4.0/indicators/grip-vertical.svg"),
+    url("gtk-4.0/indicators/thumb-vertical-hover.svg");
+}
+scrollbar.vertical slider:active {
+  background-image: url("gtk-4.0/indicators/grip-vertical.svg"),
+    url("gtk-4.0/indicators/thumb-vertical-active.svg");
+}

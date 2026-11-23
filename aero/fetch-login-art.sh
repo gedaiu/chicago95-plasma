@@ -18,3 +18,6 @@ for asset in background Assets/{12223,user,go,gohover,gopressed,input,input-focu
     python3 "$converter" bitmap "$dest/$name" "$svg"
   fi
 done
+# Earlier releases generated a traced copy of the account photo in this cache.
+# Both greeters now load the original photograph.
+rm -f -- "$dest/user.svg"

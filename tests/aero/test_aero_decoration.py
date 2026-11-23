@@ -46,7 +46,9 @@ def test_mask_covers_the_frame_so_kwin_blurs_behind_the_glass():
     assert {f"mask-{piece}" for piece in generator.PIECES} - element_ids(THEME / "decoration.svg") == set()
 
 
-@pytest.mark.parametrize("button", ["minimize", "maximize", "restore", "close"])
+@pytest.mark.parametrize(
+    "button", ["minimize", "maximize", "restore", "close", "help", "shade", "keepabove", "keepbelow", "alldesktops"]
+)
 def test_button_draws_every_aurorae_state(button):
     assert {f"{state}-center" for state in AURORAE_STATES} - element_ids(THEME / f"{button}.svg") == set()
 

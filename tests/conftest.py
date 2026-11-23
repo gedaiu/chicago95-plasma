@@ -14,7 +14,8 @@ os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ["QT_SCALE_FACTOR"] = "1"
 # An empty settings folder, set before our modules load: tests see the defaults, never the colour
 # scheme, look or icon set of whoever runs them (CI and every machine get the same results).
-os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="chicago95-tests-config-")
+test_config = tempfile.TemporaryDirectory(prefix="chicago95-tests-config-")
+os.environ["XDG_CONFIG_HOME"] = test_config.name
 sys.path.insert(0, str(REPO / "lib"))
 sys.path.insert(0, str(REPO / "luna/lib"))
 # The originals are 1x screenshots: the tools' font choice follows a 1x screen, whatever this machine's is,
@@ -157,7 +158,7 @@ def listening_compositor(short_runtime_dir, monkeypatch):
 
 def pytest_addoption(parser):
     parser.addoption(
-        "--exact-originals", action="store_true", help="Require exact RGB in original Windows 7 comparisons"
+        "--exact-originals", action="store_true", help="Require exact RGB in Windows reference comparisons that support it"
     )
 
 
@@ -167,7 +168,7 @@ def exact_original(request):
         if request.config.getoption("--exact-originals"):
             from original_pixels import compare
 
-            output = request.getfixturevalue("tmp_path") / "windows7-comparison.png"
+            output = request.getfixturevalue("tmp_path") / "windows-reference-comparison.png"
             compare(original, actual, output, mask)
 
     return check

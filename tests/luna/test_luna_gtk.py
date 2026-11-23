@@ -87,8 +87,9 @@ def test_css_has_a_rule_for_every_key_selector(version):
 
 
 @pytest.mark.parametrize("version", ["3.0", "4.0"])
-def test_css_carries_the_measured_luna_colours(version):
-    text = css(version)
+def test_theme_carries_the_measured_luna_colours(version):
+    assets = COMMITTED / f"gtk-{version}" / "assets"
+    text = css(version).upper() + (assets / "radio-face-normal.svg").read_text().upper()
 
     assert [colour for colour in KEY_COLOURS if colour not in text] == []
 
@@ -373,13 +374,16 @@ def test_message_dialog_body_keeps_its_content_off_the_frame():
 
 PARSE_SCRIPT = """
 import sys
-import gi
-gi.require_version("Gtk", sys.argv[1])
-from gi.repository import Gtk
+try:
+    import gi
+    gi.require_version("Gtk", sys.argv[1])
+    from gi.repository import Gtk
+except (ImportError, ValueError):
+    sys.exit(77)
 errors = []
 provider = Gtk.CssProvider()
 def record(_provider, section, error):
-    errors.append((section.get_start_position(), error.message))
+    errors.append((error.message))
 provider.connect("parsing-error", record)
 provider.load_from_path(sys.argv[2])
 print(errors)
@@ -395,27 +399,23 @@ def test_gtk_parses_the_css_without_errors(version):
         timeout=60,
         check=False,
     )
-    if result.returncode:
+    if result.returncode == 77:
         pytest.skip(f"GTK {version} is not available to PyGObject")
 
+    assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "[]"
 
 
 @pytest.mark.parametrize("version", ["3.0", "4.0"])
-def test_every_png_asset_is_served_through_gtk_scaled_with_a_double_size_twin(version):
-    text = css(version)
-    scaled_pair = r'-gtk-scaled\(url\("assets/([^"]+)\.png"\), url\("assets/\1@2\.png"\)\)'
-    scaled = re.findall(scaled_pair, text)
-    plain = re.findall(r'url\("assets/([^"]+\.png)"\)', re.sub(scaled_pair, "", text))
-    assets = COMMITTED / f"gtk-{version}" / "assets"
+def test_all_gtk_control_assets_are_referenced_vectors(version):
+    from xml.etree import ElementTree as ET
 
-    assert (
-        plain,
-        [
-            name
-            for name in sorted(set(scaled))
-            if Image.open(assets / f"{name}@2.png").size
-            != tuple(side * 2 for side in Image.open(assets / f"{name}.png").size)
-        ],
-        len(scaled) > 0,
-    ) == ([], [], True)
+    assets = COMMITTED / f"gtk-{version}" / "assets"
+    shipped = {p.name for p in assets.iterdir()}
+    referenced = set(re.findall(r'url\("assets/([^"]+)"\)', css(version)))
+    assert shipped == referenced
+    for name in shipped:
+        assert name.endswith(".svg")
+        root = ET.parse(assets / name).getroot()
+        assert root.get("viewBox") or root.get("width")
+        assert all(node.tag.rsplit("}", 1)[-1] not in {"image", "feImage"} for node in root.iter())

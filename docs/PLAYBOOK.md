@@ -10,6 +10,8 @@ pixel by pixel. Every visual claim is checked against a reference screenshot of 
 installs from the checkout with `install.sh`; the installed copies live under `~/.local` (tools in
 `~/.local/bin`, shared Python in `~/.local/lib/chicago95`, data in `~/.local/share/chicago95`).
 
+Draw every theme’s SVG artwork from its visible geometry. A continuous edge takes one line or curve and a uniform colour where the original has one. Fit gradients to the visible changes in the surface and reuse patterns for repeated detail. This applies equally to hand-authored assets and installation-time generators. Original framebuffer captures remain bitmap test fixtures. The shared `tests/test_theme_svg_art.py` renders each shipped SVG at 100%, 150% and 200%. Use the per-component reference tests to check fidelity to the guest.
+
 ## Rules that are not negotiable
 
 1. **Test first, always.** Write the failing test, run it red, write the least code that passes, run it
@@ -97,8 +99,7 @@ first; if it crashes, run it again).
 - **Settings**: every key in `SETTINGS_KEYS` (`setup/steps.sh`) needs a Control Panel field and an entry in
   `COMPONENTS_BY_KEY`; a test enforces both. New components go into `INSTALL_ORDER`, the picker in
   `install.sh`, and the dispatch `case` there.
-- **Pictures**: 16-colour bitmaps carry the button face as `#C0C0C0`; repaint it in the look's face at
-  draw time (`control_panel_picture(name, face)`), never ship separate copies per look.
+- **Pictures**: leave the canvas transparent on standalone illustrations. Keep the original fills inside the object so its colours survive a change of window palette.
 - **GTK**: GTK 3 does not know `-gtk-icon-filter` or `window.background …` descendant selectors on its
   default title bar; verify GTK CSS with a `Gtk.StyleContext` + `Gtk.WidgetPath` probe (no window needed)
   before trusting a rule.

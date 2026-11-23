@@ -16,7 +16,6 @@ from pathlib import Path
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ["QT_SCALE_FACTOR"] = "1"
-os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="chicago95-report-config-")
 TESTS = Path(__file__).resolve().parent
 sys.path[:0] = [
     str(TESTS),
@@ -1147,16 +1146,17 @@ def comparison_main(output, looks):
             *output.glob(f"showcase-controls-{look}.jpg"),
         ]:
             stale.unlink()
-    scratch = Path(tempfile.mkdtemp(prefix="chicago95-report-"))
-    desktops = real_desktops(looks)
-    for look in looks:
-        desktop = desktops.get(look)
-        if look == "luna":
-            sections = luna_sections(desktop, app, scratch)
-        else:
-            sections = flat_sections(look, desktop, app, scratch, startmenu, shutdown)
-        for key, (title, rows) in sections.items():
-            compose(f"{look} {title}", rows, output / f"report-{look}-{key}.png")
+    with tempfile.TemporaryDirectory(prefix="chicago95-report-") as work:
+        scratch = Path(work)
+        desktops = real_desktops(looks)
+        for look in looks:
+            desktop = desktops.get(look)
+            if look == "luna":
+                sections = luna_sections(desktop, app, scratch)
+            else:
+                sections = flat_sections(look, desktop, app, scratch, startmenu, shutdown)
+            for key, (title, rows) in sections.items():
+                compose(f"{look} {title}", rows, output / f"report-{look}-{key}.png")
 
 
 AERO = "aero"  # Windows 7: components so far, not yet a look
