@@ -55,12 +55,38 @@ def capture_hover(window, output):
     assert qimage_to_pil(window.grab(region).toImage()).tobytes() == idle.tobytes()
 
 
+def capture_hover_exit(window, output, scale):
+    window.show()
+    card = window.category_view.findChild(QFrame, "categoryCard")
+    heading = card.findChild(QPushButton)
+    # Sample 36 physical pixels before the right edge and 30 below the top.
+    region = QRect(
+        card.mapTo(window, QPoint(card.width() - round(36 / scale), round(30 / scale))),
+        QSize(round(12 / scale), round(12 / scale)),
+    )
+    strip = Image.new("RGB", (60, 36))
+    idle_position = window.toolbar.rect().center()
+    QTest.mouseMove(window.toolbar, idle_position)
+    for trial in range(3):
+        QTest.mouseMove(heading, QPoint(12, 6))
+        QTest.qWait(50)
+        strip.paste(qimage_to_pil(window.grab(region).toImage()), (0, trial * 12))
+        QTest.mouseMove(window.toolbar, idle_position)
+        for frame in range(1, 5):
+            sample = qimage_to_pil(window.grab(region).toImage())
+            assert sample.size == (12, 12)
+            strip.paste(sample, (frame * 12, trial * 12))
+            QTest.qWait(17)
+    strip.save(output)
+
+
 def render(manifest, component, output, width, height):
     import chicago95ui
 
     metadata = json.loads(Path(manifest).read_text())
     look = metadata["look"]
     hover = component == "control-panel-hover"
+    hover_exit = component == "control-panel-hover-exit"
     scale = metadata["control_panel_hover_scale" if hover else "properties_scale"]
     os.environ["QT_SCALE_FACTOR"] = str(scale)
     app = chicago95ui.make_app("Control Panel")
@@ -85,6 +111,10 @@ def render(manifest, component, output, width, height):
         try:
             if hover:
                 capture_hover(window, output)
+                return
+            if hover_exit:
+                window.resize(round(int(width) / scale), round(int(height) / scale))
+                capture_hover_exit(window, output, scale)
                 return
             if component == "control-panel":
                 window.resize(round(int(width) / scale), round(int(height) / scale))

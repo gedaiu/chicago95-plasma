@@ -1389,6 +1389,13 @@ def test_screensaver_with_a_new_menu_style_sheet_clears_plasma_caches(tmp_path):
     assert "qmlcache" in dry_run_log(tmp_path, "--components=screensaver")
 
 
+def expected_flat_decoration(log, look="classic"):
+    package = f"org.chicago95.{look}"
+    if f"/kwin/decorations/{package}/contents/ui/Theme.js" in log:
+        return package
+    return "__aurorae__svg__Chicago95Luna" if look == "luna" else "__aurorae__svg__Chicago95"
+
+
 def test_look_luna_installs_the_luna_themes_and_selects_them(tmp_path):
     log = dry_run_log(tmp_path, "--components=look,taskbar,fonts", "--look=luna")
     home = str(tmp_path)
@@ -1396,7 +1403,7 @@ def test_look_luna_installs_the_luna_themes_and_selects_them(tmp_path):
     assert (
         f"cp -r {REPO}/luna/aurorae/theme {home}/.local/share/aurorae/themes/Chicago95Luna" in log,
         f"cp -r {REPO}/luna/plasma-style/theme {home}/.local/share/plasma/desktoptheme/Chicago95Luna" in log,
-        "kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme __aurorae__svg__Chicago95Luna" in log,
+        kwriteconfig("kwinrc", "org.kde.kdecoration2", "theme", expected_flat_decoration(log, "luna")) in log,
         "plasma-apply-desktoptheme Chicago95Luna" in log,
         "plasma-apply-colorscheme Chicago95Luna" in log,
         " panel=30 " in log,
@@ -1528,7 +1535,7 @@ def test_look_1995_with_taskbar_style_luna_selects_the_luna_plasma_theme_and_the
 
     assert (
         "plasma-apply-desktoptheme Chicago95Luna" in log,
-        "--key theme __aurorae__svg__Chicago95\n" in log,
+        kwriteconfig("kwinrc", "org.kde.kdecoration2", "theme", expected_flat_decoration(log)) in log,
         "plasma-apply-colorscheme Chicago95\n" in log,
         " panel=30 " in log,
     ) == (True, True, True, True)
@@ -1538,7 +1545,7 @@ def test_look_1995_installs_only_the_flat_themes(tmp_path):
     log = dry_run_log(tmp_path, "--components=look,taskbar,fonts", "--look=1995")
 
     assert (
-        "--key theme __aurorae__svg__Chicago95\n" in log,
+        kwriteconfig("kwinrc", "org.kde.kdecoration2", "theme", expected_flat_decoration(log)) in log,
         "plasma-apply-desktoptheme Chicago95\n" in log,
         "Chicago95Luna" in log,
         "61-chicago95-luna-fonts.conf" in log,
@@ -1550,7 +1557,7 @@ def test_decoration_flag_overrides_the_preset_decoration(tmp_path):
     log = dry_run_log(tmp_path, "--components=look,taskbar,fonts", "--look=2000", "--decoration=luna")
 
     assert (
-        "--key theme __aurorae__svg__Chicago95Luna" in log,
+        kwriteconfig("kwinrc", "org.kde.kdecoration2", "theme", expected_flat_decoration(log, "luna")) in log,
         "plasma-apply-desktoptheme Chicago95\n" in log,
         "--file chicago95rc --group Look --key decoration luna" in log,
     ) == (True, True, True)

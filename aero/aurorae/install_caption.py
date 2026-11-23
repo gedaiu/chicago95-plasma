@@ -1,4 +1,4 @@
-"""Connect the Aero caption to the installed Aurorae renderer and the theme's SVG artwork."""
+"""Connect a Chicago95 QML decoration to Aurorae and the installed SVG artwork."""
 
 import configparser
 import json
@@ -14,12 +14,13 @@ def configure(package, artwork, renderer):
     )
     rc = configparser.ConfigParser()
     rc.optionxform = str
-    rc.read(artwork / "Chicago95Aerorc")
+    rc.read(artwork / f"{artwork.name}rc")
     layout = {key[0].lower() + key[1:]: int(value) for key, value in rc["Layout"].items()}
+    general = rc["General"]
     for state in ("Active", "Inactive"):
-        rgb = rc["General"][state + "TextColor"].split(",")[:3]
+        rgb = general[state + "TextColor"].split(",")[:3]
         layout[state.lower() + "TextColor"] = "#" + "".join(f"{int(value):02x}" for value in rgb)
-    layout["animationTime"] = rc["General"].getint("Animation")
+    layout["animationTime"] = general.getint("Animation")
     layout["decorationPath"] = str(artwork / "decoration.svg")
     for name in (
         "minimize",
@@ -36,7 +37,23 @@ def configure(package, artwork, renderer):
         svg = artwork / f"{name.lower()}.svg"
         layout[name + "ButtonPath"] = str(svg) if svg.is_file() else ""
         if name not in ("restore", "maximize"):
-            layout.setdefault("buttonWidth" + name[0].upper() + name[1:], layout["buttonWidth"])
+            default = layout["buttonWidthMenu"] if name == "appMenu" else layout["buttonWidth"]
+            layout.setdefault("buttonWidth" + name[0].upper() + name[1:], default)
+    layout.setdefault("buttonWidthMaximizeRestore", layout["buttonWidth"])
+    layout.setdefault("buttonMarginTopMaximized", 0)
+    if artwork.name != "Chicago95Aero":
+        layout["followsScheme"] = artwork.name == "Chicago95"
+        layout["useTextShadow"] = general.getboolean("UseTextShadow")
+        if layout["useTextShadow"]:
+            for state in ("Active", "Inactive"):
+                red, green, blue, alpha = map(int, general[f"{state}TextShadowColor"].split(","))
+                layout[f"{state.lower()}TextShadowColor"] = f"#{alpha:02x}{red:02x}{green:02x}{blue:02x}"
+            layout["textShadowX"] = general.getint("TextShadowOffsetX")
+            layout["textShadowY"] = general.getint("TextShadowOffsetY")
+        metadata = json.loads((artwork / "metadata.json").read_text())
+        metadata["KPackageStructure"] = "KWin/Decoration"
+        metadata["KPlugin"]["Id"] = package.name
+        (package / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
     (ui / "Layout.js").write_text(".pragma library\nvar values = " + json.dumps(layout, indent=2) + "\n")
 
 

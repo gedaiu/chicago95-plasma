@@ -13,7 +13,7 @@ from aurorae_model import Window
 from conftest import REPO, load_script
 from original_pixels import compare
 from PIL import Image
-from plasma_session import install, missing_programs, run_session, show, work_folder
+from plasma_session import HOME_AFTER_SETUP, install, missing_programs, run_session, show, work_folder
 from reference import REFERENCES, qimage_to_pil, render_start_menu, theme_references
 from showcase import start_menus, themed
 from test_caption_states_reference import (
@@ -34,7 +34,7 @@ CAPTION_STATES = STATES[:-1]
 GTK_STATES = dict(zip(CAPTION_STATES, ("normal", "hovered", "pressed", "disabled", "restore"), strict=True))
 CAPTION_RENDERERS = {
     "svg": CAPTION_STATES,
-    "kwin": ("rest", "hover", "pressed", "restore"),
+    "kwin": CAPTION_STATES,
     "gtk3": CAPTION_STATES,
     "gtk4": CAPTION_STATES,
 }
@@ -56,6 +56,9 @@ COMPONENTS = (
     "motion",
 )
 WINDOW = (160, 150, 559, 449)
+DISABLED_WINDOW = (610, 150, 1009, 449)
+DISABLED_TITLE = "Caption parity disabled"
+DISABLED_APP = "org.chicago95.test.caption-disabled"
 
 
 class AeroCaptionWindow(Window):
@@ -85,14 +88,39 @@ def installed():
 
 
 @pytest.fixture(scope="module")
-def live_kwin(installed):
+def live_kwin(installed, visual_output):
     @cache
-    def capture(look, scale, theme):
+    def capture(theme, artwork):
+        _, metadata = THEMES[theme]
+        look, scale = metadata["look"], metadata["caption_scale"]
         left, top, right, bottom = WINDOW
-        model = kwin_window(theme, look, right - left + 1, bottom - top + 1)
+        model = kwin_window(artwork, look, right - left + 1, bottom - top + 1)
         rects = model.button_rects()
         points = [f"move:{left + rects[key].center().x()},{top + rects[key].center().y()}" for key in "IAX"]
-        steps = ["move:700,400", "snapshot:caption-rest"]
+        steps = [
+            "move:750,250",
+            "click:left",
+            "move:600,110",
+            "wait:0.6",
+            "snapshot:caption-disabled",
+        ]
+        disabled_left, disabled_top = DISABLED_WINDOW[:2]
+        for index in state_buttons("disabled"):
+            button = rects["IAX"[index]].center()
+            steps.extend(
+                [
+                    f"move:{disabled_left + button.x()},{disabled_top + button.y()}",
+                    "wait:0.3",
+                    f"snapshot:caption-disabled-hover-{index}",
+                    "press:left",
+                    "wait:0.2",
+                    f"snapshot:caption-disabled-pressed-{index}",
+                    "release:left",
+                    "wait:0.3",
+                    f"snapshot:caption-disabled-clicked-{index}",
+                ]
+            )
+        steps.extend(["move:350,270", "click:left", "move:600,110", "wait:0.6", "snapshot:caption-rest"])
         for index, point in enumerate(points):
             steps.extend(
                 [
@@ -109,8 +137,42 @@ def live_kwin(installed):
             )
         steps.extend([points[1], "click:left", "move:700,400", "wait:0.6", "snapshot:caption-restore"])
         session = installed(look)
-        show(session, windows=[("Caption parity", "qt", WINDOW)], scale=scale, pointer_steps=steps)
-        return session.work
+        rules_path = session.work / HOME_AFTER_SETUP / ".config/kwinrulesrc"
+        rules = configparser.ConfigParser(interpolation=None)
+        rules.optionxform = str
+        rules.read(rules_path)
+        if "General" not in rules:
+            rules.add_section("General")
+        groups = [group for group in rules["General"].get("rules", "").split(",") if group]
+        rules["General"]["rules"] = ",".join([*groups, DISABLED_APP])
+        rules[DISABLED_APP] = {
+            "wmclass": DISABLED_APP,
+            "wmclassmatch": "1",
+            "closeable": "false",
+            "closeablerule": "2",
+        }
+        with rules_path.open("w") as stream:
+            rules.write(stream, space_around_delimiters=False)
+        screen = show(
+            session,
+            windows=[("Caption parity", "qt", WINDOW), (DISABLED_TITLE, "qt-fixed", DISABLED_WINDOW, DISABLED_APP)],
+            scale=scale,
+            pointer_steps=steps,
+            window_state=True,
+        )
+        records = [
+            json.loads(line.split("c95-window ", 1)[1])
+            for line in screen.info["kwin_log"].splitlines()
+            if "c95-window " in line
+        ]
+        disabled = next((record for record in records if record["title"] == DISABLED_TITLE), None)
+        assert disabled is not None, f"KWin did not report the fixed-size caption fixture: {records}"
+        assert disabled["closeable"] is False and disabled["maximizable"] is False, disabled
+        assert tuple(disabled["bounds"][:2]) == DISABLED_WINDOW[:2], disabled
+        output = visual_output / theme / "caption" / "kwin" / "disabled"
+        output.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(session.work / "caption-disabled.png", output / "screen.png")
+        return session.work, disabled["bounds"]
 
     return capture
 
@@ -160,8 +222,9 @@ def kwin_window(theme, look, width, height):
     return window(theme, width, height)
 
 
-def kwin_face(directory, theme, look, scale, state, index):
-    suffix = f"-{index}" if state in ("hover", "pressed") else ""
+def kwin_face(capture, theme, look, scale, state, index):
+    directory, disabled = capture
+    suffix = f"-{index}" if state in ("hover", "pressed") or state.startswith("disabled-") else ""
     path = directory / f"caption-{state}{suffix}.png"
     assert path.is_file(), f"Missing nested KWin capture {path.name}"
     with Image.open(path) as frame:
@@ -171,6 +234,9 @@ def kwin_face(directory, theme, look, scale, state, index):
         model = kwin_window(theme, look, round(screen.width / scale), round(screen.height / scale))
         for key in ("TitleEdgeTop", "TitleEdgeLeft", "TitleEdgeRight"):
             model.layout[key] = model.layout[key + "Maximized"]
+    elif state.startswith("disabled"):
+        left, top, right, bottom = disabled
+        model = kwin_window(theme, look, round(right - left), round(bottom - top))
     else:
         left, top, right, bottom = WINDOW
         model = kwin_window(theme, look, right - left + 1, bottom - top + 1)
@@ -225,7 +291,7 @@ def svg_themes(qt_app, tmp_path_factory):
         for index in state_buttons(state)
     ],
 )
-def test_caption(theme, renderer, state, index, svg_themes, live_kwin, live_gtk, visual_output):
+def test_caption_matches_windows_pixels(theme, renderer, state, index, svg_themes, live_kwin, live_gtk, visual_output):
     _folder, metadata = THEMES[theme]
     look, scale = metadata["look"], metadata["caption_scale"]
     expected, glass = face_region(caption_reference(look), look, state, index)
@@ -234,12 +300,32 @@ def test_caption(theme, renderer, state, index, svg_themes, live_kwin, live_gtk,
         actual = caption_pixels(svg_themes[look], button, state, look, glass.resize(expected.size))
     elif renderer == "kwin":
         theme_art = svg_themes[look]
-        actual = kwin_face(live_kwin(look, scale, theme_art), theme_art, look, scale, state, index)
+        actual = kwin_face(live_kwin(theme, theme_art), theme_art, look, scale, state, index)
     else:
         version = {"gtk3": "3.0", "gtk4": "4.0"}[renderer]
         actual = gtk_face(live_gtk(look, scale) / f"caption-gtk-{version}", state, index)
     directory = visual_output / theme / "caption" / renderer / state / button
     exact(expected, actual, directory, visible_pixels(look, state, expected.size))
+
+
+@pytest.mark.parametrize("theme", THEMES)
+@pytest.mark.parametrize("index", state_buttons("disabled"), ids=["maximize", "close"])
+@pytest.mark.parametrize("action", ("hover", "pressed", "clicked"))
+def test_kwin_disabled_caption_interior_matches_its_own_idle_state(
+    theme, index, action, live_kwin, svg_themes, visual_output
+):
+    _, metadata = THEMES[theme]
+    look, scale = metadata["look"], metadata["caption_scale"]
+    artwork = svg_themes[look]
+    capture = live_kwin(theme, artwork)
+    idle = kwin_face(capture, artwork, look, scale, "disabled", index)
+    state = f"disabled-{action}"
+    actual = kwin_face(capture, artwork, look, scale, state, index)
+    # Fractional-scale compositing can change the title pixels under the
+    # antialiased edge. Here we compare the glyph and solid face.
+    face = (3, 3, idle.width - 3, idle.height - 3)
+    directory = visual_output / theme / "caption" / "kwin" / "pointer-invariance" / action / BUTTONS[index]
+    exact(idle.crop(face), actual.crop(face), directory)
 
 
 @pytest.mark.parametrize("theme", THEMES)
@@ -410,6 +496,22 @@ def test_control_panel_hover(category_hover, state, visual_output):
     exact(expected, actual, visual_output / theme / "control-panel" / "qt" / state)
 
 
+@pytest.mark.parametrize("theme", [theme for theme, (_, m) in THEMES.items() if m.get("control_panel_hover_exit")])
+def test_control_panel_hover_exit(theme, tmp_path, visual_output):
+    folder, _metadata = THEMES[theme]
+    with Image.open(folder / "control-panel.png") as client:
+        size = client.size
+    output = tmp_path / "hover-exit.png"
+    render_properties(folder, "control-panel-hover-exit", output, size)
+    with Image.open(folder / "control-panel/hover-exit.png") as expected, Image.open(output) as actual:
+        for image in (expected, actual):
+            assert image.size == (60, 36)
+            for top in range(0, image.height, 12):
+                frames = [image.crop((x, top, x + 12, top + 12)).tobytes() for x in range(0, image.width, 12)]
+                assert frames[0] != frames[1] and all(frame == frames[1] for frame in frames[2:])
+        exact(expected, actual, visual_output / theme / "control-panel" / "qt" / "hover-exit")
+
+
 def test_theme_inventory():
     assert set(THEMES) == EXPECTED_THEMES
 
@@ -435,7 +537,6 @@ def test_coverage(theme):
     if not (folder / "taskbar-band.png").is_file():
         gaps.append("taskbar / Plasma: empty-band reference")
     gaps.append("taskbar / Plasma: interactive and populated states")
-    gaps.append("caption / KWin: disabled button renderer")
     for component in ("start-menu", "device-manager", "control-panel", "display-properties"):
         if not (folder / f"{component}.png").is_file():
             gaps.append(f"{component} / Qt: native reference")
@@ -449,7 +550,7 @@ def test_coverage(theme):
     )
     if theme == "win7":
         gaps.append("start-menu / Qt: glass pane and search results")
-        gaps.append("control-panel / Qt: hover exit capture and remaining category states")
+        gaps.append("control-panel / Qt: remaining category and action states")
     else:
         gaps.append("control-panel / Qt: hover and selection captures")
     if not (folder / "run.png").is_file():

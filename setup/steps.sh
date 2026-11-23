@@ -925,10 +925,12 @@ reload_aero_caption() (
 )
 
 apply_decoration() {
-  local theme="__aurorae__svg__$(decoration_theme)" renderer package reapply_aero=0
+  local artwork renderer package plugins theme reapply_aero=0
+  artwork=$(decoration_theme)
+  theme="__aurorae__svg__$artwork"
+  renderer=$(qtpaths6 --locate-file GenericDataLocation kwin/aurorae/aurorae.qml 2>/dev/null) || renderer=
   if [ "${SETUP_DECORATION:-classic}" = aero ]; then
     apply_aero_glass
-    renderer=$(qtpaths6 --locate-file GenericDataLocation kwin/aurorae/aurorae.qml 2>/dev/null) || renderer=
     if [ -f "$renderer" ] && [ -f "$(qtpaths6 --query QT_INSTALL_QML)/Qt5Compat/GraphicalEffects/qmldir" ]; then
       theme=org.chicago95.aero
       if [ "$(kreadconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme)" = "$theme" ]; then
@@ -936,13 +938,25 @@ apply_decoration() {
       fi
       package="$HOME/.local/share/kwin/decorations/$theme"
       put_tree "$REPO/aero/aurorae/caption" "$package"
-      run python3 "$REPO/aero/aurorae/install_caption.py" "$package" "$HOME/.local/share/aurorae/themes/Chicago95Aero" "$renderer"
+      put_file "$REPO/aurorae/Theme.js" "$package/contents/ui/Theme.js"
+      run python3 "$REPO/aero/aurorae/install_caption.py" "$package" "$HOME/.local/share/aurorae/themes/$artwork" "$renderer"
     fi
     select_aero_blur
   elif installed_by_setup kconf:kwinrc:Plugins:aeroglassblurEnabled; then
     kconf kwinrc Plugins aeroglassblurEnabled false
     kconf kwinrc Plugins blurEnabled true
     GLASS_EFFECT_CHANGED=1
+  fi
+  if [ "${SETUP_DECORATION:-classic}" != aero ] && [ -f "$renderer" ]; then
+    plugins=$(qtpaths6 --plugin-dir 2>/dev/null) || plugins=
+    if [ -f "$plugins/org.kde.kdecoration3/org.kde.kwin.aurorae.v2.so" ]; then
+      # KWin migrates plain SVG themes to Aurorae v2, which hides disabled buttons.
+      theme="org.chicago95.${SETUP_DECORATION:-classic}"
+      package="$HOME/.local/share/kwin/decorations/$theme"
+      put_tree "$REPO/aurorae/caption" "$package"
+      put_file "$REPO/aurorae/Theme.js" "$package/contents/ui/Theme.js"
+      run python3 "$REPO/aero/aurorae/install_caption.py" "$package" "$HOME/.local/share/aurorae/themes/$artwork" "$renderer"
+    fi
   fi
   kconf kwinrc org.kde.kdecoration2 library org.kde.kwin.aurorae
   kconf kwinrc org.kde.kdecoration2 theme "$theme"

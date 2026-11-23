@@ -12,5 +12,6 @@
   "properties_scale": 1.5,
   "display_page": "Settings",
   "display_resolution": "1280x960",
-  "control_panel_hover_scale": 1
+  "control_panel_hover_scale": 1,
+  "control_panel_hover_exit": true
 }

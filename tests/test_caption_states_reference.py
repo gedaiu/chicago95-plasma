@@ -77,8 +77,8 @@ def caption_pixels(theme, button, state, look, glass):
 
 
 def face_region(sheet, look, state, index):
-    widths, height = ((45, 40, 75), 30) if look == "aero" else (
-        ((27, 27, 27), 27) if look == "luna" else ((20, 20, 20), 18)
+    widths, height = (
+        ((45, 40, 75), 30) if look == "aero" else (((27, 27, 27), 27) if look == "luna" else ((20, 20, 20), 18))
     )
     left = 1 + sum(widths[:index])
     top = height * STATES.index(state)
@@ -112,7 +112,7 @@ def caption_reference(look):
 @pytest.mark.parametrize(
     ("state", "index"), [(state, index) for state in STATES[:-1] for index in state_buttons(state)]
 )
-def test_caption_state_against_guest(caption_themes, exact_original, look, state, index):
+def test_caption_svg_stays_within_windows_rgb_budget(caption_themes, exact_original, look, state, index):
     sheet = caption_reference(look)
     button = "restore" if state == "restore" else BUTTONS[index]
     expected, glass = face_region(sheet, look, state, index)

@@ -104,6 +104,8 @@ app = QApplication(sys.argv)
 QGuiApplication.setDesktopFileName(sys.argv[1])
 window = QWidget()
 window.setWindowTitle(sys.argv[2])
+if "--fixed-size" in sys.argv:
+    window.setFixedSize(380, 240)
 window.show()
 app.exec()
 """,
@@ -229,12 +231,29 @@ if ({active} === "") workspace.activeWindow = null;
 SCRIPT
 kwin_script "$WORK/arrange.js" arrange
 sleep 4
+{window_state}
 {pointer_command}
 screenshot_settled "$WORK/screen.png"
 gdbus call --session --dest org.kde.KWin --object-path /Effects --method org.freedesktop.DBus.Properties.Get \
     org.kde.kwin.Effects loadedEffects >"$WORK/effects.txt" 2>&1
 """
 )
+
+WINDOW_STATE = """
+cat >"$WORK/window-state.js" <<'SCRIPT'
+const places = {places};
+for (const window of workspace.windowList()) {{
+    if (places[window.caption]) {{
+        const box = window.frameGeometry;
+        console.warn("c95-window " + JSON.stringify({{
+            title: window.caption, closeable: window.closeable, maximizable: window.maximizable,
+            bounds: [box.x, box.y, box.x + box.width, box.y + box.height]
+        }}));
+    }}
+}}
+SCRIPT
+kwin_script "$WORK/window-state.js" window-state
+"""
 
 
 def right_click_at(x, y):
@@ -333,7 +352,10 @@ def window_commands(work, applications, windows):
             program = f"xmessage -title {quote(title)} -geometry 200x100 {quote(title)}"
         else:
             desktop_file(applications, name, title, TEST_ICON)
-            program = f'python3 "$WORK/{toolkit}.py" {name} {quote(title)}'
+            if toolkit == "qt-fixed":
+                program = f'python3 "$WORK/qt.py" {name} {quote(title)} --fixed-size'
+            else:
+                program = f'python3 "$WORK/{toolkit}.py" {name} {quote(title)}'
         commands.append(f'{program} >"$WORK/window-{index}.log" 2>&1 &\nsleep 1.5')
     return "\n".join(commands)
 
@@ -475,12 +497,13 @@ HOME_AFTER_SETUP = "home-after-setup"
 DESKTOP_LEAVINGS = ("screen.png", "screen-shot-*.png", "effects.txt")
 
 
-def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_steps=(), scale=1):
+def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_steps=(), scale=1, window_state=False):
     """Runs the desktop's session, as after logging in again, from the home Setup left; returns the screenshot.
     windows replaces the look's own windows (an empty list: none, for the desktop behind them); windows_first
     opens them before Plasma starts, as a login that restores the last session does; tray_icons is the number of
     the test's icons in the tray, beside the original's; pointer_steps (see eis_pointer.py) drive the pointer
     before the screenshot, to open a context menu (see MENU_OPENERS) and hover one of its rows.
+    window_state records the settled frame bounds and caption capabilities of the requested windows.
     The screenshot's info holds KWin's loaded effects, its log, and Setup's own session's screenshot
     ("setup_screen": the taskbar right after Setup restarted Plasma, before anyone touched it)."""
     look, work, screen_size, environment = installed
@@ -505,6 +528,7 @@ def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_
             windows_after_plasma="" if windows_first else window_script,
             places=json.dumps(places),
             active=json.dumps(content["active"]),
+            window_state=WINDOW_STATE.format(places=json.dumps(places)) if window_state else "",
             pointer_command=(
                 f'python3 "$WORK/eis_pointer.py" {" ".join(quote(step) for step in pointer_steps)} '
                 '>"$WORK/pointer.log" 2>&1; sleep 1'

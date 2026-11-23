@@ -8,7 +8,7 @@ import "Theme.js" as Theme
 SystemAurorae {
     id: frame
     readonly property var auroraeTheme: Theme.metrics(decorationSettings.borderSize,
-                                                     decoration.readConfig("ButtonSize", 1), decoration.client.scale)
+                                                     decoration.readConfig("ButtonSize", 1), decoration.client.scale || 1)
     readonly property Item titleLabel: children.find(item => item.elide !== undefined
                                                           && item.textFormat !== undefined) ?? null
     readonly property Item menuGroup: children.find(item => item.buttons?.length === 1

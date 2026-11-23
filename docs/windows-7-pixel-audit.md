@@ -97,6 +97,8 @@ A clean English Windows 7 Professional SP1 x86 installation provided native 800 
 
 Hovering a category highlights the whole group on Windows 7. The project draws a rounded blue outline, inner highlight and vertical fill gradient behind the icon and links. The folder-driven suite compares the unobstructed right edge at 96 DPI and checks that leaving restores the idle fill. In the 60 Hz Aero capture, the group reached its highlight colour in the first changed frame. The suite compares the idle sample and four consecutive samples after moving the pointer onto the category. [Steady hover capture](../tests/references/themes/win7/control-panel/hover.png) · [Hover opening capture](../tests/references/themes/win7/control-panel/hover-opening.png)
 
+At 144 DPI, the System and Security highlight disappeared in one visible frame in all three 60 Hz trials. The host pointer move preceded the first idle sample by about 50 ms, including input delivery and display presentation. The pixel test aligns each sequence at the final highlighted frame and checks the first four idle samples. [Hover exit capture](../tests/references/themes/win7/control-panel/hover-exit.png)
+
 The Run button positions, Advanced System Properties action row and six-window Alt+Tab bottom inset pass their original-layout comparisons after correction. The figures below describe the earlier renders. The five Start-menu RGB crops still differ after the search field, power menu and glass changes.
 
 | Start menu sample | Earlier mean RGB error | Revised mean RGB error |

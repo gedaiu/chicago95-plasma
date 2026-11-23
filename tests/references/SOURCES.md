@@ -262,6 +262,7 @@ are lossless and retain the guest pixel grid.
 | `win7-sp1-aero-calendar.png` | Calendar client at (672, 465), 336 × 247 |
 | [Screen Resolution](../../docs/compare/win7-sp1-screen-resolution.png) | Native display settings opened with `control desk.cpl` |
 | `themes/win7/control-panel/hover-opening.png` | Five consecutive 8 × 8 samples at (362, 163) over the System and Security card, from its last idle frame through its first four highlighted frames |
+| `themes/win7/control-panel/hover-exit.png` | Three 60 Hz trials at 144 DPI on a 1280 × 960 desktop. Each row contains five consecutive 12 × 12 samples from (611, 224), beginning with the final highlighted frame. The pointer moved from (235, 210) to (155, 183). The frame sampled 33 ms after the host move still showed the highlight. The 50 ms frame showed the idle fill in all three trials. |
 | `win7-sp1-start-opening.png` | Five consecutive 10 × 10 samples at desktop (206, 550), beginning with the last frame before the Start program pane appears |
 | `win7-sp1-start-orb-hover.png` | Twenty-five consecutive 7 × 12 samples at desktop (7, 740), left of the logo, beginning when the pointer moved onto the orb |
 

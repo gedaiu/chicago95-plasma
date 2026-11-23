@@ -107,6 +107,8 @@ Every open window changes at once.
 
 **Want the Windows XP look instead?** Replace the second line with `cp -r luna/aurorae/theme ~/.local/share/aurorae/themes/Chicago95Luna`, and in the fourth line replace `__aurorae__svg__Chicago95` with `__aurorae__svg__Chicago95Luna`.
 
+On systems with Aurorae v2, Setup selects the Chicago95 QML decoration for classic and Luna. It renders the disabled Maximize and Close faces from the installed SVGs. The manual SVG selection above uses the system renderer.
+
 The title bars stay navy blue and grey. The automatic installer can also redraw them in your colour scheme's colours, but that uses one of the extra programs from part 4 (`bin/chicago95-sync-colors`).
 
 ### Desktop style
