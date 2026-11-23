@@ -64,11 +64,25 @@ Live KWin captures at 125% also pass all 48 Classic face comparisons. The wrappe
 logical size, and KSVG rasterizes it once at the output scale. GTK 3 and GTK 4 share the device-size vector outlines
 when Setup configures 120 DPI. The 144 GTK comparisons across the six themes still show differences. In the four
 Classic themes, fractional positioning spreads the face across an extra row or column. The tested Luna faces have the
-native dimensions and differ in RGB. The 12 Luna and 12 Aero live KWin face comparisons also differ in RGB.
+native dimensions and differ in RGB. A 27-pixel PNG export of the same Luna artwork gave mean RGB error of 20.43
+in GTK 3 and 18.07 in GTK 4, within 0.02 of the installed SVGs across 12 states per toolkit. A larger CSS face
+spread across up to 28 pixels and softened the glyph interiors. The installed GTK styles continue to use the SVGs.
+
+Luna at 125% keeps its 27-pixel face inside a 28-pixel SVG canvas, which
+lets KSVG render it at its authored size. All 12 live KWin comparisons reproduce the opaque SVG interior exactly.
+Mean RGB error against the XP guest fell from 7.33 to 2.74 across those 12 faces. The strict VM comparisons for
+Luna and Aero still show RGB differences.
 Aero Restore now clips its top device row at the screen edge when maximized, giving the same 40×29 visible face
 as the 144-DPI VM. [Exact tests by renderer](../tests/visual/parity.py)
 
 On Windows 98 SE, minimizing Notepad left its white client visible as a shrinking title bar travelled toward the taskbar. The system menu was gone at 0.178 s and the desktop had settled by 0.339 s from recording start.
+
+Fresh Windows 98 SE captures at 1280×1024 show a 23-device-pixel strip moving at about 2.9 to 3.2 vertical pixels per
+millisecond in the sampled portions of the two directions. The client stays in place on minimize and appears after
+the strip returns on restore. Windows 95 OSR2 shows the same sequence at 1024×768, with a 23-device-pixel strip and
+measured speeds of 4.3 to 4.6 vertical pixels per millisecond. The KWin presets use the inset Classic title band and
+scale the duration with travel distance in device pixels. The live tests check the client and the speed of the
+travelling strip at 125% for both looks and at 100% for Windows 98. [Live compositor regression](../tests/test_plasma_animations.py)
 
 In the XP SP3 Device Manager minimize recording, the system menu dismissed at 0.181 seconds, the first captured
 travelling title bar appeared at 0.211 seconds, and the destination settled by 0.447 seconds. The original client

@@ -759,6 +759,7 @@ event_effects() { # event_effects <event>   every effect its choices name, and t
 }
 
 configure_zoom_titlebar() {
+  local speed
   if [ "${SETUP_DECORATION:-classic}" = luna ]; then
     kconf kwinrc Effect-chicago95zoom TitleBarHeight 30
     kconf kwinrc Effect-chicago95zoom LunaTitleStrip true
@@ -766,6 +767,13 @@ configure_zoom_titlebar() {
     kconf kwinrc Effect-chicago95zoom TitleBarHeight --delete
     kconf kwinrc Effect-chicago95zoom LunaTitleStrip --delete
   fi
+  # Travelling caption speed in device pixels per millisecond.
+  case "${SETUP_LOOK:-}:${SETUP_DECORATION:-classic}" in
+  1995:classic) speed=4.4 ;;
+  1998:classic) speed=3 ;;
+  *) speed=--delete ;;
+  esac
+  kconf kwinrc Effect-chicago95zoom ClassicStripSpeed "$speed"
 }
 
 step_animations() { # the saved animation choices into KWin, KDE's speed and our own tools; unset events stay as they are
@@ -927,16 +935,16 @@ select_aero_blur() {
   fi
 }
 
-reload_aero_caption() (
+reload_caption_decoration() (
   [ "${SETUP_DRY_RUN:-0}" = 0 ] && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] || return 0
-  local plugins group=org.kde.kdecoration2
+  local theme=$1 plugins group=org.kde.kdecoration2
   plugins=$(qtpaths6 --plugin-dir) || return 0
   [ -f "$plugins/org.kde.kdecoration3/org.kde.breeze.so" ] || return 0
 
   # KWin can retain Aurorae's QML and rasterized SVGs while the same plugin
   # stays loaded. Recreate the decoration without restarting the compositor.
   trap 'kwriteconfig6 --file kwinrc --group "$group" --key library org.kde.kwin.aurorae
-        kwriteconfig6 --file kwinrc --group "$group" --key theme org.chicago95.aero
+        kwriteconfig6 --file kwinrc --group "$group" --key theme "$theme"
         kwin_reconfigure' EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
@@ -946,7 +954,7 @@ reload_aero_caption() (
 )
 
 apply_decoration() {
-  local artwork renderer package plugins theme reapply_aero=0
+  local artwork renderer package plugins theme reapply=0
   artwork=$(decoration_theme)
   theme="__aurorae__svg__$artwork"
   renderer=$(qtpaths6 --locate-file GenericDataLocation kwin/aurorae/aurorae.qml 2>/dev/null) || renderer=
@@ -954,9 +962,6 @@ apply_decoration() {
     apply_aero_glass
     if [ -f "$renderer" ] && [ -f "$(qtpaths6 --query QT_INSTALL_QML)/Qt5Compat/GraphicalEffects/qmldir" ]; then
       theme=org.chicago95.aero
-      if [ "$(kreadconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme)" = "$theme" ]; then
-        reapply_aero=1
-      fi
       package="$HOME/.local/share/kwin/decorations/$theme"
       put_tree "$REPO/aero/aurorae/caption" "$package"
       put_file "$REPO/aurorae/Theme.js" "$package/contents/ui/Theme.js"
@@ -979,10 +984,17 @@ apply_decoration() {
       run python3 "$REPO/aero/aurorae/install_caption.py" "$package" "$HOME/.local/share/aurorae/themes/$artwork" "$renderer"
     fi
   fi
+  case "$theme" in
+  org.chicago95.aero | org.chicago95.luna)
+    if [ "$(kreadconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme)" = "$theme" ]; then
+      reapply=1
+    fi
+    ;;
+  esac
   kconf kwinrc org.kde.kdecoration2 library org.kde.kwin.aurorae
   kconf kwinrc org.kde.kdecoration2 theme "$theme"
   configure_zoom_titlebar
-  if [ "$reapply_aero" = 1 ]; then reload_aero_caption; fi
+  if [ "$reapply" = 1 ]; then reload_caption_decoration "$theme"; fi
 }
 
 apply_aero_glass() {

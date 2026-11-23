@@ -471,19 +471,24 @@ def caption_face_svg(kind, index, large=False):
     return linked_svg(BUTTON, BUTTON, f"<defs>{definitions}</defs>\n{body}")
 
 
-def button_svg(kind, large=False):
+def button_svg(kind, large=False, *, device_canvas=False):
     color = "red" if kind == "close" else "blue"
     arts = stops.BUTTON_ART[color]
+    large = large or device_canvas
     geometry, tiles = large_face_tiles() if large else (face_inset(), ())
     definitions = [geometry]
     groups = []
+    # At 125%, KSvg's integer logical sizes give 26 or 28 device pixels.
+    # Keep the 27px face at its authored size inside the 28px canvas.
+    size = LARGE_CAPTION + 1 if device_canvas else BUTTON
+    cell = size + BUTTON_CELL - BUTTON
     for index, name in enumerate(STATE_NAMES):
         element_id = f"{name}-center"
-        offset = index * BUTTON_CELL
+        offset = index * cell
         placement = "" if index == 0 else f' transform="translate({offset},0)"'
         if index in REUSED_STATES:
             source = REUSED_STATES[index]
-            shift = -source * BUTTON_CELL
+            shift = -source * cell
             groups.append(
                 f'<g id="{element_id}"{placement}><use xlink:href="#{STATE_NAMES[source]}-center" '
                 f'transform="translate({shift},0)"/></g>'
@@ -496,12 +501,15 @@ def button_svg(kind, large=False):
         if large:
             face = large_face_art(prefix, art, tiles)
             glyph = large_glyph_markup(kind, art["glyph"], art_index)
-            body = f'<g transform="scale({1 / LARGE_CAPTION_SCALE:.8f})">{face}{glyph}</g>'
+            if device_canvas:
+                body = f'<rect width="{size}" height="{size}" fill="none"/>{face}{glyph}'
+            else:
+                body = f'<g transform="scale({1 / LARGE_CAPTION_SCALE:.8f})">{face}{glyph}</g>'
         else:
             body = face_art(prefix, art) + glyph_markup(kind, art["glyph"])
         groups.append(f'<g id="{element_id}"{placement}>{body}</g>')
     body = "\n".join([f"<defs>{''.join(definitions)}</defs>", *groups])
-    return linked_svg(len(STATE_NAMES) * BUTTON_CELL, BUTTON, body)
+    return linked_svg(len(STATE_NAMES) * cell, size, body)
 
 
 RC = """[General]
@@ -566,6 +574,8 @@ def write_theme(out, dpi=96):
     for kind in (*DPI_CAPTION_KINDS, "help", "alldesktops", "keepabove", "keepbelow", "shade"):
         large = kind in DPI_CAPTION_KINDS and dpi >= LARGE_CAPTION_DPI
         (out / f"{kind}.svg").write_text(button_svg(kind, large))
+        if kind in DPI_CAPTION_KINDS:
+            (out / f"{kind}-120.svg").write_text(button_svg(kind, device_canvas=True))
     (out / "Chicago95Lunarc").write_text(RC.format(title_h=TITLE_H, border=BORDER, button=BUTTON))
     (out / "metadata.json").write_text(METADATA)
 

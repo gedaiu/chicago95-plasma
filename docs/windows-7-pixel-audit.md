@@ -49,6 +49,10 @@ The table reports mean absolute RGB error out of 255 over the whole button. In a
 
 At framebuffer coordinate (780, 189), increasing the solid backdrop from RGB (24, 24, 24) to (232, 232, 232) changes the native glass from (27, 35, 43) to (168, 200, 232). A constant tint with a single SVG opacity would change all three channels by the same amount. Reproducing that response across backgrounds requires a change in how the backdrop is composited.
 
+The live 144-DPI KWin test now uses those same three desktop colours and compares the adjacent glass separately from the complete button group. With the native Aero blur effect loaded, the glass-column mean RGB errors are 63.92, 31.59 and 29.13 out of 255 on dark, light and blue respectively. The corresponding button-group errors are 22.11, 13.18 and 12.35. [Exact live comparisons](../tests/visual/parity.py)
+
+Removing the SVG tint experimentally improved the button group on dark and light backgrounds and increased its mean RGB error on blue from 12.70 to 15.08. The production tint stays enabled.
+
 ### Caption hover and focus timing
 
 The cross-theme caption test includes 144-DPI Aero captures while the pointer rests on each button and while the mouse button is held. It also compares disabled Maximize and Close in a native Win32 test window and Restore after maximizing Notepad. Those full-face comparisons still have RGB differences. [VM and SVG caption states](compare/caption-states-vms.png) · [Visual tests](../tests/test_caption_states_reference.py)

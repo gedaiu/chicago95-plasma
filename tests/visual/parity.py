@@ -64,6 +64,7 @@ PRESS_WINDOWS = (WINDOW, (160, 470, 559, 699), (610, 470, 1009, 699))
 DISABLED_WINDOW = (610, 150, 1009, 449)
 DISABLED_TITLE = "Caption parity disabled"
 DISABLED_APP = "org.chicago95.test.caption-disabled"
+AERO_MATTES = {"dark": "#181818", "light": "#E8E8E8", "blue": "#446688"}
 
 
 class AeroCaptionWindow(Window):
@@ -83,17 +84,17 @@ def installed():
     folders = []
 
     @cache
-    def prepare(look, setup_scale=1):
+    def prepare(look, setup_scale=1, *, aero_background="#4395D1", screen=(1024, 768)):
         missing = missing_programs()
         assert not missing, f"Missing live-render dependencies: {', '.join(missing)}"
         folder = work_folder(f"parity-{look}")
         folders.append(folder)
         background = (
-            {"settings": [("BACKGROUND_MODE", "color"), ("BACKGROUND_COLOR", "#4395D1")], "components": ["background"]}
+            {"settings": [("BACKGROUND_MODE", "color"), ("BACKGROUND_COLOR", aero_background)], "components": ["background"]}
             if look == "aero"
             else {}
         )
-        return install(look, folder, screen=(1024, 768), launchers=0, setup_scale=setup_scale, **background)
+        return install(look, folder, screen=screen, launchers=0, setup_scale=setup_scale, **background)
 
     yield prepare
     for folder in folders:
@@ -405,6 +406,56 @@ def test_luna_svg_close_glyph_core_matches_windows_pixels(state, svg_themes, vis
     core = np.asarray(Image.fromarray(solid.astype("uint8") * 255).filter(ImageFilter.MinFilter(3))) == 255
     actual = caption_pixels(svg_themes["luna"], "close", state, "luna", background.resize(expected.size))
     exact(expected, actual, visual_output / "winxp" / "caption" / "svg" / state / "close" / "glyph-core", core)
+
+
+@pytest.mark.parametrize(
+    ("state", "index"), [(state, index) for state in CAPTION_STATES for index in state_buttons(state)]
+)
+def test_luna_kwin_preserves_the_authored_120dpi_pixels(state, index, svg_themes, live_kwin, visual_output):
+    look, scale = THEMES["winxp"][1]["look"], THEMES["winxp"][1]["caption_scale"]
+    theme = svg_themes[look]
+    button = "restore" if state == "restore" else BUTTONS[index]
+    face, background = face_region(caption_reference(look), look, state, index)
+    artwork = caption_pixels(theme, button, state, look, background.resize(face.size))
+    live = kwin_face(live_kwin("winxp", theme), theme, look, scale, state, index)
+    # The corners blend with the live title bar. The opaque interior must
+    # land on its authored grid without filtering the glyph or the face.
+    mask = np.zeros((face.height, face.width), dtype=bool)
+    mask[3:-3, 3:-3] = True
+    exact(artwork, live, visual_output / "winxp" / "caption" / "kwin" / state / button / "rasterization", mask)
+
+
+@pytest.fixture(scope="module", params=AERO_MATTES)
+def aero_caption_matte(request, installed, visual_output):
+    matte = request.param
+    path = visual_output / "win7" / "caption" / "kwin" / "mattes" / matte
+    path.mkdir(parents=True, exist_ok=True)
+    session = installed("aero", aero_background=AERO_MATTES[matte], screen=(854, 640))
+    scale = 1.5
+    # Match the native capture's physical title-bar position. The logical
+    # width rounds to a framebuffer one pixel wider than the VM.
+    window = 160, 119, 669, 449
+    image = show(session, windows=[("Caption matte", "qt", window)], scale=scale)
+    image.save(path / "screen.png")
+    (path / "effects.txt").write_text(image.info["loaded_effects"])
+    return matte, path, image
+
+
+@pytest.mark.parametrize("layer", ("glass", "buttons"))
+def test_aero_kwin_caption_matches_windows_on_the_same_backdrop(layer, aero_caption_matte):
+    matte, path, image = aero_caption_matte
+    top = tuple(AERO_MATTES).index(matte) * 30
+    # The PNG stores the flat background, a neighbouring glass column
+    # and then the complete three-button cluster in that order.
+    capture = REFERENCES / "win7-sp1-144dpi-caption-mattes.png"
+    with Image.open(capture) as reference:
+        if layer == "glass":
+            expected = reference.crop((1, top, 2, top + 30)).convert("RGB")
+            actual = image.crop((800, 181, 801, 211))
+        else:
+            expected = reference.crop((2, top, 162, top + 30)).convert("RGB")
+            actual = image.crop((836, 181, 996, 211))
+    exact(expected, actual, path / layer)
 
 
 @pytest.mark.parametrize("matte", DISABLED_CLOSE_MATTES)

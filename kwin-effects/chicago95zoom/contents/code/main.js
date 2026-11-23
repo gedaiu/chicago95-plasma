@@ -2,6 +2,7 @@
 
 // kwinrc [Effect-chicago95zoom]: Minimize, Maximize (setup/animations.conf) and TitleBarHeight.
 const METRICS = { titleBarHeight: 18, durationMs: 260 };
+const CLASSIC_STRIP_INSET = 4;
 const UNCHOSEN = false;
 
 class ZoomEffect {
@@ -19,6 +20,7 @@ class ZoomEffect {
     this.zoomsMaximize = effect.readConfig("Maximize", UNCHOSEN);
     this.titleBarHeight = effect.readConfig("TitleBarHeight", METRICS.titleBarHeight);
     this.lunaTitleStrip = effect.readConfig("LunaTitleStrip", false);
+    this.classicStripSpeed = effect.readConfig("ClassicStripSpeed", 0);
   }
 
   manage(window) {
@@ -31,7 +33,7 @@ class ZoomEffect {
 
   zoomToButton(window) {
     if (!this.zoomsMinimize || !hasButton(window) || effects.hasActiveFullScreenEffect) return;
-    if (this.playLunaStrip(window, true)) return;
+    if (this.playTitleStrip(window, true)) return;
     this.play(
       window,
       minimizeKeyframes(window.geometry, window.iconGeometry, this.titleBarHeight),
@@ -41,7 +43,7 @@ class ZoomEffect {
 
   zoomFromButton(window) {
     if (!this.zoomsMinimize || !hasButton(window) || effects.hasActiveFullScreenEffect) return;
-    if (this.playLunaStrip(window, false)) return;
+    if (this.playTitleStrip(window, false)) return;
     this.play(
       window,
       restoreKeyframes(window.geometry, window.iconGeometry, this.titleBarHeight),
@@ -54,16 +56,17 @@ class ZoomEffect {
     this.play(window, maximizeKeyframes(window.zoomFrom, window.geometry, this.titleBarHeight), QEasingCurve.OutCubic);
   }
 
-  playLunaStrip(window, minimizing) {
-    if (!this.lunaTitleStrip || !window.normalWindow) return false;
+  playTitleStrip(window, minimizing) {
+    if ((!this.lunaTitleStrip && !this.classicStripSpeed) || !window.normalWindow) return false;
     const frame = window.geometry;
     const texture = window.expandedGeometry;
-    if (!texture?.width || !texture.height || !frame.width || !frame.height) return false;
+    const inset = this.classicStripSpeed ? CLASSIC_STRIP_INSET : 0;
+    if (!texture?.width || !texture.height || frame.width <= 2 * inset || frame.height <= inset) return false;
     if (this.stripShader === undefined) {
       try {
         this.stripShader = effect.addFragmentShader(Effect.MapTexture, "title-strip.frag");
       } catch (error) {
-        console.warn("Luna title strip shader unavailable:", error);
+        console.warn("Window title strip shader unavailable:", error);
         this.stripShader = 0;
       }
     }
@@ -71,7 +74,13 @@ class ZoomEffect {
     if (window.zoomAnimation) cancel(window.zoomAnimation);
     delete window.zoomSteps;
 
-    const { canvas, uniforms } = lunaStripGeometry(frame, texture, window.iconGeometry, this.titleBarHeight, minimizing);
+    const { canvas, uniforms } = titleStripGeometry(
+      frame, texture, window.iconGeometry, this.titleBarHeight, minimizing, inset,
+    );
+    const outputScale = window.screen?.devicePixelRatio || window.screen?.scale || 1;
+    const duration = this.classicStripSpeed
+      ? animationTime(classicStripDuration(uniforms, outputScale, this.classicStripSpeed))
+      : this.duration;
     const transform = placement(canvas, frame);
     const uniformTracks = Object.entries(uniforms).map(([uniform, value]) => ({
       type: Effect.ShaderUniform,
@@ -81,7 +90,7 @@ class ZoomEffect {
     }));
     window.zoomAnimation = animate({
       window,
-      duration: this.duration,
+      duration,
       curve: QEasingCurve.Linear,
       fragmentShader: this.stripShader,
       keepAlive: false,
@@ -131,8 +140,8 @@ class ZoomEffect {
   }
 }
 
-function lunaStripGeometry(frame, texture, button, titleHeight, minimizing) {
-  const height = Math.min(titleHeight, frame.height, button.height);
+function titleStripGeometry(frame, texture, button, titleHeight, minimizing, inset = 0) {
+  const height = Math.min(titleHeight, frame.height - inset, button.height);
   const taskY = button.y + (button.height - height) / 2;
   const left = Math.min(texture.x, button.x);
   const top = Math.min(texture.y, taskY);
@@ -156,9 +165,9 @@ function lunaStripGeometry(frame, texture, button, titleHeight, minimizing) {
       canvasHeight: bottom - top,
       sourceWidth: texture.width,
       sourceHeight: texture.height,
-      stripX: frame.x - texture.x,
-      stripY: frame.y - texture.y,
-      stripWidth: frame.width,
+      stripX: frame.x + inset - texture.x,
+      stripY: frame.y + inset - texture.y,
+      stripWidth: frame.width - 2 * inset,
       stripHeight: height,
       taskX: button.x - texture.x,
       taskY: taskY - texture.y,
@@ -166,6 +175,11 @@ function lunaStripGeometry(frame, texture, button, titleHeight, minimizing) {
       minimizing: minimizing ? 1 : 0,
     },
   };
+}
+
+function classicStripDuration({ stripX, stripY, taskX, taskY }, scale, speed) {
+  const distance = Math.hypot(taskX - stripX, taskY - stripY);
+  return Math.max(1, Math.round(distance * scale / speed));
 }
 
 function metrics() {

@@ -8,6 +8,8 @@ SystemAurorae {
     id: frame
     readonly property real outputScale: decoration.client.scale || 1
     readonly property bool classicCaptionAt120Dpi: auroraeTheme.followsScheme && outputScale === 1.25
+    readonly property bool lunaCaptionAt120Dpi: auroraeTheme.alignCaptionPixels && outputScale === 1.25
+        && auroraeTheme.buttonSizeFactor === 1
     readonly property var buttonGroups: children.filter(item =>
         item.animate !== undefined && item.buttons !== undefined)
     readonly property var auroraeTheme: {
@@ -94,16 +96,15 @@ SystemAurorae {
                         y: Math.round(stateDelegate.origin.y * frame.outputScale) / frame.outputScale
                         // KSvg multiplies the requested size by the output DPR.
                         // Classic has a device-size master for this scale.
-                        width: frame.classicCaptionAt120Dpi
-                            ? Math.ceil(stateDelegate.control.width * frame.outputScale) / frame.outputScale
-                            : Math.ceil(stateDelegate.control.width * frame.outputScale)
-                        height: frame.classicCaptionAt120Dpi
-                            ? Math.ceil(stateDelegate.control.height * frame.outputScale) / frame.outputScale
-                            : Math.ceil(stateDelegate.control.height * frame.outputScale)
-                        scale: frame.classicCaptionAt120Dpi ? 1 : 1 / frame.outputScale
+                        readonly property bool deviceCanvas: frame.classicCaptionAt120Dpi || frame.lunaCaptionAt120Dpi
+                        readonly property real rasterScale: deviceCanvas ? frame.outputScale : 1
+                        readonly property int extraPixel: frame.lunaCaptionAt120Dpi ? 1 : 0
+                        width: (Math.ceil(stateDelegate.control.width * frame.outputScale) + extraPixel) / rasterScale
+                        height: (Math.ceil(stateDelegate.control.height * frame.outputScale) + extraPixel) / rasterScale
+                        scale: rasterScale / frame.outputScale
                         transformOrigin: Item.TopLeft
                         smooth: false
-                        imagePath: frame.classicCaptionAt120Dpi
+                        imagePath: deviceCanvas
                             ? stateDelegate.modelData.imagePath.replace(/\.svg$/, "-120.svg")
                             : stateDelegate.modelData.imagePath
                         elementId: stateDelegate.modelData.prefix + "-center"

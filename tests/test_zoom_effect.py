@@ -123,8 +123,8 @@ def test_minimizing_folds_the_window_into_the_decorations_own_title_bar_height(z
 def test_luna_title_strip_travels_from_the_frame_to_the_center_of_the_task_button(zoom):
     texture = {"x": 90, "y": 40, "width": 420, "height": 320}
     button = {"x": 20, "y": 452, "width": 160, "height": 40}
-    minimized = call(zoom, "lunaStripGeometry", FRAME, texture, button, LUNA_TITLE_BAR, True)
-    restored = call(zoom, "lunaStripGeometry", FRAME, texture, button, LUNA_TITLE_BAR, False)
+    minimized = call(zoom, "titleStripGeometry", FRAME, texture, button, LUNA_TITLE_BAR, True)
+    restored = call(zoom, "titleStripGeometry", FRAME, texture, button, LUNA_TITLE_BAR, False)
     assert minimized["uniforms"] == {
         "canvasX": -70,
         "canvasY": 0,
@@ -142,3 +142,11 @@ def test_luna_title_strip_travels_from_the_frame_to_the_center_of_the_task_butto
         "minimizing": 1,
     }
     assert restored == {**minimized, "uniforms": {**minimized["uniforms"], "minimizing": 0}}
+
+
+def test_classic_style_moves_the_inset_caption_band_at_the_measured_device_pixel_speed(zoom):
+    uniforms = call(zoom, "titleStripGeometry", FRAME, FRAME, ICON, 18, True, 4)["uniforms"]
+    assert (uniforms["stripX"], uniforms["stripY"], uniforms["stripWidth"], uniforms["stripHeight"]) == (4, 4, 392, 18)
+    assert call(zoom, "classicStripDuration", uniforms, 1, 3) == 137
+    assert call(zoom, "classicStripDuration", uniforms, 1.25, 3) == 171
+    assert call(zoom, "classicStripDuration", uniforms, 1.25, 4.4) == 117
