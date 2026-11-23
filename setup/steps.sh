@@ -759,7 +759,7 @@ event_effects() { # event_effects <event>   every effect its choices name, and t
 }
 
 configure_zoom_titlebar() {
-  local speed
+  local speed palette=--delete instant=--delete active="${SETUP_TITLE_ACTIVE:-#000080}"
   if [ "${SETUP_DECORATION:-classic}" = luna ]; then
     kconf kwinrc Effect-chicago95zoom TitleBarHeight 30
     kconf kwinrc Effect-chicago95zoom LunaTitleStrip true
@@ -769,11 +769,17 @@ configure_zoom_titlebar() {
   fi
   # Travelling caption speed in device pixels per millisecond.
   case "${SETUP_LOOK:-}:${SETUP_DECORATION:-classic}" in
-  1995:classic) speed=4.4 ;;
-  1998:classic) speed=3 ;;
+  1995:classic) speed=4.4; palette="${active%%,*}" ;;
+  1998:classic) speed=3; palette="${active%%,*}" ;;
+  2000:classic) speed=3.1; palette="${active%%,*},${active##*,}" ;;
+  2001:classic) speed=3.3; palette="${active%%,*},${active##*,}"; instant=true ;;
   *) speed=--delete ;;
   esac
   kconf kwinrc Effect-chicago95zoom ClassicStripSpeed "$speed"
+  kconf kwinrc Effect-chicago95zoom ClassicStripPalette "$palette"
+  # Keep saved Zoom choices from folding the whole client in the XP presets.
+  [ "${SETUP_DECORATION:-classic}" != luna ] || instant=true
+  kconf kwinrc Effect-chicago95zoom InstantMaximize "$instant"
 }
 
 step_animations() { # the saved animation choices into KWin, KDE's speed and our own tools; unset events stay as they are

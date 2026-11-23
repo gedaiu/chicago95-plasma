@@ -642,14 +642,26 @@ def test_luna_animation_setup_enables_the_title_strip_at_the_luna_decoration_hei
     log = animations_log(tmp_path, "LOOK=luna\nANIM_MINIMIZE=zoom\n")
     assert kwriteconfig("kwinrc", "Effect-chicago95zoom", "TitleBarHeight", "30") in log
     assert kwriteconfig("kwinrc", "Effect-chicago95zoom", "LunaTitleStrip", "true") in log
+    assert kwriteconfig("kwinrc", "Effect-chicago95zoom", "InstantMaximize", "true") in log
     assert "org.kde.kwin.Effects.unloadEffect chicago95zoom" in log
     assert "org.kde.kwin.Effects.loadEffect chicago95zoom" in log
 
 
-@pytest.mark.parametrize(("look", "speed"), [("1995", "4.4"), ("1998", "3")])
-def test_classic_animation_setup_uses_each_looks_travelling_title_strip_speed(tmp_path, look, speed):
+@pytest.mark.parametrize(
+    ("look", "speed", "palette"),
+    [
+        ("1995", "4.4", "#000080"),
+        ("1998", "3", "#000080"),
+        ("2000", "3.1", "#0A246A,#A6CAF0"),
+        ("2001", "3.3", "#0A246A,#A6CAF0"),
+    ],
+)
+def test_classic_animation_setup_uses_each_looks_travelling_title_strip(tmp_path, look, speed, palette):
     log = animations_log(tmp_path, f"LOOK={look}\nANIM_MINIMIZE=zoom\n")
     assert kwriteconfig("kwinrc", "Effect-chicago95zoom", "ClassicStripSpeed", speed) in log
+    assert kwriteconfig("kwinrc", "Effect-chicago95zoom", "ClassicStripPalette", palette) in log
+    instant = "true" if look == "2001" else "--delete"
+    assert kwriteconfig("kwinrc", "Effect-chicago95zoom", "InstantMaximize", instant) in log
 
 
 def test_minimize_with_magic_lamp_turns_it_on_and_the_events_other_effects_off(tmp_path):
@@ -1534,6 +1546,8 @@ def test_reapplying_the_look_reloads_running_decoration_without_restarting_kwin(
         f"theme org.chicago95.{style}",
         *zoom_config,
         "ClassicStripSpeed --delete",
+        "ClassicStripPalette --delete",
+        "InstantMaximize " + ("true" if style == "luna" else "--delete"),
         "library org.kde.breeze",
         "theme Breeze",
         "reconfigure",

@@ -84,6 +84,14 @@ measured speeds of 4.3 to 4.6 vertical pixels per millisecond. The KWin presets 
 scale the duration with travel distance in device pixels. The live tests check the client and the speed of the
 travelling strip at 125% for both looks and at 100% for Windows 98. [Live compositor regression](../tests/test_plasma_animations.py)
 
+In the Windows 2000 Professional and XP Classic captures at 1280×1024, both 23-device-pixel strips also move
+independently of the window client. The measured vertical speed was 3.10 to 3.15 pixels per millisecond for
+Windows 2000 and 3.29 to 3.37 for XP Classic. Setup uses these timings for the two presets.
+The 95 and 98 recordings show a solid navy strip in both directions. Windows 2000 and XP Classic
+draw the active blue gradient at the full caption width and clip it as the strip narrows. KWin now
+paints those fills independently of the window's focus state and preserves the title and icon from
+the caption. The live tests also check for the active blue palette during restore.
+
 In the XP SP3 Device Manager minimize recording, the system menu dismissed at 0.181 seconds, the first captured
 travelling title bar appeared at 0.211 seconds, and the destination settled by 0.447 seconds. The original client
 stayed visible under the travelling title strip. A later Notepad capture also showed the strip returning before
@@ -96,6 +104,12 @@ detectable movement spanned 217 to 234 ms of the configured 260 ms animation. Th
 configuration schema and reloads an enabled copy so saved animation settings take effect. XP draws a dedicated
 horizontal-gradient strip during both directions. KWin's strip uses the existing caption artwork, including its
 inactive tint during restore. [Live KWin regression](../tests/test_plasma_animations.py)
+
+The XP SP3 Luna maximize and restore captures show the title travelling across a stationary client in both
+directions. The earlier KWin effect scaled the entire client during its fold and left flashing regions after
+maximize. The two XP presets now use an immediate resize. The regression clicks the caption buttons with
+the older zoom setting explicitly selected and checks the visible client and the settled bounds.
+[Live regression](../tests/test_plasma_animations.py)
 
 Windows 2000 Professional at 1280×1024 and 120 DPI showed “Saving your settings...” by 0.290 and 0.301 seconds after confirmation. The blue desktop had cleared by 1.808 and 1.818 seconds. Libvirt reported power off at 2.122 and 2.148 seconds, respectively. These are first observations in two trials. The native 96-DPI confirmation dialog measured 417×269 and its frame passed the RGB565 comparison.
 

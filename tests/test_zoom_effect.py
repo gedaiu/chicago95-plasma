@@ -80,6 +80,24 @@ def test_maximizing_folds_flies_and_unfolds_in_three_equal_steps(zoom):
     )
 
 
+def test_xp_instant_maximize_bypasses_a_saved_fold_animation(zoom):
+    evaluate(
+        zoom,
+        f"""config = {{ Maximize: true, InstantMaximize: true }};
+        handlers.configChanged();
+        var window = {{
+            visible: true, geometry: {json.dumps(FRAME)}, minimizedChanged: signal("minimizedChanged"),
+            windowMaximizedStateAboutToChange: signal("aboutToMaximize"),
+            windowMaximizedStateChanged: signal("maximized")
+        }};
+        handlers.windowAdded(window);
+        handlers.aboutToMaximize(window);
+        window.geometry = {{x: 0, y: 0, width: 640, height: 452}};
+        handlers.maximized(window);""",
+    )
+    assert evaluate(zoom, "started.length") == 0
+
+
 def minimize_window(zoom, icon):
     window = json.dumps({"geometry": FRAME, "iconGeometry": icon, "minimized": True})
     evaluate(

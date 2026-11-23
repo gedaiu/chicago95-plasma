@@ -17,10 +17,14 @@ class ZoomEffect {
   loadConfig() {
     this.duration = animationTime(METRICS.durationMs);
     this.zoomsMinimize = effect.readConfig("Minimize", UNCHOSEN);
-    this.zoomsMaximize = effect.readConfig("Maximize", UNCHOSEN);
+    this.zoomsMaximize = effect.readConfig("Maximize", UNCHOSEN) && !effect.readConfig("InstantMaximize", false);
     this.titleBarHeight = effect.readConfig("TitleBarHeight", METRICS.titleBarHeight);
     this.lunaTitleStrip = effect.readConfig("LunaTitleStrip", false);
     this.classicStripSpeed = effect.readConfig("ClassicStripSpeed", 0);
+    const palette = effect.readConfig("ClassicStripPalette", "");
+    this.classicStripPalette = /^(#[0-9a-f]{6})(,#[0-9a-f]{6})?$/i.test(palette)
+      ? palette.split(",").map((color) => parseInt(color.slice(1), 16))
+      : [];
   }
 
   manage(window) {
@@ -77,6 +81,9 @@ class ZoomEffect {
     const { canvas, uniforms } = titleStripGeometry(
       frame, texture, window.iconGeometry, this.titleBarHeight, minimizing, inset,
     );
+    const [start = -1, end = start] = inset && window.hasDecoration ? this.classicStripPalette : [];
+    uniforms.classicStart = start;
+    uniforms.classicEnd = end;
     const outputScale = window.screen?.devicePixelRatio || window.screen?.scale || 1;
     const duration = this.classicStripSpeed
       ? animationTime(classicStripDuration(uniforms, outputScale, this.classicStripSpeed))

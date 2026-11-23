@@ -100,6 +100,16 @@ def plasma_style_command(style, scheme, bevel):
     ]
 
 
+def sync_zoom_palette(scheme):
+    key = ["--file", "kwinrc", "--group", "Effect-chicago95zoom", "--key", "ClassicStripPalette"]
+    current = subprocess.run(["kreadconfig6", *key], capture_output=True, text=True, check=True).stdout.strip()
+    if current:
+        start = scheme["title_active"].name()
+        palette = f'{start},{scheme["title_active_blend"].name()}' if "," in current else start
+        if palette != current:
+            subprocess.run(["kwriteconfig6", *key, palette], check=True)
+
+
 def main():
     settings = chicago95ui.look_settings()
     scheme, bevel = chicago95ui.read_scheme(), settings["bevel"]
@@ -119,6 +129,8 @@ def main():
     # Aero's glass has no title colours to follow; the other decorations are drawn in the scheme's.
     if decoration in DECORATION_THEMES:
         subprocess.run(decoration_command(decoration, arguments, dpi), check=True, stdout=subprocess.DEVNULL)
+    if decoration == "classic":
+        sync_zoom_palette(scheme)
     # Aero's glass bar, like its frame, follows no title colours.
     if plasma_style in PLASMA_STYLE_THEMES and PLASMA_STYLE_THEMES[plasma_style][1].exists():
         subprocess.run(plasma_style_command(plasma_style, scheme, bevel), check=True, stdout=subprocess.DEVNULL)
