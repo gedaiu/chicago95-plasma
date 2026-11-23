@@ -62,7 +62,18 @@ All 72 face comparisons differ at strict RGB tolerance. The table shows the high
 
 On Windows 98 SE, minimizing Notepad left its white client visible as a shrinking title bar travelled toward the taskbar. The system menu was gone at 0.178 s and the desktop had settled by 0.339 s from recording start.
 
-In the XP SP3 Device Manager minimize recording, the system menu dismissed at 0.181 seconds, the first captured travelling title bar appeared at 0.211 seconds, and the destination settled by 0.447 seconds. The original window body stayed visible under the travelling title bar. The shared KWin effect scales the window itself. Matching its duration alone would leave that visual difference.
+In the XP SP3 Device Manager minimize recording, the system menu dismissed at 0.181 seconds, the first captured
+travelling title bar appeared at 0.211 seconds, and the destination settled by 0.447 seconds. The original client
+stayed visible under the travelling title strip. A later Notepad capture also showed the strip returning before
+the client appeared on restore.
+
+The Luna KWin effect now moves a crop of the live title bar. The client stays in place until minimize completes and
+appears when restore completes. The recorded regression checks that the strip travels at least 200 logical pixels
+while the client stays in place or stays hidden, respectively, at both 100% and 150% scale. In the recorded runs,
+detectable movement spanned 217 to 234 ms of the configured 260 ms animation. The setup step installs the effect's
+configuration schema and reloads an enabled copy so saved animation settings take effect. XP draws a dedicated
+horizontal-gradient strip during both directions. KWin's strip uses the existing caption artwork, including its
+inactive tint during restore. [Live KWin regression](../tests/test_plasma_animations.py)
 
 Windows 2000 Professional at 1280×1024 and 120 DPI showed “Saving your settings...” by 0.290 and 0.301 seconds after confirmation. The blue desktop had cleared by 1.808 and 1.818 seconds. Libvirt reported power off at 2.122 and 2.148 seconds, respectively. These are first observations in two trials. The native 96-DPI confirmation dialog measured 417×269 and its frame passed the RGB565 comparison.
 

@@ -1,6 +1,6 @@
 "use strict";
 
-// kwinrc [Effect-chicago95zoom]: Minimize, Maximize (setup/animations.conf) and TitleBarHeight (Luna's is 29).
+// kwinrc [Effect-chicago95zoom]: Minimize, Maximize (setup/animations.conf) and TitleBarHeight.
 const METRICS = { titleBarHeight: 18, durationMs: 260 };
 const UNCHOSEN = false;
 
@@ -18,6 +18,7 @@ class ZoomEffect {
     this.zoomsMinimize = effect.readConfig("Minimize", UNCHOSEN);
     this.zoomsMaximize = effect.readConfig("Maximize", UNCHOSEN);
     this.titleBarHeight = effect.readConfig("TitleBarHeight", METRICS.titleBarHeight);
+    this.lunaTitleStrip = effect.readConfig("LunaTitleStrip", false);
   }
 
   manage(window) {
@@ -30,6 +31,7 @@ class ZoomEffect {
 
   zoomToButton(window) {
     if (!this.zoomsMinimize || !hasButton(window) || effects.hasActiveFullScreenEffect) return;
+    if (this.playLunaStrip(window, true)) return;
     this.play(
       window,
       minimizeKeyframes(window.geometry, window.iconGeometry, this.titleBarHeight),
@@ -39,6 +41,7 @@ class ZoomEffect {
 
   zoomFromButton(window) {
     if (!this.zoomsMinimize || !hasButton(window) || effects.hasActiveFullScreenEffect) return;
+    if (this.playLunaStrip(window, false)) return;
     this.play(
       window,
       restoreKeyframes(window.geometry, window.iconGeometry, this.titleBarHeight),
@@ -49,6 +52,45 @@ class ZoomEffect {
   zoomBetweenFrames(window) {
     if (!this.zoomsMaximize || !window.visible || !window.zoomFrom) return;
     this.play(window, maximizeKeyframes(window.zoomFrom, window.geometry, this.titleBarHeight), QEasingCurve.OutCubic);
+  }
+
+  playLunaStrip(window, minimizing) {
+    if (!this.lunaTitleStrip || !window.normalWindow) return false;
+    const frame = window.geometry;
+    const texture = window.expandedGeometry;
+    if (!texture?.width || !texture.height || !frame.width || !frame.height) return false;
+    if (this.stripShader === undefined) {
+      try {
+        this.stripShader = effect.addFragmentShader(Effect.MapTexture, "title-strip.frag");
+      } catch (error) {
+        console.warn("Luna title strip shader unavailable:", error);
+        this.stripShader = 0;
+      }
+    }
+    if (!this.stripShader) return false;
+    if (window.zoomAnimation) cancel(window.zoomAnimation);
+    delete window.zoomSteps;
+
+    const { canvas, uniforms } = lunaStripGeometry(frame, texture, window.iconGeometry, this.titleBarHeight, minimizing);
+    const transform = placement(canvas, frame);
+    const uniformTracks = Object.entries(uniforms).map(([uniform, value]) => ({
+      type: Effect.ShaderUniform,
+      from: value,
+      to: value,
+      uniform,
+    }));
+    window.zoomAnimation = animate({
+      window,
+      duration: this.duration,
+      curve: QEasingCurve.Linear,
+      fragmentShader: this.stripShader,
+      keepAlive: false,
+      animations: [
+        { type: Effect.Size, from: transform.size, to: transform.size },
+        { type: Effect.Translation, from: transform.translation, to: transform.translation },
+      ].concat(uniformTracks),
+    });
+    return true;
   }
 
   play(window, keyframes, curve) {
@@ -75,10 +117,10 @@ class ZoomEffect {
   }
 
   continueZoom(window, animation) {
-    if (!window.zoomSteps || firstAnimation(window.zoomAnimation) !== animation) return;
+    if (firstAnimation(window.zoomAnimation) !== animation) return;
     const finished = window.zoomAnimation;
 
-    if (window.zoomSteps.length === 0) {
+    if (!window.zoomSteps?.length) {
       delete window.zoomAnimation;
 
       return;
@@ -87,6 +129,43 @@ class ZoomEffect {
     this.startStep(window);
     cancel(finished);
   }
+}
+
+function lunaStripGeometry(frame, texture, button, titleHeight, minimizing) {
+  const height = Math.min(titleHeight, frame.height, button.height);
+  const taskY = button.y + (button.height - height) / 2;
+  const left = Math.min(texture.x, button.x);
+  const top = Math.min(texture.y, taskY);
+  const right = Math.max(texture.x + texture.width, button.x + button.width);
+  const bottom = Math.max(texture.y + texture.height, taskY + height);
+  const sx = (right - left) / texture.width;
+  const sy = (bottom - top) / texture.height;
+  return {
+    // KWin scales the expanded texture about the frame. Position the frame
+    // so the decorated texture, including any shadow, covers the canvas.
+    canvas: {
+      x: left + (frame.x - texture.x) * sx,
+      y: top + (frame.y - texture.y) * sy,
+      width: frame.width * sx,
+      height: frame.height * sy,
+    },
+    uniforms: {
+      canvasX: left - texture.x,
+      canvasY: top - texture.y,
+      canvasWidth: right - left,
+      canvasHeight: bottom - top,
+      sourceWidth: texture.width,
+      sourceHeight: texture.height,
+      stripX: frame.x - texture.x,
+      stripY: frame.y - texture.y,
+      stripWidth: frame.width,
+      stripHeight: height,
+      taskX: button.x - texture.x,
+      taskY: taskY - texture.y,
+      taskWidth: button.width,
+      minimizing: minimizing ? 1 : 0,
+    },
+  };
 }
 
 function metrics() {

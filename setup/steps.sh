@@ -758,9 +758,20 @@ event_effects() { # event_effects <event>   every effect its choices name, and t
   effects_in_category "$(animation_category "$1")"
 }
 
+configure_zoom_titlebar() {
+  if [ "${SETUP_DECORATION:-classic}" = luna ]; then
+    kconf kwinrc Effect-chicago95zoom TitleBarHeight 30
+    kconf kwinrc Effect-chicago95zoom LunaTitleStrip true
+  else
+    kconf kwinrc Effect-chicago95zoom TitleBarHeight --delete
+    kconf kwinrc Effect-chicago95zoom LunaTitleStrip --delete
+  fi
+}
+
 step_animations() { # the saved animation choices into KWin, KDE's speed and our own tools; unset events stay as they are
   put_tree "$REPO/kwin-effects/chicago95zoom" ~/.local/share/kwin/effects/chicago95zoom
   put_tree "$REPO/kwin-effects/chicago95aerominimize" ~/.local/share/kwin/effects/chicago95aerominimize
+  [[ " ${COMPONENTS:-} " == *" look "* ]] || configure_zoom_titlebar
   local key value token effect
   local -A managed=() chosen=()
   local order=()
@@ -799,6 +810,16 @@ step_animations() { # the saved animation choices into KWin, KDE's speed and our
     [[ "$token" == */* ]] || continue
     kconf kwinrc "Effect-${token%%/*}" "${token#*/}" "$([ -n "${chosen[$token]+x}" ] && echo true || echo false)"
   done
+  local zoom_enabled=${switched[chicago95zoom]:-}
+  if [ -z "$zoom_enabled" ]; then
+    zoom_enabled=$(kreadconfig6 --file kwinrc --group Plugins --key chicago95zoomEnabled --default false) || zoom_enabled=false
+  fi
+  if [ "$zoom_enabled" = true ]; then
+    # A running scripted effect keeps the schema and code it was loaded with.
+    kwin_reconfigure
+    run gdbus call --session --dest org.kde.KWin --object-path /Effects --method org.kde.kwin.Effects.unloadEffect chicago95zoom >/dev/null 2>&1 || true
+    run gdbus call --session --dest org.kde.KWin --object-path /Effects --method org.kde.kwin.Effects.loadEffect chicago95zoom >/dev/null 2>&1 || true
+  fi
   if [[ " ${COMPONENTS:-} " != *" look "* && -n "${SETUP_ANIM_WOBBLY:-}" ]] &&
     [[ "$(kreadconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme)" =~ ^(__aurorae__svg__Chicago95Aero|org\.chicago95\.aero)$ ]]; then
     select_aero_blur
@@ -960,6 +981,7 @@ apply_decoration() {
   fi
   kconf kwinrc org.kde.kdecoration2 library org.kde.kwin.aurorae
   kconf kwinrc org.kde.kdecoration2 theme "$theme"
+  configure_zoom_titlebar
   if [ "$reapply_aero" = 1 ]; then reload_aero_caption; fi
 }
 

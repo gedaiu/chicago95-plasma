@@ -111,10 +111,34 @@ def test_a_window_without_a_taskbar_button_is_left_to_minimize_without_zooming(z
     assert minimize_window(zoom, {"x": 0, "y": 0, "width": 0, "height": 0}) == []
 
 
-LUNA_TITLE_BAR = 29
+LUNA_TITLE_BAR = 30
 
 
 def test_minimizing_folds_the_window_into_the_decorations_own_title_bar_height(zoom):
     keyframes = call(zoom, "minimizeKeyframes", FRAME, ICON, LUNA_TITLE_BAR)
     folded = call(zoom, "segments", keyframes, FRAME, 260)[0]["to"]["size"]
     assert folded == {"value1": 400, "value2": LUNA_TITLE_BAR}
+
+
+def test_luna_title_strip_travels_from_the_frame_to_the_center_of_the_task_button(zoom):
+    texture = {"x": 90, "y": 40, "width": 420, "height": 320}
+    button = {"x": 20, "y": 452, "width": 160, "height": 40}
+    minimized = call(zoom, "lunaStripGeometry", FRAME, texture, button, LUNA_TITLE_BAR, True)
+    restored = call(zoom, "lunaStripGeometry", FRAME, texture, button, LUNA_TITLE_BAR, False)
+    assert minimized["uniforms"] == {
+        "canvasX": -70,
+        "canvasY": 0,
+        "canvasWidth": 490,
+        "canvasHeight": 447,
+        "sourceWidth": 420,
+        "sourceHeight": 320,
+        "stripX": 10,
+        "stripY": 10,
+        "stripWidth": 400,
+        "stripHeight": 30,
+        "taskX": -70,
+        "taskY": 417,
+        "taskWidth": 160,
+        "minimizing": 1,
+    }
+    assert restored == {**minimized, "uniforms": {**minimized["uniforms"], "minimizing": 0}}

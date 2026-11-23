@@ -638,6 +638,14 @@ def written(log, lines):
     return {line: line in log for line in lines}
 
 
+def test_luna_animation_setup_enables_the_title_strip_at_the_luna_decoration_height(tmp_path):
+    log = animations_log(tmp_path, "LOOK=luna\nANIM_MINIMIZE=zoom\n")
+    assert kwriteconfig("kwinrc", "Effect-chicago95zoom", "TitleBarHeight", "30") in log
+    assert kwriteconfig("kwinrc", "Effect-chicago95zoom", "LunaTitleStrip", "true") in log
+    assert "org.kde.kwin.Effects.unloadEffect chicago95zoom" in log
+    assert "org.kde.kwin.Effects.loadEffect chicago95zoom" in log
+
+
 def test_minimize_with_magic_lamp_turns_it_on_and_the_events_other_effects_off(tmp_path):
     log = animations_log(tmp_path, "ANIM_MINIMIZE=magiclamp\n")
     lines = (
@@ -1508,6 +1516,8 @@ def test_reapplying_aero_reloads_running_decoration_without_restarting_kwin(tmp_
     assert commands == [
         "library org.kde.kwin.aurorae",
         "theme org.chicago95.aero",
+        "TitleBarHeight --delete",
+        "LunaTitleStrip --delete",
         "library org.kde.breeze",
         "theme Breeze",
         "reconfigure",
