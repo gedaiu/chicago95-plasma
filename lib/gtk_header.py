@@ -1,4 +1,4 @@
-"""GTK 4's headers as 9x windows, for the title bar block in gtk.css.
+"""Classic Windows title bars and caption faces for the GTK 3 and GTK 4 stylesheets.
 
     gtk_header.py [--active C[,C]] [--inactive C[,C]] [--inactive-text C]
                   [--face C] [--light C] [--shadow C] [--dark C]
@@ -18,11 +18,15 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "aurorae"))
-from bevel import CAPTION_H, CAPTION_W, caption_face, caption_glyph, svg  # noqa: E402
+from bevel import CAPTION_H, CAPTION_W, caption_face, caption_glyph, disabled_caption_glyph, svg  # noqa: E402
 
-# The theme's own rules name a side (windowcontrols.end > button) and come in through an @import in the same sheet:
-# naming the header bar too outranks every one of them.
-SIDES = ("headerbar windowcontrols.start > button", "headerbar windowcontrols.end > button")
+# GTK 4 names the side of its window controls. GTK 3 and custom headers
+# expose the same actions as titlebutton widgets.
+CAPTION_BUTTONS = (
+    "headerbar windowcontrols.start > button",
+    "headerbar windowcontrols.end > button",
+    "headerbar button.titlebutton",
+)
 # 9x leaves 2px before the close button; minimize and maximize sit flush.
 CLOSE_GAP = 2
 STRIP = "toolbarview > .top-bar headerbar:not(.default-decoration)"
@@ -50,15 +54,22 @@ TOOLS = f"{STRIP} button.image-button, {STRIP} splitbutton > button"
 SPLIT_ARROW = f"{STRIP} splitbutton > menubutton > button"
 
 
-def face_url(kind, colours, pressed):
+def face_url(kind, colours, pressed, disabled, assets):
     shift = 1 if pressed else 0
-    body = caption_face(0, 0, colours, pressed) + caption_glyph(kind, "#000000", shift, shift)
-    data = base64.b64encode(svg(CAPTION_W, CAPTION_H, body).encode()).decode()
+    glyph = disabled_caption_glyph(kind, colours[2], 0, 0) if disabled else caption_glyph(kind, "#000000", shift, shift)
+    body = caption_face(0, 0, colours, pressed) + glyph
+    artwork = svg(CAPTION_W, CAPTION_H, body)
+    if assets is not None:
+        state = "disabled" if disabled else "pressed" if pressed else "normal"
+        path = assets / f"{kind}-{state}.svg"
+        path.write_text(artwork)
+        return f'url("{path.resolve().as_uri()}")'
+    data = base64.b64encode(artwork.encode()).decode()
     return f'url("data:image/svg+xml;base64,{data}")'
 
 
 def buttons(suffix="", ancestor=""):
-    return ", ".join(f"{ancestor}{side}{suffix}" for side in SIDES)
+    return ", ".join(f"{ancestor}{selector}{suffix}" for selector in CAPTION_BUTTONS)
 
 
 GTK4_ONLY = re.compile(r"(?<![\w-])(?:filter|-gtk-icon-size|border-spacing):[^;}]*;?\n?")
@@ -74,8 +85,10 @@ def rule(selector, **properties):
     return f"{selector} {{\n{body}}}\n"
 
 
-def caption_css(face, light, shadow, dark):
+def caption_css(face, light, shadow, dark, assets=None):
     colours = (face, light, shadow, dark)
+    if assets is not None:
+        assets.mkdir(parents=True, exist_ok=True)
     rules = [
         rule(
             buttons(),
@@ -103,14 +116,19 @@ def caption_css(face, light, shadow, dark):
     faces = [(kind, f".{kind}", "") for kind in ("minimize", "maximize", "close")]
     faces.append(("restore", ".maximize", "window.maximized "))
     for kind, suffix, ancestor in faces:
-        for state, pressed in (("", False), (":hover", False), (":backdrop", False), (":active", True)):
+        for states, pressed, disabled in (
+            (("", ":hover", ":backdrop"), False, False),
+            ((":active",), True, False),
+            ((":disabled", ":backdrop:disabled"), False, True),
+        ):
+            selector = ", ".join(buttons(suffix + state, ancestor) for state in states)
             rules.append(
                 rule(
-                    buttons(suffix + state, ancestor),
+                    selector,
                     border="none",
                     box_shadow="none",
                     background_color="transparent",
-                    background_image=face_url(kind, colours, pressed),
+                    background_image=face_url(kind, colours, pressed, disabled, assets),
                 )
             )
     return "".join(rules)
@@ -363,9 +381,10 @@ def main():
     parser.add_argument("--light", default="#DFDFDF")
     parser.add_argument("--shadow", default="#808080")
     parser.add_argument("--dark", default="#000000")
+    parser.add_argument("--caption-assets", type=Path, help="write standalone SVG faces for GTK to load from disk")
     args = parser.parse_args()
     sheet = (
-        caption_css(args.face, args.light, args.shadow, args.dark)
+        caption_css(args.face, args.light, args.shadow, args.dark, args.caption_assets)
         + header_css(args.active, args.inactive, args.inactive_text, args.face)
         + path_bar_css(args.light, args.shadow, args.dark)
         + list_view_css()

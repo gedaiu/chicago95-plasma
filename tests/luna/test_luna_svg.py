@@ -6,7 +6,7 @@ from PySide6.QtGui import QImage, QPainter
 from PySide6.QtSvg import QSvgRenderer
 
 # tests/luna is itself a package called luna, so the primitives module is loaded by path.
-spec = importlib.util.spec_from_file_location("luna_primitives", REPO / "luna/aurorae/luna.py")
+spec = importlib.util.spec_from_file_location("luna_primitives", REPO / "luna/aurorae/luna_geometry.py")
 primitives = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(primitives)
 Box, fill_region, gradient, linear_gradient, rect, region, ring_region, rounded_rect, shape_of, svg = (

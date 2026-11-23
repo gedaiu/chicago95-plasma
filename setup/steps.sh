@@ -971,9 +971,20 @@ apply_aero_glass() {
 
 wants_luna() { [ "${SETUP_DECORATION:-classic}" = luna ] || [ "${SETUP_TASKBAR_STYLE:-classic}" = luna ] || [ "${SETUP_WIDGET_STYLE:-classic}" = luna ]; }
 
+install_luna_decoration_files() (
+  local source="$REPO/luna/aurorae/theme" stage
+  if [ "${SETUP_DRY_RUN:-0}" != 1 ]; then
+    stage=$(mktemp -d) || return 1
+    trap 'rm -rf "$stage"' EXIT
+    python3 "$REPO/luna/aurorae/make_luna_aurorae.py" --dpi "${SETUP_DPI:-96}" --out "$stage" || return 1
+    source="$stage"
+  fi
+  put_tree "$source" ~/.local/share/aurorae/themes/Chicago95Luna
+)
+
 install_luna_theme_files() {
   local luna_file
-  put_tree "$REPO/luna/aurorae/theme" ~/.local/share/aurorae/themes/Chicago95Luna
+  install_luna_decoration_files || return 1
   put_tree "$REPO/luna/plasma-style/theme" ~/.local/share/plasma/desktoptheme/Chicago95Luna
   put_file "$REPO/luna/Luna.colors" ~/.local/share/color-schemes/Chicago95Luna.colors
   put_file "$REPO/aurorae/bevel.py" "$LUNA_GENERATORS/aurorae/bevel.py"
@@ -1062,7 +1073,7 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   put_file "$REPO/config/Chicago95.colors" ~/.local/share/color-schemes/Chicago95.colors
   apply_widget_themes
   kconf kdeglobals General AccentColor --delete
-  wants_luna && install_luna_theme_files
+  if wants_luna; then install_luna_theme_files || return 1; fi
   if [ "${SETUP_TASKBAR_STYLE:-classic}" = aero ]; then
     local style="$HOME/.local/share/plasma/desktoptheme/Chicago95Aero"
     put_tree "$REPO/aero/plasma-style/theme" "$style"
@@ -1085,6 +1096,7 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   kconf kwinrc org.kde.kdecoration2 ButtonsOnRight IAX
   # chicago95-sync-colors draws the bevels with the look's colours, and reads the look from here.
   run kwriteconfig6 --file chicago95rc --group Look --key decoration "${SETUP_DECORATION:-classic}"
+  run kwriteconfig6 --file chicago95rc --group Look --key captionDpi "${SETUP_DPI:-96}"
   run kwriteconfig6 --file chicago95rc --group Look --key controlPanelStyle "${SETUP_CONTROL_PANEL_STYLE:-auto}"
   run kwriteconfig6 --file chicago95rc --group Look --key widgetStyle "${SETUP_WIDGET_STYLE:-classic}"
   run kwriteconfig6 --file chicago95rc --group Look --key bevel "${SETUP_BEVEL:-1995}"
@@ -1582,8 +1594,13 @@ gtk_titlebar_rules() {
     return
   fi
   if [ "${SETUP_DECORATION:-classic}" = luna ]; then
-    python3 "$REPO/luna/gtk/make_luna_gtk.py" --titlebar
+    python3 "$REPO/luna/gtk/make_luna_gtk.py" --titlebar \
+      --caption-assets "$STATE_DIR/gtk-luna-caption" --dpi "${SETUP_DPI:-96}"
     return
+  fi
+  local -a caption_args=()
+  if [ -n "${GTK_CLASSIC_CAPTION_ASSETS:-}" ]; then
+    caption_args+=(--caption-assets "$GTK_CLASSIC_CAPTION_ASSETS")
   fi
   cat <<RULES
 headerbar.titlebar, .titlebar.default-decoration {
@@ -1594,23 +1611,31 @@ headerbar.titlebar:backdrop, .titlebar.default-decoration:backdrop {
 headerbar.titlebar:backdrop .title, .titlebar.default-decoration:backdrop .title { color: $3; }
 RULES
   if [ "${SETUP_BEVEL:-1995}" = 2000 ]; then
-    python3 "$REPO/lib/gtk_header.py" --gtk "${GTK_VERSION:-4.0}" --active "$1" --inactive "$2" --inactive-text "$3" --face "$(face_hex)" --light "$(face_hex)" --dark "#404040"
-  else
-    python3 "$REPO/lib/gtk_header.py" --gtk "${GTK_VERSION:-4.0}" --active "$1" --inactive "$2" --inactive-text "$3"
+    caption_args+=(--face "$(face_hex)" --light "$(face_hex)" --dark "#404040")
   fi
+  python3 "$REPO/lib/gtk_header.py" --gtk "${GTK_VERSION:-4.0}" --active "$1" --inactive "$2" --inactive-text "$3" "${caption_args[@]}"
 }
 
 write_gtk_titlebar_css() {
-  local begin="/* >>> Chicago95 title bars BEGIN */" end="/* <<< Chicago95 title bars END */" version target block
+  local begin="/* >>> Chicago95 title bars BEGIN */" end="/* <<< Chicago95 title bars END */" version target block rules
+  local GTK_CLASSIC_CAPTION_ASSETS=
   if [ "${SETUP_DECORATION:-classic}" = aero ]; then
     local buttons="$STATE_DIR/gtk4-caption"
     backup "$buttons"
     run python3 "$REPO/aero/gtk/caption.py" --write-buttons "$buttons" || return 1
     record "$buttons"
+  elif [ "${SETUP_DECORATION:-classic}" = luna ]; then
+    put_tree "$REPO/luna/gtk/Chicago95Luna/caption" "$STATE_DIR/gtk-luna-caption"
+  elif [ "${SETUP_DECORATION:-classic}" = classic ] && [ "${SETUP_DRY_RUN:-0}" != 1 ]; then
+    # GTK 3 does not load the embedded data URLs used by the CSS preview.
+    GTK_CLASSIC_CAPTION_ASSETS="$STATE_DIR/gtk-classic-caption"
+    backup "$GTK_CLASSIC_CAPTION_ASSETS"
+    record "$GTK_CLASSIC_CAPTION_ASSETS"
   fi
   for version in 3.0 4.0; do
+    rules=$(GTK_VERSION=$version gtk_titlebar_rules "$@") || return 1
     block="$begin
-$(GTK_VERSION=$version gtk_titlebar_rules "$@")
+$rules
 $end"
     target=~/.config/gtk-$version/gtk.css
     backup "$target"

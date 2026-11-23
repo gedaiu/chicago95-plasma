@@ -4,6 +4,7 @@ Invoked inside a disposable KWin session by showcase.gtk_controls; never uses th
 """
 
 import json
+import math
 import os
 import sys
 from pathlib import Path
@@ -17,6 +18,19 @@ gi.require_version("Gtk", VERSION)
 from gi.repository import GLib, Gtk  # noqa: E402
 
 V4 = VERSION == "4.0"
+AERO_CAPTION_CROPS = CAPTION_CROPS and THEME == "Chicago95Aero"
+CLASSIC_CAPTION_CROPS = CAPTION_CROPS and THEME == "Chicago95"
+LUNA_CAPTION_CROPS = CAPTION_CROPS and THEME == "Chicago95Luna"
+NATIVE_GTK4_CAPTION = V4 and (AERO_CAPTION_CROPS or CLASSIC_CAPTION_CROPS or LUNA_CAPTION_CROPS)
+if AERO_CAPTION_CROPS:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from aero.gtk.caption import CELL_WIDTHS, FACE_HEIGHT, GTK4_CAPTION_TOP, palette
+elif CLASSIC_CAPTION_CROPS:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "aurorae"))
+    from bevel import CAPTION_H, CAPTION_W
+elif LUNA_CAPTION_CROPS:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "luna/aurorae"))
+    from make_luna_aurorae import BUTTON as LUNA_CAPTION_SIZE
 if V4:
     gi.require_version("Gsk", "4.0")
     gi.require_version("Graphene", "1.0")
@@ -206,7 +220,9 @@ def consistency_widgets():
     ]
     if CAPTION_CROPS:
         caption_states = [
-            ("normal", None, None), ("disabled", None, None), ("restore", None, None),
+            ("normal", None, None),
+            ("disabled", None, None),
+            ("restore", None, None),
             *[
                 (f"{state}-{kind}", flag, kind)
                 for state, flag in (("hovered", Gtk.StateFlags.PRELIGHT), ("pressed", Gtk.StateFlags.ACTIVE))
@@ -216,10 +232,16 @@ def consistency_widgets():
     for state, flag, target in caption_states:
         bar = Gtk.HeaderBar()
         bar._caption_buttons = {}
+        if NATIVE_GTK4_CAPTION:
+            bar.set_decoration_layout(":minimize,maximize,close")
+            bar._caption_state = state, flag, target
+            yield "Window decorations", "caption " + state, [bar]
+            continue
         if V4:
             bar.set_show_title_buttons(False)
         bar.get_style_context().add_class("titlebar")
-        for kind in ("minimize", "maximize", "close"):
+        # pack_end inserts from right to left.
+        for kind in ("close", "maximize", "minimize"):
             button = Gtk.Button()
             button.get_style_context().add_class("titlebutton")
             button.get_style_context().add_class(kind)
@@ -404,6 +426,68 @@ def slider_widgets(point=None):
             yield state, orientation, scale
 
 
+def gtk4_caption_controls(header):
+    """Keep GTK's button layout and set the test state on the resulting controls."""
+    pending = [header]
+    controls = {}
+    while pending:
+        widget = pending.pop()
+        if isinstance(widget, Gtk.Button):
+            for kind in ("minimize", "maximize", "close"):
+                if widget.has_css_class(kind):
+                    controls[kind] = widget
+        child = widget.get_first_child()
+        while child is not None:
+            pending.append(child)
+            child = child.get_next_sibling()
+    assert set(controls) == {"minimize", "maximize", "close"}, controls.keys()
+    return controls
+
+
+def gtk_caption_regions(header, root, label, scale, origin):
+    allocations, faces = {}, {}
+    for kind, button in header._caption_buttons.items():
+        xy = button.translate_coordinates(root, 0, 0)
+        if xy is None:
+            raise RuntimeError(f"GTK did not place the {kind} button in {label}")
+        x, y = xy[-2:]
+        x, y = x - origin[0], y - origin[1]
+        width = button.get_width() if V4 else button.get_allocated_width()
+        height = button.get_height() if V4 else button.get_allocated_height()
+        allocation = [round(edge * scale) for edge in (x, y, x + width, y + height)]
+        allocations[kind] = allocation
+        if AERO_CAPTION_CROPS or CLASSIC_CAPTION_CROPS or LUNA_CAPTION_CROPS:
+            # Setup paints a fixed-size image within the button's border box. A
+            # GTK3 allocation still includes the CSS margins, including the
+            # negative leading margin between adjacent title buttons.
+            if not V4:
+                style = button.get_style_context()
+                margin = style.get_margin(style.get_state())
+                x, y = x + margin.left, y + margin.top
+                width -= margin.left + margin.right
+                height -= margin.top + margin.bottom
+            if AERO_CAPTION_CROPS:
+                image_width, image_height = (CELL_WIDTHS if V4 else palette.BUTTON_WIDTHS)[kind], FACE_HEIGHT
+            elif LUNA_CAPTION_CROPS:
+                image_width = image_height = LUNA_CAPTION_SIZE
+            else:
+                image_width, image_height = CAPTION_W, CAPTION_H
+            left = (x + (width - image_width) / 2) * scale
+            vertical_inset = GTK4_CAPTION_TOP if V4 and AERO_CAPTION_CROPS else (height - image_height) / 2
+            top = (y + vertical_inset) * scale
+            # Include edge pixels with even fractional coverage. The exact
+            # comparison will flag pixel alignment and clipping separately.
+            faces[kind] = [
+                math.floor(left),
+                math.floor(top),
+                math.ceil(left + image_width * scale),
+                math.ceil(top + image_height * scale),
+            ]
+        else:
+            faces[kind] = allocation
+    return allocations, faces
+
+
 def main():
     Gtk.init() if V4 else Gtk.init([])
     settings = Gtk.Settings.get_default()
@@ -443,7 +527,7 @@ def main():
             add(box, child)
         for edge in ("top", "bottom", "start", "end"):
             getattr(box, f"set_margin_{edge}")(12)
-        native_caption = not V4 and label.startswith("caption ")
+        native_caption = label.startswith("caption ") and (not V4 or NATIVE_GTK4_CAPTION)
         if native_caption:
             box.remove(children[0])
         # A real window, never Gtk.OffscreenWindow: only a real one follows the screen's scale.
@@ -554,7 +638,23 @@ def main():
                         press.button = 1
                         press.set_device(window.get_display().get_default_seat().get_pointer())
                         child.event(press)
-        GLib.timeout_add(200, capture)
+        if native_caption and V4:
+            GLib.timeout_add(200, prepare_gtk4_caption, children[0])
+        else:
+            GLib.timeout_add(200, capture)
+        return False
+
+    def prepare_gtk4_caption(header):
+        # WindowControls updates its buttons after the compositor configures
+        # the new window. Apply the visual state to the resulting controls.
+        header._caption_buttons = gtk4_caption_controls(header)
+        state, flag, target = header._caption_state
+        for kind, button in header._caption_buttons.items():
+            if state == "disabled" and kind != "minimize":
+                button.set_sensitive(False)
+            if flag is not None and kind == target:
+                button.set_state_flags(flag, False)
+        GLib.timeout_add(100, capture)
         return False
 
     def capture():
@@ -582,13 +682,32 @@ def main():
                 if flag is not None:
                     button.set_state_flags(flag, False)
         path = output / f"{position}.png"
+        origin = (0, 0)
         if V4:
+            native_caption = NATIVE_GTK4_CAPTION and label.startswith("caption ")
+            root = window if native_caption else window.get_child()
             # Snapshot the real widget tree, including the native theme's state styling.
-            paintable = Gtk.WidgetPaintable.new(window.get_child())
+            paintable = Gtk.WidgetPaintable.new(root)
+            width, height = root.get_width(), root.get_height()
+            if native_caption:
+                header = children[0]
+                state, flag, target = header._caption_state
+                assert header._caption_buttons == gtk4_caption_controls(header), label
+                if state == "disabled":
+                    for kind in ("maximize", "close"):
+                        assert header._caption_buttons[kind].get_state_flags() & Gtk.StateFlags.INSENSITIVE, kind
+                if flag is not None:
+                    assert header._caption_buttons[target].get_state_flags() & flag, label
+                # The paintable includes any frame outside GTK's content coordinates.
+                # Use its natural size so the window chrome is never rescaled to fit.
+                valid, bounds = root.compute_bounds(root)
+                assert valid
+                origin = (bounds.get_x(), bounds.get_y())
+                width, height = paintable.get_intrinsic_width(), paintable.get_intrinsic_height()
             snapshot = Gtk.Snapshot()
             device_scale = caption_scale or window.get_scale_factor()
             snapshot.scale(device_scale, device_scale)
-            paintable.snapshot(snapshot, window.get_child().get_width(), window.get_child().get_height())
+            paintable.snapshot(snapshot, width, height)
             node = snapshot.to_node()
             if node is None:
                 # A busy compositor may not have produced the first frame yet.
@@ -596,19 +715,22 @@ def main():
                 if capture_attempts <= 10:
                     return True
                 raise RuntimeError(f"GTK4 did not paint {label} after repeated capture attempts")
-            renderer = Gsk.CairoRenderer.new()
-            renderer.realize(window.get_surface())
+            if native_caption:
+                renderer = window.get_renderer()
+            else:
+                renderer = Gsk.CairoRenderer.new()
+                renderer.realize(window.get_surface())
             # The widget's whole allocation, not the node's bounds: text can leave those fractional,
             # which rounds differently at each scale.
-            viewport = Graphene.Rect().init(
-                0, 0, window.get_child().get_width() * device_scale, window.get_child().get_height() * device_scale
-            )
+            viewport = Graphene.Rect().init(0, 0, width * device_scale, height * device_scale)
             texture = renderer.render_texture(node, viewport)
             texture.save_to_png(str(path))
-            renderer.unrealize()
+            if not native_caption:
+                renderer.unrealize()
         else:
             import cairo
 
+            root = window
             device_scale = caption_scale or window.get_scale_factor()
             surface = cairo.ImageSurface(
                 cairo.FORMAT_ARGB32,
@@ -619,17 +741,8 @@ def main():
             window.draw(cairo.Context(surface))
             surface.write_to_png(str(path))
         if CAPTION_CROPS and label.startswith("caption "):
-            root = window.get_child() if V4 else window
-            regions = {}
-            for kind, button in children[0]._caption_buttons.items():
-                xy = button.translate_coordinates(root, 0, 0)
-                if xy is None:
-                    raise RuntimeError(f"GTK did not place the {kind} button in {label}")
-                x, y = xy[-2:]
-                width = button.get_width() if V4 else button.get_allocated_width()
-                height = button.get_height() if V4 else button.get_allocated_height()
-                regions[kind] = [round(edge * device_scale) for edge in (x, y, x + width, y + height)]
-            caption_crops[label] = [path.name, regions]
+            allocations, faces = gtk_caption_regions(children[0], root, label, device_scale, origin)
+            caption_crops[label] = {"frame": path.name, "allocations": allocations, "faces": faces}
         manifest.append([group, label, path.name])
         window.destroy()
         position += 1

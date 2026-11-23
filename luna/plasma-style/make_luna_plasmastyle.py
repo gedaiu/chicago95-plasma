@@ -35,7 +35,7 @@ def load_module(name, path):
     return module
 
 
-primitives = load_module("luna_primitives", LUNA_ROOT / "aurorae/luna.py")
+primitives = load_module("luna_primitives", LUNA_ROOT / "aurorae/luna_geometry.py")
 palette = load_module("luna_palette", LUNA_ROOT / "palette.py")
 frames = load_module("luna_frames", HERE / "frames.py")
 stops = load_module("luna_plasma_stops", HERE / "stops.py")

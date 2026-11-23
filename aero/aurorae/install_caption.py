@@ -43,6 +43,7 @@ def configure(package, artwork, renderer):
     layout.setdefault("buttonMarginTopMaximized", 0)
     if artwork.name != "Chicago95Aero":
         layout["followsScheme"] = artwork.name == "Chicago95"
+        layout["alignCaptionPixels"] = artwork.name == "Chicago95Luna"
         layout["useTextShadow"] = general.getboolean("UseTextShadow")
         if layout["useTextShadow"]:
             for state in ("Active", "Inactive"):

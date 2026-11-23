@@ -1325,6 +1325,8 @@ def test_the_look_paints_gtk_drawn_title_bars_in_its_active_and_inactive_colours
         )
     gtk3 = (tmp_path / ".config/gtk-3.0/gtk.css").read_text()
     gtk4 = (tmp_path / ".config/gtk-4.0/gtk.css").read_text()
+    caption = tmp_path / "gtk-classic-caption/close-disabled.svg"
+    assert caption.is_file() and all(caption.as_uri() in sheet for sheet in (gtk3, gtk4))
 
     assert (
         gtk3.count("Chicago95 title bars BEGIN"),
@@ -1909,10 +1911,12 @@ def test_classic_title_labels_take_the_caption_colour_without_restarting_the_gra
     } == {(False, True)}
 
 
-def test_luna_decoration_writes_the_vertical_title_gradient_into_the_gtk_css(tmp_path):
+@pytest.mark.parametrize(("dpi", "caption_folder"), ((96, ""), (120, "large")))
+def test_luna_decoration_writes_the_vertical_title_gradient_into_the_gtk_css(tmp_path, dpi, caption_folder):
     lines = run_bash_with_steps(
         tmp_path,
-        'SETUP_DECORATION=luna; write_gtk_titlebar_css "#000080" "#808080" "#C0C0C0"; cat ~/.config/gtk-3.0/gtk.css',
+        f'SETUP_DECORATION=luna; SETUP_DPI={dpi}; write_gtk_titlebar_css "#000080" "#808080" "#C0C0C0"; '
+        "cat ~/.config/gtk-3.0/gtk.css",
     )
     css = "\n".join(lines)
 
@@ -1922,6 +1926,14 @@ def test_luna_decoration_writes_the_vertical_title_gradient_into_the_gtk_css(tmp
         "Trebuchet MS" in css,
         "linear-gradient(to right, #000080" in css,
     ) == (True, True, True, False)
+    assets = tmp_path / ".local/share/chicago95/gtk-luna-caption"
+    restore = assets / caption_folder / "restore-active.svg"
+    assert restore.read_bytes() == (
+        REPO / "luna/gtk/Chicago95Luna/caption" / caption_folder / restore.name
+    ).read_bytes()
+    for version in ("3.0", "4.0"):
+        css = (tmp_path / f".config/gtk-{version}/gtk.css").read_text()
+        assert f'url("{restore.as_uri()}")' in css
 
 
 def test_classic_decoration_keeps_the_horizontal_title_gradient_in_the_gtk_css(tmp_path):

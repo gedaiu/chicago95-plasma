@@ -142,3 +142,7 @@ GLYPHS = {
 
 def caption_glyph(kind, color, x, y):
     return f'<path transform="translate({x} {y})" d="{GLYPHS[kind]}" fill="{color}" fill-rule="evenodd"/>'
+
+
+def disabled_caption_glyph(kind, shadow, x, y):
+    return caption_glyph(kind, HILIGHT, x + 1, y + 1) + caption_glyph(kind, shadow, x, y)

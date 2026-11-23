@@ -5,8 +5,8 @@ import pytest
 from aurorae_model import build_theme
 from conftest import REPO
 from PIL import Image
-from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QImage, QPainter
+from PySide6.QtCore import QRectF
+from PySide6.QtGui import QImage, QPainter
 from PySide6.QtSvg import QSvgRenderer
 from reference import REFERENCES, qimage_to_pil, theme_references
 
@@ -25,6 +25,7 @@ CAPTION_REFERENCES = {
 }
 LOOKS = tuple(CAPTION_REFERENCES)
 CLASSIC = ("1995", "1998", "2000", "2001")
+DISABLED_CLOSE_MATTES = ("dark", "light", "blue")
 # Upper bounds from the native-size comparisons below. Strict mode uses
 # zero RGB differences for each button and reports the pixel count.
 RGB_LIMITS = {
@@ -49,14 +50,12 @@ def caption_themes(qt_app, tmp_path_factory):
 
 
 def caption_pixels(theme, button, state, look, glass):
-    """Draw a single face on the adjacent title or glass sampled in the VM."""
+    """Draw a single face on the supplied VM title or glass pixels."""
     width, height = glass.size
-    image = QImage(width, height, QImage.Format_RGB32)
-    image.fill(Qt.black)
+    rgb = glass.convert("RGB").tobytes()
+    image = QImage(rgb, width, height, width * 3, QImage.Format_RGB888).convertToFormat(QImage.Format_RGB32)
     painter = QPainter(image)
     try:
-        for y in range(height):
-            painter.fillRect(0, y, width, 1, QColor(*glass.getpixel((0, y))))
         source = theme / f"{button}{'-large' if look == 'aero' else ''}.svg"
         bounds = QRectF(0, 0, width, height)
         if look in CLASSIC:
@@ -74,6 +73,12 @@ def caption_pixels(theme, button, state, look, glass):
     finally:
         painter.end()
     return qimage_to_pil(image)
+
+
+def disabled_close_matte(matte):
+    top = 30 * DISABLED_CLOSE_MATTES.index(matte)
+    with Image.open(REFERENCES / "themes/win7/caption/disabled-close-mattes.png") as capture:
+        return tuple(capture.crop((x, top, x + 75, top + 30)).convert("RGB") for x in (0, 75))
 
 
 def face_region(sheet, look, state, index):
@@ -122,6 +127,14 @@ def test_caption_svg_stays_within_windows_rgb_budget(caption_themes, exact_origi
     difference = np.abs(np.asarray(actual, dtype=int) - np.asarray(expected, dtype=int))
     limits = RGB_LIMITS["classic" if look in CLASSIC else look]
     assert difference[mask].mean() < limits[state], (look, state, button, difference[mask].mean())
+
+
+@pytest.mark.parametrize("matte", DISABLED_CLOSE_MATTES)
+def test_disabled_close_svg_stays_within_windows_rgb_budget_on_native_glass(caption_themes, matte):
+    glass, expected = disabled_close_matte(matte)
+    actual = caption_pixels(caption_themes["aero"], "close", "disabled", "aero", glass)
+    difference = np.abs(np.asarray(actual, dtype=np.int16) - np.asarray(expected, dtype=np.int16))
+    assert difference.mean() < 3.25
 
 
 @pytest.mark.parametrize("look", LOOKS)

@@ -2,6 +2,7 @@
 
 import configparser
 import json
+import math
 import shutil
 import subprocess
 import sys
@@ -19,10 +20,12 @@ from showcase import start_menus, themed
 from test_caption_states_reference import (
     BUTTONS,
     CLASSIC,
+    DISABLED_CLOSE_MATTES,
     STATES,
     build_caption_themes,
     caption_pixels,
     caption_reference,
+    disabled_close_matte,
     face_region,
     state_buttons,
     visible_pixels,
@@ -56,6 +59,7 @@ COMPONENTS = (
     "motion",
 )
 WINDOW = (160, 150, 559, 449)
+PRESS_WINDOWS = (WINDOW, (160, 470, 559, 699), (610, 470, 1009, 699))
 DISABLED_WINDOW = (610, 150, 1009, 449)
 DISABLED_TITLE = "Caption parity disabled"
 DISABLED_APP = "org.chicago95.test.caption-disabled"
@@ -70,7 +74,7 @@ def installed():
     folders = []
 
     @cache
-    def prepare(look):
+    def prepare(look, setup_scale=1):
         missing = missing_programs()
         assert not missing, f"Missing live-render dependencies: {', '.join(missing)}"
         folder = work_folder(f"parity-{look}")
@@ -80,7 +84,7 @@ def installed():
             if look == "aero"
             else {}
         )
-        return install(look, folder, screen=(1024, 768), launchers=0, **background)
+        return install(look, folder, screen=(1024, 768), launchers=0, setup_scale=setup_scale, **background)
 
     yield prepare
     for folder in folders:
@@ -122,21 +126,42 @@ def live_kwin(installed, visual_output):
             )
         steps.extend(["move:350,270", "click:left", "move:600,110", "wait:0.6", "snapshot:caption-rest"])
         for index, point in enumerate(points):
+            steps.extend([point, "wait:0.3", f"snapshot:caption-hover-{index}"])
+        session = installed(look, scale) if look == "luna" else installed(look)
+        maximized = kwin_maximized_window(artwork, look, *session.screen)
+        restore = maximized.button_rects()["A"].center()
+        steps.extend(
+            [
+                points[1],
+                "click:left",
+                "move:700,400",
+                "wait:0.6",
+                "snapshot:caption-restore",
+                f"move:{restore.x()},{restore.y()}",
+                "click:left",
+                "wait:0.6",
+            ]
+        )
+        # A release can still activate a caption action. Use a separate
+        # window for each press and leave Maximize until the end.
+        for index in (0, 2, 1):
+            x, y, _, _ = PRESS_WINDOWS[index]
+            button = rects["IAX"[index]].center()
             steps.extend(
                 [
-                    point,
+                    f"move:{x + 45},{y + 55}",
+                    "click:left",
                     "wait:0.3",
-                    f"snapshot:caption-hover-{index}",
+                    f"move:{x + button.x()},{y + button.y()}",
+                    "wait:0.3",
                     "press:left",
                     "wait:0.2",
                     f"snapshot:caption-pressed-{index}",
-                    "move:700,400",
+                    f"move:{x + 45},{y + 12}",
                     "release:left",
                     "wait:0.3",
                 ]
             )
-        steps.extend([points[1], "click:left", "move:700,400", "wait:0.6", "snapshot:caption-restore"])
-        session = installed(look)
         rules_path = session.work / HOME_AFTER_SETUP / ".config/kwinrulesrc"
         rules = configparser.ConfigParser(interpolation=None)
         rules.optionxform = str
@@ -155,7 +180,12 @@ def live_kwin(installed, visual_output):
             rules.write(stream, space_around_delimiters=False)
         screen = show(
             session,
-            windows=[("Caption parity", "qt", WINDOW), (DISABLED_TITLE, "qt-fixed", DISABLED_WINDOW, DISABLED_APP)],
+            windows=[
+                ("Caption parity", "qt", WINDOW),
+                ("Caption parity maximize press", "qt", PRESS_WINDOWS[1]),
+                ("Caption parity close press", "qt", PRESS_WINDOWS[2]),
+                (DISABLED_TITLE, "qt-fixed", DISABLED_WINDOW, DISABLED_APP),
+            ],
             scale=scale,
             pointer_steps=steps,
             window_state=True,
@@ -181,7 +211,7 @@ def live_kwin(installed, visual_output):
 def live_gtk(installed):
     @cache
     def capture(look, scale):
-        session = installed(look)
+        session = installed(look, scale) if look == "luna" else installed(look)
         home = session.work / "home"
         script = session.work / "caption-gtk.sh"
         commands = ["#!/bin/sh", "set -eu"]
@@ -199,7 +229,6 @@ def live_gtk(installed):
         env = {
             **session.environment,
             "GDK_BACKEND": "wayland",
-            "GSK_RENDERER": "cairo",
             "GTK_A11Y": "none",
             "CHICAGO95_CAPTION_SCALE": str(scale),
         }
@@ -222,6 +251,14 @@ def kwin_window(theme, look, width, height):
     return window(theme, width, height)
 
 
+def kwin_maximized_window(theme, look, width, height):
+    model = kwin_window(theme, look, width, height)
+    for key in ("TitleEdgeTop", "TitleEdgeLeft", "TitleEdgeRight"):
+        model.layout[key] = model.layout[key + "Maximized"]
+    model.layout["ButtonMarginTop"] = model.layout.get("ButtonMarginTopMaximized", 0)
+    return model
+
+
 def kwin_face(capture, theme, look, scale, state, index):
     directory, disabled = capture
     suffix = f"-{index}" if state in ("hover", "pressed") or state.startswith("disabled-") else ""
@@ -231,19 +268,30 @@ def kwin_face(capture, theme, look, scale, state, index):
         screen = frame.convert("RGB")
     if state == "restore":
         left, top = 0, 0
-        model = kwin_window(theme, look, round(screen.width / scale), round(screen.height / scale))
-        for key in ("TitleEdgeTop", "TitleEdgeLeft", "TitleEdgeRight"):
-            model.layout[key] = model.layout[key + "Maximized"]
+        model = kwin_maximized_window(theme, look, round(screen.width / scale), round(screen.height / scale))
     elif state.startswith("disabled"):
         left, top, right, bottom = disabled
         model = kwin_window(theme, look, round(right - left), round(bottom - top))
     else:
-        left, top, right, bottom = WINDOW
+        left, top, right, bottom = PRESS_WINDOWS[index] if state == "pressed" else WINDOW
         model = kwin_window(theme, look, right - left + 1, bottom - top + 1)
     rect = model.button_rects()["IAX"[index]]
     if look in CLASSIC:
         # The artwork's cell includes a blank row on either side of the bevel.
         rect.adjust(2 if index == 2 else 0, 1, 0, -1)
+    if look == "luna" and scale % 1:
+        config = configparser.ConfigParser()
+        config.read(directory / "home/.config/kwinrc")
+        if config.get("org.kde.kdecoration2", "theme", fallback="") == "org.chicago95.luna":
+            # The Luna wrapper snaps the paint layer's origin and rounds its
+            # size outward, independently of Aurorae's hit rectangle.
+            def pixel(position):
+                return math.floor(position * scale + 0.5)
+
+            # KWin places the snapped decoration on the separately snapped window origin.
+            x = pixel(left) + pixel(rect.left())
+            y = pixel(top) + pixel(rect.top())
+            return screen.crop((x, y, x + math.ceil(rect.width() * scale), y + math.ceil(rect.height() * scale)))
     return screen.crop(
         tuple(
             round(edge * scale)
@@ -260,9 +308,9 @@ def kwin_face(capture, theme, look, scale, state, index):
 def gtk_face(directory, state, index):
     records = json.loads((directory / "caption-crops.json").read_text())
     suffix = f"-{BUTTONS[index]}" if state in ("hover", "pressed") else ""
-    filename, boxes = records[f"caption {GTK_STATES[state]}{suffix}"]
-    with Image.open(directory / filename) as frame:
-        return frame.crop(boxes[BUTTONS[index]]).convert("RGB")
+    record = records[f"caption {GTK_STATES[state]}{suffix}"]
+    with Image.open(directory / record["frame"]) as frame:
+        return frame.crop(record["faces"][BUTTONS[index]]).convert("RGB")
 
 
 @pytest.fixture(scope="module")
@@ -278,7 +326,15 @@ def exact(expected, actual, directory, mask=None):
 
 @pytest.fixture(scope="module")
 def svg_themes(qt_app, tmp_path_factory):
-    return build_caption_themes(tmp_path_factory)
+    themes = build_caption_themes(tmp_path_factory)
+    luna = tmp_path_factory.mktemp("luna")
+    dpi = round(96 * THEMES["winxp"][1]["caption_scale"])
+    subprocess.run(
+        [sys.executable, str(REPO / "luna/aurorae/make_luna_aurorae.py"), "--dpi", str(dpi), "--out", str(luna)],
+        check=True,
+    )
+    themes["luna"] = luna
+    return themes
 
 
 @pytest.mark.parametrize("theme", THEMES)
@@ -306,6 +362,32 @@ def test_caption_matches_windows_pixels(theme, renderer, state, index, svg_theme
         actual = gtk_face(live_gtk(look, scale) / f"caption-gtk-{version}", state, index)
     directory = visual_output / theme / "caption" / renderer / state / button
     exact(expected, actual, directory, visible_pixels(look, state, expected.size))
+
+
+@pytest.mark.parametrize("matte", DISABLED_CLOSE_MATTES)
+def test_win7_disabled_close_over_native_glass_matches_windows_pixels(svg_themes, matte, visual_output):
+    glass, expected = disabled_close_matte(matte)
+    actual = caption_pixels(svg_themes["aero"], "close", "disabled", "aero", glass)
+    exact(expected, actual, visual_output / "win7" / "caption" / "svg" / "disabled" / "close" / matte)
+
+
+@pytest.mark.parametrize("version", ("3.0", "4.0"), ids=("gtk3", "gtk4"))
+def test_win7_gtk_disabled_close_keeps_its_gtk_geometry_and_clear_surround(version, live_gtk, visual_output):
+    _, metadata = THEMES["win7"]
+    directory = live_gtk(metadata["look"], metadata["caption_scale"]) / f"caption-gtk-{version}"
+    records = json.loads((directory / "caption-crops.json").read_text())
+    normal, disabled = (records[f"caption {state}"] for state in ("normal", "disabled"))
+    for key in ("allocations", "faces"):
+        assert normal[key]["close"] == disabled[key]["close"]
+    left, top, right, bottom = normal["allocations"]["close"]
+    _, y0, _, y1 = normal["faces"]["close"]
+    assert top <= y0 < y1 <= bottom and (top < y0 or y1 < bottom)
+    output = visual_output / "win7" / "caption" / f"gtk{version[0]}" / "disabled" / "close"
+    with Image.open(directory / normal["frame"]) as before, Image.open(directory / disabled["frame"]) as after:
+        for name, start, end in (("above-face", top, y0), ("below-face", y1, bottom)):
+            if start < end:
+                area = (left, start, right, end)
+                exact(before.crop(area), after.crop(area), output / name)
 
 
 @pytest.mark.parametrize("theme", THEMES)

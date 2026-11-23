@@ -1,10 +1,14 @@
 import QtQuick
 import org.kde.kwin.decoration
+import org.kde.ksvg as KSvg
 import "."
 import "Theme.js" as Theme
 
 SystemAurorae {
     id: frame
+    readonly property real outputScale: decoration.client.scale || 1
+    readonly property var buttonGroups: children.filter(item =>
+        item.animate !== undefined && item.buttons !== undefined)
     readonly property var auroraeTheme: {
         const theme = Theme.metrics(decorationSettings.borderSize, decoration.readConfig("ButtonSize", 1));
         if (theme.followsScheme && !decoration.client.active)
@@ -38,14 +42,77 @@ SystemAurorae {
         }
     }
 
+    // Paint the caption SVG elements on the output's pixel grid. Keep
+    // Aurorae's button positions, input handling and state transitions.
+    Repeater {
+        model: frame.auroraeTheme.alignCaptionPixels && frame.outputScale % 1 !== 0 ? 2 : 0
+        delegate: Item {
+            id: groupDelegate
+            required property int index
+            readonly property Item group: frame.buttonGroups[index] ?? null
+            readonly property Item row: group?.children[0] ?? null
+            readonly property var faces: {
+                const types = [DecorationOptions.DecorationButtonMinimize, DecorationOptions.DecorationButtonClose,
+                               DecorationOptions.DecorationButtonMaximizeRestore,
+                               DecorationOptions.DecorationButtonMaximizeRestore + 100]
+                const states = []
+                for (const item of row?.children ?? []) {
+                    for (const control of item.buttonType === undefined ? item.children : [item]) {
+                        if (types.includes(control.buttonType)) {
+                            for (const child of control.children) {
+                                if (child instanceof KSvg.FrameSvgItem)
+                                    states.push(child)
+                            }
+                        }
+                    }
+                }
+                return states
+            }
+            Repeater {
+                model: groupDelegate.faces
+                delegate: Item {
+                    id: stateDelegate
+                    required property Item modelData
+                    readonly property Item control: modelData.parent
+                    readonly property point origin: {
+                        let left = 0
+                        let top = 0
+                        for (let item = control; item && item !== frame; item = item.parent) {
+                            left += item.x
+                            top += item.y
+                        }
+                        return Qt.point(left, top)
+                    }
+                    Binding {
+                        target: stateDelegate.modelData
+                        property: "visible"
+                        value: false
+                    }
+                    KSvg.SvgItem {
+                        x: Math.round(stateDelegate.origin.x * frame.outputScale) / frame.outputScale
+                        y: Math.round(stateDelegate.origin.y * frame.outputScale) / frame.outputScale
+                        width: Math.ceil(stateDelegate.control.width * frame.outputScale)
+                        height: Math.ceil(stateDelegate.control.height * frame.outputScale)
+                        scale: 1 / frame.outputScale
+                        transformOrigin: Item.TopLeft
+                        smooth: false
+                        imagePath: stateDelegate.modelData.imagePath
+                        elementId: stateDelegate.modelData.prefix + "-center"
+                        opacity: stateDelegate.modelData.opacity * stateDelegate.control.opacity
+                        visible: opacity > 0 && stateDelegate.control.visible
+                    }
+                }
+            }
+        }
+    }
+
     // Aurorae keeps the disabled face, but its maximize wrapper also has an
     // independent MouseArea. Disable that area so it cannot paint hover or press.
     Repeater {
         model: 2
         delegate: Item {
             required property int index
-            readonly property Item group: frame.children.filter(item =>
-                item.animate !== undefined && item.buttons !== undefined)[index] ?? null
+            readonly property Item group: frame.buttonGroups[index] ?? null
             readonly property Item maximize: group?.children[0]?.children.find(item =>
                 item.children[0]?.buttonType === DecorationOptions.DecorationButtonMaximizeRestore) ?? null
             Binding {

@@ -77,9 +77,11 @@ def decoration_arguments(scheme, bevel):
     ]
 
 
-def decoration_command(style, arguments):
+def decoration_command(style, arguments, dpi="96"):
     generator, out = DECORATION_THEMES[style]
     options = arguments if style == "classic" else []
+    if style == "luna" and dpi != "96" and dpi.isdecimal():
+        options = ["--dpi", dpi]
     return [sys.executable, str(generator), "--out", str(out), *options]
 
 
@@ -108,13 +110,15 @@ def main():
         sync_installed(scheme, bevel)
     arguments = decoration_arguments(scheme, bevel)
     styles = [] if (decoration, plasma_style) == ("classic", "classic") else [decoration, plasma_style]
-    stamp = " ".join([*styles, *arguments])
+    dpi = settings["captionDpi"]
+    caption_dpi = [dpi] if decoration == "luna" else []
+    stamp = " ".join([*styles, *arguments, *caption_dpi])
     # kdeglobals is rewritten for any setting; only a title colour change is worth a redraw.
     if "--force" not in sys.argv and STAMP.exists() and STAMP.read_text() == stamp:
         return 0
     # Aero's glass has no title colours to follow; the other decorations are drawn in the scheme's.
     if decoration in DECORATION_THEMES:
-        subprocess.run(decoration_command(decoration, arguments), check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(decoration_command(decoration, arguments, dpi), check=True, stdout=subprocess.DEVNULL)
     # Aero's glass bar, like its frame, follows no title colours.
     if plasma_style in PLASMA_STYLE_THEMES and PLASMA_STYLE_THEMES[plasma_style][1].exists():
         subprocess.run(plasma_style_command(plasma_style, scheme, bevel), check=True, stdout=subprocess.DEVNULL)

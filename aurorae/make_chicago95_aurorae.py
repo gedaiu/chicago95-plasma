@@ -16,7 +16,7 @@ in from the title's end, the window icon 16px square 1px below the title's top.
 import argparse
 from pathlib import Path
 
-from bevel import caption_face, caption_glyph, rect, ring_color, run_length_rows, svg
+from bevel import caption_face, caption_glyph, disabled_caption_glyph, rect, ring_color, run_length_rows, svg
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("--out", type=Path, default=Path.home() / ".local/share/aurorae/themes/Chicago95")
@@ -172,9 +172,10 @@ def button_svg(kind):
     groups = []
     for idx, (element_id, (pressed, color, shift)) in enumerate(states.items()):
         body = button_face(pressed)
-        if color == SHADOW:  # disabled: an etched glyph, white under grey
-            body += glyph(kind, HILIGHT, 1, 1)
-        body += glyph(kind, color, shift, shift)
+        if color == SHADOW:
+            body += disabled_caption_glyph(kind, color, 0, BTN_H - FACE_H - 1)
+        else:
+            body += glyph(kind, color, shift, shift)
         cell = BTN_W + gap + 4
         groups.append(
             f'<g id="{element_id}" transform="translate({idx * cell},0)">'

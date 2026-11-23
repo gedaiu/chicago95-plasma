@@ -214,13 +214,25 @@ For caption results, use the test name to see what passed.
 - `test_kwin_disabled_caption_interior_matches_its_own_idle_state` compares two KWin renders. It checks that the disabled glyph and interior stay the same during hover, press, and click. Its images are saved under `visual/<theme>/caption/kwin/pointer-invariance/`.
 - `test_caption_svg_stays_within_windows_rgb_budget` is a separate SVG regression test. By default, it permits a per-state mean RGB error. Run it with `--exact-originals` to also require zero RGB differences.
 
-GTK 3 and GTK 4 render native
-header-bar widgets with Setup's CSS and the specified state at the reference DPI. A mapped crop selects the
-component on each surface. The suite compares every unmasked RGB pixel and fails when the dimensions differ.
+GTK 3 and GTK 4 render header-bar widgets with Setup's CSS and the specified state at the reference DPI.
+The tests capture the painted caption faces and record the widget allocations separately.
+Setup uses standalone SVG files for the classic, Luna and Aero caption faces. The GTK 4 fixtures take the buttons
+from GTK's own `Gtk.WindowControls` after the compositor configures the window, check their state flags, and
+include the native frame in the snapshot at its original size using the window's renderer.
+For Luna at 120 DPI, Setup selects the larger SVG glyphs for both GTK and Aurorae. The live comparisons
+pass the reference scale to Setup so the comparison uses the artwork that would be installed at that DPI.
+The SVG generator regression tests also cover the standard 96 DPI vectors.
+At fractional KWin scales, the Luna decoration snaps the SVG face to the physical pixel grid.
+The capture accounts for KWin rounding the window origin separately from the face's position in the title bar.
+An additional Aero Close check compares the normal and disabled GTK geometry and the available title pixels above
+and below the painted face. Only the Windows reference test checks that the resulting pixel dimensions match
+Windows, including partially painted edge pixels.
+The Windows reference checks compare every unmasked RGB pixel and fail when the dimensions differ.
 The known software-cursor mask is applied only to affected reference crops.
 
 To check disabled KWin buttons against Windows specifically, run
 `python3 -m pytest tests/visual/parity.py -q -k 'test_caption_matches_windows_pixels and kwin and disabled'`.
+The Windows 7 disabled Close SVG also has three strict tests over measured dark, light and blue glass. Each uses the VM pixels at the button location with the controls hidden as its background.
 
 Pytest stores the results under `visual/<theme>/<component>/<renderer>/` in its temporary output directory.
 Pass `--basetemp <directory>` to choose that location.

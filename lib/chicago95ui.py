@@ -185,6 +185,7 @@ def look_settings(path=None):
     return {
         "style": style,
         "decoration": settings.get("Look", "decoration", fallback="classic"),
+        "captionDpi": settings.get("Look", "captionDpi", fallback="96"),
         "widgetStyle": settings.get("Look", "widgetStyle", fallback="classic"),
         "taskbarStyle": settings.get("Look", "taskbarStyle", fallback="classic"),
         "bevel": settings.get("Look", "bevel", fallback=bevel_for_style(style)),

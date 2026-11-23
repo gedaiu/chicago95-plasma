@@ -1,7 +1,7 @@
 """Builds the Chicago95Luna GTK theme: the Windows XP Luna widget look for GTK 3 and GTK 4 programs.
 
     make_luna_gtk.py [--out DIR]
-    make_luna_gtk.py --titlebar ACTIVE|INACTIVE
+    make_luna_gtk.py --titlebar [--caption-assets DIR] [--dpi DPI]
 
 Writes DIR/index.theme, DIR/gtk-3.0/gtk.css and DIR/gtk-4.0/gtk.css (default Chicago95Luna beside this file).
 The colours and gradients are the ones of the Kvantum theme (luna/kvantum/stops.py, LunaStyle's measured
@@ -13,7 +13,6 @@ MS bold caption with its dark shadow.
 import argparse
 import base64
 import importlib.util
-import re
 import sys
 from pathlib import Path
 
@@ -47,7 +46,8 @@ def load_module(name, path):
 slider = load_module("luna_slider_art", LUNA_ROOT / "lib/chicago95lunaslider.py")
 inputs = load_module("gtk_input_rules", LUNA_ROOT.parent / "lib/gtk_inputs.py")
 kvantum = load_module("luna_kvantum_generator", LUNA_ROOT / "kvantum/make_luna_kvantum.py")
-aurorae_stops = load_module("luna_aurorae_stops", LUNA_ROOT / "aurorae/stops.py")
+aurorae = load_module("luna_aurorae_generator", LUNA_ROOT / "aurorae/make_luna_aurorae.py")
+aurorae_stops = aurorae.stops
 stops = kvantum.stops
 palette = kvantum.palette
 GRADIENTS = kvantum.gradient_table()
@@ -649,15 +649,25 @@ def titlebar_state(state, gradient, overlay, caption):
     ) + block(", ".join(f"{bar} .title" for bar in bars), **text)
 
 
-def caption_image(kind, index):
-    # Reuse the same vector faces and glyphs as the actual Luna window decoration.
-    svg = (LUNA_ROOT / "aurorae/theme" / f"{kind}.svg").read_text()
-    svg = svg.replace('width="192"', 'width="21"', 1)
-    svg = re.sub(r'viewBox="[^"]+"', f'viewBox="{index * 24} 0 21 21"', svg, count=1)
-    return 'url("data:image/svg+xml;base64,' + base64.b64encode(svg.encode()).decode() + '")'
+CAPTION_KINDS = aurorae.DPI_CAPTION_KINDS
+CAPTION_STATES = (
+    ("", 0),
+    (":backdrop", 4),
+    (":hover", 1),
+    (":active", 2),
+    (":disabled", 3),
+    (":backdrop:hover", 5),
+    (":backdrop:active", 6),
+    (":backdrop:disabled", 7),
+)
 
 
-def caption_controls():
+def caption_filename(kind, index):
+    return f"{kind}-{aurorae.STATE_NAMES[aurorae.caption_art_index(kind, index)]}.svg"
+
+
+def caption_controls(assets):
+    size = f"{aurorae.BUTTON}px"
     rules = [
         block("headerbar", min_height="26px", padding="2px 4px"),
         block(
@@ -676,15 +686,16 @@ def caption_controls():
         block("headerbar button:hover", background_image=vertical("button-body"), box_shadow=HOVER_SHADOW),
         block("headerbar button:active", background_image=vertical("button-pressed"), box_shadow="none"),
         block("headerbar windowcontrols", padding="0", margin="0"),
-        block("headerbar windowcontrols button image", opacity="0"),
     ]
-    for kind in ("minimize", "maximize", "close"):
-        bases = (f"headerbar button.titlebutton.{kind}", f"headerbar windowcontrols button.{kind}")
+    for kind in CAPTION_KINDS:
+        css_kind = "maximize" if kind == "restore" else kind
+        parent = "window.maximized headerbar" if kind == "restore" else "headerbar"
+        bases = (f"{parent} button.titlebutton.{css_kind}", f"{parent} windowcontrols button.{css_kind}")
         rules.append(
             block(
                 ", ".join(bases),
-                min_width="21px",
-                min_height="21px",
+                min_width=size,
+                min_height=size,
                 padding="0",
                 margin="0 1px",
                 border="none",
@@ -692,45 +703,30 @@ def caption_controls():
                 background_color="transparent",
                 background_repeat="no-repeat",
                 background_position="center",
-                background_size="21px 21px",
+                background_size=f"{size} {size}",
                 box_shadow="none",
             )
         )
-        for state, index in (("", 0), (":backdrop", 4), (":hover", 1), (":active", 2), (":disabled", 3)):
+        rules.append(block(", ".join(base + " image" for base in bases), opacity="0"))
+        for state, index in CAPTION_STATES:
+            asset = assets / caption_filename(kind, index)
+            location = asset.as_uri() if asset.is_absolute() else asset.as_posix()
             rules.append(
                 block(
                     ", ".join(base + state for base in bases),
-                    background_image=caption_image(kind, index),
+                    background_image=f'url("{location}")',
+                    background_color="transparent",
                     box_shadow="none",
-                )
-            )
-            # GTK3 cannot paint these caption SVG backgrounds reliably; use the
-            # same measured face stops with its native symbolic glyph instead.
-            colour = "red" if kind == "close" else "blue"
-            art = aurorae_stops.BUTTON_ART[colour][index]
-            gradient = (
-                "linear-gradient(to bottom, "
-                + ", ".join(f"{colour} {offset / 21 * 100:.2f}%" for offset, colour in art["face"])
-                + ")"
-            )
-            rules.append(
-                block(
-                    bases[0] + state,
-                    background_image=gradient,
-                    background_size="auto",
-                    color="#FFFFFF",
-                    border="1px solid white",
-                    border_radius="3px",
                 )
             )
     return "\n".join(rules)
 
 
-def titlebar_block(active, inactive, caption):
+def titlebar_block(active, inactive, caption, assets=Path("../caption")):
     return (
         titlebar_state("", active, aurorae_stops.SIDE_OVERLAY, "#FFFFFF")
         + titlebar_state(":backdrop", inactive, aurorae_stops.INACTIVE_SIDE_OVERLAY, caption)
-        + caption_controls()
+        + caption_controls(assets)
     )
 
 
@@ -1179,6 +1175,12 @@ def build_index():
 
 
 def write_theme(out):
+    captions = out / "caption"
+    for folder, large in ((captions, False), (captions / "large", True)):
+        folder.mkdir(parents=True, exist_ok=True)
+        for kind in CAPTION_KINDS:
+            for index in sorted({aurorae.caption_art_index(kind, index) for _, index in CAPTION_STATES}):
+                (folder / caption_filename(kind, index)).write_text(aurorae.caption_face_svg(kind, index, large))
     for version in VERSIONS:
         assets = out / f"gtk-{version}" / "assets"
         assets.mkdir(parents=True, exist_ok=True)
@@ -1224,9 +1226,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", type=Path, default=HERE / THEME_NAME)
     parser.add_argument("--titlebar", action="store_true", help="print the header bar block and exit")
+    parser.add_argument("--caption-assets", type=Path, default=HERE / THEME_NAME / "caption")
+    parser.add_argument("--dpi", type=int, default=96, help="display DPI for the managed titlebar rules")
     options = parser.parse_args()
     if options.titlebar:
-        sys.stdout.write(titlebar_block("title-active", "title-inactive", INACTIVE_CAPTION))
+        assets = options.caption_assets.resolve()
+        if options.dpi >= aurorae.LARGE_CAPTION_DPI:
+            assets /= "large"
+        sys.stdout.write(titlebar_block("title-active", "title-inactive", INACTIVE_CAPTION, assets))
     else:
         write_theme(options.out)
         print("wrote", options.out)

@@ -65,6 +65,17 @@ def test_a_pressed_close_button_draws_its_x_one_pixel_down_and_right(qt_app, css
     assert glyph_pixels(face_image(css, "headerbar windowcontrols.end > button.close:active")) == shifted
 
 
+@pytest.mark.parametrize(
+    "selector", ("headerbar button.titlebutton.close", "headerbar windowcontrols.end > button.close")
+)
+@pytest.mark.parametrize("state", (":disabled", ":backdrop:disabled"))
+def test_a_disabled_close_button_draws_an_etched_x(qt_app, css, selector, state):
+    image = face_image(css, selector + state)
+    highlight = {(x + 1, y + 1) for x, y in CLOSE_GLYPH} - CLOSE_GLYPH
+    assert all(image.pixelColor(x, y) == QColor("#808080") for x, y in CLOSE_GLYPH)
+    assert all(image.pixelColor(x, y) == QColor("#FFFFFF") for x, y in highlight)
+
+
 def test_a_maximized_window_shows_the_restore_glyph_on_its_maximize_button(qt_app, css):
     image = face_image(css, "window.maximized headerbar windowcontrols.end > button.maximize")
 

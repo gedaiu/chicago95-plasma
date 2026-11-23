@@ -115,12 +115,14 @@ def test_sync_colors_runs_the_luna_aurorae_generator_into_the_luna_theme_when_de
     from conftest import load_script
 
     sync = load_script("chicago95-sync-colors")
-    command = sync.decoration_command("luna", ["--active", "#000080"])
+    command = sync.decoration_command("luna", ["--active", "#000080"], dpi="120")
 
     assert command[1:] == [
         str(sync.LUNA_GENERATORS / "aurorae/make_luna_aurorae.py"),
         "--out",
         str(sync.LUNA_DECORATION),
+        "--dpi",
+        "120",
     ]
 
 

@@ -1,6 +1,6 @@
 """Builds the Luna window decoration (Aurorae SVG theme) as vector shapes with the colours of luna/palette.py.
 
-    make_luna_aurorae.py [--out DIR]
+    make_luna_aurorae.py [--out DIR] [--dpi DPI]
 
 Sizes and colours are fitted to the luna.msstyles bitmaps (tests/luna/luna_sprites.py), the palette's title columns to
 tests/references/xpnotepad.png, the lossless xpdisplayprop-1x.png and xpmycomputer.png (maximized title): a 4px frame,
@@ -28,7 +28,7 @@ sys.path[:0] = [str(HERE), str(HERE.parent)]
 import stops  # noqa: E402
 from palette import PALETTE  # noqa: E402
 
-from luna import (  # noqa: E402
+from luna_geometry import (  # noqa: E402
     Box,
     box_gradient,
     box_path,
@@ -358,27 +358,82 @@ def face_definitions(prefix, art):
     return "".join(definitions)
 
 
-def rim_stroke(rim):
+def rim_stroke(rim, radius, inset):
     colour, opacity = rim
+    centre = inset * 1.5
+    edge, span, rx = map(number, (centre, BUTTON - 2 * centre, radius - centre))
     return (
-        f'<rect x="1.5" y="1.5" width="{BUTTON - 3}" height="{BUTTON - 3}" rx="{stops.BUTTON_RING_RADIUS - 1.5}" '
-        f'fill="none" stroke="{colour}" stroke-opacity="{opacity}"/>'
+        f'<rect x="{edge}" y="{edge}" width="{span}" height="{span}" rx="{rx}" '
+        f'fill="none" stroke="{colour}" stroke-opacity="{opacity}"'
+        + (f' stroke-width="{number(inset)}"' if inset != 1 else "")
+        + "/>"
     )
 
 
-def face_art(prefix, art, kind):
-    ring = rounded_rect(0, 0, BUTTON, BUTTON, stops.BUTTON_RING_RADIUS, art["ring"])
+def face_art(prefix, art, radius=stops.BUTTON_RING_RADIUS, inset=1):
+    ring = rounded_rect(0, 0, BUTTON, BUTTON, number(radius), art["ring"])
     paints = [f"{prefix}f", *(f"{prefix}g{index}" for index in range(len(art["glows"]))), f"{prefix}s"]
-    rim = [rim_stroke(art["rim"])] if "rim" in art else []
-    return ring + "".join(face_use(url(paint)) for paint in paints) + "".join(rim) + glyph_markup(kind, art["glyph"])
+    rim = [rim_stroke(art["rim"], radius, inset)] if "rim" in art else []
+    return ring + "".join(face_use(url(paint)) for paint in paints) + "".join(rim)
 
 
-def button_svg(kind):
+def face_inset(radius=stops.BUTTON_RING_RADIUS, inset=1):
+    edge, span, rx = map(number, (inset, BUTTON - 2 * inset, radius - inset))
+    return f'<rect id="r" x="{edge}" y="{edge}" width="{span}" height="{span}" rx="{rx}"/>'
+
+
+def caption_art_index(kind, index):
+    color = "red" if kind == "close" else "blue"
+    return own_art_state(color, REUSED_STATES.get(index, index))
+
+
+LARGE_CAPTION = 27
+LARGE_CAPTION_DPI = 120
+LARGE_CAPTION_SCALE = LARGE_CAPTION / BUTTON
+DPI_CAPTION_KINDS = ("minimize", "maximize", "close", "restore")
+
+
+def caption_geometry(large):
+    # At 120 DPI the VM's 27px face keeps a one-pixel outline with a 2.5px corner.
+    if large:
+        return 2.5 / LARGE_CAPTION_SCALE, 1 / LARGE_CAPTION_SCALE
+    return stops.BUTTON_RING_RADIUS, 1
+
+
+def large_glyph_markup(kind, ink):
+    """Luna selects the 23px glyph family for a 27px face at 120 DPI."""
+    if kind == "close":
+        return (
+            '<path d="M4.94,4.94 L22.18,22.18 M22.06,4.94 L4.82,22.18" '
+            f'fill="none" stroke="{ink}" stroke-width="4.06"/>'
+        )
+    if kind == "minimize":
+        return plain_rect(5, 19, 11, 4, ink)
+    outline = {
+        "maximize": "M4,4 H23 V23 H4 Z M6,8 H21 V21 H6 Z",
+        "restore": "M9,3 H23 V17 H19 V15 H21 V7 H9 Z M4,9 H18 V23 H4 Z M6,13 H16 V21 H6 Z",
+    }[kind]
+    return f'<path d="{outline}" fill="{ink}" fill-rule="evenodd"/>'
+
+
+def caption_face_svg(kind, index, large=False):
+    color = "red" if kind == "close" else "blue"
+    art = stops.BUTTON_ART[color][caption_art_index(kind, index)]
+    radius, inset = caption_geometry(large)
+    definitions = face_inset(radius, inset) + face_definitions("s", art)
+    face = face_art("s", art, radius, inset)
+    if large:
+        body = f'<g transform="scale({LARGE_CAPTION_SCALE:.8f})">{face}</g>' + large_glyph_markup(kind, art["glyph"])
+        return linked_svg(LARGE_CAPTION, LARGE_CAPTION, f"<defs>{definitions}</defs>\n{body}")
+    body = face + glyph_markup(kind, art["glyph"])
+    return linked_svg(BUTTON, BUTTON, f"<defs>{definitions}</defs>\n{body}")
+
+
+def button_svg(kind, large=False):
     color = "red" if kind == "close" else "blue"
     arts = stops.BUTTON_ART[color]
-    definitions = [
-        f'<rect id="r" x="1" y="1" width="{BUTTON - 2}" height="{BUTTON - 2}" rx="{stops.BUTTON_RING_RADIUS - 1}"/>'
-    ]
+    radius, inset = caption_geometry(large)
+    definitions = [face_inset(radius, inset)]
     groups = []
     for index, name in enumerate(STATE_NAMES):
         element_id = f"{name}-center"
@@ -395,7 +450,12 @@ def button_svg(kind):
         art = arts[own_art_state(color, index)]
         prefix = f"s{index}"
         definitions.append(face_definitions(prefix, art))
-        groups.append(f'<g id="{element_id}"{placement}>{face_art(prefix, art, kind)}</g>')
+        glyph = (
+            f'<g transform="scale({1 / LARGE_CAPTION_SCALE:.8f})">{large_glyph_markup(kind, art["glyph"])}</g>'
+            if large else glyph_markup(kind, art["glyph"])
+        )
+        body = face_art(prefix, art, radius, inset) + glyph
+        groups.append(f'<g id="{element_id}"{placement}>{body}</g>')
     body = "\n".join([f"<defs>{''.join(definitions)}</defs>", *groups])
     return linked_svg(len(STATE_NAMES) * BUTTON_CELL, BUTTON, body)
 
@@ -456,11 +516,12 @@ METADATA = """{
 """
 
 
-def write_theme(out):
+def write_theme(out, dpi=96):
     out.mkdir(parents=True, exist_ok=True)
     (out / "decoration.svg").write_text(decoration_svg())
-    for kind in ("minimize", "maximize", "restore", "close", "help", "alldesktops", "keepabove", "keepbelow", "shade"):
-        (out / f"{kind}.svg").write_text(button_svg(kind))
+    for kind in (*DPI_CAPTION_KINDS, "help", "alldesktops", "keepabove", "keepbelow", "shade"):
+        large = kind in DPI_CAPTION_KINDS and dpi >= LARGE_CAPTION_DPI
+        (out / f"{kind}.svg").write_text(button_svg(kind, large))
     (out / "Chicago95Lunarc").write_text(RC.format(title_h=TITLE_H, border=BORDER, button=BUTTON))
     (out / "metadata.json").write_text(METADATA)
 
@@ -468,6 +529,8 @@ def write_theme(out):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", type=Path, default=HERE / "theme")
-    destination = parser.parse_args().out
-    write_theme(destination)
+    parser.add_argument("--dpi", type=int, default=96)
+    options = parser.parse_args()
+    destination = options.out
+    write_theme(destination, options.dpi)
     print("wrote", sorted(path.name for path in destination.iterdir()))

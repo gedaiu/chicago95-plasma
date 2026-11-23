@@ -188,7 +188,7 @@ kbuildsycoca6 >/dev/null 2>&1
 plasmashell --no-respawn >"$WORK/plasma-setup.log" 2>&1 &
 wait_for_plasma
 TMPDIR="$WORK" ./install.sh --plain --yes --components=base,look,taskbar,fonts{components} """
-    """--look={look} --screen={screen}@1{taskbar_style}{settings} >"$WORK/install.log" 2>&1 </dev/null
+    """--look={look} --screen={screen}@{setup_scale}{taskbar_style}{settings} >"$WORK/install.log" 2>&1 </dev/null
 # The test's launchers; the tray with the given applets only (none: the test's icons only).
 evaluate 'panels().forEach(panel => {{
     panel.widgets("org.chicago95.tasks").forEach(widget => {{
@@ -397,6 +397,7 @@ SETUP_OPTIONS = (
     "components",
     "launchers",
     "screen",
+    "setup_scale",
 )
 Installed = namedtuple("Installed", "look work screen environment")
 
@@ -422,6 +423,7 @@ def install(
     components=(),
     launchers=None,
     screen=None,
+    setup_scale=1,
 ):
     """Runs Setup's session for a look in work (see work_folder) and keeps a copy of the home it leaves, for
     show() to start each desktop from. tray_applets are Plasma applets shown in the tray (such as
@@ -429,7 +431,8 @@ def install(
     value) pairs for the taskbar widget's settings; taskbar_style the taskbar Setup installs whatever the look
     (classic, luna or aero); settings (key, value) pairs Setup applies with its animations step too; components
     further Setup components to install (such as desktop); launchers replaces the number of Quick Launch entries;
-    screen (width, height) replaces the look's own size, 640x480 or SCREENS'."""
+    screen (width, height) replaces the look's own size, 640x480 or SCREENS'. setup_scale supplies the
+    display scale to Setup."""
     work = Path(work)
     screen_size = screen or screen_of(look)
     home, runtime = work / "home", work / "run"
@@ -458,6 +461,7 @@ def install(
         SETUP.format(
             look=look,
             screen="x".join(map(str, screen_size)),
+            setup_scale=setup_scale,
             taskbar_style=f" --taskbar-style={taskbar_style}" if taskbar_style else "",
             launchers=json.dumps(launcher_files),
             tray_applets=json.dumps(list(tray_applets)),

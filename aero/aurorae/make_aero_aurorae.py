@@ -453,8 +453,8 @@ def large_caption_glyph(kind, colours, prefix, x0, pixel_density=None):
 
 def caption_rim(left, top, right, bottom, left_radius, right_radius, *, left_edge=True, right_edge=True):
     """The lower corners and two sides of a caption cell."""
-    edge = f"M{left:g} {top:g}V{bottom - left_radius:g}" if left_edge else f"M{left:g} {bottom:g}"
-    if left_radius:
+    edge = f"M{left:g} {top:g}V{bottom - left_radius:g}" if left_edge else f"M{left + left_radius:g} {bottom:g}"
+    if left_radius and left_edge:
         edge += f"a{left_radius} {left_radius} 0 0 0 {left_radius} {left_radius}"
     edge += f"H{right - right_radius:g}"
     if right_radius:
@@ -530,13 +530,56 @@ LARGE_CLOSE_INNER_HIGHLIGHTS = (
     ),
 )
 
+# Active disabled Close at 144 DPI, measured with the caption buttons
+# shown and hidden over three solid backgrounds. Each entry is a gradient
+# anchor at a physical row, with the glass colour and its opacity separated.
+LARGE_DISABLED_CLOSE_FACE = (
+    (0, "#FAFBFB", 166), (1, "#FBA89A", 121), (6, "#EC7E6B", 121),
+    (12, "#E87360", 121), (15, "#CC2305", 121), (19, "#CC2102", 121),
+    (21, "#CC2507", 121), (26, "#DA714F", 121), (27, "#F1B29F", 121),
+    (28, "#55271F", 222), (29, "#FEFEFE", 169),
+)
+LARGE_DISABLED_CLOSE_DIVIDER = (
+    (0, "#946A61", 224), (6, "#8A4E41", 223), (12, "#874637", 221),
+    (16, "#751101", 217), (21, "#761303", 217), (27, "#853426", 219), (28, "#5D2014", 222),
+)
+LARGE_DISABLED_CLOSE_BEVEL = (
+    (0, "#57423F", 225), (6, "#4C2F2B", 225), (12, "#472B25", 225),
+    (16, "#330900", 222), (22, "#340C04", 222), (25, "#481D17", 219),
+    (28, "#55271F", 222),
+)
+LARGE_DISABLED_CLOSE_HIGHLIGHTS = (
+    (
+        (0, "#FBFBFA", 164), (1, "#F4D5D1", 120), (6, "#EBC1B9", 120),
+        (12, "#E5B9B1", 121), (16, "#D39289", 121), (21, "#D39289", 121),
+        (26, "#DEB3AD", 122), (27, "#F0D7D3", 121),
+    ),
+    (
+        (0, "#FAFBFB", 166), (1, "#F1CAC4", 121), (6, "#E4B1A9", 121),
+        (12, "#E0A8A0", 120), (16, "#C3766C", 121), (21, "#C8786E", 121),
+        (25, "#CB9E97", 121),
+    ),
+)
+
+
+def large_disabled_close_glyph(x):
+    # The grey outline and translucent white ink are adjacent fills. The
+    # disabled X would darken if the two translucent shapes overlapped.
+    ink = LARGE_CAPTION_PATHS["close"]
+    outline = "M29 6h5l3 3 3-3h5q1 0 1 1l-7 7 7 7q0 1-1 1h-5l-3-3-3 3h-5q-1 0-1-1l7-7-7-7q0-1 1-1z"
+    return (
+        f'<g transform="translate({x:g} 0) scale(0.66666667)" fill-opacity="0.4">'
+        f'<path d="{outline} {ink}" fill="#7f7f7f" fill-rule="evenodd"/>'
+        f'<path d="{ink}" fill="white"/></g>'
+    )
+
 
 def caption_gradient(gradient_id, profile, height):
     anchors, colours, alphas = zip(*profile, strict=True)
     return vertical_gradient(gradient_id, list(zip(colours, alphas, strict=True)), anchors, height=height)
 
 
-def caption_surface(kind, face, width, prefix, large, *, optical_face=()):
+def caption_surface(kind, face, width, prefix, large, *, optical_face=(), disabled_close=False):
     """Paint the glass face and bevels with independently translucent gradients."""
     height = palette.BUTTON_HEIGHT
     large_close = kind == "close" and bool(optical_face)
@@ -548,7 +591,7 @@ def caption_surface(kind, face, width, prefix, large, *, optical_face=()):
     joined = LARGE_ACTIVE_JOINED_EDGES.get(kind, {}) if optical_face else {}
     edge = caption_rim(
         half, half, right, bottom, left_radius, right_radius,
-        left_edge="left" not in joined, right_edge="right" not in joined,
+        left_edge="left" not in joined and not disabled_close, right_edge="right" not in joined,
     )
     # Keep the body inside the stroke. The two translucent paints should not
     # stack on straight edges and make the lower highlight opaque.
@@ -567,20 +610,32 @@ def caption_surface(kind, face, width, prefix, large, *, optical_face=()):
     else:
         definitions = vertical_gradient(body, rows, positions, height=height)
     side_samples = [band["shade"][2] for band in face["bands"] if len(band["shade"]) > 2]
-    strength = sum(side_samples) / len(side_samples) if side_samples else 0
+    if disabled_close:
+        strength, shade_colour, inner_stop, outer_stop = 0.105, ' stop-color="#53595b"', ".19", ".81"
+    else:
+        strength = sum(side_samples) / len(side_samples) if side_samples else 0
+        shade_colour, inner_stop, outer_stop = "", ".4", ".6"
     definitions += (
         f'<linearGradient id="{shade}" x2="1" y2="0">'
-        f'<stop stop-opacity="{strength:.3f}"/><stop offset=".4" stop-opacity="0"/>'
-        f'<stop offset=".6" stop-opacity="0"/><stop offset="1" stop-opacity="{strength:.3f}"/></linearGradient>'
+        f'<stop{shade_colour} stop-opacity="{strength:.3f}"/>'
+        f'<stop offset="{inner_stop}"{shade_colour} stop-opacity="0"/>'
+        f'<stop offset="{outer_stop}"{shade_colour} stop-opacity="0"/>'
+        f'<stop offset="1"{shade_colour} stop-opacity="{strength:.3f}"/></linearGradient>'
     )
     # The atlas repeats the outside highlights for nine-slice stretching.
     # Follow the circular rim with a single stroke and keep the shaded seam
     # on the inside. The next cell supplies the divider on joined edges.
     light, alpha = rows[-1]
+    if disabled_close:
+        _, light, alpha = LARGE_DISABLED_CLOSE_FACE[-1]
     left_column = face["left"][-1 if kind == "minimize" else 0]
     left_seam = f"{prefix}Left"
     bevels = []
-    if "left" not in joined:
+    if disabled_close:
+        definitions += caption_gradient(left_seam, LARGE_DISABLED_CLOSE_DIVIDER, height)
+        divider = f"M0 0h{stroke:g}v{height - 2 * stroke:g}q0 {stroke:g} -{stroke:g} {stroke:g}Z"
+        bevels.append(f'<path d="{divider}" fill="url(#{left_seam})"/>')
+    elif "left" not in joined:
         definitions += vertical_gradient(left_seam, left_column, positions, height=height)
         bevels.append(
             f'<rect x="0" y="{stroke:g}" width="{stroke:g}" height="{bottom - left_radius - stroke:g}" '
@@ -595,7 +650,8 @@ def caption_surface(kind, face, width, prefix, large, *, optical_face=()):
         )
     if large_close:
         inner = f"{prefix}InnerBevel"
-        definitions += caption_gradient(inner, LARGE_CLOSE_INNER_BEVEL, height)
+        profile = LARGE_DISABLED_CLOSE_BEVEL if disabled_close else LARGE_CLOSE_INNER_BEVEL
+        definitions += caption_gradient(inner, profile, height)
         radius = right_radius - stroke
         x, y = right - stroke, bottom - stroke
         inner_edge = f"M{x:g} {half:g}V{y - radius:g}a{radius:g} {radius:g} 0 0 1 -{radius:g} {radius:g}"
@@ -605,9 +661,8 @@ def caption_surface(kind, face, width, prefix, large, *, optical_face=()):
         )
         # Paint each highlight in a cutout in the glass face so its alpha
         # stays independent of the main fill.
-        for index, (x, profile) in enumerate(
-            zip((stroke, width - 3 * stroke), LARGE_CLOSE_INNER_HIGHLIGHTS, strict=True)
-        ):
+        highlights = LARGE_DISABLED_CLOSE_HIGHLIGHTS if disabled_close else LARGE_CLOSE_INNER_HIGHLIGHTS
+        for index, (x, profile) in enumerate(zip((stroke, width - 3 * stroke), highlights, strict=True)):
             highlight = f"{prefix}InnerHighlight{index}"
             definitions += caption_gradient(highlight, profile, height)
             path = rect(x, 0, stroke, height - 4 * stroke)
@@ -633,9 +688,16 @@ def button_state(kind, window, look, prefix, x0=0, large=False, *, cell_width=No
     glyph_x = round((width - glyph_width + left - right) / 2)
     glyph_y = round((height - glyph_height + top - bottom) / 2)
     face = button_face(stops.FACES[face_name][window][look])
+    disabled_close = large and kind == "close" and (window, look) == ("active", "disabled")
     optical_face = LARGE_ACTIVE_FACE.get(kind, ()) if large and (window, look) == ("active", "normal") else ()
-    face_definitions, face_shapes = caption_surface(kind, face, width, f"f{prefix}", large, optical_face=optical_face)
+    if disabled_close:
+        optical_face = LARGE_DISABLED_CLOSE_FACE
+    face_definitions, face_shapes = caption_surface(
+        kind, face, width, f"f{prefix}", large, optical_face=optical_face, disabled_close=disabled_close
+    )
     face_shapes = f'<g transform="translate({x0} 0)">{face_shapes}</g>'
+    if disabled_close:
+        return face_definitions, face_shapes + large_disabled_close_glyph(x0 + (width - original_width) / 2)
     glyph_gradient, glyph_shapes = glyph_markup(kind, stops.GLYPHS[kind][look], f"g{prefix}", (x0 + glyph_x, glyph_y))
     if large:
         glyph_gradient, glyph_shapes = large_caption_glyph(

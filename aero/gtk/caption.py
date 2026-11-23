@@ -13,6 +13,7 @@ CELL_WIDTHS = {
     "maximize": palette.BUTTON_WIDTHS["maximize"] - 1,
 }
 FACE_HEIGHT = palette.BUTTON_HEIGHT
+GTK4_CAPTION_TOP = 4
 
 
 def write_face(directory, kind, state, width, artwork, large_artwork=None):
@@ -65,7 +66,13 @@ headerbar:backdrop {
 headerbar windowcontrols button, headerbar button.titlebutton {
   padding: 0; margin: 0; border: none; border-radius: 0;
   background-color: transparent; background-repeat: no-repeat; box-shadow: none;
+  background-position: center; background-origin: padding-box; background-clip: padding-box;
   min-height: 18px;
+}
+headerbar windowcontrols button:disabled, headerbar button.titlebutton:disabled {
+  background-color: transparent; background-repeat: no-repeat;
+  background-position: center; background-origin: padding-box; background-clip: padding-box;
+  border: none; border-radius: 0; box-shadow: none;
 }
 headerbar windowcontrols button > image, headerbar button.titlebutton > image {
   opacity: 0; padding: 0; margin: 0;
@@ -73,8 +80,11 @@ headerbar windowcontrols button > image, headerbar button.titlebutton > image {
 """
     ]
     if gtk4:
-        rules.append("""
-headerbar windowcontrols { border-spacing: 0; }
+        rules.append(f"""
+headerbar windowcontrols {{ border-spacing: 0; }}
+headerbar windowcontrols button, headerbar windowcontrols button:disabled {{
+  background-position: center {GTK4_CAPTION_TOP}px;
+}}
 """)
     else:
         rules.append("""
@@ -125,7 +135,7 @@ headerbar button.titlebutton:active, headerbar button.titlebutton:disabled {
             rules.append(
                 f"{selector} {{ min-width: {width}px; min-height: {FACE_HEIGHT}px; "
                 f'background-image: -gtk-scaled(url("{graphic}"), url("{hidpi}")); '
-                f"background-size: {width}px {FACE_HEIGHT}px; background-position: center; }}"
+                f"background-size: {width}px {FACE_HEIGHT}px; }}"
             )
     return "\n".join(rules)
 
