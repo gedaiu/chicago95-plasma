@@ -369,6 +369,9 @@ UI font, and are skipped without them. [docs/testing.md](docs/testing.md) covers
 comparisons, the login, boot and power-flow rehearsals, the showcase images and the cross-toolkit consistency
 checks.
 
+Run `python3 -m pytest tests/visual/parity.py -q` for the folder-driven Windows reference suite. It regenerates
+the registered scenes, checks exact pixels, and reports missing coverage. [Pixel parity workflow](docs/testing.md#folder-driven-pixel-parity)
+
 ## Clippy
 
 The Office Assistant plays the original sprite atlas by default. Artwork reconstruction and Blender authoring

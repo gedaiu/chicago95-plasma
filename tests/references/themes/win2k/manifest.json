@@ -1,0 +1,16 @@
+{
+  "look": "2000",
+  "caption_scale": 1.25,
+  "aliases": {
+    "win2000-pro-run.png": "run.png",
+    "win2000-pro-taskbar-band.png": "taskbar-band.png",
+    "caption-states-2000.png": "caption-states.png",
+    "win2000-pro-120dpi-device-manager-band.png": "device-manager.png"
+  },
+  "taskbar_x": 535,
+  "device_manager_scale": 1.25,
+  "start_menu_active": 4,
+  "properties_scale": 1.25,
+  "display_page": "Appearance",
+  "display_resolution": "1280x1024"
+}

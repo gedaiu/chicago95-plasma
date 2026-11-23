@@ -1,0 +1,16 @@
+{
+  "look": "1995",
+  "caption_scale": 1.25,
+  "aliases": {
+    "win95-osr2-run.png": "run.png",
+    "win95-osr2-taskbar-band.png": "taskbar-band.png",
+    "caption-states-1995.png": "caption-states.png",
+    "win95-osr2-device-actions.png": "device-manager.png",
+    "win95-osr2-start.png": "start-menu.png"
+  },
+  "taskbar_x": 535,
+  "device_manager_scale": 1,
+  "properties_scale": 1.25,
+  "display_page": "Appearance",
+  "display_resolution": "1024x768"
+}

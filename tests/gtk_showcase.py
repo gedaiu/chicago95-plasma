@@ -12,6 +12,7 @@ import gi
 
 VERSION, THEME, OUTPUT = sys.argv[1:4]
 AUDIT = "--consistency" in sys.argv[4:]
+CAPTION_CROPS = "--caption-crops" in sys.argv[4:]
 gi.require_version("Gtk", VERSION)
 from gi.repository import GLib, Gtk  # noqa: E402
 
@@ -197,13 +198,24 @@ def switch_widgets():
 
 
 def consistency_widgets():
-    for state, flag in (
-        ("normal", None),
-        ("hovered", Gtk.StateFlags.PRELIGHT),
-        ("pressed", Gtk.StateFlags.ACTIVE),
-        ("backdrop", Gtk.StateFlags.BACKDROP),
-    ):
+    caption_states = [
+        ("normal", None, None),
+        ("hovered", Gtk.StateFlags.PRELIGHT, None),
+        ("pressed", Gtk.StateFlags.ACTIVE, None),
+        ("backdrop", Gtk.StateFlags.BACKDROP, None),
+    ]
+    if CAPTION_CROPS:
+        caption_states = [
+            ("normal", None, None), ("disabled", None, None), ("restore", None, None),
+            *[
+                (f"{state}-{kind}", flag, kind)
+                for state, flag in (("hovered", Gtk.StateFlags.PRELIGHT), ("pressed", Gtk.StateFlags.ACTIVE))
+                for kind in ("minimize", "maximize", "close")
+            ],
+        ]
+    for state, flag, target in caption_states:
         bar = Gtk.HeaderBar()
+        bar._caption_buttons = {}
         if V4:
             bar.set_show_title_buttons(False)
         bar.get_style_context().add_class("titlebar")
@@ -211,12 +223,18 @@ def consistency_widgets():
             button = Gtk.Button()
             button.get_style_context().add_class("titlebutton")
             button.get_style_context().add_class(kind)
-            button.set_child(Gtk.Image.new_from_icon_name(f"window-{kind}-symbolic")) if V4 else button.add(
-                Gtk.Image.new_from_icon_name(f"window-{kind}-symbolic", Gtk.IconSize.BUTTON)
-            )
-            button._caption_flag = flag
-            if flag is not None:
-                button.set_state_flags(flag, False)
+            action = "restore" if state == "restore" and kind == "maximize" else kind
+            icon = f"window-{action}-symbolic"
+            if V4:
+                button.set_child(Gtk.Image.new_from_icon_name(icon))
+            else:
+                button.add(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
+            button._caption_flag = flag if target in (None, kind) else None
+            bar._caption_buttons[kind] = button
+            if state == "disabled" and kind != "minimize":
+                button.set_sensitive(False)
+            if button._caption_flag is not None:
+                button.set_state_flags(button._caption_flag, False)
             bar.pack_end(button)
         if not V4:
             bar.show_all()
@@ -403,16 +421,20 @@ def main():
         kinds = sys.argv[sys.argv.index("--only") + 1].split(",")
         catalogue = [row for row in catalogue if row[1].split()[0] in kinds]
     manifest = []
+    caption_crops = {}
     loop = GLib.MainLoop()
     position = 0
     window = None
     capture_attempts = 0
+    caption_scale = float(os.environ["CHICAGO95_CAPTION_SCALE"]) if CAPTION_CROPS else None
 
     def show_next():
         nonlocal position, window, capture_attempts
         capture_attempts = 0
         if position == len(catalogue):
             (output / "manifest.json").write_text(json.dumps(manifest))
+            if CAPTION_CROPS:
+                (output / "caption-crops.json").write_text(json.dumps(caption_crops))
             loop.quit()
             return False
         group, label, children = catalogue[position]
@@ -426,6 +448,8 @@ def main():
             box.remove(children[0])
         # A real window, never Gtk.OffscreenWindow: only a real one follows the screen's scale.
         window = Gtk.Window()
+        if CAPTION_CROPS and label == "caption restore":
+            window.get_style_context().add_class("maximized")
         if native_caption:
             window.set_titlebar(children[0])
         elif not V4:
@@ -562,7 +586,7 @@ def main():
             # Snapshot the real widget tree, including the native theme's state styling.
             paintable = Gtk.WidgetPaintable.new(window.get_child())
             snapshot = Gtk.Snapshot()
-            device_scale = window.get_scale_factor()
+            device_scale = caption_scale or window.get_scale_factor()
             snapshot.scale(device_scale, device_scale)
             paintable.snapshot(snapshot, window.get_child().get_width(), window.get_child().get_height())
             node = snapshot.to_node()
@@ -585,15 +609,27 @@ def main():
         else:
             import cairo
 
-            device_scale = window.get_scale_factor()
+            device_scale = caption_scale or window.get_scale_factor()
             surface = cairo.ImageSurface(
                 cairo.FORMAT_ARGB32,
-                window.get_allocated_width() * device_scale,
-                window.get_allocated_height() * device_scale,
+                round(window.get_allocated_width() * device_scale),
+                round(window.get_allocated_height() * device_scale),
             )
             surface.set_device_scale(device_scale, device_scale)
             window.draw(cairo.Context(surface))
             surface.write_to_png(str(path))
+        if CAPTION_CROPS and label.startswith("caption "):
+            root = window.get_child() if V4 else window
+            regions = {}
+            for kind, button in children[0]._caption_buttons.items():
+                xy = button.translate_coordinates(root, 0, 0)
+                if xy is None:
+                    raise RuntimeError(f"GTK did not place the {kind} button in {label}")
+                x, y = xy[-2:]
+                width = button.get_width() if V4 else button.get_allocated_width()
+                height = button.get_height() if V4 else button.get_allocated_height()
+                regions[kind] = [round(edge * device_scale) for edge in (x, y, x + width, y + height)]
+            caption_crops[label] = [path.name, regions]
         manifest.append([group, label, path.name])
         window.destroy()
         position += 1

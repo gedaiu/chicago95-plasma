@@ -244,7 +244,7 @@ SP1 x86 installation from the owner's English DVD. Captured at 800 × 600
 and the default 96 DPI with the standard VGA adapter. Use their client areas
 for MMC alignment and Category View layout. The title bars show Windows 7 Basic.
 
-`win7-sp1-category-hover.png` is the unscaled 328 × 80 crop at (70, 127)
+`themes/win7/control-panel/hover.png` is the unscaled 328 × 80 crop at (70, 127)
 from the same guest, with the pointer over System and Security. It includes
 the selection outline and fill from top to bottom.
 
@@ -261,7 +261,7 @@ are lossless and retain the guest pixel grid.
 | `win7-sp1-aero-lock.png`, `win7-sp1-aero-lock-800.png` | Locked session with its credential field, at 1024 × 768 and 800 × 600 |
 | `win7-sp1-aero-calendar.png` | Calendar client at (672, 465), 336 × 247 |
 | [Screen Resolution](../../docs/compare/win7-sp1-screen-resolution.png) | Native display settings opened with `control desk.cpl` |
-| `win7-sp1-category-hover-opening.png` | Five consecutive 8 × 8 samples at (362, 163) over the System and Security card, from its last idle frame through its first four highlighted frames |
+| `themes/win7/control-panel/hover-opening.png` | Five consecutive 8 × 8 samples at (362, 163) over the System and Security card, from its last idle frame through its first four highlighted frames |
 | `win7-sp1-start-opening.png` | Five consecutive 10 × 10 samples at desktop (206, 550), beginning with the last frame before the Start program pane appears |
 | `win7-sp1-start-orb-hover.png` | Twenty-five consecutive 7 × 12 samples at desktop (7, 740), left of the logo, beginning when the pointer moved onto the orb |
 
@@ -297,10 +297,10 @@ geometry only. At 1280 × 960 and 144 DPI, `win7-sp1-shutdown-144dpi.png` is a n
 
 ## Caption interaction states
 
-The six `caption-states-*.png` fixtures are native framebuffer crops of Notepad
+The six `themes/*/caption-states.png` fixtures are native framebuffer crops of Notepad
 on the Windows 95 OSR2, Windows 98 SE, Windows 2000 Professional, XP SP3 Classic,
 XP SP3 Luna and Windows 7 SP1 Aero reference VMs. The look names in the filenames
-are `1995`, `1998`, `2000`, `2001`, `luna` and `aero`. The classic and XP
+are `win95`, `win98`, `win2k`, `winxp-classic`, `winxp` and `win7`. The classic and XP
 captures were taken at 120 DPI and the Aero capture at 144 DPI.
 
 Each sheet has six bands for rest, hover, held press, disabled, Restore, and
@@ -316,3 +316,33 @@ The disabled band includes Maximize and Close from a separate native Win32
 window. Its style includes `WS_MINIMIZEBOX`, and leaves out
 `WS_MAXIMIZEBOX`. Its system menu greys `SC_CLOSE` via `EnableMenuItem`.
 All PNGs preserve the unscaled guest pixels from their selected areas.
+
+The theme manifests map several earlier fixture basenames to the canonical
+`run.png` and `taskbar-band.png` files. The alias retains the capture provenance
+listed above. The Windows 7 folder adds two native-sized crops. The 144-DPI
+Run client is the unscaled 568 × 291 area at (22, 598) of the 1280 × 960 SP1 Aero
+VirtualBox framebuffer, with `regedit` typed into the field. The 96-DPI taskbar
+band is the unoccupied 8 × 40 region at (535, 728) in `win7screenres.png`.
+
+The manifests also keep aliases for the previously captured `device-manager.png` and
+`start-menu.png` fixtures. The Windows 7 Device Manager file is a 782 × 46 crop from (80, 72)
+of `win7-sp1-aero-device-manager.png`. The Windows 2000 and XP Classic Start menu files use
+the rectangles (2, 113, 206, 456) in `w2kstartmenu.png` and (2, 233, 193, 576) in `xpclassic.png`.
+The Windows 7 Start menu file contains the opaque search area at (8, 675, 260, 721) in
+`win7-sp1-aero-start.png`. These rectangles use exclusive right and bottom edges.
+
+### Control Panel and Display Properties
+
+Each folder contains native framebuffer crops of the Control Panel client and the named
+Display view. XP used the Control Panel icon view on both looks. Windows 7 used its default
+category view and the Screen Resolution page. The bounds below exclude the window frames
+and use exclusive right and bottom edges.
+
+| Folder | Guest framebuffer and DPI | Control Panel bounds | Display view and bounds |
+| --- | --- | --- | --- |
+| `win95` | 1024×768, 120 DPI | (92, 115, 499, 424) | Appearance (111, 134, 639, 653) |
+| `win98` | 1280×1024, 120 DPI | (220, 243, 1012, 950) | Appearance (165, 188, 693, 707) |
+| `win2k` | 1280×1024, 120 DPI | (166, 189, 966, 879) | Appearance (193, 215, 721, 734) |
+| `winxp-classic` | 1280×1024, 120 DPI | (166, 189, 958, 758) | Settings (30, 53, 558, 572) |
+| `winxp` | 1280×1024, 120 DPI | (166, 246, 958, 806) | Settings (57, 105, 585, 622) |
+| `win7` | 1280×960, 144 DPI | (61, 50, 1239, 893) | Screen Resolution content (61, 89, 1239, 893) |

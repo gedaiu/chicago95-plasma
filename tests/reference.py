@@ -5,6 +5,8 @@ are compared with a tolerance.
 """
 
 import io
+import json
+from functools import cache
 from pathlib import Path
 
 from PIL import Image
@@ -14,9 +16,27 @@ TOLERANCE = 12
 MASK_COLOUR = (255, 0, 255)
 
 
+@cache
+def theme_references(root):
+    """The canonical per-theme directories and their metadata."""
+    return tuple(
+        (manifest.parent, json.loads(manifest.read_text()))
+        for manifest in sorted((root / "themes").glob("*/manifest.json"))
+    )
+
+
+def reference_path(filename):
+    path = REFERENCES / filename
+    if not path.is_file():
+        for folder, metadata in theme_references(REFERENCES):
+            if migrated := metadata.get("aliases", {}).get(filename):
+                return folder / migrated
+    return path
+
+
 def screenshot(name):
     """The reference screenshot <name>.png as RGB."""
-    return Image.open(REFERENCES / f"{name}.png").convert("RGB")
+    return Image.open(reference_path(f"{name}.png")).convert("RGB")
 
 
 def close(a, b, tolerance=TOLERANCE):

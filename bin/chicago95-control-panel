@@ -57,6 +57,7 @@ from PySide6.QtGui import (
     QLinearGradient,
     QPainter,
     QPalette,
+    QPen,
     QPixmap,
 )
 from PySide6.QtQuickWidgets import QQuickWidget
@@ -484,14 +485,19 @@ VIEW_MODES = {
 
 
 AERO_CATEGORY_STYLE = (
-    "QWidget#categoryView { background: white; }"
+    "QWidget#categoryDetails { background: white; }"
     "QFrame#categoryCard { background: transparent; border: 1px solid transparent; border-radius: 3px; }"
-    "QFrame#categoryCard:hover { border-color: #b9d7fc;"
-    "background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #fdfeff,stop:1 #edf5ff); }"
     "QPushButton { background: transparent; text-align: left; border: 0; padding: 0; color: #0066cc; }"
     "QPushButton[heading=true] { color: #006600; font-size: 15px; }"
     "QPushButton:hover, QPushButton:focus { text-decoration: underline; color: #004499; }"
 )
+
+# Minimum card heights measured by the native heading intervals, excluding the 6 px gap.
+AERO_CATEGORY_HEIGHTS = (80, 80, 102, 0, 61, 83, 0, 0)
+AERO_CATEGORY_ASSETS = {
+    "System and Security": "aero-category-security.svg",
+    "Clock, Language, and Region": "aero-category-clock.svg",
+}
 
 
 # Windows 7 lists these categories down the left column, then down the right.
@@ -514,7 +520,7 @@ AERO_CATEGORIES = {
         ),
     ),
     "Programs": (
-        "applications-other",
+        "package-install",
         (("Configure the file manager", "Explorer", ""), ("Configure the Office Assistant", "Office Assistant", "")),
     ),
     "User Accounts and Family Safety": (
@@ -1383,6 +1389,7 @@ class AddressBar(QWidget):
     """Explorer's Address box as breadcrumbs: each part of the path is a button that goes there."""
 
     navigate = Signal(tuple)
+    refresh_requested = Signal()
 
     def __init__(self, known_pages, aero=False):
         super().__init__()
@@ -1415,7 +1422,10 @@ class AddressBar(QWidget):
         box_layout.addSpacing(2)
         box_layout.addWidget(self.icon)
         if aero:
-            box_layout.addWidget(QLabel(" › "))
+            separator = QLabel("▸")
+            separator.setAlignment(Qt.AlignCenter)
+            separator.setFixedWidth(13)
+            box_layout.addWidget(separator)
         crumbs = QWidget()
         self.crumb_layout = QHBoxLayout(crumbs)
         self.crumb_layout.setContentsMargins(2, 0, 2, 0)
@@ -1429,8 +1439,8 @@ class AddressBar(QWidget):
             self.box.setObjectName("aeroBreadcrumb")
             self.box.setStyleSheet(
                 "QFrame#aeroBreadcrumb { border: 1px solid #435564; border-bottom-color: #799db9;"
-                " background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #f5faff,stop:.055 #d0e6f7,"
-                "stop:.945 #d0e6f7,stop:1 #eff7fc); }"
+                " background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #f5f8fb,stop:.07 #becfe0,"
+                "stop:.25 #c2d2e2,stop:.9 #c0d1e2,stop:1 #eff4f8); }"
                 "QToolButton { color: #172632; padding: 0 2px; border: 1px solid transparent; }"
                 "QToolButton:hover { background: #d5eafd; border-color: #92b8d5; }"
                 "QToolButton::menu-indicator { image: none; }"
@@ -1444,6 +1454,17 @@ class AddressBar(QWidget):
         self.dropdown.setAccessibleName("Go to a Control Panel page")
         self.dropdown.setMenu(self.build_known_pages_menu())
         box_layout.addWidget(self.dropdown)
+        if aero:
+            refresh = QToolButton()
+            refresh.setObjectName("aeroAddressRefresh")
+            refresh.setAccessibleName("Refresh")
+            refresh.setToolTip("Refresh (F5)")
+            refresh.setIcon(QIcon(str(control_panel_asset("aero-refresh.svg"))))
+            refresh.setIconSize(QSize(16, 16))
+            refresh.setFixedSize(22, height - 4)
+            refresh.setStyleSheet("QToolButton#aeroAddressRefresh { border-left: 1px solid #6f859b; }")
+            refresh.clicked.connect(self.refresh_requested)
+            box_layout.addWidget(refresh)
         layout.addWidget(self.box, 1)
 
     def build_known_pages_menu(self):
@@ -3136,6 +3157,52 @@ class AeroNavigationButton(QToolButton):
             painter.drawEllipse(self.rect().adjusted(1, 1, -2, -2))
 
 
+class AeroCategoryCard(QFrame):
+    def __init__(self):
+        super().__init__()
+        self.setObjectName("categoryCard")
+        self.highlighted = False
+
+    def enterEvent(self, event):
+        super().enterEvent(event)
+        self.highlighted = True
+        self.update()
+
+    def leaveEvent(self, event):
+        super().leaveEvent(event)
+        self.highlighted = False
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if not self.highlighted:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        outline = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        fill = QLinearGradient(0, 1.5, 0, self.height() - 1.5)
+        fill.setColorAt(0, QColor("#fdfeff"))
+        fill.setColorAt(1, QColor("#ecf4ff"))
+        painter.setPen(QColor("#b9d7fc"))
+        painter.setBrush(fill)
+        painter.drawRoundedRect(outline, 2.25, 2.25)
+        bevel = QLinearGradient(0, 1.5, 0, self.height() - 1.5)
+        bevel.setColorAt(0, QColor("#fdfeff"))
+        bevel.setColorAt(1, QColor("#f3f8ff"))
+        painter.setPen(QPen(bevel, 1))
+        painter.setBrush(Qt.NoBrush)
+        painter.drawRoundedRect(outline.adjusted(1, 1, -1, -1), 1.25, 1.25)
+
+
+class AeroCategoryView(QWidget):
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        tint = QLinearGradient(0, 0, 0, 25)
+        tint.setColorAt(0, QColor("#f8fafc"))
+        tint.setColorAt(1, QColor("white"))
+        painter.fillRect(self.rect(), tint)
+
+
 class AeroAppletDelegate(QStyledItemDelegate):
     def initStyleOption(self, option, index):
         super().initStyleOption(option, index)
@@ -3411,9 +3478,13 @@ def page_rect(rect):
     return rect.translated(-TAB_PAGE_FRAME, -TAB_PAGE_FRAME)
 
 
-def control_panel_art(name):
+def control_panel_asset(name):
     installed = CHICAGO95_DATA / "control-panel" / name
-    return (installed if installed.exists() else REPO_DIR / "data/control-panel" / name).read_bytes()
+    return installed if installed.exists() else REPO_DIR / "data/control-panel" / name
+
+
+def control_panel_art(name):
+    return control_panel_asset(name).read_bytes()
 
 
 @functools.lru_cache(maxsize=32)
@@ -4849,11 +4920,16 @@ class ControlPanel(QMainWindow):
         self.toolbar = QFrame()
         self.toolbar.setObjectName("aeroNavigation")
         self.toolbar.setStyleSheet(
-            "QFrame#aeroNavigation { border-bottom: 1px solid #7892aa; background: "
-            "qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #a3cdf0, stop:.25 #53a2df, stop:1 #82b8df); }"
+            "QFrame#aeroNavigation { border-bottom: 1px solid #1b344d; background: "
+            "qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #7398bc,stop:.18 #235f98,"
+            "stop:.63 #245d94,stop:1 #486d93); }"
         )
         row = QHBoxLayout(self.toolbar)
-        row.setContentsMargins(1, 3, 6, 3)
+        # Aero keeps the band compact when the rest of the shell is scaled up.
+        compact = self.devicePixelRatioF() >= 1.5
+        vertical_padding = 1 if compact else 3
+        nav_size = 23 if compact else 27
+        row.setContentsMargins(1, vertical_padding, 2, vertical_padding)
         row.setSpacing(2)
         self.toolbar_buttons = {}
         for name, icon, fallback, distance in (
@@ -4867,8 +4943,8 @@ class ControlPanel(QMainWindow):
             button = AeroNavigationButton(forward=distance > 0)
             button.setDefaultAction(action)
             button.setAutoRaise(True)
-            button.setIconSize(QSize(26, 26))
-            button.setFixedSize(27, 27)
+            button.setIconSize(QSize(nav_size - 1, nav_size - 1))
+            button.setFixedSize(nav_size, nav_size)
             button.setStyleSheet("QToolButton { border: 0; padding: 0; }")
             self.toolbar_buttons[name] = button
             row.addWidget(button)
@@ -4893,31 +4969,52 @@ class ControlPanel(QMainWindow):
         pages.extend(HOME_PAGE + (applet.name,) for applet in APPLETS if not applet.external_tool)
         self.address_bar = AddressBar(pages, aero=True)
         self.address_bar.navigate.connect(self.navigate)
-        row.addWidget(self.address_bar, 3)
+        refresh = QAction("Refresh", self)
+        refresh.setShortcut("F5")
+        refresh.triggered.connect(lambda: self.show_page(self.history.current))
+        self.address_bar.refresh_requested.connect(refresh.trigger)
+        self.addAction(refresh)
+        row.addWidget(self.address_bar, 7)
         search = QLineEdit()
         search.setClearButtonEnabled(True)
         search.setAccessibleName("Search Control Panel")
         search.setPlaceholderText("Search Control Panel")
         search.setMinimumWidth(115)
-        search.setFixedHeight(self.address_bar.height())
+        search.setFixedHeight(self.address_bar.height() - 2)
         search.setStyleSheet(
-            "QLineEdit { background: #f5faff; color: #172632; border: 1px solid #6987a1; padding: 0 5px; }"
+            "QLineEdit { background: white; color: #172632; border: 1px solid #435564;"
+            " border-bottom-color: #799db9; padding: 0 3px; placeholder-text-color: #646464; }"
+        )
+        search.addAction(QIcon.fromTheme("system-search"), QLineEdit.TrailingPosition).triggered.connect(
+            lambda: search.setFocus(Qt.MouseFocusReason)
         )
         self.search = search
         search.textEdited.connect(self.search_applets)
-        row.addWidget(search, 1)
+        row.addWidget(search, 2)
         layout.addWidget(self.toolbar)
 
         self.home_heading = QWidget()
-        self.home_heading.setStyleSheet("background: white; color: #174984;")
+        self.home_heading.setObjectName("aeroHomeHeading")
+        self.home_heading.setStyleSheet(
+            "QWidget#aeroHomeHeading { background: white; }"
+            "QWidget#aeroHomeHeading[category=true] { background: "
+            "qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #edf3fa,stop:1 #f8fafc); }"
+            "QLabel { color: #526477; }"
+            "QToolButton { background: transparent; border: 1px solid transparent; color: #0066cc; }"
+            "QToolButton:hover { background: #e5f1ff; border-color: #b9d7fc; }"
+        )
         titles = QHBoxLayout(self.home_heading)
-        heading = QLabel("Adjust your computer’s settings")
+        heading = QLabel("Adjust your computer's settings")
         heading.setStyleSheet("font-size: 15px; color: #003399;")
         titles.addWidget(heading, 1)
         titles.addWidget(QLabel("View by:"))
         self.view_menu = QMenu(self)
         self.view_button = QToolButton()
         self.view_button.setAutoRaise(True)
+        self.view_button.setStyleSheet(
+            "QToolButton::menu-indicator { subcontrol-position: right center; width: 8px; }"
+            "QToolButton { padding-right: 10px; }"
+        )
         self.view_button.setPopupMode(QToolButton.InstantPopup)
         self.view_button.setMenu(self.view_menu)
         for name in ("Category", "Large Icons", "Small Icons"):
@@ -4927,25 +5024,32 @@ class ControlPanel(QMainWindow):
         self.setMenuWidget(self.header)
 
     def build_category_view(self):
-        widget = QWidget()
+        widget = AeroCategoryView()
         widget.setStyleSheet(AERO_CATEGORY_STYLE)
         widget.setObjectName("categoryView")
         layout = QHBoxLayout(widget)
-        layout.setContentsMargins(70, 10, 70, 12)
+        layout.setContentsMargins(70, 12, 70, 12)
         layout.setSpacing(0)
         for offset in (0, 4):
             column = QVBoxLayout()
-            column.setSpacing(6)
+            column.setSpacing(0)
             layout.addLayout(column, 1)
-            for category, (icon, links) in list(AERO_CATEGORIES.items())[offset : offset + 4]:
-                card = QFrame()
-                card.setObjectName("categoryCard")
+            for index, (category, (icon, links)) in enumerate(
+                list(AERO_CATEGORIES.items())[offset : offset + 4], start=offset
+            ):
+                card = AeroCategoryCard()
+                card.setMinimumHeight(AERO_CATEGORY_HEIGHTS[index])
                 row = QHBoxLayout(card)
-                row.setContentsMargins(2, 2, 2, 2)
-                row.setSpacing(12)
+                row.setContentsMargins(1, 2, 2, 2)
+                row.setSpacing(11)
                 picture = QToolButton()
                 picture.setAccessibleName(category)
-                picture.setIcon(themed_icon((icon, APPLET_BY_NAME[links[0][1]].icon_names[0])))
+                asset = AERO_CATEGORY_ASSETS.get(category)
+                picture.setIcon(
+                    QIcon(str(control_panel_asset(asset)))
+                    if asset
+                    else themed_icon((icon, APPLET_BY_NAME[links[0][1]].icon_names[0]))
+                )
                 picture.setIconSize(QSize(48, 48))
                 picture.setStyleSheet("background: transparent; border: none; padding: 0")
                 picture.setCursor(Qt.PointingHandCursor)
@@ -4954,6 +5058,7 @@ class ControlPanel(QMainWindow):
                 tasks = QVBoxLayout()
                 tasks.setSpacing(1)
                 row.addLayout(tasks, 1)
+                row.setAlignment(tasks, Qt.AlignTop)
                 heading = QPushButton(category)
                 heading.setAutoDefault(True)
                 heading.setProperty("heading", True)
@@ -4968,6 +5073,8 @@ class ControlPanel(QMainWindow):
                     button.clicked.connect(lambda _, name=applet, section=tab: self.open_category_task(name, section))
                     tasks.addWidget(button)
                 column.addWidget(card)
+                if category != "Clock, Language, and Region":
+                    column.addSpacing(6)
             column.addStretch()
         return widget
 
@@ -4975,7 +5082,7 @@ class ControlPanel(QMainWindow):
         if category in self.category_details:
             return self.category_details[category]
         page = QWidget()
-        page.setObjectName("categoryView")
+        page.setObjectName("categoryDetails")
         page.setStyleSheet(AERO_CATEGORY_STYLE)
         columns = QHBoxLayout(page)
         columns.setContentsMargins(0, 0, 0, 0)
@@ -5047,8 +5154,7 @@ class ControlPanel(QMainWindow):
             for task in AERO_CATEGORIES[category][1]:
                 by_applet.setdefault(task[1], []).append(task)
         for applet, links in by_applet.items():
-            card = QFrame()
-            card.setObjectName("categoryCard")
+            card = AeroCategoryCard()
             row = QHBoxLayout(card)
             row.setContentsMargins(4, 2, 4, 2)
             row.setSpacing(10)
@@ -5110,7 +5216,12 @@ class ControlPanel(QMainWindow):
 
     def show_aero_home(self, text):
         category = self.view_button.text() == "Category" and not text
-        self.home_heading.layout().setContentsMargins(*((72, 18, 72, 18) if category else (18, 9, 16, 9)))
+        if self.home_heading.property("category") != category:
+            self.home_heading.layout().setContentsMargins(*((72, 18, 72, 18) if category else (18, 9, 16, 9)))
+            self.home_heading.setProperty("category", category)
+            style = self.home_heading.style()
+            style.unpolish(self.home_heading)
+            style.polish(self.home_heading)
         self.pages.setCurrentWidget(self.category_view if category else self.icon_view)
         for row in range(self.icon_view.count()):
             item = self.icon_view.item(row)

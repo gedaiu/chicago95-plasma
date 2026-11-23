@@ -301,7 +301,9 @@ def frame_bands(body):
 
 
 def reference_frame(name):
-    image = Image.open(REPO / "tests/references" / name).convert("RGB")
+    from reference import reference_path
+
+    image = Image.open(reference_path(name)).convert("RGB")
     width, height = image.size
     colour = "#{:02X}{:02X}{:02X}".format
     return {

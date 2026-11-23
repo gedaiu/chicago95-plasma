@@ -1,0 +1,22 @@
+{
+  "look": "2001",
+  "caption_scale": 1.25,
+  "aliases": {
+    "xp-sp3-classic-run.png": "run.png",
+    "xp-sp3-classic-taskbar-band.png": "taskbar-band.png",
+    "caption-states-2001.png": "caption-states.png",
+    "xp-sp3-classic-device-manager-bands.png": "device-manager.png"
+  },
+  "taskbar_x": 535,
+  "device_manager_scale": 1,
+  "device_manager_crop": [
+    0,
+    0,
+    620,
+    48
+  ],
+  "start_menu_user": "Classic",
+  "properties_scale": 1.25,
+  "display_page": "Settings",
+  "display_resolution": "1280x1024"
+}

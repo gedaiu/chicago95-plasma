@@ -1,0 +1,28 @@
+{
+  "look": "luna",
+  "caption_scale": 1.25,
+  "run_crop": [
+    3,
+    29,
+    344,
+    183
+  ],
+  "aliases": {
+    "xprun.png": "run.png",
+    "xp-sp3-taskbar-band.png": "taskbar-band.png",
+    "caption-states-luna.png": "caption-states.png",
+    "xp-sp3-device-manager-bands.png": "device-manager.png",
+    "xp-sp3-start-menu.png": "start-menu.png"
+  },
+  "taskbar_x": 398,
+  "device_manager_scale": 1,
+  "device_manager_crop": [
+    0,
+    0,
+    620,
+    46
+  ],
+  "properties_scale": 1.25,
+  "display_page": "Settings",
+  "display_resolution": "1280x1024"
+}

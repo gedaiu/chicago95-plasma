@@ -6,7 +6,17 @@ from PIL import Image
 
 
 def compare(original, actual, output, mask=None):
-    assert original.size == actual.size
+    geometry = ""
+    if original.size != actual.size:
+        geometry = f"Reference size {original.size} differs from rendered size {actual.size}. "
+        original.save(output.with_name(output.stem + "-reference.png"))
+        actual.save(output.with_name(output.stem + "-rendered.png"))
+        width, height = min(original.width, actual.width), min(original.height, actual.height)
+        original = original.crop((0, 0, width, height))
+        actual = actual.crop((0, 0, width, height))
+        if mask is not None:
+            mask = mask[:height, :width]
+        output = output.with_name(output.stem + "-overlap.png")
     expected = np.asarray(original.convert("RGB"), dtype=np.int16)
     observed = np.asarray(actual.convert("RGB"), dtype=np.int16)
     delta = np.abs(expected - observed)
@@ -14,7 +24,7 @@ def compare(original, actual, output, mask=None):
     changed = int(np.any(samples, axis=-1).sum())
     total = samples.size // 3
     assert total > 0
-    if changed:
+    if changed or geometry:
         if mask is not None:
             delta[~mask] = 0
         # Left to right: original, current render, absolute RGB error amplified 4x.
@@ -23,6 +33,8 @@ def compare(original, actual, output, mask=None):
         panel.paste(actual.convert("RGB"), (actual.width, 0))
         panel.paste(Image.fromarray(np.minimum(255, 4 * delta).astype("uint8")), (2 * actual.width, 0))
         panel.save(output)
+        region = " in the top-left overlap" if geometry else ""
         pytest.fail(
-            f"{changed}/{total} pixels differ, mean RGB error {samples.mean():.2f}/255; {output}", pytrace=False
+            f"{geometry}{changed}/{total} pixels differ{region}, mean RGB error {samples.mean():.2f}/255; {output}",
+            pytrace=False,
         )

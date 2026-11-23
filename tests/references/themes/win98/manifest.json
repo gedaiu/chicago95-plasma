@@ -1,0 +1,16 @@
+{
+  "look": "1998",
+  "caption_scale": 1.25,
+  "aliases": {
+    "win98-se-run.png": "run.png",
+    "win98-se-taskbar-band.png": "taskbar-band.png",
+    "caption-states-1998.png": "caption-states.png",
+    "win98-se-device-actions.png": "device-manager.png",
+    "win98-se-start.png": "start-menu.png"
+  },
+  "taskbar_x": 535,
+  "device_manager_scale": 1,
+  "properties_scale": 1.25,
+  "display_page": "Appearance",
+  "display_resolution": "1280x1024"
+}

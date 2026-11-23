@@ -16,7 +16,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QTabWidget
 from screencast_stubs import write_stubs
 
 
-def render(out, scale):
+def render(out, scale, *, run_only=False):
     import chicago95ui
     from chicago95aeromenu import AeroMenu
 
@@ -64,6 +64,13 @@ def render(out, scale):
         assert picture.devicePixelRatio() == scale
         assert picture.save(str(out / f"{name}.png"))
 
+    run = load_script("chicago95-run").RunDialog(applications=[], path_dirs=[], history=[])
+    run.field.setEditText("regedit")
+    capture(run, "run")
+    run.close()
+    if run_only:
+        return
+
     shutdown = load_script("chicago95-shutdown")
     for name, choice in (
         ("shutdown", shutdown.SHUT_DOWN),
@@ -74,11 +81,6 @@ def render(out, scale):
         dialog = shutdown.screenshot_dialog(choice == shutdown.LOG_OFF, choice)
         capture(dialog, name)
         dialog.close()
-
-    run = load_script("chicago95-run").RunDialog(applications=[], path_dirs=[], history=[])
-    run.field.setEditText("regedit")
-    capture(run, "run")
-    run.close()
 
     daemon = load_script("chicago95-notifyd")
     balloon = daemon.NotificationPopup(
@@ -164,4 +166,4 @@ def render(out, scale):
 
 
 if __name__ == "__main__":
-    render(Path(sys.argv[1]), float(sys.argv[2]))
+    render(Path(sys.argv[1]), float(sys.argv[2]), run_only="--only-run" in sys.argv[3:])

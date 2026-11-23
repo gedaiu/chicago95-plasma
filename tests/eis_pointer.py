@@ -1,7 +1,8 @@
 """Drives KWin's pointer through its libei server (org.kde.KWin.EIS.RemoteDesktop), for tests that need a
 right-click or a hover in the headless session.
 
-Usage: eis_pointer.py STEP...   where a STEP is move:X,Y  press:left|right  release:left|right  click:left|right
+Usage: eis_pointer.py STEP...  where a STEP is move:X,Y  press:left|right  release:left|right  click:left|right
+                              or snapshot:NAME to save NAME.png while the pointer state is held
 or wait:SECONDS. Coordinates are in the compositor's logical pixels.
 """
 
@@ -68,6 +69,10 @@ def run_step(context, device, step):
     verb, _, argument = step.partition(":")
     if verb == "wait":
         time.sleep(float(argument))
+        return
+    if verb == "snapshot":
+        output = os.path.join(os.environ["WORK"], argument + ".png")
+        subprocess.run(["spectacle", "-b", "-n", "-f", "-o", output], check=True, timeout=15)
         return
     if verb == "capture-drag":
         # Keep dragging throughout Spectacle startup and capture a moving compositor frame.

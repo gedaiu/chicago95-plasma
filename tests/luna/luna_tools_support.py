@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from PIL import Image
-from reference import qimage_to_pil
+from reference import qimage_to_pil, reference_path
 
 REFERENCES = Path(__file__).resolve().parents[1] / "references"
 PREVIEW_DIR = Path(
@@ -16,7 +16,7 @@ def hex_rgb(colour):
 
 
 def reference(name):
-    return Image.open(REFERENCES / name).convert("RGB")
+    return Image.open(reference_path(name)).convert("RGB")
 
 
 def grab_picture(widget):

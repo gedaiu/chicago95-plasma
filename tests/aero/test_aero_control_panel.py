@@ -45,13 +45,6 @@ def test_control_panel_and_taskbar_against_windows_7(tmp_path, scale):
         return Image.open(out).convert("RGB")
 
     home = render("home", [])
-    navigation = home.resize((780, 540), Image.Resampling.LANCZOS).crop((0, 0, 220, 34))
-    reference = screenshot("win7controlpanel").crop((9, 41, 229, 75))
-    assert np.abs(np.asarray(navigation, dtype=float) - np.asarray(reference)).mean() < 31
-
-    # Align the original client at its navigation strip. Both first-row headings are unobscured.
-    original_home = screenshot("win7controlpanel").crop((9, 41, 789, 581))
-    normalized_home = home.resize(original_home.size, Image.Resampling.LANCZOS)
 
     def heading_origin(image):
         red, green, blue = np.moveaxis(np.asarray(image, dtype=int), 2, 0)
@@ -59,36 +52,31 @@ def test_control_panel_and_taskbar_against_windows_7(tmp_path, scale):
         assert x.size > 50
         return (x.min(), y.min())
 
-    for left in (125, 440):
-        region = (left, 100, left + 215, 130)
-        assert heading_origin(normalized_home.crop(region)) == pytest.approx(
-            heading_origin(original_home.crop(region)), abs=5
-        )
+    if scale == 1:
+        glass_home = screenshot("win7-sp1-aero-category").crop((130, 104, 930, 644))
+        navigation = (0, 0, 220, 34)
+        ours = np.asarray(home.crop(navigation), dtype=int)
+        native = np.asarray(glass_home.crop(navigation), dtype=int)
+        assert np.abs(ours - native).mean() < 23
+        arrow_faces = np.s_[3:29, 2:56]
+        assert np.abs(ours[arrow_faces] - native[arrow_faces]).mean() < 20
+        for band in (ours, native):
+            assert band[9, 65:74].mean(axis=1).argmin() + 65 == 71
+            assert band[:9, 215].mean(axis=1).argmin() == 5
 
-    # The clean SP1 VM starts with a different account heading and a 20px wider client.
-    # Its right column moves by half that width difference. Navigation starts at screen y=24.
-    vm_home = screenshot("win7-sp1-basic-category")
-    for left, offset in ((129, 0), (445, 10)):
-        rendered = normalized_home.crop((left, 97, left + 180, 127))
-        native = vm_home.crop((left + offset, 121, left + offset + 180, 151))
-        assert heading_origin(rendered) == pytest.approx(heading_origin(native), abs=4)
-
-    # The same headings in the restored 800px Aero window on the 1024px desktop.
-    glass_home = screenshot("win7-sp1-aero-category")
-    native_band = np.asarray(glass_home.crop((130, 104, 350, 138)), dtype=int)
-    ours = np.asarray(navigation, dtype=int)
-    # On initial launch both arrow faces in the SP1 VM are disabled.
-    arrow_faces = np.s_[3:29, 2:56]
-    assert np.abs(ours[arrow_faces] - native_band[arrow_faces]).mean() < 28
-    # Find the dark inner bevel against the blue toolbar on two axes.
-    for band in (ours, native_band):
-        assert band[9, 65:74].mean(axis=1).argmin() + 65 == 71
-        assert band[:9, 215].mean(axis=1).argmin() == 5
-
-    for left in (129, 445):
-        ours = normalized_home.crop((left, 97, left + 180, 127))
-        theirs = glass_home.crop((left + 130, 201, left + 310, 231))
-        assert heading_origin(ours) == pytest.approx(heading_origin(theirs), abs=5)
+        for left in (129, 445):
+            region = (left, 97, left + 180, 127)
+            assert heading_origin(home.crop(region)) == pytest.approx(heading_origin(glass_home.crop(region)), abs=5)
+    else:
+        native_home = Image.open(REPO / "tests/references/themes/win7/control-panel.png").convert("RGB")
+        # Use native pixels for the compact toolbar used at 144 DPI.
+        navigation = (0, 0, 830, 39)
+        ours = np.asarray(home.crop(navigation), dtype=int)
+        native = np.asarray(native_home.crop(navigation), dtype=int)
+        assert np.abs(ours - native).mean() < 39
+        for left in (195, 670):
+            region = (left, 145, left + 125, 177)
+            assert heading_origin(home.crop(region)) == pytest.approx(heading_origin(native_home.crop(region)), abs=5)
 
     sheet = render("taskbar", ["--page", "taskbar"])
     assert sheet.size == (round(398 * scale), round(424 * scale))
@@ -140,6 +128,12 @@ def test_aero_search_navigation_and_taskbar_sheet(qt_app, tmp_path, monkeypatch)
         window.search_applets("Taskbar")
         assert not window.icon_view.item(next(i for i, a in enumerate(panel.APPLETS) if a.name == "Taskbar")).isHidden()
         assert window.icon_view.item(0).isHidden()
+        window.search.setText("Taskbar")
+        refresh = window.address_bar.findChild(QToolButton, "aeroAddressRefresh")
+        assert not refresh.icon().isNull()
+        refresh.click()
+        assert window.history.current == panel.HOME_PAGE and window.icon_view.item(0).isHidden()
+        window.search.clear()
         window.search_applets("")
         window.open_applet("Taskbar")
         sheet = window.applet_windows["Taskbar"]

@@ -1,0 +1,16 @@
+{
+  "look": "aero",
+  "caption_scale": 1.5,
+  "aliases": {
+    "caption-states-aero.png": "caption-states.png",
+    "win7-sp1-category-hover.png": "control-panel/hover.png",
+    "win7-sp1-category-hover-opening.png": "control-panel/hover-opening.png"
+  },
+  "taskbar_x": 535,
+  "run_scale": 1.5,
+  "device_manager_scale": 1,
+  "properties_scale": 1.5,
+  "display_page": "Settings",
+  "display_resolution": "1280x960",
+  "control_panel_hover_scale": 1
+}

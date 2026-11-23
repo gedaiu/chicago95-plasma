@@ -430,7 +430,7 @@ def install(
     applications.mkdir(parents=True, exist_ok=True)
     launcher_files = [
         desktop_file(applications, f"c95-launcher-{index}", f"Launcher {index}", TEST_ICON).as_uri()
-        for index in range(CONTENT[look]["launchers"] if launchers is None else launchers)
+        for index in range(CONTENT["luna" if look == "aero" else look]["launchers"] if launchers is None else launchers)
     ]
     (work / "setup.sh").write_text(
         SETUP.format(
@@ -491,7 +491,7 @@ def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_
         for path in work.glob(leaving):
             path.unlink()
 
-    content = CONTENT[look]
+    content = CONTENT["luna" if look == "aero" else look]
     if windows is not None:
         shown = [title for title, _toolkit, place, *_program in windows if place != "minimized"]
         content = {**content, "windows": list(windows), "active": shown[0] if shown else ""}  # minimized: not active

@@ -493,7 +493,7 @@ def test_xp_console_matches_sp3_command_bands(devmgr, snapshot, qt_app, style, c
     import numpy as np
     from PIL import Image
     from PySide6.QtWidgets import QPushButton, QToolBar
-    from reference import qimage_to_pil
+    from reference import qimage_to_pil, reference_path
     from showcase import themed
 
     def glyph_bounds(image, left, right, colour):
@@ -522,7 +522,7 @@ def test_xp_console_matches_sp3_command_bands(devmgr, snapshot, qt_app, style, c
             # Compare both bands including their one-pixel seam, clear of icons and labels.
             box = (280, 0, 550, 48 if style == "2001" else 46)
             rendered = qimage_to_pil(window.grab().toImage())
-            with Image.open(REPO / f"tests/references/{capture}-device-manager-bands.png") as native:
+            with Image.open(reference_path(f"{capture}-device-manager-bands.png")) as native:
                 # Disabled navigation uses the guest's embossed glyph and theme-specific palette.
                 top = 26 if style == "2001" else 25
                 for left in (2, 25):
@@ -562,7 +562,7 @@ def test_xp_console_matches_sp3_command_bands(devmgr, snapshot, qt_app, style, c
 @pytest.mark.parametrize("capture", ["win95-osr2-device-actions", "win98-se-device-actions"])
 def test_classic_device_action_row_matches_guest(devmgr, snapshot, qt_app, width, capture):
     from PIL import Image
-    from reference import qimage_to_pil
+    from reference import qimage_to_pil, reference_path
 
     window = devmgr.DeviceManagerWindow(load=lambda: snapshot)
     try:
@@ -571,7 +571,7 @@ def test_classic_device_action_row_matches_guest(devmgr, snapshot, qt_app, width
         qt_app.processEvents()
         first = window.properties_button.geometry()
         assert first.left() == window.layout().contentsMargins().left()
-        with Image.open(REPO / f"tests/references/{capture}.png") as original:
+        with Image.open(reference_path(f"{capture}.png")) as original:
             y = first.bottom()
             actual = qimage_to_pil(window.grab().toImage()).crop((first.x(), y, first.x() + original.width, y + 1))
             # The dark bottom bevel spans exactly the button width and leaves each gap visible.

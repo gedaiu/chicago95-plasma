@@ -8,7 +8,7 @@ from PIL import Image
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QImage, QPainter
 from PySide6.QtSvg import QSvgRenderer
-from reference import qimage_to_pil, screenshot
+from reference import REFERENCES, qimage_to_pil, theme_references
 
 BUTTONS = ("minimize", "maximize", "close")
 STATES = ("rest", "hover", "pressed", "disabled", "restore", "cancelled")
@@ -20,8 +20,11 @@ ELEMENTS = {
     "restore": "active-center",
     "cancelled": "active-center",
 }
-LOOKS = ("1995", "1998", "2000", "2001", "luna", "aero")
-CLASSIC = LOOKS[:-2]
+CAPTION_REFERENCES = {
+    metadata["look"]: folder / "caption-states.png" for folder, metadata in theme_references(REFERENCES)
+}
+LOOKS = tuple(CAPTION_REFERENCES)
+CLASSIC = ("1995", "1998", "2000", "2001")
 # Upper bounds from the native-size comparisons below. Strict mode uses
 # zero RGB differences for each button and reports the pixel count.
 RGB_LIMITS = {
@@ -31,14 +34,18 @@ RGB_LIMITS = {
 }
 
 
-@pytest.fixture(scope="module")
-def caption_themes(qt_app, tmp_path_factory):
+def build_caption_themes(tmp_path_factory):
     themes = {look: build_theme(tmp_path_factory.mktemp(look), look) for look in CLASSIC}
     return {
         **themes,
         "luna": REPO / "luna/aurorae/theme",
         "aero": REPO / "aero/aurorae/theme",
     }
+
+
+@pytest.fixture(scope="module")
+def caption_themes(qt_app, tmp_path_factory):
+    return build_caption_themes(tmp_path_factory)
 
 
 def caption_pixels(theme, button, state, look, glass):
@@ -96,12 +103,17 @@ def state_buttons(state):
     return (0, 1, 2)
 
 
+def caption_reference(look):
+    with Image.open(CAPTION_REFERENCES[look]) as sheet:
+        return sheet.convert("RGB")
+
+
 @pytest.mark.parametrize("look", LOOKS)
 @pytest.mark.parametrize(
     ("state", "index"), [(state, index) for state in STATES[:-1] for index in state_buttons(state)]
 )
 def test_caption_state_against_guest(caption_themes, exact_original, look, state, index):
-    sheet = screenshot(f"caption-states-{look}")
+    sheet = caption_reference(look)
     button = "restore" if state == "restore" else BUTTONS[index]
     expected, glass = face_region(sheet, look, state, index)
     actual = caption_pixels(caption_themes[look], button, state, look, glass.resize(expected.size))
@@ -115,7 +127,7 @@ def test_caption_state_against_guest(caption_themes, exact_original, look, state
 @pytest.mark.parametrize("look", LOOKS)
 @pytest.mark.parametrize("index", range(len(BUTTONS)), ids=BUTTONS)
 def test_caption_feedback_changes_at_the_same_pointer_events(caption_themes, look, index):
-    sheet = screenshot(f"caption-states-{look}")
+    sheet = caption_reference(look)
     changes = []
     for state in ("rest", "hover", "pressed", "cancelled"):
         expected, glass = face_region(sheet, look, state, index)
