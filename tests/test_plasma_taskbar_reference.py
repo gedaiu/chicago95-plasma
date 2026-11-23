@@ -6,10 +6,12 @@ compared with the original's pixels at the original's positions. Positions are i
 is the bottom 28 rows of the screen (640x480; 2001's is 800x600). Luna's is 30 rows: see the end.
 """
 
+import shutil
+
 import pytest
 from conftest import needs_ui_font
 from PIL import Image
-from plasma_session import CONTENT, ICON_COLOUR, ICON_SIZE, missing_programs
+from plasma_session import CONTENT, ICON_COLOUR, ICON_SIZE, install, missing_programs, show, work_folder
 from reference import close, screenshot
 from test_taskbar_reference import (
     BUTTON_HEIGHT,
@@ -46,6 +48,47 @@ def ours(desktops):
 
 def bottom_rows(screen, height):
     return screen.crop((0, screen.height - height, screen.width, screen.height))
+
+
+def test_luna_preset_replaces_saved_superbar_geometry_and_thumbnail(tmp_path):
+    work = work_folder("luna-preset")
+    try:
+        profile = work / "home/.config/chicago95/setup.conf"
+        profile.parent.mkdir(parents=True)
+        profile.write_text("LOOK=aero\nPANEL=40\nTASK_BUTTON_WIDTH=210\nPREVIEW_SIZE=240\n")
+        session = install(
+            "luna",
+            work,
+            launchers=0,
+            screen=(1100, 650),
+            setup_scale=1.5,
+            settings=[("BACKGROUND_MODE", "color"), ("BACKGROUND_COLOR", "#334455")],
+            components=["background"],
+        )
+        frame = show(session, scale=1.5, pointer_steps=("move:142,638", "wait:1.5", "snapshot:tooltip"))
+        with Image.open(work / "tooltip.png") as capture:
+            tooltip = bottom_rows(capture.convert("RGB"), 420)
+        tooltip.save(tmp_path / "luna-preset-taskbar.png")
+        background = (51, 68, 85)
+        assert frame.getpixel((1200, frame.height - 46)) == background
+        assert frame.getpixel((1200, frame.height - 45)) != background
+
+        icons = [
+            x
+            for x in range(145, 850)
+            if any(tooltip.getpixel((x, y)) == ICON_COLOUR for y in range(tooltip.height - 32, tooltip.height - 10))
+        ]
+        starts = [x for index, x in enumerate(icons) if index == 0 or x > icons[index - 1] + 1]
+        assert [second - first for first, second in zip(starts[:-1], starts[1:], strict=True)] == [240, 240]
+
+        yellow_rows = [
+            y
+            for y in range(tooltip.height - 45)
+            if any(tooltip.getpixel((x, y)) == (255, 255, 225) for x in range(100, 535))
+        ]
+        assert 0 < len(yellow_rows) < 45
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
 
 
 def clock_left(look):

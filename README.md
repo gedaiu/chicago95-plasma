@@ -79,6 +79,8 @@ a 1995 desktop can have the Luna taskbar:
 
 The flags are `--decoration`, `--widget-style`, `--taskbar-style`, `--start-menu-style` and `--login-style`.
 A Luna taskbar is 30 pixels high and switches Plasma's desktop theme, so tooltips and popups follow it.
+Selecting `--look=luna` restores XP's taskbar height, default button width, and text-only hover tooltips.
+Use `--panel`, `--task-button-width`, or an explicit `--settings` file to override those defaults.
 
 ## Layout
 

@@ -211,6 +211,7 @@ settled frame bounds to compare the two expected button positions. The full disa
 For caption results, use the test name to see what passed.
 
 - `test_caption_matches_windows_pixels` compares a rendered face with the Windows capture. It requires the same dimensions and RGB values within the sampled region.
+- `test_luna_svg_close_glyph_core_matches_windows_pixels` compares the solid interior of the Luna Close glyph in four states against the 24-bit XP capture.
 - `test_kwin_disabled_caption_interior_matches_its_own_idle_state` compares two KWin renders. It checks that the disabled glyph and interior stay the same during hover, press, and click. Its images are saved under `visual/<theme>/caption/kwin/pointer-invariance/`.
 - `test_caption_svg_stays_within_windows_rgb_budget` is a separate SVG regression test. By default, it permits a per-state mean RGB error. Run it with `--exact-originals` to also require zero RGB differences.
 
@@ -221,6 +222,8 @@ from GTK's own `Gtk.WindowControls` after the compositor configures the window, 
 include the native frame in the snapshot at its original size using the window's renderer.
 For Luna at 120 DPI, Setup selects the larger SVG glyphs for both GTK and Aurorae. The live comparisons
 pass the reference scale to Setup so the comparison uses the artwork that would be installed at that DPI.
+The larger faces preserve the five-pixel edge regions from Luna's sizing margins, with shared vector paths
+and gradients filling the corners, edges, and centre.
 The SVG generator regression tests also cover the standard 96 DPI vectors.
 At fractional KWin scales, the Luna decoration snaps the SVG face to the physical pixel grid.
 The capture accounts for KWin rounding the window origin separately from the face's position in the title bar.

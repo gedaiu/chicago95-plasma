@@ -450,6 +450,13 @@ previous_look=${SETUP_LOOK:-}
 # A remembered look keeps its saved colours (a custom one has nothing else); a flag or a first run applies the look.
 if [ -n "${OPT_LOOK:-}" ] || [ -z "${SETUP_LOOK:-}" ]; then apply_look "${OPT_LOOK:-1995}"; fi
 [ -n "${OPT_LOOK:-}" ] || choose_look
+# An explicit XP preset restores its taskbar defaults. The options below and
+# an explicit settings file can still supply a custom panel or previews.
+if [ "${OPT_LOOK:-}" = luna ]; then
+  unset SETUP_PANEL
+  SETUP_TASK_BUTTON_WIDTH=0
+  SETUP_PREVIEW_SIZE=off
+fi
 remembered() { # remembered <component> <default>   1 when an earlier run installed it, 0 when it was left out
   if [ "$1" = look ] && { [ "$SETUP_YES" = 0 ] || [ -n "${OPT_LOOK:-}" ] || [ "$SETUP_LOOK" != "$previous_look" ]; }; then
     echo 1

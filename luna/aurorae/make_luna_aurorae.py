@@ -26,22 +26,24 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path[:0] = [str(HERE), str(HERE.parent)]
 import stops  # noqa: E402
-from palette import PALETTE  # noqa: E402
-
 from luna_geometry import (  # noqa: E402
     Box,
     box_gradient,
     box_path,
     gradient,
+    inset,
     linear_gradient,
     linked_svg,
     number,
     plain_rect,
     radial_gradient,
+    region,
     reused_gradient,
     rounded_rect,
     row_stops,
+    shape_of,
 )
+from palette import PALETTE  # noqa: E402
 
 BORDER, TITLE_H, TOP_H = 4, 26, 30
 CORNER_STAIR = [(0, 5), (1, 5), (1, 3), (2, 3), (2, 2), (3, 2), (3, 1), (5, 1), (5, 0)]
@@ -327,8 +329,8 @@ def own_art_state(color, index):
     return FACE_FIT_STATE[color].get(index, index)
 
 
-def face_use(paint):
-    return f'<use xlink:href="#r" fill="{paint}"/>'
+def face_use(paint, shape="r"):
+    return f'<use xlink:href="#{shape}" fill="{paint}"/>'
 
 
 def face_definitions(prefix, art):
@@ -358,28 +360,29 @@ def face_definitions(prefix, art):
     return "".join(definitions)
 
 
-def rim_stroke(rim, radius, inset):
+def rim_stroke(rim):
     colour, opacity = rim
-    centre = inset * 1.5
-    edge, span, rx = map(number, (centre, BUTTON - 2 * centre, radius - centre))
+    radius = number(stops.BUTTON_RING_RADIUS - 1.5)
     return (
-        f'<rect x="{edge}" y="{edge}" width="{span}" height="{span}" rx="{rx}" '
-        f'fill="none" stroke="{colour}" stroke-opacity="{opacity}"'
-        + (f' stroke-width="{number(inset)}"' if inset != 1 else "")
-        + "/>"
+        f'<rect x="1.5" y="1.5" width="{BUTTON - 3}" height="{BUTTON - 3}" rx="{radius}" '
+        f'fill="none" stroke="{colour}" stroke-opacity="{opacity}"/>'
     )
 
 
-def face_art(prefix, art, radius=stops.BUTTON_RING_RADIUS, inset=1):
-    ring = rounded_rect(0, 0, BUTTON, BUTTON, number(radius), art["ring"])
-    paints = [f"{prefix}f", *(f"{prefix}g{index}" for index in range(len(art["glows"]))), f"{prefix}s"]
-    rim = [rim_stroke(art["rim"], radius, inset)] if "rim" in art else []
-    return ring + "".join(face_use(url(paint)) for paint in paints) + "".join(rim)
+def face_art(prefix, art):
+    ring = rounded_rect(0, 0, BUTTON, BUTTON, stops.BUTTON_RING_RADIUS, art["ring"])
+    rim = [rim_stroke(art["rim"])] if "rim" in art else []
+    return ring + "".join(face_use(paint) for paint in face_paints(prefix, art)) + "".join(rim)
 
 
-def face_inset(radius=stops.BUTTON_RING_RADIUS, inset=1):
-    edge, span, rx = map(number, (inset, BUTTON - 2 * inset, radius - inset))
-    return f'<rect id="r" x="{edge}" y="{edge}" width="{span}" height="{span}" rx="{rx}"/>'
+def face_paints(prefix, art):
+    ids = [f"{prefix}f", *(f"{prefix}g{index}" for index in range(len(art["glows"]))), f"{prefix}s"]
+    return [url(paint) for paint in ids]
+
+
+def face_inset():
+    span, radius = BUTTON - 2, number(stops.BUTTON_RING_RADIUS - 1)
+    return f'<rect id="r" x="1" y="1" width="{span}" height="{span}" rx="{radius}"/>'
 
 
 def caption_art_index(kind, index):
@@ -390,19 +393,57 @@ def caption_art_index(kind, index):
 LARGE_CAPTION = 27
 LARGE_CAPTION_DPI = 120
 LARGE_CAPTION_SCALE = LARGE_CAPTION / BUTTON
+CAPTION_SLICE_MARGIN = 5
 DPI_CAPTION_KINDS = ("minimize", "maximize", "close", "restore")
+LARGE_CLOSE_INK = {2: "#DF9A87", 3: "#9598CC"}
 
 
-def caption_geometry(large):
-    # At 120 DPI the VM's 27px face keeps a one-pixel outline with a 2.5px corner.
-    if large:
-        return 2.5 / LARGE_CAPTION_SCALE, 1 / LARGE_CAPTION_SCALE
-    return stops.BUTTON_RING_RADIUS, 1
+def large_face_tiles():
+    # Luna's SizingMargins fix the corners and outer five pixels on each side.
+    # Map the same rounded shape and paint coordinates into the nine regions.
+    margin = CAPTION_SLICE_MARGIN
+    middle = BUTTON - 2 * margin
+    stretch = (LARGE_CAPTION - 2 * margin) / middle
+    spans = (
+        (0, margin, 0, 1),
+        (margin, middle, margin, stretch),
+        (BUTTON - margin, margin, LARGE_CAPTION - margin, 1),
+    )
+    outer = shape_of(0, 0, BUTTON, BUTTON, (stops.BUTTON_RING_RADIUS,) * 4)
+    face = inset(outer, 1)
+    inside_rim = inset(face, 1)
+    definitions, tiles = [], []
+    for index, (horizontal, vertical) in enumerate(itertools.product(spans, repeat=2)):
+        x, width, left, sx = horizontal
+        y, height, top, sy = vertical
+        # Extend each piece under the following ones. Their opaque base fill
+        # covers this overlap at the join and keeps the rounded outline out.
+        box = Box(x, y, width + 1 / sx, height + 1 / sy)
+        name = f"tile{index}"
+        path = region(face, box)
+        definitions.append(f'<path id="{name}" d="{path}"/>')
+        transform = f"translate({left},{top}) scale({sx:.8g},{sy:.8g}) translate({-x},{-y})"
+        tiles.append((name, transform, f"{path} {region(inside_rim, box)}"))
+    return "".join(definitions), tiles
 
 
-def large_glyph_markup(kind, ink):
+def large_face_art(prefix, art, tiles):
+    border = rounded_rect(0, 0, LARGE_CAPTION, LARGE_CAPTION, stops.BUTTON_RING_RADIUS, art["ring"])
+    paints = face_paints(prefix, art)
+    layers = [border]
+    for name, transform, rim in tiles:
+        body = "".join(face_use(paint, name) for paint in paints)
+        if "rim" in art:
+            colour, opacity = art["rim"]
+            body += f'<path d="{rim}" fill="{colour}" fill-rule="evenodd" opacity="{opacity}"/>'
+        layers.append(f'<g transform="{transform}">{body}</g>')
+    return "".join(layers)
+
+
+def large_glyph_markup(kind, ink, index):
     """Luna selects the 23px glyph family for a 27px face at 120 DPI."""
     if kind == "close":
+        ink = LARGE_CLOSE_INK.get(index, ink)
         return (
             '<path d="M4.94,4.94 L22.18,22.18 M22.06,4.94 L4.82,22.18" '
             f'fill="none" stroke="{ink}" stroke-width="4.06"/>'
@@ -418,22 +459,23 @@ def large_glyph_markup(kind, ink):
 
 def caption_face_svg(kind, index, large=False):
     color = "red" if kind == "close" else "blue"
-    art = stops.BUTTON_ART[color][caption_art_index(kind, index)]
-    radius, inset = caption_geometry(large)
-    definitions = face_inset(radius, inset) + face_definitions("s", art)
-    face = face_art("s", art, radius, inset)
+    index = caption_art_index(kind, index)
+    art = stops.BUTTON_ART[color][index]
     if large:
-        body = f'<g transform="scale({LARGE_CAPTION_SCALE:.8f})">{face}</g>' + large_glyph_markup(kind, art["glyph"])
+        geometry, tiles = large_face_tiles()
+        definitions = geometry + face_definitions("s", art)
+        body = large_face_art("s", art, tiles) + large_glyph_markup(kind, art["glyph"], index)
         return linked_svg(LARGE_CAPTION, LARGE_CAPTION, f"<defs>{definitions}</defs>\n{body}")
-    body = face + glyph_markup(kind, art["glyph"])
+    definitions = face_inset() + face_definitions("s", art)
+    body = face_art("s", art) + glyph_markup(kind, art["glyph"])
     return linked_svg(BUTTON, BUTTON, f"<defs>{definitions}</defs>\n{body}")
 
 
 def button_svg(kind, large=False):
     color = "red" if kind == "close" else "blue"
     arts = stops.BUTTON_ART[color]
-    radius, inset = caption_geometry(large)
-    definitions = [face_inset(radius, inset)]
+    geometry, tiles = large_face_tiles() if large else (face_inset(), ())
+    definitions = [geometry]
     groups = []
     for index, name in enumerate(STATE_NAMES):
         element_id = f"{name}-center"
@@ -447,14 +489,16 @@ def button_svg(kind, large=False):
                 f'transform="translate({shift},0)"/></g>'
             )
             continue
-        art = arts[own_art_state(color, index)]
+        art_index = own_art_state(color, index)
+        art = arts[art_index]
         prefix = f"s{index}"
         definitions.append(face_definitions(prefix, art))
-        glyph = (
-            f'<g transform="scale({1 / LARGE_CAPTION_SCALE:.8f})">{large_glyph_markup(kind, art["glyph"])}</g>'
-            if large else glyph_markup(kind, art["glyph"])
-        )
-        body = face_art(prefix, art, radius, inset) + glyph
+        if large:
+            face = large_face_art(prefix, art, tiles)
+            glyph = large_glyph_markup(kind, art["glyph"], art_index)
+            body = f'<g transform="scale({1 / LARGE_CAPTION_SCALE:.8f})">{face}{glyph}</g>'
+        else:
+            body = face_art(prefix, art) + glyph_markup(kind, art["glyph"])
         groups.append(f'<g id="{element_id}"{placement}>{body}</g>')
     body = "\n".join([f"<defs>{''.join(definitions)}</defs>", *groups])
     return linked_svg(len(STATE_NAMES) * BUTTON_CELL, BUTTON, body)

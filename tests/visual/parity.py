@@ -9,11 +9,12 @@ import sys
 from functools import cache
 from shlex import quote
 
+import numpy as np
 import pytest
 from aurorae_model import Window
 from conftest import REPO, load_script
 from original_pixels import compare
-from PIL import Image
+from PIL import Image, ImageFilter
 from plasma_session import HOME_AFTER_SETUP, install, missing_programs, run_session, show, work_folder
 from reference import REFERENCES, qimage_to_pil, render_start_menu, theme_references
 from showcase import start_menus, themed
@@ -362,6 +363,17 @@ def test_caption_matches_windows_pixels(theme, renderer, state, index, svg_theme
         actual = gtk_face(live_gtk(look, scale) / f"caption-gtk-{version}", state, index)
     directory = visual_output / theme / "caption" / renderer / state / button
     exact(expected, actual, directory, visible_pixels(look, state, expected.size))
+
+
+@pytest.mark.parametrize("state", ("rest", "hover", "pressed", "disabled"))
+def test_luna_svg_close_glyph_core_matches_windows_pixels(state, svg_themes, visual_output):
+    expected, background = face_region(caption_reference("luna"), "luna", state, BUTTONS.index("close"))
+    ink = expected.getpixel((expected.width // 2, expected.height // 2))
+    solid = np.all(np.asarray(expected) == ink, axis=-1)
+    # One pixel of clearance isolates the solid X from its antialiasing and the face outline.
+    core = np.asarray(Image.fromarray(solid.astype("uint8") * 255).filter(ImageFilter.MinFilter(3))) == 255
+    actual = caption_pixels(svg_themes["luna"], "close", state, "luna", background.resize(expected.size))
+    exact(expected, actual, visual_output / "winxp" / "caption" / "svg" / state / "close" / "glyph-core", core)
 
 
 @pytest.mark.parametrize("matte", DISABLED_CLOSE_MATTES)

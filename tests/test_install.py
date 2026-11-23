@@ -832,6 +832,51 @@ def test_taskbar_height_keeps_only_its_digits(tmp_path):
     assert ("panel.height = 36;" in written, "evil" in written) == (True, False)
 
 
+@pytest.mark.parametrize("previous", ["aero", "luna"])
+def test_explicit_luna_preset_applies_xp_taskbar_defaults_over_saved_settings(tmp_path, previous):
+    settings = tmp_path / ".config/chicago95/setup.conf"
+    settings.parent.mkdir(parents=True)
+    settings.write_text(f"LOOK={previous}\nPANEL=40\nTASK_BUTTON_WIDTH=210\nPREVIEW_SIZE=240\n")
+
+    result = run_setup(tmp_path, "--look=luna", "--screen=2560x1440@1.5", "--components=switcher")
+
+    assert result.returncode == 0, result.stderr
+    saved = dict(line.split("=", 1) for line in settings.read_text().splitlines())
+    assert (saved["PANEL"], saved["TASK_BUTTON_WIDTH"], saved["PREVIEW_SIZE"]) == ("30", "0", "off")
+    switcher = tmp_path / ".local/share/kwin/tabbox/chicago95/contents/ui/settings.js"
+    assert "var previewSize = 0;" in switcher.read_text()
+
+
+def test_luna_taskbar_preset_accepts_explicit_setup_overrides(tmp_path):
+    overrides = tmp_path / "overrides.conf"
+    overrides.write_text("PREVIEW_SIZE=240\n")
+
+    result = run_setup(
+        tmp_path,
+        "--look=luna",
+        "--panel=36",
+        "--task-button-width=190",
+        f"--settings={overrides}",
+        "--components=switcher",
+    )
+
+    assert result.returncode == 0, result.stderr
+    saved = dict(line.split("=", 1) for line in (tmp_path / ".config/chicago95/setup.conf").read_text().splitlines())
+    assert (saved["PANEL"], saved["TASK_BUTTON_WIDTH"], saved["PREVIEW_SIZE"]) == ("36", "190", "240")
+
+
+def test_setup_without_a_named_preset_keeps_saved_luna_taskbar_choices(tmp_path):
+    settings = tmp_path / ".config/chicago95/setup.conf"
+    settings.parent.mkdir(parents=True)
+    settings.write_text("LOOK=luna\nPANEL=36\nTASK_BUTTON_WIDTH=190\nPREVIEW_SIZE=240\n")
+
+    result = run_setup(tmp_path, "--components=switcher")
+
+    assert result.returncode == 0, result.stderr
+    saved = dict(line.split("=", 1) for line in settings.read_text().splitlines())
+    assert (saved["PANEL"], saved["TASK_BUTTON_WIDTH"], saved["PREVIEW_SIZE"]) == ("36", "190", "240")
+
+
 def test_winamp_rule_drops_the_frame_of_the_skinned_player_only(tmp_path):
     """The skinned player draws its own frame; qmmp's visualizer windows (Goom, ProjectM) do not and keep KWin's."""
     import re
@@ -1524,6 +1569,7 @@ def test_look_luna_writes_the_component_keys_to_chicago95rc(tmp_path):
         if "would: kwriteconfig6 --file chicago95rc" in line
     ] == [
         "--group Look --key decoration luna",
+        "--group Look --key captionDpi 96",
         "--group Look --key controlPanelStyle auto",
         "--group Look --key widgetStyle luna",
         "--group Look --key bevel 2000",

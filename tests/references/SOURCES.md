@@ -305,6 +305,11 @@ XP SP3 Luna and Windows 7 SP1 Aero reference VMs. The look names in the filename
 are `win95`, `win98`, `win2k`, `winxp-classic`, `winxp` and `win7`. The classic and XP
 captures were taken at 120 DPI and the Aero capture at 144 DPI.
 
+The XP Luna sheet uses 24-bit colour at 1024 × 768 on the Windows XP Professional SP3 guest.
+The three restored Notepad faces start at (704, 41), (733, 41), and (762, 41).
+The disabled Maximize and Close faces start at (539, 155) and (568, 155) in the Win32 probe.
+The maximized Notepad Restore face starts at (966, 2). All faces are 27 × 27 framebuffer pixels.
+
 Each sheet has six bands for rest, hover, held press, disabled, Restore, and
 the result of releasing a held button after dragging the pointer away. The
 first column contains adjacent title background pixels. The remaining columns
