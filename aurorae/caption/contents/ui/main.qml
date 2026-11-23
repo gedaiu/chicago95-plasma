@@ -92,9 +92,15 @@ SystemAurorae {
                     KSvg.SvgItem {
                         x: Math.round(stateDelegate.origin.x * frame.outputScale) / frame.outputScale
                         y: Math.round(stateDelegate.origin.y * frame.outputScale) / frame.outputScale
-                        width: Math.ceil(stateDelegate.control.width * frame.outputScale)
-                        height: Math.ceil(stateDelegate.control.height * frame.outputScale)
-                        scale: 1 / frame.outputScale
+                        // KSvg multiplies the requested size by the output DPR.
+                        // Classic has a device-size master for this scale.
+                        width: frame.classicCaptionAt120Dpi
+                            ? Math.ceil(stateDelegate.control.width * frame.outputScale) / frame.outputScale
+                            : Math.ceil(stateDelegate.control.width * frame.outputScale)
+                        height: frame.classicCaptionAt120Dpi
+                            ? Math.ceil(stateDelegate.control.height * frame.outputScale) / frame.outputScale
+                            : Math.ceil(stateDelegate.control.height * frame.outputScale)
+                        scale: frame.classicCaptionAt120Dpi ? 1 : 1 / frame.outputScale
                         transformOrigin: Item.TopLeft
                         smooth: false
                         imagePath: frame.classicCaptionAt120Dpi

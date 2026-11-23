@@ -1,5 +1,8 @@
 """Compare caption button artwork with native guest captures in each interaction state."""
 
+import subprocess
+import sys
+
 import numpy as np
 import pytest
 from aurorae_model import build_theme
@@ -21,7 +24,8 @@ ELEMENTS = {
     "cancelled": "active-center",
 }
 CAPTION_REFERENCES = {
-    metadata["look"]: folder / "caption-states.png" for folder, metadata in theme_references(REFERENCES)
+    metadata["look"]: (folder / "caption-states.png", metadata["caption_scale"])
+    for folder, metadata in theme_references(REFERENCES)
 }
 LOOKS = tuple(CAPTION_REFERENCES)
 CLASSIC = ("1995", "1998", "2000", "2001")
@@ -29,16 +33,23 @@ DISABLED_CLOSE_MATTES = ("dark", "light", "blue")
 # Upper bounds from the native-size comparisons below. Strict mode uses
 # zero RGB differences for each button and reports the pixel count.
 RGB_LIMITS = {
-    "luna": {"rest": 44, "hover": 40, "pressed": 37, "disabled": 25, "restore": 44},
+    "luna": {"rest": 3.9, "hover": 3.7, "pressed": 2.7, "disabled": 3, "restore": 3, "cancelled": 4.3},
     "aero": {"rest": 11, "hover": 19, "pressed": 24, "disabled": 26, "restore": 18},
 }
 
 
 def build_caption_themes(tmp_path_factory):
     themes = {look: build_theme(tmp_path_factory.mktemp(look), look) for look in CLASSIC}
+    luna = tmp_path_factory.mktemp("luna")
+    dpi = round(96 * CAPTION_REFERENCES["luna"][1])
+    subprocess.run(
+        [sys.executable, str(REPO / "luna/aurorae/make_luna_aurorae.py"), "--dpi", str(dpi), "--out", str(luna)],
+        check=True,
+        capture_output=True,
+    )
     return {
         **themes,
-        "luna": REPO / "luna/aurorae/theme",
+        "luna": luna,
         "aero": REPO / "aero/aurorae/theme",
     }
 
@@ -109,7 +120,8 @@ def state_buttons(state):
 
 
 def caption_reference(look):
-    with Image.open(CAPTION_REFERENCES[look]) as sheet:
+    path, _ = CAPTION_REFERENCES[look]
+    with Image.open(path) as sheet:
         return sheet.convert("RGB")
 
 
@@ -128,7 +140,8 @@ def test_caption_svg_matches_windows_reference(caption_themes, exact_original, l
     if look in CLASSIC:
         assert not difference[mask].any(), (look, state, button, difference[mask].mean())
         return
-    limit = RGB_LIMITS[look]["rest" if state == "cancelled" else state]
+    limits = RGB_LIMITS[look]
+    limit = limits.get(state, limits["rest"])
     assert difference[mask].mean() < limit, (look, state, button, difference[mask].mean())
 
 

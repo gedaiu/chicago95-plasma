@@ -16,7 +16,7 @@ from conftest import REPO, load_script
 from original_pixels import compare
 from PIL import Image, ImageColor, ImageFilter
 from plasma_session import HOME_AFTER_SETUP, install, missing_programs, run_session, show, work_folder
-from reference import REFERENCES, qimage_to_pil, render_start_menu, theme_references
+from reference import REFERENCES, qimage_to_pil, render_start_menu, rgb565, theme_references
 from showcase import start_menus, themed
 from test_caption_states_reference import (
     BUTTONS,
@@ -37,7 +37,7 @@ EXPECTED_THEMES = {"win95", "win98", "win2k", "winxp-classic", "winxp", "win7"}
 CAPTION_STATES = STATES[:-1]
 GTK_STATES = dict(zip(CAPTION_STATES, ("normal", "hovered", "pressed", "disabled", "restore"), strict=True))
 CAPTION_RENDERERS = {
-    "svg": CAPTION_STATES,
+    "svg": STATES,
     "kwin": CAPTION_STATES,
     "gtk3": CAPTION_STATES,
     "gtk4": CAPTION_STATES,
@@ -279,22 +279,27 @@ def kwin_face(capture, theme, look, scale, state, index):
         left, top, right, bottom = PRESS_WINDOWS[index] if state == "pressed" else WINDOW
         model = kwin_window(theme, look, right - left + 1, bottom - top + 1)
     rect = model.button_rects()["IAX"[index]]
-    if look in CLASSIC:
-        # The artwork's cell includes a blank row on either side of the bevel.
-        rect.adjust(2 if index == 2 else 0, 1, 0, -1)
-    if look == "luna" and scale % 1:
+    if (look in CLASSIC and scale == 1.25) or (look == "luna" and scale % 1):
         config = configparser.ConfigParser()
         config.read(directory / "home/.config/kwinrc")
-        if config.get("org.kde.kdecoration2", "theme", fallback="") == "org.chicago95.luna":
-            # The Luna wrapper snaps the paint layer's origin and rounds its
-            # size outward, independently of Aurorae's hit rectangle.
+        wrapper = "classic" if look in CLASSIC else "luna"
+        if config.get("org.kde.kdecoration2", "theme", fallback="") == f"org.chicago95.{wrapper}":
+            # The caption wrapper snaps the paint layer's origin, independently
+            # of the window's own origin and Aurorae's hit rectangle.
             def pixel(position):
                 return math.floor(position * scale + 0.5)
 
             # KWin places the snapped decoration on the separately snapped window origin.
             x = pixel(left) + pixel(rect.left())
             y = pixel(top) + pixel(rect.top())
+            if look in CLASSIC:
+                x += 3 if index == 2 else 0
+                y += 1
+                face = screen.crop((x, y, x + 20, y + 18))
+                return rgb565(face) if look in ("2000", "2001") else face
             return screen.crop((x, y, x + math.ceil(rect.width() * scale), y + math.ceil(rect.height() * scale)))
+    if look in CLASSIC:
+        rect.adjust(2 if index == 2 else 0, 1, 0, -1)
     return screen.crop(
         tuple(
             round(edge * scale)
@@ -346,15 +351,7 @@ def exact(expected, actual, directory, mask=None):
 
 @pytest.fixture(scope="module")
 def svg_themes(qt_app, tmp_path_factory):
-    themes = build_caption_themes(tmp_path_factory)
-    luna = tmp_path_factory.mktemp("luna")
-    dpi = round(96 * THEMES["winxp"][1]["caption_scale"])
-    subprocess.run(
-        [sys.executable, str(REPO / "luna/aurorae/make_luna_aurorae.py"), "--dpi", str(dpi), "--out", str(luna)],
-        check=True,
-    )
-    themes["luna"] = luna
-    return themes
+    return build_caption_themes(tmp_path_factory)
 
 
 @pytest.mark.parametrize("theme", THEMES)

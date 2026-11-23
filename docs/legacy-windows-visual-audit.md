@@ -49,16 +49,16 @@ The Windows 98 cold boot advances the bottom colour band to the right by 32 pixe
 
 The caption-state comparison covers Windows 95 OSR2, Windows 98 SE, Windows 2000 Professional, XP Classic, XP Luna and Windows 7 Aero. It pairs native VM crops with the theme SVGs for the resting, hovered and held Minimize, Maximize and Close buttons, the disabled Maximize and Close buttons, and Restore after maximizing Notepad. The classic guests keep the face unchanged when hovered. Luna and Aero change the face on hover. All six looks change the button while held and return to the idle face after the pointer leaves and the press is cancelled. The visual comparisons sample settled states. [Side-by-side comparison](compare/caption-states-vms.png) · [Regression and exact RGB tests](../tests/test_caption_states_reference.py)
 
-All 72 face comparisons differ at strict RGB tolerance. The table shows the highest mean absolute RGB error out of 255 among the tested buttons in each state. A 6×6 lower-right corner is excluded where the guest's software cursor appears.
+The 60 Classic SVG face comparisons pass at strict RGB tolerance at 120 DPI. The faces use device-size vector geometry for the bevel and glyph. Windows 2000 and XP Classic use the guests' RGB565 display palette for comparison. The native software cursor occupies a 6×6 mask in hover and held-press captures. The table shows the highest mean absolute RGB error out of 255 among the tested SVG faces in each state. The Luna comparison generates the same 120-DPI art that Setup installs.
 
-| Look | Rest | Hover | Held press | Disabled | Restore after maximize |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Windows 95 OSR2 | 50.66 | 48.90 | 33.45 | 38.96 | 79.22 |
-| Windows 98 SE | 50.66 | 48.90 | 33.45 | 38.96 | 79.22 |
-| Windows 2000 Professional | 47.36 | 46.64 | 33.41 | 33.50 | 78.84 |
-| XP Classic | 47.36 | 46.64 | 33.41 | 33.50 | 78.84 |
-| XP Luna | 42.73 | 38.72 | 35.04 | 23.69 | 42.99 |
-| Windows 7 Aero | 9.57 | 17.91 | 22.38 | 24.10 | 16.73 |
+| Look | Rest | Hover | Held press | Disabled | Restore after maximize | After cancel |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Windows 95 OSR2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Windows 98 SE | 0 | 0 | 0 | 0 | 0 | 0 |
+| Windows 2000 Professional | 0 | 0 | 0 | 0 | 0 | 0 |
+| XP Classic | 0 | 0 | 0 | 0 | 0 | 0 |
+| XP Luna | 3.75 | 3.57 | 2.56 | 2.83 | 2.87 | 4.17 |
+| Windows 7 Aero | 9.57 | 17.91 | 22.38 | 21.56 | 16.73 | 9.57 |
 
 On Windows 98 SE, minimizing Notepad left its white client visible as a shrinking title bar travelled toward the taskbar. The system menu was gone at 0.178 s and the desktop had settled by 0.339 s from recording start.
 
