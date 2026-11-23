@@ -47,11 +47,24 @@ The Windows 7 SP1 Aero VM held an active Notepad window in the same position ove
 
 The table reports mean absolute RGB error out of 255 over the whole button. In all nine comparisons, the reference and SVG use the same adjacent glass colour for each row. The dark edge of Minimize and the translucent highlights on either side of Maximize now average 1.57–3.53 levels of error across the three backdrops. The three columns at the right edge of Close now average 9.25–15.80 levels, down from 45.29–50.23 before the inset bevel and highlights. Strict comparison still fails on all nine faces. Visible differences remain in the outer rim, lower corners and side shading. [Native, previous and revised renders](compare/win7-caption-controlled-glass.png) · [Visual test](../tests/aero/test_aero_buttons.py)
 
+The next revision separates the Minimize bevel into three nested curves and brightens the glass towards the shared seam. Maximize's square ring now lands on the 40-pixel cell's grid. Its four-pixel-wide bright stems match the guest RGB samples exactly. Close has a thinner glyph outline and a brighter lower reflection along its neutral rim. All nine whole-face comparisons still differ at zero tolerance. [Visual tests](../tests/aero/test_aero_buttons.py)
+
+| Button | Dark backdrop | Light backdrop | Blue backdrop |
+|---|---:|---:|---:|
+| Minimize | 11.62 → 3.40 | 8.31 → 2.26 | 10.32 → 2.86 |
+| Maximize | 6.81 → 5.24 | 3.79 → 1.66 | 5.58 → 3.89 |
+| Close | 7.13 → 5.62 | 6.46 → 5.40 | 6.89 → 5.56 |
+
 At framebuffer coordinate (780, 189), increasing the solid backdrop from RGB (24, 24, 24) to (232, 232, 232) changes the native glass from (27, 35, 43) to (168, 200, 232). A constant tint with a single SVG opacity would change all three channels by the same amount. Reproducing that response across backgrounds requires a change in how the backdrop is composited.
 
-The live 144-DPI KWin test now uses those same three desktop colours and compares the adjacent glass separately from the complete button group. With the native Aero blur effect loaded, the glass-column mean RGB errors are 63.92, 31.59 and 29.13 out of 255 on dark, light and blue respectively. The corresponding button-group errors are 22.11, 13.18 and 12.35. [Exact live comparisons](../tests/visual/parity.py)
+The live 144-DPI KWin test uses those same desktop colours. The Aero blur effect now supplies the tint for active, restored windows. Setup fits its colorization parameters to the three VM mattes and turns off the effect's added corner glow. With the built-in blur, the fallback SVG supplies the tint. [Exact live comparisons and regression limits](../tests/visual/parity.py)
 
-Removing the SVG tint experimentally improved the button group on dark and light backgrounds and increased its mean RGB error on blue from 12.70 to 15.08. The production tint stays enabled.
+| Live KWin region | Dark backdrop | Light backdrop | Blue backdrop |
+|---|---:|---:|---:|
+| Glass beside buttons | 63.92 → 2.57 | 31.59 → 7.66 | 29.13 → 3.59 |
+| Complete button group | 22.33 → 5.45 | 10.04 → 5.41 | 11.87 → 5.28 |
+
+All six live crops still differ at zero tolerance. In an inactive-window check over the `#4395D1` desktop, changing the blur alone raised the sampled caption error from 7.32 to 14.89. The native-blur SVG now uses a cooler caption tint with a short gradient into the side borders. The caption error fell to 0.76, the right border fell from 22.20 to 19.66, and the bottom border fell from 20.58 to 15.46. [Inactive-window regression](../tests/aero/test_aero_caption.py)
 
 ### Caption hover and focus timing
 

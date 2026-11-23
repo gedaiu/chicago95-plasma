@@ -277,12 +277,12 @@ def around_client(x0, distance):
     return (x0 + SIDE - distance, TOP - distance, x0 + SIDE + MIDDLE + distance, TOP + MIDDLE + distance), (0,) * 4
 
 
-def frame_layers(x0, state):
+def frame_layers(x0, state, glass):
     """(fill, opacity, outer shape, inner shape): glass, then the lines DWM draws over it, outside in."""
     lines = palette.FRAME_LINES
-    glass, glass_alpha = palette.GLASS[state]
-    return [
-        (glass, glass_alpha, inset(x0, 0), around_client(x0, 0)),
+    color, opacity = glass
+    tint = [(color, opacity, inset(x0, 0), around_client(x0, 0))] if opacity else []
+    return tint + [
         (*lines["outer"][state], inset(x0, 0), inset(x0, 1)),
         (*lines["highlight"][state], inset(x0, 1), inset(x0, 2)),
         (*lines["client_light"][state], around_client(x0, 2), around_client(x0, 1)),
@@ -304,8 +304,8 @@ def frame_piece(element_id, box, layers):
     return f'<g id="{element_id}">{bounds}{shapes}</g>'
 
 
-def frame(prefix, x0, state):
-    layers = frame_layers(x0, state)
+def frame(prefix, x0, state, *, glass=None):
+    layers = frame_layers(x0, state, palette.GLASS[state] if glass is None else glass)
     pieces = [frame_piece(f"{prefix}{name}", box, layers) for name, box in piece_boxes(x0)]
     return "\n".join(
         [*pieces, f'<rect id="{prefix}hint-stretch-borders" x="{x0}" y="0" width="1" height="1" fill="none"/>']
@@ -338,18 +338,32 @@ def mask(x0):
     )
 
 
-def decoration_svg():
+def decoration_svg(*, native_glass=False):
     step = FRAME_W + GAP
+    active_glass = inactive_glass = None
+    definitions = ""
+    if native_glass:
+        active_glass = ("none", 0)
+        side, opacity = palette.GLASS["inactive"]
+        inactive_glass = ("url(#inactive-tint)", opacity)
+        # The restored inactive caption is cooler and darker than its frame.
+        # Keep a continuous tint across the joins to the side borders.
+        definitions = (
+            '<defs><linearGradient id="inactive-tint" gradientUnits="userSpaceOnUse" '
+            f'x1="0" y1="0" x2="0" y2="{TOP}">'
+            '<stop offset=".8" stop-color="#58A5E1"/>'
+            f'<stop offset="1" stop-color="{side}"/></linearGradient></defs>'
+        )
     body = "\n".join(
         [
-            frame("decoration-", 0, "active"),
-            frame("decoration-inactive-", step, "inactive"),
+            frame("decoration-", 0, "active", glass=active_glass),
+            frame("decoration-inactive-", step, "inactive", glass=inactive_glass),
             maximized("decoration-maximized-", 2 * step, "active"),
             maximized("decoration-maximized-inactive-", 3 * step, "inactive"),
             mask(4 * step),
         ]
     )
-    return f'<svg xmlns="http://www.w3.org/2000/svg" width="{5 * step}" height="{FRAME_H}">\n{body}\n</svg>\n'
+    return f'<svg xmlns="http://www.w3.org/2000/svg" width="{5 * step}" height="{FRAME_H}">\n{definitions}{body}\n</svg>\n'
 
 
 # Aurorae's button states, each a (window, Windows 7 state) of the atlas.
@@ -435,16 +449,16 @@ def large_caption_glyph(kind, colours, prefix, x0, pixel_density=None):
     if kind == "restore" and not native_restore:
         path = GTK_RESTORE_PATH
     scale = ".5" if double_density else "0.66666667"
-    # Restore uses the 40-pixel maximized cell, which is narrower than a
-    # simple 1.5× scale of its 27-unit SVG canvas.
+    # The 40-pixel caption cell is narrower than a simple 1.5× scale of
+    # the 27-unit SVG canvas. Keep its square-shouldered glyphs on the device grid.
     transform = f"scale({scale})"
-    if native_restore:
+    if kind in ("maximize", "restore") and pixel_density is None:
         transform = f"scale({palette.BUTTON_WIDTHS['maximize'] / 40:g} {scale})"
     outline, alpha = colours["outline"]
     shape = (
         f'<g transform="translate({x0:g} 0) {transform}">'
         f'<path d="{path}" stroke="{outline}" stroke-opacity="{number(alpha / 255)}" '
-        f'stroke-width="{3 if kind == "close" else 2}" '
+        'stroke-width="2" '
         f'stroke-linejoin="{"round" if kind == "close" else "miter"}" fill="none"/>'
         f'<path d="{path}" fill="url(#{body})" fill-rule="evenodd"/></g>'
     )
@@ -579,8 +593,60 @@ def caption_gradient(gradient_id, profile, height):
     return vertical_gradient(gradient_id, list(zip(colours, alphas, strict=True)), anchors, height=height)
 
 
+# The outer highlight, dark lip and inner highlight on Minimize follow
+# nested quarter circles. The measured fills are separate paints over glass.
+LARGE_MINIMIZE_BEVEL = (
+    ((0, "#FDFDFD", 173), (3, "#FDFDFD", 175), (24, "#FDFDFD", 170), (29, "#FDFDFD", 175)),
+    (
+        (0, "#0E0E0E", 162), (6, "#090909", 159), (12, "#050505", 156),
+        (21, "#020202", 155), (28, "#010101", 154), (29, "#010101", 154),
+    ),
+    (
+        (0, "#FCFCFC", 255), (1, "#FAFAFA", 198), (3, "#FAFAFA", 198),
+        (6, "#F2F2F2", 184), (12, "#EBEBEB", 176), (15, "#CBCBCB", 136),
+        (21, "#C5C5C8", 132), (26, "#DADEE3", 146), (27, "#EBEDF2", 157),
+        (28, "#0B0B0A", 159), (29, "#FDFDFD", 175),
+    ),
+)
+
+
+def large_minimize_surface(width, prefix):
+    height = palette.BUTTON_HEIGHT
+    pixel = height / 30
+    body_right = width - 2 * pixel
+    borders = [
+        caption_rim(
+            inset * pixel, 0, body_right if inset == 3 else width - pixel,
+            height - inset * pixel, (4.35 - inset) * pixel, 0,
+        ) + "Z"
+        for inset in range(4)
+    ]
+    paths = [outer + inner for outer, inner in zip(borders[:-1], borders[1:], strict=True)] + borders[-1:]
+    profiles = (*LARGE_MINIMIZE_BEVEL, LARGE_ACTIVE_FACE["minimize"])
+    definitions, shapes = [], []
+    for index, (path, profile) in enumerate(zip(paths, profiles, strict=True)):
+        gradient = f"{prefix}Bevel{index}"
+        definitions.append(caption_gradient(gradient, profile, height))
+        shapes.append(f'<path d="{path}" fill="url(#{gradient})" fill-rule="evenodd"/>')
+    # The body brightens towards the shared seam, modulating the opacity as well
+    # as the colour. The horizontal highlight sits inside the inner bevel.
+    sheen = f"{prefix}Sheen"
+    definitions.append(
+        f'<linearGradient id="{sheen}" x2="1" y2="0">'
+        '<stop offset=".04" stop-color="white" stop-opacity="0"/>'
+        '<stop offset="1" stop-color="white" stop-opacity=".105"/></linearGradient>'
+    )
+    shapes.append(f'<path d="{borders[-1]}" fill="url(#{sheen})"/>')
+    edge = f"{prefix}Right"
+    definitions.append(caption_gradient(edge, LARGE_ACTIVE_JOINED_EDGES["minimize"]["right"], height))
+    shapes.append(f'<path d="{rect(width - pixel, 0, pixel, height)}" fill="url(#{edge})"/>')
+    return "".join(definitions), "".join(shapes)
+
+
 def caption_surface(kind, face, width, prefix, large, *, optical_face=(), disabled_close=False):
     """Paint the glass face and bevels with independently translucent gradients."""
+    if kind == "minimize" and optical_face:
+        return large_minimize_surface(width, prefix)
     height = palette.BUTTON_HEIGHT
     large_close = kind == "close" and bool(optical_face)
     left_radius = 2 if kind in ("minimize", "close") else 0
@@ -628,6 +694,13 @@ def caption_surface(kind, face, width, prefix, large, *, optical_face=(), disabl
     light, alpha = rows[-1]
     if disabled_close:
         _, light, alpha = LARGE_DISABLED_CLOSE_FACE[-1]
+    rim_paint = f'stroke="{light}" stroke-opacity="{alpha / 255:.3f}"'
+    if large_close and not disabled_close:
+        # The lower reflection is brighter than the two sides. Keep the
+        # tint neutral all the way around the same continuous curved stroke.
+        rim = f"{prefix}Rim"
+        definitions += caption_gradient(rim, ((0, light, alpha), (28, light, alpha), optical_face[-1]), height)
+        rim_paint = f'stroke="url(#{rim})"'
     left_column = face["left"][-1 if kind == "minimize" else 0]
     left_seam = f"{prefix}Left"
     bevels = []
@@ -672,7 +745,7 @@ def caption_surface(kind, face, width, prefix, large, *, optical_face=(), disabl
     return definitions, (
         f'<path d="{surface}" fill="url(#{body})"{fill_rule}/>'
         f'<path d="{surface}" fill="url(#{shade})"{fill_rule}/>'
-        f'<path d="{edge}" stroke="{light}" stroke-opacity="{alpha / 255:.3f}" stroke-width="{stroke:g}" '
+        f'<path d="{edge}" {rim_paint} stroke-width="{stroke:g}" '
         'stroke-linecap="square" fill="none"/>'
         + "".join(bevels)
     )
@@ -803,6 +876,7 @@ METADATA = """{
 def write_theme(out):
     out.mkdir(parents=True, exist_ok=True)
     (out / "decoration.svg").write_text(decoration_svg())
+    (out / "decoration-native.svg").write_text(decoration_svg(native_glass=True))
     for kind in BUTTON_FACES:
         (out / f"{kind}.svg").write_text(button_svg(kind))
         (out / f"{kind}-large.svg").write_text(button_svg(kind, large=True))

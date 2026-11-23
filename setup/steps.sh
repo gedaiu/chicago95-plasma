@@ -835,7 +835,7 @@ step_animations() { # the saved animation choices into KWin, KDE's speed and our
     run gdbus call --session --dest org.kde.KWin --object-path /Effects --method org.kde.kwin.Effects.loadEffect chicago95zoom >/dev/null 2>&1 || true
   fi
   if [[ " ${COMPONENTS:-} " != *" look "* && -n "${SETUP_ANIM_WOBBLY:-}" ]] &&
-    [[ "$(kreadconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme)" =~ ^(__aurorae__svg__Chicago95Aero|org\.chicago95\.aero)$ ]]; then
+    current_aero_decoration >/dev/null; then
     select_aero_blur
   fi
 }
@@ -938,7 +938,34 @@ select_aero_blur() {
     kconf kwinrc Effect-aeroglassblur EnableTransparency true
     kconf kwinrc Effect-aeroglassblur BasicColorization false
     kconf kwinrc Effect-aeroglassblur ReflectionIntensity 75
+    kconf kwinrc Effect-aeroglassblur EnableCornerGlow false
+    # Fit the active glass against the Windows 7 VM's dark, light and blue mattes.
+    kconf kwinrc Effect-aeroglassblur AeroIntensity 101
+    kconf kwinrc Effect-aeroglassblur AeroHue 210
+    kconf kwinrc Effect-aeroglassblur AeroSaturation 60
+    kconf kwinrc Effect-aeroglassblur AeroBrightness 93
   fi
+  select_aero_frame_glass "$native"
+}
+
+select_aero_frame_glass() {
+  local svg=decoration.svg
+  [ "$1" != true ] || svg=decoration-native.svg
+  local source="$REPO/aero/aurorae/theme/$svg"
+  local frame="$HOME/.local/share/aurorae/themes/Chicago95Aero/decoration.svg"
+  if ! cmp -s "$source" "$frame"; then
+    put_file "$source" "$frame"
+    AERO_FRAME_CHANGED=1
+  fi
+}
+
+current_aero_decoration() {
+  local theme
+  theme=$(kreadconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme) || return 1
+  case "$theme" in
+  __aurorae__svg__Chicago95Aero | org.chicago95.aero) printf '%s\n' "$theme" ;;
+  *) return 1 ;;
+  esac
 }
 
 reload_caption_decoration() (
@@ -1000,7 +1027,10 @@ apply_decoration() {
   kconf kwinrc org.kde.kdecoration2 library org.kde.kwin.aurorae
   kconf kwinrc org.kde.kdecoration2 theme "$theme"
   configure_zoom_titlebar
-  if [ "$reapply" = 1 ]; then reload_caption_decoration "$theme"; fi
+  if [ "$reapply" = 1 ]; then
+    reload_caption_decoration "$theme"
+    AERO_FRAME_CHANGED=0
+  fi
 }
 
 apply_aero_glass() {
@@ -2685,6 +2715,9 @@ refresh_glass_effect() {
   if [[ "$("${effects[@]}" org.kde.kwin.Effects.loadEffect "$target")" != "(true,)" ]]; then
     "${effects[@]}" org.kde.kwin.Effects.loadEffect "$previous" >/dev/null 2>&1 || true
     ui_status "KWin could not activate $target in this session. Check the effect after signing in again."
+    if [ "$target" = aeroglassblur ] && current_aero_decoration >/dev/null; then
+      select_aero_frame_glass false
+    fi
   fi
 }
 
@@ -2695,6 +2728,10 @@ finish_session() { # KWin always rereads its settings; plasmashell restarts only
   [ "${SETUP_DRY_RUN:-0}" != 1 ] && [ "$SETUP_IN_PLASMA" = 1 ] || return 0
   if [ "${GLASS_EFFECT_CHANGED:-0}" = 1 ]; then
     refresh_glass_effect
+  fi
+  local aero_theme
+  if [ "${AERO_FRAME_CHANGED:-0}" = 1 ] && aero_theme=$(current_aero_decoration); then
+    reload_caption_decoration "$aero_theme"
   fi
   systemctl --user is-enabled chicago95-notifyd.service >/dev/null 2>&1 && systemctl --user restart chicago95-notifyd.service || true
   [ "$SHELL_CHANGED" = 1 ] || return 0

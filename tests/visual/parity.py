@@ -458,6 +458,23 @@ def test_aero_kwin_caption_matches_windows_on_the_same_backdrop(layer, aero_capt
     exact(expected, actual, path / layer)
 
 
+def test_aero_native_glass_keeps_the_vm_backdrop_response(aero_caption_matte):
+    matte, path, image = aero_caption_matte
+    if "'aeroglassblur'" not in image.info["loaded_effects"]:
+        pytest.skip("requires the native Aero blur effect")
+    top = tuple(AERO_MATTES).index(matte) * 30
+    with Image.open(REFERENCES / "win7-sp1-144dpi-caption-mattes.png") as reference:
+        regions = (
+            ("glass", (1, top, 2, top + 30), (800, 181, 801, 211), 9),
+            ("buttons", (2, top, 162, top + 30), (836, 181, 996, 211), 7),
+        )
+        for name, native_box, kwin_box, limit in regions:
+            expected = reference.crop(native_box).convert("RGB")
+            actual = image.crop(kwin_box)
+            error = np.abs(np.asarray(expected, dtype=int) - np.asarray(actual, dtype=int)).mean()
+            assert error < limit, (name, error, path)
+
+
 @pytest.mark.parametrize("matte", DISABLED_CLOSE_MATTES)
 def test_win7_disabled_close_over_native_glass_matches_windows_pixels(svg_themes, matte, visual_output):
     glass, expected = disabled_close_matte(matte)

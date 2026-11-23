@@ -38,6 +38,25 @@ def test_caption_centres_the_icon_and_illuminates_black_letters(desktops, tmp_pa
 
 
 @pytest.mark.skipif(bool(missing_programs()), reason=f"needs {', '.join(missing_programs())}")
+def test_inactive_aero_caption_matches_the_windows_glass(desktops):
+    from reference import screenshot
+
+    image = desktops(
+        "aero",
+        **reference_session(
+            launchers=0,
+            windows=[("Foreground", "qt", (14, 180, 120, 310)), ("Screen Resolution", "qt", (152, 100, 942, 639))],
+        ),
+    )
+    if "'aeroglassblur'" not in image.info["loaded_effects"]:
+        pytest.skip("requires the native Aero blur effect")
+    native = screenshot("win7screenres")
+    for box, limit in (((650, 106, 660, 122), 6), ((937, 140, 940, 615), 22), ((350, 634, 700, 637), 18)):
+        error = np.abs(np.asarray(image.crop(box), dtype=int) - np.asarray(native.crop(box), dtype=int)).mean()
+        assert error < limit, (box, error)
+
+
+@pytest.mark.skipif(bool(missing_programs()), reason=f"needs {', '.join(missing_programs())}")
 @pytest.mark.parametrize("scale", [1, 1.5])
 def test_caption_hover_lights_the_glass_below_the_live_close_button(desktops, tmp_path, scale):
     options = reference_session(windows=[("Caption hover", "qt", (160, 150, 559, 449))])

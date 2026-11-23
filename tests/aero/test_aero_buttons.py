@@ -149,9 +149,9 @@ def test_complete_caption_face_against_guest(
 @pytest.mark.parametrize(
     ("kind", "left", "width", "limit", "joined_edges"),
     [
-        ("minimize", 0, 45, 12, [-1]),
-        ("maximize", 45, 40, 7, [0, -1]),
-        ("close", 85, 75, 7.5, []),
+        ("minimize", 0, 45, 4, [-1]),
+        ("maximize", 45, 40, 6, [0, -1]),
+        ("close", 85, 75, 6, []),
     ],
 )
 @pytest.mark.parametrize("top", [0, 30, 60], ids=["dark", "light", "blue"])
@@ -167,13 +167,30 @@ def test_144dpi_resting_caption_over_native_glass(qt_app, exact_original, kind, 
     expected = capture.crop((2 + left, top, 2 + left + width, top + 30))
     actual = glass.convert("RGB")
     exact_original(expected, actual)
-    difference = np.abs(np.asarray(actual, dtype=int) - np.asarray(expected, dtype=int))
+    native = np.asarray(expected, dtype=int)
+    difference = np.abs(np.asarray(actual, dtype=int) - native)
     assert difference.mean() < limit
     if joined_edges:
         assert np.all(difference[:, joined_edges].mean(axis=(0, 2)) < 4.5)
+    if kind == "minimize":
+        # The outer highlight, dark divider and inner highlight are separate
+        # optical bands. Measure their straight portions and the opposite join.
+        assert np.all(difference[1:25, [0, 1, 2, -2]].mean(axis=(0, 2)) < 7)
+    if kind == "maximize":
+        # The bright left and right stems are four whole pixels on the
+        # 40-pixel cell. Compare their exact RGB without the glass.
+        assert not np.any(difference[11:17, [11, 12, 13, 14, 25, 26, 27, 28]])
+    if top == 0 and kind in ("minimize", "maximize"):
+        # On dark glass the opaque glyph is the only bright neutral paint inside the face.
+        interior = native[5:23, 7:-7]
+        ink = (interior.min(axis=2) > 198) & (np.ptp(interior, axis=2) < 12)
+        assert ink.sum() == {"minimize": 64, "maximize": 172}[kind]
+        assert not np.any(difference[5:23, 7:-7][ink])
     if kind == "close":
         # The inset highlights and red bevel are visible above the rounded corners.
         assert np.all(difference[:25, [1, -3, -2]].mean(axis=(0, 2)) < 7)
+        assert difference[-1, 6:-7].mean() < 5
+        assert difference[[5, 22], 27:47].mean() < 4
 
 
 @pytest.mark.parametrize("large", [False, True], ids=["96dpi", "144dpi"])
@@ -191,7 +208,10 @@ def test_close_bevel_retains_glass_transparency_in_each_state(qt_app, large):
             assert top == (252, 252, 252, 255)
         red, green, blue, alpha = button.getpixel((width // 2, height - 1))
         assert max(red, green, blue) - min(red, green, blue) < 5
-        assert 80 <= alpha <= 180
+        if large and state == "active":
+            assert 193 <= alpha <= 199
+        else:
+            assert 80 <= alpha <= 180
 
 
 @pytest.mark.parametrize(("kind", "width", "radius"), [("minimize", 30, 2), ("close", 50, 2)])

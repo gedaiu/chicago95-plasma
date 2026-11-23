@@ -2604,6 +2604,9 @@ def test_installed_native_glass_uses_the_vector_decoration_and_aero_blur(tmp_pat
             f"theme {expected_aero_decoration(log)}",
             "aeroglassblurEnabled true",
             "blurEnabled false",
+            "AeroIntensity 101",
+            "EnableCornerGlow false",
+            "aero/aurorae/theme/decoration-native.svg",
         )
     )
 
@@ -2626,7 +2629,28 @@ def test_changing_wobble_on_aero_switches_backdrop_provider(tmp_path, wobble, na
     )
     assert plugin("aeroglassblur", native) in log
     assert plugin("blur", builtin) in log
+    frame = "decoration-native.svg" if native == "true" else "decoration.svg"
+    assert f"aero/aurorae/theme/{frame} ->" in log
 
+
+def test_aero_restores_the_tinted_frame_when_kwin_cannot_load_native_blur(tmp_path):
+    commands = run_bash_with_steps(
+        tmp_path,
+        """
+        kreadconfig6() {
+          if [[ "$*" == *'--key theme' ]]; then echo org.chicago95.aero; fi
+        }
+        gdbus() {
+          case "$*" in
+            *'isEffectLoaded aeroglassblur' | *'loadEffect aeroglassblur') echo '(false,)' ;;
+          esac
+        }
+        ui_status() { :; }
+        select_aero_frame_glass() { echo "$1"; }
+        refresh_glass_effect
+        """,
+    )
+    assert commands == ["false"]
 
 @pytest.mark.parametrize("available", [True, False])
 def test_live_blur_choice_installs_missing_effect_and_enables_it(tmp_path, available):
