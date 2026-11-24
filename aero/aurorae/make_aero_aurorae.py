@@ -669,7 +669,129 @@ def large_minimize_surface(width, prefix):
     return "".join(definitions), "".join(shapes)
 
 
-def caption_surface(kind, face, width, prefix, large, *, optical_face=(), resting=False, disabled_close=False):
+def large_interaction_shading(kind, look, width, prefix, inset, corners):
+    """Separate the pale upper bevel from the coloured glass below it."""
+    if look == "pressed":
+        upper = ("#542C1F", 0.36) if kind == "close" else ("#22456F", 0.35)
+    else:
+        upper = ("#66423A", 0.25) if kind == "close" else ("#406687", 0.21)
+    if kind == "close":
+        lower = ("#350600", 0.32 if look == "hot" else 0.80)
+        fade = 0.38
+    else:
+        lower = ("#005A96", 0.80) if look == "hot" else ("#000A2D", 0.82)
+        fade = 0.29
+    definitions, shapes = [], []
+    gloss_edge = palette.BUTTON_HEIGHT / 2
+    light_limit = palette.BUTTON_HEIGHT - 3 * inset
+    top = inset
+    for name, (colour, strength), bottom, radius in (
+        ("Upper", upper, gloss_edge, (0, 0)),
+        ("Lower", lower, light_limit, corners),
+    ):
+        gradient = f"{prefix}{name}Shade"
+        # The contrast falls away faster next to the seam than near the centre.
+        points = ((0, 1), (fade / 3, 0.46), (fade * 2 / 3, 0.12), (fade, 0))
+        reflected = tuple((1 - x, alpha) for x, alpha in reversed(points))
+        stops = "".join(
+            f'<stop offset="{x:g}" stop-color="{colour}" stop-opacity="{alpha * strength:.3f}"/>'
+            for x, alpha in (*points, *reflected)
+        )
+        definitions.append(f'<linearGradient id="{gradient}" x2="1" y2="0">{stops}</linearGradient>')
+        path = caption_rim(inset, top, width - inset, bottom, *radius) + "Z"
+        shapes.append(f'<path d="{path}" fill="url(#{gradient})"/>')
+        top = bottom
+    # The top reflection spans the interior in a single opaque device row.
+    start = 0 if kind == "maximize" else 2 * inset
+    end = width if kind == "maximize" else width - (2 * inset if kind == "close" else inset)
+    shapes.append(f'<rect x="{start:g}" width="{end - start:g}" height="{inset:g}" fill="#fcfcfc"/>')
+    return "".join(definitions), "".join(shapes)
+
+
+def large_interaction_reflections(kind, look, width, prefix, pixel):
+    """The lower reflection and lip in the Windows 7 hover/held glass."""
+    # The lip stays slightly transparent so the local backdrop still affects it.
+    # These are colour ramps along the bevels, which follow the shape of the face.
+    if kind == "close":
+        lip = ("#AA563A", "#D37646", "#AB593C")
+        if look == "pressed":
+            lip = ("#9D5745", "#D77A45", "#A75D43")
+        reflections = ((28, 2, lip, "0.94"),)
+        radii = (2, 3)
+    else:
+        lip = ("#458CB3", "#59C4E7", "#4089AD")
+        core = ("#8CD4EF", "#17F9FF", "#8CD8F0")
+        if look == "pressed":
+            lip = ("#3D8DB1", "#56CBF1", "#3E88BB")
+            core = ("#84CBE0", "#17F8FE", "#85CDE1")
+        reflections = (
+            (27, 2, core, "0.97"),
+            (28, 1, lip, "0.95"),
+            (29, 0, ("#88D1F5", "#6AD2FD", "#8ED4F4"), "0.97"),
+        )
+        radii = (2, 0) if kind == "minimize" else (0, 0)
+    definitions, shapes = [], []
+    for row, inset, colours, alpha in reflections:
+        gradient = f"{prefix}Reflection{row}"
+        left, centre, right = colours
+        stops = ((0, left), (0.26, centre), (0.74, centre), (1, right))
+        margin = (inset + 0.5) * pixel
+        # Only the horizontal part receives the reflected colour. The
+        # existing curved rim retains its glass at the corner.
+        start, end = max(margin, radii[0]), width - max(margin, radii[1])
+        definitions.append(
+            f'<linearGradient id="{gradient}" gradientUnits="userSpaceOnUse" '
+            f'x1="{start:g}" x2="{end:g}" y1="0" y2="0">'
+            + "".join(f'<stop offset="{x:g}" stop-color="{colour}" stop-opacity="{alpha}"/>' for x, colour in stops)
+            + "</linearGradient>"
+        )
+        path = f"M{start:g} {(row + 0.5) * pixel:g}H{end:g}"
+        shapes.append(f'<path d="{path}" stroke="url(#{gradient})" stroke-width="{pixel:g}"/>')
+    return "".join(definitions), "".join(shapes)
+
+
+def large_interaction_seams(kind, look, width, prefix, pixel):
+    """Preserve the thin bevels at the joins independently of the glass fill."""
+    pressed = look == "pressed"
+    cool_inset = (
+        ("#B8CBDA", "#98AEC4", "#5C738A", "#6A8096") if pressed
+        else ("#CCDFF0", "#B8D4E7", "#629FCA", "#73ACD0")
+    )
+    if kind == "minimize":
+        dark = (("#3C4851", "#172A39", "#05111D", "#0A1D2C") if pressed
+                else ("#405564", "#274355", "#032942", "#0D304B"))
+        seams = (
+            (0, ("#94D6F4", "#86D4F6", "#86D1F7", "#8ED3F6"), 244),
+            (1, dark, 250), (2, cool_inset, 248), (-2, cool_inset, 241),
+            (-1, ("#68B1D0", "#62BAE2", "#58B0DA", "#4D9FC6"), 246),
+        )
+    elif kind == "maximize":
+        seams = ((0, cool_inset, 248), (-1, cool_inset, 240))
+    else:
+        divider = (("#9A6554", "#A96551", "#8C4330", "#7C3D2A") if pressed
+                   else ("#8C4C3D", "#9E503E", "#984230", "#893C29"))
+        warm_inset = (("#E0C7BA", "#D3B1A1", "#AD897D", "#B28C7F") if pressed
+                      else ("#F8CBC4", "#EFB5A9", "#D98E82", "#E39F8D"))
+        dark = (("#48392D", "#381A0F", "#240805", "#291108") if pressed
+                else ("#65413B", "#5F2C25", "#480D06", "#551D0E"))
+        seams = (
+            (0, divider, 248), (1, warm_inset, 249), (-3, warm_inset, 243),
+            (-2, dark, 251), (-1, ("#E3BAB7", "#E8AFA7", "#E7AEA7", "#E2B9B6"), 249),
+        )
+    definitions, shapes = [], []
+    for index, (column, colours, alpha) in enumerate(seams):
+        gradient = f"{prefix}Seam{index}"
+        profile = tuple((row, colour, alpha) for row, colour in zip((1, 11, 16, 24), colours, strict=True))
+        definitions.append(caption_gradient(gradient, profile, palette.BUTTON_HEIGHT))
+        x = pixel * column + (width if column < 0 else 0)
+        shapes.append(f'<rect x="{x:g}" y="{pixel:g}" width="{pixel:g}" height="{24 * pixel:g}" '
+                      f'fill="url(#{gradient})"/>')
+    return "".join(definitions), "".join(shapes)
+
+
+def caption_surface(
+    kind, face, width, prefix, large, *, optical_face=(), resting=False, disabled_close=False, interaction=None,
+):
     """Paint the glass face and bevels with independently translucent gradients."""
     if kind == "minimize" and optical_face:
         return large_minimize_surface(width, prefix)
@@ -705,19 +827,20 @@ def caption_surface(kind, face, width, prefix, large, *, optical_face=(), restin
         definitions = caption_gradient(body, optical_face, height)
     else:
         definitions = vertical_gradient(body, rows, positions, height=height)
-    side_samples = [band["shade"][2] for band in face["bands"] if len(band["shade"]) > 2]
-    if disabled_close:
-        strength, shade_colour, inner_stop, outer_stop = 0.105, ' stop-color="#53595b"', ".19", ".81"
-    else:
-        strength = sum(side_samples) / len(side_samples) if side_samples else 0
-        shade_colour, inner_stop, outer_stop = "", ".4", ".6"
-    definitions += (
-        f'<linearGradient id="{shade}" x2="1" y2="0">'
-        f'<stop{shade_colour} stop-opacity="{strength:.3f}"/>'
-        f'<stop offset="{inner_stop}"{shade_colour} stop-opacity="0"/>'
-        f'<stop offset="{outer_stop}"{shade_colour} stop-opacity="0"/>'
-        f'<stop offset="1"{shade_colour} stop-opacity="{strength:.3f}"/></linearGradient>'
-    )
+    if not interaction:
+        if disabled_close:
+            strength, shade_colour, inner_stop, outer_stop = 0.105, ' stop-color="#53595b"', ".19", ".81"
+        else:
+            side_samples = [band["shade"][2] for band in face["bands"] if len(band["shade"]) > 2]
+            strength = sum(side_samples) / len(side_samples) if side_samples else 0
+            shade_colour, inner_stop, outer_stop = "", ".4", ".6"
+        definitions += (
+            f'<linearGradient id="{shade}" x2="1" y2="0">'
+            f'<stop{shade_colour} stop-opacity="{strength:.3f}"/>'
+            f'<stop offset="{inner_stop}"{shade_colour} stop-opacity="0"/>'
+            f'<stop offset="{outer_stop}"{shade_colour} stop-opacity="0"/>'
+            f'<stop offset="1"{shade_colour} stop-opacity="{strength:.3f}"/></linearGradient>'
+        )
     # The atlas repeats the outside highlights for nine-slice stretching.
     # Follow the circular rim with a single stroke and keep the shaded seam
     # on the inside. The next cell supplies the divider on joined edges.
@@ -772,9 +895,20 @@ def caption_surface(kind, face, width, prefix, large, *, optical_face=(), restin
             surface += path
             bevels.append(f'<path d="{path}" fill="url(#{highlight})"/>')
     fill_rule = ' fill-rule="evenodd"' if large_close else ""
+    if interaction:
+        shading, shaded_face = large_interaction_shading(
+            kind, interaction, width, prefix, stroke, (max(0, left_radius - stroke), max(0, right_radius - stroke)),
+        )
+        definitions += shading
+        reflection, highlight = large_interaction_reflections(kind, interaction, width, prefix, stroke)
+        seams, joint = large_interaction_seams(kind, interaction, width, prefix, stroke)
+        definitions += reflection + seams
+        bevels.extend((highlight, joint))
+    else:
+        shaded_face = f'<path d="{surface}" fill="url(#{shade})"{fill_rule}/>'
     return definitions, (
         f'<path d="{surface}" fill="url(#{body})"{fill_rule}/>'
-        f'<path d="{surface}" fill="url(#{shade})"{fill_rule}/>'
+        + shaded_face +
         f'<path d="{edge}" {rim_paint} stroke-width="{stroke:g}" '
         'stroke-linecap="square" fill="none"/>'
         + "".join(bevels)
@@ -796,8 +930,10 @@ def button_state(kind, window, look, prefix, x0=0, large=False, *, cell_width=No
     optical_face = LARGE_ACTIVE_FACE.get(kind, ()) if large and resting else ()
     if disabled_close:
         optical_face = LARGE_DISABLED_CLOSE_FACE
+    interaction = look if large and window == "active" and look in ("hot", "pressed") and kind != "restore" else None
     face_definitions, face_shapes = caption_surface(
-        kind, face, width, f"f{prefix}", large, optical_face=optical_face, resting=resting, disabled_close=disabled_close
+        kind, face, width, f"f{prefix}", large, optical_face=optical_face, resting=resting, disabled_close=disabled_close,
+        interaction=interaction,
     )
     face_shapes = f'<g transform="translate({x0} 0)">{face_shapes}</g>'
     if disabled_close:

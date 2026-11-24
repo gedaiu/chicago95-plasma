@@ -2,6 +2,7 @@
 
 import os
 import shutil
+from math import floor
 from pathlib import Path
 
 import numpy as np
@@ -95,6 +96,13 @@ def test_thunar_navigation_matches_explorer_band(thunar_window, tmp_path):
         target = pixels(original, box, 1).mean(axis=(0, 1))
         rendered = pixels(thunar_window, box, scale).mean(axis=(0, 1))
         assert np.abs(target - rendered).max() < 14, (target, rendered)
+    # Compare the dark top and pale bottom stroke with the captured address field.
+    for row in (4, 25):
+        target = pixels(original, (480, row, 505, row + 1), 1).mean(axis=(0, 1))
+        centre = floor((row + 0.5) * scale)
+        box = (round(480 * scale), centre, round(505 * scale), centre + 1)
+        rendered = pixels(thunar_window, box, 1).mean(axis=(0, 1))
+        assert np.abs(target - rendered).max() < 6, (row, target, rendered)
     # The first non-toolbar row starts at 32 logical pixels, also at 150%.
     rows = pixels(thunar_window, (420, 0, 435, 45), scale).mean(axis=1)
     start = round(27 * scale)
@@ -104,19 +112,29 @@ def test_thunar_navigation_matches_explorer_band(thunar_window, tmp_path):
     field = pixels(thunar_window, (480, 0, 481, 29), scale).mean(axis=1)
     interior = np.flatnonzero(np.abs(field - field[round(15 * scale)]).max(axis=1) < 3)
     centreline = (interior[0] + interior[-1]) / 2
-    # Measure the painted bounds of both arrows in both history states.
+    def orb_bounds(image, left, right, density):
+        band = pixels(image, (left, 2, right, 28), density)
+        glass = np.median(pixels(image, (left, 0, right, 2), density), axis=(0, 1))
+        y, x = np.where(np.abs(band - glass).max(axis=2) > 22)
+        width, height = (np.ptp(axis) + 1 for axis in (x, y))
+        centre = (y.min() + y.max()) / 2 + round(2 * density)
+        cx = (x.min() + x.max()) / 2 + round(left * density)
+        return width, height, cx, centre, band.min(axis=2).max()
+
+    # Compare the two orb sizes and positions against Explorer's navigation row.
+    columns = ((0, 29), (29, 57))
+    reference_orbs = [orb_bounds(original, *span, 1) for span in columns]
     with Image.open(tmp_path / "history.png") as active:
         for image, enabled in ((thunar_window, False), (active.convert("RGB"), True)):
             heights, centres = [], []
-            for left, right in ((3, 32), (34, 64)):
-                button = pixels(image, (left, 0, right, 29), scale)
-                glass = np.median(button[: round(2 * scale)], axis=0)
-                y, x = np.where(np.abs(button - glass).max(axis=2) > 22)
-                assert (button.min(axis=2).max() > 224) == enabled
-                assert 18 * scale <= np.ptp(x) + 1 <= 21 * scale
-                heights.append(np.ptp(y) + 1)
-                centres.append((y.min() + y.max()) / 2)
-            assert all(18 * scale <= height <= 21 * scale for height in heights)
+            for span, native in zip(columns, reference_orbs, strict=True):
+                width, height, x, y, brightest = orb_bounds(image, *span, scale)
+                assert (brightest > 224) == enabled
+                assert abs(width / scale - native[0]) <= 4
+                assert abs(height / scale - native[1]) <= 3
+                assert abs(x / scale - native[2]) <= 1.5
+                heights.append(height)
+                centres.append(y)
             assert abs(heights[0] - heights[1]) <= 1
             assert abs(centres[0] - centres[1]) <= 0.5
             assert all(abs(centre - centreline) <= scale for centre in centres)

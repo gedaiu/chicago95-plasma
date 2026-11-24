@@ -21,6 +21,7 @@
     "win2000-pro-shutdown-dialog.png": "shutdown.png"
   },
   "taskbar_x": 535,
+  "taskbar_band_rgb565": true,
   "device_manager_scale": 1.25,
   "device_manager_rgb565": true,
   "device_manager_blank_band": [260, 0, 630, 25],

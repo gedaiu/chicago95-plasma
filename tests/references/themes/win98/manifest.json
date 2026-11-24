@@ -23,6 +23,12 @@
   "device_manager_scale": 1,
   "device_manager_actions_scale": 1.25,
   "properties_scale": 1.25,
+  "run_states": {
+    "scale": 1.25,
+    "flat_title": true,
+    "text": {"empty": "", "typed": "notepad"},
+    "default_button_bevel": [[132, 153, 222, 155], [132, 178, 222, 181]]
+  },
   "control_panel_icons": {
     "display": [644, 105, 678, 139],
     "internet-options": [456, 199, 490, 233],

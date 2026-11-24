@@ -14,9 +14,11 @@ import importlib.util
 import shlex
 import subprocess
 from collections import namedtuple
+from math import ceil
 from pathlib import Path
 
 import chicago95ui  # noqa: E401,E702
+from chicago95aerobutton import AeroDialogButton, aero_button_artwork
 from PySide6.QtCore import QEvent, QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter
 from PySide6.QtWidgets import (
@@ -45,18 +47,20 @@ RunLayout = namedtuple(
 # 3px frame and 29px title) is 341x154 with the icon at 11,19, the text from 54,20, "Open:" at 11,66, the field at 54,60
 # and the buttons 114 rows down.
 LAYOUTS = {
-    "aero": RunLayout((379, 194), (12, 23), (60, 22), (12, 82), (60, 77), 305, 22, 147, (104, 194, 284), 0, 35),
-    "classic": RunLayout((341, 139), (11, 19), (56, 17), (11, 66), (54, 61), 275, 21, 103, (93, 174, 255), 1, 30),
-    "nt-classic": RunLayout((341, 155), (11, 19), (54, 20), (11, 66), (54, 61), 275, 21, 115, (93, 174, 255), 1, 40),
-    "luna": RunLayout((341, 154), (11, 19), (54, 20), (11, 66), (54, 60), 275, 21, 114, (93, 174, 255), 0, 40),
+    "aero": RunLayout((379, 194), (12, 22), (60, 21), (12, 82), (60, 77), 305, 22, 147, (104, 194, 284), 0, 35),
+    "classic": RunLayout((341, 139), (11, 19), (55, 18), (11, 66), (54, 61), 275, 21, 103, (93, 174, 255), 1, 30),
+    "win98-hidpi": RunLayout((362, 136), (10, 16), (57, 17), (11, 65), (57, 60), 293, 19, 101, (99, 185, 271), 1, 30),
+    "nt-classic": RunLayout((341, 155), (11, 19), (54, 18), (11, 66), (54, 61), 275, 21, 115, (93, 174, 255), 1, 30),
+    "luna": RunLayout((341, 154), (11, 19), (54, 18), (11, 66), (54, 60), 275, 21, 114, (93, 174, 255), 0, 30),
 }
+NT_PROMPT = "Type the name of a program, folder, document, or\nInternet resource, and {os} will open it for you."
 PROMPTS = {
     "aero": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
     "1995": "Type the name of a program, folder, or document, and {os} will open it for you.",
     "1998": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
-    "2000": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
-    "2001": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
-    "luna": "Type the name of a program, folder, document, or Internet resource, and {os} will open it for you.",
+    "2000": NT_PROMPT,
+    "2001": NT_PROMPT,
+    "luna": NT_PROMPT,
 }
 
 
@@ -208,8 +212,7 @@ class DefaultOutline(QWidget):
 
     def paintEvent(self, _event):
         painter = QPainter(self)
-        painter.setPen(QColor("#000000"))
-        painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
+        painter.fillRect(self.rect(), QColor("#000000"))
 
 
 class RunBehaviour:
@@ -222,6 +225,11 @@ class RunBehaviour:
         self.style = prompt_key(look)
         super().__init__("Run", self.style, self.layout.body, help_button=True)
         self.button_size = (82, 28) if self.style == "aero" else chicago95ui.DIALOG_BUTTON_SIZE
+        self.win98_hidpi = self.style == "1998" and self.devicePixelRatioF() == 1.25
+        if self.win98_hidpi:
+            self.layout = LAYOUTS["win98-hidpi"]
+            self.button_size = (80, 23)
+            self.resize_body(*self.layout.body)
         self.aero_content = None
         self.applications = applications
         self.path_dirs = path_dirs
@@ -240,6 +248,11 @@ class RunBehaviour:
             self.aero_content = QWidget(body)
             self.aero_content.setStyleSheet("background: white;")
             self.aero_content.setGeometry(0, 0, layout.body[0], 127)
+        elif self.style in ("2000", "2001", "luna"):
+            font = self.font()
+            font.setFamilies(["Tahoma", "Liberation Sans", "Selawik", "Noto Sans"])
+            font.setPixelSize(11)
+            body.setFont(font)
         icon = QLabel(body)
         filenames = {"aero": "aero-run.svg", "2001": "xp-run.svg", "luna": "xp-run.svg"}
         filename = filenames.get(self.style, "classic-run.svg")
@@ -249,8 +262,18 @@ class RunBehaviour:
         graphic = QIcon(str(asset))
         if graphic.isNull():
             graphic = QIcon.fromTheme("system-run")
-        icon.setPixmap(graphic.pixmap(QSize(32, 32), self.devicePixelRatioF()))
-        icon.setFixedSize(32, 32)
+        scale = self.devicePixelRatioF()
+        if self.win98_hidpi:
+            # At 120 DPI the native hourglass keeps its 32 physical pixels.
+            pixmap = graphic.pixmap(QSize(32, 32))
+            pixmap.setDevicePixelRatio(scale)
+            icon.setPixmap(pixmap)
+            side = ceil(32 / scale)
+            icon.setFixedSize(side, side)
+            icon.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        else:
+            icon.setPixmap(graphic.pixmap(QSize(32, 32), scale))
+            icon.setFixedSize(32, 32)
         icon.move(*layout.icon_at)
         prompt = QLabel(chicago95ui.fill_placeholders(PROMPTS[self.style], self.look), body)
         prompt.setWordWrap(True)
@@ -266,11 +289,12 @@ class RunBehaviour:
         self.field.addItems(self.history)
         self.field.setGeometry(*layout.field_at, layout.field_width, layout.field_height)
         if self.aero_content is not None:
+            arrow = asset.with_name("aero-down.svg").as_posix()
             self.field.setStyleSheet("""
                 QComboBox { background: #ffffff; border: 1px solid #b5cfe7;
                             border-top-color: #3d7db7; padding-left: 3px; }
-                QComboBox::drop-down { border: none; width: 19px; }
-            """)
+                QComboBox::drop-down { border: none; width: 15px; }
+            """ + f'QComboBox::down-arrow {{ image: url("{arrow}"); width: 8px; height: 6px; }}')
         self.field.setEditText("")
         self.field.lineEdit().textEdited.connect(self.search)
         self.field.lineEdit().installEventFilter(self)
@@ -287,8 +311,11 @@ class RunBehaviour:
         self.outline = DefaultOutline(body)
         self.outline.setGeometry(layout.button_lefts[0], layout.button_top, *self.button_size)
         self.outline.setVisible(layout.ok_inset > 0)
+        artwork = aero_button_artwork() if self.style == "aero" else None
         for left, label in zip(layout.button_lefts, ("OK", "Cancel", "&Browse..."), strict=False):
-            button = QPushButton(label, body)
+            button = AeroDialogButton(label, artwork, body, default_face="run-default") if artwork else QPushButton(
+                label, body
+            )
             button.setAutoDefault(False)
             button.setGeometry(left, layout.button_top, *self.button_size)
             self.buttons[label] = button

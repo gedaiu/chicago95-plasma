@@ -1,24 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <defs>
     <linearGradient id="bezel" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#bbc2de"/>
-      <stop offset=".55" stop-color="#888ab1"/>
-      <stop offset="1" stop-color="#555580"/>
+      <stop stop-color="#bec5e1"/>
+      <stop offset=".51" stop-color="#9697c4"/>
+      <stop offset="1" stop-color="#4b4a78"/>
     </linearGradient>
     <radialGradient id="glass" cx=".35" cy=".18" r=".88">
-      <stop stop-color="#c4f7ff"/>
-      <stop offset=".69" stop-color="#5dd6ff"/>
-      <stop offset="1" stop-color="#2079ea"/>
+      <stop stop-color="#cff8ff"/>
+      <stop offset=".62" stop-color="#63e0ff"/>
+      <stop offset="1" stop-color="#1489e1"/>
     </radialGradient>
     <radialGradient id="base" cx=".24" cy=".28" r=".85">
       <stop stop-color="#fff"/>
-      <stop offset=".55" stop-color="#c6c8e6"/>
-      <stop offset="1" stop-color="#7979a7"/>
+      <stop offset=".48" stop-color="#c6c8e6"/>
+      <stop offset=".8" stop-color="#9395bd"/>
+      <stop offset="1" stop-color="#595a89"/>
     </radialGradient>
     <linearGradient id="handle" x1="0" y1="0" x2="0" y2="1">
-      <stop stop-color="#baf661"/>
-      <stop offset=".52" stop-color="#6dbe24"/>
-      <stop offset="1" stop-color="#185b04"/>
+      <stop stop-color="#a5e955"/>
+      <stop offset=".44" stop-color="#61bd21"/>
+      <stop offset="1" stop-color="#15540a"/>
     </linearGradient>
     <linearGradient id="brush" x1="0" y1="0" x2="0" y2="1">
       <stop stop-color="#fff29a"/>
@@ -26,12 +27,14 @@
       <stop offset="1" stop-color="#9a5712"/>
     </linearGradient>
   </defs>
-  <path d="M8 19h8l1 4c8 3 6 7-1 8-7 2-17-1-15-5 1-2 4-3 7-4z" fill="url(#base)" stroke="#767493" stroke-width=".65"/>
-  <path d="m1.5 5 17-4 1 19-16 3z" fill="url(#bezel)" stroke="#737898" stroke-width=".65" stroke-linejoin="round"/>
-  <path d="m3 6 14-3 .8 15.3L4.5 21z" fill="url(#glass)"/>
-  <path d="m3 5.8 14-3" stroke="#dde3f8" stroke-width=".75"/>
+  <path d="M8 20h8l1 3c6 2 5 6-1 8-5 2-15-1-14-5 0-2 3-3 6-4z" fill="url(#base)" stroke="#69688b" stroke-width=".7"/>
+  <path d="M2 5.7 19 2l1 18-3.1 1.9-13.2 1.7z" fill="url(#bezel)" stroke="#737898" stroke-width=".7" stroke-linejoin="round"/>
+  <path d="M4 7c2.9-1.5 8.6-2.4 13.3-2.7l.5 15.5-12.6 2z" fill="url(#glass)"/>
+  <path d="M4 6.9c3.4-1.4 8.6-2.5 13.3-2.7" fill="none" stroke="#dbe4fb" stroke-width=".85"/>
+  <path d="m17.2 4.2.5 15.6 1.5-.5-.4-15.4z" fill="#696fa0"/>
+  <path d="m4.6 20.8 12.5-2.6.2 1.7-12.3 2.3z" fill="#068ed3"/>
   <path d="m12 7 4-.7 2.7 3.5-3.2 3.8-5.1-1.5-.8-2.7z" fill="url(#brush)" stroke="#a56c20" stroke-width=".55" stroke-linejoin="round"/>
   <path d="m15.8 12 2.4-2 2.4 2.4-1.8 2.5z" fill="#b8c7cb" stroke="#657883" stroke-width=".65"/>
   <path d="M18.6 13.4c1-1.3 2.1-1.4 3.4-.5l8 6.5c1.4 1.1 1.1 3.2-.7 2.7l-9.7-5.9c-1.5-.8-1.9-1.7-1-2.8z" fill="url(#handle)" stroke="#387b15" stroke-width=".6"/>
-  <path d="m20.7 13.6 7.8 5.9" stroke="#a7df56" stroke-width=".8" stroke-linecap="round"/>
+  <path d="m20.8 13.6 7.8 5.9" stroke="#94e73b" stroke-width=".9" stroke-linecap="round"/>
 </svg>

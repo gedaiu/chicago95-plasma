@@ -29,8 +29,8 @@ if AERO_CAPTION_CROPS:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from aero.gtk.caption import CELL_WIDTHS, FACE_HEIGHT, GTK4_CAPTION_TOP, palette
 elif CLASSIC_CAPTION_CROPS:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "aurorae"))
-    from bevel import CAPTION_H, CAPTION_H_120, CAPTION_W
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from lib.gtk_header import CAPTION_H, CAPTION_H_120, CAPTION_W, CLOSE_OFFSET_120
 elif LUNA_CAPTION_CROPS:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "luna/aurorae"))
     from make_luna_aurorae import BUTTON as LUNA_CAPTION_SIZE
@@ -478,6 +478,10 @@ def gtk_caption_regions(header, root, label, scale, origin):
                 image_height = CAPTION_H_120 / scale if scale == 1.25 else CAPTION_H
             top_left = V4 and CLASSIC_CAPTION_CROPS and scale == 1.25
             left = (x if top_left else x + (width - image_width) / 2) * scale
+            if top_left and kind == "close":
+                # The CSS offset snaps the opaque face to the output grid.
+                # GTK's reported allocation still includes the fractional margin.
+                left = math.floor(left + CLOSE_OFFSET_120 * scale + 1e-8)
             vertical_inset = 0 if top_left else (height - image_height) / 2
             if V4 and AERO_CAPTION_CROPS:
                 vertical_inset = GTK4_CAPTION_TOP

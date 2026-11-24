@@ -34,7 +34,7 @@ DISABLED_CLOSE_MATTES = ("dark", "light", "blue")
 # zero RGB differences for each button and reports the pixel count.
 RGB_LIMITS = {
     "luna": {"rest": 3.9, "hover": 3.7, "pressed": 2.7, "disabled": 3, "restore": 3, "cancelled": 4.3},
-    "aero": {"rest": 11, "hover": 19, "pressed": 24, "disabled": 26, "restore": 18},
+    "aero": {"rest": 11, "hover": 8, "pressed": 9, "disabled": 26, "restore": 18},
 }
 
 

@@ -1,24 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 96">
   <defs>
     <linearGradient id="desktop" x2="1" y2="1" gradientUnits="objectBoundingBox">
-      <stop stop-color="#8495bc"/>
+      <stop stop-color="#8799c2"/>
+      <stop offset=".38" stop-color="#697db1"/>
       <stop offset="1" stop-color="#304681"/>
     </linearGradient>
-    <linearGradient id="glass" x2="1" y2="1" gradientUnits="objectBoundingBox">
-      <stop stop-color="#e3f8ff"/>
-      <stop offset=".55" stop-color="#3e9bd1"/>
-      <stop offset="1" stop-color="#b2e3fa"/>
+    <linearGradient id="glass" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#bcdff7"/>
+      <stop offset=".03" stop-color="#eff8fe"/>
+      <stop offset=".11" stop-color="#6bb5e8"/>
+      <stop offset=".91" stop-color="#72b5e3"/>
+      <stop offset=".95" stop-color="#c6e6f9"/>
+      <stop offset=".98" stop-color="#1ea5ff"/>
+      <stop offset="1" stop-color="#1478bc"/>
     </linearGradient>
     <linearGradient id="paper" x2="0" y2="1" gradientUnits="objectBoundingBox">
       <stop stop-color="#fbfbfb"/>
       <stop offset="1" stop-color="#c8c8c8"/>
     </linearGradient>
   </defs>
-  <rect x=".5" y=".5" width="127" height="95" fill="none" stroke="#202020" stroke-dasharray="1 1"/>
-  <rect x="3" y="3" width="122" height="90" fill="url(#glass)"/>
-  <rect x="5" y="5" width="118" height="86" fill="#95cbed" stroke="#d8f6ff"/>
-  <rect x="6" y="6" width="116" height="84" fill="url(#desktop)" stroke="#55749d"/>
-  <rect x="6" y="84" width="116" height="6" fill="#607aa9" opacity=".75"/>
+  <rect x=".5" y=".5" width="127" height="95" fill="url(#glass)" stroke="#544132" stroke-dasharray=".7 .7"/>
+  <path d="M4 91V4h120v87z" fill="#a0cbed" stroke="#b2daf5" stroke-width="1.2"/>
+  <rect x="5.5" y="5.5" width="117" height="85" fill="url(#desktop)" stroke="#3d548b"/>
+  <rect x="6" y="84" width="116" height="6" fill="#4b66a3" opacity=".83"/>
   <g transform="translate(72 12)">
     <rect x="-2" y="-1" width="47" height="39" rx="2" fill="#294063" opacity=".5"/>
     <rect width="44" height="36" rx="1" fill="url(#paper)" stroke="#83909b"/>

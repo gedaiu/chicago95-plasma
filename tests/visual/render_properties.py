@@ -287,6 +287,24 @@ def render(manifest, component, output, width, height, scale_override=None):
         if component.startswith("shutdown"):
             capture_shutdown(app, metadata, component, output, scale)
             return
+        if component.startswith("run-"):
+            chicago95ui.DECORATION = build_theme(Path(output).with_name("aurorae"), look)
+            run_states = metadata["run_states"]
+            if run_states.get("flat_title"):
+                with Path(chicago95ui.KDEGLOBALS).open("a") as scheme:
+                    scheme.write("\n[WM]\nactiveBlend=0,0,128\n")
+            text = run_states["text"][component.removeprefix("run-")]
+            dialog = load_script("chicago95-run").RunDialog({"style": look, "osName": "Windows"}, [], [], [])
+            try:
+                dialog.show()
+                app.processEvents()
+                if text:
+                    QTest.keyClicks(dialog.field.lineEdit(), text)
+                assert dialog.buttons["OK"].isEnabled() == bool(text)
+                assert dialog.grab().save(output)
+            finally:
+                dialog.close()
+            return
         panel = load_script("chicago95-control-panel")
         resolution = metadata["display_resolution"]
         sizes = list(dict.fromkeys(("640x480", "800x600", "1024x768", resolution)))

@@ -201,16 +201,15 @@ The 60 Classic SVG face comparisons pass at strict RGB tolerance at 120 DPI. The
 | Windows 2000 Professional | 0 | 0 | 0 | 0 | 0 | 0 |
 | XP Classic | 0 | 0 | 0 | 0 | 0 | 0 |
 | XP Luna | 3.75 | 3.57 | 2.56 | 2.83 | 2.87 | 4.17 |
-| Windows 7 Aero | 9.57 | 17.91 | 22.38 | 21.56 | 16.73 | 9.57 |
+| Windows 7 Aero | 5.21 | 7.15 | 7.78 | 21.56 | 16.73 | 5.21 |
 
 Live KWin captures at 125% also pass all 48 Classic face comparisons. The wrapper requests the 120-DPI face at its
 logical size, and KSVG rasterizes it once at the output scale. GTK 3 and GTK 4 share the device-size vector outlines
-when Setup configures 120 DPI. The 144 GTK comparisons across the six themes still show differences. In the four
-Classic themes, fractional positioning spreads the face across an extra row or column. At 120 DPI, GTK 3 uses
-the 2× SVG variant for the backing surface. GTK 4 uses a logical-size SVG aligned to the top-left of the button.
-Across the 48 faces in each toolkit, mean RGB error fell from 20.59 to 17.23 in GTK 3 and from 30.94 to 22.07 in
-GTK 4. All 96 strict Classic GTK comparisons still show differences. The tested Luna faces have the
-native dimensions and differ in RGB. A 27-pixel PNG export of the same Luna artwork gave mean RGB error of 20.43
+when Setup configures 120 DPI. Classic GTK 4 passes all 48 strict comparisons on the standard client fixtures.
+The Close face is translated half a device pixel to complete the three-pixel gap in the native row.
+Fractional positioning still spreads Classic GTK 3 faces across an extra row or column. Its 120-DPI style uses
+the 2× SVG variant for the backing surface. The tested Luna faces have the native dimensions and differ in RGB.
+A 27-pixel PNG export of the same Luna artwork gave mean RGB error of 20.43
 in GTK 3 and 18.07 in GTK 4, within 0.02 of the earlier installed SVGs across 12 states per toolkit. A larger CSS
 face spread across up to 28 pixels and softened the glyph interiors. At 120 DPI, Setup now gives GTK 3 an SVG
 with a 42-pixel intrinsic size for its 2× backing buffer. It shares the 27-pixel artwork's viewBox and paths.
@@ -222,13 +221,28 @@ Luna at 125% keeps its 27-pixel face inside a 28-pixel SVG canvas, which
 lets KSVG render it at its authored size. All 12 live KWin comparisons reproduce the opaque SVG interior exactly.
 Mean RGB error against the XP guest fell from 7.33 to 2.74 across those 12 faces. The strict VM comparisons for
 Luna and Aero still show RGB differences.
-Aero Restore now clips its top device row at the screen edge when maximized, giving the same 40×29 visible face
-as the 144-DPI VM. [Exact tests by renderer](../tests/visual/parity.py)
+Aero Restore clips its top device row at the screen edge when maximized, giving the same 40×29 visible face
+as the 144-DPI VM. The KWin test locates the face after the wrapper and compositor snap their positions.
+At 144 DPI, the hover and held faces use separate upper and lower shading, thin seam gradients, and reflections
+along the lower edge. The largest mean RGB error among the three hover and held SVG faces fell from
+22.38 to 7.78 out of 255. All six full-face hover and held comparisons still show RGB differences.
+[Exact tests by renderer](../tests/visual/parity.py)
 
 The live KWin cancellation test presses each caption button, moves over the client, and releases. It checks that
 the window stays open and visible and that Maximize leaves its bounds unchanged. The QML decorations check the
 release position against the button bounds before acting. The gesture passes on all six themes. The four Classic
 themes also match all 12 VM crops after cancellation. [KWin gesture and pixel comparisons](../tests/visual/parity.py)
+
+Thunar's Aero navigation uses equally sized Back and Forward orbs, with the two glyphs placed alongside the
+address field at the positions measured in Explorer. The field uses separate top and bottom bevel colours and
+the drive icon sits closer to the centreline at 150% scaling. The live geometry checks cover both enabled and
+disabled history states at 100% and 150%. Mean RGB error across the entire 96-DPI strip fell from 18.27 to
+14.81 out of 255. Folder labels, remaining colour differences and the disabled face still show up in the strict
+comparison. [Thunar test](../tests/aero/test_aero_thunar.py)
+
+The Windows 2000 empty taskbar band also matches in live Plasma after the comparison applies the reference
+guest's documented RGB565 display format. The normal Plasma theme still paints its full-colour palette.
+[Taskbar capture details](../tests/references/SOURCES.md)
 
 On Windows 98 SE, minimizing Notepad left its white client visible as a shrinking title bar travelled toward the taskbar. The system menu was gone at 0.178 s and the desktop had settled by 0.339 s from recording start.
 
@@ -382,13 +396,15 @@ with the same native caption crops. GTK 4 overlap error averaged
 22.00/255 with direct SVGs and 6.90/255 with 20×18 PNGs generated from
 those SVGs. GTK 3 averaged 43.83/255 with either format. Setup uses the
 generated bitmap for Classic GTK 4 at this scale when the converter is
-available. The fresh compositor comparisons pass 32 of 48 strict cases
+available. The first compositor comparisons passed 32 of 48 strict cases
 across Windows 95, 98, 2000 and XP Classic. The Close face still spans
 21 device-pixel columns in all four tested states on each look in the
 standard fixture. In a Windows 95 follow-up using four adjacent window
 widths, the same PNG faces gained or lost a column as their origins
 moved between fractional and whole device pixels. Changing the Close
-margin shifted which widths lined up.
+margin shifted which widths lined up. The subsequent Classic GTK 4
+half-device-pixel offset for Close produced 48 of 48 exact comparisons
+on the suite's standard fixtures.
 
 ## Boot animation frames
 
@@ -424,3 +440,19 @@ paths at those sizes. All six direct SVG comparisons and their six GTK
 with softer edges. At 144 DPI, Aero uses a circular outline and a
 graduated selection dot. Its GTK comparisons still differ at the edges
 and in the selected face. [Native capture details](../tests/references/SOURCES.md#radio-controls)
+
+## Run and Display Properties
+
+The Windows 98 Run client at 120 DPI widens the field and action row while retaining the
+32-physical-pixel hourglass. The empty and typed captures are both 460×200. The upper and
+lower default-button bevel samples match in both states. The full frames still differ in text
+and control edges. Windows 2000 and XP use the captured two-line prompt layout.
+
+Aero Run and Screen Resolution use the same SVG-backed buttons and hover timing as the
+Shutdown dialog. The Run history dropdown has a separate triangle visual test at 144 DPI.
+The Screen Resolution preview uses the native selected monitor border, and its full-client
+mean RGB error fell from 4.21 to 3.89 out of 255. Both full clients still differ from their
+Windows references. [Shared comparisons](../tests/visual/parity.py)
+
+XP Classic and Luna draw the clock, mouse, display, battery and printer icons directly from
+SVG on the physical icon grid. The five icon crops still differ on both looks.

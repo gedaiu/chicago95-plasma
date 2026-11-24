@@ -18,19 +18,18 @@ from pathlib import Path
 
 import chicago95ui  # noqa: E401,E702
 import dbus
+from chicago95aerobutton import AeroDialogButton, aero_button_artwork
 from PySide6.QtCore import (
     QObject,
     QPoint,
     QPointF,
     QRect,
     QRectF,
-    QSignalBlocker,
     QSize,
     QStandardPaths,
     Qt,
     QTimer,
     QUrl,
-    QVariantAnimation,
     Signal,
 )
 from PySide6.QtGui import (
@@ -1039,79 +1038,6 @@ class AeroShutdownChoices(QStyledItemDelegate):
         painter.restore()
 
 
-class AeroShutdownButton(QPushButton):
-    # Milliseconds, from the Windows 7 Basic guest's Cancel-button capture.
-    HOVER_DELAY, FADE_IN, FADE_OUT = 120, 400, 1500
-
-    def __init__(self, label, artwork, parent):
-        super().__init__(label, parent)
-        self.artwork = artwork
-        self.glow = 0.0
-        self.hover_target = 0.0
-        self.hover_delay = QTimer(self)
-        self.hover_delay.setSingleShot(True)
-        self.hover_delay.timeout.connect(self.fade_hover)
-        self.hover_animation = QVariantAnimation(self)
-        self.hover_animation.valueChanged.connect(self.update_glow)
-
-    def update_glow(self, value):
-        self.glow = value
-        self.update()
-
-    def fade_hover(self):
-        duration = self.FADE_IN if self.hover_target else self.FADE_OUT
-        start = self.glow
-        with QSignalBlocker(self.hover_animation):
-            self.hover_animation.setStartValue(start)
-            self.hover_animation.setEndValue(self.hover_target)
-            self.hover_animation.setDuration(round(duration * abs(self.hover_target - start)))
-        self.hover_animation.start()
-
-    def enterEvent(self, event):
-        super().enterEvent(event)
-        self.set_hover_target(1.0)
-
-    def leaveEvent(self, event):
-        super().leaveEvent(event)
-        self.set_hover_target(0.0)
-
-    def set_hover_target(self, target):
-        self.hover_target = target
-        self.hover_animation.stop()
-        self.hover_delay.start(self.HOVER_DELAY)
-
-    def paintEvent(self, event):
-        if not self.artwork.isValid() or not self.isEnabled():
-            super().paintEvent(event)
-            return
-        painter = QStylePainter(self)
-        rect = QRectF(self.rect())
-        if self.isDown():
-            self.artwork.render(painter, "pressed", rect)
-        elif self.glow >= 1:
-            self.artwork.render(painter, "hover", rect)
-        else:
-            self.artwork.render(painter, "default" if self.isDefault() else "normal", rect)
-            if self.glow > 0:
-                painter.setOpacity(self.glow)
-                self.artwork.render(painter, "hover", rect)
-                painter.setOpacity(1)
-        if self.hasFocus() or self.isDown():
-            painter.save()
-            painter.setCompositionMode(QPainter.CompositionMode_Difference)
-            pen = QPen(QColor(Qt.white), 1)
-            pen.setCosmetic(True)
-            pen.setCapStyle(Qt.FlatCap)
-            pen.setDashPattern([1, 1])
-            painter.setPen(pen)
-            painter.setBrush(Qt.NoBrush)
-            painter.drawRect(self.rect().adjusted(2, 2, -3, -3))
-            painter.restore()
-        option = QStyleOptionButton()
-        self.initStyleOption(option)
-        painter.drawControl(QStyle.CE_PushButtonLabel, option)
-
-
 class AeroSessionDialog(QDialog):
     """A native decorated session dialog using the current Qt controls and KWin frame."""
 
@@ -1249,20 +1175,15 @@ class AeroSessionDialog(QDialog):
 
         self.combo.currentIndexChanged.connect(select_action)
         select_action()
-        artwork_path = Path(__file__).resolve().parents[1] / "aero/shutdown-button.svg"
-        if not artwork_path.is_file():
-            artwork_path = QStandardPaths.locate(
-                QStandardPaths.GenericDataLocation, "chicago95/aero-shutdown-button.svg"
-            )
-        artwork = QSvgRenderer(str(artwork_path), self)
-        confirm = AeroShutdownButton("OK", artwork, self)
+        artwork = aero_button_artwork()
+        confirm = AeroDialogButton("OK", artwork, self)
         confirm.setGeometry(210, 187, 73, 21)
         confirm.clicked.connect(self.accept)
         confirm.setDefault(True)
-        cancel = AeroShutdownButton("Cancel", artwork, self)
+        cancel = AeroDialogButton("Cancel", artwork, self)
         cancel.setGeometry(291, 187, 73, 21)
         cancel.clicked.connect(self.reject)
-        help_button = AeroShutdownButton("&Help", artwork, self)
+        help_button = AeroDialogButton("&Help", artwork, self)
         help_button.setGeometry(372, 187, 73, 21)
         help_button.clicked.connect(lambda: QMessageBox.information(self, self.windowTitle(), self.description.text()))
         self.buttons = {"confirm": confirm, "cancel": cancel, "help": help_button}

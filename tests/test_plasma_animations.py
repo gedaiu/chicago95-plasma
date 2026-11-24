@@ -111,12 +111,7 @@ def test_window_zoom_moves_the_title_strip_independently_of_the_client(desktops,
     if look in CLASSIC_SPEED_LIMITS:
         active_restore_rows = blue_width[restoring, restore_rows[restoring]]
         assert np.count_nonzero(active_restore_rows >= 12) >= 4, "the restoring strip must use the active blue palette"
-        timing = subprocess.check_output(
-            ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
-             "frame=best_effort_timestamp_time", "-of", "json", str(video)],
-            timeout=30,
-        )
-        times = np.asarray([float(frame["best_effort_timestamp_time"]) * 1000 for frame in json.loads(timing)["frames"]])
+        times = recorded_timestamps(video)
         low, high = CLASSIC_SPEED_LIMITS[look]
         for rows, moving, direction in ((minimize_rows, minimizing, 1), (restore_rows, restoring, -1)):
             speeds = [direction * speed for speed in caption_speeds(rows, moving, times, scale)]
@@ -146,9 +141,18 @@ def recorded_frames(video):
     return np.frombuffer(pixels, np.uint8).reshape(-1, 96, 128, 3)
 
 
+def recorded_timestamps(video):
+    timing = subprocess.check_output(
+        ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+         "frame=best_effort_timestamp_time", "-of", "json", str(video)],
+        timeout=30,
+    )
+    return np.array([float(frame["best_effort_timestamp_time"]) * 1000 for frame in json.loads(timing)["frames"]])
+
+
 @pytest.mark.skipif(
-    any(not shutil.which(command) for command in ("pipewire", "wireplumber", "ffmpeg")),
-    reason="requires PipeWire, WirePlumber and FFmpeg",
+    any(not shutil.which(command) for command in ("pipewire", "wireplumber", "ffmpeg", "ffprobe")),
+    reason="requires PipeWire, WirePlumber, FFmpeg and FFprobe",
 )
 @pytest.mark.parametrize(
     ("look", "maximize_button", "restore_button"),
@@ -185,8 +189,17 @@ def test_maximize_and_restore_keep_the_client_visible(desktops, tmp_path, look, 
     )
     maximized = (margins > 0.9).all(axis=1)
     normal = (margins < 0.1).all(axis=1)
-    assert normal[:10].all() and normal[-10:].all()
-    assert np.count_nonzero(maximized) >= 10, "the window must visibly maximize before it returns to its original size"
+    timestamps = recorded_timestamps(video)
+    assert len(timestamps) == len(normal)
+    assert normal[0] and normal[-1]
+    # PipeWire emits fewer frames after the window has settled. Measure
+    # the visible time at both sizes using the presentation timestamps.
+    changed = np.flatnonzero(~normal)
+    assert changed.size
+    assert timestamps[changed[0] - 1] - timestamps[0] >= 150
+    assert timestamps[-1] - timestamps[changed[-1] + 1] >= 150
+    expanded = timestamps[maximized]
+    assert len(expanded) >= 2 and np.ptp(expanded) >= 150, "the recording must include the maximized window"
     assert np.count_nonzero(~(maximized | normal)) <= 2, "parts of the desktop flashed through the maximized window"
     assert centre.min() > 0.95, "maximizing or restoring exposed the desktop inside the client"
 

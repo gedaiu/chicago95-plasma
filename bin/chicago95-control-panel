@@ -32,6 +32,7 @@ import chicago95ui  # noqa: E401,E702
 import chicago95update  # noqa: E402
 import login_preview
 import post_xp_boot
+from chicago95aerobutton import AeroDialogButton, aero_button_artwork
 from PySide6.QtCore import (
     QEvent,
     QPoint,
@@ -3469,9 +3470,10 @@ class AeroCategoryView(QWidget):
 class ClassicAppletDelegate(QStyledItemDelegate):
     """Draw SVG applet art on the native icon grid at fractional desktop scales."""
 
-    def __init__(self, view, artwork):
+    def __init__(self, view, artwork, *, xp_classic=False):
         super().__init__(view)
         self.artwork = artwork
+        self.xp_classic = xp_classic
 
     def paint(self, painter, option, index):
         art = self.artwork.get(index.data(Qt.UserRole).name)
@@ -3491,7 +3493,11 @@ class ClassicAppletDelegate(QStyledItemDelegate):
         # The guest keeps 16px and 32px icons when DPI changes its text and grid spacing.
         side = 16 if device_bounds.width() < 24 else 32
         centre = device_bounds.center()
-        square = QRectF(round(centre.x() - side / 2), round(centre.y() - side / 2), side, side)
+        left = round(centre.x() - side / 2)
+        if self.xp_classic and transform.m11() == 1.25:
+            # XP Classic's 120-DPI icon grid is one device pixel to the left.
+            left -= 1
+        square = QRectF(left, round(centre.y() - side / 2), side, side)
         inverse, _ = transform.inverted()
         control_panel_picture(art).render(painter, inverse.mapRect(square))
 
@@ -5476,7 +5482,7 @@ class ScreenResolutionPage(QWidget):
         preview.setFixedHeight(114)
         preview.setStyleSheet("#resolutionPreview { border: 1px solid #a0a0a0; }")
         preview_row = QHBoxLayout(preview)
-        preview_row.setContentsMargins(0, 0, 12, 0)
+        preview_row.setContentsMargins(4, 0, 12, 0)
         preview_row.setSpacing(12)
         self.monitor = QSvgWidget(str(control_panel_asset("aero-resolution-monitor.svg")))
         self.monitor.setFixedSize(128, 96)
@@ -5487,10 +5493,11 @@ class ScreenResolutionPage(QWidget):
         tools = QVBoxLayout()
         tools.setContentsMargins(0, 11, 0, 0)
         tools.setSpacing(7)
-        detect = chicago95ui.dialog_button("Detect")
-        self.identify = chicago95ui.dialog_button("Identify")
+        artwork = aero_button_artwork()
+        detect = AeroDialogButton("Detect", artwork, self)
+        self.identify = AeroDialogButton("Identify", artwork, self)
         for button in (detect, self.identify):
-            button.setFixedHeight(22)
+            button.setFixedSize(chicago95ui.DIALOG_BUTTON_SIZE[0], 22)
         detect.clicked.connect(self.refresh_screen)
         self.identify.clicked.connect(self.identify_display)
         tools.addWidget(detect)
@@ -5532,9 +5539,10 @@ class ScreenResolutionPage(QWidget):
         layout.addSpacing(10)
         layout.addWidget(self.rule(1))
         layout.addSpacing(10)
-        self.ok_button = chicago95ui.dialog_button("OK")
-        self.cancel_button = chicago95ui.dialog_button("Cancel")
-        self.apply_button = chicago95ui.dialog_button("Apply", enabled=False)
+        self.ok_button = AeroDialogButton("OK", artwork, self)
+        self.cancel_button = AeroDialogButton("Cancel", artwork, self)
+        self.apply_button = AeroDialogButton("Apply", artwork, self)
+        self.apply_button.setEnabled(False)
         buttons = QHBoxLayout()
         buttons.setContentsMargins(12, 0, 0, 0)
         buttons.addStretch(1)
@@ -5545,7 +5553,7 @@ class ScreenResolutionPage(QWidget):
         button_row.setSpacing(7)
         button_row.addStretch()
         for button in (self.ok_button, self.cancel_button, self.apply_button):
-            button.setFixedHeight(22)
+            button.setFixedSize(chicago95ui.DIALOG_BUTTON_SIZE[0], 22)
             button_row.addWidget(button)
         buttons.addWidget(button_group, 10)
         buttons.addStretch(1)
@@ -5862,6 +5870,7 @@ class ControlPanel(QMainWindow):
             view.setItemDelegate(AeroAppletDelegate(view))
         elif self.xp:
             art_by_applet = XP_APPLET_ART
+            view.setItemDelegate(ClassicAppletDelegate(view, art_by_applet, xp_classic=not self.xp_luna))
         elif self.win95 or self.uses_web_view:
             art_by_applet = WIN95_APPLET_ART if self.win95 else EXPLORER_APPLET_ART
             view.setItemDelegate(ClassicAppletDelegate(view, art_by_applet))

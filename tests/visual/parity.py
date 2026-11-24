@@ -300,6 +300,9 @@ def kwin_maximized_window(theme, look, width, height, aero_scale=1):
 
 
 def kwin_face(capture, theme, look, scale, state, index):
+    def pixel(position):
+        return math.floor(position * scale + 0.5)
+
     directory, disabled = capture
     suffix = f"-{index}" if state in ("hover", "pressed", "cancelled") or state.startswith("disabled-") else ""
     path = directory / f"caption-{state}{suffix}.png"
@@ -322,14 +325,17 @@ def kwin_face(capture, theme, look, scale, state, index):
     rect = model.button_rects()["IAX"[index]]
     if state == "restore" and decoration == "org.chicago95.aero":
         rect.translate(0, -1 / scale)
+    if decoration == "org.chicago95.aero":
+        # The Aero wrapper snaps the row before the compositor places the
+        # window. Snap its origin and the frame origin independently.
+        x = pixel(left) + pixel(rect.left())
+        y = pixel(top) + pixel(rect.top())
+        right = x + round(rect.width() * scale)
+        bottom = y + round(rect.height() * scale)
+        return screen.crop((x, max(0, y), right, bottom))
     if (look in CLASSIC and scale == 1.25) or (look == "luna" and scale % 1):
         wrapper = "classic" if look in CLASSIC else "luna"
         if decoration == f"org.chicago95.{wrapper}":
-            # The caption wrapper snaps the paint layer's origin, independently
-            # of the window's own origin and Aurorae's hit rectangle.
-            def pixel(position):
-                return math.floor(position * scale + 0.5)
-
             # KWin places the snapped decoration on the separately snapped window origin.
             x = pixel(left) + pixel(rect.left())
             y = pixel(top) + pixel(rect.top())
@@ -580,42 +586,107 @@ def test_kwin_disabled_caption_interior_matches_its_own_idle_state(
     exact(idle.crop(face), actual.crop(face), directory)
 
 
+@pytest.fixture(scope="module")
+def aero_run_capture(tmp_path_factory):
+    folder, metadata = THEMES["win7"]
+    output = tmp_path_factory.mktemp("aero-run")
+    subprocess.run(
+        [
+            sys.executable,
+            str(REPO / "tests/aero/render_aero_dialogs.py"),
+            str(output),
+            str(metadata["run_scale"]),
+            "--only-run",
+        ],
+        check=True,
+        timeout=45,
+    )
+    with Image.open(folder / "run.png") as reference, Image.open(output / "run.png") as render:
+        return reference.convert("RGB"), render.convert("RGB")
+
+
 @pytest.mark.parametrize("theme", THEMES)
-def test_run_dialog(theme, qt_app, svg_themes, tmp_path, visual_output, monkeypatch):
+def test_run_dialog(theme, qt_app, svg_themes, request, visual_output, monkeypatch):
     import chicago95ui
 
     folder, metadata = THEMES[theme]
-    path = folder / "run.png"
-    assert path.is_file(), f"{theme} needs a pixel-comparable Run dialog reference"
-    look = metadata["look"]
-    monkeypatch.setattr(chicago95ui, "DECORATION", svg_themes[look])
     directory = visual_output / theme / "run" / "qt"
-    with Image.open(path) as reference:
-        expected = reference.crop(metadata["run_crop"]) if "run_crop" in metadata else reference.convert("RGB")
+    look = metadata["look"]
     if look == "aero":
-        subprocess.run(
-            [
-                sys.executable,
-                str(REPO / "tests/aero/render_aero_dialogs.py"),
-                str(tmp_path),
-                str(metadata["run_scale"]),
-                "--only-run",
-            ],
-            check=True,
-            timeout=45,
-        )
-        with Image.open(tmp_path / "run.png") as actual:
-            exact(expected, actual, directory)
+        expected, actual = request.getfixturevalue("aero_run_capture")
+        exact(expected, actual, directory)
         return
+    with Image.open(folder / "run.png") as reference:
+        expected = reference.crop(metadata["run_crop"]) if "run_crop" in metadata else reference.convert("RGB")
+    monkeypatch.setattr(chicago95ui, "DECORATION", svg_themes[look])
     with themed(qt_app, look):
-        dialog = load_script("chicago95-run").RunDialog({"style": look}, [], [], history=[])
+        dialog = load_script("chicago95-run").RunDialog({"style": look, "osName": "Windows"}, [], [], history=[])
         try:
             dialog.show()
             qt_app.processEvents()
             actual = qimage_to_pil(dialog.grab().toImage())
         finally:
             dialog.close()
+    if look == "2000":
+        actual = rgb565(actual)
     exact(expected, actual, directory)
+
+
+def test_run_win7_history_arrow_matches_native_geometry(aero_run_capture, visual_output):
+    images = [image.crop((524, 127, 544, 138)) for image in aero_run_capture]
+    bounds = [bounding_box(image, lambda rgb: max(rgb) < 128) for image in images]
+    assert all(bounds), bounds
+    original, generated = bounds
+    assert all(abs(a - b) <= 1 for a, b in zip(original, generated, strict=True)), bounds
+    expected, actual = (np.asarray(image, dtype=np.int16) for image in images)
+    assert np.abs(expected - actual).mean() < 12
+    output = visual_output / "win7" / "run" / "qt" / "history-arrow"
+    output.mkdir(parents=True, exist_ok=True)
+    images[0].save(output / "reference.png")
+    images[1].save(output / "rendered.png")
+
+
+RUN_STATES = [
+    (theme, state)
+    for theme, (_, metadata) in THEMES.items()
+    for state in metadata.get("run_states", {}).get("text", {})
+]
+
+
+@pytest.fixture(scope="module")
+def native_run_states(tmp_path_factory):
+    @cache
+    def capture(theme, state):
+        folder, metadata = THEMES[theme]
+        scale = metadata["run_states"]["scale"]
+        dpi = round(scale * 96)
+        name = f"{dpi}dpi-{state}"
+        with Image.open(folder / "run" / f"{name}.png") as reference:
+            expected = reference.convert("RGB")
+        frame = tmp_path_factory.mktemp("run-state") / "run.png"
+        render_properties(folder, f"run-{state}", frame, expected.size, scale=scale)
+        with Image.open(frame) as render:
+            return expected, render.convert("RGB"), name
+
+    return capture
+
+
+@pytest.mark.parametrize(("theme", "state"), RUN_STATES)
+def test_run_native_states(theme, state, native_run_states, visual_output):
+    expected, actual, name = native_run_states(theme, state)
+    exact(expected, actual, visual_output / theme / "run" / "qt" / name)
+
+
+@pytest.mark.parametrize(
+    ("theme", "state"),
+    [(theme, state) for theme, state in RUN_STATES if "default_button_bevel" in THEMES[theme][1]["run_states"]],
+)
+def test_run_native_default_button_bevel(theme, state, native_run_states, visual_output):
+    expected, actual, name = native_run_states(theme, state)
+    bounds = THEMES[theme][1]["run_states"]["default_button_bevel"]
+    for index, box in enumerate(bounds):
+        output = visual_output / theme / "run" / "qt" / name / f"bevel-{index}"
+        exact(expected.crop(box), actual.crop(box), output)
 
 
 @pytest.mark.parametrize("theme", THEMES)
@@ -626,6 +697,8 @@ def test_taskbar_band(theme, installed, visual_output):
     screen = show(installed(metadata["look"]), windows=[])
     x = metadata["taskbar_x"]
     actual = screen.crop((x, screen.height - expected.height, x + expected.width, screen.height))
+    if metadata.get("taskbar_band_rgb565"):
+        actual = rgb565(actual)
     exact(expected, actual, visual_output / theme / "taskbar" / "plasma" / "empty-band")
 
 

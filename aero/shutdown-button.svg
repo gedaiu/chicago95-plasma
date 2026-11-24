@@ -47,6 +47,11 @@
       <use href="#rim" fill="url(#defaultRim)"/>
       <use href="#face" fill="url(#greyFace)"/>
     </g>
+    <g id="run-default">
+      <use href="#edge" fill="#3c7fb1"/>
+      <use href="#rim" fill="url(#defaultRim)"/>
+      <use href="#face" fill="url(#blueFace)"/>
+    </g>
     <g id="hover">
       <use href="#edge" fill="#3c7fb1"/>
       <use href="#rim" fill="url(#hoverRim)"/>

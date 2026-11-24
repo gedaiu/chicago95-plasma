@@ -41,6 +41,9 @@ CAPTION_BUTTONS = (
 )
 # 9x leaves 2px before the close button; minimize and maximize sit flush.
 CLOSE_GAP = 2
+# At 120 DPI the native gap is three device pixels. GTK's two logical
+# pixels leave the Close face half a pixel off the compositor grid.
+CLOSE_OFFSET_120 = 0.4
 STRIP = "toolbarview > .top-bar headerbar:not(.default-decoration)"
 TITLE_H = 18
 # The toolbar starts 2px under the strip; the title and the buttons are lifted from its row by the same amount.
@@ -160,6 +163,8 @@ def caption_css(face, light, shadow, dark, assets=None, dpi=96, *, gtk4=True, co
         rule("headerbar:backdrop > windowhandle", filter="none"),
         rule("window:backdrop headerbar button:not(.flat):not(:disabled) label", color="#000000"),
     ]
+    if high_dpi and gtk4:
+        rules.append(rule(buttons(".close"), transform=f"translateX({CLOSE_OFFSET_120:g}px)"))
     faces = [(kind, f".{kind}", "") for kind in ("minimize", "maximize", "close")]
     faces.append(("restore", ".maximize", "window.maximized "))
     for kind, suffix, ancestor in faces:

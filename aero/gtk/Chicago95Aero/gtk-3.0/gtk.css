@@ -26,11 +26,21 @@ checkbutton:disabled > check:indeterminate { -gtk-icon-source: url("mixed-disabl
   padding: 0 2px;
   margin: 0;
 }
+/* Explorer draws both navigation orbs at the same size on the address
+ * field's centreline. Thunar supplies a 20px image for each action. */
+.thunar toolbar > toolbutton:first-child button image {
+  -gtk-icon-transform: translate(-3px, 0) scale(1.32);
+}
+.thunar toolbar > toolbutton:nth-child(2) button image {
+  -gtk-icon-transform: translate(-6px, 0) scale(1.32);
+}
 .thunar toolbar .path-bar {
-  background: #cfe5f6;
+  background: linear-gradient(#cfe6f9, #d2e8f9 20%, #d2e8f9 80%, #cee6f8);
   border: 1px solid #7c99af;
+  border-top-color: #40515e;
+  border-bottom-color: #809fbd;
   border-radius: 2px;
-  box-shadow: inset 0 0 0 1px white;
+  box-shadow: 0 -1px #91c6f0, 0 1px #a1cff2, inset 0 0 0 1px #f3f9fe;
 }
 .thunar toolbar .path-bar button {
   min-width: 12px;
@@ -53,7 +63,7 @@ checkbutton:disabled > check:indeterminate { -gtk-icon-source: url("mixed-disabl
 /* The drive artwork sits low inside its icon box. Move the paint only,
  * keeping the breadcrumb's allocation and click target intact. */
 .thunar toolbar .path-bar button.path-bar-button image:only-child {
-  -gtk-icon-transform: translate(0, -3px);
+  -gtk-icon-transform: translate(0, -3.5px);
 }
 /* Only directory toggles get the Explorer breadcrumb divider. The separate
  * overflow and address-edit buttons retain their own glyphs. */
