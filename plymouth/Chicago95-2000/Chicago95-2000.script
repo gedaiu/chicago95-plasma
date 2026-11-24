@@ -14,6 +14,19 @@ if (Plymouth.GetMode() == "shutdown" || Plymouth.GetMode() == "reboot")
 background = Sprite(picture.Scale(screen_width, screen_height));
 background.SetPosition(0, 0, 0);
 
+animate_strip = 0;
+strip_tick = 0;
+strip_phase = 0;
+if (booting && animate_strip)
+  {
+    for (i = 0; i < 160; i++)
+      strips[i] = Image("strip-" + i + ".png");
+    strip_width = Math.Max(1, Math.Int(640 * unit));
+    strip_height = Math.Max(1, Math.Int(10 * unit));
+    strip = Sprite(strips[0].Scale(strip_width, strip_height));
+    strip.SetPosition(layout_x, Math.Int(416 * unit), 1);
+  }
+
 block_image = Image("block.png").Scale(Math.Int(8 * unit), Math.Int(8 * unit));
 for (i = 0; i < 18; i++)
   {
@@ -53,18 +66,31 @@ fun hide_loader()
   }
 fun refresh_callback()
   {
-    if (booting && loader_tick < 75)
+    if (booting && loader_tick < 80)
       {
         global.loader_tick++;
-        if (loader_tick >= 75)
+        if (loader_tick >= 80)
           hide_loader();
         else
           for (i = 0; i < 72; i++)
-            if (i < Math.Int(loader_tick * 72 / 75))
+            if (i < Math.Int(loader_tick * 72 / 80))
               loader_blocks[i].SetOpacity(1);
       }
+    else if (booting && animate_strip)
+      {
+        global.strip_tick++;
+        # Let the graphical screen settle before moving the strip.
+        if (strip_tick >= 12)
+          {
+            global.strip_tick = 10;
+            global.strip_phase++;
+            if (strip_phase >= 160)
+              global.strip_phase = 0;
+            strip.SetImage(strips[strip_phase].Scale(strip_width, strip_height));
+          }
+      }
   }
-Plymouth.SetRefreshRate(30);
+Plymouth.SetRefreshRate(32);
 Plymouth.SetRefreshFunction(refresh_callback);
 
 fun progress_callback(duration, progress)

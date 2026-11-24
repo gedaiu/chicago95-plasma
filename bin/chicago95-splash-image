@@ -14,6 +14,15 @@ from PySide6.QtQuick import QQuickView
 SPLASH = Path.home() / ".local/share/plasma/look-and-feel/chicago95.splashscreen/contents/splash"
 
 
+def export_2000_strip(splash, output):
+    from PIL import Image, ImageChops
+
+    with Image.open(Path(splash) / "images/windows2000-boot.png") as artwork:
+        strip = artwork.convert("RGB").crop((0, 416, 640, 426))
+    for phase in range(160):
+        ImageChops.offset(strip, phase * 4, 0).save(output / f"strip-{phase}.png")
+
+
 def render(splash, size, stage, text, out, text_loader=False):
     app = QGuiApplication(sys.argv[:1])
     view = QQuickView()
@@ -23,6 +32,7 @@ def render(splash, size, stage, text, out, text_loader=False):
     if view.errors():
         raise SystemExit("\n".join(error.toString() for error in view.errors()))
     view.rootObject().setProperty("stage", stage)
+    view.rootObject().setProperty("bootStripStep", 0)
     view.rootObject().setProperty("booting", True)
     if text_loader:
         view.rootObject().setProperty("textBoot", True)
@@ -32,6 +42,7 @@ def render(splash, size, stage, text, out, text_loader=False):
     QTimer.singleShot(300, app.quit)
     app.exec()
     image = view.grabWindow()
+    stock2000 = view.rootObject().property("stock2000")
     if text_loader:
         block = QImage(1, 1, QImage.Format_RGB32)
         block.fill(QColor("#aaaaaa"))
@@ -40,6 +51,7 @@ def render(splash, size, stage, text, out, text_loader=False):
     view.close()
     if not image.save(str(out)):
         raise SystemExit(f"could not write {out}")
+    return stock2000
 
 
 def main():
@@ -52,10 +64,13 @@ def main():
     parser.add_argument(
         "--text-loader", action="store_true", help="render the initial text loader and its progress block"
     )
+    parser.add_argument(
+        "--progress-strip", type=Path, metavar="SCRIPT", help="enable the native strip in the 2000 Plymouth script"
+    )
     parser.add_argument("--out", required=True, help="the PNG to write")
     arguments = parser.parse_args()
     width, height = (int(part) for part in arguments.size.lower().split("x"))
-    render(
+    stock2000 = render(
         arguments.splash,
         (round(width * arguments.scale), round(height * arguments.scale)),
         arguments.stage,
@@ -63,6 +78,10 @@ def main():
         arguments.out,
         arguments.text_loader,
     )
+    if arguments.progress_strip and stock2000:
+        export_2000_strip(arguments.splash, Path(arguments.out).parent)
+        script = arguments.progress_strip
+        script.write_text(script.read_text().replace("animate_strip = 0;", "animate_strip = 1;", 1))
 
 
 if __name__ == "__main__":

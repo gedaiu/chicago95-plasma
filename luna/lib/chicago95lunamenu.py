@@ -101,7 +101,7 @@ PINNED_TOP = 70
 MOST_USED_TOP = 159
 LEFT_SEPARATOR_ROWS = (155, 400)
 ALL_PROGRAMS_RECT = QRect(2, 402, 188, 34)
-ALL_PROGRAMS_POPUP_X = 133
+ALL_PROGRAMS_POPUP_X = 130
 SUBMENU_HOVER_MS = 800  # measured on XP SP3 for All Programs and My Recent Documents
 RIGHT_ROW_TOPS = [70, 102, 134, 166, 198, 238, 270, 310, 342, 374]
 RIGHT_BOLD_ROWS = 5
@@ -228,7 +228,7 @@ class RowLook:
 
 LEFT_LOOK = RowLook(QSize(32, 32), QPoint(8, 4), 44, 22, 31, LEFT_TEXT)
 PINNED_LOOK = RowLook(QSize(32, 32), QPoint(8, 4), 44, 18, 31, LEFT_TEXT)
-ALL_PROGRAMS_LOOK = RowLook(QSize(16, 24), QPoint(127, 5), 44, 20, 20, LEFT_TEXT)
+ALL_PROGRAMS_LOOK = RowLook(QSize(16, 24), QPoint(0, 5), 44, 20, 20, LEFT_TEXT)
 RIGHT_LOOK = RowLook(QSize(24, 24), QPoint(6, 4), 34, 20, 20, RIGHT_TEXT)
 FOOTER_LOOK = RowLook(QSize(24, 24), QPoint(0, 0), 28, 15, 15, WHITE, shadow=True, highlights=False)
 
@@ -520,13 +520,29 @@ def row_title(row, metrics, room):
     return row.text if row.look is FOOTER_LOOK else metrics.elidedText(row.text, Qt.ElideRight, room)
 
 
+def programs_popup_x(row):
+    text_end = row.rect.x() + row.look.text_x + QFontMetrics(ui_font(row.bold)).horizontalAdvance(row.text)
+    return max(ALL_PROGRAMS_POPUP_X, text_end + 6 + row.look.icon_size.width())
+
+
+def highlight_rect(row):
+    if row.look is ALL_PROGRAMS_LOOK:
+        left = row.rect.x() + 4
+        return QRect(left, row.rect.y() + 4, programs_popup_x(row) - left, row.rect.height() - 9)
+    if row.look is RIGHT_LOOK:
+        return row.rect.adjusted(2, 2, 1, -3)
+    return row.rect
+
+
 def paint_row(painter, row, hovered):
     look = row.look
     selected = hovered and look.highlights
     if selected:
-        painter.fillRect(row.rect, HOVER_FILL)
+        painter.fillRect(highlight_rect(row), HOVER_FILL)
     colour = WHITE if selected else look.colour
     icon_rect = QRect(row.rect.topLeft() + look.icon_offset, look.icon_size)
+    if look is ALL_PROGRAMS_LOOK:
+        icon_rect.moveLeft(programs_popup_x(row) - icon_rect.width())
     row.icon.paint(painter, icon_rect)
     font = ui_font(row.bold)
     painter.setFont(font)
@@ -584,6 +600,7 @@ class LunaMenu(QWidget):
             parent, Qt.Window | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint | Qt.WindowStaysOnTopHint
         )
         self.setWindowTitle("chicago95-startmenu-root")
+        self.setProperty("lunaStartMenuCascade", True)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.StrongFocus)
@@ -651,6 +668,7 @@ class LunaMenu(QWidget):
         if self.submenu is not None:
             self.submenu.close()
         menu = self.retro_menu_factory("", self)
+        menu.setProperty("lunaStartMenuCascade", True)
         row.submenu(menu)
         if menu.isEmpty():
             menu.deleteLater()
@@ -660,10 +678,11 @@ class LunaMenu(QWidget):
         menu.aboutToHide.connect(self.release_submenu)
         menu.triggered.connect(self.close)
         # All Programs unfolds upward from its arrow. Recent Documents opens beside the right pane.
+        selection = highlight_rect(row)
         if row.look is ALL_PROGRAMS_LOOK:
-            anchor = QPoint(ALL_PROGRAMS_POPUP_X, row.rect.bottom() + 1 - menu.sizeHint().height())
+            anchor = QPoint(selection.right() + 1, selection.bottom() + 1 - menu.sizeHint().height())
         else:
-            anchor = QPoint(WIDTH - 2, row.rect.top())
+            anchor = QPoint(WIDTH - 6, selection.top())
         menu.popup(self.mapToGlobal(anchor))
         self.update()
 
@@ -703,14 +722,20 @@ class LunaMenu(QWidget):
         painter.fillPath(corner_cutouts(), Qt.transparent)
         painter.end()
 
-    def mouseMoveEvent(self, event):
-        hovered = self.row_at(event.position().toPoint())
+    def update_hover(self, position):
+        hovered = self.row_at(position)
         if hovered is not self.hovered:
             self.submenu_timer.stop()
             self.hovered = hovered
             if hovered is not None and hovered.submenu is not None and hovered is not self.submenu_row:
                 self.submenu_timer.start(SUBMENU_HOVER_MS)
             self.update()
+
+    def enterEvent(self, event):
+        self.update_hover(event.position().toPoint())
+
+    def mouseMoveEvent(self, event):
+        self.update_hover(event.position().toPoint())
 
     def leaveEvent(self, _event):
         self.submenu_timer.stop()

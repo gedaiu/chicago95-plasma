@@ -23,7 +23,7 @@ from PySide6.QtCore import (
     QVariantAnimation,
 )
 from PySide6.QtDBus import QDBusConnection, QDBusMessage, QDBusPendingCallWatcher, QDBusVariant
-from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPainterPath, QPixmap, QRegion
+from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPainterPath, QPen, QPixmap, QRegion
 from PySide6.QtWidgets import (
     QFrame,
     QGraphicsOpacityEffect,
@@ -133,6 +133,34 @@ class ProgramModel(QAbstractListModel):
             self.loader.start(0)
 
 
+class ProgramsToggle(QPushButton):
+    def __init__(self):
+        super().__init__("All Programs")
+        self.setFixedHeight(23)
+        self.expanded = False
+
+    def set_expanded(self, expanded):
+        self.expanded = expanded
+        self.setText("Back" if expanded else "All Programs")
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.translate(8, (self.height() - 12) / 2)
+        if self.expanded:
+            painter.translate(6, 0)
+            painter.scale(-1, 1)
+        arrow = QPainterPath()
+        arrow.moveTo(0, 0)
+        arrow.lineTo(6, 6)
+        arrow.lineTo(0, 12)
+        arrow.closeSubpath()
+        painter.setPen(QPen(Qt.white, 1))
+        painter.setBrush(QColor("#151d26"))
+        painter.drawPath(arrow)
+
+
 class AeroMenu(QWidget):
     def __init__(
         self,
@@ -194,17 +222,17 @@ class AeroMenu(QWidget):
         outline.addRoundedRect(QRectF(frame.geometry()), 6, 6)
         self.glass_region = QRegion(outline.toFillPolygon().toPolygon())
         columns = QHBoxLayout(frame)
-        columns.setContentsMargins(7, 7, 6, 7)
+        columns.setContentsMargins(8, 7, 6, 7)
         columns.setSpacing(5)
         left = QFrame()
         left.setObjectName("programs")
-        left.setFixedWidth(252)
+        left.setFixedWidth(250)
         columns.addWidget(left)
         programs = QVBoxLayout(left)
         programs.setContentsMargins(0, 0, 0, 0)
         programs.setSpacing(0)
         entries = QVBoxLayout()
-        entries.setContentsMargins(4, 4, 4, 0)
+        entries.setContentsMargins(2, 4, 2, 4)
         programs.addLayout(entries, 1)
         self.list = QListView()
         self.model = ProgramModel(self.list, icon)
@@ -222,7 +250,7 @@ class AeroMenu(QWidget):
         self.list.clicked.connect(self.open_item)
         self.list.installEventFilter(self)
         entries.addWidget(self.list)
-        self.toggle = QPushButton("▸   All Programs")
+        self.toggle = ProgramsToggle()
         self.toggle.clicked.connect(self.toggle_programs)
         entries.addWidget(self.toggle)
         self.search = QLineEdit()
@@ -254,7 +282,7 @@ class AeroMenu(QWidget):
         links = QVBoxLayout()
         links.setSpacing(1)
         links.setContentsMargins(7, 0, 6, 0)
-        columns.addLayout(links)
+        columns.addLayout(links, 1)
         links.addSpacing(25)
         places = [
             (user, "home"),
@@ -336,7 +364,7 @@ class AeroMenu(QWidget):
                 stop:.43 rgba(14,18,23,185), stop:.61 rgba(21,27,35,185), stop:.78 rgba(32,48,65,185),
                 stop:1 rgba(62,105,141,185)); }
             #avatar { border: 2px solid #c1d6e3; border-radius: 5px; background: #5b859c; }
-            #programs { background: white; border: 1px solid #8192a2; border-radius: 4px; }
+            #programs { background: white; border-radius: 3px; }
             QListView { background: white; border: none; outline: none; }
             QListView::item:selected, QListView::item:hover { background: #def0fc; color: #172838; }
             QPushButton { text-align: left; padding: 6px; border: 1px solid transparent; color: white; }
@@ -351,8 +379,14 @@ class AeroMenu(QWidget):
             #shutdown:hover, #powerArrow:hover, #shutdown:focus, #powerArrow:focus { border-color: #b1dff9; }
             #shutdown:pressed, #powerArrow:pressed { background: #345773; }
             QScrollBar:vertical { width: 16px; }
-            #programs QPushButton { color: #172838; border-top: 1px solid #d4dce3; }
-            #programs QPushButton:hover { background: #def0fc; }
+            #programs QPushButton { color: #172838; padding: 0 0 0 37px; border-top: 1px solid #d4dce3; }
+            #programs QPushButton:hover, #programs QPushButton:focus {
+                border: 1px solid #7099c9; border-radius: 3px;
+                background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                    stop:0 #e8f1fd, stop:.046 #e8f1fd, stop:.091 #d2e6fc,
+                    stop:.909 #b4d5fc, stop:.954 #d7e8fd, stop:1 #d7e8fd);
+            }
+            #programs QPushButton:pressed { background: #a5c9f3; }
             #searchWell { border-top: 1px solid #ccd9ea; background: qlineargradient(
                 x1:0,y1:0,x2:0,y2:1,stop:0 #d9e3f0,stop:.12 #f1f5fb,stop:1 #f1f5fb); }
             QLineEdit { background: white; border: 1px solid #adadad; border-top-color: #646464; padding: 0 5px; }
@@ -434,7 +468,7 @@ class AeroMenu(QWidget):
     def populate(self):
         query = self.search.text().casefold().strip()
         expanded = self.all_programs or bool(query)
-        self.toggle.setText("◂   Back" if self.all_programs else "▸   All Programs")
+        self.toggle.set_expanded(self.all_programs)
         self.stop_search()
         self.folder_rows.clear()
         if query:

@@ -1,0 +1,299 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="640" height="160" viewBox="0 0 640 160">
+  <!-- Each phase has twenty 32-pixel palette fields. The dither stays fixed at their boundaries. -->
+  <defs>
+    <path id="previous" d="M2 0h2v1h-2z M0 1h2v1h-2z M6 1h2v1h-2z M2 2h2v1h-2z M4 3h2v1h-2z M8 3h2v1h-2z M0 4h2v1h-2z M4 4h2v1h-2z M0 5h2v1h-2z M4 5h2v1h-2z M2 6h2v1h-2z M8 6h2v1h-2z M0 7h2v1h-2z M6 7h2v1h-2z"/>
+    <path id="next" d="M24 1h2v1h-2z M28 1h2v1h-2z M30 1h2v1h-2z M24 3h2v1h-2z M28 3h2v1h-2z M26 6h2v1h-2z M30 6h2v1h-2z M24 7h2v1h-2z M30 7h2v1h-2z"/>
+    <g id="tile-101">
+      <rect width="32" height="8" fill="#6f90b8"/>
+      <use xlink:href="#previous" fill="#5f88b8"/>
+      <use xlink:href="#next" fill="#5f88b8"/>
+    </g>
+    <g id="tile-012">
+      <rect width="32" height="8" fill="#5f88b8"/>
+      <use xlink:href="#previous" fill="#6f90b8"/>
+      <use xlink:href="#next" fill="#4f7fb8"/>
+    </g>
+    <g id="tile-122">
+      <rect width="32" height="8" fill="#4f7fb8"/>
+      <use xlink:href="#previous" fill="#5f88b8"/>
+    </g>
+    <g id="tile-221">
+      <rect width="32" height="8" fill="#4f7fb8"/>
+      <use xlink:href="#next" fill="#5f88b8"/>
+    </g>
+    <g id="tile-210">
+      <rect width="32" height="8" fill="#5f88b8"/>
+      <use xlink:href="#previous" fill="#4f7fb8"/>
+      <use xlink:href="#next" fill="#6f90b8"/>
+    </g>
+    <g id="tile-103">
+      <rect width="32" height="8" fill="#6f90b8"/>
+      <use xlink:href="#previous" fill="#5f88b8"/>
+      <use xlink:href="#next" fill="#7898bf"/>
+    </g>
+    <g id="tile-034">
+      <rect width="32" height="8" fill="#7898bf"/>
+      <use xlink:href="#previous" fill="#6f90b8"/>
+      <use xlink:href="#next" fill="#88a7bf"/>
+    </g>
+    <g id="tile-345">
+      <rect width="32" height="8" fill="#88a7bf"/>
+      <use xlink:href="#previous" fill="#7898bf"/>
+      <use xlink:href="#next" fill="#98afbf"/>
+    </g>
+    <g id="tile-456">
+      <rect width="32" height="8" fill="#98afbf"/>
+      <use xlink:href="#previous" fill="#88a7bf"/>
+      <use xlink:href="#next" fill="#a8b7c0"/>
+    </g>
+    <g id="tile-567">
+      <rect width="32" height="8" fill="#a8b7c0"/>
+      <use xlink:href="#previous" fill="#98afbf"/>
+      <use xlink:href="#next" fill="#afb8c0"/>
+    </g>
+    <g id="tile-677">
+      <rect width="32" height="8" fill="#afb8c0"/>
+      <use xlink:href="#previous" fill="#a8b7c0"/>
+    </g>
+    <g id="tile-777">
+      <rect width="32" height="8" fill="#afb8c0"/>
+    </g>
+    <g id="tile-776">
+      <rect width="32" height="8" fill="#afb8c0"/>
+      <use xlink:href="#next" fill="#a8b7c0"/>
+    </g>
+    <g id="tile-765">
+      <rect width="32" height="8" fill="#a8b7c0"/>
+      <use xlink:href="#previous" fill="#afb8c0"/>
+      <use xlink:href="#next" fill="#98afbf"/>
+    </g>
+    <g id="tile-654">
+      <rect width="32" height="8" fill="#98afbf"/>
+      <use xlink:href="#previous" fill="#a8b7c0"/>
+      <use xlink:href="#next" fill="#88a7bf"/>
+    </g>
+    <g id="tile-543">
+      <rect width="32" height="8" fill="#88a7bf"/>
+      <use xlink:href="#previous" fill="#98afbf"/>
+      <use xlink:href="#next" fill="#7898bf"/>
+    </g>
+    <g id="tile-434">
+      <rect width="32" height="8" fill="#7898bf"/>
+      <use xlink:href="#previous" fill="#88a7bf"/>
+      <use xlink:href="#next" fill="#88a7bf"/>
+    </g>
+    <g id="tile-030">
+      <rect width="32" height="8" fill="#7898bf"/>
+      <use xlink:href="#previous" fill="#6f90b8"/>
+      <use xlink:href="#next" fill="#6f90b8"/>
+    </g>
+    <g id="tile-301">
+      <rect width="32" height="8" fill="#6f90b8"/>
+      <use xlink:href="#previous" fill="#7898bf"/>
+      <use xlink:href="#next" fill="#5f88b8"/>
+    </g>
+    <g id="tile-545">
+      <rect width="32" height="8" fill="#88a7bf"/>
+      <use xlink:href="#previous" fill="#98afbf"/>
+      <use xlink:href="#next" fill="#98afbf"/>
+    </g>
+    <g id="tile-343">
+      <rect width="32" height="8" fill="#88a7bf"/>
+      <use xlink:href="#previous" fill="#7898bf"/>
+      <use xlink:href="#next" fill="#7898bf"/>
+    </g>
+    <g id="tile-430">
+      <rect width="32" height="8" fill="#7898bf"/>
+      <use xlink:href="#previous" fill="#88a7bf"/>
+      <use xlink:href="#next" fill="#6f90b8"/>
+    </g>
+    <g id="tile-656">
+      <rect width="32" height="8" fill="#98afbf"/>
+      <use xlink:href="#previous" fill="#a8b7c0"/>
+      <use xlink:href="#next" fill="#a8b7c0"/>
+    </g>
+    <g id="tile-454">
+      <rect width="32" height="8" fill="#98afbf"/>
+      <use xlink:href="#previous" fill="#88a7bf"/>
+      <use xlink:href="#next" fill="#88a7bf"/>
+    </g>
+    <g id="tile-767">
+      <rect width="32" height="8" fill="#a8b7c0"/>
+      <use xlink:href="#previous" fill="#afb8c0"/>
+      <use xlink:href="#next" fill="#afb8c0"/>
+    </g>
+    <g id="tile-565">
+      <rect width="32" height="8" fill="#a8b7c0"/>
+      <use xlink:href="#previous" fill="#98afbf"/>
+      <use xlink:href="#next" fill="#98afbf"/>
+    </g>
+    <g id="tile-676">
+      <rect width="32" height="8" fill="#afb8c0"/>
+      <use xlink:href="#previous" fill="#a8b7c0"/>
+      <use xlink:href="#next" fill="#a8b7c0"/>
+    </g>
+    <g id="tile-303">
+      <rect width="32" height="8" fill="#6f90b8"/>
+      <use xlink:href="#previous" fill="#7898bf"/>
+      <use xlink:href="#next" fill="#7898bf"/>
+    </g>
+    <g id="tile-212">
+      <rect width="32" height="8" fill="#5f88b8"/>
+      <use xlink:href="#previous" fill="#4f7fb8"/>
+      <use xlink:href="#next" fill="#4f7fb8"/>
+    </g>
+    <g id="tile-010">
+      <rect width="32" height="8" fill="#5f88b8"/>
+      <use xlink:href="#previous" fill="#6f90b8"/>
+      <use xlink:href="#next" fill="#6f90b8"/>
+    </g>
+    <g id="tile-222">
+      <rect width="32" height="8" fill="#4f7fb8"/>
+    </g>
+    <g id="tile-121">
+      <rect width="32" height="8" fill="#4f7fb8"/>
+      <use xlink:href="#previous" fill="#5f88b8"/>
+      <use xlink:href="#next" fill="#5f88b8"/>
+    </g>
+  </defs>
+  <g transform="translate(0 0)">
+    <use x="0" xlink:href="#tile-101"/> <use x="32" xlink:href="#tile-012"/> <use x="64" xlink:href="#tile-122"/> <use x="96" xlink:href="#tile-221"/>
+    <use x="128" xlink:href="#tile-210"/> <use x="160" xlink:href="#tile-103"/> <use x="192" xlink:href="#tile-034"/> <use x="224" xlink:href="#tile-345"/>
+    <use x="256" xlink:href="#tile-456"/> <use x="288" xlink:href="#tile-567"/> <use x="320" xlink:href="#tile-677"/> <use x="352" xlink:href="#tile-777"/>
+    <use x="384" xlink:href="#tile-777"/> <use x="416" xlink:href="#tile-777"/> <use x="448" xlink:href="#tile-777"/> <use x="480" xlink:href="#tile-776"/>
+    <use x="512" xlink:href="#tile-765"/> <use x="544" xlink:href="#tile-654"/> <use x="576" xlink:href="#tile-543"/> <use x="608" xlink:href="#tile-434"/>
+  </g>
+  <g transform="translate(0 8)">
+    <use x="0" xlink:href="#tile-030"/> <use x="32" xlink:href="#tile-301"/> <use x="64" xlink:href="#tile-012"/> <use x="96" xlink:href="#tile-122"/>
+    <use x="128" xlink:href="#tile-221"/> <use x="160" xlink:href="#tile-210"/> <use x="192" xlink:href="#tile-103"/> <use x="224" xlink:href="#tile-034"/>
+    <use x="256" xlink:href="#tile-345"/> <use x="288" xlink:href="#tile-456"/> <use x="320" xlink:href="#tile-567"/> <use x="352" xlink:href="#tile-677"/>
+    <use x="384" xlink:href="#tile-777"/> <use x="416" xlink:href="#tile-777"/> <use x="448" xlink:href="#tile-777"/> <use x="480" xlink:href="#tile-777"/>
+    <use x="512" xlink:href="#tile-776"/> <use x="544" xlink:href="#tile-765"/> <use x="576" xlink:href="#tile-654"/> <use x="608" xlink:href="#tile-545"/>
+  </g>
+  <g transform="translate(0 16)">
+    <use x="0" xlink:href="#tile-343"/> <use x="32" xlink:href="#tile-430"/> <use x="64" xlink:href="#tile-301"/> <use x="96" xlink:href="#tile-012"/>
+    <use x="128" xlink:href="#tile-122"/> <use x="160" xlink:href="#tile-221"/> <use x="192" xlink:href="#tile-210"/> <use x="224" xlink:href="#tile-103"/>
+    <use x="256" xlink:href="#tile-034"/> <use x="288" xlink:href="#tile-345"/> <use x="320" xlink:href="#tile-456"/> <use x="352" xlink:href="#tile-567"/>
+    <use x="384" xlink:href="#tile-677"/> <use x="416" xlink:href="#tile-777"/> <use x="448" xlink:href="#tile-777"/> <use x="480" xlink:href="#tile-777"/>
+    <use x="512" xlink:href="#tile-777"/> <use x="544" xlink:href="#tile-776"/> <use x="576" xlink:href="#tile-765"/> <use x="608" xlink:href="#tile-656"/>
+  </g>
+  <g transform="translate(0 24)">
+    <use x="0" xlink:href="#tile-454"/> <use x="32" xlink:href="#tile-543"/> <use x="64" xlink:href="#tile-430"/> <use x="96" xlink:href="#tile-301"/>
+    <use x="128" xlink:href="#tile-012"/> <use x="160" xlink:href="#tile-122"/> <use x="192" xlink:href="#tile-221"/> <use x="224" xlink:href="#tile-210"/>
+    <use x="256" xlink:href="#tile-103"/> <use x="288" xlink:href="#tile-034"/> <use x="320" xlink:href="#tile-345"/> <use x="352" xlink:href="#tile-456"/>
+    <use x="384" xlink:href="#tile-567"/> <use x="416" xlink:href="#tile-677"/> <use x="448" xlink:href="#tile-777"/> <use x="480" xlink:href="#tile-777"/>
+    <use x="512" xlink:href="#tile-777"/> <use x="544" xlink:href="#tile-777"/> <use x="576" xlink:href="#tile-776"/> <use x="608" xlink:href="#tile-767"/>
+  </g>
+  <g transform="translate(0 32)">
+    <use x="0" xlink:href="#tile-565"/> <use x="32" xlink:href="#tile-654"/> <use x="64" xlink:href="#tile-543"/> <use x="96" xlink:href="#tile-430"/>
+    <use x="128" xlink:href="#tile-301"/> <use x="160" xlink:href="#tile-012"/> <use x="192" xlink:href="#tile-122"/> <use x="224" xlink:href="#tile-221"/>
+    <use x="256" xlink:href="#tile-210"/> <use x="288" xlink:href="#tile-103"/> <use x="320" xlink:href="#tile-034"/> <use x="352" xlink:href="#tile-345"/>
+    <use x="384" xlink:href="#tile-456"/> <use x="416" xlink:href="#tile-567"/> <use x="448" xlink:href="#tile-677"/> <use x="480" xlink:href="#tile-777"/>
+    <use x="512" xlink:href="#tile-777"/> <use x="544" xlink:href="#tile-777"/> <use x="576" xlink:href="#tile-777"/> <use x="608" xlink:href="#tile-777"/>
+  </g>
+  <g transform="translate(0 40)">
+    <use x="0" xlink:href="#tile-676"/> <use x="32" xlink:href="#tile-765"/> <use x="64" xlink:href="#tile-654"/> <use x="96" xlink:href="#tile-543"/>
+    <use x="128" xlink:href="#tile-430"/> <use x="160" xlink:href="#tile-301"/> <use x="192" xlink:href="#tile-012"/> <use x="224" xlink:href="#tile-122"/>
+    <use x="256" xlink:href="#tile-221"/> <use x="288" xlink:href="#tile-210"/> <use x="320" xlink:href="#tile-103"/> <use x="352" xlink:href="#tile-034"/>
+    <use x="384" xlink:href="#tile-345"/> <use x="416" xlink:href="#tile-456"/> <use x="448" xlink:href="#tile-567"/> <use x="480" xlink:href="#tile-677"/>
+    <use x="512" xlink:href="#tile-777"/> <use x="544" xlink:href="#tile-777"/> <use x="576" xlink:href="#tile-777"/> <use x="608" xlink:href="#tile-777"/>
+  </g>
+  <g transform="translate(0 48)">
+    <use x="0" xlink:href="#tile-777"/> <use x="32" xlink:href="#tile-776"/> <use x="64" xlink:href="#tile-765"/> <use x="96" xlink:href="#tile-654"/>
+    <use x="128" xlink:href="#tile-543"/> <use x="160" xlink:href="#tile-430"/> <use x="192" xlink:href="#tile-301"/> <use x="224" xlink:href="#tile-012"/>
+    <use x="256" xlink:href="#tile-122"/> <use x="288" xlink:href="#tile-221"/> <use x="320" xlink:href="#tile-210"/> <use x="352" xlink:href="#tile-103"/>
+    <use x="384" xlink:href="#tile-034"/> <use x="416" xlink:href="#tile-345"/> <use x="448" xlink:href="#tile-456"/> <use x="480" xlink:href="#tile-567"/>
+    <use x="512" xlink:href="#tile-677"/> <use x="544" xlink:href="#tile-777"/> <use x="576" xlink:href="#tile-777"/> <use x="608" xlink:href="#tile-777"/>
+  </g>
+  <g transform="translate(0 56)">
+    <use x="0" xlink:href="#tile-777"/> <use x="32" xlink:href="#tile-777"/> <use x="64" xlink:href="#tile-776"/> <use x="96" xlink:href="#tile-765"/>
+    <use x="128" xlink:href="#tile-654"/> <use x="160" xlink:href="#tile-543"/> <use x="192" xlink:href="#tile-430"/> <use x="224" xlink:href="#tile-301"/>
+    <use x="256" xlink:href="#tile-012"/> <use x="288" xlink:href="#tile-122"/> <use x="320" xlink:href="#tile-221"/> <use x="352" xlink:href="#tile-210"/>
+    <use x="384" xlink:href="#tile-103"/> <use x="416" xlink:href="#tile-034"/> <use x="448" xlink:href="#tile-345"/> <use x="480" xlink:href="#tile-456"/>
+    <use x="512" xlink:href="#tile-567"/> <use x="544" xlink:href="#tile-677"/> <use x="576" xlink:href="#tile-777"/> <use x="608" xlink:href="#tile-777"/>
+  </g>
+  <g transform="translate(0 64)">
+    <use x="0" xlink:href="#tile-777"/> <use x="32" xlink:href="#tile-777"/> <use x="64" xlink:href="#tile-777"/> <use x="96" xlink:href="#tile-776"/>
+    <use x="128" xlink:href="#tile-765"/> <use x="160" xlink:href="#tile-654"/> <use x="192" xlink:href="#tile-543"/> <use x="224" xlink:href="#tile-430"/>
+    <use x="256" xlink:href="#tile-301"/> <use x="288" xlink:href="#tile-012"/> <use x="320" xlink:href="#tile-122"/> <use x="352" xlink:href="#tile-221"/>
+    <use x="384" xlink:href="#tile-210"/> <use x="416" xlink:href="#tile-103"/> <use x="448" xlink:href="#tile-034"/> <use x="480" xlink:href="#tile-345"/>
+    <use x="512" xlink:href="#tile-456"/> <use x="544" xlink:href="#tile-567"/> <use x="576" xlink:href="#tile-677"/> <use x="608" xlink:href="#tile-777"/>
+  </g>
+  <g transform="translate(0 72)">
+    <use x="0" xlink:href="#tile-777"/> <use x="32" xlink:href="#tile-777"/> <use x="64" xlink:href="#tile-777"/> <use x="96" xlink:href="#tile-777"/>
+    <use x="128" xlink:href="#tile-776"/> <use x="160" xlink:href="#tile-765"/> <use x="192" xlink:href="#tile-654"/> <use x="224" xlink:href="#tile-543"/>
+    <use x="256" xlink:href="#tile-430"/> <use x="288" xlink:href="#tile-301"/> <use x="320" xlink:href="#tile-012"/> <use x="352" xlink:href="#tile-122"/>
+    <use x="384" xlink:href="#tile-221"/> <use x="416" xlink:href="#tile-210"/> <use x="448" xlink:href="#tile-103"/> <use x="480" xlink:href="#tile-034"/>
+    <use x="512" xlink:href="#tile-345"/> <use x="544" xlink:href="#tile-456"/> <use x="576" xlink:href="#tile-567"/> <use x="608" xlink:href="#tile-676"/>
+  </g>
+  <g transform="translate(0 80)">
+    <use x="0" xlink:href="#tile-777"/> <use x="32" xlink:href="#tile-777"/> <use x="64" xlink:href="#tile-777"/> <use x="96" xlink:href="#tile-777"/>
+    <use x="128" xlink:href="#tile-777"/> <use x="160" xlink:href="#tile-776"/> <use x="192" xlink:href="#tile-765"/> <use x="224" xlink:href="#tile-654"/>
+    <use x="256" xlink:href="#tile-543"/> <use x="288" xlink:href="#tile-430"/> <use x="320" xlink:href="#tile-301"/> <use x="352" xlink:href="#tile-012"/>
+    <use x="384" xlink:href="#tile-122"/> <use x="416" xlink:href="#tile-221"/> <use x="448" xlink:href="#tile-210"/> <use x="480" xlink:href="#tile-103"/>
+    <use x="512" xlink:href="#tile-034"/> <use x="544" xlink:href="#tile-345"/> <use x="576" xlink:href="#tile-456"/> <use x="608" xlink:href="#tile-565"/>
+  </g>
+  <g transform="translate(0 88)">
+    <use x="0" xlink:href="#tile-767"/> <use x="32" xlink:href="#tile-677"/> <use x="64" xlink:href="#tile-777"/> <use x="96" xlink:href="#tile-777"/>
+    <use x="128" xlink:href="#tile-777"/> <use x="160" xlink:href="#tile-777"/> <use x="192" xlink:href="#tile-776"/> <use x="224" xlink:href="#tile-765"/>
+    <use x="256" xlink:href="#tile-654"/> <use x="288" xlink:href="#tile-543"/> <use x="320" xlink:href="#tile-430"/> <use x="352" xlink:href="#tile-301"/>
+    <use x="384" xlink:href="#tile-012"/> <use x="416" xlink:href="#tile-122"/> <use x="448" xlink:href="#tile-221"/> <use x="480" xlink:href="#tile-210"/>
+    <use x="512" xlink:href="#tile-103"/> <use x="544" xlink:href="#tile-034"/> <use x="576" xlink:href="#tile-345"/> <use x="608" xlink:href="#tile-454"/>
+  </g>
+  <g transform="translate(0 96)">
+    <use x="0" xlink:href="#tile-656"/> <use x="32" xlink:href="#tile-567"/> <use x="64" xlink:href="#tile-677"/> <use x="96" xlink:href="#tile-777"/>
+    <use x="128" xlink:href="#tile-777"/> <use x="160" xlink:href="#tile-777"/> <use x="192" xlink:href="#tile-777"/> <use x="224" xlink:href="#tile-776"/>
+    <use x="256" xlink:href="#tile-765"/> <use x="288" xlink:href="#tile-654"/> <use x="320" xlink:href="#tile-543"/> <use x="352" xlink:href="#tile-430"/>
+    <use x="384" xlink:href="#tile-301"/> <use x="416" xlink:href="#tile-012"/> <use x="448" xlink:href="#tile-122"/> <use x="480" xlink:href="#tile-221"/>
+    <use x="512" xlink:href="#tile-210"/> <use x="544" xlink:href="#tile-103"/> <use x="576" xlink:href="#tile-034"/> <use x="608" xlink:href="#tile-343"/>
+  </g>
+  <g transform="translate(0 104)">
+    <use x="0" xlink:href="#tile-545"/> <use x="32" xlink:href="#tile-456"/> <use x="64" xlink:href="#tile-567"/> <use x="96" xlink:href="#tile-677"/>
+    <use x="128" xlink:href="#tile-777"/> <use x="160" xlink:href="#tile-777"/> <use x="192" xlink:href="#tile-777"/> <use x="224" xlink:href="#tile-777"/>
+    <use x="256" xlink:href="#tile-776"/> <use x="288" xlink:href="#tile-765"/> <use x="320" xlink:href="#tile-654"/> <use x="352" xlink:href="#tile-543"/>
+    <use x="384" xlink:href="#tile-430"/> <use x="416" xlink:href="#tile-301"/> <use x="448" xlink:href="#tile-012"/> <use x="480" xlink:href="#tile-122"/>
+    <use x="512" xlink:href="#tile-221"/> <use x="544" xlink:href="#tile-210"/> <use x="576" xlink:href="#tile-103"/> <use x="608" xlink:href="#tile-030"/>
+  </g>
+  <g transform="translate(0 112)">
+    <use x="0" xlink:href="#tile-434"/> <use x="32" xlink:href="#tile-345"/> <use x="64" xlink:href="#tile-456"/> <use x="96" xlink:href="#tile-567"/>
+    <use x="128" xlink:href="#tile-677"/> <use x="160" xlink:href="#tile-777"/> <use x="192" xlink:href="#tile-777"/> <use x="224" xlink:href="#tile-777"/>
+    <use x="256" xlink:href="#tile-777"/> <use x="288" xlink:href="#tile-776"/> <use x="320" xlink:href="#tile-765"/> <use x="352" xlink:href="#tile-654"/>
+    <use x="384" xlink:href="#tile-543"/> <use x="416" xlink:href="#tile-430"/> <use x="448" xlink:href="#tile-301"/> <use x="480" xlink:href="#tile-012"/>
+    <use x="512" xlink:href="#tile-122"/> <use x="544" xlink:href="#tile-221"/> <use x="576" xlink:href="#tile-210"/> <use x="608" xlink:href="#tile-101"/>
+  </g>
+  <g transform="translate(0 120)">
+    <use x="0" xlink:href="#tile-303"/> <use x="32" xlink:href="#tile-034"/> <use x="64" xlink:href="#tile-345"/> <use x="96" xlink:href="#tile-456"/>
+    <use x="128" xlink:href="#tile-567"/> <use x="160" xlink:href="#tile-677"/> <use x="192" xlink:href="#tile-777"/> <use x="224" xlink:href="#tile-777"/>
+    <use x="256" xlink:href="#tile-777"/> <use x="288" xlink:href="#tile-777"/> <use x="320" xlink:href="#tile-776"/> <use x="352" xlink:href="#tile-765"/>
+    <use x="384" xlink:href="#tile-654"/> <use x="416" xlink:href="#tile-543"/> <use x="448" xlink:href="#tile-430"/> <use x="480" xlink:href="#tile-301"/>
+    <use x="512" xlink:href="#tile-012"/> <use x="544" xlink:href="#tile-122"/> <use x="576" xlink:href="#tile-221"/> <use x="608" xlink:href="#tile-212"/>
+  </g>
+  <g transform="translate(0 128)">
+    <use x="0" xlink:href="#tile-010"/> <use x="32" xlink:href="#tile-103"/> <use x="64" xlink:href="#tile-034"/> <use x="96" xlink:href="#tile-345"/>
+    <use x="128" xlink:href="#tile-456"/> <use x="160" xlink:href="#tile-567"/> <use x="192" xlink:href="#tile-677"/> <use x="224" xlink:href="#tile-777"/>
+    <use x="256" xlink:href="#tile-777"/> <use x="288" xlink:href="#tile-777"/> <use x="320" xlink:href="#tile-777"/> <use x="352" xlink:href="#tile-776"/>
+    <use x="384" xlink:href="#tile-765"/> <use x="416" xlink:href="#tile-654"/> <use x="448" xlink:href="#tile-543"/> <use x="480" xlink:href="#tile-430"/>
+    <use x="512" xlink:href="#tile-301"/> <use x="544" xlink:href="#tile-012"/> <use x="576" xlink:href="#tile-122"/> <use x="608" xlink:href="#tile-222"/>
+  </g>
+  <g transform="translate(0 136)">
+    <use x="0" xlink:href="#tile-121"/> <use x="32" xlink:href="#tile-210"/> <use x="64" xlink:href="#tile-103"/> <use x="96" xlink:href="#tile-034"/>
+    <use x="128" xlink:href="#tile-345"/> <use x="160" xlink:href="#tile-456"/> <use x="192" xlink:href="#tile-567"/> <use x="224" xlink:href="#tile-677"/>
+    <use x="256" xlink:href="#tile-777"/> <use x="288" xlink:href="#tile-777"/> <use x="320" xlink:href="#tile-777"/> <use x="352" xlink:href="#tile-777"/>
+    <use x="384" xlink:href="#tile-776"/> <use x="416" xlink:href="#tile-765"/> <use x="448" xlink:href="#tile-654"/> <use x="480" xlink:href="#tile-543"/>
+    <use x="512" xlink:href="#tile-430"/> <use x="544" xlink:href="#tile-301"/> <use x="576" xlink:href="#tile-012"/> <use x="608" xlink:href="#tile-121"/>
+  </g>
+  <g transform="translate(0 144)">
+    <use x="0" xlink:href="#tile-222"/> <use x="32" xlink:href="#tile-221"/> <use x="64" xlink:href="#tile-210"/> <use x="96" xlink:href="#tile-103"/>
+    <use x="128" xlink:href="#tile-034"/> <use x="160" xlink:href="#tile-345"/> <use x="192" xlink:href="#tile-456"/> <use x="224" xlink:href="#tile-567"/>
+    <use x="256" xlink:href="#tile-677"/> <use x="288" xlink:href="#tile-777"/> <use x="320" xlink:href="#tile-777"/> <use x="352" xlink:href="#tile-777"/>
+    <use x="384" xlink:href="#tile-777"/> <use x="416" xlink:href="#tile-776"/> <use x="448" xlink:href="#tile-765"/> <use x="480" xlink:href="#tile-654"/>
+    <use x="512" xlink:href="#tile-543"/> <use x="544" xlink:href="#tile-430"/> <use x="576" xlink:href="#tile-301"/> <use x="608" xlink:href="#tile-010"/>
+  </g>
+  <g transform="translate(0 152)">
+    <use x="0" xlink:href="#tile-212"/> <use x="32" xlink:href="#tile-122"/> <use x="64" xlink:href="#tile-221"/> <use x="96" xlink:href="#tile-210"/>
+    <use x="128" xlink:href="#tile-103"/> <use x="160" xlink:href="#tile-034"/> <use x="192" xlink:href="#tile-345"/> <use x="224" xlink:href="#tile-456"/>
+    <use x="256" xlink:href="#tile-567"/> <use x="288" xlink:href="#tile-677"/> <use x="320" xlink:href="#tile-777"/> <use x="352" xlink:href="#tile-777"/>
+    <use x="384" xlink:href="#tile-777"/> <use x="416" xlink:href="#tile-777"/> <use x="448" xlink:href="#tile-776"/> <use x="480" xlink:href="#tile-765"/>
+    <use x="512" xlink:href="#tile-654"/> <use x="544" xlink:href="#tile-543"/> <use x="576" xlink:href="#tile-430"/> <use x="608" xlink:href="#tile-303"/>
+  </g>
+</svg>

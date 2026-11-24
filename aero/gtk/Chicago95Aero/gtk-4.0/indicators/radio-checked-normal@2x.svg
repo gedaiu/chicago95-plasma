@@ -1,15 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 20 20">
   <defs>
-    <linearGradient id="well" x2="75%" y2="85%">
-      <stop stop-color="#aeb3b9"/><stop offset=".48" stop-color="#e1e2e3"/><stop offset="1" stop-color="#fafafa"/>
+    <linearGradient id="well" x2="78%" y2="88%">
+      <stop stop-color="#acb9c3"/><stop offset=".48" stop-color="#dddde0"/><stop offset="1" stop-color="#fdfdfb"/>
     </linearGradient>
-    <radialGradient id="dot" cx="34%" cy="32%" r="68%">
-      <stop stop-color="#dbffff"/><stop offset=".22" stop-color="#cceaf9"/>
-      <stop offset=".49" stop-color="#40b9db"/><stop offset=".72" stop-color="#1699d1"/>
-      <stop offset=".9" stop-color="#05649a"/><stop offset="1" stop-color="#06283d"/>
+    <linearGradient id="well-edge" x2="78%" y2="88%">
+      <stop stop-color="#959a9d"/><stop offset="1" stop-color="#dfe2e4"/>
+    </linearGradient>
+    <radialGradient id="dot" cx="27%" cy="26%" r="71%">
+      <stop stop-color="#dbffff"/><stop offset=".24" stop-color="#dbfbff"/>
+      <stop offset=".48" stop-color="#30a3ca"/><stop offset=".72" stop-color="#178bc3"/>
+      <stop offset=".92" stop-color="#087ab0"/><stop offset="1" stop-color="#06283d"/>
     </radialGradient>
+    <linearGradient id="dot-edge" x2="75%" y2="100%">
+      <stop stop-color="#3e5c6e"/><stop offset="1" stop-color="#0d2a44"/>
+    </linearGradient>
+    <clipPath id="cell"><rect width="19" height="19"/></clipPath>
   </defs>
-  <circle cx="9.5" cy="9.5" r="9" fill="#f4f4f4" stroke="#8e8f8f"/>
-  <circle cx="9.5" cy="9.5" r="6.4" fill="url(#well)" stroke="#ced0d2" stroke-width=".6"/>
-  <circle cx="9.5" cy="9.5" r="4.65" fill="url(#dot)" stroke="#29465c" stroke-width="1.35"/>
+  <g clip-path="url(#cell)">
+    <circle cx="9.55" cy="9.55" r="9.07" fill="#f4f4f4" stroke="#8e8f8f" stroke-width="1"/>
+    <circle cx="9.55" cy="9.55" r="6.08" fill="url(#well)" stroke="url(#well-edge)" stroke-width="1"/>
+    <ellipse cx="9.78" cy="9.79" rx="4.65" ry="4.58" fill="url(#dot)" stroke="url(#dot-edge)" stroke-width="1.43"/>
+  </g>
 </svg>

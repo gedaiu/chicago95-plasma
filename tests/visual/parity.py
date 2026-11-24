@@ -260,7 +260,7 @@ def live_gtk(installed):
             )
             if component == "caption":
                 command += " --caption-crops"
-                if look == "luna" and version == "3.0":
+                if (look == "luna" and version == "3.0") or (look in CLASSIC and version == "4.0" and scale == 1.25):
                     command += " --compositor-captions"
             commands.append(command)
         script.write_text("\n".join(commands) + "\n")
@@ -1683,7 +1683,8 @@ def boot_frames(qt_app, tmp_path_factory):
             if look == "2000":
                 actual = render_splash(
                     qt_app, tmp_path_factory.mktemp("win2k-boot"),
-                    stage=metadata["boot_step"], brandText="Windows 2000", company="Microsoft",
+                    stage=metadata["boot_step"], strip_step=metadata["boot_strip_step"],
+                    brandText="Windows 2000", company="Microsoft",
                     tagline="Built on NT Technology",
                 )
             else:
@@ -1732,6 +1733,133 @@ def test_boot_win98_static_art(boot_frames, visual_output):
     exact(expected.crop(box), actual.crop(box), visual_output / "win98" / "boot" / "qt" / "static-art")
 
 
+BOOT_STRIP_CAPTURES = {
+    "win98": (tuple(range(20)), 7, (0, 472, 640, 480)),
+    "win2k": ((1, 2, 3, 8, 79, 159), 10, (0, 416, 640, 426)),
+}
+
+
+@pytest.fixture(scope="module")
+def boot_strip_frames(qt_app, tmp_path_factory):
+    from PySide6.QtTest import QTest
+    from test_loading_screen_reference import splash_view
+
+    @cache
+    def render(theme):
+        phases, _native_height, box = BOOT_STRIP_CAPTURES[theme]
+        settings = {"style": "classic", "picture": "images/windows98.png"} if theme == "win98" else {
+            "style": "2000", "brandText": "Windows 2000", "company": "Microsoft",
+        }
+        frames = {}
+        with splash_view(qt_app, tmp_path_factory.mktemp(theme), strip_step=0, **settings) as view:
+            for phase in phases:
+                view.rootObject().setProperty("bootStripStep", phase)
+                QTest.qWait(30)
+                frames[phase] = qimage_to_pil(view.grabWindow()).crop(box)
+        return frames
+
+    return render
+
+
+@pytest.fixture(scope="module")
+def plymouth_boot_strip_frames(tmp_path_factory):
+    from test_loading_screen_reference import SPLASH
+
+    @cache
+    def render(theme):
+        work = tmp_path_factory.mktemp(f"{theme}-plymouth-strip")
+        output = work / "theme"
+        if theme == "win98":
+            source = work / "source"
+            source.mkdir()
+            (source / "Chicago95.plymouth").write_text("[Plymouth Theme]\nName=Chicago95\n")
+            (source / "Chicago95.script").write_text("Plymouth.SetRefreshRate(10);\n")
+            command = [
+                str(REPO / "setup/make_9x_boot.py"),
+                str(source),
+                str(SPLASH / "images/windows98.png"),
+                str(output),
+            ]
+        else:
+            shutil.copytree(SPLASH, work / "splash")
+            (work / "splash/settings.js").write_text(
+                '.pragma library\nvar style = "2000"\nvar brandText = "Windows 2000"\n'
+                'var company = "Microsoft"\nvar loadingText = "Starting up..."\n'
+            )
+            output.mkdir()
+            script = output / "Chicago95-2000.script"
+            shutil.copyfile(REPO / "plymouth/Chicago95-2000" / script.name, script)
+            command = [
+                str(REPO / "bin/chicago95-splash-image"),
+                "--splash", str(work / "splash"),
+                "--size", "640x480",
+                "--out", str(output / "screen.png"),
+                "--progress-strip", str(script),
+            ]
+        subprocess.run([sys.executable, *command], check=True, timeout=30)
+        if theme == "win2k":
+            assert "animate_strip = 1;" in script.read_text()
+            assert len(list(output.glob("strip-*.png"))) == 160
+        return output
+
+    return render
+
+
+@pytest.mark.parametrize("renderer", ("qt", "plymouth"))
+@pytest.mark.parametrize(
+    ("theme", "index", "phase"),
+    [
+        pytest.param(theme, index, phase, id=f"{theme}-{phase:03}")
+        for theme, (phases, _height, _box) in BOOT_STRIP_CAPTURES.items()
+        for index, phase in enumerate(phases)
+    ],
+)
+def test_boot_strip_phase(theme, index, phase, renderer, boot_strip_frames, plymouth_boot_strip_frames, visual_output):
+    folder, _metadata = THEMES[theme]
+    _phases, height, box = BOOT_STRIP_CAPTURES[theme]
+    with Image.open(folder / "boot" / "strip-phases.png") as sheet:
+        expected = sheet.crop((0, height * index, 640, height * (index + 1)))
+    if theme == "win98":
+        # VGA stretches the complete 400-line framebuffer to 480 lines.
+        # The repeated source row depends on the strip's position in that frame.
+        frame = Image.new("RGB", (640, 400))
+        frame.paste(expected, (0, 400 - height))
+        expected = frame.resize((640, 480), Image.Resampling.NEAREST).crop(box)
+    if renderer == "qt":
+        actual = boot_strip_frames(theme)[phase]
+    else:
+        output = plymouth_boot_strip_frames(theme)
+        filename = f"win95_boot_{phase}.png" if theme == "win98" else f"strip-{phase}.png"
+        with Image.open(output / filename) as frame:
+            actual = frame.crop(box) if theme == "win98" else frame.copy()
+    exact(expected, actual, visual_output / theme / "boot" / renderer / f"strip-{phase:03}")
+
+
+def test_boot_win2k_strip_playback_cadence(qt_app, tmp_path):
+    from time import monotonic
+
+    from PySide6.QtCore import QObject
+    from PySide6.QtTest import QTest
+    from test_loading_screen_reference import splash_view
+
+    folder, _metadata = THEMES["win2k"]
+    native = np.loadtxt(folder / "boot" / "strip-timestamps.txt")[:, 1]
+    with splash_view(qt_app, tmp_path, strip_step=0, brandText="Windows 2000", company="Microsoft") as view:
+        root = view.rootObject()
+        strip = root.findChild(QObject, "win2000BootStrip")
+        start = monotonic()
+        root.setProperty("bootStripStep", -1)
+        observed = [0.0]
+        while len(observed) < 7 and monotonic() - start < 1.25:
+            QTest.qWait(8)
+            if strip.property("step") >= len(observed):
+                observed.append(monotonic() - start)
+
+    assert len(observed) == 7
+    assert observed[1] == pytest.approx(native[1], abs=0.050)
+    assert np.median(np.diff(observed[1:])) == pytest.approx(np.median(np.diff(native[1:])), abs=0.016)
+
+
 @pytest.fixture(scope="module")
 def win95_boot_phase_frames(qt_app, tmp_path_factory):
     from PySide6.QtTest import QTest
@@ -1771,7 +1899,7 @@ def test_boot_win2k_initial_frame(qt_app, tmp_path, visual_output):
     with Image.open(THEMES["win2k"][0] / "boot" / "phase-00.png") as image:
         expected = image.convert("RGB")
     actual = render_splash(
-        qt_app, tmp_path / "win2k-boot", stage=0,
+        qt_app, tmp_path / "win2k-boot", stage=0, strip_step=0,
         brandText="Windows 2000", company="Microsoft", tagline="Built on NT Technology",
     )
     exact(expected, actual, visual_output / "win2k" / "boot" / "qt" / "phase-00")
@@ -1787,6 +1915,30 @@ def test_boot_win7_caption_positions_at_four_by_three(boot_frames, top, bottom):
     native, rendered = bounds(expected), bounds(actual)
     assert native is not None and rendered is not None
     assert all(abs(a - b) <= 1 for a, b in zip(native, rendered, strict=True)), (native, rendered)
+
+
+@pytest.fixture(scope="module")
+def win7_boot_animation_frames(qt_app):
+    from test_post_xp_boot import boot_view, image_at
+
+    folder, _metadata = THEMES["win7"]
+    phases = np.loadtxt(folder / "boot" / "animation-timestamps.txt", usecols=0, dtype=int).tolist()
+    with boot_view(size=(1024, 768)) as (view, root):
+        return {
+            phase: image_at(view, root, (phase + 0.5) * 1000 / 15).crop((412, 284, 612, 484))
+            for phase in phases
+        }
+
+
+@pytest.mark.parametrize("phase", range(3, 48))
+def test_boot_win7_native_animation_phase(phase, win7_boot_animation_frames, visual_output):
+    folder, _metadata = THEMES["win7"]
+    index = phase - 3
+    x, y = (index % 8) * 200, (index // 8) * 200
+    with Image.open(folder / "boot" / "animation-frames.png") as capture:
+        expected = capture.crop((x, y, x + 200, y + 200))
+    actual = win7_boot_animation_frames[phase]
+    exact(expected, actual, visual_output / "win7" / "boot" / "qt" / f"animation-{phase:03}")
 
 
 @pytest.mark.parametrize("theme", THEMES)
@@ -1839,6 +1991,10 @@ def test_coverage(theme):
     interaction = folder / "start-menu"
     if any(not (interaction / f"programs-{state}.png").is_file() for state in ("selection", "popup")):
         gaps.append("start-menu / Qt: Programs selection and cascade or expanded pane")
+    if theme == "winxp" and any(
+        not (interaction / f"recent-{state}.png").is_file() for state in ("selection", "popup")
+    ):
+        gaps.append("start-menu / Qt: Luna Recent Documents highlight and cascade")
     gaps.extend(
         (
             "start-menu / Qt: remaining hover targets, cascade contents and opening motion",

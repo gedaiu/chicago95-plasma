@@ -275,6 +275,7 @@ class RetroMenuStyle(chicago95ui.ClassicStyle):
     """The classic style with classic menu metrics: bigger root icons, roomier rows, small submenu arrows."""
 
     underline_shortcuts = True  # 2000 hides the shortcut letters' underlines until Alt is pressed
+    look = "1995"
 
     def styleHint(self, hint, option=None, widget=None, returnData=None):
         if hint == QStyle.SH_UnderlineShortcut:
@@ -288,6 +289,14 @@ class RetroMenuStyle(chicago95ui.ClassicStyle):
             # The root is a plain window on Wayland and paints its own classic bevel; submenus keep Qt's panel.
             return 0 if isinstance(widget, RetroMenu) and widget.banner else round(2 * UI_SCALE)
         if metric in (QStyle.PM_MenuHMargin, QStyle.PM_MenuVMargin):
+            if (
+                metric == QStyle.PM_MenuVMargin
+                and isinstance(widget, RetroMenu)
+                and not widget.banner
+                and self.look == "1995"
+                and widget.devicePixelRatioF() == 1.25
+            ):
+                return 1
             return 0
         return super().pixelMetric(metric, option, widget)
 
@@ -295,11 +304,16 @@ class RetroMenuStyle(chicago95ui.ClassicStyle):
         result = super().sizeFromContents(kind, option, size, widget)
         if kind == QStyle.CT_MenuItem and isinstance(widget, RetroMenu) and size.height() > 2:
             if widget.banner:
-                # Measured from the original root menu (tests/test_startmenu_reference.py): rows 32px apart.
-                result.setHeight(round(style_of(widget)["row"] * UI_SCALE))
+                # The native Classic row is 32 device pixels at both 96 and 120 DPI.
+                # Give the scaled icon room at higher densities.
+                height = round(style_of(widget)["row"] * UI_SCALE / widget.devicePixelRatioF())
+                result.setHeight(max(ROOT_ICON + 2, height))
                 result.setWidth(result.width() + round(20 * UI_SCALE))
             else:
                 result.setWidth(result.width() + round(16 * UI_SCALE))
+                if self.look in ("1995", "1998") and widget.devicePixelRatioF() == 1.25:
+                    # The 120-DPI 9x cascades have 20-device-pixel rows.
+                    result.setHeight(SUB_ICON)
         return result
 
     def drawControl(self, element, option, painter, widget=None):
@@ -378,6 +392,8 @@ class RetroMenu(QMenu):
     def __init__(self, title="", parent=None, banner=False):
         super().__init__(title, parent)
         self.banner = banner_settings() if banner else None  # also answers "is this the root menu?"
+        if parent is not None and parent.property("lunaStartMenuCascade"):
+            self.setProperty("lunaStartMenuCascade", True)
         self.setContentsMargins(
             BANNER_WIDTH + 3 if banner else 0, 3 if banner else 0, 2 if banner else 0, 3 if banner else 0
         )
@@ -927,7 +943,8 @@ def build_menu():
 
 def apply_classic_menu_look(app):
     style = RetroMenuStyle("Windows")
-    style.underline_shortcuts = banner_settings()["style"] != "2000"
+    style.look = banner_settings()["style"]
+    style.underline_shortcuts = style.look != "2000"
     app.setStyle(style)
     app.setPalette(chicago95ui.retro_palette(chicago95ui.read_scheme()))
     family = "MS W98 UI" if "MS W98 UI" in QFontDatabase.families() else "Noto Sans"

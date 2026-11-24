@@ -567,6 +567,31 @@ the rectangles (2, 113, 206, 456) in `w2kstartmenu.png` and (2, 233, 193, 576) i
 The Windows 7 Start menu file contains the opaque search area at (8, 675, 260, 721) in
 `win7-sp1-aero-start.png`. These rectangles use exclusive right and bottom edges.
 
+### Start menu interactions
+
+The `start-menu/` folders hold unscaled crops of the Programs selection
+and the upper-left edge of its cascade. The Classic cascade samples were
+captured with the first submenu item selected. Luna includes the
+hover highlight and open popup edge for both All Programs and an empty
+My Recent Documents. Windows 7 uses the expanded pane and Back state
+from the archived `win7allprograms.png` frame.
+
+| Folder | Source resolution and DPI | Programs selection | Popup edge |
+| --- | --- | --- | --- |
+| `win95` | Windows 95 OSR2, 1024×768, 120 DPI | (155, 467, 158, 503) | (179, 466, 184, 490) |
+| `win98` | Windows 98 SE, 1280×1024, 120 DPI | (160, 694, 163, 730) | (198, 693, 203, 717) |
+| `win2k` | Windows 2000 Professional, 1280×1024, 120 DPI, RGB565 | (160, 758, 163, 794) | (298, 757, 303, 781) |
+| `winxp-classic` | Windows XP Professional SP3 with Classic Start menu, 1280×1024, 120 DPI, RGB565 | (220, 727, 223, 763) | (298, 726, 303, 750) |
+| `winxp` | Windows XP Professional SP3 Luna, 1280×1024, 120 DPI, RGB565 | (25, 901, 28, 936) | (162, 575, 167, 599) |
+| `win7` | Archived Windows 7 Aero screenshot, 1024×768, 96 DPI | (210, 645, 213, 672) | (8, 261, 13, 285) |
+
+The Luna Recent Documents selection and popup edge crops use
+(464, 537, 467, 575) and (467, 539, 472, 563). In the pointer recordings
+the last frame request before the Programs popup was 759 ms after the
+move, and the first with it was at 853 ms. The equivalent requests for
+Recent Documents were at 681 and 777 ms. The recordings sample the
+appearance of the popup about every 95 ms.
+
 ### Control Panel and Display Properties
 
 Each folder contains native framebuffer crops of the Control Panel client and the named

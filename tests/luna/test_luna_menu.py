@@ -6,7 +6,7 @@ import pytest
 from conftest import REPO
 from PIL import Image
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
-from PySide6.QtGui import QColor, QFontMetrics, QIcon, QImage, QMouseEvent, QPainter, QPixmap
+from PySide6.QtGui import QColor, QEnterEvent, QFontMetrics, QIcon, QImage, QMouseEvent, QPainter, QPixmap
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QMenu, QWidget
 from reference import qimage_to_pil, screenshot
@@ -301,6 +301,7 @@ def test_my_recent_documents_row_lists_the_recent_files_in_the_submenu(menu):
 def test_hover_opens_submenu_after_the_delay_and_keeps_its_parent_highlighted(menu, monkeypatch, title):
     monkeypatch.setattr(lunamenu, "SUBMENU_HOVER_MS", 40, raising=False)
     menu.show()
+    QApplication.processEvents()
     row = next(row for row in menu.rows if row.text == title)
     hover(menu, row.rect.center())
     assert menu.submenu is None
@@ -310,10 +311,23 @@ def test_hover_opens_submenu_after_the_delay_and_keeps_its_parent_highlighted(me
     assert menu.hovered is row
 
 
+def test_entering_the_window_directly_on_a_programs_row_starts_the_hover(menu, monkeypatch):
+    monkeypatch.setattr(lunamenu, "SUBMENU_HOVER_MS", 40)
+    menu.show()
+    QApplication.processEvents()
+    row = next(row for row in menu.rows if row.text == "All Programs")
+    pos = row.rect.center()
+    QApplication.sendEvent(menu, QEnterEvent(pos, pos, menu.mapToGlobal(pos)))
+    assert menu.hovered is row
+    QTest.qWait(120)
+    assert menu.submenu is not None and menu.submenu.isVisible()
+
+
 @pytest.mark.parametrize("leave", [False, True])
 def test_moving_away_cancels_the_submenu_hover(menu, monkeypatch, leave):
     monkeypatch.setattr(lunamenu, "SUBMENU_HOVER_MS", 40, raising=False)
     menu.show()
+    QApplication.processEvents()
     row = next(row for row in menu.rows if row.text == "All Programs")
     hover(menu, row.rect.center())
     assert menu.hovered is row
@@ -348,9 +362,11 @@ def test_keyboard_opens_submenus_at_the_native_row_anchor(menu, title):
     assert menu.submenu is not None and menu.submenu.isVisible()
     offset = menu.submenu.pos() - menu.pos()
     if title == "All Programs":
-        assert (offset.x(), offset.y() + menu.submenu.height()) == (133, row.rect.bottom() + 1)
+        text_right = row.rect.x() + row.look.text_x + QFontMetrics(lunamenu.ui_font(True)).horizontalAdvance(row.text)
+        assert offset.x() - row.look.icon_size.width() >= text_right + 6
+        assert offset.y() + menu.submenu.height() == row.rect.bottom() - 4
     else:
-        assert (offset.x(), offset.y()) == (378, row.rect.top())
+        assert (offset.x(), offset.y()) == (374, row.rect.top() + 2)
 
 
 def test_empty_recent_documents_still_opens_a_popup(menu):

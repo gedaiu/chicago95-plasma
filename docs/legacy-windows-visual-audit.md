@@ -345,6 +345,47 @@ at 144 DPI. The selected GTK 3 crop still measures 20×20. Mean RGB error across
 
 All four guests used the Cirrus display adapter and the display settings in their installed copies of Windows. Windows 7 used its installed VirtualBox Guest Additions and WDDM driver. [QEMU Cirrus adapter documentation](https://www.qemu.org/docs/master/system/qemu-manpage.html)
 
+## Start menu interactions
+
+The XP SP3 Luna guest opens All Programs and My Recent Documents after about
+0.8 seconds of hover. The launcher now starts the delay on pointer entry,
+cancels it when the pointer leaves, and keeps the row highlighted while
+its popup is open. Click and Right Arrow still open the popup immediately.
+The installed launcher opened All Programs on hover in nested KWin.
+The blue cascade paint uses geometric bevels and gradients. Compared with
+the same 5×24 native crops, mean absolute RGB error fell from 101.35/255
+to 0.67/255 for All Programs and from 94.67/255 to 0.69/255 for the
+Recent Documents popup. Both Luna selection bands match.
+
+At 120 DPI the Classic Programs highlight is 32 pixels tall on all four
+guests. The Qt rows previously occupied 40 pixels at 125% scaling.
+Setup now measures the adjusted menu height at the selected scale for
+the KWin placement rule. Qt's fractional rounding leaves a one-pixel
+selection difference in the Windows 2000 and XP Classic captures.
+The Windows 95 and 98 cascades use the measured 20-pixel rows.
+Windows 95 also has an extra top inset. Both cascade edge crops match.
+The Aero Back face is 23 pixels tall in the archived native frame.
+Its revised selected gradient differs by 0.22 RGB levels out of 255 on
+average. The pane still differs along the glass edge.
+
+Eight of the fourteen strict interaction samples match. The six root-menu
+comparisons still differ. The interaction crops cover state appearance.
+The captured XP hover delay and the timing tests for caption controls
+describe different animations. [Reference geometry and capture provenance](../tests/references/SOURCES.md#start-menu-interactions)
+
 ## Scalable artwork
 
 The shared SVG test renders every shipped asset at 100%, 150% and 200%. Separate guest comparisons check the Windows 98 monitor, handed mouse, jack-in-the-box states and classic Run icon at native size. The monitor’s bevel now uses three two-pixel stipple patterns. The classic caption generator draws each bevel as four connected edges and each glyph as a single outline. All nine caption sheets produce the same native-size pixels as their previous versions. The Luna Kvantum checkmark also retains the original rendered pixels across the complete 24×3486 widget sheet. [Cross-scale tests](../tests/test_theme_svg_art.py) · [Native mouse comparisons](../tests/test_mouse_page.py) · [Run dialog comparisons](../tests/test_run_reference.py)
+
+At 125% output scaling, the Windows 95 trial compared live GTK renders
+with the same native caption crops. GTK 4 overlap error averaged
+22.00/255 with direct SVGs and 6.90/255 with 20×18 PNGs generated from
+those SVGs. GTK 3 averaged 43.83/255 with either format. Setup uses the
+generated bitmap for Classic GTK 4 at this scale when the converter is
+available. The fresh compositor comparisons pass 32 of 48 strict cases
+across Windows 95, 98, 2000 and XP Classic. The Close face still spans
+21 device-pixel columns in all four tested states on each look in the
+standard fixture. In a Windows 95 follow-up using four adjacent window
+widths, the same PNG faces gained or lost a column as their origins
+moved between fractional and whole device pixels. Changing the Close
+margin shifted which widths lined up.

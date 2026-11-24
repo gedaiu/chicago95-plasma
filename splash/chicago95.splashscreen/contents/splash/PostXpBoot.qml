@@ -44,6 +44,9 @@ Rectangle {
         && color === Qt.color("#000000") && ink === Qt.color("#ffffff") && option("backgroundImage", "") === ""
     readonly property bool referenceText: referenceTypography && seven && option("text", "default") === "default"
     readonly property bool referenceFooter: referenceTypography && (seven || vista) && option("footer", "default") === "default"
+    readonly property real sevenNativeUnit: 1080 / 768
+    readonly property real sevenAssetScale: unit * sevenNativeUnit * Screen.devicePixelRatio
+    readonly property bool sevenNativeType: seven && sevenAssetScale <= 1.001
 
     function option(key, fallback) {
         return options[key] === undefined || options[key] === "default" ? fallback : options[key];
@@ -152,13 +155,22 @@ Rectangle {
             }
             Image {
                 visible: root.referenceText
-                x: 800; y: 720; width: 320; height: 80
-                source: "postxp/seven-text.png"
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: root.sevenNativeType ? 525 * root.sevenNativeUnit : 720
+                width: root.sevenNativeType ? 186 * root.sevenNativeUnit : 320
+                height: root.sevenNativeType ? 24 * root.sevenNativeUnit : 80
+                smooth: Math.abs(root.sevenAssetScale - 1) > 0.001
+                source: root.sevenNativeType ? "postxp/seven-text-native.png" : "postxp/seven-text.png"
             }
             Image {
                 visible: root.referenceFooter
-                x: 800; y: root.vista ? 864 : 1000; width: 320; height: 48
-                source: root.vista ? "postxp/vista-footer.png" : "postxp/seven-footer.png"
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: root.vista ? 864 : root.sevenNativeType ? 720 * root.sevenNativeUnit : 1000
+                width: root.sevenNativeType ? 162 * root.sevenNativeUnit : 320
+                height: root.sevenNativeType ? 15 * root.sevenNativeUnit : 48
+                smooth: !root.seven || Math.abs(root.sevenAssetScale - 1) > 0.001
+                source: root.sevenNativeType ? "postxp/seven-footer-native.png"
+                    : root.vista ? "postxp/vista-footer.png" : "postxp/seven-footer.png"
             }
 
         }
@@ -186,6 +198,7 @@ Rectangle {
                 height: parent.height * 7
                 x: -(Math.min(104, root.frame) % 15) * parent.width
                 y: -Math.floor(Math.min(104, root.frame) / 15) * parent.height
+                smooth: Math.abs(root.unit * parent.width * Screen.devicePixelRatio - 200) > 0.001
             }
             CustomSeven {
                 width: 200

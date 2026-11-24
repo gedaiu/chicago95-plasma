@@ -4,9 +4,21 @@ import argparse
 import shutil
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageSequence
+from PIL import Image, ImageSequence
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtSvg import QSvgRenderer
+
+
+def svg_image(path):
+    svg = QSvgRenderer(str(path))
+    if not svg.isValid():
+        raise ValueError(f"Invalid artwork in {path}")
+    picture = QImage(svg.defaultSize(), QImage.Format_RGBA8888)
+    picture.fill(0)
+    painter = QPainter(picture)
+    svg.render(painter)
+    painter.end()
+    return Image.frombytes("RGBA", (picture.width(), picture.height()), bytes(picture.constBits()))
 
 
 def build(source, artwork, target, *, look="98"):
@@ -27,27 +39,19 @@ def build(source, artwork, target, *, look="98"):
     (target / "Chicago95-98.plymouth").write_text(text)
     script.rename(target / "Chicago95-98.script")
     image = Image.open(artwork).convert("RGB")
-    # The captured DOS screen is 640x400 with non-square pixels; the shipped
-    # artwork is already corrected to 640x480. Only its bottom colour strip moves.
-    strip = image.crop((0, 472, image.width, 480))
+    # Keep the same palette fields and dithering as the Qt preview. The
+    # native 640x400 rows are already corrected to the 4:3 display aspect.
+    strips = svg_image(artwork.with_name("windows98-boot-strip.svg"))
     for phase in range(20):
         frame = image.copy()
-        frame.paste(ImageChops.offset(strip, phase * image.width // 20, 0), (0, 472))
+        frame.paste(strips.crop((0, phase * 8, 640, (phase + 1) * 8)), (0, 472))
         frame.save(target / f"win95_boot_{phase}.png")
 
     # LOGOW.SYS uses the same clouds and branding. Replace the cycling strip
     # with sky and put the caption at the measured 640×480 display coordinates.
     shutdown = image.copy()
     shutdown.paste(image.crop((0, 464, 640, 472)).transpose(Image.Transpose.FLIP_TOP_BOTTOM), (0, 472))
-    svg = QSvgRenderer(str(Path(__file__).with_name("windows98-shutdown-caption.svg")))
-    if not svg.isValid():
-        raise ValueError("Invalid Windows 98 shutdown caption")
-    caption = QImage(svg.defaultSize(), QImage.Format_RGBA8888)
-    caption.fill(0)
-    painter = QPainter(caption)
-    svg.render(painter)
-    painter.end()
-    overlay = Image.frombytes("RGBA", (caption.width(), caption.height()), bytes(caption.constBits()))
+    overlay = svg_image(Path(__file__).with_name("windows98-shutdown-caption.svg"))
     shutdown.paste(overlay, (220, 446), overlay)
     shutdown.save(target / "win95_shutdown-01.png")
 

@@ -1007,11 +1007,11 @@ def test_the_run_dialog_with_luna_widgets_in_the_aero_frame_sits_on_the_taskbar(
     assert run_dialog_rule(tmp_path, "luna", "--decoration=aero")["position"] == f"0,{top}"
 
 
-def start_menu_rule(tmp_path, look):
+def start_menu_rule(tmp_path, look, scale=1):
     """The rule's menu height is measured from chicago95rc, which the stubbed kwriteconfig6 never writes here."""
     (tmp_path / ".config").mkdir(parents=True, exist_ok=True)
     (tmp_path / ".config/chicago95rc").write_text(f"[StartMenu]\nstyle={look}\n")
-    run_setup(tmp_path, "--components=look,startmenu", f"--look={look}", "--screen=1920x1080@1")
+    run_setup(tmp_path, "--components=look,startmenu", f"--look={look}", f"--screen=1920x1080@{scale}")
     rules = (tmp_path / ".config/kwinrulesrc").read_text()
     rule = rules.split("[chicago95-startmenu]")[1].split("\n[")[0]
     return dict(line.split("=", 1) for line in rule.splitlines() if "=" in line)
@@ -1019,6 +1019,25 @@ def start_menu_rule(tmp_path, look):
 
 def test_the_xp_start_menu_sits_right_on_the_taskbar_with_no_gap(tmp_path):
     assert start_menu_rule(tmp_path, "luna")["position"] == f"0,{1080 - 30 - 477}"
+
+
+def test_classic_start_menu_placement_uses_its_height_at_fractional_scale(tmp_path):
+    scale = 1.25
+    rule = start_menu_rule(tmp_path, "1998", scale)
+    launcher = tmp_path / ".local/bin/chicago95-startmenu"
+    output = subprocess.check_output(
+        [sys.executable, str(launcher), "--root-height"],
+        env={
+            "PATH": "/usr/bin:/bin",
+            "HOME": str(tmp_path),
+            "XDG_CONFIG_HOME": str(tmp_path / ".config"),
+            "QT_QPA_PLATFORM": "offscreen",
+            "QT_SCALE_FACTOR": str(scale),
+        },
+        text=True,
+        timeout=30,
+    )
+    assert rule["position"] == f"0,{1080 - 26 - int(output) - 1}"
 
 
 def test_clippy_window_rule_keeps_it_above_other_windows_by_default(tmp_path):
@@ -1125,6 +1144,7 @@ def test_dry_run_of_the_2000_boot_screen_renders_our_loading_screen_into_a_plymo
     ) == (True, True, True, True)
     assert "--text-loader --out" in log
     assert "/loader.png" in log
+    assert any("--progress-strip" in line and "/Chicago95-2000.script" in line for line in log.splitlines())
 
 
 @pytest.mark.parametrize(
@@ -1401,8 +1421,11 @@ def test_the_look_paints_gtk_drawn_title_bars_in_its_active_and_inactive_colours
     gtk4 = (tmp_path / ".config/gtk-4.0/gtk.css").read_text()
     caption = tmp_path / "gtk-classic-caption/close-disabled.svg"
     caption4 = caption.with_name("close-disabled-gtk4.svg") if dpi == 120 else caption
-    for asset, sheet in ((caption, gtk3), (caption4, gtk4)):
-        assert asset.is_file() and asset.as_uri() in sheet
+    assert caption.as_uri() in gtk3
+    generated_bitmap = dpi == 120 and shutil.which("rsvg-convert", path="/usr/bin:/bin")
+    rendered = caption4.with_suffix(".png") if generated_bitmap else caption4
+    assert rendered.is_file() and rendered.as_uri() in gtk4
+    for asset in (caption, caption4):
         assert f'viewBox="0 0 {round(16 * dpi / 96)} {svg_height}"' in asset.read_text()
     assert all(f"background-size: 16px {image_height}px;" in sheet for sheet in (gtk3, gtk4))
 

@@ -497,6 +497,31 @@ def paint_menu_frame(painter, option):
     stroke_rect(painter, option.rect, MENU_FRAME)
 
 
+def paint_start_menu_popup(painter, rect):
+    """The Start panel's cascading menus have a blue bevel around a white face."""
+    rect = QRectF(rect)
+    pixel = 1 / painter.device().devicePixelRatioF()
+    left_bevel = 4.8
+    painter.fillRect(rect, Qt.white)
+    x, y, height = rect.x(), rect.y(), rect.height()
+    edge = QLinearGradient(x, rect.bottom() - 12, x, rect.bottom() - 9)
+    edge.setColorAt(0, QColor("#3984e7"))
+    edge.setColorAt(1, QColor("#428ae7"))
+    painter.fillRect(QRectF(x, y, pixel, height), edge)
+    edge.setColorAt(0, QColor("#84b2ef"))
+    edge.setColorAt(1, QColor("#8cb6ef"))
+    painter.fillRect(QRectF(x + pixel, y, pixel, height), edge)
+    ramp = QLinearGradient(x + 2 * pixel, y, x + left_bevel, y)
+    ramp.setColorAt(0, QColor("#2876e7"))
+    ramp.setColorAt(0.65, QColor("#317fe7"))
+    ramp.setColorAt(1, QColor("#3282ef"))
+    painter.fillRect(QRectF(x + 2 * pixel, y, left_bevel - 2 * pixel, height), ramp)
+    painter.fillRect(QRectF(rect.right() - pixel, y, pixel, height), QColor("#3171de"))
+    bevel = QColor("#52a2ff")
+    painter.fillRect(QRectF(x, y, rect.width(), pixel), bevel)
+    painter.fillRect(QRectF(x, rect.bottom() - pixel, rect.width(), pixel), bevel)
+
+
 def paint_menu_separator(painter, option):
     painter.fillRect(option.rect, option.palette.brush(QPalette.Base))
     left = option.rect.left() + MENU_ICON_COLUMN
@@ -558,9 +583,10 @@ def paint_menu_texts(painter, option, colour):
     painter.drawText(text_rect, flags | Qt.AlignRight, shortcut)
 
 
-def paint_menu_row(painter, option):
+def paint_menu_row(painter, option, start_menu=False):
     selected = bool(option.state & QStyle.State_Selected) and bool(option.state & QStyle.State_Enabled)
-    painter.fillRect(option.rect, option.palette.brush(QPalette.Highlight if selected else QPalette.Base))
+    background = Qt.white if start_menu else option.palette.base()
+    painter.fillRect(option.rect, option.palette.highlight() if selected else background)
     colour = menu_text_colour(option)
     paint_menu_icon(painter, option, colour)
     paint_menu_texts(painter, option, colour)
@@ -571,11 +597,13 @@ def paint_menu_row(painter, option):
         )
 
 
-def paint_menu_item(painter, option):
+def paint_menu_item(painter, option, start_menu=False):
     painter.save()
     painter.setRenderHint(QPainter.Antialiasing, False)
-    painter_for = {True: paint_menu_separator, False: paint_menu_row}
-    painter_for[option.menuItemType == option.MenuItemType.Separator](painter, option)
+    if option.menuItemType == option.MenuItemType.Separator:
+        paint_menu_separator(painter, option)
+    else:
+        paint_menu_row(painter, option, start_menu)
     painter.restore()
 
 
@@ -873,6 +901,8 @@ class LunaStyle(QProxyStyle):
         subject.setFont(luna_font())
 
     def pixelMetric(self, metric, option=None, widget=None):
+        if metric == QStyle.PM_MenuHMargin and widget is not None and widget.property("lunaStartMenuCascade"):
+            return 4
         if metric in PIXEL_METRICS:
             return PIXEL_METRICS[metric]
         return super().pixelMetric(metric, option, widget)
@@ -880,12 +910,17 @@ class LunaStyle(QProxyStyle):
     def drawPrimitive(self, element, option, painter, widget=None):
         if element == QStyle.PE_FrameTabBarBase and option.shape in NORTH_TAB_SHAPES:
             return paint_tab_base(painter, option)
+        if element in (QStyle.PE_PanelMenu, QStyle.PE_FrameMenu) and widget is not None:
+            if widget.property("lunaStartMenuCascade"):
+                return paint_start_menu_popup(painter, option.rect)
         painter_for = self.primitive_painters.get(element)
         if painter_for is None:
             return super().drawPrimitive(element, option, painter, widget)
         painter_for(painter, option)
 
     def drawControl(self, element, option, painter, widget=None):
+        if element == QStyle.CE_MenuItem and widget is not None and widget.property("lunaStartMenuCascade"):
+            return paint_menu_item(painter, option, start_menu=True)
         if element == QStyle.CE_ProgressBar:
             paint_progress_groove(painter, option)
             paint_progress_chunks(painter, option)

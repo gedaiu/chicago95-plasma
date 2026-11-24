@@ -1528,7 +1528,8 @@ explorer_desktop_file() { case "${SETUP_EXPLORER:-thunar}" in dolphin) printf 'o
 # at fractional scales the menu's height rounds up and would otherwise cover the taskbar's top line).
 place_start_menu() {
   local height
-  height=$(QT_QPA_PLATFORM=offscreen QT_SCALE_FACTOR=1 python3 "$REPO/bin/chicago95-startmenu" --root-height 2>/dev/null | tail -1)
+  height=$(QT_QPA_PLATFORM=offscreen QT_SCALE_FACTOR="${SETUP_SCALE:-1}" \
+    python3 "$REPO/bin/chicago95-startmenu" --root-height 2>/dev/null | tail -1)
   [[ "$height" =~ ^[0-9]+$ ]] || height=$MENU_HEIGHT
   # The classic menus stop a pixel short of the taskbar's top line; the XP menu sits right on the taskbar.
   local gap=1
@@ -2232,7 +2233,8 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
     run cp -r "$REPO/splash/chicago95.splashscreen/contents/splash/." "$build/splash"
     write_splash_settings "$build/splash"
     run env QT_QPA_PLATFORM=offscreen python3 "$REPO/bin/chicago95-splash-image" --splash "$build/splash" \
-      --size "${SETUP_WIDTH:-1920}x${SETUP_HEIGHT:-1080}" --scale "${SETUP_SCALE:-1}" --out "$build/screen.png"
+      --size "${SETUP_WIDTH:-1920}x${SETUP_HEIGHT:-1080}" --scale "${SETUP_SCALE:-1}" --out "$build/screen.png" \
+      --progress-strip "$build/Chicago95-2000.script" || return 1
     run env QT_QPA_PLATFORM=offscreen python3 "$REPO/bin/chicago95-splash-image" --splash "$build/splash" \
       --size "${SETUP_WIDTH:-1920}x${SETUP_HEIGHT:-1080}" --scale "${SETUP_SCALE:-1}" --text "Shutting down" --out "$build/shutdown.png"
     run env QT_QPA_PLATFORM=offscreen python3 "$REPO/bin/chicago95-splash-image" --splash "$build/splash" \

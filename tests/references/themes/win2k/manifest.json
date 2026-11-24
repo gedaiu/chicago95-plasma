@@ -9,6 +9,7 @@
     }
   },
   "boot_step": 2,
+  "boot_strip_step": 3,
   "caption_scale": 1.25,
   "aliases": {
     "win2000-pro-run.png": "run.png",

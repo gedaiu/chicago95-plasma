@@ -8,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from conftest import REPO, load_script  # noqa: E402
+from PIL import Image  # noqa: E402
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt  # noqa: E402
 from PySide6.QtGui import QIcon, QMouseEvent  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
@@ -59,33 +60,61 @@ def render(manifest, output):
         app.processEvents()
         assert menu.all_programs
         selected(menu.toggle.parentWidget(), menu.toggle.geometry(), menu.toggle.geometry().right() - 34, "programs")
-        popup(menu.findChild(QFrame, "programs"), "programs")
+        pane = menu.findChild(QFrame, "programs")
+        origin = pane.mapTo(menu, QPoint()) - QPoint(1, 0)
+        expanded = output / "aero-expanded.png"
+        assert menu.grab().save(str(expanded))
+        with Image.open(expanded) as capture:
+            frame = capture.convert("RGBA")
+        backdrop = Image.new("RGBA", frame.size, "#4395d1")
+        backdrop.alpha_composite(frame)
+        x, y = origin.x(), origin.y()
+        backdrop.crop((x, y, x + 5, y + 24)).save(output / "programs-popup.png")
     elif look == "luna":
-        from chicago95lunamenu import LunaMenu
+        from chicago95lunamenu import LunaMenu, highlight_rect
 
         menu = LunaMenu(
             [{"name": "Calculator", "categories": [], "path": "/test/calculator.desktop"}],
-            [], lambda _: None, lambda _: QIcon(), startmenu.RetroMenu, None,
+            [],
+            lambda _: None,
+            lambda _: QIcon(),
+            startmenu.RetroMenu,
+            None,
         )
         menu.move(5, 80)
         menu.show()
-        for title, name, x in (("All Programs", "programs", 20), ("My Recent Documents", "recent", 349)):
+        for title, name, x in (("All Programs", "programs", 20), ("My Recent Documents", "recent", 370)):
             row = next(row for row in menu.rows if row.text == title)
             point = QPointF(row.rect.center())
             event = QMouseEvent(QEvent.MouseMove, point, point, Qt.NoButton, Qt.NoButton, Qt.NoModifier)
             QApplication.sendEvent(menu, event)
             assert menu.hovered is row
-            selected(menu, row.rect, x, name)
+            selected(menu, highlight_rect(row), x, name)
             QTest.mouseClick(menu, Qt.LeftButton, pos=row.rect.center())
             assert menu.submenu is not None and menu.submenu.isVisible()
             popup(menu.submenu, name)
             menu.submenu.close()
     else:
-        startmenu.fill_programs_menu = lambda menu: menu.addAction("Accessories")
+
+        def fill_programs(menu):
+            menu.addAction("Accessories")
+            menu.addAction("Startup")
+
+        startmenu.fill_programs_menu = fill_programs
         menu = startmenu.build_root_menu()
+        programs = next(action for action in menu.actions() if action.text().replace("&", "") == "Programs")
+        # Match the number of preceding actions when comparing a strip that
+        # includes the two pixels above the selected row.
+        if look in ("1998", "2000"):
+            titles = ("Windows Update",) if look == "1998" else ("Set Program Access and Defaults", "Windows Update")
+            for title in titles:
+                menu.insertAction(programs, startmenu.QAction(title, menu))
+            menu.insertSeparator(programs)
+        elif look == "2001":
+            first = menu.actions()[0]
+            menu.insertAction(first, startmenu.QAction("Set Program Access and Defaults", menu))
         menu.move(5, 50)
         menu.show()
-        programs = next(action for action in menu.actions() if action.text().replace("&", "") == "Programs")
         menu.setActiveAction(programs)
         row = menu.actionGeometry(programs)
         selected(menu, row, row.right() - 30, "programs")

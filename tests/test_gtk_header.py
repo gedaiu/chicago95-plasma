@@ -2,6 +2,7 @@
 
 import base64
 import re
+import shutil
 
 import gtk_header
 import pytest
@@ -73,6 +74,19 @@ def test_120_dpi_caption_assets_keep_the_same_geometry_in_both_toolkits(tmp_path
         assert asset4.as_uri() in gtk4
     assert "-gtk-scaled(" in gtk3
     assert "background-position: left top;" in gtk4
+
+
+@pytest.mark.skipif(not shutil.which("rsvg-convert"), reason="requires librsvg command-line renderer")
+def test_gtk4_uses_generated_20_by_18_faces_at_120_dpi(tmp_path):
+    colours = ("#C0C0C0", "#DFDFDF", "#808080", "#000000")
+    css = gtk_header.caption_css(*colours, tmp_path, dpi=120, converter=shutil.which("rsvg-convert"))
+    for state in ("normal", "pressed", "disabled"):
+        svg = tmp_path / f"close-{state}-gtk4.svg"
+        assert svg.is_file()
+        bitmap = svg.with_suffix(".png")
+        image = QImage(str(bitmap))
+        assert (image.width(), image.height()) == (20, 18)
+        assert bitmap.as_uri() in css
 
 
 def test_the_close_button_draws_the_decorations_x_on_the_face(qt_app, css):

@@ -200,7 +200,7 @@ The existing reference helpers resolve the old names for any captures moved into
 | Desktop | Plasma | Idle desktop, open context menu and a hover band on every theme. The Windows 7 idle crop is the unobstructed top of the archived desktop. |
 | Taskbar | Plasma | Unoccupied and populated bands on all six themes. Live height checks use the native DPI, and a single active button width is measured for the five older themes. |
 | Device Manager | Qt | Four-button action row on Windows 95 and 98. Console command chrome on Windows 2000, XP, and Windows 7. |
-| Start menu | Qt | Root menu on the classic looks and Luna. The opaque search area on Windows 7. |
+| Start menu | Qt | Root menus, the Programs selection band and cascade edge on the classic looks, the selection bands and popup edges for All Programs and My Recent Documents in Luna, and the opaque search area, selected Back face and expanded Programs pane in Aero. |
 | Control Panel | Qt | Icon view from Windows 95 through XP and the category view on Windows 7. The rendered window requests the guest client size at the captured DPI. Windows 7 also compares the steady hover and opening at 96 DPI and three hover exits at 144 DPI. |
 | Display Properties | Qt | Appearance on 95, 98, and 2000. Settings on both XP looks. Windows 7 Screen Resolution provides the native counterpart to the theme's Settings page. The renderer checks that the selected tab is visible and its page fits without scrollbars. |
 
@@ -221,9 +221,11 @@ The tests capture the painted caption faces and record the widget allocations se
 Setup uses standalone SVG files for the classic, Luna and Aero caption faces. The GTK 4 fixtures take the buttons
 from GTK's own `Gtk.WindowControls` after the compositor configures the window, check their state flags, and
 include the native frame in the snapshot at its original size using the window's renderer.
-For Luna in GTK 3, the strict comparisons use the compositor's screenshot. This includes scaling
-that happens after GTK submits its integer-scale buffer. A solid marker in the test window ties
-the on-screen frame to the GTK widget coordinates used to crop each button.
+For Luna in GTK 3 and the Classic looks in GTK 4 at 120 DPI, the strict comparisons use the
+compositor's screenshot. This includes display scaling after GTK submits its buffer. A solid marker
+in the test window ties the on-screen frame to the GTK widget coordinates used to crop each button.
+At 120 DPI, Setup can render the Classic GTK 4 SVGs into 20×18 PNGs when
+`rsvg-convert` is available. The source SVGs remain alongside the generated files.
 For Luna at 120 DPI, Setup selects the larger SVG glyphs for both GTK and Aurorae. The live comparisons
 pass the reference scale to Setup so the comparison uses the artwork that would be installed at that DPI.
 The larger faces preserve the five-pixel edge regions from Luna's sizing margins, with shared vector paths

@@ -137,17 +137,11 @@ Rectangle {
             duration: 1111
             loops: Animation.Infinite
         }
-        Repeater {
-            model: win98BootStrip.visible ? 2 : 0
-            Image {
-                required property int index
-                x: (index - 1 + win98BootStrip.step / 20) * width
-                width: win98BootStrip.width
-                height: win98BootStrip.height
-                source: bootPicture.source
-                sourceClipRect: Qt.rect(0, 472, 640, 8)
-                smooth: false
-            }
+        Image {
+            anchors.fill: parent
+            source: win98BootStrip.visible ? "images/windows98-boot-strip.svg" : ""
+            sourceClipRect: Qt.rect(0, win98BootStrip.step * 8, 640, 8)
+            smooth: false
         }
     }
 
@@ -383,12 +377,53 @@ Rectangle {
         }
 
         Image {
+            id: win2000Artwork
             visible: root.stock2000
             x: root.layoutX
             width: 640 * root.unit
             height: 480 * root.unit
             source: visible ? "images/windows2000-boot.png" : ""
             smooth: false
+        }
+
+        Item {
+            id: win2000BootStrip
+            objectName: "win2000BootStrip"
+            visible: root.stock2000
+            x: win2000Artwork.x
+            y: win2000Artwork.height * (416 / 480)
+            width: win2000Artwork.width
+            height: win2000Artwork.height * (10 / 480)
+            clip: true
+            property real phase: 0
+            readonly property int step: root.bootStripStep >= 0 ? root.bootStripStep % 160
+                : Math.min(159, Math.floor(phase * 160))
+
+            SequentialAnimation {
+                running: win2000BootStrip.visible && root.bootStripStep < 0
+                PauseAnimation { duration: 328 }
+                NumberAnimation {
+                    target: win2000BootStrip
+                    property: "phase"
+                    from: 0
+                    to: 1
+                    duration: 10000
+                    loops: Animation.Infinite
+                }
+            }
+
+            Repeater {
+                model: win2000BootStrip.visible ? 2 : 0
+                Image {
+                    required property int index
+                    x: (index - 1 + win2000BootStrip.step / 160) * width
+                    width: win2000BootStrip.width
+                    height: win2000BootStrip.height
+                    source: win2000Artwork.source
+                    sourceClipRect: Qt.rect(0, 416, 640, 10)
+                    smooth: false
+                }
+            }
         }
 
         Rectangle {

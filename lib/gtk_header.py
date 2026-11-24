@@ -14,6 +14,8 @@ background, so the face keeps its size in any bar, and the symbolic glyph is hid
 import argparse
 import base64
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -64,7 +66,23 @@ TOOLS = f"{STRIP} button.image-button, {STRIP} splitbutton > button"
 SPLIT_ARROW = f"{STRIP} splitbutton > menubutton > button"
 
 
-def face_url(kind, colours, pressed, disabled, assets, high_dpi, gtk4):
+def raster_caption(source, converter):
+    """Render one SVG face at the physical 120-DPI dimensions for GTK 4."""
+    try:
+        png = subprocess.run(
+            [converter, "-w", str(CAPTION_W_120), "-h", str(CAPTION_H_120), str(source)],
+            capture_output=True,
+            check=True,
+            timeout=10,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return source
+    output = source.with_suffix(".png")
+    output.write_bytes(png)
+    return output
+
+
+def face_url(kind, colours, pressed, disabled, assets, high_dpi, gtk4, converter):
     shift = 1 if pressed else 0
     if high_dpi:
         view_size = CAPTION_W_120, CAPTION_H_120
@@ -88,6 +106,8 @@ def face_url(kind, colours, pressed, disabled, assets, high_dpi, gtk4):
             doubled = path.with_name(f"{path.stem}@2x.svg")
             doubled.write_text(svg(CAPTION_W_120 * 2, CAPTION_H_120 * 2, body, view_size=view_size))
             return f'-gtk-scaled({image}, url("{doubled.resolve().as_uri()}"))'
+        if gtk4 and high_dpi and converter:
+            return f'url("{raster_caption(path, converter).resolve().as_uri()}")'
         return image
     data = base64.b64encode(artwork.encode()).decode()
     return f'url("data:image/svg+xml;base64,{data}")'
@@ -110,7 +130,7 @@ def rule(selector, **properties):
     return f"{selector} {{\n{body}}}\n"
 
 
-def caption_css(face, light, shadow, dark, assets=None, dpi=96, *, gtk4=True):
+def caption_css(face, light, shadow, dark, assets=None, dpi=96, *, gtk4=True, converter=None):
     colours = (face, light, shadow, dark)
     high_dpi = dpi == 120
     face_height = CAPTION_H_120 * 96 / dpi if high_dpi else CAPTION_H
@@ -155,7 +175,7 @@ def caption_css(face, light, shadow, dark, assets=None, dpi=96, *, gtk4=True):
                     border="none",
                     box_shadow="none",
                     background_color="transparent",
-                    background_image=face_url(kind, colours, pressed, disabled, assets, high_dpi, gtk4),
+                    background_image=face_url(kind, colours, pressed, disabled, assets, high_dpi, gtk4, converter),
                 )
             )
     return "".join(rules)
@@ -409,11 +429,18 @@ def main():
     parser.add_argument("--light", default="#DFDFDF")
     parser.add_argument("--shadow", default="#808080")
     parser.add_argument("--dark", default="#000000")
-    parser.add_argument("--caption-assets", type=Path, help="write standalone SVG faces for GTK to load from disk")
+    parser.add_argument("--caption-assets", type=Path, help="write caption artwork for GTK to load from disk")
     args = parser.parse_args()
     sheet = (
         caption_css(
-            args.face, args.light, args.shadow, args.dark, args.caption_assets, args.dpi, gtk4=args.gtk == "4.0"
+            args.face,
+            args.light,
+            args.shadow,
+            args.dark,
+            args.caption_assets,
+            args.dpi,
+            gtk4=args.gtk == "4.0",
+            converter=shutil.which("rsvg-convert"),
         )
         + header_css(args.active, args.inactive, args.inactive_text, args.face)
         + path_bar_css(args.light, args.shadow, args.dark)
