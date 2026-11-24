@@ -13,6 +13,7 @@ MS bold caption with its dark shadow.
 import argparse
 import base64
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -666,7 +667,11 @@ def caption_filename(kind, index):
     return f"{kind}-{aurorae.STATE_NAMES[aurorae.caption_art_index(kind, index)]}.svg"
 
 
-def caption_controls(assets):
+def caption_url(asset):
+    return 'url("' + (asset.as_uri() if asset.is_absolute() else asset.as_posix()) + '")'
+
+
+def caption_controls(assets, *, gtk3_hidpi=False):
     size = f"{aurorae.BUTTON}px"
     rules = [
         block("headerbar", min_height="26px", padding="2px 4px"),
@@ -710,11 +715,14 @@ def caption_controls(assets):
         rules.append(block(", ".join(base + " image" for base in bases), opacity="0"))
         for state, index in CAPTION_STATES:
             asset = assets / caption_filename(kind, index)
-            location = asset.as_uri() if asset.is_absolute() else asset.as_posix()
+            image = caption_url(asset)
+            if gtk3_hidpi:
+                doubled = caption_url(asset.with_name(asset.stem + "@2.svg"))
+                image = f"-gtk-scaled({image}, {doubled})"
             rules.append(
                 block(
                     ", ".join(base + state for base in bases),
-                    background_image=f'url("{location}")',
+                    background_image=image,
                     background_color="transparent",
                     box_shadow="none",
                 )
@@ -722,11 +730,11 @@ def caption_controls(assets):
     return "\n".join(rules)
 
 
-def titlebar_block(active, inactive, caption, assets=Path("../caption")):
+def titlebar_block(active, inactive, caption, assets=Path("../caption"), *, gtk3_hidpi=False):
     return (
         titlebar_state("", active, aurorae_stops.SIDE_OVERLAY, "#FFFFFF")
         + titlebar_state(":backdrop", inactive, aurorae_stops.INACTIVE_SIDE_OVERLAY, caption)
-        + caption_controls(assets)
+        + caption_controls(assets, gtk3_hidpi=gtk3_hidpi)
     )
 
 
@@ -1174,13 +1182,21 @@ def build_index():
     )
 
 
+def write_caption_faces(folder, large, *, density=1):
+    folder.mkdir(parents=True, exist_ok=True)
+    intrinsic = (density * aurorae.BUTTON,) * 2 if density > 1 else None
+    for kind in CAPTION_KINDS:
+        for index in sorted({aurorae.caption_art_index(kind, index) for _, index in CAPTION_STATES}):
+            path = folder / caption_filename(kind, index)
+            if density > 1:
+                path = path.with_name(f"{path.stem}@{density}.svg")
+            path.write_text(aurorae.caption_face_svg(kind, index, large, intrinsic_size=intrinsic))
+
+
 def write_theme(out):
     captions = out / "caption"
-    for folder, large in ((captions, False), (captions / "large", True)):
-        folder.mkdir(parents=True, exist_ok=True)
-        for kind in CAPTION_KINDS:
-            for index in sorted({aurorae.caption_art_index(kind, index) for _, index in CAPTION_STATES}):
-                (folder / caption_filename(kind, index)).write_text(aurorae.caption_face_svg(kind, index, large))
+    write_caption_faces(captions, False)
+    write_caption_faces(captions / "large", True)
     for version in VERSIONS:
         assets = out / f"gtk-{version}" / "assets"
         assets.mkdir(parents=True, exist_ok=True)
@@ -1226,14 +1242,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", type=Path, default=HERE / THEME_NAME)
     parser.add_argument("--titlebar", action="store_true", help="print the header bar block and exit")
+    parser.add_argument("--write-gtk3-hidpi-captions", action="store_true", help="write double-density caption SVGs")
     parser.add_argument("--caption-assets", type=Path, default=HERE / THEME_NAME / "caption")
     parser.add_argument("--dpi", type=int, default=96, help="display DPI for the managed titlebar rules")
     options = parser.parse_args()
-    if options.titlebar:
+    if options.write_gtk3_hidpi_captions:
+        # Match GTK 3's 2× backing buffer for the 21px caption background.
+        write_caption_faces(options.caption_assets / "large", True, density=2)
+    elif options.titlebar:
         assets = options.caption_assets.resolve()
+        gtk3_hidpi = options.dpi == aurorae.LARGE_CAPTION_DPI and os.environ.get("GTK_VERSION") == "3.0"
         if options.dpi >= aurorae.LARGE_CAPTION_DPI:
             assets /= "large"
-        sys.stdout.write(titlebar_block("title-active", "title-inactive", INACTIVE_CAPTION, assets))
+        sys.stdout.write(titlebar_block("title-active", "title-inactive", INACTIVE_CAPTION, assets, gtk3_hidpi=gtk3_hidpi))
     else:
         write_theme(options.out)
         print("wrote", options.out)

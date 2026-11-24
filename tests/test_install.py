@@ -2020,6 +2020,12 @@ def test_luna_decoration_writes_the_vertical_title_gradient_into_the_gtk_css(tmp
     for version in ("3.0", "4.0"):
         css = (tmp_path / f".config/gtk-{version}/gtk.css").read_text()
         assert f'url("{restore.as_uri()}")' in css
+        doubled = restore.with_name("restore-active@2.svg")
+        assert (doubled.as_uri() in css) == (dpi == 120 and version == "3.0")
+    if dpi == 120:
+        assert doubled.read_text() == restore.read_text().replace('width="27" height="27"', 'width="42" height="42"', 1)
+    else:
+        assert not doubled.exists()
 
 
 def test_classic_decoration_keeps_the_horizontal_title_gradient_in_the_gtk_css(tmp_path):

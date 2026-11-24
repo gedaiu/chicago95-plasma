@@ -18,5 +18,8 @@
   "start_menu_user": "Classic",
   "properties_scale": 1.25,
   "display_page": "Settings",
-  "display_resolution": "1280x1024"
+  "display_resolution": "1280x1024",
+  "shutdown_scale": 1.25,
+  "shutdown_os_name": "Windows XP",
+  "shutdown_rgb565": true
 }

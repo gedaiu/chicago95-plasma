@@ -1,4 +1,4 @@
-"""Render the production Control Panel and Display Properties in an isolated Qt process."""
+"""Render production Qt dialogs in an isolated process at the reference DPI."""
 
 import json
 import os
@@ -8,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from conftest import REPO, load_script  # noqa: E402
+from aurorae_model import build_theme  # noqa: E402
 from PIL import Image  # noqa: E402
 from PySide6.QtCore import QPoint, QRect, QSize  # noqa: E402
 from PySide6.QtGui import QIcon  # noqa: E402
@@ -80,6 +81,26 @@ def capture_hover_exit(window, output, scale):
     strip.save(output)
 
 
+def capture_shutdown(app, look, output, scale, branding):
+    import chicago95ui
+
+    # The classic dialogs draw their own frame. The Aero comparison is the Qt client area.
+    if look in ("1995", "1998", "2000", "2001"):
+        chicago95ui.DECORATION = build_theme(Path(output).with_name("aurorae"), look)
+    flag = REPO / "luna/images/windows-xp-flag.svg" if look in ("2001", "luna", "aero") else ""
+    with Path(chicago95ui.CHICAGO95RC).open("a") as config:
+        config.write(f"\n[Branding]\nosCompany=Microsoft\nosName={branding}\nosEdition=Professional\nosLogo={flag}\n")
+    dialog = load_script("chicago95-shutdown").screenshot_dialog(False)
+    try:
+        dialog.show()
+        app.processEvents()
+        shot = dialog.grab()
+        assert shot.devicePixelRatio() == scale
+        assert shot.save(output)
+    finally:
+        dialog.close()
+
+
 def render(manifest, component, output, width, height):
     import chicago95ui
 
@@ -87,7 +108,11 @@ def render(manifest, component, output, width, height):
     look = metadata["look"]
     hover = component == "control-panel-hover"
     hover_exit = component == "control-panel-hover-exit"
-    scale = metadata["control_panel_hover_scale" if hover else "properties_scale"]
+    scale_key = {
+        "shutdown": "shutdown_scale",
+        "control-panel-hover": "control_panel_hover_scale",
+    }.get(component, "properties_scale")
+    scale = metadata[scale_key]
     os.environ["QT_SCALE_FACTOR"] = str(scale)
     app = chicago95ui.make_app("Control Panel")
     context = aero_style(app) if look == "aero" else themed(app, look)
@@ -95,6 +120,9 @@ def render(manifest, component, output, width, height):
         if look == "aero":
             chicago95ui.apply_style(app)
             QIcon.setThemeName("Windows-7-SVG")
+        if component == "shutdown":
+            capture_shutdown(app, look, output, scale, metadata["shutdown_os_name"])
+            return
         panel = load_script("chicago95-control-panel")
         resolution = metadata["display_resolution"]
         sizes = list(dict.fromkeys(("640x480", "800x600", "1024x768", resolution)))

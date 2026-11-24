@@ -30,6 +30,7 @@ Item {
                 buttonType: modelData
                 readonly property bool closeButton: buttonType === DecorationOptions.DecorationButtonClose
                 readonly property bool minimizeButton: buttonType === DecorationOptions.DecorationButtonMinimize
+                readonly property bool restoreButton: !closeButton && !minimizeButton && decoration.client.maximized
                 width: (closeButton ? group.theme.buttonWidthClose : minimizeButton ? group.theme.buttonWidthMinimize
                                                                                   : group.theme.buttonWidthMaximizeRestore)
                        * group.theme.buttonSizeFactor
@@ -38,12 +39,15 @@ Item {
                     // A maximized Aero frame loses the top device row of the
                     // button face at the screen edge. Keep the hit target full size.
                     y: decoration.client.maximized ? -1 / group.outputScale : 0
+                    // At 96 DPI Restore sits one pixel farther into the join
+                    // than the restored Maximize face.
+                    x: button.restoreButton && group.outputScale === 1 ? 1 : 0
                     width: button.width
                     height: button.height
                     haloLayer: halos
-                    haloPosition: Qt.point(button.x, button.y + y)
+                    haloPosition: Qt.point(button.x + x, button.y + y)
                     artwork: button.closeButton ? group.theme.closeButtonPath : button.minimizeButton ? group.theme.minimizeButtonPath
-                             : decoration.client.maximized ? group.theme.restoreButtonPath : group.theme.maximizeButtonPath
+                             : button.restoreButton ? group.theme.restoreButtonPath : group.theme.maximizeButtonPath
                     activeWindow: decoration.client.active
                     hovered: button.hovered
                     held: button.pressed

@@ -5,12 +5,16 @@
     "win2000-pro-run.png": "run.png",
     "win2000-pro-taskbar-band.png": "taskbar-band.png",
     "caption-states-2000.png": "caption-states.png",
-    "win2000-pro-120dpi-device-manager-band.png": "device-manager.png"
+    "win2000-pro-120dpi-device-manager-band.png": "device-manager.png",
+    "win2000-pro-shutdown-dialog.png": "shutdown.png"
   },
   "taskbar_x": 535,
   "device_manager_scale": 1.25,
   "start_menu_active": 4,
   "properties_scale": 1.25,
   "display_page": "Appearance",
-  "display_resolution": "1280x1024"
+  "display_resolution": "1280x1024",
+  "shutdown_scale": 1,
+  "shutdown_os_name": "Windows 2000",
+  "shutdown_rgb565": true
 }

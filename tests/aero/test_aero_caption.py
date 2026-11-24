@@ -125,7 +125,8 @@ def test_kwin_caption_glyphs_on_a_150_percent_screen(desktops, tmp_path, exact_o
 
 
 @pytest.mark.skipif(bool(missing_programs()), reason=f"needs {', '.join(missing_programs())}")
-def test_clicking_maximize_draws_restore_on_a_150_percent_screen(desktops, tmp_path, exact_original):
+@pytest.mark.parametrize("scale", [1, 1.5])
+def test_clicking_maximize_draws_restore_on_the_native_grid(desktops, tmp_path, exact_original, scale):
     from caption_cluster import compare_cluster, native_cluster
     from PIL import ImageOps
 
@@ -134,13 +135,13 @@ def test_clicking_maximize_draws_restore_on_a_150_percent_screen(desktops, tmp_p
         **reference_session(
             settings=[("DECORATION", "aero"), ("BACKGROUND_MODE", "color"), ("BACKGROUND_COLOR", "#101820")],
             windows=[("High DPI caption", "qt", (160, 150, 559, 449))],
-            scale=1.5,
+            scale=scale,
             pointer_steps=["move:490,159", "click:left", "move:440,300", "wait:0.6"],
         ),
     )
     # Windows clips the first row of a maximized caption against the screen edge.
-    corner = desktop.crop((desktop.width - 210, 0, desktop.width, 50))
-    scores, group = compare_cluster(ImageOps.expand(corner, border=(0, 1, 0, 0)), 1.5, maximized=True)
+    corner = desktop.crop((desktop.width - round(150 * scale), 0, desktop.width, round(34 * scale)))
+    scores, group = compare_cluster(ImageOps.expand(corner, border=(0, 1, 0, 0)), scale, maximized=True)
     group.save(tmp_path / "maximized-caption.png")
-    exact_original(native_cluster(1.5, maximized=True)[0], group)
+    exact_original(native_cluster(scale, maximized=True)[0], group)
     assert scores == (1, 1, 1), scores

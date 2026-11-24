@@ -113,7 +113,7 @@ def test_large_caption_glyph_matches_144_dpi_guest(qt_app, kind, left, width):
 
 @pytest.mark.parametrize(
     ("kind", "width", "left", "dpi96_limit", "dpi144_limit"),
-    [("minimize", 30, 0, 16, 17), ("maximize", 27, 45, 24, 18), ("close", 50, 85, 14, 17), ("restore", 27, 0, 17, 9)],
+    [("minimize", 30, 0, 14, 17), ("maximize", 27, 45, 19, 18), ("close", 50, 85, 14, 17), ("restore", 27, 0, 10, 9)],
 )
 @pytest.mark.parametrize("large", [False, True], ids=["96dpi", "144dpi"])
 def test_complete_caption_face_against_guest(
@@ -144,6 +144,34 @@ def test_complete_caption_face_against_guest(
     exact_original(expected, actual)
     difference = np.abs(np.asarray(actual, dtype=int) - np.asarray(expected, dtype=int))
     assert difference.mean() < limit
+    if kind == "maximize" and not large:
+        assert difference[:17, 0].mean() < 16
+
+
+@pytest.mark.parametrize(("kind", "width", "ink_pixels"), [("minimize", 30, 56), ("maximize", 27, 108), ("restore", 27, 126)])
+@pytest.mark.parametrize(("state", "frame"), [("active", 0), ("hover", 55)])
+def test_96dpi_caption_glyph_matches_native_ink(qt_app, kind, width, ink_pixels, state, frame):
+    import numpy as np
+    from test_aero_imported_art import render
+
+    restore = kind == "restore"
+    reference = Image.open(REPO / f"tests/references/win7-sp1-caption-{kind}-motion.png")
+    x, y = frame % 10 * width, frame // 10 * 25 + (0 if restore else 2)
+    native = np.asarray(reference.crop((x + 5, y + 2, x + width - 5, y + 16)))
+    asset = REPO / f"aero/aurorae/theme/{kind}.svg"
+    layer = np.asarray(render(asset.read_bytes(), (width, 20), state + "-center"))
+    # The restored cluster overlaps adjacent cells by one pixel, so its
+    # native filmstrip is one pixel ahead of the unjoined SVG's glyph.
+    shift = 0 if restore else 1
+    glyph = layer[2 + int(restore) : 16 + int(restore), 5 + shift : width - 5 + shift]
+
+    def ink(rgb):
+        return np.all(rgb == (83, 86, 102), axis=2) | ((rgb.min(axis=2) > 210) & (np.ptp(rgb, axis=2) < 4))
+
+    mask = ink(native)
+    assert mask.sum() == ink_pixels
+    assert np.array_equal(mask, ink(glyph[..., :3]) & (glyph[..., 3] == 255))
+    assert np.array_equal(native[mask], glyph[mask, :3])
 
 
 @pytest.mark.parametrize(

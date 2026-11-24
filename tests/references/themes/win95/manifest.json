@@ -12,5 +12,7 @@
   "device_manager_scale": 1,
   "properties_scale": 1.25,
   "display_page": "Appearance",
-  "display_resolution": "1024x768"
+  "display_resolution": "1024x768",
+  "shutdown_scale": 1.25,
+  "shutdown_os_name": "Windows 95"
 }

@@ -1696,7 +1696,11 @@ write_gtk_titlebar_css() {
     run python3 "$REPO/aero/gtk/caption.py" --write-buttons "$buttons" || return 1
     record "$buttons"
   elif [ "${SETUP_DECORATION:-classic}" = luna ]; then
-    put_tree "$REPO/luna/gtk/Chicago95Luna/caption" "$STATE_DIR/gtk-luna-caption"
+    local buttons="$STATE_DIR/gtk-luna-caption"
+    put_tree "$REPO/luna/gtk/Chicago95Luna/caption" "$buttons"
+    if [ "${SETUP_DPI:-96}" = 120 ]; then
+      run python3 "$REPO/luna/gtk/make_luna_gtk.py" --write-gtk3-hidpi-captions --caption-assets "$buttons" || return 1
+    fi
   elif [ "${SETUP_DECORATION:-classic}" = classic ] && [ "${SETUP_DRY_RUN:-0}" != 1 ]; then
     # GTK 3 does not load the embedded data URLs used by the CSS preview.
     GTK_CLASSIC_CAPTION_ASSETS="$STATE_DIR/gtk-classic-caption"

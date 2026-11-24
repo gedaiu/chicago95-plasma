@@ -13,5 +13,7 @@
   "display_page": "Settings",
   "display_resolution": "1280x960",
   "control_panel_hover_scale": 1,
-  "control_panel_hover_exit": true
+  "control_panel_hover_exit": true,
+  "shutdown_scale": 1,
+  "shutdown_os_name": "Windows 7"
 }

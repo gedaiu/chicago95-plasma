@@ -163,3 +163,25 @@ def test_aero_log_off_uses_a_decorated_dialog_and_defaults_to_cancel(shutdown, a
     assert not dialog.windowFlags() & Qt.FramelessWindowHint
     buttons = dialog.findChild(QDialogButtonBox)
     assert buttons.button(QDialogButtonBox.Cancel).isDefault()
+
+
+def test_aero_shutdown_chooser_uses_native_client_geometry_and_accepts_the_selected_action(shutdown, asked_dialogs):
+    from PySide6.QtCore import QRect, Qt
+    from PySide6.QtWidgets import QComboBox, QPushButton
+
+    dialogs = asked_dialogs("aero")
+    assert shutdown.turn_off_choice() is None
+    dialog = dialogs[0]
+    assert dialog.rect() == QRect(0, 0, 458, 223)
+    combo = dialog.findChild(QComboBox)
+    assert combo.geometry() == QRect(66, 105, 317, 21)
+    assert combo.currentData() == shutdown.SHUT_DOWN
+    assert [button.text() for button in dialog.findChildren(QPushButton)] == ["OK", "Cancel", "Help"]
+    combo.setCurrentIndex(combo.findData(shutdown.RESTART))
+    assert dialog.choice == shutdown.RESTART
+    assert dialog.focusWidget() is combo
+    assert not dialog.windowFlags() & Qt.FramelessWindowHint
+    buttons = dialog.findChildren(QPushButton)
+    assert buttons[0].isDefault()
+    buttons[0].click()
+    assert dialog.result() == dialog.DialogCode.Accepted

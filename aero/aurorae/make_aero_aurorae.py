@@ -183,15 +183,41 @@ GLYPH_SHAPES = {
 CLOSE_OUTLINE_WIDTH = 2
 
 
-def glyph_markup(kind, colours, prefix="g", origin=(0, 0)):
+# At 96 DPI the native outlines chamfer the corners at the ends of the
+# straight strokes. The white ink and its adjoining steps share one grid.
+CAPTION_OUTLINES_96 = {
+    "minimize": "M2 7H12V8H13V11H12V12H2V11H1V8H2Z",
+    "maximize": "M4 2H14V3H15V11H14V12H4V11H3V3H4Z" + rect(7, 6, 4, 2),
+    "restore": "M4 1H12V2H13V10H12V11H11V12H10V13H2V12H1V4H2V3H3V2H4Z" + rect(5, 7, 2, 2),
+}
+CAPTION_INK_96 = {
+    "minimize": (8, (255, 238, 228)),
+    "maximize": (3, (255, 255, 255, 240, 232, 227, 222, 218)),
+    "restore": (2, (255, 255, 255, 255, 243, 234, 229, 225, 221, 217)),
+}
+
+
+def glyph_markup(kind, colours, prefix="g", origin=(0, 0), *, optical=False):
     """A glyph's shapes at origin: dark outline under a white body that darkens towards its foot."""
     (_, height), layers = GLYPH_SHAPES[kind]
     x0, y0 = origin
     outline, outline_alpha = colours["outline"]
     body_id = f"{prefix}{kind}"
+    if optical:
+        first, shades = CAPTION_INK_96[kind]
+        knots = "".join(
+            f'<stop offset="{(row + .5) / height:g}" stop-color="#{shade:02x}{shade:02x}{shade:02x}"/>'
+            for row, shade in enumerate(shades, first)
+        )
+        start = 0
+        if kind in CAPTION_OUTLINES_96:
+            layers = [("outline", CAPTION_OUTLINES_96[kind]), *layers[1:]]
+    else:
+        start = y0
+        knots = f'<stop offset="0" {paint(*colours["top"])}/><stop offset="1" {paint(*colours["bottom"])}/>'
     gradient = (
-        f'<linearGradient id="{body_id}" x1="0" y1="{y0}" x2="0" y2="{y0 + height}" gradientUnits="userSpaceOnUse">'
-        f'<stop offset="0" {paint(*colours["top"])}/><stop offset="1" {paint(*colours["bottom"])}/></linearGradient>'
+        f'<linearGradient id="{body_id}" x1="0" y1="{start}" x2="0" y2="{start + height}" '
+        f'gradientUnits="userSpaceOnUse">{knots}</linearGradient>'
     )
     opacity = number(round(outline_alpha / 255, 3))
     shapes = {
@@ -643,7 +669,7 @@ def large_minimize_surface(width, prefix):
     return "".join(definitions), "".join(shapes)
 
 
-def caption_surface(kind, face, width, prefix, large, *, optical_face=(), disabled_close=False):
+def caption_surface(kind, face, width, prefix, large, *, optical_face=(), resting=False, disabled_close=False):
     """Paint the glass face and bevels with independently translucent gradients."""
     if kind == "minimize" and optical_face:
         return large_minimize_surface(width, prefix)
@@ -655,6 +681,10 @@ def caption_surface(kind, face, width, prefix, large, *, optical_face=(), disabl
     half = stroke / 2
     bottom, right = height - half, width - half
     joined = LARGE_ACTIVE_JOINED_EDGES.get(kind, {}) if optical_face else {}
+    if resting and not large and kind == "maximize":
+        # The neighbouring Minimize button owns the dark seam. Maximize
+        # starts with one translucent light pixel at both densities.
+        joined = {"left": LARGE_ACTIVE_JOINED_EDGES["maximize"]["left"]}
     edge = caption_rim(
         half, half, right, bottom, left_radius, right_radius,
         left_edge="left" not in joined and not disabled_close, right_edge="right" not in joined,
@@ -761,20 +791,25 @@ def button_state(kind, window, look, prefix, x0=0, large=False, *, cell_width=No
     glyph_x = round((width - glyph_width + left - right) / 2)
     glyph_y = round((height - glyph_height + top - bottom) / 2)
     face = button_face(stops.FACES[face_name][window][look])
+    resting = (window, look) == ("active", "normal")
     disabled_close = large and kind == "close" and (window, look) == ("active", "disabled")
-    optical_face = LARGE_ACTIVE_FACE.get(kind, ()) if large and (window, look) == ("active", "normal") else ()
+    optical_face = LARGE_ACTIVE_FACE.get(kind, ()) if large and resting else ()
     if disabled_close:
         optical_face = LARGE_DISABLED_CLOSE_FACE
     face_definitions, face_shapes = caption_surface(
-        kind, face, width, f"f{prefix}", large, optical_face=optical_face, disabled_close=disabled_close
+        kind, face, width, f"f{prefix}", large, optical_face=optical_face, resting=resting, disabled_close=disabled_close
     )
     face_shapes = f'<g transform="translate({x0} 0)">{face_shapes}</g>'
     if disabled_close:
         return face_definitions, face_shapes + large_disabled_close_glyph(x0 + (width - original_width) / 2)
-    glyph_gradient, glyph_shapes = glyph_markup(kind, stops.GLYPHS[kind][look], f"g{prefix}", (x0 + glyph_x, glyph_y))
     if large:
         glyph_gradient, glyph_shapes = large_caption_glyph(
             kind, stops.GLYPHS[kind][look], prefix, x0 + (width - original_width) / 2, pixel_density
+        )
+    else:
+        glyph_gradient, glyph_shapes = glyph_markup(
+            kind, stops.GLYPHS[kind][look], f"g{prefix}", (x0 + glyph_x, glyph_y),
+            optical=kind in CAPTION_INK_96 and look != "disabled",
         )
     return face_definitions + glyph_gradient, face_shapes + glyph_shapes
 

@@ -457,7 +457,7 @@ def large_glyph_markup(kind, ink, index):
     return f'<path d="{outline}" fill="{ink}" fill-rule="evenodd"/>'
 
 
-def caption_face_svg(kind, index, large=False):
+def caption_face_svg(kind, index, large=False, *, intrinsic_size=None):
     color = "red" if kind == "close" else "blue"
     index = caption_art_index(kind, index)
     art = stops.BUTTON_ART[color][index]
@@ -465,10 +465,10 @@ def caption_face_svg(kind, index, large=False):
         geometry, tiles = large_face_tiles()
         definitions = geometry + face_definitions("s", art)
         body = large_face_art("s", art, tiles) + large_glyph_markup(kind, art["glyph"], index)
-        return linked_svg(LARGE_CAPTION, LARGE_CAPTION, f"<defs>{definitions}</defs>\n{body}")
+        return linked_svg(LARGE_CAPTION, LARGE_CAPTION, f"<defs>{definitions}</defs>\n{body}", intrinsic_size=intrinsic_size)
     definitions = face_inset() + face_definitions("s", art)
     body = face_art("s", art) + glyph_markup(kind, art["glyph"])
-    return linked_svg(BUTTON, BUTTON, f"<defs>{definitions}</defs>\n{body}")
+    return linked_svg(BUTTON, BUTTON, f"<defs>{definitions}</defs>\n{body}", intrinsic_size=intrinsic_size)
 
 
 def button_svg(kind, large=False, *, device_canvas=False):

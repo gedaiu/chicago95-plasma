@@ -42,9 +42,13 @@ def reused_gradient(gradient_id, source_id, direction="right"):
     return f'<linearGradient id="{gradient_id}" xlink:href="#{source_id}"{attributes}/>'
 
 
-def linked_svg(width, height, body):
+def linked_svg(width, height, body, *, intrinsic_size=None):
     """An svg whose elements may reference each other with <use>."""
-    return svg(width, height, body).replace("<svg ", '<svg xmlns:xlink="http://www.w3.org/1999/xlink" ', 1)
+    artwork = svg(width, height, body).replace("<svg ", '<svg xmlns:xlink="http://www.w3.org/1999/xlink" ', 1)
+    if intrinsic_size is not None:
+        w, h = intrinsic_size
+        artwork = artwork.replace(f'width="{width}" height="{height}"', f'width="{w}" height="{h}"', 1)
+    return artwork
 
 
 def number(value, digits=5):

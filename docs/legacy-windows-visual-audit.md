@@ -65,8 +65,12 @@ logical size, and KSVG rasterizes it once at the output scale. GTK 3 and GTK 4 s
 when Setup configures 120 DPI. The 144 GTK comparisons across the six themes still show differences. In the four
 Classic themes, fractional positioning spreads the face across an extra row or column. The tested Luna faces have the
 native dimensions and differ in RGB. A 27-pixel PNG export of the same Luna artwork gave mean RGB error of 20.43
-in GTK 3 and 18.07 in GTK 4, within 0.02 of the installed SVGs across 12 states per toolkit. A larger CSS face
-spread across up to 28 pixels and softened the glyph interiors. The installed GTK styles continue to use the SVGs.
+in GTK 3 and 18.07 in GTK 4, within 0.02 of the earlier installed SVGs across 12 states per toolkit. A larger CSS
+face spread across up to 28 pixels and softened the glyph interiors. At 120 DPI, Setup now gives GTK 3 an SVG
+with a 42-pixel intrinsic size for its 2× backing buffer. It shares the 27-pixel artwork's viewBox and paths.
+The live GTK 3 mean fell from 20.45 to 17.86, with the original 27×27 captured bounds in all 12 comparisons.
+GTK 4 keeps the 27-pixel viewport and averages 18.06. Trials at 21, 26, 28, 42, 52, 54 and 81 pixels gave larger
+errors there. All 24 strict comparisons still show RGB differences. [Live GTK 3 regression](../tests/visual/parity.py)
 
 Luna at 125% keeps its 27-pixel face inside a 28-pixel SVG canvas, which
 lets KSVG render it at its authored size. All 12 live KWin comparisons reproduce the opaque SVG interior exactly.

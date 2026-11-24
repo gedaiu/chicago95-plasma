@@ -411,6 +411,19 @@ def test_luna_svg_close_glyph_core_matches_windows_pixels(state, svg_themes, vis
 @pytest.mark.parametrize(
     ("state", "index"), [(state, index) for state in CAPTION_STATES for index in state_buttons(state)]
 )
+def test_luna_gtk3_caption_keeps_native_size_and_sharper_detail(state, index, live_gtk):
+    look, scale = THEMES["winxp"][1]["look"], THEMES["winxp"][1]["caption_scale"]
+    expected, _ = face_region(caption_reference(look), look, state, index)
+    actual = gtk_face(live_gtk(look, scale) / "caption-gtk-3.0", state, index)
+    assert actual.size == expected.size
+    mask = visible_pixels(look, state, expected.size)
+    difference = np.abs(np.asarray(expected, dtype=int) - np.asarray(actual, dtype=int))
+    assert difference[mask].mean() < 22
+
+
+@pytest.mark.parametrize(
+    ("state", "index"), [(state, index) for state in CAPTION_STATES for index in state_buttons(state)]
+)
 def test_luna_kwin_preserves_the_authored_120dpi_pixels(state, index, svg_themes, live_kwin, visual_output):
     look, scale = THEMES["winxp"][1]["look"], THEMES["winxp"][1]["caption_scale"]
     theme = svg_themes[look]
@@ -666,6 +679,18 @@ def test_properties(theme, component, tmp_path, visual_output):
         exact(expected, actual, visual_output / theme / component / "qt")
 
 
+@pytest.mark.parametrize("theme", THEMES)
+def test_shutdown_chooser(theme, tmp_path, visual_output):
+    folder, metadata = THEMES[theme]
+    with Image.open(folder / "shutdown.png") as frame:
+        expected = frame.convert("RGB")
+    output = tmp_path / "shutdown.png"
+    render_properties(folder, "shutdown", output, expected.size)
+    with Image.open(output) as frame:
+        actual = rgb565(frame) if metadata.get("shutdown_rgb565") else frame.convert("RGB")
+    exact(expected, actual, visual_output / theme / "shutdown" / "qt")
+
+
 @pytest.fixture(scope="module", params=[theme for theme, (_, m) in THEMES.items() if "control_panel_hover_scale" in m])
 def category_hover(request, tmp_path_factory):
     theme = request.param
@@ -725,12 +750,13 @@ def test_coverage(theme):
             "device-manager",
             "control-panel",
             "display-properties",
+            "shutdown",
         }
     ]
     if not (folder / "taskbar-band.png").is_file():
         gaps.append("taskbar / Plasma: empty-band reference")
     gaps.append("taskbar / Plasma: interactive and populated states")
-    for component in ("start-menu", "device-manager", "control-panel", "display-properties"):
+    for component in ("start-menu", "device-manager", "control-panel", "display-properties", "shutdown"):
         if not (folder / f"{component}.png").is_file():
             gaps.append(f"{component} / Qt: native reference")
     gaps.extend(
@@ -739,11 +765,14 @@ def test_coverage(theme):
             "device-manager / Qt: remaining chrome, tree and device properties",
             "control-panel / Qt: navigation and category or icon-view variants",
             "display-properties / Qt: remaining tabs and control states",
+            "shutdown / Qt: additional choices, hover and pressed states",
+            "shutdown: desktop transition and session-ending sequence",
         )
     )
     if theme == "win7":
         gaps.append("start-menu / Qt: glass pane and search results")
         gaps.append("control-panel / Qt: remaining category and action states")
+        gaps.append("shutdown / KWin: Aero window frame")
     else:
         gaps.append("control-panel / Qt: hover and selection captures")
     if not (folder / "run.png").is_file():
