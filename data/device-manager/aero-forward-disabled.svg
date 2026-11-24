@@ -1,21 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
   <defs>
-    <linearGradient id="rim" x2="0" y2="1">
-      <stop stop-color="#5b5b5b"/>
-      <stop offset="1" stop-color="#747474"/>
+    <linearGradient id="rim" gradientUnits="userSpaceOnUse" x1="0" y1="7" x2="0" y2="12">
+      <stop stop-color="#5c5c5c"/>
+      <stop offset="0.58" stop-color="#5a5a5a"/>
+      <stop offset="1" stop-color="#6e6e6e"/>
     </linearGradient>
-    <linearGradient id="bevel" x1="0" x2=".4" y2="1">
-      <stop stop-color="#989898"/>
-      <stop offset=".64" stop-color="#bcbcbc"/>
-      <stop offset="1" stop-color="#c0c0c0"/>
+    <linearGradient id="bevel" gradientUnits="userSpaceOnUse" x1="10" y1="4" x2="6.1" y2="19.5">
+      <stop stop-color="#c6c6c6"/>
+      <stop offset="0.35" stop-color="#d5d5d5"/>
+      <stop offset="0.72" stop-color="#d1d1d1"/>
+      <stop offset="1" stop-color="#a5a5a5"/>
     </linearGradient>
-    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="10" y1="5" x2="12" y2="10.5">
-      <stop stop-color="#aaa"/>
-      <stop offset=".45" stop-color="#969696"/>
-      <stop offset="1" stop-color="#797979"/>
-    </linearGradient>
+    <radialGradient id="face" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1"
+                    gradientTransform="translate(7.9 4.1) scale(7.5 8.8)">
+      <stop stop-color="#a5a5a5"/>
+      <stop offset="0.48" stop-color="#999999"/>
+      <stop offset="1" stop-color="#757575"/>
+    </radialGradient>
   </defs>
-  <path d="M16 8 9 1H8v4H1L0 6v5l1 1h7v4h1l7-7Z" fill="url(#rim)"/>
-  <path d="M15 8.5 9 2.5V6H1v5h8v4Z" fill="url(#bevel)"/>
-  <path d="M14 8.5 9 3.5V6H2v4h7v2.3Z" fill="url(#face)"/>
+  <path d="M16 8.1 9.5 1.55Q8.65 1.15 8 1.55V5H1L0 6V11L1 12
+           H8V15.45Q8.65 15.85 9.5 15.45L16 8.9Z" fill="url(#rim)"/>
+  <path d="M15.15 8.5 9.05 2.6V6H1.3V11.1H9.05V14.4Z" fill="url(#bevel)"/>
+  <path d="M14.3 8.5 9.45 3.85V6.15H1.7V10.3H9.45V12.95Z" fill="url(#face)"/>
 </svg>

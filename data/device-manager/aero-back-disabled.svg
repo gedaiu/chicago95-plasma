@@ -1,21 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
   <defs>
-    <linearGradient id="rim" x2="0" y2="1">
-      <stop stop-color="#5b5b5b"/>
+    <linearGradient id="rim" gradientUnits="userSpaceOnUse" x1="0" y1="7" x2="0" y2="12">
+      <stop stop-color="#575757"/>
+      <stop offset="0.58" stop-color="#616161"/>
+      <stop offset="1" stop-color="#6e6e6e"/>
+    </linearGradient>
+    <linearGradient id="shaft" x2="0" y2="1">
+      <stop stop-color="#6e6e6e"/>
       <stop offset="1" stop-color="#747474"/>
     </linearGradient>
-    <linearGradient id="bevel" x1=".75" x2="1" y2="1">
-      <stop stop-color="#b2b2b2"/>
-      <stop offset=".5" stop-color="#bababa"/>
-      <stop offset="1" stop-color="#999"/>
+    <linearGradient id="bevel" gradientUnits="userSpaceOnUse" x1="6" y1="4" x2="12" y2="13">
+      <stop stop-color="#c6c6c6"/>
+      <stop offset="0.35" stop-color="#d5d5d5"/>
+      <stop offset="0.72" stop-color="#d1d1d1"/>
+      <stop offset="1" stop-color="#a7a7a7"/>
     </linearGradient>
-    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="7" y1="5.5" x2="14" y2="9.5">
-      <stop stop-color="#9c9c9c"/>
-      <stop offset=".23" stop-color="#a9a9a9"/>
-      <stop offset="1" stop-color="#5f5f5f"/>
-    </linearGradient>
+    <radialGradient id="face" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1"
+                    gradientTransform="translate(4.9 5.9) scale(8.9 7.4)">
+      <stop stop-color="#a2a2a2"/>
+      <stop offset="0.48" stop-color="#9f9f9f"/>
+      <stop offset="1" stop-color="#666666"/>
+    </radialGradient>
   </defs>
-  <path d="M0 8 7 1h1v4h7l1 1v5l-1 1H8v4H7l-7-7Z" fill="url(#rim)"/>
-  <path d="M1 8.5 7 2.5V6h8v5H7v4Z" fill="url(#bevel)"/>
-  <path d="M2 8.5 7 3.5V6h7v4H6v2.3Z" fill="url(#face)"/>
+  <path d="M0 8.1 6.5 1.55Q7.3 1.15 7.9 1.55V5H14.7L16 6.3V10.7
+           L14.7 12H7.9V15.45Q7.3 15.85 6.5 15.45L0 8.9Z" fill="url(#rim)"/>
+  <path d="M7.9 5H14.7L16 6.3V10.7L14.7 12H7.9Z" fill="url(#shaft)"/>
+  <path d="M1 8.5 6.8 2.75V6.1H14.9V11H6.8V14.25Z" fill="url(#bevel)"/>
+  <path d="M1.85 8.5 6.2 3.9V6.3H14.3V10.3H6.2V12.5Z" fill="url(#face)"/>
 </svg>

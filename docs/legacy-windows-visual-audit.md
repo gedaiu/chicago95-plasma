@@ -55,16 +55,21 @@ Windows 7 Aero Device Manager uses the MMC toolbar. Its 778×518 client
 has an unselected first row, an 18-pixel row pitch and a white viewport
 extending to the bottom bevel. Inventory errors remain visible. At 96 DPI
 the exposed gutter, tree surround, and empty viewport now match all
-182,878 tested pixels. Mean RGB error for the idle expanded and collapsed
-arrow SVGs fell from 3.45/255 and 9.90/255 to 1.48/255 and 2.15/255.
-The expanded hover, collapsed hover and held-open states measure
-1.88/255, 2.41/255 and 1.88/255. Pointer tests verify that moving from
+182,878 tested pixels. Mean RGB error for the idle expanded arrow is
+1.48/255. The hollow SVG outline reduces the idle collapsed arrow from
+2.15/255 to 0.48/255. The expanded hover, collapsed hover and held-open states
+measure 1.52/255, 1.55/255 and 1.52/255 with the revised SVG outlines and
+glow gradients. Pointer tests verify that moving from
 the arrow to the label clears the glow and that the branch opens on
 press and stays open when the button is released outside. The command
-bands fell from 2.59/255 to 2.11/255 within the same 778-column client.
+bands fell from 2.59/255 to 2.02/255 within the same 778-column client.
 The exposed toolbar interior and all three separators match all 13,409
 tested pixels. Six individual 16×16 icon comparisons show remaining
-differences. The redrawn Scan icon fell from 12.03/255 to 6.67/255.
+differences. The disabled Back and Forward icons use SVG paths for the
+rounded outline, bevel, and face. The revised outlines and gradients
+reduced their mean RGB errors from 4.64/255 to 2.31/255 for Back and
+from 4.59/255 to 2.17/255 for Forward at 96 DPI.
+The redrawn Scan icon fell from 12.03/255 to 6.67/255.
 The toolbar region where Scan appears matches all 621 pixels at startup
 with no selection. With the computer selected, the five Scan button
 states average 4.40/255. Releasing a held click outside cancels it.
@@ -75,7 +80,9 @@ bottom frame match all 6,650 and 2,256 pixels respectively. The SVG's
 side reflections and bevel bring the mean RGB error outside the caption
 regions from 0.36/255 to 0.20/255. The full dialog averages 4.27/255
 across 24,744 compared pixels. Caption rendering accounts for most
-of the remaining error. The redrawn Help icon fell
+of the remaining error. Loading the VM's Segoe UI into the comparison
+process changed the text rendering, with a similar overall error.
+The redrawn Help icon fell
 from 10.29/255 to 3.06/255. The seven Console Tree states fell from
 11.38/255 to 4.27/255. Dragging a held press outside clears the highlight
 and releasing there cancels the click. Device labels and icons depend
