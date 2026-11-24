@@ -14,6 +14,7 @@ CELL_WIDTHS = {
 }
 FACE_HEIGHT = palette.BUTTON_HEIGHT
 GTK4_CAPTION_TOP = 4
+MAXIMIZED_CAPTION_TOP = -2 / 3
 
 
 def write_face(directory, kind, state, width, artwork, large_artwork=None):
@@ -62,6 +63,16 @@ headerbar, headerbar.titlebar, .titlebar.default-decoration {
 }
 headerbar:backdrop {
   background: linear-gradient(to bottom, #ecf1f5, #cad5de);
+}
+window:not(.nautilus-window) headerbar.titlebar:not(:backdrop) {
+  background: linear-gradient(to bottom, #2d6ca5, #246399);
+  box-shadow: inset 0 1px rgba(255,255,255,.5);
+}
+window.maximized:not(.nautilus-window) headerbar.titlebar:not(:backdrop) {
+  background: linear-gradient(to bottom, #1d4775, #174273);
+  color: white;
+  border-bottom-color: #142e47;
+  box-shadow: none;
 }
 headerbar windowcontrols button, headerbar button.titlebutton {
   padding: 0; margin: 0; border: none; border-radius: 0;
@@ -114,6 +125,12 @@ headerbar button.titlebutton.close:hover { transition-duration: 40ms; box-shadow
 headerbar button.titlebutton:active, headerbar button.titlebutton:disabled {
   transition-duration: 0ms; box-shadow: none;
 }
+""")
+    rules.append(f"""
+window.maximized:not(.nautilus-window) headerbar windowcontrols button,
+window.maximized:not(.nautilus-window) headerbar button.titlebutton {{
+  background-position: center {MAXIMIZED_CAPTION_TOP:.6f}px;
+}}
 """)
     for kind in BUTTON_FACES:
         button = "maximize" if kind == "restore" else kind

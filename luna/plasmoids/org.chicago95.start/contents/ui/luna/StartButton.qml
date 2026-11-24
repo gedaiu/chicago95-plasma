@@ -13,18 +13,20 @@ Item {
     property color face: "#ece9d8"
     property color textColor: "#ffffff"
 
-    // The original's 98 pixel pill holds "start"; a longer name widens it, keeping the 26 pixels after the letters.
-    readonly property int inkRightMargin: 26
-    readonly property int pillWidth: Math.max(98, Math.round(inkLeft + letteringWidth + inkRightMargin))
+    // The guest uses a narrower pill at 120 DPI, with tighter spacing after the label.
+    readonly property real pixelScale: Window.window?.devicePixelRatio ?? Screen.devicePixelRatio
+    readonly property bool at120Dpi: pixelScale === 1.25
+    readonly property int inkRightMargin: at120Dpi ? 18 : 26
+    readonly property int pillWidth: Math.max(at120Dpi ? 91 : 98, Math.round(inkLeft + letteringWidth + inkRightMargin))
     readonly property int pillHeight: 30
     readonly property int flagLeft: 10
     readonly property int flagTop: 6
     readonly property size flagInk: Qt.size(20, 18)
     readonly property int flagShadowPadding: 4
     readonly property int inkLeft: 35
-    readonly property int inkWidth: 37
+    readonly property int inkWidth: at120Dpi ? 38 : 37
     readonly property int inkHeight: 12
-    readonly property int baselineRow: 21
+    readonly property int baselineRow: at120Dpi ? 20 : 21
     readonly property int probeSize: 100
     readonly property string lettering: text.toLowerCase()
     readonly property int lettersPixelSize: Math.round(inkHeight * probeSize / probe.tightBoundingRect.height)
@@ -66,7 +68,7 @@ Item {
         y: button.flagTop
         width: button.flagInk.width
         height: button.flagInk.height
-        sourceSize: Qt.size(width * Screen.devicePixelRatio, height * Screen.devicePixelRatio)
+        sourceSize: Qt.size(width * button.pixelScale, height * button.pixelScale)
         source: button.customLogo ? button.logoSource : "../../images/windows-xp-flag.svg"
         fillMode: Image.PreserveAspectFit
         smooth: true

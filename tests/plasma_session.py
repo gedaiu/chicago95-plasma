@@ -454,6 +454,17 @@ def install(
         folder.mkdir(parents=True, exist_ok=True)
     runtime.chmod(0o700)
     stub(work / "stubs", "systemctl", "pkill")
+    if "startmenu" in components:
+        # Keep launches on this compositor's session bus rather than the host's service manager.
+        systemd_run = work / "stubs/systemd-run"
+        systemd_run.write_text(
+            '#!/bin/sh\n'
+            'if [ "$1 $2 $3" = "--user --quiet --collect" ] && [ "$4" = "$HOME/.local/bin/chicago95-startmenu" ]; then\n'
+            '    exec "$4"\n'
+            'fi\n'
+            'exit 1\n'
+        )
+        systemd_run.chmod(0o755)
     link_user_assets(home)
     (home / ".config/plasma-welcomerc").write_text("[General]\nShouldShow=false\nLastSeenVersion=99.0.0\n")
     for size in TEST_ICON_SIZES:

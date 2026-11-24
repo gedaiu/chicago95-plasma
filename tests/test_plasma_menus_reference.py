@@ -1,12 +1,14 @@
 """plasmashell's desktop context menu in a live session (tests/plasma_session.py), opened with a right-click
 and a hovered row: the 1995 look's classic menu, and Windows XP Luna's against the menu specification (white
 face, 1px #ACA899 frame, 21px rows, a 28px icon column, #316AC5 highlight, 1px #ACA899 separators over white,
-a black submenu arrow). No XP context menu screenshot exists, so the specification is also drawn
+a black submenu arrow). The 96-DPI Luna specification is drawn here
 (spec_menu) and compared with the live menu outside its icons and labels.
 """
 
+import shutil
+
 import pytest
-from conftest import REPO, needs_ui_font
+from conftest import REPO, needs_ui_font, run_bash_with_steps
 from PIL import Image, ImageDraw
 from plasma_session import CLICK, menu_steps, missing_programs
 from PySide6.QtGui import QFont, QFontDatabase
@@ -24,12 +26,13 @@ ROW, SEPARATOR_ROW, ICON_COLUMN, ARROW_ZONE = 21, 6, 28, 22
 GROUPS = (4, 2, 2, 2)
 HOVERED_ROW = 4  # Open Terminal: a row without a submenu
 HOVER = (CLICK[0] + 100, CLICK[1] + 100)
+CLASSIC_HOVER = (CLICK[0] + 100, CLICK[1] + 85)
 TOLERANCE, BUDGET = 12, 0.03
 
 
 @pytest.fixture(scope="module")
 def menu_screen(desktops):
-    return lambda look: desktops(look, windows=[], pointer_steps=menu_steps(look, "desktop", hover=HOVER))
+    return lambda look, hover=HOVER: desktops(look, windows=[], pointer_steps=menu_steps(look, "desktop", hover=hover))
 
 
 @pytest.fixture(scope="module")
@@ -86,13 +89,14 @@ def column_colours(screen, x, top, bottom):
 
 
 def test_1995_menu_face_is_c0c0c0(menu_screen):
-    screen = menu_screen("1995")
+    screen = menu_screen("1995", CLASSIC_HOVER)
     assert close(screen.getpixel((CLICK[0] + 150, CLICK[1] + 10)), CLASSIC_FACE, TOLERANCE) is True
 
 
 def test_1995_hovered_row_is_000080(menu_screen):
-    screen = menu_screen("1995")
-    assert close(screen.getpixel((CLICK[0] + 60, HOVER[1])), CLASSIC_SELECTION, TOLERANCE) is True
+    screen = menu_screen("1995", CLASSIC_HOVER)
+    ink_free_band = screen.crop((CLICK[0] + 105, CLASSIC_HOVER[1], CLICK[0] + 145, CLASSIC_HOVER[1] + 1))
+    assert ink_free_band.getcolors() == [(ink_free_band.width, CLASSIC_SELECTION)]
 
 
 def test_luna_menu_frame_is_1px_aca899_all_round(luna_screen):
@@ -169,14 +173,20 @@ def test_luna_menu_matches_the_specification_outside_icons_and_labels(luna_scree
     assert (ours.size, len(wrong) <= BUDGET * len(compared)) == (expected.size, True)
 
 
-def test_aero_selected_menu_row_keeps_the_native_top_and_bottom_highlights(qt_app):
+def test_aero_selected_menu_row_keeps_the_native_top_and_bottom_highlights(qt_app, tmp_path):
     font = QFontDatabase.addApplicationFont(str(REPO / "sddm/Chicago95Plasma/fonts/selawik/selawk.ttf"))
     style = QStyleFactory.create("Windows")
     menu = QMenu()
     menu.setStyle(style)
     # Use the 96-DPI reference row height to check the paint independently of the shell's font.
     menu.setFont(QFont(QFontDatabase.applicationFontFamilies(font)[0], 9))
-    menu.setStyleSheet((REPO / "aero/plasma-style/menus.qss").read_text())
+    assets = tmp_path / ".local/share/chicago95/images"
+    assets.mkdir(parents=True)
+    for name in ("menu-gutter", "menu-selection", "menu-arrow"):
+        shutil.copyfile(REPO / f"aero/plasma-style/{name}.svg", assets / f"aero-{name}.svg")
+    menu.setStyleSheet("\n".join(run_bash_with_steps(
+        tmp_path, 'SETUP_WIDGET_STYLE=aero render_menus_qss "$REPO/aero/plasma-style/menus.qss"'
+    )))
     action = menu.addAction("Screen resolution")
     menu.addAction("Personalize")
     menu.show()

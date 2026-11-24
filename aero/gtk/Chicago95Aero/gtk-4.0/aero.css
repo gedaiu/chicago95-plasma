@@ -26,6 +26,7 @@
 .nautilus-window toolbarview > .top-bar .collapse-spacing { padding-top: 0; padding-bottom: 0; }
 .nautilus-window .top-bar headerbar {
   min-height: 42px;
+  background: #61aee7;
   border-radius: 0;
   margin: 0;
 }
@@ -38,11 +39,47 @@
 }
 /* The header's 6px end padding supplies the Aero caption group's outer inset. */
 .nautilus-window headerbar windowcontrols.end { margin-top: 11px; margin-bottom: 11px; }
+/* Nautilus puts Back and Forward in the history stack on the start side of
+   the header. Use the same navigation artwork as the installed GTK 3 theme. */
+.nautilus-window headerbar box.start > stack > widget > box > button.image-button {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: none;
+  background-color: transparent;
+  background-position: center;
+  background-size: 28px 28px;
+  background-repeat: no-repeat;
+  transition: filter 90ms linear;
+}
+.nautilus-window headerbar box.start > stack > widget > box > button.image-button:first-child {
+  background-image: -gtk-icontheme("go-previous");
+}
+.nautilus-window headerbar box.start > stack > widget > box > button.image-button:last-child {
+  background-image: -gtk-icontheme("go-next");
+}
+.nautilus-window headerbar box.start > stack > widget > box > button.image-button > image {
+  opacity: 0;
+  padding: 0;
+}
+.nautilus-window headerbar box.start > stack > widget > box > button.image-button:hover {
+  filter: brightness(1.18);
+}
+.nautilus-window headerbar box.start > stack > widget > box > button.image-button:active {
+  filter: brightness(.82);
+  transition-duration: 0ms;
+}
+.nautilus-window headerbar box.start > stack > widget > box > button.image-button:disabled {
+  filter: saturate(.55) opacity(.55);
+}
 .nautilus-window .nautilus-pathbar {
-  background: white;
+  padding: 0;
+  background: linear-gradient(#cfe6f9, #d2e8f9 20%, #d2e8f9 80%, #cee6f8);
   border: 1px solid #8899a7;
   border-radius: 6px;
-  box-shadow: inset 0 1px #e7edf1;
+  box-shadow: inset 0 0 0 1px #f3f9fe;
 }
 .nautilus-window .nautilus-pathbar > scrolledwindow undershoot {
   background: none;
@@ -51,12 +88,36 @@
 .nautilus-window .nautilus-pathbar > menubutton > button {
   border-radius: 5px;
 }
+.nautilus-window .nautilus-pathbar > menubutton > button box,
+.nautilus-window .nautilus-pathbar > menubutton > button contents,
+.nautilus-window .nautilus-pathbar > menubutton > button image {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  -gtk-icon-size: 14px;
+}
 .nautilus-window .nautilus-pathbar button {
+  min-height: 18px;
+  padding: 0 6px;
+  margin: 0 2px;
   background: transparent;
   color: #172836;
   box-shadow: none;
   border: 1px solid transparent;
   border-radius: 2px;
+}
+.nautilus-window .nautilus-pathbar label {
+  font-size: 11px;
+  font-weight: normal;
+}
+.nautilus-window .nautilus-pathbar .dim-label { opacity: 1; }
+.nautilus-window .nautilus-pathbar viewport > box > box > label.dim-label {
+  color: transparent;
+  min-width: 8px;
+  background: url("../gtk-3.0/breadcrumb-right.svg") center no-repeat;
+}
+.nautilus-window .nautilus-pathbar viewport > box > box > label.dim-label:dir(rtl) {
+  background-image: url("../gtk-3.0/breadcrumb-left.svg");
 }
 .nautilus-window .nautilus-pathbar button:hover {
   background: linear-gradient(to bottom, #f1f8fe, #d9eaf7);

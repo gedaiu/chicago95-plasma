@@ -138,13 +138,13 @@ def stepper_direction(horizontal, line):
 def paint_scroll_bar(painter, option, style, widget):
     horizontal = bool(option.state & QStyle.State_Horizontal)
     rect_of = lambda sub_control: style.subControlRect(QStyle.CC_ScrollBar, option, sub_control, widget)  # noqa: E731
+    scrollable = option.maximum > option.minimum
     paint_trough(painter, option.rect, horizontal)
     for line, sub_control in (("sub", QStyle.SC_ScrollBarSubLine), ("add", QStyle.SC_ScrollBarAddLine)):
-        paint_stepper(
-            painter, rect_of(sub_control), stepper_direction(horizontal, line), part_state(option, sub_control)
-        )
+        state = part_state(option, sub_control) if scrollable else "disabled"
+        paint_stepper(painter, rect_of(sub_control), stepper_direction(horizontal, line), state)
     slider = rect_of(QStyle.SC_ScrollBarSlider)
-    if option.state & QStyle.State_Enabled and option.maximum > option.minimum:
+    if option.state & QStyle.State_Enabled and scrollable:
         paint_scroll_slider(painter, slider, horizontal, part_state(option, QStyle.SC_ScrollBarSlider))
 
 

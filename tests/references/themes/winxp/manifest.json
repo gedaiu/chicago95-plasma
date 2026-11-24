@@ -26,6 +26,7 @@
     "xp-sp3-start-menu.png": "start-menu.png"
   },
   "taskbar_x": 398,
+  "start_button": {"scale": 1.25, "screen": [1280, 1024], "bounds": [0, 990, 113, 1024], "rgb565": true},
   "device_manager_scale": 1,
   "device_manager_console_states": {
     "scale": 1.25,

@@ -19,7 +19,9 @@ from pathlib import Path
 import chicago95ui  # noqa: E401,E702
 import dbus
 from chicago95aerobutton import AeroDialogButton, aero_button_artwork
+from gtk_inputs import classic_radio_svg
 from PySide6.QtCore import (
+    QByteArray,
     QObject,
     QPoint,
     QPointF,
@@ -64,6 +66,7 @@ from PySide6.QtWidgets import (
     QStyledItemDelegate,
     QStyleOptionButton,
     QStyleOptionComboBox,
+    QStyleOptionViewItem,
     QStylePainter,
     QVBoxLayout,
     QWidget,
@@ -408,23 +411,57 @@ class ClassicShutdownButton(QPushButton):
 
 
 class ClassicShutdownChoices(QStyledItemDelegate):
-    def paint(self, painter, option, index):
+    ROW_HEIGHT = 13
+
+    def paint_label(self, painter, option, index):
+        painter.save()
+        # At 120 DPI Qt's list delegate adds three more pixels of leading padding.
+        painter.translate(-3 / painter.deviceTransform().m11(), 0)
         super().paint(painter, option, index)
+        painter.restore()
+
+    def paint(self, painter, option, index):
         if not option.state & QStyle.State_Selected:
+            self.paint_label(painter, option, index)
             return
         background = option.palette.highlight().color()
-        colour = QColor(255 - background.red(), 255 - background.green(), 255 - background.blue())
-        pen = QPen(colour, 0)
+        complement = QColor(255 - background.red(), 255 - background.green(), 255 - background.blue())
+        transform = painter.deviceTransform()
+        inverse, _ = transform.inverted()
+        face = chicago95ui.popup_item_bounds(painter, self.parent().view(), index, option.rect, self.ROW_HEIGHT)
+        left, top, right, bottom = face.left(), face.top(), face.right(), face.bottom()
+        painter.fillRect(inverse.mapRect(face), background)
+
+        label = QStyleOptionViewItem(option)
+        label.state &= ~(QStyle.State_Selected | QStyle.State_HasFocus)
+        label.palette.setColor(QPalette.Text, option.palette.highlightedText().color())
+        self.paint_label(painter, label, index)
+
+        # A one-pixel checker stays aligned with the selection even at fractional scale.
+        painter.save()
+        pen = QPen(complement, 0)
         pen.setCapStyle(Qt.FlatCap)
         pen.setDashPattern([1, 1])
-        painter.save()
-        painter.setPen(pen)
-        painter.setBrush(Qt.NoBrush)
-        painter.drawRect(option.rect.adjusted(0, 0, -1, -1))
+        for x, y, end_x, end_y in (
+            (left, top, right, top), (left, bottom - 1, right, bottom - 1),
+            (left, top, left, bottom), (right - 1, top, right - 1, bottom),
+        ):
+            pen.setDashOffset(1 - (x - left + y - top) % 2)
+            painter.setPen(pen)
+            x_offset, y_offset = (0, 0.5) if y == end_y else (0.5, 0)
+            start = QPointF(x + x_offset, y + y_offset)
+            end = QPointF(end_x + x_offset, end_y + y_offset)
+            painter.drawLine(inverse.map(start), inverse.map(end))
         painter.restore()
 
 
-class Windows98ShutdownRadioStyle(chicago95ui.ClassicStyle):
+class ClassicShutdownRadioStyle(chicago95ui.ClassicStyle):
+    @staticmethod
+    @functools.lru_cache(maxsize=16)
+    def artwork(checked, disabled, colours):
+        _size, svg = classic_radio_svg("1998", checked=checked, disabled=disabled, colours=colours)
+        return QSvgRenderer(QByteArray(svg.encode()))
+
     def drawPrimitive(self, element, option, painter, widget=None):
         if element == QStyle.PE_FrameFocusRect:
             painter.save()
@@ -441,30 +478,17 @@ class Windows98ShutdownRadioStyle(chicago95ui.ClassicStyle):
         # The guest keeps a 12-pixel indicator even when its text and spacing grow.
         transform = painter.deviceTransform()
         bounds = transform.mapRect(QRectF(option.rect))
-        origin = QPointF(floor(bounds.x() + 0.5), floor(bounds.bottom() + 0.5) - 12)
-        to_logical, _ = transform.inverted()
-        painter.save()
-        painter.translate(to_logical.map(origin))
-        painter.scale(1 / transform.m11(), 1 / transform.m22())
-        painter.setRenderHint(QPainter.Antialiasing, False)
         palette = option.palette
-        enabled = bool(option.state & QStyle.State_Enabled)
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(palette.base() if enabled else palette.window())
-        painter.drawEllipse(QRectF(1, 1, 10, 10))
-        painter.setBrush(Qt.NoBrush)
-        arcs = ((0.5, palette.dark(), palette.light()), (1.5, palette.shadow(), palette.midlight()))
-        for inset, dark, light in arcs:
-            circle = QRectF(inset, inset, 12 - 2 * inset, 12 - 2 * inset)
-            painter.setPen(QPen(dark, 1))
-            painter.drawArc(circle, 45 * 16, 180 * 16)
-            painter.setPen(QPen(light, 1))
-            painter.drawArc(circle, 225 * 16, 180 * 16)
-        if option.state & QStyle.State_On:
-            painter.setPen(Qt.NoPen)
-            painter.setBrush(palette.text() if enabled else palette.dark())
-            painter.drawEllipse(QRectF(4, 4, 4, 4))
-        painter.restore()
+        colours = tuple(brush.color().name() for brush in (
+            palette.window(), palette.dark(), palette.shadow(), palette.base(), palette.text(),
+        ))
+        artwork = self.artwork(bool(option.state & QStyle.State_On), not option.state & QStyle.State_Enabled, colours)
+        size = artwork.defaultSize().width()
+        inset = widget.property("indicatorOffset") if widget is not None else 0
+        top = floor(bounds.bottom() + 0.5) - size + (inset or 0)
+        target = QRectF(floor(bounds.x() + 0.5), top, size, size)
+        to_logical, _ = transform.inverted()
+        artwork.render(painter, to_logical.mapRect(target))
 
 
 class BrandBanner(QWidget):
@@ -730,30 +754,35 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         if self.style == "1995" and large_fonts:
             size, icon_size, icon_pos, question_pos = (362, 173), QSize(22, 26), (12, 18), (60, 20)
             radio_x, radio_top, pitch = 61, 43, 21
+            indicator_offsets = (0, -1, -1)
             button_x, button_y, button_pitch, button_width = 89, 138, 90, 84
         elif win98_large:
             size, icon_size, icon_pos, question_pos = (336, 146), QSize(22, 26), (12, 18), (60, 20)
             radio_x, radio_top, pitch = 61, 43, 19
+            indicator_offsets = (0, 0, 0)
             button_x, button_y, button_pitch, button_width = 62, 116, 90, 84
         elif self.style == "1995":
             size, icon_size, icon_pos, question_pos = (341, 177), QSize(27, 32), (14, 19), (56, 21)
             radio_x, radio_top, pitch = 58, 44, 21
+            indicator_offsets = (1, 1, 1)
             button_x, button_y, button_pitch, button_width = 84, 141, 84, 79
         else:
             size, icon_size, icon_pos, question_pos = (317, 149), QSize(27, 32), (14, 19), (56, 21)
             radio_x, radio_top, pitch = 58, 44, 20
+            indicator_offsets = (1, 1, 0)
             button_x, button_y, button_pitch, button_width = 59, 118, 84, 79
         self.resize_body(*size)
         classic_shutdown_icon(self.body, icon_size).move(*icon_pos)
         QLabel(QUESTIONS[self.style], self.body).move(*question_pos)
-        for index, radio in enumerate(self.radios):
+        radio_style = ClassicShutdownRadioStyle("Windows")
+        radio_style.setParent(self)
+        for index, (radio, offset) in enumerate(zip(self.radios, indicator_offsets, strict=True)):
             radio.setGeometry(radio_x, radio_top + index * pitch, self.body.width() - radio_x - 12, 15)
-        if win98_large:
-            radio_style = Windows98ShutdownRadioStyle("Windows")
-            radio_style.setParent(self)
-            for radio in self.radios:
+            # The native indicators use a device-pixel grid independent of the label rows.
+            radio.setProperty("indicatorOffset", offset)
+            if win98_large:
                 radio.setProperty("captionGap", 14)
-                radio.setStyle(radio_style)
+            radio.setStyle(radio_style)
         button_height = 23 if win98_large else 24
         for index, button in enumerate(buttons):
             x = button_x + index * button_pitch
@@ -839,8 +868,11 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         self.combo = QComboBox(body)
         self.combo.setGeometry(*combo_rect)
         if large_fonts:
-            self.combo.view().window().setFrameStyle(QFrame.Box | QFrame.Plain)
+            view = self.combo.view()
+            view.window().setFrameStyle(QFrame.Box | QFrame.Plain)
             self.combo.setItemDelegate(ClassicShutdownChoices(self.combo))
+            # Redraw both physical row edges when the current item moves.
+            view.selectionModel().currentChanged.connect(view.viewport().update)
         if xp:
             question.setText("&" + question.text())
             question.setBuddy(self.combo)
@@ -850,7 +882,8 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
                 self.combo.count() - 1, chicago95ui.fill_placeholders(DESCRIPTIONS[choice], self.look), Qt.ToolTipRole
             )
             if large_fonts:
-                row_height = 12 if self.combo.count() == 1 else 13
+                # Keep fractional row rounding at the bottom of the popup.
+                row_height = ClassicShutdownChoices.ROW_HEIGHT - int(self.combo.count() == len(self.choices))
                 self.combo.setItemData(self.combo.count() - 1, QSize(0, row_height), Qt.SizeHintRole)
         self.combo.setCurrentIndex([choice for choice, _ in self.choices].index(SHUT_DOWN))
         self.description = QLabel(body)

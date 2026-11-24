@@ -217,6 +217,19 @@ def header_css(active, inactive, inactive_text, face):
             # content's gradient starts from it, so the strip runs on unbroken.
             rule(f".sidebar-pane {STRIP}", background_image=gradient(first[active])),
             rule(f"window:backdrop .sidebar-pane {STRIP}", background_image=gradient(first[inactive])),
+            # The Explorer divider begins below the header. Keep the sidebar
+            # bevel on the places list so it stops short of the title strip.
+            rule(".nautilus-window .sidebar-pane", border="none", box_shadow="none"),
+            rule(
+                ".nautilus-window .sidebar-pane placessidebar:dir(ltr)",
+                border_right="1px solid #FFFFFF",
+                box_shadow="inset -1px 0 var(--sidebar-border-color, #808080)",
+            ),
+            rule(
+                ".nautilus-window .sidebar-pane placessidebar:dir(rtl)",
+                border_left="1px solid #FFFFFF",
+                box_shadow="inset 1px 0 var(--sidebar-border-color, #808080)",
+            ),
             # libadwaita insets the sidebar's rows 6px from its edges: the sidebar's buttons line up with them.
             rule(
                 f".sidebar-pane {STRIP}, .sidebar-pane {STRIP}:backdrop",

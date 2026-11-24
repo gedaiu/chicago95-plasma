@@ -5,6 +5,7 @@ import sys
 import pytest
 from conftest import REPO
 from framesvg import paint_frame
+from PIL import Image, ImageChops, ImageStat
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtSvg import QSvgRenderer
@@ -394,6 +395,16 @@ def test_start_button_hover_is_lighter_and_pressed_darker_than_normal(theme):
     assert brightness(pixel(pressed, 30, 15)) < brightness(pixel(normal, 30, 15)) < brightness(pixel(hover, 30, 15))
 
 
+def test_luna_pressed_start_preserves_the_guest_green_ramp(theme):
+    references = REPO / "tests/references/themes/winxp/taskbar/start-button"
+    with Image.open(references / "held-outside.png") as capture:
+        native = capture.convert("RGB")
+    artwork = over_panel(theme, "widgets/startbutton.svg", "pressed-", *native.size).convert("RGB")
+    strip = (90, 1, 96, 32)
+    error = ImageStat.Stat(ImageChops.difference(artwork.crop(strip), native.crop(strip))).mean
+    assert sum(error) / len(error) < 8
+
+
 def test_tooltip_is_yellow_fffe1_inside_a_black_border(theme):
     tooltip = rendered(theme, "widgets/tooltip.svg", "", 40, 20)
     assert [pixel(tooltip, 0, 10), pixel(tooltip, 20, 0), pixel(tooltip, 20, 10)] == [
@@ -503,7 +514,7 @@ DRAWN_ELEMENT = re.compile(r"<(?:path|rect|use|ellipse|circle)\b")
 GRADIENT = re.compile(r"<(?:linear|radial)Gradient\b")
 SIZE_BUDGETS = {
     "widgets/tasks.svg": (57, 8000, 6),
-    "widgets/startbutton.svg": (40, 5800, 6),
+    "widgets/startbutton.svg": (44, 7700, 9),  # normal and pressed palettes, with shared hover artwork
     "widgets/button.svg": (92, 16500, 32),
     "widgets/lineedit.svg": (42, 3200, 0),
     "widgets/tooltip.svg": (42, 3100, 0),

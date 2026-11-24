@@ -14,21 +14,24 @@ import importlib.util
 import shlex
 import subprocess
 from collections import namedtuple
-from math import ceil
+from math import ceil, floor
 from pathlib import Path
 
 import chicago95ui  # noqa: E401,E702
 from chicago95aerobutton import AeroDialogButton, aero_button_artwork
-from PySide6.QtCore import QEvent, QSize, Qt
-from PySide6.QtGui import QColor, QIcon, QPainter
+from PySide6.QtCore import QEvent, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPalette
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QDialog,
     QFileDialog,
+    QFrame,
     QLabel,
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QStyle,
     QWidget,
 )
 
@@ -215,6 +218,64 @@ class DefaultOutline(QWidget):
         painter.fillRect(self.rect(), QColor("#000000"))
 
 
+class AeroRunContent(QWidget):
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        scale = painter.deviceTransform().m11()
+        pixel = 1 / scale
+        pane = QRectF(0, 0, floor(self.width() * scale) * pixel, ceil(self.height() * scale) * pixel)
+        painter.fillRect(pane.adjusted(pixel, pixel, -pixel, -pixel), Qt.white)
+
+
+class RunHistoryField(QComboBox):
+    opening = Signal()
+
+    def showPopup(self):  # noqa: N802
+        if self.count():
+            self.opening.emit()
+        super().showPopup()
+
+
+class RunHistoryRows(chicago95ui.ListRowDelegate):
+    def __init__(self, view, style, scale):
+        super().__init__(view)
+        self.legacy_9x = style in ("1995", "1998")
+        self.scale = scale
+
+    def sizeHint(self, option, index):  # noqa: N802
+        hint = super().sizeHint(option, index)
+        scale = self.scale
+        if scale == 1.25:
+            # Qt accepts integer logical row sizes. Round the boundaries as a
+            # group, and put the remaining fraction against the bottom edge.
+            pixels = floor(chicago95ui.LIST_ROW_HEIGHT * scale)
+            row = index.row()
+            upper = round(row * pixels / scale)
+            bottom = (row + 1) * pixels / scale
+            lower = floor(bottom) if row + 1 == index.model().rowCount() else round(bottom)
+            hint.setHeight(lower - upper)
+        return hint
+
+    def paint(self, painter, option, index):
+        transform = painter.deviceTransform()
+        if transform.m22() == 1.25:
+            face = chicago95ui.popup_item_bounds(painter, self.parent(), index, option.rect, chicago95ui.LIST_ROW_HEIGHT)
+        else:
+            face = transform.mapRect(QRectF(option.rect))
+        inverse, _ = transform.inverted()
+        selected = bool(option.state & QStyle.State_Selected)
+        palette = option.palette
+        painter.save()
+        painter.setClipRect(inverse.mapRect(face), Qt.IntersectClip)
+        painter.fillRect(inverse.mapRect(face), palette.highlight() if selected else palette.base())
+        painter.setFont(option.font)
+        painter.setPen(palette.highlightedText().color() if selected else palette.text().color())
+        inset, drop = (3, 1) if self.legacy_9x else (0, 0)
+        label = face.adjusted(inset, drop, -inset, drop)
+        painter.drawText(inverse.mapRect(label), Qt.AlignLeading | Qt.AlignVCenter, index.data())
+        painter.restore()
+
+
 class RunBehaviour:
     """The Run dialog of the look, with a list of matching programs, files and commands under the field as the
     text is typed: the dialog grows to hold the list and shrinks back when it empties."""
@@ -224,12 +285,20 @@ class RunBehaviour:
         self.layout = LAYOUTS[layout_key(look)]
         self.style = prompt_key(look)
         super().__init__("Run", self.style, self.layout.body, help_button=True)
+        self.layout_scale = self.devicePixelRatioF()
+        if QApplication.platformName().startswith("wayland"):
+            # Before showing, Qt can report either 1 or a rounded output scale.
+            output_scale = chicago95ui.screen_scale()
+            if output_scale != 1:
+                self.layout_scale = output_scale
         self.button_size = (82, 28) if self.style == "aero" else chicago95ui.DIALOG_BUTTON_SIZE
-        self.win98_hidpi = self.style == "1998" and self.devicePixelRatioF() == 1.25
+        self.win98_hidpi = self.style == "1998" and self.layout_scale == 1.25
         if self.win98_hidpi:
             self.layout = LAYOUTS["win98-hidpi"]
             self.button_size = (80, 23)
             self.resize_body(*self.layout.body)
+        if self.layout_scale == 1.25 and self.style in ("2000", "2001", "luna"):
+            self.layout = self.layout._replace(field_width=256)
         self.aero_content = None
         self.applications = applications
         self.path_dirs = path_dirs
@@ -245,8 +314,7 @@ class RunBehaviour:
             self.setFont(font)
             body.setObjectName("aeroRunBody")
             body.setStyleSheet("QWidget#aeroRunBody { background: #f0f0f0; }")
-            self.aero_content = QWidget(body)
-            self.aero_content.setStyleSheet("background: white;")
+            self.aero_content = AeroRunContent(body)
             self.aero_content.setGeometry(0, 0, layout.body[0], 127)
         elif self.style in ("2000", "2001", "luna"):
             font = self.font()
@@ -262,7 +330,7 @@ class RunBehaviour:
         graphic = QIcon(str(asset))
         if graphic.isNull():
             graphic = QIcon.fromTheme("system-run")
-        scale = self.devicePixelRatioF()
+        scale = self.layout_scale
         if self.win98_hidpi:
             # At 120 DPI the native hourglass keeps its 32 physical pixels.
             pixmap = graphic.pixmap(QSize(32, 32))
@@ -282,12 +350,30 @@ class RunBehaviour:
         )
         open_label = QLabel("&Open:", body)
         open_label.move(*layout.label_at)
-        self.field = chicago95ui.classic_combo(QComboBox(body))
+        self.field = chicago95ui.classic_combo(RunHistoryField(body))
         open_label.setBuddy(self.field)
         self.field.setEditable(True)
         self.field.setInsertPolicy(QComboBox.NoInsert)
         self.field.addItems(self.history)
         self.field.setGeometry(*layout.field_at, layout.field_width, layout.field_height)
+        if self.style != "aero":
+            self.field.setMaxVisibleItems(9 if self.style in ("1995", "1998") else HISTORY_LENGTH)
+            view = self.field.view()
+            view.setItemDelegate(RunHistoryRows(view, self.style, scale))
+            if self.win98_hidpi or self.style == "luna":
+                font = view.font()
+                font.setFamilies(["Tahoma", "Liberation Sans", "Selawik", "Noto Sans"])
+                font.setPixelSize(11)
+                font.setStyleStrategy(QFont.NoSubpixelAntialias)
+                view.setFont(font)
+            view.setTextElideMode(Qt.ElideNone)
+            view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+            view.selectionModel().currentChanged.connect(view.viewport().update)
+            popup = view.window()
+            popup.setFrameStyle(QFrame.Box | QFrame.Plain)
+            palette = popup.palette()
+            palette.setColor(QPalette.WindowText, QColor("#000000"))
+            popup.setPalette(palette)
         if self.aero_content is not None:
             arrow = asset.with_name("aero-down.svg").as_posix()
             self.field.setStyleSheet("""
@@ -295,9 +381,11 @@ class RunBehaviour:
                             border-top-color: #3d7db7; padding-left: 3px; }
                 QComboBox::drop-down { border: none; width: 15px; }
             """ + f'QComboBox::down-arrow {{ image: url("{arrow}"); width: 8px; height: 6px; }}')
-        self.field.setEditText("")
         self.field.lineEdit().textEdited.connect(self.search)
         self.field.lineEdit().installEventFilter(self)
+        self.field.view().installEventFilter(self)
+        self.field.opening.connect(self.clear_matches)
+        self.field.activated.connect(self.choose_history)
         self.results = QListWidget(body)
         self.results.setGeometry(
             layout.field_at[0], layout.field_at[1] + layout.field_height + 4, layout.field_width, 0
@@ -312,26 +400,56 @@ class RunBehaviour:
         self.outline.setGeometry(layout.button_lefts[0], layout.button_top, *self.button_size)
         self.outline.setVisible(layout.ok_inset > 0)
         artwork = aero_button_artwork() if self.style == "aero" else None
-        for left, label in zip(layout.button_lefts, ("OK", "Cancel", "&Browse..."), strict=False):
-            button = AeroDialogButton(label, artwork, body, default_face="run-default") if artwork else QPushButton(
-                label, body
+        for label in ("OK", "Cancel", "&Browse..."):
+            button = (
+                AeroDialogButton(label, artwork, body, default_face="run-default", normal_face="run-normal")
+                if artwork else QPushButton(label, body)
             )
             button.setAutoDefault(False)
-            button.setGeometry(left, layout.button_top, *self.button_size)
             self.buttons[label] = button
-        self.place_ok_button(0)
+        self.place_buttons(0)
         self.buttons["OK"].setDefault(layout.ok_inset == 0)
-        self.buttons["OK"].setEnabled(False)
+        self.update_accept(self.field.currentText())
+        self.field.editTextChanged.connect(self.update_accept)
         self.buttons["OK"].clicked.connect(self.accept)
         self.buttons["Cancel"].clicked.connect(self.reject)
         self.buttons["&Browse..."].clicked.connect(self.browse)
         self.field.setFocus()
+        self.field.lineEdit().selectAll()
+
+    def update_accept(self, text):
+        self.buttons["OK"].setEnabled(bool(text.strip()))
+
+    def clear_matches(self):
+        if self.results.isVisible():
+            self.results.clear()
+            self.show_results(0)
+
+    def choose_history(self, _index):
+        self.field.lineEdit().selectAll()
+
+    def preview_history(self):
+        view = self.field.view()
+        if view.isVisible() and view.currentIndex().isValid():
+            row = view.currentIndex().row()
+            self.field.setCurrentIndex(row)
+            self.field.setEditText(self.field.itemText(row))
+            self.field.lineEdit().selectAll()
 
     def eventFilter(self, watched, event):
+        if watched is self.field.view():
+            if event.type() == QEvent.KeyPress and event.key() in (
+                Qt.Key_Up, Qt.Key_Down, Qt.Key_Home, Qt.Key_End, Qt.Key_PageUp, Qt.Key_PageDown
+            ):
+                QTimer.singleShot(0, self, self.preview_history)
+            return super().eventFilter(watched, event)
         if event.type() == QEvent.KeyPress and event.key() in (Qt.Key_Return, Qt.Key_Enter):
             self.accept()
             return True
-        if event.type() == QEvent.KeyPress and event.key() in (Qt.Key_Down, Qt.Key_Up) and self.results.isVisible():
+        if (
+            event.type() == QEvent.KeyPress and event.key() in (Qt.Key_Down, Qt.Key_Up)
+            and event.modifiers() == Qt.NoModifier and self.results.isVisible()
+        ):
             step = 1 if event.key() == Qt.Key_Down else -1
             self.results.setCurrentRow(max(0, min(self.results.count() - 1, self.results.currentRow() + step)))
             return True
@@ -342,7 +460,7 @@ class RunBehaviour:
             startmenu = load_startmenu()
             self.applications = startmenu.collect_applications() if startmenu else []
         found = matches(text, self.applications, self.path_dirs)
-        self.buttons["OK"].setEnabled(bool(text.strip()))
+        self.update_accept(text)
         self.results.clear()
         for name, icon, command in found:
             item = QListWidgetItem(themed_icon(icon), name)
@@ -352,14 +470,15 @@ class RunBehaviour:
             self.results.setCurrentRow(0)
         self.show_results(len(found))
 
-    def place_ok_button(self, extra):
-        inset, (width, height) = self.layout.ok_inset, self.button_size
-        self.buttons["OK"].setGeometry(
-            self.layout.button_lefts[0] + inset,
-            self.layout.button_top + inset + extra,
-            width - 2 * inset,
-            height - 2 * inset,
-        )
+    def place_buttons(self, extra):
+        width, height = self.button_size
+        for index, (left, button) in enumerate(zip(self.layout.button_lefts, self.buttons.values(), strict=True)):
+            inset = self.layout.ok_inset if index == 0 else 0
+            rect = (left + inset, self.layout.button_top + inset + extra, width - 2 * inset, height - 2 * inset)
+            if isinstance(button, AeroDialogButton):
+                button.set_aligned_geometry(*rect)
+            else:
+                button.setGeometry(*rect)
 
     def show_results(self, count):
         """The list under the field, as tall as its rows; the buttons move down with the dialog's bottom."""
@@ -373,10 +492,8 @@ class RunBehaviour:
         self.resize_body(layout.body[0], layout.body[1] + extra)
         if self.aero_content is not None:
             self.aero_content.resize(layout.body[0], 127 + extra)
-        for button in (self.buttons["Cancel"], self.buttons["&Browse..."]):
-            button.move(button.x(), layout.button_top + extra)
         self.outline.move(self.outline.x(), layout.button_top + extra)
-        self.place_ok_button(extra)
+        self.place_buttons(extra)
 
     def browse(self):
         path, _filter = QFileDialog.getOpenFileName(self, "Browse", str(Path.home()))

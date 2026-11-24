@@ -340,7 +340,7 @@ def frame(prefix, x0, state, *, glass=None):
 
 def maximized(prefix, x0, state):
     """A maximized window's caption: glass with the client lines along its foot, the same band in every piece."""
-    glass, glass_alpha = palette.GLASS[state]
+    glass, glass_alpha = palette.MAXIMIZED_GLASS[state]
     light, light_alpha = palette.FRAME_LINES["client_light"][state]
     dark, dark_alpha = palette.FRAME_LINES["client_dark"][state]
     band = (
@@ -577,7 +577,7 @@ LARGE_DISABLED_CLOSE_FACE = (
     (0, "#FAFBFB", 166), (1, "#FBA89A", 121), (6, "#EC7E6B", 121),
     (12, "#E87360", 121), (15, "#CC2305", 121), (19, "#CC2102", 121),
     (21, "#CC2507", 121), (26, "#DA714F", 121), (27, "#F1B29F", 121),
-    (28, "#55271F", 222), (29, "#FEFEFE", 169),
+    (28, "#55271F", 222), (29, "#FDFDFD", 170),
 )
 LARGE_DISABLED_CLOSE_DIVIDER = (
     (0, "#946A61", 224), (6, "#8A4E41", 223), (12, "#874637", 221),
@@ -666,6 +666,35 @@ def large_minimize_surface(width, prefix):
     edge = f"{prefix}Right"
     definitions.append(caption_gradient(edge, LARGE_ACTIVE_JOINED_EDGES["minimize"]["right"], height))
     shapes.append(f'<path d="{rect(width - pixel, 0, pixel, height)}" fill="url(#{edge})"/>')
+    return "".join(definitions), "".join(shapes)
+
+
+def large_maximize_sheen(width, prefix):
+    """The glass brightens from left to right, most strongly below the split."""
+    height = palette.BUTTON_HEIGHT
+    pixel = height / 30
+    definitions, shapes = [], []
+    for name, top, bottom, shadow, shine, colour in (
+        ("Upper", pixel, height / 2, .008, .075, "#FFFFFF"),
+        ("Lower", height / 2, height - pixel, .025, .137, "#E4E5E3"),
+    ):
+        gradient = f"{prefix}{name}Sheen"
+        definitions.append(
+            f'<linearGradient id="{gradient}" x2="1" y2="0">'
+            f'<stop stop-opacity="{shadow}"/><stop offset=".22" stop-opacity="0"/>'
+            f'<stop offset=".22" stop-color="{colour}" stop-opacity="0"/>'
+            f'<stop offset="1" stop-color="{colour}" stop-opacity="{shine}"/></linearGradient>'
+        )
+        shapes.append(
+            f'<path d="{rect(pixel, top, width - 2 * pixel, bottom - top)}" fill="url(#{gradient})"/>'
+        )
+    rim = f"{prefix}RimSheen"
+    definitions.append(
+        f'<linearGradient id="{rim}" x2="1" y2="0">'
+        '<stop stop-color="white" stop-opacity=".069"/>'
+        '<stop offset="1" stop-color="white" stop-opacity=".24"/></linearGradient>'
+    )
+    shapes.append(f'<path d="{rect(pixel, height - pixel, width - 2 * pixel, pixel)}" fill="url(#{rim})"/>')
     return "".join(definitions), "".join(shapes)
 
 
@@ -797,12 +826,14 @@ def caption_surface(
         return large_minimize_surface(width, prefix)
     height = palette.BUTTON_HEIGHT
     large_close = kind == "close" and bool(optical_face)
-    left_radius = 2 if kind in ("minimize", "close") else 0
+    # Disabled Close shares a square lower-left join with Maximize.
+    left_radius = 2 if kind in ("minimize", "close") and not disabled_close else 0
     right_radius = 2 if large_close else 3 if kind == "close" else 0
     stroke = 2 / 3 if large else 1
     half = stroke / 2
     bottom, right = height - half, width - half
-    joined = LARGE_ACTIVE_JOINED_EDGES.get(kind, {}) if optical_face else {}
+    face_kind = "maximize" if kind == "restore" else kind
+    joined = LARGE_ACTIVE_JOINED_EDGES.get(face_kind, {}) if optical_face else {}
     if resting and not large and kind == "maximize":
         # The neighbouring Minimize button owns the dark seam. Maximize
         # starts with one translucent light pixel at both densities.
@@ -827,7 +858,8 @@ def caption_surface(
         definitions = caption_gradient(body, optical_face, height)
     else:
         definitions = vertical_gradient(body, rows, positions, height=height)
-    if not interaction:
+    directional_sheen = large and face_kind == "maximize" and bool(optical_face)
+    if not interaction and not directional_sheen:
         if disabled_close:
             strength, shade_colour, inner_stop, outer_stop = 0.105, ' stop-color="#53595b"', ".19", ".81"
         else:
@@ -904,6 +936,9 @@ def caption_surface(
         seams, joint = large_interaction_seams(kind, interaction, width, prefix, stroke)
         definitions += reflection + seams
         bevels.extend((highlight, joint))
+    elif directional_sheen:
+        sheen, shaded_face = large_maximize_sheen(width, prefix)
+        definitions += sheen
     else:
         shaded_face = f'<path d="{surface}" fill="url(#{shade})"{fill_rule}/>'
     return definitions, (
@@ -927,7 +962,14 @@ def button_state(kind, window, look, prefix, x0=0, large=False, *, cell_width=No
     face = button_face(stops.FACES[face_name][window][look])
     resting = (window, look) == ("active", "normal")
     disabled_close = large and kind == "close" and (window, look) == ("active", "disabled")
-    optical_face = LARGE_ACTIVE_FACE.get(kind, ()) if large and resting else ()
+    face_kind = "maximize" if kind == "restore" else kind
+    # Maximize and Restore use the same 144-DPI glass. Disabling Maximize
+    # changes the glyph instead of dimming the face.
+    optical_face = (
+        LARGE_ACTIVE_FACE.get(face_kind, ())
+        if large and window == "active" and (resting or (kind == "maximize" and look == "disabled"))
+        else ()
+    )
     if disabled_close:
         optical_face = LARGE_DISABLED_CLOSE_FACE
     interaction = look if large and window == "active" and look in ("hot", "pressed") and kind != "restore" else None

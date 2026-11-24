@@ -21,6 +21,7 @@
     "win2000-pro-shutdown-dialog.png": "shutdown.png"
   },
   "taskbar_x": 535,
+  "start_button": {"scale": 1.25, "screen": [1280, 1024], "bounds": [2, 995, 68, 1022], "rgb565": true},
   "taskbar_band_rgb565": true,
   "device_manager_scale": 1.25,
   "device_manager_rgb565": true,
@@ -49,6 +50,7 @@
   "shutdown_120dpi": "shutdown-120dpi.png",
   "shutdown_combo_states": {
     "scale": 1.25,
+    "highlighted_rows": ["log-off", "shutdown", "restart", "standby"],
     "choice_crop": [
       76,
       140,

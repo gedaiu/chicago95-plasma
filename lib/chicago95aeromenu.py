@@ -383,8 +383,9 @@ class AeroMenu(QWidget):
             #programs QPushButton:hover, #programs QPushButton:focus {
                 border: 1px solid #7099c9; border-radius: 3px;
                 background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-                    stop:0 #e8f1fd, stop:.046 #e8f1fd, stop:.091 #d2e6fc,
-                    stop:.909 #b4d5fc, stop:.954 #d7e8fd, stop:1 #d7e8fd);
+                    stop:0 #e8f1fd, stop:.045 #e8f1fd, stop:.091 #d2e6fc,
+                    stop:.383 #c9e0fc, stop:.618 #bfdafc, stop:.923 #b3d5fc,
+                    stop:.954 #d7e8fd, stop:1 #d7e8fd);
             }
             #programs QPushButton:pressed { background: #a5c9f3; }
             #searchWell { border-top: 1px solid #ccd9ea; background: qlineargradient(

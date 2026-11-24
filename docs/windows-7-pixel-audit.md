@@ -159,6 +159,15 @@ Time zero is the final click on Shut down in the Windows Start menu or in the pr
 
 ## GTK 3 and GTK 4 controls
 
+Aero's GTK window titles use the sampled blue glass colours and a darker maximized state. The
+maximized face clips its upper highlight inside the title controls. GNOME Files draws the
+caption buttons inside its combined toolbar. [Live GTK tests](../tests/aero/test_aero_gtk.py)
+
+Thunar's Back and Forward icons use vector paths and gradients sized for GTK 3's 24-pixel toolbar
+icons. The Back crop's mean RGB error dropped from 33.74 to 23.55 out of 255 at 100%, and from
+34.02 to 23.13 at 150%. The complete live navigation strip still differs at 14.43/255 mean RGB
+error. [Thunar regression](../tests/aero/test_aero_thunar.py) · [Strict comparison](../tests/visual/parity.py)
+
 Both toolkits now use the Aero faces for checkboxes, radio buttons, progress bars, tabs and disabled form controls. GTK 3 paints the scrollbar grips with orientation-specific CSS and uses grey artwork for disabled indicators. GTK 4 Files keeps its header layout and uses the same SVG caption faces as GTK 3. At native scale the checked and mixed checkboxes match between the two toolkits in the visual tests. The radio buttons use separate SVG faces for normal, hover, press, checked and disabled states. The checked, hovered radio differs by 1.69 levels of mean absolute RGB error between toolkits. Against Windows artwork, the checked, pressed GTK 4 radio improved from 42.77 to 7.77 levels. Errors across all seven tested radio states range from 4.43 to 9.30. The 6×5 push-button corner now averages 3.98 levels in GTK 4 and 5.51 in GTK 3. The disabled corner averages 2.53 and 4.11 respectively. These comparisons use the rendered widgets with the showcase margins removed. [Side-by-side toolkit renders](compare/aero-gtk-toolkit-controls.png)
 
 GTK 3 and GTK 4 paint each thumb face from an SVG gradient. The grip uses three straight strokes and their highlights. The scrollbar tests compare the fixed corner and a strip across the face with the Windows 7 Aero artwork at 96 DPI. The GTK 4 corner audit previously started one pixel inside the Windows sprite. With both renders aligned, the normal horizontal corner improved from 5.20 to 3.39 and the vertical corner from 5.98 to 5.28. Across both toolkits, orientations and all three states, mean error on the face fell from 8.45–16.78 to 2.02–3.59 out of 255. The comparison shows the leading end of each thumb enlarged with nearest-neighbour sampling. [Windows 7, GTK 3 and GTK 4 scrollbar thumbs](compare/win7-scrollbar-thumbs.png)
@@ -230,6 +239,12 @@ The GTK 3 test loads the display toolbar from the installed GNOME Boxes binary a
 ## High-DPI caption artwork
 
 On the Windows 7 SP1 WDDM guest with VirtualBox Guest Additions 7.2.4, the 1280×960 desktop at 150% (144 DPI) draws a 16×4 bright minimize bar and an 18×14 maximize ring. The 96-DPI SVG enlarged to the same physical size drew a 14×4 bar and a 14×11 ring. The high-density SVG artwork uses a thicker ring and close cross. Four visual comparisons cover minimize, maximize, close and restore against native Notepad captures at 150%. The last uses maximized Notepad. The guest capture retains its original pixels. [Native and SVG captions at 144 DPI, enlarged 3× for inspection](compare/win7-144dpi-captions.png)
+
+The 144-DPI Maximize and Restore faces share a directional glass highlight with separate
+upper, lower and rim gradients. The disabled Maximize glyph sits on the same face. Restore
+and disabled Maximize average 4.08 and 2.88 RGB levels of difference over the sampled native
+glass. The disabled Close's 70-pixel straight lower rim matches all three native glass crops
+exactly. The complete disabled Close face still differs. [Native glass tests](../tests/visual/parity.py)
 
 Live GTK 3 and GTK 4 captures at 2× are also compared with the 144-DPI originals on a common pixel grid. The Display control panel provided selected and unselected 19×19 radio indicators at 144 DPI. GTK 3 and GTK 4 use high-density SVGs for these two states. In the native-size artwork comparison, the unselected indicator averages 8.37 RGB levels of error and the selected indicator averages 14.64.
 

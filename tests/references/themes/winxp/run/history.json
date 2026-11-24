@@ -1,0 +1,18 @@
+{
+  "scale": 1.25,
+  "entries": [
+    "control folders",
+    "shutdown -l",
+    "control.exe",
+    "notepad",
+    "taskkill /f /im probe.exe",
+    "a:\\probe.exe",
+    "control desk.cpl,,3",
+    "d:\\caption.exe",
+    "shutdown -s -t 0",
+    "shutdown -r -t 0",
+    "devmgmt.msc",
+    "desk.cpl",
+    "control"
+  ]
+}

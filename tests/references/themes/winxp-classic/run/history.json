@@ -1,0 +1,19 @@
+{
+  "scale": 1.25,
+  "entries": [
+    "nusrmgr.cpl",
+    "control folders",
+    "shutdown -l",
+    "control.exe",
+    "control userpasswords",
+    "notepad",
+    "d:\\caption.exe",
+    "\"%windir%\\resources\\themes\\windows classic.theme\"",
+    "shutdown -s -t 0",
+    "shutdown -r -t 0",
+    "control desk.cpl,,3",
+    "devmgmt.msc",
+    "desk.cpl",
+    "control"
+  ]
+}

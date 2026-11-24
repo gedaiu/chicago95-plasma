@@ -19,6 +19,7 @@
     "xp-sp3-classic-device-manager-bands.png": "device-manager.png"
   },
   "taskbar_x": 535,
+  "start_button": {"scale": 1.25, "screen": [1280, 1024], "bounds": [2, 996, 64, 1022], "rgb565": true},
   "device_manager_scale": 1,
   "device_manager_console_states": {
     "scale": 1.25,
@@ -59,6 +60,7 @@
   "shutdown_standard_dpi": "shutdown-96dpi.png",
   "shutdown_combo_states": {
     "scale": 1.25,
+    "highlighted_rows": ["log-off", "shutdown", "restart", "standby", "hibernate"],
     "choice_crop": [
       76,
       140,

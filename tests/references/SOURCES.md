@@ -114,7 +114,9 @@ Windows XP (Luna and XP Classic), from Toasty Technology, GUIdebook, Wikipedia a
 | `win95-osr2-run.png`, `win98-se-run.png` | English OSR2 and SE reference guests, 640×480 VGA. Empty Run dialog at (5, 285), 347×163. |
 | `win95-osr2-start.png`, `win98-se-start.png` | Root menus opened with Ctrl+Esc on the same guests. OSR2 at (2, 185), 164×271. SE at (2, 114), 177×342. |
 | `win95-osr2-taskbar-band.png`, `win98-se-taskbar-band.png` | Unoccupied section of the respective 256-color panels at (535, 452), 8×28. |
+| `themes/win95/desktop/hover-band-96dpi.png` | Windows 95 OSR2 QEMU desktop at 640×480 and 96 DPI. The 1×17 column at (413, 243) includes the entire highlight on the first desktop menu item. The desktop menu was opened with a right-click and the first item selected with Down so the pointer stayed clear of the column. |
 | `themes/{win95,win98}/taskbar/truecolor-band.png` | The same QEMU guests with True Color (24 bit) selected in the Display Settings, at 640×480. Windows 95 uses 96 DPI, cropped at (400, 452), 8×28. Windows 98 uses 120 DPI, cropped at (400, 447), 8×33. Row zero is RGB (223, 223, 223) in true color and RGB (192, 192, 192) in the 256-color captures. |
+| `themes/{win95,win98,win2k,winxp-classic,winxp}/taskbar/start-button/{idle,held-outside,released-outside,dismissed}.png` | Direct QEMU framebuffer crops with the pointer clear of the button. Press Start, move away while holding the button, release there, and click outside to dismiss the menu. Each manifest records the crop coordinates and scale. Windows 95 OSR2 and 98 SE use 640×480 at 96 and 120 DPI respectively. Windows 2000 Professional and XP Professional SP3 use 1280×1024 at 120 DPI with an RGB565 display. |
 | `win98-se-device-actions.png`, `win98-se-appearance.png` | English SE guest. System Properties action row at (28, 365), 353×23. Display Properties Appearance sample at (47, 60), 355×193. |
 | `win98-se-display-monitor.png` | Display Properties Background tab, complete monitor and stand at (132, 60), 184×169. |
 | `win98-se-mouse-right.png`, `win98-se-mouse-left.png`, `win98-se-jack-closed.png`, `win98-se-jack-open.png` | English SE Mouse Properties. Both handedness states at (204, 128), 83×80. Double-click test box at (343, 328), 25×17 closed, and (337, 305), 31×40 open. |
@@ -322,6 +324,20 @@ Explorer client and includes its original navigation band. Windows 95
 shows the menu and pane headers with the toolbar hidden. Windows 7 uses
 the 96-DPI navigation strip at `(7, 31)–(527, 63)` from `win7explorer1.png`.
 
+The `run/history-open.png` and `run/history-down.png` files are unscaled
+guest framebuffer crops of the Run history list after Alt+Down and after
+one Down press. The history consisted of commands already used in the
+reference guests. No command was executed during capture. The crop
+(left, top, right, bottom) is (62, 248, 337, 367) for 96-DPI Windows 95,
+(80, 198, 446, 344) for 120-DPI Windows 98, (71, 892, 391, 1006) for
+Windows 2000, (71, 643, 391, 869) for XP Classic, and (69, 657, 389, 867)
+for XP Luna. The last three guests were at 120 DPI with 16-bit color.
+
+The four Classic `file-manager/caption-seam.png` crops use the same 120-DPI
+Explorer captures. Each 8×8 sample is from a clear part of the active title
+strip. The top-left coordinates are (298, 60) for Windows 95, (380, 141) for
+Windows 98 and Windows 2000, and (407, 168) for XP Classic.
+
 The per-theme desktop and populated taskbar samples for Windows 95 OSR2,
 98 SE, 2000 Professional and both XP SP3 looks were captured from the local
 QEMU reference guests at 120 DPI. Windows 95 used 1024×768. The other
@@ -376,6 +392,7 @@ are lossless and retain the guest pixel grid.
 | `win7-sp1-aero-category-detail.png` | The Appearance and Personalization category body at (9, 65), 781 × 483. The pointer was moved outside the window. |
 | `win7-sp1-aero-taskbar-properties.png` | 398 × 424 Taskbar and Start Menu Properties client |
 | `themes/win7/lock-screen/1024x768.png`, `themes/win7/lock-screen/800x600.png` | Locked session with its credential field, at 1024 × 768 and 800 × 600 |
+| `themes/win7/sign-in/password-{typed,selected,cleared}.png` | Windows 7 Professional SP1 x86 QEMU guest with the standard VGA adapter at 800 × 600 and 96 DPI. Unscaled crops at (280, 402) measuring 271 × 43. The sequence types four sample characters, selects them with Ctrl+A, and clears them with Backspace. |
 | `win7-sp1-aero-calendar.png` | Calendar client at (672, 465), 336 × 247 |
 | [Screen Resolution](../../docs/compare/win7-sp1-screen-resolution.png) | Native display settings opened with `control desk.cpl` |
 | `themes/win7/control-panel/hover-opening.png` | Five consecutive 8 × 8 samples at (362, 163) over the System and Security card, from its last idle frame through its first four highlighted frames |
@@ -441,6 +458,13 @@ that presented that format. The other reference pixels and the crop dimensions
 are compared exactly. The Windows 98 comparisons use the guest's solid blue title
 bar setting. The other Windows 98 theme colours stay in effect.
 
+The `themes/win2k/shutdown/dropdown-{log-off,shutdown,restart,standby}.png`
+files are 303×66 crops at (477, 405) of the Windows 2000 Professional guest's
+1280×1024, 120-DPI RGB565 framebuffer. The XP Professional SP3 guest's
+Classic chooser uses 303×82 crops at (477, 414) with the same display mode
+and an additional Hibernate row. Alt+Down opens each picker. Home and
+successive Down presses highlight each action without executing it.
+
 The `themes/{win95,win98}/shutdown/transition-wait.png` files are unscaled
 640×400 framebuffer captures. Both QEMU guests started from a 640×480
 true-color desktop. The script timestamped each newly presented image after
@@ -451,8 +475,10 @@ host sample times from a single run per guest.
 The Windows 95 image is compared at the native framebuffer size. The
 Windows 98 capture is corrected to 640×480 with nearest-neighbour scaling
 to match the display aspect ratio used by Setup's generated artwork.
-The sky below the boot strip is supplied as one photographic crop,
-`setup/windows98-shutdown-sky.png`. The caption uses a separate SVG.
+The lower sky uses the bottom 35 display rows of the shutdown capture.
+The same area of the boot artwork supplies the clouds behind the caption.
+`setup/windows98-shutdown-sky.png` contains the text-free photograph.
+The caption uses a separate SVG.
 
 `themes/winxp/shutdown/button-states.png` contains 44×42 crops from the
 120-DPI XP SP3 Luna guest. The rows are Stand By, Turn Off and Restart.

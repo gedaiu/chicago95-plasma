@@ -457,10 +457,18 @@ def large_glyph_markup(kind, ink, index):
     return f'<path d="{outline}" fill="{ink}" fill-rule="evenodd"/>'
 
 
+def caption_art(color, index, large):
+    art = stops.BUTTON_ART[color][index]
+    if large and (colours := stops.BUTTON_FACE_120.get((color, index))):
+        face = [(y, colour) for (y, _old), colour in zip(art["face"], colours, strict=True)]
+        return {**art, "face": face}
+    return art
+
+
 def caption_face_svg(kind, index, large=False, *, intrinsic_size=None):
     color = "red" if kind == "close" else "blue"
     index = caption_art_index(kind, index)
-    art = stops.BUTTON_ART[color][index]
+    art = caption_art(color, index, large)
     if large:
         geometry, tiles = large_face_tiles()
         definitions = geometry + face_definitions("s", art)
@@ -473,7 +481,6 @@ def caption_face_svg(kind, index, large=False, *, intrinsic_size=None):
 
 def button_svg(kind, large=False, *, device_canvas=False):
     color = "red" if kind == "close" else "blue"
-    arts = stops.BUTTON_ART[color]
     large = large or device_canvas
     geometry, tiles = large_face_tiles() if large else (face_inset(), ())
     definitions = [geometry]
@@ -495,7 +502,7 @@ def button_svg(kind, large=False, *, device_canvas=False):
             )
             continue
         art_index = own_art_state(color, index)
-        art = arts[art_index]
+        art = caption_art(color, art_index, large)
         prefix = f"s{index}"
         definitions.append(face_definitions(prefix, art))
         if large:

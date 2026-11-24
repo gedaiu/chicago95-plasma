@@ -2,6 +2,7 @@
   "start_menu_interaction": {"scale": 1.25},
   "look": "1995",
   "desktop_samples": {"screen": [1024, 768], "scale": 1.25, "launchers": [], "cursor": [512, 384, 534, 408]},
+  "desktop_menu_96dpi": {"screen": [640, 480], "scale": 1, "launchers": []},
   "file_manager_scale": 1.25,
   "radio_scale": 1,
   "session_screens": {
@@ -20,6 +21,7 @@
     "win95-osr2-start.png": "start-menu.png"
   },
   "taskbar_x": 535,
+  "start_button": {"scale": 1, "screen": [640, 480], "bounds": [2, 456, 56, 478]},
   "taskbar_truecolor": {"scale": 1, "screen": [640, 480], "x": 400},
   "device_manager_scale": 1,
   "device_manager_actions_scale": 1.25,

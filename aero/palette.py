@@ -22,6 +22,9 @@ FRAME_LINES = {
 # on Sky itself) and the colour is solved to give the median.
 REFERENCE_DESKTOP = "#4395D1"
 GLASS = {"active": ("#6081A2", 130), "inactive": ("#77C1FF", 128)}
+# Maximized Notepad's caption is darker than the restored window over the
+# same Sky desktop. Leave the background visible through its stronger tint.
+MAXIMIZED_GLASS = {"active": ("#08274E", 182), "inactive": GLASS["inactive"]}
 
 # Geometry measured on win7dragedge.png (active Notepad) and win7screenres.png (inactive window), in pixels at 96 DPI.
 BORDER = 8  # sides and bottom: outer, highlight, 4 glass, client light, client dark

@@ -21,6 +21,7 @@
   },
   "taskbar_x": 535,
   "taskbar_truecolor": {"scale": 1.25, "screen": [640, 480], "x": 400},
+  "start_button": {"scale": 1.25, "screen": [640, 480], "bounds": [1, 451, 67, 478]},
   "device_manager_scale": 1,
   "device_manager_actions_scale": 1.25,
   "properties_scale": 1.25,

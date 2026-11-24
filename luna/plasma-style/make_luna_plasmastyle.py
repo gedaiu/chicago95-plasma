@@ -54,7 +54,7 @@ BUTTON_HOVER_RING, BUTTON_FOCUS_RING = "#FFC73C", "#C1D2EE"
 FIELD_BORDER = "#7F9DB9"
 MENU_LINE = "#C6D7F1"
 ATTENTION_TOP, ATTENTION_BOTTOM = "#F8B048", "#E09020"
-HOVER_LIFT, PRESSED_DARKEN, ATTENTION_OUTLINE_DARKEN = 0.12, 0.18, 0.3
+HOVER_LIFT, ATTENTION_OUTLINE_DARKEN = 0.12, 0.3
 MIDDLE = 8
 TASK_EDGE, TASK_HEIGHT, TASK_RADIUS = 4, 25, 3
 TASK_LABEL_LEFT, TASK_LABEL_RIGHT, TASK_LABEL_VERTICAL = 25, 6, 3
@@ -160,8 +160,7 @@ def tasks_svg():
     return frames_svg(states, aliases=aliases)
 
 
-def start_spec():
-    look = stops.START
+def start_spec(look):
     return FrameSpec(
         START_WIDTH,
         START_HEIGHT,
@@ -177,9 +176,9 @@ def start_spec():
 
 
 def startbutton_svg():
-    states = [("normal-", start_spec()), ("hover-", start_spec()), ("pressed-", start_spec())]
-    aliases = {"hover-": ("normal-", (WHITE, HOVER_LIFT)), "pressed-": ("normal-", (BLACK, PRESSED_DARKEN))}
-    return frames_svg(states, aliases=aliases)
+    normal = start_spec(stops.START)
+    states = [("normal-", normal), ("hover-", normal), ("pressed-", start_spec(stops.START_PRESSED))]
+    return frames_svg(states, aliases={"hover-": ("normal-", (WHITE, HOVER_LIFT))})
 
 
 def box_spec(border, fill, margin):

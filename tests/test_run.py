@@ -6,6 +6,8 @@ import stat
 
 import pytest
 from conftest import load_script
+from PySide6.QtCore import Qt
+from PySide6.QtTest import QTest
 
 APPLICATIONS = [
     {"name": "Calculator", "icon": "accessories-calculator", "path": "/apps/kcalc.desktop"},
@@ -101,6 +103,73 @@ def test_the_history_round_trips_through_its_file(run, tmp_path):
     run.write_history(["calc", "notepad"], path)
 
     assert (run.read_history(path), run.read_history(tmp_path / "missing")) == (["calc", "notepad"], [])
+
+
+@pytest.mark.parametrize("style", ("1995", "1998", "2000", "2001", "luna", "aero"))
+def test_run_opens_with_the_last_command_selected_and_ok_available(run, qt_app, style):
+    dialog = run.RunDialog({"style": style}, [], [], history=["calc", "notepad"])
+    try:
+        dialog.show()
+        qt_app.processEvents()
+        assert dialog.field.lineEdit().selectedText() == "calc"
+        assert dialog.buttons["OK"].isEnabled()
+    finally:
+        dialog.close()
+
+
+def test_run_history_arrow_keys_update_the_field_and_escape_keeps_it(run, qt_app):
+    dialog = run.RunDialog({"style": "1995"}, [], [], history=["calc", "notepad"])
+    try:
+        dialog.show()
+        QTest.keyClick(dialog.field.lineEdit(), Qt.Key_Down, Qt.AltModifier)
+        view = dialog.field.view()
+        assert view.isVisible()
+        QTest.keyClick(view, Qt.Key_Down)
+        qt_app.processEvents()
+        assert dialog.field.lineEdit().selectedText() == "notepad"
+        QTest.keyClick(view, Qt.Key_Escape)
+        qt_app.processEvents()
+        assert dialog.isVisible() and not view.isVisible()
+        assert dialog.field.currentText() == "notepad"
+        assert dialog.buttons["OK"].isEnabled()
+        QTest.keyClick(dialog.field.lineEdit(), Qt.Key_Down, Qt.AltModifier)
+        assert view.currentIndex().row() == 1
+    finally:
+        dialog.close()
+
+
+def test_run_can_open_history_while_search_suggestions_are_visible(run, qt_app, monkeypatch, tmp_path):
+    monkeypatch.setattr(run, "HISTORY_FILE", tmp_path / "run-history")
+    dialog = run.RunDialog({"style": "1995"}, APPLICATIONS, [], history=["notepad", "control"])
+    try:
+        dialog.show()
+        QTest.keyClicks(dialog.field.lineEdit(), "cal")
+        assert dialog.results.isVisible()
+        QTest.keyClick(dialog.field.lineEdit(), Qt.Key_Down, Qt.AltModifier)
+        view = dialog.field.view()
+        assert view.isVisible() and not dialog.results.isVisible()
+        QTest.keyClick(view, Qt.Key_Down)
+        qt_app.processEvents()
+        QTest.keyClick(view, Qt.Key_Escape)
+        dialog.accept()
+        assert dialog.command == ["control"]
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize(("style", "width"), (("1998", 293), ("2000", 256), ("2001", 256), ("luna", 256)))
+@pytest.mark.parametrize("initial_ratio", (1.0, 2.0))
+def test_run_uses_the_wayland_output_scale_before_its_first_frame(run, qt_app, monkeypatch, style, width, initial_ratio):
+    from PySide6.QtWidgets import QApplication
+
+    monkeypatch.setattr(QApplication, "platformName", lambda: "wayland")
+    monkeypatch.setattr(run.chicago95ui, "screen_scale", lambda: 1.25)
+    monkeypatch.setattr(run.RunBehaviour, "devicePixelRatioF", lambda _self: initial_ratio, raising=False)
+    dialog = run.RunDialog({"style": style}, [], [], history=[])
+    try:
+        assert dialog.field.width() == width
+    finally:
+        dialog.close()
 
 
 def test_typing_lists_the_matches_under_the_field_and_the_dialog_grows_to_hold_them(run, qt_app):

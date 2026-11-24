@@ -7,7 +7,7 @@ an entry's icon sits in its gutter with the label clear of it, and a plain entry
 import itertools
 
 import pytest
-from conftest import REPO
+from conftest import REPO, run_bash_with_steps
 
 STYLESHEET = (REPO / "data/plasmashell-menus.qss").read_text()
 PANEL, SELECTED = "#c0c0c0", "#000080"
@@ -63,3 +63,49 @@ def test_the_panel_stays_c0c0c0_and_the_selected_entry_navy(menu):
         image.pixelColor(first.right() - 2, first.center().y()).name(),
         image.pixelColor(selected.right() - 2, selected.center().y()).name(),
     ) == (PANEL, SELECTED)
+
+
+@pytest.mark.parametrize(
+    "look,scale,height",
+    (("1995", 1, 17), ("1995", 1.25, 16), ("1998", 1.25, 16), ("2000", 1.25, 17), ("2001", 1.25, 17)),
+)
+def test_compact_classic_menu_keeps_icons_and_checks(qt_app, tmp_path, look, scale, height):
+    from PySide6.QtGui import QColor, QIcon, QPixmap
+    from PySide6.QtWidgets import QMenu
+
+    sheet = "\n".join(run_bash_with_steps(
+        tmp_path, f'SETUP_SCALE={scale} SETUP_LOOK={look} render_menus_qss "$REPO/data/plasmashell-menus.qss"'
+    ))
+    menu = QMenu()
+    menu.setStyleSheet(sheet)
+    icon = QPixmap(16, 16)
+    icon.fill(QColor("#FF00FF"))
+    with_icon = menu.addAction(QIcon(icon), "Open")
+    checked = menu.addAction("Checked")
+    checked.setCheckable(True)
+    checked.setChecked(True)
+    submenu = menu.addMenu("Nested")
+    menu.addSeparator()
+    disabled = menu.addAction("Unavailable")
+    disabled.setEnabled(False)
+    menu.adjustSize()
+    image = menu.grab().toImage()
+    rows = [menu.actionGeometry(action) for action in (with_icon, checked, submenu.menuAction(), disabled)]
+    assert [row.height() for row in rows] == [height] * 4
+    first, second, nested, last = rows
+    assert image.pixelColor(first.x() + 2, first.center().y()).name() == "#ff00ff"
+    assert any(
+        image.pixelColor(x, y).name() == "#000000"
+        for x in range(second.x(), second.x() + 17)
+        for y in range(second.y(), second.bottom() + 1)
+    )
+    assert any(
+        image.pixelColor(x, y).name() == "#000000"
+        for x in range(nested.right() - 13, nested.right())
+        for y in range(nested.y(), nested.bottom() + 1)
+    )
+    assert any(
+        image.pixelColor(x, y).name() == "#808080"
+        for x in range(last.x() + 20, last.right() - 5)
+        for y in range(last.y(), last.bottom() + 1)
+    )

@@ -1,8 +1,9 @@
 """Aero push-button artwork and hover transitions shared by the Qt dialogs."""
 
+from math import ceil, floor
 from pathlib import Path
 
-from PySide6.QtCore import QRectF, QSignalBlocker, QStandardPaths, Qt, QTimer, QVariantAnimation
+from PySide6.QtCore import QEvent, QRectF, QSignalBlocker, QStandardPaths, Qt, QTimer, QVariantAnimation
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QPushButton, QStyle, QStyleOptionButton, QStylePainter
@@ -19,10 +20,13 @@ class AeroDialogButton(QPushButton):
     # Milliseconds, from the Windows 7 Basic guest's Cancel-button capture.
     HOVER_DELAY, FADE_IN, FADE_OUT = 120, 400, 1500
 
-    def __init__(self, label, artwork, parent, *, default_face="default"):
+    def __init__(self, label, artwork, parent, *, default_face="default", normal_face="normal"):
         super().__init__(label, parent)
         self.artwork = artwork
         self.default_face = default_face
+        self.normal_face = normal_face
+        self.face_rect = None
+        self.aligned_geometry = None
         self.glow = 0.0
         self.hover_target = 0.0
         self.hover_delay = QTimer(self)
@@ -57,18 +61,34 @@ class AeroDialogButton(QPushButton):
         self.hover_animation.stop()
         self.hover_delay.start(self.HOVER_DELAY)
 
+    def set_aligned_geometry(self, x, y, width, height):
+        """Fit the floating-point SVG canvas inside the integer QWidget bounds."""
+        self.aligned_geometry = (x, y, width, height)
+        scale = self.devicePixelRatioF()
+        left, top = (floor(value * scale) / scale for value in (x, y))
+        width, height = (round(value * scale) / scale for value in (width, height))
+        outer_x, outer_y = floor(left), floor(top)
+        self.face_rect = QRectF(left - outer_x, top - outer_y, width, height)
+        self.setGeometry(outer_x, outer_y, ceil(self.face_rect.right()), ceil(self.face_rect.bottom()))
+
+    def event(self, event):
+        result = super().event(event)
+        if event.type() == QEvent.DevicePixelRatioChange and self.aligned_geometry is not None:
+            self.set_aligned_geometry(*self.aligned_geometry)
+        return result
+
     def paintEvent(self, event):
         if not self.artwork.isValid() or not self.isEnabled():
             super().paintEvent(event)
             return
         painter = QStylePainter(self)
-        rect = QRectF(self.rect())
+        rect = self.face_rect if self.face_rect is not None else QRectF(self.rect())
         if self.isDown():
             self.artwork.render(painter, "pressed", rect)
         elif self.glow >= 1:
             self.artwork.render(painter, "hover", rect)
         else:
-            self.artwork.render(painter, self.default_face if self.isDefault() else "normal", rect)
+            self.artwork.render(painter, self.default_face if self.isDefault() else self.normal_face, rect)
             if self.glow > 0:
                 painter.setOpacity(self.glow)
                 self.artwork.render(painter, "hover", rect)

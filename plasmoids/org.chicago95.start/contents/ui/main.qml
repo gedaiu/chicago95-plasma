@@ -41,6 +41,7 @@ PlasmoidItem {
     readonly property bool isLuna: Plasmoid.configuration.taskbarStyle === "luna"
     // Luna's Start button and Windows 7's orb slot start at the screen's very edge.
     readonly property bool fromScreenEdge: isLuna || Plasmoid.configuration.taskbarStyle === "aero"
+    readonly property bool opensMenuOnPress: Plasmoid.configuration.taskbarStyle !== "aero"
     readonly property int panelMarginOverlap: fromScreenEdge ? 4 : 1
     readonly property int buttonWidth: (button.item as Item)?.implicitWidth ?? 0
     readonly property int gapAfterButton: Plasmoid.configuration.look === "2001" ? 1 : 0
@@ -78,6 +79,11 @@ PlasmoidItem {
         height: parent.height
         source: Qt.resolvedUrl(Plasmoid.configuration.taskbarStyle === "aero" ? "aero/StartButton.qml" : root.isLuna ? "luna/StartButton.qml" : "StartButton.qml")
     }
+    Loader {
+        id: visibleMenu
+        active: root.opensMenuOnPress
+        source: "StartMenuVisibility.qml"
+    }
     Binding {
         target: button.item
         property: "text"
@@ -103,7 +109,9 @@ PlasmoidItem {
     Binding {
         target: button.item
         property: "held"
-        value: clickArea.pressed && clickArea.containsMouse
+        value: root.opensMenuOnPress
+            ? clickArea.pressed || (visibleMenu.item?.registered ?? false)
+            : clickArea.pressed && clickArea.containsMouse
     }
     Binding {
         target: button.item
@@ -137,6 +145,13 @@ PlasmoidItem {
         id: clickArea
         anchors.fill: button
         hoverEnabled: Plasmoid.configuration.taskbarStyle === "aero"
-        onClicked: root.toggleMenu()
+        onPressed: {
+            if (root.opensMenuOnPress)
+                root.toggleMenu()
+        }
+        onClicked: {
+            if (!root.opensMenuOnPress)
+                root.toggleMenu()
+        }
     }
 }

@@ -671,8 +671,8 @@ def caption_url(asset):
     return 'url("' + (asset.as_uri() if asset.is_absolute() else asset.as_posix()) + '")'
 
 
-def caption_controls(assets, *, gtk3_hidpi=False):
-    size = f"{aurorae.BUTTON}px"
+def caption_controls(assets, *, gtk3_hidpi=False, caption_size=aurorae.BUTTON):
+    size = f"{caption_size:g}px"
     rules = [
         block("headerbar", min_height="26px", padding="2px 4px"),
         block(
@@ -730,11 +730,11 @@ def caption_controls(assets, *, gtk3_hidpi=False):
     return "\n".join(rules)
 
 
-def titlebar_block(active, inactive, caption, assets=Path("../caption"), *, gtk3_hidpi=False):
+def titlebar_block(active, inactive, caption, assets=Path("../caption"), *, gtk3_hidpi=False, caption_size=aurorae.BUTTON):
     return (
         titlebar_state("", active, aurorae_stops.SIDE_OVERLAY, "#FFFFFF")
         + titlebar_state(":backdrop", inactive, aurorae_stops.INACTIVE_SIDE_OVERLAY, caption)
-        + caption_controls(assets, gtk3_hidpi=gtk3_hidpi)
+        + caption_controls(assets, gtk3_hidpi=gtk3_hidpi, caption_size=caption_size)
     )
 
 
@@ -1091,7 +1091,48 @@ def libadwaita_block():
     defines = "\n".join(
         f"@define-color {name.replace('-', '_')} {value};" for name, value in LIBADWAITA_COLOURS.items()
     )
-    return f":root {{\n{properties}\n}}\n{defines}\n"
+    return f":root {{\n{properties}\n}}\n{defines}\n{FILES_ADDRESS}"
+
+
+FILES_ADDRESS = """
+/* GNOME Files uses breadcrumbs where XP Explorer had a single Address field. */
+.nautilus-window .nautilus-pathbar {
+  background: #ffffff;
+  border: 1px solid #7f9db9;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+.nautilus-window .nautilus-pathbar button {
+  min-height: 18px;
+  margin: 0 2px;
+  padding: 0 4px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.nautilus-window .nautilus-pathbar > menubutton > button box,
+.nautilus-window .nautilus-pathbar > menubutton > button contents,
+.nautilus-window .nautilus-pathbar > menubutton > button image {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  -gtk-icon-size: 14px;
+}
+.nautilus-window .nautilus-pathbar label {
+  font-size: 11px;
+  font-weight: normal;
+}
+.nautilus-window .nautilus-pathbar button:hover {
+  background: #eff5fb;
+  box-shadow: inset 0 0 0 1px #a2bfd9;
+}
+.nautilus-window .nautilus-pathbar button:active {
+  background: #d2e2f3;
+  box-shadow: inset 0 0 0 1px #7f9db9;
+}
+"""
 
 
 def indicator_backend_rules(version):
@@ -1251,10 +1292,18 @@ if __name__ == "__main__":
         write_caption_faces(options.caption_assets / "large", True, density=2)
     elif options.titlebar:
         assets = options.caption_assets.resolve()
-        gtk3_hidpi = options.dpi == aurorae.LARGE_CAPTION_DPI and os.environ.get("GTK_VERSION") == "3.0"
+        gtk_version = os.environ.get("GTK_VERSION")
+        high_dpi = options.dpi == aurorae.LARGE_CAPTION_DPI
+        gtk3_hidpi = high_dpi and gtk_version == "3.0"
+        caption_size = aurorae.BUTTON
+        if high_dpi and gtk_version == "4.0":
+            # Preserve the native 27px face when GTK 4 renders at 125%.
+            caption_size = aurorae.LARGE_CAPTION * 96 / options.dpi
         if options.dpi >= aurorae.LARGE_CAPTION_DPI:
             assets /= "large"
-        sys.stdout.write(titlebar_block("title-active", "title-inactive", INACTIVE_CAPTION, assets, gtk3_hidpi=gtk3_hidpi))
+        sys.stdout.write(titlebar_block(
+            "title-active", "title-inactive", INACTIVE_CAPTION, assets, gtk3_hidpi=gtk3_hidpi, caption_size=caption_size
+        ))
     else:
         write_theme(options.out)
         print("wrote", options.out)

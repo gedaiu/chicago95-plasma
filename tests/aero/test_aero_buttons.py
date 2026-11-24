@@ -7,6 +7,7 @@ from aero_sprites import requires_sprites
 from conftest import REPO
 from fit_aero_stops import FACES, STATES, glyph_image, state_image
 from PIL import Image
+from test_caption_states_reference import caption_pixels, caption_reference, face_region
 
 spec = importlib.util.spec_from_file_location("make_aero_aurorae", REPO / "aero/aurorae/make_aero_aurorae.py")
 generator = importlib.util.module_from_spec(spec)
@@ -113,7 +114,7 @@ def test_large_caption_glyph_matches_144_dpi_guest(qt_app, kind, left, width):
 
 @pytest.mark.parametrize(
     ("kind", "width", "left", "dpi96_limit", "dpi144_limit"),
-    [("minimize", 30, 0, 14, 17), ("maximize", 27, 45, 19, 18), ("close", 50, 85, 14, 17), ("restore", 27, 0, 10, 9)],
+    [("minimize", 30, 0, 14, 17), ("maximize", 27, 45, 19, 18), ("close", 50, 85, 14, 17), ("restore", 27, 0, 10, 5)],
 )
 @pytest.mark.parametrize("large", [False, True], ids=["96dpi", "144dpi"])
 def test_complete_caption_face_against_guest(
@@ -133,19 +134,36 @@ def test_complete_caption_face_against_guest(
         height, matte, limit = 20, (109, 146, 181), dpi96_limit
         name = f"caption-{kind}-motion"
         left, top = 0, 0 if restore else 2
-    reference = Image.open(REPO / f"tests/references/win7-sp1-{name}.png").convert("RGB")
-    expected = reference.crop((left, top, left + width, top + height - restore))
-    asset = theme / f"{kind}{'-large' if large else ''}.svg"
-    button = render(asset.read_bytes(), (width, height), "active-center")
-    glass = Image.new("RGBA", button.size, matte)
-    glass.alpha_composite(button)
-    # The maximized guest caption clips its first row at the screen edge.
-    actual = glass.convert("RGB").crop((0, int(restore), width, height))
+    if large and restore:
+        expected, glass = face_region(caption_reference("aero"), "aero", "restore", 1)
+        actual = caption_pixels(theme, kind, "restore", "aero", glass.resize(expected.size))
+    else:
+        reference = Image.open(REPO / f"tests/references/win7-sp1-{name}.png").convert("RGB")
+        expected = reference.crop((left, top, left + width, top + height - restore))
+        asset = theme / f"{kind}{'-large' if large else ''}.svg"
+        button = render(asset.read_bytes(), (width, height), "active-center")
+        glass = Image.new("RGBA", button.size, matte)
+        glass.alpha_composite(button)
+        actual = glass.convert("RGB").crop((0, int(restore), width, height))
     exact_original(expected, actual)
     difference = np.abs(np.asarray(actual, dtype=int) - np.asarray(expected, dtype=int))
     assert difference.mean() < limit
     if kind == "maximize" and not large:
         assert difference[:17, 0].mean() < 16
+
+
+@pytest.mark.parametrize("band", range(3), ids=("dark", "light", "blue"))
+def test_maximize_sheen_matches_native_glass(qt_app, band):
+    import numpy as np
+
+    y = 30 * band
+    with Image.open(REPO / "tests/references/win7-sp1-144dpi-caption-mattes.png") as reference:
+        glass = reference.crop((1, y, 2, y + 30)).convert("RGB")
+        # The sheet begins with the backdrop and glass columns, then the 45px Minimize cell.
+        expected = reference.crop((47, y, 87, y + 30)).convert("RGB")
+    actual = caption_pixels(REPO / "aero/aurorae/theme", "maximize", "rest", "aero", glass.resize(expected.size))
+    difference = np.abs(np.asarray(actual, dtype=int) - np.asarray(expected, dtype=int))
+    assert difference.mean() < 2, difference.mean()
 
 
 @pytest.mark.parametrize(("kind", "width", "ink_pixels"), [("minimize", 30, 56), ("maximize", 27, 108), ("restore", 27, 126)])
@@ -229,12 +247,17 @@ def test_close_bevel_retains_glass_transparency_in_each_state(qt_app, large):
     width, height = (75, 30) if large else (50, 20)
     for state in generator.AURORAE_STATES:
         button = render(asset.read_bytes(), (width, height), state + "-center")
-        assert button.getpixel((0, height - 1))[3] == 0
+        left = button.getpixel((0, height - 1))
+        lower_rim = button.getpixel((width // 2, height - 1))
+        if large and state == "deactivated":
+            assert left == lower_rim
+        else:
+            assert left[3] == 0
         top = button.getpixel((width // 2, 0))
         assert min(top[:3]) >= 248
         if state in ("active", "hover", "pressed"):
             assert top == (252, 252, 252, 255)
-        red, green, blue, alpha = button.getpixel((width // 2, height - 1))
+        red, green, blue, alpha = lower_rim
         assert max(red, green, blue) - min(red, green, blue) < 5
         if large and state == "active":
             assert 193 <= alpha <= 199

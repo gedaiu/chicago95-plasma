@@ -27,12 +27,12 @@ checkbutton:disabled > check:indeterminate { -gtk-icon-source: url("mixed-disabl
   margin: 0;
 }
 /* Explorer draws both navigation orbs at the same size on the address
- * field's centreline. Thunar supplies a 20px image for each action. */
+ * field's centreline. Thunar supplies a 24px image for each action. */
 .thunar toolbar > toolbutton:first-child button image {
-  -gtk-icon-transform: translate(-3px, 0) scale(1.32);
+  -gtk-icon-transform: translate(-3px, 0);
 }
 .thunar toolbar > toolbutton:nth-child(2) button image {
-  -gtk-icon-transform: translate(-6px, 0) scale(1.32);
+  -gtk-icon-transform: translate(-6px, 0);
 }
 .thunar toolbar .path-bar {
   background: linear-gradient(#cfe6f9, #d2e8f9 20%, #d2e8f9 80%, #cee6f8);

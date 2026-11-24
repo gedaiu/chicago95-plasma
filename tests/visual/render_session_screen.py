@@ -36,6 +36,25 @@ def render_aero_power_menu(app, folder, size, steps, account, brand):
         return qimage_to_pil(frame).crop(box)
 
 
+def render_aero_entry(app, folder, size, account, brand, state):
+    with login_view(
+        app, folder, size=size, user=account, users=(account,), loginStyle="aero", brandText=brand,
+    ) as view:
+        field = view.rootObject().findChild(QObject, "aeroPassword")
+        assert field.hasActiveFocus()
+        for key in (Qt.Key_A, Qt.Key_B, Qt.Key_C, Qt.Key_D):
+            QTest.keyClick(view, key)
+        if state in ("selected", "cleared"):
+            QTest.keyClick(view, Qt.Key_A, Qt.ControlModifier)
+        if state == "cleared":
+            QTest.keyClick(view, Qt.Key_Backspace)
+        assert field.property("length") == (0 if state == "cleared" else 4)
+        selection = field.property("selectionEnd") - field.property("selectionStart")
+        assert selection == (4 if state == "selected" else 0)
+        QTest.qWait(100)
+        return qimage_to_pil(view.grabWindow())
+
+
 def render(manifest, component, state, destination):
     from chicago95ui import make_app
 
@@ -59,6 +78,8 @@ def render(manifest, component, state, destination):
             actual = render_aero_lock(app, output.parent, size, account, brand)
         elif "menu_down" in capture:
             actual = render_aero_power_menu(app, output.parent, size, capture["menu_down"], account, brand)
+        elif "entry" in capture:
+            actual = render_aero_entry(app, output.parent, size, account, brand, capture["entry"])
         else:
             actual = render_login(
                 app, output.parent, size=size, user=account, users=(account,),
@@ -87,6 +108,8 @@ def render(manifest, component, state, destination):
             loginStyle="2000", loginTitle="Log On to Windows", titleActive="#0A246A,#A6CAF0", scale=round(scale),
             desktopColor="#000000" if look == "2001" else "",
         )
+    if "bounds" in capture:
+        actual = actual.crop(capture["bounds"])
     actual.save(output)
 
 

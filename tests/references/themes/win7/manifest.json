@@ -21,6 +21,9 @@
         "frame": "sign-in/rejected-800x600.png", "exclude": [399, 299, 416, 321], "failed": true
       },
       "rejected-1280x960": {"frame": "sign-in/rejected-1280x960.png", "failed": true},
+      "password-typed": {"frame": "sign-in/password-typed.png", "screen_size": [800, 600], "bounds": [280, 402, 551, 445], "entry": "typed"},
+      "password-selected": {"frame": "sign-in/password-selected.png", "screen_size": [800, 600], "bounds": [280, 402, 551, 445], "entry": "selected"},
+      "password-cleared": {"frame": "sign-in/password-cleared.png", "screen_size": [800, 600], "bounds": [280, 402, 551, 445], "entry": "cleared"},
       "power-menu-open": {"frame": "sign-in/power-menu-open.png", "screen_size": [800, 600], "menu_down": 0},
       "power-menu-restart": {"frame": "sign-in/power-menu-restart.png", "screen_size": [800, 600], "menu_down": 1},
       "power-menu-hibernate": {"frame": "sign-in/power-menu-hibernate.png", "screen_size": [800, 600], "menu_down": 2},

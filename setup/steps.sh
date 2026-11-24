@@ -1383,6 +1383,18 @@ render_menus_qss() {
     if [[ "${SETUP_SELECTION:-}" =~ ^([0-9]{1,3},){2}[0-9]{1,3}$ ]]; then
       edits+=(-e "s|#000080|rgb($SETUP_SELECTION)|g")
     fi
+    local row_height=
+    if [[ "${SETUP_SCALE:-1}" =~ ^1\.250*$ ]]; then
+      row_height=16
+      case "${SETUP_LOOK:-}" in 2000 | 2001) row_height=17 ;; esac
+    elif [ "${SETUP_LOOK:-}" = 1995 ] && [[ "${SETUP_SCALE:-1}" =~ ^1(\.0+)?$ ]]; then
+      row_height=17
+    fi
+    if [ -n "$row_height" ]; then
+      # The measured Windows menus use a shorter row than Qt's Windows style.
+      edits+=(-e "\$a QMenu::item { height: ${row_height}px; padding: 0 12px 0 3px; }" \
+        -e '$a QMenu::icon { left: 2px; }')
+    fi
   fi
   sed "${edits[@]}" "$@"
 }
@@ -1399,7 +1411,15 @@ apply_shell_menu() {
   local drop_in=~/.config/systemd/user/plasma-plasmashell.service.d/chicago95-menus.conf
   local menus_qss="$REPO/data/plasmashell-menus.qss"
   case "${SETUP_WIDGET_STYLE:-classic}" in
-  aero) menus_qss="$REPO/aero/plasma-style/menus.qss" ;;
+  aero)
+    menus_qss="$REPO/aero/plasma-style/menus.qss"
+    local menu_art installed_art
+    for menu_art in menu-selection menu-gutter menu-arrow; do
+      installed_art="$HOME/.local/share/chicago95/images/aero-$menu_art.svg"
+      if installed_differs "$REPO/aero/plasma-style/$menu_art.svg" "$installed_art"; then SHELL_CHANGED=1; fi
+      put_file "$REPO/aero/plasma-style/$menu_art.svg" "$installed_art"
+    done
+    ;;
   luna) menus_qss="$REPO/data/plasmashell-menus-luna.qss" ;;
   esac
   if menus_qss_differs "$menus_qss" ~/.local/share/chicago95/plasmashell-menus.qss ||
@@ -1835,15 +1855,11 @@ step_explorer() {
     sleep 1
     put_file "$REPO/config/thunar/thunar.xml" "$thunar_xml"
   fi
-  if [ "${SETUP_WIDGET_STYLE:-classic}" = aero ]; then
-    if [ "${SETUP_IN_PLASMA:-0}" = 1 ] && command -v xfconf-query >/dev/null 2>&1; then
-      run xfconf-query -c thunar -p /last-location-bar -n -t string -s ThunarLocationButtons
-      run xfconf-query -c thunar -p /last-menubar-visible -n -t bool -s false
-      run xfconf-query -c thunar -p /last-toolbar-items -n -t string -s back:1,forward:1,location-bar:1,search:1,menu:1
-    else
-      run python3 "$REPO/setup/thunar-navigation.py" "$thunar_xml"
-    fi
+  local -a navigation=(--style "${SETUP_WIDGET_STYLE:-classic}")
+  if [ "${SETUP_IN_PLASMA:-0}" = 1 ] && command -v xfconf-query >/dev/null 2>&1; then
+    navigation+=(--live)
   fi
+  run python3 "$REPO/setup/thunar-navigation.py" "$thunar_xml" "${navigation[@]}"
   backup ~/.config/gtk-3.0/gtk.css
   if ! grep -q 'Chicago95 Thunar' ~/.config/gtk-3.0/gtk.css 2>/dev/null; then
     [ "${SETUP_DRY_RUN:-0}" = 1 ] || {

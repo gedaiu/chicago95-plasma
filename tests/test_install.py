@@ -1481,7 +1481,10 @@ def test_taskbar_clears_plasma_caches_for_the_new_applets(tmp_path):
 def install_shell_files(home):
     shared = home / ".local/share/chicago95"
     shared.mkdir(parents=True)
-    shutil.copy(REPO / "data/plasmashell-menus.qss", shared / "plasmashell-menus.qss")
+    stylesheet = run_bash_with_steps(
+        home, 'SETUP_LOOK=1995 SETUP_SCALE=1 render_menus_qss "$REPO/data/plasmashell-menus.qss"'
+    )
+    (shared / "plasmashell-menus.qss").write_text("\n".join(stylesheet) + "\n")
     shutil.copytree(REPO / "data/qml", shared / "qml")
     drop_in = home / ".config/systemd/user/plasma-plasmashell.service.d"
     drop_in.mkdir(parents=True)
@@ -2073,6 +2076,8 @@ def test_luna_decoration_writes_the_vertical_title_gradient_into_the_gtk_css(tmp
     for version in ("3.0", "4.0"):
         css = (tmp_path / f".config/gtk-{version}/gtk.css").read_text()
         assert f'url("{restore.as_uri()}")' in css
+        size = "21.6px" if dpi == 120 and version == "4.0" else "21px"
+        assert f"background-size: {size} {size};" in css
         doubled = restore.with_name("restore-active@2.svg")
         assert (doubled.as_uri() in css) == (dpi == 120 and version == "3.0")
     if dpi == 120:
@@ -2208,17 +2213,25 @@ def test_windows_98_boot_has_its_own_artwork_and_retains_password_prompts(tmp_pa
             rendered = frame.crop((0, 472, 640, 480))
         assert np.abs(np.asarray(rendered, dtype=int) - np.asarray(native, dtype=int)).mean() < 3
 
-    # Compare the whole cloud/wordmark composition and the caption's ink box to LOGOW.SYS.
+    # Compare the composition with the historical previews and the caption at display size.
     with Image.open(target / "win95_shutdown-01.png") as frame:
+        rendered = frame.convert("RGB")
         preview = frame.resize((160, 120), Image.Resampling.BOX)
     with Image.open(REPO / "tests/references/win98-se-shutdown-vm.png") as captured:
         assert max(ImageStat.Stat(ImageChops.difference(preview, captured)).mean) < 4
     with Image.open(REPO / "tests/references/win98-se-shutdown-preview.png") as native:
         assert max(ImageStat.Stat(ImageChops.difference(preview, native)).mean) < 3
-        for image in (preview, native):
-            caption = image.crop((45, 108, 125, 119)).getchannel("R").point(lambda v: 255 if v < 120 else 0)
-            left, top, right, bottom = caption.getbbox()
-            assert (left, top, right, bottom) == (10, 4, 63, 8)
+
+    with Image.open(captures / "themes/win98/shutdown/transition-wait.png") as native:
+        expected = native.convert("RGB").resize(rendered.size, Image.Resampling.NEAREST)
+    bounds = (180, 432, 500, 476)
+
+    def caption_box(image):
+        return image.crop(bounds).getchannel("R").point(lambda value: 255 if value < 120 else 0).getbbox()
+
+    assert max(abs(a - b) for a, b in zip(caption_box(rendered), caption_box(expected), strict=True)) <= 1
+    delta = np.abs(np.asarray(rendered, dtype=int) - np.asarray(expected, dtype=int))
+    assert delta.mean() < 0.30
 
 
 def test_windows_95_plymouth_exports_all_twenty_palette_phases(tmp_path):
@@ -2674,6 +2687,35 @@ def test_thunar_opens_folders_through_kwriteconfig6_without_xdg_mime_which_needs
         in log,
         "xdg-mime" in log,
     ) == (True, False)
+
+
+@pytest.mark.parametrize("style", ("classic", "luna"))
+def test_thunar_restores_its_standard_navigation_after_leaving_aero(tmp_path, style):
+    from xml.etree import ElementTree
+
+    profile = tmp_path / ".config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml"
+    profile.parent.mkdir(parents=True)
+    profile.write_text('<channel><property name="last-view" type="string" value="ThunarDetailsView"/></channel>')
+    run_bash_with_steps(tmp_path, "SETUP_HAS_THUNAR=1 SETUP_WIDGET_STYLE=aero step_explorer")
+    run_bash_with_steps(tmp_path, f"SETUP_HAS_THUNAR=1 SETUP_WIDGET_STYLE={style} step_explorer")
+    values = {item.get("name"): item.get("value") for item in ElementTree.parse(profile).getroot()}
+    assert values == {
+        "last-view": "ThunarDetailsView",
+        "last-location-bar": "ThunarLocationEntry",
+        "last-menubar-visible": "true",
+    }
+
+
+def test_thunar_leaves_custom_navigation_alone_outside_aero(tmp_path):
+    profile = tmp_path / ".config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml"
+    profile.parent.mkdir(parents=True)
+    saved = (
+        '<channel><property name="last-menubar-visible" type="bool" value="false"/>'
+        '<property name="last-toolbar-items" type="string" value="back:1,location-bar:1,menu:1"/></channel>'
+    )
+    profile.write_text(saved)
+    run_bash_with_steps(tmp_path, "SETUP_HAS_THUNAR=1 SETUP_WIDGET_STYLE=luna step_explorer")
+    assert profile.read_text() == saved
 
 
 def test_choosing_windows_7_frames_after_the_luna_look_selects_the_aero_decoration(tmp_path):

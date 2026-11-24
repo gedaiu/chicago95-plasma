@@ -44,6 +44,9 @@ Item {
                     x: button.restoreButton && group.outputScale === 1 ? 1 : 0
                     width: button.width
                     height: button.height
+                    // MouseArea.enabled only controls input. Pass it to the
+                    // visual item as well so it selects its disabled face.
+                    enabled: button.enabled
                     haloLayer: halos
                     haloPosition: Qt.point(button.x + x, button.y + y)
                     artwork: button.closeButton ? group.theme.closeButtonPath : button.minimizeButton ? group.theme.minimizeButtonPath

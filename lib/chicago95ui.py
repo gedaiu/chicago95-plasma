@@ -13,6 +13,7 @@ import signal
 import socket
 import subprocess
 import sys
+from math import floor
 from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication
@@ -1356,6 +1357,17 @@ class ListRowDelegate(QStyledItemDelegate):
         hint = super().sizeHint(option, index)
         hint.setHeight(LIST_ROW_HEIGHT)
         return hint
+
+
+def popup_item_bounds(painter, view, index, rect, row_height):
+    """Map the item's face to the popup's physical pixel grid."""
+    transform = painter.deviceTransform()
+    bounds = transform.mapRect(QRectF(rect))
+    first = view.visualRect(index.siblingAtRow(0)).topLeft()
+    left, right = floor(bounds.left()), floor(bounds.right())
+    height = floor(row_height * transform.m22())
+    top = floor(transform.map(QPointF(first)).y()) + index.row() * height
+    return QRectF(left, top, right - left, height)
 
 
 def classic_combo(combo):

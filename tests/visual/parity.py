@@ -261,8 +261,10 @@ def live_gtk(installed):
             )
             if component == "caption":
                 command += " --caption-crops"
-                if (look == "luna" and version == "3.0") or (look in CLASSIC and scale == 1.25):
+                if look == "luna" or (look in CLASSIC and scale == 1.25):
                     command += " --compositor-captions"
+            elif component == "radio" and look in CLASSIC and scale == 1.25:
+                command += " --compositor-radios"
             commands.append(command)
         script.write_text("\n".join(commands) + "\n")
         env = {
@@ -491,6 +493,21 @@ def test_luna_kwin_preserves_the_authored_120dpi_pixels(state, index, svg_themes
     exact(artwork, live, visual_output / "winxp" / "caption" / "kwin" / state / button / "rasterization", mask)
 
 
+@pytest.mark.parametrize(("renderer", "limit"), (("kwin", 6), ("gtk4", 18)))
+def test_win7_maximized_caption_matches_native_size_and_glass(renderer, limit, svg_themes, live_kwin, live_gtk):
+    _, metadata = THEMES["win7"]
+    look, scale = metadata["look"], metadata["caption_scale"]
+    if renderer == "kwin":
+        artwork = svg_themes[look]
+        actual = kwin_face(live_kwin("win7", artwork), artwork, look, scale, "restore", 1)
+    else:
+        actual = gtk_face(live_gtk(look, scale) / "caption-gtk-4.0", "restore", 1)
+    expected, _glass = face_region(caption_reference(look), look, "restore", 1)
+    assert actual.size == expected.size
+    error = np.abs(np.asarray(actual, dtype=int) - np.asarray(expected, dtype=int)).mean()
+    assert error < limit, error
+
+
 @pytest.fixture(scope="module", params=AERO_MATTES)
 def aero_caption_matte(request, installed, visual_output):
     matte = request.param
@@ -542,10 +559,17 @@ def test_aero_native_glass_keeps_the_vm_backdrop_response(aero_caption_matte):
 
 
 @pytest.mark.parametrize("matte", DISABLED_CLOSE_MATTES)
-def test_win7_disabled_close_over_native_glass_matches_windows_pixels(svg_themes, matte, visual_output):
+@pytest.mark.parametrize("region", ("face", "lower-rim"))
+def test_win7_disabled_close_over_native_glass_matches_windows_pixels(svg_themes, matte, region, visual_output):
     glass, expected = disabled_close_matte(matte)
     actual = caption_pixels(svg_themes["aero"], "close", "disabled", "aero", glass)
-    exact(expected, actual, visual_output / "win7" / "caption" / "svg" / "disabled" / "close" / matte)
+    output = visual_output / "win7" / "caption" / "svg" / "disabled" / "close" / matte
+    if region == "lower-rim":
+        # The straight join starts at Maximize; the opposite end curves up.
+        box = (0, expected.height - 1, expected.width - 5, expected.height)
+        expected, actual = expected.crop(box), actual.crop(box)
+        output /= region
+    exact(expected, actual, output)
 
 
 @pytest.mark.parametrize("version", ("3.0", "4.0"), ids=("gtk3", "gtk4"))
@@ -585,6 +609,25 @@ def test_kwin_disabled_caption_interior_matches_its_own_idle_state(
     face = (3, 3, idle.width - 3, idle.height - 3)
     directory = visual_output / theme / "caption" / "kwin" / "pointer-invariance" / action / BUTTONS[index]
     exact(idle.crop(face), actual.crop(face), directory)
+
+
+@pytest.mark.parametrize("index", state_buttons("disabled"), ids=["maximize", "close"])
+def test_win7_kwin_disabled_caption_dims_the_glyph(index, svg_themes, live_kwin):
+    _, metadata = THEMES["win7"]
+    look, scale = metadata["look"], metadata["caption_scale"]
+    artwork = svg_themes[look]
+    capture = live_kwin("win7", artwork)
+    reference = caption_reference(look)
+    active, _ = face_region(reference, look, "rest", index)
+    disabled, _ = face_region(reference, look, "disabled", index)
+    active, disabled = (np.asarray(image, dtype=int) for image in (active, disabled))
+    glyph = (active.min(axis=2) >= 230) & ((active - disabled).mean(axis=2) > 25)
+    glyph[:4] = glyph[-4:] = False
+    glyph[:, :7] = glyph[:, -7:] = False
+    assert glyph.any()
+    idle = np.asarray(kwin_face(capture, artwork, look, scale, "rest", index), dtype=int)
+    unavailable = np.asarray(kwin_face(capture, artwork, look, scale, "disabled", index), dtype=int)
+    assert (idle[glyph] - unavailable[glyph]).mean() > 20
 
 
 @pytest.fixture(scope="module")
@@ -647,6 +690,26 @@ def test_run_win7_history_arrow_matches_native_geometry(aero_run_capture, visual
     images[1].save(output / "rendered.png")
 
 
+def test_run_win7_white_pane_matches_native_edges(aero_run_capture, visual_output):
+    expected, actual = aero_run_capture
+    for side, bounds in {
+        "top": (0, 0, 568, 2),
+        "left": (0, 2, 2, 190),
+        "right": (566, 2, 568, 190),
+        "bottom": (0, 189, 568, 191),
+    }.items():
+        exact(expected.crop(bounds), actual.crop(bounds), visual_output / "win7/run/qt/pane" / side)
+
+
+@pytest.mark.parametrize("left", (156, 291, 426), ids=("ok", "cancel", "browse"))
+def test_run_win7_action_button_face_matches_native(aero_run_capture, left):
+    # A strip clear of the caption, including both outer edges and the complete gradient.
+    strip = (left + 8, 219, left + 18, 263)
+    expected, actual = (np.asarray(image.crop(strip), dtype=np.int16) for image in aero_run_capture)
+    assert np.abs(expected - actual).mean() < 3
+    assert np.array_equal(expected[[0, 1, -2, -1]], actual[[0, 1, -2, -1]])
+
+
 RUN_STATES = [
     (theme, state)
     for theme, (_, metadata) in THEMES.items()
@@ -690,6 +753,109 @@ def test_run_native_default_button_bevel(theme, state, native_run_states, visual
         exact(expected.crop(box), actual.crop(box), output)
 
 
+RUN_HISTORY_THEMES = [theme for theme, (folder, _) in THEMES.items() if (folder / "run/history.json").is_file()]
+
+
+@pytest.fixture(scope="module")
+def run_history_popup(tmp_path_factory):
+    @cache
+    def capture(theme, state):
+        folder, metadata = THEMES[theme]
+        scale = json.loads((folder / "run/history.json").read_text())["scale"]
+        with Image.open(folder / "run" / f"history-{state}.png") as reference:
+            expected = reference.convert("RGB")
+        frame = tmp_path_factory.mktemp("run-history") / "popup.png"
+        render_properties(folder, f"run-history-{state}", frame, expected.size, scale=scale)
+        with Image.open(frame) as render:
+            actual = render.convert("RGB")
+        return expected, rgb565(actual) if metadata["look"] in ("2000", "2001", "luna") else actual
+
+    return capture
+
+
+@pytest.mark.parametrize("theme", RUN_HISTORY_THEMES)
+@pytest.mark.parametrize("state", ("open", "down"))
+def test_run_history_popup(theme, state, run_history_popup, visual_output):
+    expected, actual = run_history_popup(theme, state)
+    exact(expected, actual, visual_output / theme / "run/qt" / f"history-{state}")
+
+
+@pytest.mark.parametrize("theme", RUN_HISTORY_THEMES)
+def test_run_history_native_frame_and_highlight_rows(theme, run_history_popup, visual_output):
+    for state in ("open", "down"):
+        expected, actual = run_history_popup(theme, state)
+        assert actual.size == expected.size
+        width, height = expected.size
+        output = visual_output / theme / "run/qt" / f"history-{state}"
+        for side, frame in {
+            "top": (0, 0, width, 1),
+            "bottom": (0, height - 1, width, height),
+            "left": (0, 1, 1, height - 1),
+            "right": (width - 1, 1, width, height - 1),
+        }.items():
+            exact(expected.crop(frame), actual.crop(frame), output / "frame" / side)
+        # The first two commands leave this column blank, including when selected.
+        bounds = (200, 0, 201, 2 * (13 if theme == "win95" else 16) + 2)
+        exact(expected.crop(bounds), actual.crop(bounds), output / "highlight-rows")
+
+
+def test_luna_run_history_disabled_scrollbar_matches_the_native_colours(run_history_popup):
+    expected, actual = run_history_popup("winxp", "open")
+    for box in ((303, 4, 315, 17), (303, 193, 315, 206)):
+        left, right = (np.asarray(image.crop(box), dtype=int) for image in (expected, actual))
+        assert np.abs(left - right).mean() < 8
+
+
+def test_run_history_wayland_uses_the_120dpi_field_and_popup(installed, visual_output):
+    folder, metadata = THEMES["win2k"]
+    spec = json.loads((folder / "run/history.json").read_text())
+    session = installed(metadata["look"], spec["scale"], screen=(800, 600), components=("startmenu",))
+    config = session.work / "home/.config"
+    (config / "chicago95/run-history").write_text("\n".join(spec["entries"]) + "\n")
+    (config / "kwinrulesrc").write_text(
+        "[General]\nrules=run-capture\n[run-capture]\nwmclass=chicago95-run\nwmclassmatch=1\n"
+        "position=80,60\npositionrule=2\nnoborder=true\nnoborderrule=2\n"
+    )
+    script = session.work / "run-history.sh"
+    script.write_text(
+        "#!/bin/sh\nset -eu\n"
+        '"$HOME/.local/bin/chicago95-run" --dry-run >"$WORK/run-history-app.log" 2>&1 &\n'
+        "for attempt in 1 2 3 4 5 6; do\n"
+        '    sleep 1\n'
+        '    spectacle -b -n -f -o "$WORK/run-history-closed.png"\n'
+        "    python3 -c 'from PIL import Image; import sys; "
+        'sys.exit(Image.open("run-history-closed.png").convert("RGB").getbbox() is None)\' && break\n'
+        "done\n"
+        'python3 "$WORK/eis_pointer.py" move:385,152 click:left move:60,40 wait:0.4 snapshot:run-history-open\n'
+    )
+    run_session(session.work, script, session.environment, session.screen, scale=spec["scale"])
+    output = visual_output / "win2k/run/wayland/history"
+    output.mkdir(parents=True, exist_ok=True)
+    frames = []
+    for state in ("closed", "open"):
+        with Image.open(session.work / f"run-history-{state}.png") as frame:
+            image = frame.convert("RGB")
+        image.save(output / f"{state}.png")
+        frames.append(image)
+    before, after = frames
+    changed = ImageChops.difference(before, after).getbbox()
+    assert changed, output
+    left, first, right, bottom = changed
+    assert (right - left) == 320, (changed, output)
+    # The last black line is invisible outside the window over the black desktop.
+    for top in range(first, bottom):
+        if after.crop((left, top, right, top + 1)).getbbox() is None:
+            break
+    else:
+        pytest.fail(f"Run did not draw the popup's top edge. See {output}")
+    popup = rgb565(after.crop((left, top, right, bottom + 1)))
+    with Image.open(folder / "run/history-open.png") as frame:
+        native = frame.convert("RGB")
+    assert popup.size == native.size, (popup.size, native.size, output)
+    rows = (200, 0, 201, 34)
+    exact(native.crop(rows), popup.crop(rows), output / "highlight-rows")
+
+
 @pytest.mark.parametrize("theme", THEMES)
 def test_taskbar_band(theme, installed, visual_output):
     folder, metadata = THEMES[theme]
@@ -718,12 +884,104 @@ def test_truecolor_taskbar_band(theme, installed, visual_output):
     exact(expected, actual, visual_output / theme / "taskbar/plasma/truecolor-band")
 
 
+START_BUTTON_STATES = ("idle", "held-outside", "released-outside", "dismissed")
+START_BUTTON_THEMES = [name for name, (_, data) in THEMES.items() if "start_button" in data]
+
+
+@pytest.fixture(scope="module")
+def start_button_states(installed):
+    @cache
+    def capture(theme):
+        _folder, metadata = THEMES[theme]
+        spec = metadata["start_button"]
+        scale = spec["scale"]
+        screen_size = tuple(round(value / scale) for value in spec["screen"])
+        left, top, right, bottom = spec["bounds"]
+        x, y = round((left + right) / (2 * scale)), round((top + bottom) / (2 * scale))
+        away = f"move:{screen_size[0] * 3 // 4},{screen_size[1] // 4}"
+        session = installed(metadata["look"], scale, screen=screen_size, components=("startmenu",))
+        frame = show(
+            session, windows=[], scale=scale,
+            pointer_steps=(
+                away, "wait:0.4", "snapshot:start-idle",
+                f"move:{x},{y}", "press:left", "wait:0.4",
+                away, "wait:0.4", "snapshot:start-held-outside",
+                "release:left", "wait:0.4", "snapshot:start-released-outside",
+                "click:left", "wait:0.6", "snapshot:start-dismissed",
+            ),
+        )
+        assert frame.size == tuple(spec["screen"])
+        captures = {}
+        for state in START_BUTTON_STATES:
+            with Image.open(session.work / f"start-{state}.png") as image:
+                crop = image.convert("RGB").crop((left, top, right, bottom))
+                captures[state] = rgb565(crop) if spec.get("rgb565") else crop
+        return captures
+
+    return capture
+
+
+@pytest.mark.parametrize("theme", START_BUTTON_THEMES)
+@pytest.mark.parametrize("state", START_BUTTON_STATES)
+def test_start_button_states(theme, state, start_button_states, visual_output):
+    folder, _metadata = THEMES[theme]
+    with Image.open(folder / "taskbar" / "start-button" / f"{state}.png") as reference:
+        expected = reference.convert("RGB")
+    exact(expected, start_button_states(theme)[state], visual_output / theme / "taskbar/plasma/start-button" / state)
+
+
+@pytest.mark.parametrize("theme", START_BUTTON_THEMES)
+def test_start_button_stays_pressed_until_the_menu_closes(theme, start_button_states):
+    folder, _metadata = THEMES[theme]
+    captures = start_button_states(theme)
+
+    def bevel(image):
+        midpoint = image.width // 2
+        return np.asarray(image, dtype=np.int16)[:, midpoint - 2 : midpoint + 3].mean(axis=(1, 2))
+
+    def matches_state(captures):
+        idle = bevel(captures["idle"])
+        # Inspect the surface, independently of one-pixel artwork offsets in the full-crop checks.
+        rows = slice(0, 5) if theme == "winxp" else slice(-2, None)
+        for state in ("held-outside", "released-outside"):
+            change = (bevel(captures[state]) - idle)[rows]
+            if theme == "winxp":
+                assert change.mean() < -15, state
+            else:
+                assert change.max() > 15, state
+        assert np.max(np.abs((bevel(captures["dismissed"]) - idle)[rows])) < 5
+
+    refs = {}
+    for state in START_BUTTON_STATES:
+        with Image.open(folder / "taskbar" / "start-button" / f"{state}.png") as reference:
+            refs[state] = reference.convert("RGB")
+    matches_state(refs)
+    matches_state(captures)
+
+
+@pytest.mark.parametrize("theme", ("win95", "win98"))
+def test_start_button_focus_outline_follows_the_menu(theme, start_button_states):
+    folder, _metadata = THEMES[theme]
+
+    def dots(image):
+        # This strip sits inside the top bevel and above the logo and label.
+        ink = np.asarray(image)[2:5, 8:-8].max(axis=2) < 50
+        return np.count_nonzero(ink[:, 1:] != ink[:, :-1], axis=1).max()
+
+    reference_folder = folder / "taskbar" / "start-button"
+    captures = start_button_states(theme)
+    for state, visible in (("idle", False), ("held-outside", True), ("released-outside", True), ("dismissed", False)):
+        with Image.open(reference_folder / f"{state}.png") as reference:
+            assert (dots(reference.convert("RGB")) > 12) == visible
+        assert (dots(captures[state]) > 12) == visible, state
+
+
 @pytest.fixture(scope="module")
 def desktop_scenes(installed, visual_output):
     @cache
-    def capture(theme, scene):
+    def capture(theme, scene, samples="desktop_samples"):
         _, metadata = THEMES[theme]
-        spec = metadata["desktop_samples"]
+        spec = metadata[samples]
         look, scale = metadata["look"], spec["scale"]
         width, height = (round(value / scale) for value in spec["screen"])
         backdrop = "#4395D1" if look == "aero" and scene != "wallpaper" else None
@@ -732,6 +990,8 @@ def desktop_scenes(installed, visual_output):
             components=("background", "desktop"), launchers=tuple(spec["launchers"]),
         )
         output = visual_output / theme / "desktop" / "plasma"
+        if samples != "desktop_samples":
+            output /= samples
         output.mkdir(parents=True, exist_ok=True)
         if scene in ("menu", "hover"):
             x, y = width // 3, height // 3
@@ -818,22 +1078,87 @@ def test_classic_desktop_menu_face_matches_the_vm(theme, desktop_scenes):
         assert face(rgb565(rendered)) == face(expected)
 
 
-@pytest.mark.parametrize("theme", THEMES)
-def test_desktop_menu_hover_band(theme, desktop_scenes, visual_output):
-    folder, metadata = THEMES[theme]
-    _, idle, menu_bounds = desktop_scenes(theme, "menu")
-    highlighted = desktop_scenes(theme, "hover").crop(menu_bounds)
+def desktop_hover_row(theme, desktop_scenes, samples="desktop_samples"):
+    _, idle, menu_bounds = desktop_scenes(theme, "menu", samples)
+    highlighted = desktop_scenes(theme, "hover", samples).crop(menu_bounds)
     # The right gutter catches the colour and height of the row independently of its command label.
     x = idle.width - 20
     strip = (x, 0, x + 1, idle.height)
-    actual = highlighted.crop(strip)
-    bounds = ImageChops.difference(idle.crop(strip), actual).getbbox()
+    bounds = ImageChops.difference(idle.crop(strip), highlighted.crop(strip)).getbbox()
     assert bounds, "Moving across the open desktop menu did not highlight a row"
-    actual = actual.crop(bounds)
+    row = (0, bounds[1], idle.width, bounds[3])
+    changes = ImageChops.difference(idle.crop(row), highlighted.crop(row)).getbbox()
+    return highlighted.crop(row), changes
+
+
+@pytest.mark.parametrize("theme", THEMES)
+def test_desktop_menu_hover_band(theme, desktop_scenes, visual_output):
+    folder, metadata = THEMES[theme]
+    row, _changes = desktop_hover_row(theme, desktop_scenes)
+    x = row.width - 20
+    actual = row.crop((x, 0, x + 1, row.height))
     if metadata["look"] in ("2000", "2001", "luna"):
         actual = rgb565(actual)
     with Image.open(folder / "desktop/hover-band.png") as reference:
         exact(reference.convert("RGB"), actual, visual_output / theme / "desktop" / "plasma" / "hover-band")
+
+
+def test_win95_desktop_menu_hover_at_96dpi(desktop_scenes, visual_output):
+    row, _changes = desktop_hover_row("win95", desktop_scenes, "desktop_menu_96dpi")
+    x = row.width - 20
+    reference = THEMES["win95"][0] / "desktop/hover-band-96dpi.png"
+    with Image.open(reference) as frame:
+        expected = frame.convert("RGB")
+    exact(expected, row.crop((x, 0, x + 1, row.height)), visual_output / "win95/desktop/plasma/hover-band-96dpi")
+
+
+def test_win7_desktop_menu_hover_has_rounded_edges(desktop_scenes, visual_output):
+    row, changes = desktop_hover_row("win7", desktop_scenes)
+    right = changes[2]
+    actual = row.crop((right - 4, 0, right, row.height))
+    reference = THEMES["win7"][0] / "desktop/context-menu.png"
+    with Image.open(reference) as frame:
+        expected = frame.convert("RGB").crop((160, 159, 164, 181))
+    assert actual.size == expected.size
+    output = visual_output / "win7/desktop/plasma/hover-edge"
+    output.mkdir(parents=True, exist_ok=True)
+    expected.save(output / "reference.png")
+    actual.save(output / "rendered.png")
+    error = np.abs(np.asarray(actual, dtype=int) - np.asarray(expected, dtype=int)).mean()
+    assert error < 1, (error, output)
+
+
+def test_win7_desktop_menu_icon_gutter_matches_native_pixels(desktop_scenes, visual_output):
+    _, actual, _ = desktop_scenes("win7", "menu")
+    # The end of the icon gutter and the two separator lines beside the first command.
+    bounds = (25, 4, 31, 24)
+    with Image.open(THEMES["win7"][0] / "desktop/context-menu.png") as reference:
+        native = reference.convert("RGB")
+    expected = native.crop(bounds)
+    exact(expected, actual.crop(bounds), visual_output / "win7/desktop/plasma/icon-gutter")
+    # A translucent Plasma QMenu still needs an opaque two-pixel pad around the items.
+    trim = (40, 1, 100, 3)
+    error = np.abs(np.asarray(native.crop(trim), dtype=int) - np.asarray(actual.crop(trim), dtype=int))
+    assert error.max() <= 5
+
+
+def test_win7_desktop_menu_submenu_arrow(desktop_scenes, visual_output):
+    _, menu, _ = desktop_scenes("win7", "menu")
+
+    def arrow(frame):
+        return frame.crop((frame.width - 24, 6, frame.width - 5, 21))
+
+    with Image.open(THEMES["win7"][0] / "desktop/context-menu.png") as reference:
+        expected = arrow(reference.convert("RGB"))
+    actual = arrow(menu)
+    output = visual_output / "win7/desktop/plasma/submenu-arrow"
+    output.mkdir(parents=True, exist_ok=True)
+    expected.save(output / "reference.png")
+    actual.save(output / "rendered.png")
+    wanted, drawn = np.asarray(expected), np.asarray(actual)
+    # Compare the silhouette at half coverage and the solid ink inside the SVG arrow.
+    assert np.array_equal(wanted[..., 0] < 140, drawn[..., 0] < 140), output
+    assert np.array_equal(wanted[7, 8], drawn[7, 8]), output
 
 
 @pytest.mark.parametrize("theme", THEMES)
@@ -1526,6 +1851,39 @@ def test_shutdown_radio_states(theme, tmp_path, visual_output):
     exact(expected, actual, visual_output / theme / "shutdown" / "qt" / "radio-states")
 
 
+def test_shutdown_win98_radio_indicators_match_native_pixels(tmp_path, visual_output):
+    folder, metadata = THEMES["win98"]
+    with Image.open(folder / "shutdown/radio-states.png") as reference:
+        expected = reference.convert("RGB")
+    output = tmp_path / "radio-states.png"
+    render_properties(folder, "shutdown-radio-states", output, expected.size, scale=metadata["shutdown_radio_states"]["scale"])
+    with Image.open(output) as frame:
+        actual = frame.convert("RGB")
+    # The first 20 columns contain the three native radio indicators in every keyboard state.
+    bounds = (0, 0, 20, expected.height)
+    exact(expected.crop(bounds), actual.crop(bounds), visual_output / "win98/shutdown/qt/radio-indicators")
+
+
+@pytest.mark.parametrize(
+    "theme,dpi,name,bounds",
+    (
+        ("win95", 96, "shutdown-96dpi.png", (59, 63, 74, 124)),
+        ("win95", 120, "shutdown.png", (78, 79, 93, 150)),
+        ("win98", 96, "shutdown.png", (59, 63, 74, 122)),
+        ("win98", 120, "shutdown-120dpi.png", (78, 79, 93, 146)),
+    ),
+)
+def test_shutdown_9x_compact_indicators_match_native_pixels(theme, dpi, name, bounds, tmp_path, visual_output):
+    folder, _ = THEMES[theme]
+    with Image.open(folder / name) as reference:
+        expected = reference.convert("RGB")
+    output = tmp_path / "shutdown.png"
+    render_properties(folder, "shutdown", output, expected.size, scale=dpi / 96)
+    with Image.open(output) as frame:
+        actual = frame.convert("RGB")
+    exact(expected.crop(bounds), actual.crop(bounds), visual_output / theme / "shutdown/qt" / f"radios-{dpi}dpi")
+
+
 def shutdown_combo_state_images(theme, state, tmp_path):
     folder, metadata = THEMES[theme]
     with Image.open(folder / "shutdown" / f"{state}.png") as frame:
@@ -1542,6 +1900,54 @@ def shutdown_combo_state_images(theme, state, tmp_path):
 def test_shutdown_combo_states(theme, state, tmp_path, visual_output):
     expected, actual = shutdown_combo_state_images(theme, state, tmp_path)
     exact(expected, actual, visual_output / theme / "shutdown" / "qt" / state)
+
+
+@pytest.mark.parametrize("theme", ("win2k", "winxp-classic"))
+def test_shutdown_nt_dropdown_highlight_matches_native_pixels(theme, tmp_path, visual_output):
+    expected, actual = shutdown_combo_state_images(theme, "dropdown", tmp_path)
+    bounds = (100, 14, 220, 36)
+    exact(expected.crop(bounds), actual.crop(bounds), visual_output / theme / "shutdown/qt/dropdown-highlight")
+
+
+@pytest.mark.parametrize("theme", ("win2k", "winxp-classic"))
+def test_shutdown_nt_dropdown_labels_start_on_the_native_column(theme, tmp_path):
+    images = shutdown_combo_state_images(theme, "dropdown", tmp_path)
+    rows = tuple(range(1, images[0].height - 1, 16))
+    for row, y in enumerate(rows):
+        ink = (255, 255, 255) if row == 1 else (0, 0, 0)
+        bounds = [
+            bounding_box(image.crop((2, y + 2, 90, y + 15)), lambda rgb, ink=ink: rgb == ink)
+            for image in images
+        ]
+        assert all(bounds), (row, bounds)
+        assert bounds[0][0] == bounds[1][0], (row, bounds)
+
+
+SHUTDOWN_DROPDOWN_KEY_STATES = [
+    pytest.param((theme, state), id=f"{theme}-{state}")
+    for theme, (_, metadata) in THEMES.items()
+    for state in metadata.get("shutdown_combo_states", {}).get("highlighted_rows", ())
+]
+
+
+@pytest.fixture(scope="module", params=SHUTDOWN_DROPDOWN_KEY_STATES)
+def shutdown_dropdown_key_images(request, tmp_path_factory, visual_output):
+    theme, state = request.param
+    scratch = tmp_path_factory.mktemp(f"{theme}-shutdown-dropdown")
+    expected, actual = shutdown_combo_state_images(theme, f"dropdown-{state}", scratch)
+    return expected, actual, visual_output / theme / "shutdown/qt/dropdown-keys" / state
+
+
+def test_shutdown_dropdown_keyboard_highlights(shutdown_dropdown_key_images):
+    expected, actual, directory = shutdown_dropdown_key_images
+    # Check the selected face and its focus dots through the item list, clear of its labels and frame.
+    bounds = (100, 1, 220, expected.height - 1)
+    exact(expected.crop(bounds), actual.crop(bounds), directory / "highlight")
+
+
+def test_shutdown_dropdown_keyboard_full_frame(shutdown_dropdown_key_images):
+    expected, actual, directory = shutdown_dropdown_key_images
+    exact(expected, actual, directory)
 
 
 def test_shutdown_win7_dropdown_matches_native_pixels_outside_labels(tmp_path, visual_output):
@@ -1691,7 +2097,15 @@ def test_radio_indicator(theme, version, state, live_gtk, visual_output):
         expected = native.convert("RGB")
     with Image.open(directory / name) as rendered:
         gtk = rendered.convert("RGBA")
-        if version == "3.0":
+        if metadata["look"] in CLASSIC and metadata["radio_scale"] == 1.25:
+            pixels = np.asarray(gtk)
+            rows, columns = np.where(np.all(pixels == (225, 12, 207, 255), axis=2))
+            assert len(rows), f"Missing GTK radio capture marker in {rendered.filename}"
+            # The marker starts at (12, 36) and the indicator at (12, 12).
+            scale = metadata["radio_scale"]
+            x, y = int(columns.min()), int(rows.min())
+            gtk = gtk.crop((x - 3, y - round(28 * scale), x + round(22 * scale), y - round(5 * scale)))
+        elif version == "3.0":
             # GTK 3 captures the decorated window's client, including the showcase margins.
             margin = round(12 * metadata["radio_scale"])
             client = gtk.getpixel((margin // 2, margin // 2))
@@ -1783,6 +2197,156 @@ def test_file_manager_navigation(theme, installed, visual_output):
     exact(expected, actual, output)
 
 
+@pytest.fixture(scope="module")
+def gtk4_file_manager(installed, visual_output):
+    @cache
+    def capture(theme):
+        assert shutil.which("nautilus"), "The GTK 4 file manager comparison requires GNOME Files"
+        _, metadata = THEMES[theme]
+        scale = metadata["file_manager_scale"]
+        aero = metadata["look"] == "aero"
+        session = installed(metadata["look"], scale, components=("explorer",))
+        destination = session.work / "home" / "Local Disk" / "Windows"
+        destination.mkdir(parents=True)
+        (destination / "System").mkdir()
+        script = session.work / "gtk4-file-manager.sh"
+        start = '"$HOME/Local Disk"' if aero else '"$HOME/Local Disk/Windows"'
+        script.write_text(
+            "#!/bin/sh\nset -eu\n"
+            "gsettings set org.gnome.desktop.interface enable-animations false\n"
+            "gsettings set org.gnome.nautilus.window-state maximized true\n"
+            "gsettings set org.gnome.nautilus.preferences always-use-location-entry false\n"
+            "gsettings set org.gnome.nautilus.preferences default-folder-viewer icon-view\n"
+            "gsettings set org.gnome.nautilus.preferences click-policy single\n"
+            f'nautilus {start} >"$WORK/nautilus.log" 2>&1 &\n'
+            "gdbus wait --session --timeout 15 org.gnome.Nautilus\n"
+            'for attempt in 1 2 3 4 5 6; do\n'
+            '    sleep 1\n'
+            '    spectacle -b -n -f -o "$WORK/gtk4-file-manager.png"\n'
+            "    python3 -c 'from PIL import Image; import sys; "
+            'image = Image.open("gtk4-file-manager.png").convert("RGB"); '
+            'sys.exit(image.getcolors(20) is not None)\' && break\n'
+            'done\n'
+        )
+        if aero:
+            # Open the only folder in the grid so Back works and Forward is disabled.
+            with script.open("a") as stream:
+                stream.write(
+                    'python3 "$WORK/eis_pointer.py" move:296,101 click:left move:800,300 wait:1 '
+                    'snapshot:gtk4-file-manager move:226,20 wait:0.4 snapshot:history-hover '
+                    'move:224,20 click:left move:800,300 wait:1 snapshot:history-after-back\n'
+                )
+        environment = {
+            **session.environment,
+            "GDK_BACKEND": "wayland",
+            "GSK_RENDERER": "cairo",
+            "GTK_A11Y": "none",
+            "GIO_USE_VFS": "local",
+            "GIO_USE_VOLUME_MONITOR": "unix",
+        }
+        frame = session.work / "gtk4-file-manager.png"
+        run_session(session.work, script, environment, session.screen, scale=scale)
+        output = visual_output / theme / "file-manager" / "gtk4" / "navigation"
+        output.mkdir(parents=True, exist_ok=True)
+        for log in (*session.work.glob("*gtk4-file-manager.log"), session.work / "nautilus.log"):
+            if log.is_file():
+                shutil.copyfile(log, output / log.name)
+        assert frame.is_file(), f"Missing GNOME Files capture. See {output}"
+        with Image.open(frame) as image:
+            screen = image.convert("RGB")
+        assert screen.getcolors(20) is None, f"GNOME Files did not render. See {output}"
+        screen.save(output / "screen.png")
+        if aero:
+            for state in ("history-hover", "history-after-back"):
+                frame = session.work / f"{state}.png"
+                assert frame.is_file(), f"Missing GNOME Files {state} capture. See {output}"
+                shutil.copyfile(frame, output / frame.name)
+        return screen, output
+
+    return capture
+
+
+@pytest.mark.parametrize("theme", [name for name, (_, meta) in THEMES.items() if "file_manager_scale" in meta])
+def test_file_manager_navigation_gtk4(theme, gtk4_file_manager):
+    folder, metadata = THEMES[theme]
+    screen, output = gtk4_file_manager(theme)
+    with Image.open(folder / "file-manager/navigation.png") as reference:
+        expected = reference.convert("RGB")
+    # Classic GTK's 18px client-side title strip has its own comparison.
+    top = round(18 * metadata["file_manager_scale"]) if metadata["look"] in ("1995", "1998", "2000", "2001") else 0
+    actual = screen.crop((0, top, expected.width, top + expected.height))
+    if metadata["look"] in ("2000", "2001", "luna"):
+        actual = rgb565(actual)
+    exact(expected, actual, output)
+
+
+def test_win7_gtk4_file_manager_address_surface(gtk4_file_manager):
+    screen, output = gtk4_file_manager("win7")
+    with Image.open(THEMES["win7"][0] / "file-manager/navigation.png") as reference:
+        expected = reference.convert("RGB").crop((460, 4, 476, 26))
+    # The CSD toolbar is taller to fit the caption controls. The address field still uses its native height.
+    actual = screen.crop((700, 10, 716, 32))
+    error = np.abs(np.asarray(actual, dtype=int) - np.asarray(expected, dtype=int)).mean()
+    assert error < 8, (error, output)
+
+
+def test_win7_gtk4_file_manager_navigation_orbs(gtk4_file_manager):
+    screen, output = gtk4_file_manager("win7")
+    back = (210, 8, 241, 34)
+    forward = (244, 8, 275, 34)
+    active = np.asarray(screen.crop(back), dtype=int)
+    disabled = np.asarray(screen.crop(forward), dtype=int)
+    with Image.open(THEMES["win7"][0] / "file-manager/navigation.png") as reference:
+        expected = np.asarray(reference.convert("RGB").crop((0, 1, 31, 27)), dtype=int)
+
+    def blue_core(image):
+        r, g, b = image.transpose(2, 0, 1)
+        return (r < 90) & (g < 175) & (b > r + 45)
+
+    core = blue_core(active)
+    native_area = blue_core(expected).sum()
+    assert 0.7 * native_area <= core.sum() <= 1.3 * native_area, output
+    rest = active[core].mean()
+    assert disabled[core].mean() > rest + 20, output
+    with Image.open(output / "history-hover.png") as frame:
+        hover = np.asarray(frame.convert("RGB").crop(back), dtype=int)
+    assert hover[core].mean() > rest + 6, output
+    with Image.open(output / "history-after-back.png") as frame:
+        after = frame.convert("RGB")
+    inactive_back = np.asarray(after.crop(back), dtype=int)
+    active_forward = np.asarray(after.crop(forward), dtype=int)
+    assert inactive_back[core].mean() > rest + 20, output
+    assert blue_core(active_forward).sum() >= 0.7 * native_area, output
+
+
+def test_winxp_gtk4_file_manager_address_fill(gtk4_file_manager, visual_output):
+    screen, _output = gtk4_file_manager("winxp")
+    with Image.open(THEMES["winxp"][0] / "file-manager/navigation.png") as reference:
+        expected = reference.convert("RGB").crop((450, 66, 474, 90))
+    # Compare the white Address field between labels and the rightmost controls.
+    actual = rgb565(screen.crop((700, 21, 724, 45)))
+    exact(expected, actual, visual_output / "winxp/file-manager/gtk4/address-fill")
+
+
+@pytest.mark.parametrize("theme", ("win95", "win98", "win2k", "winxp-classic"))
+def test_classic_gtk4_file_manager_caption_has_no_divider(theme, gtk4_file_manager, visual_output):
+    screen, _output = gtk4_file_manager(theme)
+    folder, _metadata = THEMES[theme]
+    with Image.open(folder / "file-manager/caption-seam.png") as reference:
+        expected = reference.convert("RGB")
+    # The separate sidebar and file pane meet at x=255 on the 1280 px test output.
+    actual = screen.crop((250, 2, 258, 10))
+    output = visual_output / theme / "file-manager/gtk4/caption-seam"
+    if theme in ("win95", "win98"):
+        exact(expected, actual, output)
+    else:
+        # Windows 2000 and XP Classic use a dithered gradient in the native title.
+        # Its colour changes across columns set the bound for a visible seam.
+        native_step = np.abs(np.diff(np.asarray(expected, dtype=int), axis=1)).max()
+        actual_step = np.abs(np.diff(np.asarray(actual, dtype=int), axis=1)).max()
+        assert actual_step <= native_step, (actual_step, native_step)
+
+
 @pytest.mark.parametrize(
     ("theme", "component", "state"),
     [
@@ -1826,6 +2390,20 @@ def test_win7_sign_in_power_menu_frame(tmp_path, visual_output):
     for top, bottom in ((7, 21), (37, 51), (59, 73)):
         mask[top:bottom, 34:100] = False
     exact(expected, actual, visual_output / "win7/sign-in/qt/power-menu-frame", mask)
+
+
+def test_win7_sign_in_password_field_geometry(tmp_path, visual_output):
+    expected, actual, _ = session_screen_images("win7", "sign-in", "password-selected", tmp_path)
+
+    def borders(image):
+        pixels = np.asarray(image.crop((80, 8, 200, 33)))
+        return Image.fromarray(np.all(pixels == (102, 102, 102), axis=2)).convert("RGB")
+
+    exact(borders(expected), borders(actual), visual_output / "win7/sign-in/qt/password-field-borders")
+    selection = [bounding_box(image.crop((12, 10, 68, 31)), lambda rgb: rgb == (51, 153, 255))
+                 for image in (expected, actual)]
+    assert all(selection)
+    assert all(abs(native - rendered) <= 2 for native, rendered in zip(*selection, strict=True)), selection
 
 
 @pytest.fixture(scope="module")
@@ -2089,7 +2667,12 @@ def test_shutdown_9x_plymouth_full_frame(theme, shutdown_9x_plymouth_frames, vis
 def test_shutdown_win98_plymouth_background(shutdown_9x_plymouth_frames, visual_output):
     expected, actual = shutdown_9x_plymouth_frames("win98")
     # Keep the photographic asset comparison independent of the caption's lettering.
-    for name, bounds in (("main", (0, 0, 640, 445)), ("lower-sky", (0, 472, 640, 480))):
+    for name, bounds in (
+        ("main", (0, 0, 640, 445)),
+        ("left-of-caption", (0, 445, 218, 464)),
+        ("right-of-caption", (436, 445, 640, 464)),
+        ("lower-sky", (0, 464, 640, 480)),
+    ):
         exact(expected.crop(bounds), actual.crop(bounds), visual_output / "win98/shutdown/plymouth" / name)
 
 
@@ -2258,24 +2841,29 @@ def test_coverage(theme):
     if not (folder / "boot.png").is_file():
         gaps.append("boot: full-frame native reference and renderer")
     gaps.append("boot: complete graphical and text transitions and live Plymouth playback")
-    gaps.append("run: history popup, Browse, and remaining button states and output scales")
+    if theme not in RUN_HISTORY_THEMES:
+        gaps.append("run: native history popup")
+    gaps.append("run: Browse, remaining pointer and button states and output scales")
     session_screens = metadata.get("session_screens", {})
     for component in ("sign-in", "lock-screen"):
         if not session_screens.get(component):
             gaps.append(f"{component}: native frame and renderer for the strict comparison")
-    gaps.append("sign-in: account chooser, entry, and focus states")
+    gaps.append("sign-in: account chooser, alternate inputs and focus states")
+    if not any(state.get("entry") for state in session_screens.get("sign-in", {}).values()):
+        gaps.append("sign-in: password entry, selection and clearing")
     if not any(state.get("failed") for state in session_screens.get("sign-in", {}).values()):
         gaps.append("sign-in: rejected authentication state")
     gaps.append("lock-screen: entry, focus, and rejected authentication states")
     if "file_manager_scale" not in metadata:
-        gaps.append("file-manager / GTK 3: navigation reference")
-    gaps.append("file-manager / GTK 4: strict navigation comparison")
+        gaps.append("file-manager / GTK 3 and GTK 4: navigation reference")
     gaps.append("file-manager: contents, action states, and other supported file managers")
     if "radio_scale" not in metadata:
         gaps.append("widget-controls / GTK: native radio reference")
     gaps.append("widget-controls: other control types, action states and toolkit variants")
     if not (folder / "taskbar-band.png").is_file():
         gaps.append("taskbar / Plasma: empty-band reference")
+    if "start_button" not in metadata:
+        gaps.append("taskbar / Plasma: native Start button press and release captures")
     gaps.append("desktop / Plasma: icon selection, full hovered rows, submenus and drop targets")
     gaps.append("taskbar / Plasma: remaining populated variants and interactive states")
     for component in ("start-menu", "device-manager", "control-panel", "display-properties", "shutdown"):

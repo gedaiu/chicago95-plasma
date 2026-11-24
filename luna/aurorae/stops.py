@@ -62,6 +62,14 @@ INACTIVE_BORDER_BOTTOM = ["#7586DC", "#7587DD", "#6D74CD", "#4F53BC"]
 BUTTON_CLOSE_STROKE = (5.46, 15.55, 2.37)
 BUTTON_RING_RADIUS = 3.27
 
+# The 120-DPI Notepad captures keep the same bends in the base ramp. The
+# colours differ slightly where the nine-slice artwork stretches the centre.
+BUTTON_FACE_120 = {
+    ("blue", 0): ("#3A75F9", "#4278F6", "#2C64F5", "#1C6EF9", "#0569FB", "#0945D2"),
+    ("red", 0): ("#FA673D", "#F86437", "#EA603F", "#F34B16", "#F04509", "#C52900"),
+    ("red", 2): ("#7F1F0C", "#B13116", "#B82E14", "#C53C1B", "#C33B1A", "#C1381A"),
+}
+
 BUTTON_ART = {
     "blue": {
         0: {

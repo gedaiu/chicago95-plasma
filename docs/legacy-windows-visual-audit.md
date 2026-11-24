@@ -231,12 +231,21 @@ The live GTK 3 mean fell from 20.45 to 17.86, with the original 27×27 captured 
 GTK 4 keeps the 27-pixel viewport and averages 18.06. Trials at 21, 26, 28, 42, 52, 54 and 81 pixels gave larger
 errors there. All 24 strict comparisons still show RGB differences. [Live GTK 3 regression](../tests/visual/parity.py)
 
+At 120 DPI, GTK 4 now uses a 21.6-logical-pixel caption face and the audit reads its compositor
+output. The SVG remains the shared source. Fractional placement can add a row or column to the
+27-pixel face. The 120-DPI Luna colour ramps use the native Notepad captures, reducing direct SVG
+error on resting Minimize from 3.75 to 3.14/255. [Caption comparisons](../tests/visual/parity.py)
+
 Luna at 125% keeps its 27-pixel face inside a 28-pixel SVG canvas, which
 lets KSVG render it at its authored size. All 12 live KWin comparisons reproduce the opaque SVG interior exactly.
 Mean RGB error against the XP guest fell from 7.33 to 2.74 across those 12 faces. The strict VM comparisons for
 Luna and Aero still show RGB differences.
 Aero Restore clips its top device row at the screen edge when maximized, giving the same 40×29 visible face
 as the 144-DPI VM. The KWin test locates the face after the wrapper and compositor snap their positions.
+The darker maximized glass and shared Maximize paint bring the live KWin Restore comparison from
+12.00 to 3.61/255. GTK 4 clips to the same 40×29 extent and averages 13.59/255, down from 62.77/255
+in the overlapping pixels. GTK 3 still has an additional column and averages 16.68/255 in the overlap.
+GNOME Files draws its caption buttons in its 42-pixel combined toolbar.
 At 144 DPI, the hover and held faces use separate upper and lower shading, thin seam gradients, and reflections
 along the lower edge. The largest mean RGB error among the three hover and held SVG faces fell from
 22.38 to 7.78 out of 255. All six full-face hover and held comparisons still show RGB differences.
@@ -343,7 +352,13 @@ window icon at 100% and 150%. [GTK layout setting](https://docs.gtk.org/gtk4/pro
 The Classic GTK 3 caption checks at 125% now compare the nested KWin capture. The stills identify
 which pixels the compositor actually displays at fractional scale. All 48 comparisons across Windows
 95, 98, 2000 and XP Classic differ. The typical 20×18 native crop becomes 21×19 after scaling.
-The matching GTK 4 checks use the same compositor capture path. [Caption comparisons](../tests/visual/parity.py)
+The GTK 3 and GTK 4 caption fixtures use each toolkit's own header-bar buttons. Three Luna GTK 3
+states exceed the sharpness check's 22/255 limit with the native header. [Caption comparisons](../tests/visual/parity.py)
+
+The Windows 98 Start button keeps its sunken bevel while a held pointer moves outside. The raised
+bevel returns on release outside. A live Plasma test compares both outer bevel colours against the
+guest in the idle, held and released states. The three complete crops still differ. The native
+menu opens on press and the released button shows a dotted focus outline. [Start button comparisons](../tests/visual/parity.py)
 
 The GTK 3 and GTK 4 radio tests match the idle and selected Windows 95 indicators at 96 DPI. Centering the
 high-density Windows 7 SVG circles on both axes brings three of the four GTK crops to the VM's 19×19 pixels

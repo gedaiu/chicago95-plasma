@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Shapes
 
 // The Start button as the originals draw it (tests/test_taskbar_reference.py): 22px tall at the bottom of
 // its applet (the panel's margin puts it 2px above the taskbar's bottom edge); a two-pixel raised bevel that presses in while held; the logo 16px square 2px
@@ -25,7 +26,14 @@ Item {
     property color dark: bevel === "2000" ? "#404040" : "#000000"
     property color textColor: "#000000"
 
-    readonly property int buttonHeight: 22
+    readonly property real pixelScale: Window.window?.devicePixelRatio ?? Screen.devicePixelRatio
+    readonly property bool usesWin98Inset: look === "1998" && pixelScale === 1.25
+    // At 120 DPI the XP Classic button is 26 pixels tall, one shorter than the Windows 2000 bevel.
+    readonly property real buttonHeight: isXpClassic && pixelScale === 1.25 ? 22 - 1 / pixelScale : 22
+    // The native 120 DPI taskbar leaves two full pixels below these bevels.
+    readonly property real bottomCorrection: bevel === "2000"
+        ? (Math.round(2 * pixelScale) - Math.floor(2 * pixelScale)) / pixelScale
+        : 0
     readonly property int logoSize: 16
 
     readonly property int contentX: isXpClassic ? 2 : 4
@@ -36,9 +44,10 @@ Item {
 
     Item {
         id: buttonFace
-        x: 0
-        y: button.height - height
-        width: button.width
+        // At 120 DPI the Windows 98 bevel sits one pixel inside its slot and leaves two pixels at the other end.
+        x: button.usesWin98Inset ? 1 / button.pixelScale : 0
+        y: button.height - height + button.bottomCorrection
+        width: button.width - (button.usesWin98Inset ? 3 / button.pixelScale : 0)
         height: button.buttonHeight
 
         Rectangle {
@@ -102,6 +111,29 @@ Item {
             width: 1
             height: parent.height - 2
             color: button.held ? button.light : button.shadow
+        }
+
+        Shape {
+            id: focusOutline
+            anchors.fill: parent
+            visible: button.held && (button.look === "1995" || button.look === "1998")
+            readonly property real pixel: 1 / button.pixelScale
+            readonly property real inset: 3.5 * pixel
+            ShapePath {
+                strokeWidth: focusOutline.pixel
+                strokeColor: button.textColor
+                fillColor: "transparent"
+                strokeStyle: ShapePath.DashLine
+                capStyle: ShapePath.FlatCap
+                dashPattern: [1, 1]
+                dashOffset: 1.5
+                startX: focusOutline.inset
+                startY: focusOutline.inset
+                PathLine { x: focusOutline.width - focusOutline.inset; y: focusOutline.inset }
+                PathLine { x: focusOutline.width - focusOutline.inset; y: focusOutline.height - focusOutline.inset }
+                PathLine { x: focusOutline.inset; y: focusOutline.height - focusOutline.inset }
+                PathLine { x: focusOutline.inset; y: focusOutline.inset }
+            }
         }
 
         RowLayout {

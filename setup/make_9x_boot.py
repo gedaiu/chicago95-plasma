@@ -54,11 +54,11 @@ def build(source, artwork, target, *, look="98"):
         frame.paste(strips.crop((0, phase * 8, 640, (phase + 1) * 8)), (0, 472))
         frame.save(target / f"win95_boot_{phase}.png")
 
-    # LOGOW.SYS uses the same clouds and branding. The sky continues below the
-    # boot strip. The caption is vector artwork at the measured display coordinates.
+    # LOGOW.SYS uses the same branding and the lower clouds have their own
+    # colour dithering. The caption is vector artwork over the clear sky.
     shutdown = image.copy()
     with Image.open(Path(__file__).with_name("windows98-shutdown-sky.png")) as sky:
-        shutdown.paste(sky, (0, 472))
+        shutdown.paste(sky, (0, shutdown.height - sky.height))
     overlay = svg_image(Path(__file__).with_name("windows98-shutdown-caption.svg"))
     shutdown.paste(overlay, (219, 446), overlay)
     shutdown.save(target / "win95_shutdown-01.png")

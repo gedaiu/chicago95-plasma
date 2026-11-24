@@ -1,0 +1,14 @@
+{
+  "scale": 1,
+  "entries": [
+    "control desk.cpl,,3",
+    "notepad",
+    "control sysdm.cpl",
+    "control",
+    "control desk.cpl,,2",
+    "d:\\caption.exe",
+    "rundll32 user.exe,exitwindows",
+    "control sysdm.cpl,,1",
+    "control desk.cpl"
+  ]
+}

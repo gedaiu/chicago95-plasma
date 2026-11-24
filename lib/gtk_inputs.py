@@ -1,10 +1,10 @@
-"""Equivalent native GTK3 and GTK4 input styling."""
+"""Classic indicator artwork and native GTK input styling."""
 
 from pathlib import Path
 
 
-def classic_radio_css(assets, look):
-    """Give the Classic radio artwork its measured physical size at 120 DPI."""
+def classic_radio_svg(look, *, disabled=False, checked=False, colours=None):
+    """Draw the Classic radio indicator from its native 120-DPI geometry."""
     if look == "2001":
         size = 14
         outline = "M4 0H10V1H11V2H12V3H13V4H14V10H13V11H12V12H11V13H10V14H4V13H3V12H2V11H1V10H0V4H1V3H2V2H3V1H4Z"
@@ -22,22 +22,29 @@ def classic_radio_css(assets, look):
         dark = "M4 1H8V2H10V3H8V2H4V3H3V4H2V8H3V9H2V8H1V4H2V2H4Z"
         inset = "M9 3H10V4H11V8H10V10H8V9H9V8H10V4H9Z M2 9H4V10H2Z M4 10H8V11H4Z"
         dot = "M5 4H7V5H8V7H7V8H5V7H4V5H5Z"
-    face, shade, border = (
-        ("#c0c0c0", "#808080", "#000000") if look == "1998" else ("#d4d0c8", "#808080", "#404040")
+    if colours is None:
+        face, border = ("#c0c0c0", "#000000") if look == "1998" else ("#d4d0c8", "#404040")
+        colours = face, "#808080", border, "#ffffff", "#000000"
+    face, shade, border, base, ink = colours
+    rings = ((outline, face if disabled else base), (shadow, shade), (dark, border), (inset, face))
+    art = (*rings, (dot, shade if disabled else ink)) if checked else rings
+    shapes = "\n".join(f'  <path d="{shape}" fill="{colour}"/>' for shape, colour in art)
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}">\n'
+        f'{shapes}\n</svg>\n'
     )
+    return size, svg
+
+
+def classic_radio_css(assets, look):
+    """Give the Classic radio artwork its measured physical size at 120 DPI."""
     assets.mkdir(parents=True, exist_ok=True)
-    paths = ((outline, "white"), (shadow, shade), (dark, border), (inset, face))
     styles = []
     for disabled, selected in ((False, False), (False, True), (True, False), (True, True)):
         state = ("-disabled" if disabled else "") + ("-checked" if selected else "")
         path = assets / f"radio{state}.svg"
-        rings = ((outline, face), (shadow, shade), (dark, border), (inset, face)) if disabled else paths
-        art = (*rings, (dot, shade if disabled else "#000000")) if selected else rings
-        shapes = "\n".join(f'  <path d="{shape}" fill="{colour}"/>' for shape, colour in art)
-        path.write_text(
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}">\n'
-            f'{shapes}\n</svg>\n'
-        )
+        size, svg = classic_radio_svg(look, disabled=disabled, checked=selected)
+        path.write_text(svg)
         selector = (":disabled" if disabled else ":not(:disabled)") + (":checked" if selected else ":not(:checked)")
         selector += ":not(:indeterminate)"
         selectors = f"checkbutton > radio{selector}, radiobutton > radio{selector}"

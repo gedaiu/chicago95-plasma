@@ -2,8 +2,8 @@
    (ContainmentItem sets WA_TranslucentBackground) and the Windows style never fills the
    panel, so the margin between frame and items shows the desktop. Loaded through the
    plasma-plasmashell.service drop-in (-stylesheet).
-   Only colours here: any box rule on QMenu::item or QMenu::icon (padding, margin) hands the
-   item layout to the stylesheet engine, which drops the Windows style's icon and check gutter. */
+   Let Qt's Windows style lay out items by default. The installer adds compact item geometry
+   at measured scales and positions the icons explicitly for that layout. */
 QMenu {
     background-color: #C0C0C0;
     color: #000000;

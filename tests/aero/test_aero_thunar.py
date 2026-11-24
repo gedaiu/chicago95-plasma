@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from conftest import REPO, run_bash_with_steps
 from PIL import Image
-from plasma_session import run_session
+from plasma_session import link_children, run_session
 from reference import screenshot
 
 
@@ -18,9 +18,12 @@ def aero_icons(tmp_path):
     source = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "icons/Windows-7-SVG"
     if not (source / "index.theme").is_file():
         pytest.skip("requires the Windows 7 SVG icon theme from Setup")
-    folder = tmp_path / ".local/share/icons"
-    folder.mkdir(parents=True)
-    (folder / source.name).symlink_to(source)
+    theme = tmp_path / ".local/share/icons" / source.name
+    link_children(source, theme, copy=("scalable",))
+    artwork = theme / "scalable/aero"
+    for name in ("go-previous.svg", "go-next.svg"):
+        (artwork / name).unlink(missing_ok=True)
+        shutil.copyfile(REPO / "aero/icons" / name, artwork / name)
     return source.name
 
 
@@ -125,24 +128,32 @@ def test_thunar_navigation_matches_explorer_band(thunar_window, tmp_path):
     columns = ((0, 29), (29, 57))
     reference_orbs = [orb_bounds(original, *span, 1) for span in columns]
     with Image.open(tmp_path / "history.png") as active:
-        for image, enabled in ((thunar_window, False), (active.convert("RGB"), True)):
-            heights, centres = [], []
-            for span, native in zip(columns, reference_orbs, strict=True):
-                width, height, x, y, brightest = orb_bounds(image, *span, scale)
-                assert (brightest > 224) == enabled
-                assert abs(width / scale - native[0]) <= 4
-                assert abs(height / scale - native[1]) <= 3
-                assert abs(x / scale - native[2]) <= 1.5
-                heights.append(height)
-                centres.append(y)
-            assert abs(heights[0] - heights[1]) <= 1
-            assert abs(centres[0] - centres[1]) <= 0.5
-            assert all(abs(centre - centreline) <= scale for centre in centres)
+        history = active.convert("RGB")
+    for image, enabled in ((thunar_window, False), (history, True)):
+        heights, centres = [], []
+        for span, native in zip(columns, reference_orbs, strict=True):
+            width, height, x, y, brightest = orb_bounds(image, *span, scale)
+            assert (brightest > 224) == enabled
+            # The native orb's faint halo extends beyond GTK's 24px icon box.
+            assert abs(width / scale - native[0]) <= 5
+            assert abs(height / scale - native[1]) <= 3
+            assert abs(x / scale - native[2]) <= 1.5
+            heights.append(height)
+            centres.append(y)
+        assert abs(heights[0] - heights[1]) <= 1
+        assert abs(centres[0] - centres[1]) <= 0.5
+        assert all(abs(centre - centreline) <= scale for centre in centres)
 
     # Explorer repeats this separator after each directory. Thunar opens /usr/share/icons
     # here, so its path includes the root plus three directory buttons.
     native_divider = np.asarray(original.crop((96, 10, 104, 21))).max(axis=2) < 115
     logical = thunar_window.resize((1024, 768), Image.Resampling.LANCZOS) if scale != 1 else thunar_window
+    if scale != 1:
+        history = history.resize(logical.size, Image.Resampling.LANCZOS)
+    bounds = (0, 1, 29, 28)
+    error = np.abs(np.asarray(original.crop(bounds), dtype=int) - np.asarray(history.crop(bounds), dtype=int)).mean()
+    assert error < 28, (scale, error)
+
     ink = np.asarray(logical).max(axis=2) < 115
     matches = [x for x in range(90, 400) if np.count_nonzero(ink[10:21, x : x + 8] != native_divider) <= 7]
     assert len(matches) == 4

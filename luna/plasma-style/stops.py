@@ -86,6 +86,24 @@ START = {
     "halo": {"colour": "#2672E7", "opacity": 0.9, "width": 1},
 }
 
+# Pressed Start in the Windows XP SP3 framebuffer at 120 DPI.
+START_PRESSED = {
+    "body": [
+        (1, "#164B16"),
+        (2, "#2C692C"),
+        (3.5, "#298A29"),
+        (6, "#188A18"),
+        (13, "#189218"),
+        (21, "#189618"),
+        (26, "#189A18"),
+        (28, "#219A21"),
+    ],
+    "ring": {"left": "#084508", "right": "#075707", "top": "#002400", "bottom": "#219421"},
+    "glow": {"centre": (0, 14), "radii": (55, 27), "opacity": 0.21, "colour": "#000000"},
+    "shade": START["shade"],
+    "halo": START["halo"],
+}
+
 BUTTON = {
     "body": [(2, "#FFFFFF"), (6, "#F8F8F6"), (15, "#F1F1EC"), (18, "#ECEBE6"), (20, "#D6D0C5")],
 }

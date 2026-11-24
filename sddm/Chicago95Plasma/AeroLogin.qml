@@ -180,14 +180,16 @@ Rectangle {
         component CredentialField: TextField {
             id: field
             width: 225
-            height: page.largeText ? 32 : page.unlockOnly ? 25 : 24
-            color: "#171717"
-            placeholderTextColor: "#555555"
-            leftPadding: 6
+            height: page.largeText ? 32 : 25
+            color: "black"
+            placeholderTextColor: "#575757"
+            selectionColor: "#3399ff"
+            selectedTextColor: "white"
+            leftPadding: 7
             topPadding: 0
             bottomPadding: 0
             font.family: page.uiFamily
-            font.pixelSize: page.largeText ? 18 : 13
+            font.pixelSize: page.largeText ? 18 : 12
             selectByMouse: true
             background: Rectangle {
                 anchors.fill: parent
@@ -205,7 +207,7 @@ Rectangle {
         Column {
             id: fields
             anchors.top: lockedLabel.visible ? lockedLabel.bottom : nameLabel.bottom
-            anchors.topMargin: page.unlockOnly ? 6 : 8
+            anchors.topMargin: page.unlockOnly ? 6 : 7
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 4
             CredentialField {
@@ -218,6 +220,8 @@ Rectangle {
                 id: password
                 objectName: "aeroPassword"
                 echoMode: page.reveal ? TextInput.Normal : TextInput.Password
+                passwordCharacter: "\u2022"
+                font.letterSpacing: page.reveal || length === 0 ? 0 : 2
                 placeholderText: qsTr("Password")
                 onAccepted: page.submit()
                 Button {

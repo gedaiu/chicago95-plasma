@@ -242,6 +242,10 @@ def test_aero_unlock_forwards_return_and_clears_a_rejected_password(qt_app, tmp_
         assert backend.responses == ["test"]
         backend.failed.emit(0)
         assert named(view, "aeroPassword").property("text") == ""
+        confirmation = named(view, "aeroFailureConfirm")
+        assert confirmation.isVisible() and confirmation.hasActiveFocus()
+        QTest.keyClick(view, Qt.Key_Return)
+        assert not confirmation.isVisible()
         assert named(view, "aeroPassword").hasActiveFocus()
     finally:
         view.close()

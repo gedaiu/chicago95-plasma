@@ -193,11 +193,18 @@ def capture_shutdown_radio_states(dialog, box, output):
 def capture_shutdown_combo(dialog, component, metadata, output, app):
     combo = dialog.combo
     assert dialog.focusWidget() is combo
-    if component == "shutdown-dropdown":
+    if component.startswith("shutdown-dropdown"):
         QTest.keyClick(combo, Qt.Key_Down, Qt.AltModifier)
         app.processEvents()
         popup = combo.view().window()
         assert popup.isVisible()
+        if component != "shutdown-dropdown":
+            row = metadata["highlighted_rows"].index(component.removeprefix("shutdown-dropdown-"))
+            QTest.keyClick(combo.view(), Qt.Key_Home)
+            for _ in range(row):
+                QTest.keyClick(combo.view(), Qt.Key_Down)
+            assert combo.view().currentIndex().row() == row
+            app.processEvents()
         assert popup.grab().save(output)
         combo.hidePopup()
         return
@@ -255,7 +262,7 @@ def capture_shutdown(app, metadata, component, output, scale):
         if component == "shutdown-radio-states":
             capture_shutdown_radio_states(dialog, metadata["shutdown_radio_states"]["crop"], output)
             return
-        if component in ("shutdown-dropdown", "shutdown-choices"):
+        if component.startswith("shutdown-dropdown") or component == "shutdown-choices":
             capture_shutdown_combo(dialog, component, metadata["shutdown_combo_states"], output, app)
             return
         shot = dialog.grab()
@@ -286,6 +293,26 @@ def render(manifest, component, output, width, height, scale_override=None):
             QIcon.setThemeName("Windows-7-SVG")
         if component.startswith("shutdown"):
             capture_shutdown(app, metadata, component, output, scale)
+            return
+        if component.startswith("run-history-"):
+            history = json.loads((Path(manifest).parent / "run/history.json").read_text())["entries"]
+            dialog = load_script("chicago95-run").RunDialog({"style": look, "osName": "Windows"}, [], [], history)
+            try:
+                dialog.show()
+                app.processEvents()
+                field = dialog.field
+                QTest.keyClick(field.lineEdit(), Qt.Key_Down, Qt.AltModifier)
+                app.processEvents()
+                view = field.view()
+                assert view.isVisible()
+                if component.endswith("-down"):
+                    QTest.keyClick(view, Qt.Key_Down)
+                    app.processEvents()
+                    assert field.lineEdit().selectedText() == history[1]
+                assert view.window().grab().save(output)
+                field.hidePopup()
+            finally:
+                dialog.close()
             return
         if component.startswith("run-"):
             chicago95ui.DECORATION = build_theme(Path(output).with_name("aurorae"), look)

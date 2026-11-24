@@ -77,7 +77,7 @@ sys.path[:0] = [
 import chicago95animations
 import chicago95ui  # after the environment above, so its defaults do not override it
 from chicago95recent import recent_documents
-from PySide6.QtCore import QEasingCurve, QEvent, QPoint, QPropertyAnimation, QRect, QStandardPaths, Qt, QTimer
+from PySide6.QtCore import QEasingCurve, QEvent, QObject, QPoint, QPropertyAnimation, QRect, QStandardPaths, Qt, QTimer
 from PySide6.QtGui import (
     QAction,
     QColor,
@@ -94,6 +94,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QStyle, QStyleOptionMenuItem,
 
 RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
 PID_FILE = RUNTIME_DIR / "chicago95-startmenu.pid"
+VISIBLE_BUS_NAME = "org.chicago95.StartMenu.Visible"
 CACHE_FILE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "chicago95-startmenu.json"
 BANNER_WIDTH = round(21 * UI_SCALE)
 SETTINGS_FILE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "chicago95rc"
@@ -983,15 +984,37 @@ def apply_retro_look(app):
     QIcon.setFallbackThemeName("hicolor")
 
 
-class StartMenu:
+class StartMenu(QObject):
     """Resident controller: builds the menu once per show and toggles it on SIGUSR1."""
 
     def __init__(self, app):
+        super().__init__(app)
         self.app = app
         self.menu = None
         self.watching_focus = False
+        self.session_bus = self.connect_session_bus()
         self.shield = ClickShield(self.hide)
         self.shield.hide()
+
+    @staticmethod
+    def connect_session_bus():
+        import dbus
+
+        try:
+            return dbus.SessionBus()
+        except dbus.DBusException:
+            return None
+
+    def eventFilter(self, watched, event):
+        if watched is self.menu and self.session_bus is not None:
+            from dbus.bus import NAME_FLAG_DO_NOT_QUEUE
+
+            # The start button watches this bus name. The bus drops it if the menu process exits.
+            if event.type() == QEvent.Show:
+                self.session_bus.request_name(VISIBLE_BUS_NAME, NAME_FLAG_DO_NOT_QUEUE)
+            elif event.type() == QEvent.Hide:
+                self.session_bus.release_name(VISIBLE_BUS_NAME)
+        return super().eventFilter(watched, event)
 
     def visible(self):
         return self.menu is not None and self.menu.isVisible()
@@ -1003,6 +1026,7 @@ class StartMenu:
         if self.menu is not None:
             self.menu.deleteLater()
         self.menu = build_menu()
+        self.menu.installEventFilter(self)
         cascading = isinstance(self.menu, QMenu)
         if cascading:
             self.menu.aboutToHide.connect(lambda: QTimer.singleShot(0, self.shield.hide))

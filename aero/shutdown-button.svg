@@ -34,6 +34,37 @@
       <stop offset=".53" stop-color="#9bd3f0"/>
       <stop offset="1" stop-color="#70b8de"/>
     </linearGradient>
+    <!-- Run's idle and default faces at the native 144 DPI dimensions. -->
+    <linearGradient id="runPaper" x2="0" y2="1">
+      <stop stop-color="#fcfcfc"/>
+      <stop offset=".475" stop-color="#fafafa"/>
+      <stop offset=".475" stop-color="#f6f6f6"/>
+      <stop offset="1" stop-color="#f3f3f3"/>
+    </linearGradient>
+    <linearGradient id="runGrey" x2="0" y2="1">
+      <stop stop-color="#f2f2f2"/>
+      <stop offset=".474" stop-color="#ebebeb"/>
+      <stop offset=".474" stop-color="#dddddd"/>
+      <stop offset="1" stop-color="#cfcfcf"/>
+    </linearGradient>
+    <linearGradient id="runCyan" x2="0" y2="1">
+      <stop stop-color="#32d5fe"/>
+      <stop offset=".475" stop-color="#31d4fe"/>
+      <stop offset=".475" stop-color="#2cd2fc"/>
+      <stop offset="1" stop-color="#27cffb"/>
+    </linearGradient>
+    <linearGradient id="runInnerRim" x2="0" y2="1">
+      <stop stop-color="#9fe8fc"/>
+      <stop offset=".474" stop-color="#9ae5fa"/>
+      <stop offset=".474" stop-color="#8bdef7"/>
+      <stop offset="1" stop-color="#7dd6f2"/>
+    </linearGradient>
+    <linearGradient id="runBlue" x2="0" y2="1">
+      <stop stop-color="#ebf5fb"/>
+      <stop offset=".472" stop-color="#e5f2fa"/>
+      <stop offset=".472" stop-color="#cde8f6"/>
+      <stop offset="1" stop-color="#b9dcf0"/>
+    </linearGradient>
     <rect id="edge" width="73" height="21" rx="2.5"/>
     <rect id="rim" x="1" y="1" width="71" height="19" rx="1.7"/>
     <rect id="face" x="2" y="2" width="69" height="17" rx=".7"/>
@@ -47,10 +78,19 @@
       <use href="#rim" fill="url(#defaultRim)"/>
       <use href="#face" fill="url(#greyFace)"/>
     </g>
+    <rect id="run-edge" width="123" height="42" rx="3"/>
+    <rect id="run-rim" x="1" y="1" width="121" height="40" rx="2"/>
+    <rect id="run-inner" x="2" y="2" width="119" height="38" rx="1.5"/>
+    <g id="run-normal">
+      <use href="#run-edge" fill="#707070"/>
+      <use href="#run-rim" fill="url(#runPaper)"/>
+      <use href="#run-inner" fill="url(#runGrey)"/>
+    </g>
     <g id="run-default">
-      <use href="#edge" fill="#3c7fb1"/>
-      <use href="#rim" fill="url(#defaultRim)"/>
-      <use href="#face" fill="url(#blueFace)"/>
+      <use href="#run-edge" fill="#3c7fb1"/>
+      <use href="#run-rim" fill="url(#runCyan)"/>
+      <use href="#run-inner" fill="url(#runInnerRim)"/>
+      <rect x="3" y="3" width="117" height="36" rx="1" fill="url(#runBlue)"/>
     </g>
     <g id="hover">
       <use href="#edge" fill="#3c7fb1"/>
