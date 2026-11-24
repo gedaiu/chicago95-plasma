@@ -595,7 +595,7 @@ def test_large_radio_svg_matches_144_dpi_display_settings(qt_app, art, capture, 
     graphic = REPO / f"aero/gtk/Chicago95Aero/gtk-4.0/indicators/radio-{art}@2x.svg"
     face = Image.new("RGBA", (20, 20), "white")
     face.alpha_composite(rendered(graphic.read_text(), face.size))
-    actual = np.asarray(face.convert("RGB").crop((0, 1, 19, 20)), dtype=int)
+    actual = np.asarray(face.convert("RGB").crop((0, 0, 19, 19)), dtype=int)
     with Image.open(REPO / f"tests/references/win7-sp1-144dpi-radio-{capture}.png") as native:
         expected = np.asarray(native.convert("RGB"), dtype=int)
     assert np.abs(actual - expected).mean() < limit
@@ -628,6 +628,6 @@ def test_live_high_density_radio_matches_guest(aero_gtk_home, tmp_path, version)
         face = Image.new("RGBA", actual.size, "white")
         face.alpha_composite(actual)
         native = Image.open(REPO / f"tests/references/win7-sp1-144dpi-radio-{label.split()[1]}.png")
-        sampled = face.resize((20, 20), Image.Resampling.LANCZOS).crop((0, 1, 19, 20)).convert("RGB")
+        sampled = face.resize((20, 20), Image.Resampling.LANCZOS).crop((0, 0, 19, 19)).convert("RGB")
         error = np.abs(np.asarray(sampled, dtype=int) - np.asarray(native, dtype=int)).mean()
         assert error < 19, (label, error)

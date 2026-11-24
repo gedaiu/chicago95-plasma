@@ -13,7 +13,7 @@ Rectangle {
     readonly property bool modern: config.loginStyle === "2000"
     readonly property bool aero: config.loginStyle === "aero"
     readonly property bool luna: config.loginStyle === "luna"
-    color: modern ? "#3A6EA5" : "#008080"
+    color: config.desktopColor || (modern ? "#3A6EA5" : "#008080")
 
     // A classic pixel is `scale` screen pixels (Setup writes the session's scale rounded), or as many as fit the
     // screen; the greeter may run at a device pixel ratio of its own (X11 HiDPI), which the item scale divides out.

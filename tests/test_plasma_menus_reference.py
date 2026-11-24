@@ -6,10 +6,12 @@ a black submenu arrow). No XP context menu screenshot exists, so the specificati
 """
 
 import pytest
-from conftest import needs_ui_font
+from conftest import REPO, needs_ui_font
 from PIL import Image, ImageDraw
 from plasma_session import CLICK, menu_steps, missing_programs
-from reference import close
+from PySide6.QtGui import QFont, QFontDatabase
+from PySide6.QtWidgets import QMenu, QStyleFactory
+from reference import close, qimage_to_pil, screenshot
 
 pytestmark = [
     needs_ui_font,
@@ -165,6 +167,32 @@ def test_luna_menu_matches_the_specification_outside_icons_and_labels(luna_scree
     compared = [(x, y) for x in range(width) for y in range(expected.height) if masked.getpixel((x, y))]
     wrong = [point for point in compared if not close(ours.getpixel(point), expected.getpixel(point), TOLERANCE)]
     assert (ours.size, len(wrong) <= BUDGET * len(compared)) == (expected.size, True)
+
+
+def test_aero_selected_menu_row_keeps_the_native_top_and_bottom_highlights(qt_app):
+    font = QFontDatabase.addApplicationFont(str(REPO / "sddm/Chicago95Plasma/fonts/selawik/selawk.ttf"))
+    style = QStyleFactory.create("Windows")
+    menu = QMenu()
+    menu.setStyle(style)
+    # Use the 96-DPI reference row height to check the paint independently of the shell's font.
+    menu.setFont(QFont(QFontDatabase.applicationFontFamilies(font)[0], 9))
+    menu.setStyleSheet((REPO / "aero/plasma-style/menus.qss").read_text())
+    action = menu.addAction("Screen resolution")
+    menu.addAction("Personalize")
+    menu.show()
+    try:
+        menu.setActiveAction(action)
+        qt_app.processEvents()
+        row = menu.actionGeometry(action)
+        frame = qimage_to_pil(menu.grab().toImage())
+    finally:
+        menu.close()
+    x = row.right() - 8
+    actual = frame.crop((x, row.top(), x + 1, row.bottom() + 1))
+    expected = screenshot("themes/win7/desktop/hover-band")
+    assert actual.size == expected.size
+    for y in range(expected.height):
+        assert close(actual.getpixel((0, y)), expected.getpixel((0, y)), 1)
 
 
 @pytest.fixture(scope="module")

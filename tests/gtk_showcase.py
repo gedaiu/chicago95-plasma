@@ -524,7 +524,7 @@ def main():
     position = 0
     window = None
     capture_attempts = 0
-    caption_scale = float(os.environ["CHICAGO95_CAPTION_SCALE"]) if CAPTION_CROPS else None
+    render_scale = float(os.environ.get("CHICAGO95_RENDER_SCALE", os.environ.get("CHICAGO95_CAPTION_SCALE", "0")))
 
     def show_next():
         nonlocal position, window, capture_attempts
@@ -731,7 +731,7 @@ def main():
                 origin = (bounds.get_x(), bounds.get_y())
                 width, height = paintable.get_intrinsic_width(), paintable.get_intrinsic_height()
             snapshot = Gtk.Snapshot()
-            device_scale = caption_scale or window.get_scale_factor()
+            device_scale = render_scale or window.get_scale_factor()
             snapshot.scale(device_scale, device_scale)
             paintable.snapshot(snapshot, width, height)
             node = snapshot.to_node()
@@ -757,7 +757,7 @@ def main():
             import cairo
 
             root = window
-            device_scale = caption_scale or window.get_scale_factor()
+            device_scale = render_scale or window.get_scale_factor()
             surface = cairo.ImageSurface(
                 cairo.FORMAT_ARGB32,
                 round(window.get_allocated_width() * device_scale),

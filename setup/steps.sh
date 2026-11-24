@@ -329,10 +329,13 @@ set_gtk_interface() {
 }
 
 set_gtk_font() { # set_gtk_font <Pango font description>   X11, Wayland and settings.ini GTK programs
+  local version
   edit_xsettings Gtk/FontName "\"$1\""
   set_gtk_interface font-name "$1"
-  backup ~/.config/gtk-3.0/settings.ini
-  run kwriteconfig6 --file ~/.config/gtk-3.0/settings.ini --group Settings --key gtk-font-name "$1"
+  for version in 3.0 4.0; do
+    backup ~/.config/gtk-"$version"/settings.ini
+    run kwriteconfig6 --file ~/.config/gtk-"$version"/settings.ini --group Settings --key gtk-font-name "$1"
+  done
 }
 
 set_gtk_theme() { # set_gtk_theme <theme name>   GTK 3 and GTK 4 settings
@@ -842,6 +845,14 @@ step_animations() { # the saved animation choices into KWin, KDE's speed and our
 }
 
 default_panel_height() {
+  # At 120 DPI the reference Classic and Luna panels are 32–33 and 34 device
+  # pixels high. Plasma stores logical heights as whole pixels.
+  if [[ "${SETUP_SCALE:-1}" =~ ^1\.250*$ ]]; then
+    case "${SETUP_TASKBAR_STYLE:-classic}" in
+      classic) echo 26; return ;;
+      luna) echo 27; return ;;
+    esac
+  fi
   case "${SETUP_TASKBAR_STYLE:-classic}" in
   luna) echo "$LUNA_PANEL_HEIGHT" ;;
   aero) echo "$AERO_PANEL_HEIGHT" ;;
@@ -999,6 +1010,7 @@ apply_decoration() {
       package="$HOME/.local/share/kwin/decorations/$theme"
       put_tree "$REPO/aero/aurorae/caption" "$package"
       put_file "$REPO/aurorae/Theme.js" "$package/contents/ui/Theme.js"
+      put_file "$REPO/aurorae/caption/contents/ui/CaptionInput.qml" "$package/contents/ui/CaptionInput.qml"
       run python3 "$REPO/aero/aurorae/install_caption.py" "$package" "$HOME/.local/share/aurorae/themes/$artwork" "$renderer"
     fi
     select_aero_blur
@@ -1137,6 +1149,7 @@ apply_widget_themes() { # Qt applications (Kvantum, or Fusion without it) and GT
 
 step_look() { # decoration, Plasma style, colours, widget style, DPI
   SHELL_CHANGED=1
+  apply_shell_menu
   put_tree "$REPO/aurorae/theme" ~/.local/share/aurorae/themes/Chicago95
   for extra in bevel.py make_chicago95_aurorae.py start-button.png start-button-pressed.png; do put_file "$REPO/aurorae/$extra" ~/.local/share/aurorae/themes/Chicago95/$extra; done
   put_file "$REPO/plasma-style/make_chicago95_plasmastyle.py" ~/.local/share/aurorae/themes/Chicago95/make_chicago95_plasmastyle.py
@@ -1333,16 +1346,31 @@ qt_qml_dir() {
   qtpaths6 --query QT_INSTALL_QML 2>/dev/null || echo /usr/lib64/qt6/qml
 }
 
-# menus_qss_differs <source> <installed>   the installed stylesheet has @HOME@ substituted, so compare after substituting
-menus_qss_differs() {
-  [ -f "$2" ] || return 0
-  ! sed "s|@HOME@|$HOME|g" "$1" | cmp -s - "$2"
+render_menus_qss() {
+  local edits=(-e "s|@HOME@|$HOME|g")
+  if [ "${SETUP_WIDGET_STYLE:-classic}" = luna ] && [[ "${SETUP_SCALE:-1}" =~ ^1\.250*$ ]]; then
+    edits+=(-e "s|height: 21px;|height: 17px;|")
+  fi
+  if [ "${SETUP_WIDGET_STYLE:-classic}" = classic ]; then
+    if [[ "${SETUP_FACE:-}" =~ ^([0-9]{1,3},){2}[0-9]{1,3}$ ]]; then
+      edits+=(-e "s|#C0C0C0|rgb($SETUP_FACE)|g")
+    fi
+    if [[ "${SETUP_SELECTION:-}" =~ ^([0-9]{1,3},){2}[0-9]{1,3}$ ]]; then
+      edits+=(-e "s|#000080|rgb($SETUP_SELECTION)|g")
+    fi
+  fi
+  sed "${edits[@]}" "$@"
 }
 
-step_tools_common() { # shared by every PySide6 component; idempotent
-  local luna_module lib_module
-  [ "${TOOLS_COMMON_DONE:-0}" = 1 ] && return
-  TOOLS_COMMON_DONE=1
+# Compare the installed stylesheet with the rendered colours and paths.
+menus_qss_differs() {
+  [ -f "$2" ] || return 0
+  ! render_menus_qss "$1" | cmp -s - "$2"
+}
+
+apply_shell_menu() {
+  [ "${SHELL_MENU_DONE:-0}" = 1 ] && return
+  SHELL_MENU_DONE=1
   local drop_in=~/.config/systemd/user/plasma-plasmashell.service.d/chicago95-menus.conf
   local menus_qss="$REPO/data/plasmashell-menus.qss"
   case "${SETUP_WIDGET_STYLE:-classic}" in
@@ -1350,10 +1378,22 @@ step_tools_common() { # shared by every PySide6 component; idempotent
   luna) menus_qss="$REPO/data/plasmashell-menus-luna.qss" ;;
   esac
   if menus_qss_differs "$menus_qss" ~/.local/share/chicago95/plasmashell-menus.qss ||
-    installed_differs "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" "$drop_in" ||
-    installed_differs "$REPO/data/qml" ~/.local/share/chicago95/qml; then
+    installed_differs "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" "$drop_in"; then
     SHELL_CHANGED=1
   fi
+  put_file "$menus_qss" ~/.local/share/chicago95/plasmashell-menus.qss
+  run render_menus_qss -i ~/.local/share/chicago95/plasmashell-menus.qss
+  put_file "$REPO/luna/images/menu-arrow.svg" ~/.local/share/chicago95/images/menu-arrow.svg
+  put_file "$REPO/luna/images/menu-arrow-selected.svg" ~/.local/share/chicago95/images/menu-arrow-selected.svg
+  put_file "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" "$drop_in"
+}
+
+step_tools_common() { # shared by every PySide6 component; idempotent
+  local luna_module lib_module
+  [ "${TOOLS_COMMON_DONE:-0}" = 1 ] && return
+  TOOLS_COMMON_DONE=1
+  apply_shell_menu
+  if installed_differs "$REPO/data/qml" ~/.local/share/chicago95/qml; then SHELL_CHANGED=1; fi
   # Every module of lib/: the tools import them from here, and one left out stops them at start.
   for lib_module in "$REPO"/lib/*.py; do put_file "$lib_module" ~/.local/lib/chicago95/"$(basename "$lib_module")"; done
   put_file "$REPO/data/2000-logon-banner.png" ~/.local/share/chicago95/2000-logon-banner.png
@@ -1370,11 +1410,6 @@ step_tools_common() { # shared by every PySide6 component; idempotent
   put_file "$REPO/luna/images/windows-xp-flag.svg" ~/.local/lib/chicago95/images/windows-xp-flag.svg
   put_file "$REPO/setup/animations.conf" ~/.local/lib/chicago95/animations.conf
   put_file "$REPO/setup/post_xp_boot.script.in" ~/.local/share/chicago95/post_xp_boot.script.in
-  put_file "$menus_qss" ~/.local/share/chicago95/plasmashell-menus.qss
-  put_file "$REPO/luna/images/menu-arrow.svg" ~/.local/share/chicago95/images/menu-arrow.svg
-  put_file "$REPO/luna/images/menu-arrow-selected.svg" ~/.local/share/chicago95/images/menu-arrow-selected.svg
-  substitute_home ~/.local/share/chicago95/plasmashell-menus.qss
-  put_file "$REPO/config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf" "$drop_in"
   put_tree "$REPO/data/qml" ~/.local/share/chicago95/qml
   complete_qml_module "$(qt_qml_dir)/org/kde/plasma/components" ~/.local/share/chicago95/qml/org/kde/plasma/components
   put_file "$REPO/config/environment.d/chicago95.conf" ~/.config/environment.d/chicago95.conf
@@ -2058,6 +2093,7 @@ sddm_theme_conf() {
     LOGIN_TITLE="${SETUP_LOGIN_TITLE:-Log On to %h}" LOGIN_MESSAGE="${SETUP_LOGIN_MESSAGE:-Type a user name and password to log on.}" \
     LOGIN_ICON="login-icon.$(extension "$(image_source "${SETUP_LOGIN_ICON:-keys}")")" \
     TITLE_ACTIVE="$([ "${SETUP_LOGIN_STYLE:-classic}" = 2000 ] && echo '#0A246A,#A6CAF0')" \
+    LOGIN_DESKTOP_COLOR="$([ "${SETUP_LOOK:-}" = 2001 ] && echo '#000000')" \
     BRAND_TEXT="$({ xp_login || [ "${SETUP_LOGIN_STYLE:-}" = aero ]; } && printf '%s' "${SETUP_BANNER_TEXT:-Chicago95}")" \
     BRAND_LOGO="$({ xp_login || [ "${SETUP_LOGIN_STYLE:-}" = aero ]; } && printf 'brand-logo.%s' "$(extension "$(login_logo)")")" \
     COMPANY="$(xp_login && printf '%s' "${SETUP_COMPANY:-KDE}")" EDITION="$(xp_login && printf '%s' "${SETUP_EDITION:-Professional}")" \
@@ -2066,6 +2102,7 @@ sddm_theme_conf() {
             value["loginStyle"] = ENVIRON["LOGIN_STYLE"]; value["loginTitle"] = ENVIRON["LOGIN_TITLE"]
             value["loginMessage"] = ENVIRON["LOGIN_MESSAGE"]; value["loginIcon"] = ENVIRON["LOGIN_ICON"]
             value["titleActive"] = ENVIRON["TITLE_ACTIVE"]
+            value["desktopColor"] = ENVIRON["LOGIN_DESKTOP_COLOR"]
             value["brandText"] = ENVIRON["BRAND_TEXT"]; value["brandLogo"] = ENVIRON["BRAND_LOGO"]
             value["company"] = ENVIRON["COMPANY"]; value["edition"] = ENVIRON["EDITION"]
             value["scale"] = ENVIRON["SCALE"]
@@ -2272,6 +2309,7 @@ clock_hours() { case "${SETUP_CLOCK_HOURS:-}" in locale | 12 | 24) printf '%s' "
 panel_layout_script() { # panel_layout_script <layout file>   the layout with this run's height, look and task button width
   local width hiding hours edits=(-e "s/^panel.height = 28;/panel.height = $PANEL_HEIGHT;/" -e "s/^const look = \"1995\";/const look = \"${SETUP_START_MENU_STYLE:-1995}\";/" -e "s/^const taskbarStyle = \"classic\";/const taskbarStyle = \"${SETUP_TASKBAR_STYLE:-classic}\";/" -e "s/^const bevel = \"1995\";/const bevel = \"${SETUP_BEVEL:-1995}\";/")
   width=$(only_digits "${SETUP_TASK_BUTTON_WIDTH:-}")
+  edits+=(-e "s/^tasks.writeConfig(\"referenceDpi\", 96);/tasks.writeConfig(\"referenceDpi\", ${SETUP_DPI:-96});/")
   [ -n "$width" ] && edits+=(-e "/^tasks.writeConfig(\"look\", look);/a tasks.writeConfig(\"maxButtonWidth\", $width);")
   if [ -n "${SETUP_LAUNCHERS+x}" ]; then
     edits+=(-e "/^tasks.writeConfig(\"look\", look);/a tasks.writeConfig(\"launchers\", $(js_list "$SETUP_LAUNCHERS"));")
@@ -2334,6 +2372,7 @@ apply_taskbar() { # every run: the Start button's text and logo, and the look in
             widget.writeConfig('quickLaunch', $(js_string "${SETUP_QUICK_LAUNCH:-auto}"));
             widget.writeConfig('grouping', $(js_string "${SETUP_TASK_GROUPING:-auto}"));
             widget.writeConfig('previewSize', $(preview_size));
+            widget.writeConfig('referenceDpi', ${SETUP_DPI:-96});
             $slide_script
         });
         panel.widgets('org.chicago95.start').forEach(widget => {
@@ -2386,18 +2425,39 @@ background_color() { # the colour chosen when it is a #RRGGBB, else the look's
 
 background_pattern() { case "${SETUP_BACKGROUND_PATTERN:-}" in checks | diagonal | grid | dots) printf '%s' "$SETUP_BACKGROUND_PATTERN" ;; *) printf 'checks' ;; esac }
 
+background_preset() {
+  case "${SETUP_LOOK:-}" in
+    luna) printf '%s' "$REPO/data/wallpapers/Bliss.png" ;;
+    aero) printf '%s' "$REPO/data/wallpapers/Windows7.jpg" ;;
+  esac
+}
+
+background_mode() {
+  if [ -n "${SETUP_BACKGROUND_MODE:-}" ]; then
+    printf '%s' "$SETUP_BACKGROUND_MODE"
+  elif [ -z "${SETUP_BACKGROUND_COLOR:-}" ] && [ -f "$(background_preset)" ]; then
+    printf image
+  else
+    printf color
+  fi
+}
+
 background_fill_mode() { # Qt's Image fill modes: Stretch 0, PreserveAspectCrop (cover) 2, Tile 3, Pad (centred) 6
-  case "${SETUP_BACKGROUND_FILL:-}" in tile) printf 3 ;; stretch) printf 0 ;; cover) printf 2 ;; *) printf 6 ;; esac
+  case "${SETUP_BACKGROUND_FILL:-${1:-}}" in tile) printf 3 ;; stretch) printf 0 ;; cover) printf 2 ;; *) printf 6 ;; esac
 }
 
 background_script() {
-  local hex plugin=org.kde.color writes
+  local hex plugin=org.kde.color writes fill=center image
   hex=$(background_color)
   writes="desktop.writeConfig(\"Color\", \"$((16#${hex:1:2})),$((16#${hex:3:2})),$((16#${hex:5:2}))\");"
-  case "${SETUP_BACKGROUND_MODE:-color}" in
+  case "$(background_mode)" in
   image)
     plugin=org.kde.image
-    writes+=" desktop.writeConfig(\"Image\", $(js_string "file://${SETUP_BACKGROUND_IMAGE:-}")); desktop.writeConfig(\"FillMode\", $(background_fill_mode));"
+    if [ -z "${SETUP_BACKGROUND_MODE:-}" ]; then
+      if [ "$SETUP_LOOK" = luna ]; then fill=stretch; else fill=cover; fi
+    fi
+    image=${1:-${SETUP_BACKGROUND_IMAGE:-$(background_preset)}}
+    writes+=" desktop.writeConfig(\"Image\", $(js_string "file://$image")); desktop.writeConfig(\"FillMode\", $(background_fill_mode "$fill"));"
     ;;
   pattern)
     plugin=org.kde.image
@@ -2408,7 +2468,9 @@ background_script() {
 }
 
 step_background() {
-  if [ "${SETUP_BACKGROUND_MODE:-color}" = pattern ]; then
+  local mode image="" target
+  mode=$(background_mode)
+  if [ "$mode" = pattern ]; then
     run mkdir -p "$(dirname "$(pattern_picture)")"
     run python3 "$REPO/setup/background_pattern.py" "$(background_pattern)" "$(background_color)" "$(pattern_picture)"
     record "$(pattern_picture)"
@@ -2417,17 +2479,24 @@ step_background() {
     ui_status "Plasma is not running; the desktop background is unchanged"
     return
   }
-  run plasma_script "$(background_script)"
+  if [ "$mode" = image ]; then
+    image=${SETUP_BACKGROUND_IMAGE:-$(background_preset)}
+    if [[ "$image" == "$REPO/data/wallpapers/"* ]] && [ -f "$image" ]; then
+      target="$HOME/.local/share/chicago95/wallpapers/${image##*/}"
+      put_file "$image" "$target"
+      image=$target
+    fi
+  fi
+  run plasma_script "$(background_script "$image")"
 }
 
 # The desktop icons: links in ~/Desktop, shown by Plasma's Folder View at the originals' 32px (its size 1) with two label lines.
 # SETUP_DESKTOP_ICONS lists them (computer, documents, network, recycle); unset or auto takes the look's own, empty none.
 desktop_icon_defaults() {
   case "${SETUP_START_MENU_STYLE:-1995}" in
-  aero) printf 'recycle' ;;
+  aero | luna) printf 'recycle' ;;
   1995) printf 'computer,network,recycle' ;;
   2001) printf 'documents,computer,network,recycle' ;;
-  luna) printf 'documents,computer,recycle' ;;
   *) printf 'computer,documents,network,recycle' ;;
   esac
 }
@@ -2468,7 +2537,8 @@ desktop_script() { # Folder View as the originals arranged the desktop: 32px ico
 
 step_desktop() {
   local icon target old
-  if [ "${SETUP_START_MENU_STYLE:-1995}" = aero ]; then
+  if [ "${SETUP_START_MENU_STYLE:-1995}" = aero ] ||
+     [[ "${SETUP_START_MENU_STYLE:-1995}" = luna && "${SETUP_DESKTOP_ICONS-auto}" = auto ]]; then
     for old in "$REPO"/config/desktop/{my-computer,my-documents,my-network-places,network-neighborhood}.desktop; do
       target="$HOME/Desktop/$(sed -n 's/^Name=//p' "$old").desktop"
       if installed_by_setup "$target" && cmp -s "$target" <(sed "s|@HOME@|$HOME|g" "$old"); then
@@ -2619,11 +2689,6 @@ apply_luna_gtk_font() {
   run rm -f "$PIXEL_FONT_RULE"
 }
 
-restore_classic_gtk_font() {
-  [ -d ~/.themes/Chicago95Luna ] || return 0
-  set_gtk_font "$(sed -n 's|^Gtk/FontName "\(.*\)"$|\1|p' "$REPO/config/xsettingsd/xsettingsd.conf")"
-}
-
 # Luna's text is Tahoma, which no free font matches; without it fontconfig falls back to DejaVu Sans Condensed.
 warn_without_tahoma() {
   fc-match Tahoma 2>/dev/null | grep -i tahoma >/dev/null && return 0
@@ -2692,7 +2757,6 @@ step_fonts() { # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bar
     everywhere)
       for key in "${APP_FONT_KEYS[@]}"; do kconf kdeglobals General "$key" "$family,9,-1,5,50,0,0,0,0,0"; done
       set_gtk_font "$family 9"
-      run kwriteconfig6 --file "$HOME/.config/gtk-4.0/settings.ini" --group Settings --key gtk-font-name "$family 9"
       ;;
     esac
     [ "${SETUP_FONT_SCOPE:-everywhere}" = none ] || kconf kdeglobals WM activeFont "$family,9,-1,5,50,0,0,0,0,0"
@@ -2708,6 +2772,7 @@ step_fonts() { # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bar
     kconf kdeglobals General menuFont "$family,9,-1,5,50,0,0,0,0,0"
     kconf kdeglobals General toolBarFont "$family,9,-1,5,50,0,0,0,0,0"
     kconf kdeglobals General smallestReadableFont "$family,8,-1,5,50,0,0,0,0,0"
+    set_gtk_font "$family 9"
     ;;
   *) # A reinstall with a narrower scope takes back what an earlier "everywhere" set.
     for key in "${APP_FONT_KEYS[@]}"; do
@@ -2720,7 +2785,6 @@ step_fonts() { # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bar
   *) kconf kdeglobals WM activeFont "$family,8,-1,5,75,0,0,0,0,0" ;; # 8 points: the originals' 11px titles
   esac
   [ "${SETUP_FONT_SCOPE:-everywhere}" = none ] || install_pixel_font_rule
-  [ "${SETUP_FONT_SCOPE:-everywhere}" = everywhere ] && restore_classic_gtk_font
   return 0
 }
 

@@ -151,12 +151,12 @@ Additional shell audit references (2026-11-12):
 
 | File | Source |
 | --- | --- |
-| `win95login.png` | https://www.guidebookgallery.org/pics/gui/startupshutdown/login/win95.png (640×480, Windows 95 Welcome to Windows dialog) |
-| `win98login.png` | https://www.guidebookgallery.org/pics/gui/startupshutdown/login/win98.png (640×480, Windows 98 Welcome to Windows dialog) |
+| `themes/win95/sign-in.png` | https://www.guidebookgallery.org/pics/gui/startupshutdown/login/win95.png (640×480, Windows 95 Welcome to Windows dialog) |
+| `themes/win98/sign-in.png` | https://www.guidebookgallery.org/pics/gui/startupshutdown/login/win98.png (640×480, Windows 98 Welcome to Windows dialog) |
 | `win98boot.png` | https://www.guidebookgallery.org/pics/gui/startupshutdown/splash/win98-1-1.png (640×400 DOS pixel aspect ratio; displayed at 4:3) |
 
 The shipped `sddm/Chicago95Plasma/key-9x.png` is the isolated 45×48 key icon at
-(115, 122) in `win95login.png`, with the face colour made transparent.
+(115, 122) in `themes/win95/sign-in.png`, with the face colour made transparent.
 `splash/chicago95.splashscreen/contents/splash/images/windows98.png` is the Windows 98
 boot artwork corrected from 640×400 to 640×480 with nearest-neighbour sampling.
 The Plymouth strip animation is reconstructed; the source establishes one frame,
@@ -194,6 +194,20 @@ the changes above the bottom strip. The boot GIF alternates 50 ms and
 SP1 before credential entry. The strict test excludes the account-picture
 interior, including the cursor there. The 4:3 background in the theme
 is IMAGE resource 5032 in the installed guest's `Windows/System32/imageres.dll`.
+The same guest at 800×600 produced `themes/win7/sign-in/rejected-800x600.png`
+after one incorrect password submission. The comparison masks the software cursor.
+Return dismisses the confirmation and restores the credential form.
+
+The Windows 2000 Professional and XP SP3 sign-in PNGs in the corresponding
+theme folders are 1280×1024 QEMU framebuffers at 120 DPI after sign-out.
+The XP Classic guest uses the Ctrl+Alt+Delete alternate logon dialog.
+The XP Luna guest shows its single local account on the Welcome screen.
+The comparisons exclude the software cursor and Luna's account picture.
+
+The per-theme `widget-controls/radio-*.png` files isolate the idle and selected
+radio indicators from Display Properties. Windows 95 uses `win95-osr2-display-radios.png`
+at 96 DPI. Windows 7 uses `win7-sp1-144dpi-radio-normal.png` and
+`win7-sp1-144dpi-radio-checked.png` at 144 DPI.
 
 | File | Source |
 | --- | --- |
@@ -259,6 +273,33 @@ The Windows 7 exact-pixel audit also uses these original-size captures.
 | --- | --- |
 | `win7controlpanel.png` | [Toasty Technology, Control Panel category and icon views](https://toastytech.com/guis/win7controlpanel.png) |
 | `win7explorer1.png` | [Toasty Technology, Windows Explorer](https://toastytech.com/guis/win7explorer1.png) |
+
+The `file-manager/navigation.png` images in the Windows 95 OSR2, 98 SE,
+2000 Professional and both XP SP3 theme folders are native 120-DPI QEMU
+captures of My Computer opened with Windows+E. Each crop starts at the
+Explorer client and includes its original navigation band. Windows 95
+shows the menu and pane headers with the toolbar hidden. Windows 7 uses
+the 96-DPI navigation strip at `(7, 31)–(527, 63)` from `win7explorer1.png`.
+
+The per-theme desktop and populated taskbar samples for Windows 95 OSR2,
+98 SE, 2000 Professional and both XP SP3 looks were captured from the local
+QEMU reference guests at 120 DPI. Windows 95 used 1024×768. The other
+four guests used 1280×1024. The desktop frame ends immediately above the
+taskbar. The populated taskbar sample contains the left 420 pixels after
+opening a single active Untitled - Notepad window. A desktop right-click
+supplies the popup crop. Its hover sample is a one-pixel column from the
+highlighted row's right gutter.
+Windows 98 uses the second native capture set with the plain teal desktop.
+The first set showed the guest's alternate navy desktop wallpaper.
+
+The Windows 7 desktop reference uses the unoccupied top 220 rows of the
+1024×768 SP1 Aero Start capture. Its populated taskbar, desktop popup and
+22-row hover band come from `win7screenres.png` at 96 DPI.
+
+`data/wallpapers/Bliss.png` is a lossless PNG conversion of
+`WINDOWS/Web/Wallpaper/Bliss.bmp` from the XP SP3 guest. The Windows 7
+wallpaper retains the installed guest's `Windows/Web/Wallpaper/Windows/img0.jpg`
+bytes. Setup stretches Bliss and scales the Windows 7 image to cover the display.
 | `win7-update-balloon.png` | [Windows Update balloon](https://learn.microsoft.com/en-us/windows/win32/uxguide/images/mess-notif-image10.png) in [Microsoft’s notification design guide](https://learn.microsoft.com/en-us/windows/win32/uxguide/mess-notif) |
 
 `win7-flip-guide.png` is the six-window Alt+Tab panel in the [Microsoft Windows 7 Product Guide, PDF page 32](https://core-docs.s3.amazonaws.com/documents/asset/uploaded_file/607323/OS_Windows7ProductGuide.pdf#page=32).
@@ -293,7 +334,7 @@ are lossless and retain the guest pixel grid.
 | `win7-sp1-aero-category.png`, `win7-sp1-aero-device-manager.png`, `win7-sp1-aero-start.png` | Full desktop with the named window or menu open |
 | `win7-sp1-aero-category-detail.png` | The Appearance and Personalization category body at (9, 65), 781 × 483. The pointer was moved outside the window. |
 | `win7-sp1-aero-taskbar-properties.png` | 398 × 424 Taskbar and Start Menu Properties client |
-| `win7-sp1-aero-lock.png`, `win7-sp1-aero-lock-800.png` | Locked session with its credential field, at 1024 × 768 and 800 × 600 |
+| `themes/win7/lock-screen/1024x768.png`, `themes/win7/lock-screen/800x600.png` | Locked session with its credential field, at 1024 × 768 and 800 × 600 |
 | `win7-sp1-aero-calendar.png` | Calendar client at (672, 465), 336 × 247 |
 | [Screen Resolution](../../docs/compare/win7-sp1-screen-resolution.png) | Native display settings opened with `control desk.cpl` |
 | `themes/win7/control-panel/hover-opening.png` | Five consecutive 8 × 8 samples at (362, 163) over the System and Security card, from its last idle frame through its first four highlighted frames |

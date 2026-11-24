@@ -28,6 +28,20 @@ def test_background_is_the_classic_teal_colour_wallpaper_by_default(tmp_path):
     ) == (True, True, True)
 
 
+@pytest.mark.parametrize("look, name, fill", [("luna", "Bliss.png", 0), ("aero", "Windows7.jpg", 2)])
+def test_wallpaper_preset_uses_the_original_picture_and_placement(tmp_path, look, name, fill):
+    script = background_script(tmp_path, f"SETUP_LOOK={look}")
+    assert f'desktop.writeConfig("Image", "file://{REPO}/data/wallpapers/{name}");' in script
+    assert f'desktop.writeConfig("FillMode", {fill});' in script
+
+
+@pytest.mark.parametrize("look", ["luna", "aero"])
+def test_wallpaper_preset_preserves_an_explicit_solid_colour(tmp_path, look):
+    script = background_script(tmp_path, f"SETUP_LOOK={look} SETUP_BACKGROUND_MODE=color SETUP_BACKGROUND_COLOR=#102030")
+    assert 'desktop.wallpaperPlugin = "org.kde.color";' in script
+    assert 'desktop.writeConfig("Color", "16,32,48");' in script
+
+
 def test_background_color_is_written_as_red_green_blue(tmp_path):
     assert 'desktop.writeConfig("Color", "255,0,16");' in background_script(tmp_path, "SETUP_BACKGROUND_COLOR=#FF0010")
 

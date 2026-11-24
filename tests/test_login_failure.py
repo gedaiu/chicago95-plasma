@@ -103,14 +103,16 @@ def test_a_wrong_classic_password_shows_the_line_under_the_fields(qt_app, tmp_pa
         assert child(view, "failureLine").property("text") == "The password is incorrect. Try again."
 
 
-def test_aero_login_rejects_a_password_and_leaves_the_field_ready_for_retry(qt_app, tmp_path):
+def test_aero_rejected_password_hides_credentials_and_focuses_the_confirmation(qt_app, tmp_path):
     with login_view(qt_app, tmp_path, loginStyle="aero", failed=True) as view:
         field = child(view, "aeroPassword")
-        assert (child(view, "logonDialog").isVisible(), field.hasActiveFocus(), field.property("text")) == (
-            False,
-            True,
-            "",
-        )
+        confirmation = child(view, "aeroFailureConfirm")
+        assert not field.isVisible()
+        assert confirmation.isVisible() and confirmation.hasActiveFocus()
+        QTest.keyClick(view, Qt.Key_Return)
+        assert not confirmation.isVisible()
+        assert field.isVisible() and field.hasActiveFocus()
+        assert not field.property("text")
 
 
 def test_aero_centres_the_225_pixel_password_box_below_the_account_portrait(qt_app, tmp_path):

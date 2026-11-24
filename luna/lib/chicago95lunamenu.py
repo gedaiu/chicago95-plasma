@@ -54,7 +54,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QPointF, QRect, QSize, Qt
+from PySide6.QtCore import QPoint, QPointF, QRect, QSize, Qt, QTimer
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -101,6 +101,8 @@ PINNED_TOP = 70
 MOST_USED_TOP = 159
 LEFT_SEPARATOR_ROWS = (155, 400)
 ALL_PROGRAMS_RECT = QRect(2, 402, 188, 34)
+ALL_PROGRAMS_POPUP_X = 133
+SUBMENU_HOVER_MS = 800  # measured on XP SP3 for All Programs and My Recent Documents
 RIGHT_ROW_TOPS = [70, 102, 134, 166, 198, 238, 270, 310, 342, 374]
 RIGHT_BOLD_ROWS = 5
 RIGHT_SEPARATOR_ROWS = (235, 307)
@@ -595,8 +597,11 @@ class LunaMenu(QWidget):
         self.user_picture = load_user_picture(user_picture or Path.home() / ".face", icon)
         self.shield = None
         self.submenu = None
+        self.submenu_row = None
         self.hovered = None
         self.rows = self.build_rows()
+        self.submenu_timer = QTimer(self, singleShot=True, timerType=Qt.PreciseTimer)
+        self.submenu_timer.timeout.connect(self.open_hovered_submenu)
 
     def build_rows(self):
         usage = read_usage(self.recent_path)
@@ -633,14 +638,43 @@ class LunaMenu(QWidget):
             action.triggered.connect(lambda _checked=False, app=app: self.launch_app(app))
 
     def fill_recent_menu(self, menu):
+        if not self.recent:
+            menu.addAction("(Empty)").setEnabled(False)
         for location in self.recent:
             action = menu.addAction(self.icon("text-x-generic"), os.path.basename(location.rstrip("/")))
             action.triggered.connect(lambda _checked=False, loc=location: self.launch(["xdg-open", loc]))
 
     def open_submenu(self, row):
-        menu = self.submenu = self.retro_menu_factory("", self)  # a parent window for the submenu's popup
+        self.submenu_timer.stop()
+        if self.retro_menu_factory is None or row is self.submenu_row:
+            return
+        if self.submenu is not None:
+            self.submenu.close()
+        menu = self.retro_menu_factory("", self)
         row.submenu(menu)
-        menu.popup(self.mapToGlobal(QPoint(row.rect.right() + 1, row.rect.top())))
+        if menu.isEmpty():
+            menu.deleteLater()
+            return
+        self.submenu = menu
+        self.submenu_row = self.hovered = row
+        menu.aboutToHide.connect(self.release_submenu)
+        menu.triggered.connect(self.close)
+        # All Programs unfolds upward from its arrow. Recent Documents opens beside the right pane.
+        if row.look is ALL_PROGRAMS_LOOK:
+            anchor = QPoint(ALL_PROGRAMS_POPUP_X, row.rect.bottom() + 1 - menu.sizeHint().height())
+        else:
+            anchor = QPoint(WIDTH - 2, row.rect.top())
+        menu.popup(self.mapToGlobal(anchor))
+        self.update()
+
+    def release_submenu(self):
+        self.submenu.deleteLater()
+        self.submenu = self.submenu_row = None
+        self.update()
+
+    def open_hovered_submenu(self):
+        if self.isVisible() and self.hovered is not None and self.hovered.submenu is not None:
+            self.open_submenu(self.hovered)
 
     def activate(self, row):
         if row.submenu is not None:
@@ -663,7 +697,7 @@ class LunaMenu(QWidget):
         paint_avatar(painter, self.user_picture)
         paint_user_name(painter, self.user_name)
         for row in self.rows:
-            paint_row(painter, row, row is self.hovered)
+            paint_row(painter, row, row is (self.submenu_row or self.hovered))
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setCompositionMode(QPainter.CompositionMode_Clear)
         painter.fillPath(corner_cutouts(), Qt.transparent)
@@ -672,11 +706,15 @@ class LunaMenu(QWidget):
     def mouseMoveEvent(self, event):
         hovered = self.row_at(event.position().toPoint())
         if hovered is not self.hovered:
+            self.submenu_timer.stop()
             self.hovered = hovered
+            if hovered is not None and hovered.submenu is not None and hovered is not self.submenu_row:
+                self.submenu_timer.start(SUBMENU_HOVER_MS)
             self.update()
 
     def leaveEvent(self, _event):
-        self.hovered = None
+        self.submenu_timer.stop()
+        self.hovered = self.submenu_row
         self.update()
 
     def mouseReleaseEvent(self, event):
@@ -690,11 +728,14 @@ class LunaMenu(QWidget):
         if event.key() == Qt.Key_Escape:
             self.close()
         elif event.key() in steps:
+            self.submenu_timer.stop()
             current = rows.index(self.hovered) if self.hovered in rows else (-1 if event.key() == Qt.Key_Down else 0)
             self.hovered = rows[(current + steps[event.key()]) % len(rows)]
             self.update()
         elif event.key() in (Qt.Key_Return, Qt.Key_Enter) and self.hovered is not None:
             self.activate(self.hovered)
+        elif event.key() == Qt.Key_Right and self.hovered is not None and self.hovered.submenu is not None:
+            self.open_submenu(self.hovered)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -707,6 +748,10 @@ class LunaMenu(QWidget):
 
     def hideEvent(self, event):
         super().hideEvent(event)
+        self.submenu_timer.stop()
+        if self.submenu is not None:
+            self.submenu.close()
+        self.hovered = None
         if self.shield is None:
             return
         self.shield.hide()

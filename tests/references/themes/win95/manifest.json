@@ -1,8 +1,18 @@
 {
+  "start_menu_interaction": {"scale": 1.25},
   "look": "1995",
+  "desktop_samples": {"screen": [1024, 768], "scale": 1.25, "launchers": [], "cursor": [512, 384, 534, 408]},
+  "file_manager_scale": 1.25,
+  "radio_scale": 1,
+  "session_screens": {
+    "sign-in": {
+      "640x480": {"frame": "sign-in.png"}
+    }
+  },
   "boot_step": 0,
   "caption_scale": 1.25,
   "aliases": {
+    "win95login.png": "sign-in.png",
     "win95-osr2-run.png": "run.png",
     "win95-osr2-taskbar-band.png": "taskbar-band.png",
     "caption-states-1995.png": "caption-states.png",

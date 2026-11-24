@@ -297,6 +297,71 @@ def test_my_recent_documents_row_lists_the_recent_files_in_the_submenu(menu):
     assert [action.text() for action in submenu.actions()] == ["a.txt", "b.txt"]
 
 
+@pytest.mark.parametrize("title", ["All Programs", "My Recent Documents"])
+def test_hover_opens_submenu_after_the_delay_and_keeps_its_parent_highlighted(menu, monkeypatch, title):
+    monkeypatch.setattr(lunamenu, "SUBMENU_HOVER_MS", 40, raising=False)
+    menu.show()
+    row = next(row for row in menu.rows if row.text == title)
+    hover(menu, row.rect.center())
+    assert menu.submenu is None
+    QTest.qWait(120)
+    assert menu.submenu is not None and menu.submenu.isVisible()
+    QApplication.sendEvent(menu, QEvent(QEvent.Leave))
+    assert menu.hovered is row
+
+
+@pytest.mark.parametrize("leave", [False, True])
+def test_moving_away_cancels_the_submenu_hover(menu, monkeypatch, leave):
+    monkeypatch.setattr(lunamenu, "SUBMENU_HOVER_MS", 40, raising=False)
+    menu.show()
+    row = next(row for row in menu.rows if row.text == "All Programs")
+    hover(menu, row.rect.center())
+    assert menu.hovered is row
+    if leave:
+        QApplication.sendEvent(menu, QEvent(QEvent.Leave))
+    else:
+        hover(menu, RIGHT_ROW_MY_COMPUTER_POINT)
+    QTest.qWait(120)
+    assert menu.submenu is None
+
+
+def test_opening_a_recent_document_from_a_submenu_dismisses_the_launcher(menu):
+    menu.show()
+    row = next(row for row in menu.rows if row.text == "My Recent Documents")
+    QTest.mouseClick(menu, Qt.LeftButton, pos=row.rect.center())
+    assert menu.submenu is not None and menu.submenu.isVisible()
+    QTest.keyClick(menu.submenu, Qt.Key_Down)
+    QTest.keyClick(menu.submenu, Qt.Key_Return)
+    assert menu.launched == [["xdg-open", "/home/user/a.txt"]]
+    assert not menu.isVisible()
+
+
+@pytest.mark.parametrize("title", ["All Programs", "My Recent Documents"])
+def test_keyboard_opens_submenus_at_the_native_row_anchor(menu, title):
+    menu.move(20, 30)
+    menu.show()
+    row = next(row for row in menu.rows if row.text == title)
+    # Navigate to the same row using the keyboard, without starting a hover timer.
+    for _ in range(menu.highlightable_rows().index(row) + 1):
+        QTest.keyClick(menu, Qt.Key_Down)
+    QTest.keyClick(menu, Qt.Key_Right)
+    assert menu.submenu is not None and menu.submenu.isVisible()
+    offset = menu.submenu.pos() - menu.pos()
+    if title == "All Programs":
+        assert (offset.x(), offset.y() + menu.submenu.height()) == (133, row.rect.bottom() + 1)
+    else:
+        assert (offset.x(), offset.y()) == (378, row.rect.top())
+
+
+def test_empty_recent_documents_still_opens_a_popup(menu):
+    menu.recent.clear()
+    menu.show()
+    row = next(row for row in menu.rows if row.text == "My Recent Documents")
+    QTest.mouseClick(menu, Qt.LeftButton, pos=row.rect.center())
+    assert menu.submenu is not None and menu.submenu.isVisible()
+    assert [action.text() for action in menu.submenu.actions()] == ["(Empty)"]
+
+
 def test_drawn_root_menu_returns_a_380_wide_image(qt_app):
     assert lunamenu.drawn_root_menu(fake_apps(), [], fake_icon, user_name="Nathan").width() == 380
 

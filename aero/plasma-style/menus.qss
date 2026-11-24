@@ -5,7 +5,10 @@ QMenu {
     padding: 2px;
 }
 QMenu::item:selected {
-    background: #d9eafa;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #aecff7, stop:0.023 #aecff7, stop:0.068 #f7f7f9,
+        stop:0.114 #f2f4f6, stop:0.886 #e6edf6, stop:0.932 #eef3f9,
+        stop:0.977 #aecff7, stop:1 #aecff7);
     color: #111111;
 }
 QMenu::item:disabled {

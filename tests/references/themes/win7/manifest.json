@@ -1,11 +1,29 @@
 {
+  "start_menu_interaction": {"scale": 1},
   "look": "aero",
+  "desktop_samples": {"screen": [1024, 768], "scale": 1, "launchers": ["web-browser", "system-file-manager", "applications-multimedia"]},
+  "file_manager_scale": 1,
+  "radio_scale": 1.5,
   "boot_step": 82,
   "caption_scale": 1.5,
   "aliases": {
     "caption-states-aero.png": "caption-states.png",
     "win7-sp1-category-hover.png": "control-panel/hover.png",
-    "win7-sp1-category-hover-opening.png": "control-panel/hover-opening.png"
+    "win7-sp1-category-hover-opening.png": "control-panel/hover-opening.png",
+    "win7-sp1-aero-lock.png": "lock-screen/1024x768.png",
+    "win7-sp1-aero-lock-800.png": "lock-screen/800x600.png"
+  },
+  "session_screens": {
+    "sign-in": {
+      "800x600": {"frame": "sign-in.png", "exclude": [336, 212, 462, 338]},
+      "rejected-800x600": {
+        "frame": "sign-in/rejected-800x600.png", "exclude": [399, 299, 416, 321], "failed": true
+      }
+    },
+    "lock-screen": {
+      "800x600": {"frame": "lock-screen/800x600.png", "exclude": [336, 179, 462, 306]},
+      "1024x768": {"frame": "lock-screen/1024x768.png", "exclude": [448, 267, 574, 394]}
+    }
   },
   "taskbar_x": 535,
   "run_scale": 1.5,

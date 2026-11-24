@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from conftest import REPO
+from login_theme import render_aero_lock
 from PIL import Image, ImageChops, ImageOps, ImageStat
 from PySide6.QtCore import QObject, QPointF, Qt, QUrl
 from PySide6.QtQuick import QQuickView
@@ -26,7 +27,8 @@ def greeter(tmp_path_factory):
     shutil.copy(src / "background", art)
     for name in ("AeroLogin", "AeroLockScreen"):
         shutil.copy(REPO / f"sddm/Chicago95Plasma/{name}.qml", folder)
-    shutil.copy(REPO / "sddm/Chicago95Plasma/AeroPortraitFrame.svg", folder)
+    for name in ("AeroPortraitFrame", "AeroCredentialError", "AeroCredentialConfirm"):
+        shutil.copy(REPO / f"sddm/Chicago95Plasma/{name}.svg", folder)
     shutil.copy(REPO / "sddm/Chicago95Plasma/AeroBackground4x3.jpg", folder)
     for icon in src.glob("*.png"):
         if icon.name == "user.png":
@@ -100,9 +102,13 @@ def test_portrait_credentials_power_and_failure_render_in_place(qt_app, greeter,
         view.rootObject().property("greeter").loginFailed.emit()
         QTest.qWait(40)
         failed = qimage_to_pil(view.grabWindow())
-        area = (200, y + 28, 600, y + 50)
+        confirm = view.rootObject().findChild(QObject, "aeroFailureConfirm")
+        assert not field.isVisible() and confirm.hasActiveFocus()
+        area = (353, 476, 446, 504)
         changed = ImageChops.difference(actual.crop(area), failed.crop(area)).convert("L")
-        assert sum(changed.histogram()[35:]) > 50, "A rejected credential must paint an error below the field"
+        assert sum(changed.histogram()[35:]) > 50, "A rejected credential must paint the confirmation button"
+        QTest.mouseClick(view, Qt.LeftButton, pos=confirm.mapToScene(QPointF(45, 14)).toPoint())
+        assert field.isVisible() and field.hasActiveFocus()
     finally:
         view.close()
 
@@ -220,25 +226,11 @@ def test_unlock_switch_user_button_clears_input_and_fits_above_branding(qt_app, 
 @pytest.mark.parametrize(
     "width,height,reference", [(1024, 768, "win7-sp1-aero-lock"), (800, 600, "win7-sp1-aero-lock-800")]
 )
-def test_lock_password_bounds_match_sp1(qt_app, greeter, tmp_path, width, height, reference, exact_original):
+def test_lock_password_bounds_match_sp1(qt_app, tmp_path, width, height, reference, exact_original):
     import numpy as np
     from reference import screenshot
 
-    folder, _ = greeter
-    scene = folder / "sp1-lock.qml"
-    scene.write_text(
-        f'import QtQuick\nAeroLockScreen {{ width: {width}; height: {height}; userName: "Reference"; '
-        "canSwitchUser: true; authenticator: QtObject { signal failed(int kind) } }"
-    )
-    view = QQuickView()
-    view.setSource(QUrl.fromLocalFile(str(scene)))
-    assert not view.errors()
-    view.show()
-    try:
-        QTest.qWait(80)
-        actual = qimage_to_pil(view.grabWindow())
-    finally:
-        view.close()
+    actual = render_aero_lock(qt_app, tmp_path, (width, height), "Reference", "")
     actual.save(tmp_path / "lock.png")
 
     def bounds(im):

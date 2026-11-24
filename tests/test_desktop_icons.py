@@ -62,6 +62,13 @@ def test_a_saved_choice_picks_the_icons_and_an_empty_choice_or_an_unknown_name_g
     ) == (["recycle", "computer"], [], [])
 
 
+def test_luna_defaults_to_the_recycle_bin_and_preserves_chosen_icons(tmp_path):
+    assert chosen(tmp_path, "SETUP_START_MENU_STYLE=luna") == ["recycle"]
+    assert chosen(
+        tmp_path, "SETUP_START_MENU_STYLE=luna SETUP_DESKTOP_ICONS=computer,documents"
+    ) == ["computer", "documents"]
+
+
 def test_dry_run_of_the_desktop_component_copies_the_links_under_their_names_into_the_desktop_folder(tmp_path):
     log = dry_run_log(tmp_path, "--components=desktop", "--look=1998")
 

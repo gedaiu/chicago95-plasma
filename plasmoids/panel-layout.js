@@ -20,6 +20,7 @@ const tasks = panel.addWidget("org.chicago95.tasks");
 
 tasks.currentConfigGroup = ["General"];
 tasks.writeConfig("look", look);
+tasks.writeConfig("referenceDpi", 96);
 tasks.writeConfig("taskbarStyle", taskbarStyle);
 tasks.writeConfig("bevel", bevel);
 

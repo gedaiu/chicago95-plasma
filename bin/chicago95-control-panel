@@ -2845,6 +2845,7 @@ class ButtonWidthField(QWidget):
 
     def __init__(self, look):
         super().__init__()
+        self.default_width = 128 if chicago95ui.screen_scale() == 1.25 else LOOK_BUTTON_WIDTH
         self.checkbox = QCheckBox("Use the look's own width")
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setTickPosition(QSlider.TicksBelow)
@@ -2879,7 +2880,7 @@ class ButtonWidthField(QWidget):
     def show_state(self):
         self.slider.setEnabled(not self.checkbox.isChecked())
         self.spin.setEnabled(not self.checkbox.isChecked())
-        self.preview.show_width(LOOK_BUTTON_WIDTH if self.checkbox.isChecked() else self.spin.value())
+        self.preview.show_width(self.default_width if self.checkbox.isChecked() else self.spin.value())
 
     def value(self):
         return "0" if self.checkbox.isChecked() else str(self.spin.value())
@@ -2887,7 +2888,7 @@ class ButtonWidthField(QWidget):
     def set_value(self, value):
         chosen = str(value).isdigit() and int(value) > 0
         self.checkbox.setChecked(not chosen)
-        self.spin.setValue(int(value) if chosen else LOOK_BUTTON_WIDTH)
+        self.spin.setValue(int(value) if chosen else self.default_width)
         self.show_state()
 
 
@@ -4015,10 +4016,16 @@ def row_widget(layout):
     return widget
 
 
+def preset_panel_height(style):
+    if chicago95ui.screen_scale() == 1.25 and style in ("classic", "luna"):
+        return 27 if style == "luna" else 26
+    return {"classic": 28, "luna": 30, "aero": 40}[style]
+
+
 def taskbar_style_and_size_fields(tab, settings):
     style = taskbar_style_field(tab, settings)
     form = tab.form
-    height = tab.number("PANEL", "Taskbar height:", 22, 64, default=28, suffix=" pixels")
+    height = tab.number("PANEL", "Taskbar height:", 22, 64, default=preset_panel_height(style.currentData()), suffix=" pixels")
     width = ButtonWidthField(settings.get("LOOK", "1995"))
     tab.register("TASK_BUTTON_WIDTH", "Taskbar button width:", width, width.value, width.set_value, "0", width.changed)
     tab.previews.append(width)
@@ -4898,24 +4905,34 @@ SOUND_EVENTS = (
 )
 
 
+def preset_wallpaper(look, settings):
+    names = {"luna": ("Bliss.png", "stretch"), "aero": ("Windows7.jpg", "cover")}
+    if look not in names:
+        return {"BACKGROUND_MODE": "color", "BACKGROUND_IMAGE": "", "BACKGROUND_FILL": "center"}
+    name, placement = names[look]
+    installed = CHICAGO95_DATA / "wallpapers" / name
+    image = installed if installed.is_file() else repo_of(settings) / "data/wallpapers" / name
+    return {"BACKGROUND_MODE": "image", "BACKGROUND_IMAGE": str(image), "BACKGROUND_FILL": placement}
+
+
 def desktop_theme(look, settings):
-    login, boot, sound, height = {
-        "1995": ("classic", "classic", "Chicago95", "28"),
-        "1998": ("classic", "classic", "Windows98", "28"),
-        "2000": ("2000", "2000", "Windows2000", "28"),
-        "2001": ("2000", "luna", "WindowsXP", "28"),
-        "luna": ("luna", "luna", "WindowsXP", "30"),
-        "aero": ("aero", "7", "Windows7", "40"),
+    login, boot, sound = {
+        "1995": ("classic", "classic", "Chicago95"),
+        "1998": ("classic", "classic", "Windows98"),
+        "2000": ("2000", "2000", "Windows2000"),
+        "2001": ("2000", "luna", "WindowsXP"),
+        "luna": ("luna", "luna", "WindowsXP"),
+        "aero": ("aero", "7", "Windows7"),
     }[look]
     return {
         "LOGIN_STYLE": login,
         "BOOT_STYLE": boot,
         "SOUND_THEME": sound,
-        "PANEL": height,
+        "PANEL": str(preset_panel_height(LOOK_PRESETS[look]["TASKBAR_STYLE"])),
         "CONTROL_PANEL_STYLE": "auto",
         "START_LOGO": "flag",
         "BANNER_TEXT": "Chicago95",
-        "BACKGROUND_MODE": "color",
+        **preset_wallpaper(look, settings),
         "DESKTOP_ICONS": "auto",
         "SPLASH_IMAGE": str(splash_of(settings) / "images/windows98.png") if look == "1998" else "classic",
         "QUICK_LAUNCH": "auto",
@@ -5235,14 +5252,17 @@ def background_tab(settings, actions):
         if chosen:
             show_wallpaper(chosen)
 
-    tab.track("BACKGROUND_MODE", mode, lambda _value: None, "color")
+    defaults = preset_wallpaper(settings.get("LOOK"), settings) if not (
+        settings.get("BACKGROUND_MODE") or settings.get("BACKGROUND_COLOR")
+    ) else preset_wallpaper(None, settings)
+    tab.track("BACKGROUND_MODE", mode, lambda _value: None, defaults["BACKGROUND_MODE"])
     tab.track("BACKGROUND_PATTERN", lambda: pattern["name"], set_pattern, "none")
-    tab.track("BACKGROUND_IMAGE", wallpaper, show_wallpaper, "", tab.wallpapers.currentRowChanged)
+    tab.track("BACKGROUND_IMAGE", wallpaper, show_wallpaper, defaults["BACKGROUND_IMAGE"], tab.wallpapers.currentRowChanged)
     tab.track(
         "BACKGROUND_FILL",
         tab.display.currentData,
         lambda value: tab.display.setCurrentIndex(max(tab.display.findData(value), 0)),
-        "center",
+        defaults["BACKGROUND_FILL"],
         tab.display.currentIndexChanged,
     )
     tab.wallpapers.currentRowChanged.connect(refresh)

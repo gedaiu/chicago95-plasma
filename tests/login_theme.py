@@ -73,6 +73,33 @@ def render_login(app, folder, **options):
         return qimage_to_pil(view.grabWindow())
 
 
+def render_aero_lock(app, folder, size, user, brand_text):
+    """Render the lock page with the same stand-in user and authenticator used by the greeter tests."""
+    from reference import qimage_to_pil
+
+    theme = prepare_login_theme(THEME, folder).parent
+    scene = theme / "test-lock.qml"
+    scene.write_text("""import QtQuick
+AeroLockScreen {
+    canSwitchUser: true
+    authenticator: QtObject { signal failed(int kind) }
+}""")
+    view = QQuickView()
+    view.setResizeMode(QQuickView.SizeRootObjectToView)
+    view.setInitialProperties({"userName": user, "brandText": brand_text})
+    view.resize(*size)
+    view.setSource(QUrl.fromLocalFile(str(scene)))
+    errors = [error.toString() for error in view.errors()]
+    assert not errors, errors
+    view.show()
+    try:
+        QTimer.singleShot(300, app.quit)
+        app.exec()
+        return qimage_to_pil(view.grabWindow())
+    finally:
+        view.close()
+
+
 CONTROLS = (
     "RetroButton",
     "RetroField",

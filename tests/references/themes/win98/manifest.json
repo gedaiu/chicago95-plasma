@@ -1,8 +1,17 @@
 {
+  "start_menu_interaction": {"scale": 1.25},
   "look": "1998",
+  "desktop_samples": {"screen": [1280, 1024], "scale": 1.25, "launchers": ["user-desktop", "web-browser", "mail-client"], "cursor": [640, 512, 662, 536]},
+  "file_manager_scale": 1.25,
+  "session_screens": {
+    "sign-in": {
+      "640x480": {"frame": "sign-in.png"}
+    }
+  },
   "boot_step": 18,
   "caption_scale": 1.25,
   "aliases": {
+    "win98login.png": "sign-in.png",
     "win98-se-run.png": "run.png",
     "win98-se-taskbar-band.png": "taskbar-band.png",
     "caption-states-1998.png": "caption-states.png",

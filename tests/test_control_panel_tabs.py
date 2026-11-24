@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from conftest import REPO, load_script
 from PySide6.QtWidgets import QComboBox, QLabel, QPushButton, QSpinBox
@@ -442,6 +444,14 @@ def test_background_tab_defaults_to_no_wallpaper_and_no_pattern(control_panel, q
         "BACKGROUND_IMAGE": "",
         "BACKGROUND_FILL": "center",
     }
+
+
+@pytest.mark.parametrize("look, name, fill", [("luna", "Bliss.png", "stretch"), ("aero", "Windows7.jpg", "cover")])
+def test_background_tab_shows_the_preset_picture(control_panel, qt_app, look, name, fill):
+    values = background_tab(control_panel, {"LOOK": look}).values()
+    assert values["BACKGROUND_MODE"] == "image"
+    assert Path(values["BACKGROUND_IMAGE"]).name == name
+    assert values["BACKGROUND_FILL"] == fill
 
 
 def test_background_tab_reports_a_saved_tiled_picture_even_when_it_is_not_in_the_list(control_panel, qt_app):

@@ -45,8 +45,8 @@ SystemAurorae {
         }
     }
 
-    // Paint the caption SVG elements on the output's pixel grid. Keep
-    // Aurorae's button positions, input handling and state transitions.
+    // Paint the caption SVG elements on the output's pixel grid, following
+    // Aurorae's button positions and state transitions.
     Repeater {
         model: frame.classicCaptionAt120Dpi || (frame.auroraeTheme.alignCaptionPixels && frame.outputScale % 1 !== 0) ? 2 : 0
         delegate: Item {
@@ -116,20 +116,49 @@ SystemAurorae {
         }
     }
 
-    // Aurorae keeps the disabled face, but its maximize wrapper also has an
-    // independent MouseArea. Disable that area so it cannot paint hover or press.
+    // Keep Aurorae's faces and button layout. Handle the three caption actions
+    // with the same release bounds as the Aero decoration.
     Repeater {
         model: 2
         delegate: Item {
+            id: inputGroup
             required property int index
             readonly property Item group: frame.buttonGroups[index] ?? null
-            readonly property Item maximize: group?.children[0]?.children.find(item =>
-                item.children[0]?.buttonType === DecorationOptions.DecorationButtonMaximizeRestore) ?? null
-            Binding {
-                target: parent.maximize?.children.find(item => item instanceof MouseArea) ?? null
-                property: "enabled"
-                value: decoration.client.maximizeable
-                when: target !== null
+            Repeater {
+                model: inputGroup.group?.children[0]?.children ?? []
+                delegate: Loader {
+                    id: inputLoader
+                    required property Item modelData
+                    readonly property int buttonType: modelData.buttonType
+                        ?? modelData.children[0]?.buttonType ?? DecorationOptions.DecorationButtonNone
+                    readonly property Item oldInput: modelData.children.find(item => item instanceof MouseArea) ?? null
+                    parent: modelData
+                    anchors.fill: parent
+                    active: oldInput !== null && [
+                        DecorationOptions.DecorationButtonMinimize,
+                        DecorationOptions.DecorationButtonMaximizeRestore,
+                        DecorationOptions.DecorationButtonClose
+                    ].includes(buttonType)
+                    sourceComponent: CaptionInput { buttonType: inputLoader.buttonType }
+                    Binding {
+                        target: inputLoader.oldInput
+                        property: "enabled"
+                        value: false
+                        when: inputLoader.active
+                    }
+                    Binding {
+                        target: inputLoader.modelData
+                        property: "hovered"
+                        value: inputLoader.item?.containsMouse ?? false
+                        when: inputLoader.active
+                    }
+                    Binding {
+                        target: inputLoader.modelData
+                        property: "pressed"
+                        value: inputLoader.item?.containsPress ?? false
+                        when: inputLoader.active
+                    }
+                }
             }
         }
     }

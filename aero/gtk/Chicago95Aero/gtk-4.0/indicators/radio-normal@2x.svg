@@ -4,6 +4,6 @@
       <stop stop-color="#aeb3b9"/><stop offset=".48" stop-color="#e1e2e3"/><stop offset="1" stop-color="#fafafa"/>
     </linearGradient>
   </defs>
-  <circle cx="9.5" cy="10.5" r="9" fill="#f4f4f4" stroke="#8e8f8f"/>
-  <circle cx="9.5" cy="10.5" r="6.4" fill="url(#well)" stroke="#ced0d2" stroke-width=".6"/>
+  <circle cx="9.5" cy="9.5" r="9" fill="#f4f4f4" stroke="#8e8f8f"/>
+  <circle cx="9.5" cy="9.5" r="6.4" fill="url(#well)" stroke="#ced0d2" stroke-width=".6"/>
 </svg>

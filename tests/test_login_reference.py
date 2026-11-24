@@ -183,3 +183,10 @@ def test_xp_classic_logon_uses_the_xp_banner_not_the_2000_banner(qt_app, shutdow
     expected = screenshot("xpclassiclogin").crop((71, 131, 482, 224))
     actual = Image.open(path).convert("RGB").resize(expected.size, Image.Resampling.NEAREST)
     assert actual.tobytes() == expected.tobytes()
+
+
+def test_xp_classic_logon_backdrop_matches_the_vm(qt_app, tmp_path):
+    expected = screenshot("themes/winxp-classic/sign-in")
+    actual = render_login(qt_app, tmp_path, size=expected.size, loginStyle="2000", desktopColor="#000000")
+    backdrop = (0, 0, expected.width, 200)
+    assert actual.crop(backdrop).tobytes() == expected.crop(backdrop).tobytes()

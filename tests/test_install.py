@@ -1950,7 +1950,8 @@ def test_look_luna_switches_the_wayland_and_settings_ini_gtk_font_to_tahoma_8(tm
     assert (
         "would: gsettings set org.gnome.desktop.interface font-name Tahoma 8\n" in log,
         f"--file {tmp_path}/.config/gtk-3.0/settings.ini --group Settings --key gtk-font-name Tahoma 8\n" in log,
-    ) == (True, True)
+        f"--file {tmp_path}/.config/gtk-4.0/settings.ini --group Settings --key gtk-font-name Tahoma 8\n" in log,
+    ) == (True, True, True)
 
 
 def test_look_luna_with_font_scope_desktop_leaves_the_gtk_font_and_pixel_rule_alone(tmp_path):
@@ -1973,25 +1974,32 @@ def test_look_1995_writes_no_luna_widget_lines(tmp_path):
     ) == (True, False, False, False, False, False, False)
 
 
-def test_look_1995_after_luna_restores_the_classic_gtk_theme_font_and_pixel_rule(tmp_path):
-    def luna_was_installed(home):
-        (home / ".themes/Chicago95Luna").mkdir(parents=True)
+@pytest.mark.parametrize("previous_luna", (False, True), ids=("fresh-install", "after-luna"))
+def test_look_1995_selects_the_classic_gtk_theme_font_and_pixel_rule(tmp_path, previous_luna):
+    def prepare(home):
+        if previous_luna:
+            (home / ".themes/Chicago95Luna").mkdir(parents=True)
+        else:
+            (home / ".themes").mkdir()
         (home / ".themes/Chicago95").mkdir()
         (home / "stubs").mkdir()
         (home / "stubs/fc-list").write_text("#!/bin/sh\necho 'MS W98 UI'\n")
         (home / "stubs/fc-list").chmod(0o755)
 
-    log = widget_look_log(tmp_path, "--look=1995", prepare=luna_was_installed)
+    log = widget_look_log(tmp_path, "--look=1995", prepare=prepare)
 
     assert (
-        f"--file {tmp_path}/.config/gtk-3.0/settings.ini --group Settings --key gtk-theme-name Chicago95\n" in log,
-        'Net/ThemeName "Chicago95"| ' in log,
-        'Gtk/FontName "MS W98 UI,  9"| ' in log,
+        (f"--file {tmp_path}/.config/gtk-3.0/settings.ini --group Settings --key gtk-theme-name Chicago95\n" in log)
+        == previous_luna,
+        ('Net/ThemeName "Chicago95"| ' in log) == previous_luna,
+        'Gtk/FontName "MS W98 UI 9"| ' in log,
         f"would: cp {REPO}/config/fontconfig/60-chicago95-pixel-font.conf "
         f"{tmp_path}/.config/fontconfig/conf.d/60-chicago95-pixel-font.conf" in log,
-        "would: gsettings set org.gnome.desktop.interface gtk-theme Chicago95\n" in log,
-        "would: gsettings set org.gnome.desktop.interface font-name MS W98 UI,  9\n" in log,
-    ) == (True,) * 6
+        ("would: gsettings set org.gnome.desktop.interface gtk-theme Chicago95\n" in log) == previous_luna,
+        "would: gsettings set org.gnome.desktop.interface font-name MS W98 UI 9\n" in log,
+        f"--file {tmp_path}/.config/gtk-3.0/settings.ini --group Settings --key gtk-font-name MS W98 UI 9\n" in log,
+        f"--file {tmp_path}/.config/gtk-4.0/settings.ini --group Settings --key gtk-font-name MS W98 UI 9\n" in log,
+    ) == (True,) * 8
 
 
 def test_classic_title_labels_take_the_caption_colour_without_restarting_the_gradient(tmp_path):
@@ -2098,6 +2106,35 @@ def test_xp_classic_uses_xp_boot_and_icons_with_classic_logon(tmp_path):
     assert run_bash_with_steps(
         tmp_path, 'apply_look 2001; echo "$SETUP_BOOT_STYLE $SETUP_LOGIN_STYLE $SETUP_ICONS"'
     ) == ["luna 2000 windowsxp"]
+
+
+def test_xp_classic_installs_the_black_sign_in_backdrop(tmp_path):
+    theme_conf = run_bash_with_steps(tmp_path, "apply_look 2001; sddm_theme_conf")
+    assert "desktopColor=#000000" in theme_conf
+
+
+def test_nested_setup_keeps_mutable_icon_themes_inside_its_test_home(tmp_path, monkeypatch):
+    from plasma_session import link_user_assets
+
+    user = tmp_path / "user"
+    test_home = tmp_path / "test-home"
+    monkeypatch.setenv("HOME", str(user))
+    icons = (
+        "Chicago95-Toolbar", "Windows-7", "Windows-7-SVG", "Windows-XP", "Windows-XP-Originals",
+    )
+    for theme in icons:
+        index = user / ".local/share/icons" / theme / "index.theme"
+        index.parent.mkdir(parents=True)
+        index.write_text("installed by the user")
+    checkout = Path("src/ClassicOS-2000-Icons")
+    (user / checkout).mkdir(parents=True)
+    link_user_assets(test_home)
+    for theme in icons:
+        relative = Path(".local/share/icons") / theme / "index.theme"
+        (test_home / relative).write_text("changed by Setup")
+        assert (user / relative).read_text() == "installed by the user"
+    (test_home / checkout / "build").mkdir()
+    assert not (user / checkout / "build").exists()
 
 
 def test_windows_98_boot_has_its_own_artwork_and_retains_password_prompts(tmp_path):

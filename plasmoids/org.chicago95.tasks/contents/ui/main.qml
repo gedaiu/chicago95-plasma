@@ -46,7 +46,9 @@ PlasmoidItem {
     readonly property int contentX: bandStart + (showsGrip ? gripWidth : 0)
     readonly property bool showQuickLaunch: QuickLaunch.shown(Plasmoid.configuration.quickLaunch, Plasmoid.configuration.look)
     readonly property int maxButtonWidth: Sizing.maxButtonWidth(Plasmoid.configuration.maxButtonWidth, Plasmoid.configuration.look)
-    readonly property int styledMaxButtonWidth: Sizing.styledButtonWidth(maxButtonWidth, Plasmoid.configuration.maxButtonWidth, Plasmoid.configuration.taskbarStyle)
+    readonly property int styledMaxButtonWidth: Sizing.styledButtonWidth(
+        maxButtonWidth, Plasmoid.configuration.maxButtonWidth, Plasmoid.configuration.taskbarStyle,
+        Plasmoid.configuration.referenceDpi)
     readonly property var metrics: Band.metrics(Plasmoid.configuration.taskbarStyle)
     readonly property int gap: isLuna ? 0 : metrics.taskButtonGap
     readonly property int launcherCount: tasksModel.launcherCount

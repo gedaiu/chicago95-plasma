@@ -62,7 +62,9 @@ def icons(image):
 
 @pytest.fixture(scope="module")
 def ours(desktops):
-    return lambda look: desktops(look, components=["background", "desktop"], windows=[])
+    return lambda look: desktops(
+        look, components=["background", "desktop"], windows=[], settings=[("BACKGROUND_MODE", "color")]
+    )
 
 
 @pytest.mark.parametrize("look, original", [("1995", "win95emptydesktop"), ("1998", "win98emptydesktop")])

@@ -21,8 +21,11 @@
       <default>true</default>
     </entry>
     <entry name="maxButtonWidth" type="Int">
-      <label>The longest a window's button may be, in pixels; 0 takes the look's own (95px in 1995, 160px after)</label>
+      <label>Maximum task button width in logical pixels. With 0 the look and reference DPI determine the width.</label>
       <default>0</default>
+    </entry>
+    <entry name="referenceDpi" type="Int">
+      <default>96</default>
     </entry>
     <entry name="quickLaunch" type="String">
       <label>Quick Launch: "yes", "no", or "auto" for the look's own (from the 1998 look on)</label>

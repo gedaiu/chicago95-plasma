@@ -12,8 +12,9 @@ function maxButtonWidth(configuredWidth, look) {
 
 const SUPERBAR_BUTTON_WIDTH = 60; // Windows 7's buttons are icons only: always one TASKITEM wide
 
-function styledButtonWidth(lookWidth, configuredWidth, taskbarStyle) {
+function styledButtonWidth(lookWidth, configuredWidth, taskbarStyle, referenceDpi) {
   if (taskbarStyle === "aero") return SUPERBAR_BUTTON_WIDTH;
+  if (!(configuredWidth > 0) && referenceDpi === 120) return 128; // 160 device pixels in the 120-DPI guests
 
   return taskbarStyle === "luna" && !(configuredWidth > 0) ? LUNA_BUTTON_WIDTH : lookWidth;
 }

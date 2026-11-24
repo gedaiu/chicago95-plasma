@@ -231,8 +231,9 @@ if ({active} === "") workspace.activeWindow = null;
 SCRIPT
 kwin_script "$WORK/arrange.js" arrange
 sleep 4
-{window_state}
+{window_state_before}
 {pointer_command}
+{window_state_after}
 screenshot_settled "$WORK/screen.png"
 gdbus call --session --dest org.kde.KWin --object-path /Effects --method org.freedesktop.DBus.Properties.Get \
     org.kde.kwin.Effects loadedEffects >"$WORK/effects.txt" 2>&1
@@ -246,6 +247,7 @@ for (const window of workspace.windowList()) {{
     if (places[window.caption]) {{
         const box = window.frameGeometry;
         console.warn("c95-window " + JSON.stringify({{
+            phase: "{phase}",
             title: window.caption, closeable: window.closeable, maximizable: window.maximizable,
             minimized: window.minimized,
             bounds: [box.x, box.y, box.x + box.width, box.y + box.height]
@@ -253,7 +255,7 @@ for (const window of workspace.windowList()) {{
     }}
 }}
 SCRIPT
-kwin_script "$WORK/window-state.js" window-state
+kwin_script "$WORK/window-state.js" window-state-{phase}
 """
 
 
@@ -311,24 +313,33 @@ def link_children(source, target, copy=()):
     target.mkdir(parents=True, exist_ok=True)
     for entry in source.iterdir() if source.exists() else ():
         if entry.name in copy:
-            shutil.copy(entry, target / entry.name)
+            if entry.is_dir():
+                shutil.copytree(entry, target / entry.name, symlinks=True)
+            else:
+                shutil.copy(entry, target / entry.name)
         elif entry.is_file() or entry.name != "Chicago95":
             (target / entry.name).symlink_to(entry.resolve())
 
 
 def link_user_assets(home):
-    """The UI font, the icon themes and the Chicago95 checkout: the user's, linked, never written."""
+    """Provide private copies of the icon themes Setup writes and link its read-only inputs."""
     real = Path.home()
     link_children(real / ".local/share/fonts", home / ".local/share/fonts")
-    link_children(real / ".local/share/icons", home / ".local/share/icons")
+    editable = ("Chicago95-Toolbar", "Windows-7", "Windows-7-SVG", "Windows-XP", "Windows-XP-Originals")
+    link_children(real / ".local/share/icons", home / ".local/share/icons", copy=editable)
     link_children(real / ".icons/Chicago95", home / ".icons/Chicago95", copy=("index.theme",))
     (home / ".themes").mkdir(exist_ok=True)
     (home / ".themes/Chicago95").symlink_to(CHICAGO95_SRC / "Theme/Chicago95")
     # The icon sets Setup would otherwise clone from GitHub in every session, and nothing else of ~/src.
     (home / "src").mkdir(exist_ok=True)
     for clone in ICON_SET_CLONES:
-        if (real / "src" / clone).is_dir():
-            (home / "src" / clone).symlink_to(real / "src" / clone)
+        source, target = real / "src" / clone, home / "src" / clone
+        if not source.is_dir():
+            continue
+        if clone == "ClassicOS-2000-Icons" and not (source / "build/ClassicOS-2000").is_dir():
+            shutil.copytree(source, target, symlinks=True)
+        else:
+            target.symlink_to(source)
 
 
 def enforce_screenshot(path, session):
@@ -348,11 +359,12 @@ def window_commands(work, applications, windows):
     commands = []
     for index, (title, toolkit, _place, *program_id) in enumerate(windows):
         name = program_id[0] if program_id else f"org.chicago95.test.window{index}"  # windows sharing one: one program
+        icon = program_id[1] if len(program_id) > 1 else TEST_ICON
         if toolkit == "x11":
-            desktop_file(applications, name, title, TEST_ICON, "StartupWMClass=Xmessage\n")
+            desktop_file(applications, name, title, icon, "StartupWMClass=Xmessage\n")
             program = f"xmessage -title {quote(title)} -geometry 200x100 {quote(title)}"
         else:
-            desktop_file(applications, name, title, TEST_ICON)
+            desktop_file(applications, name, title, icon)
             if toolkit == "qt-fixed":
                 program = f'python3 "$WORK/qt.py" {name} {quote(title)} --fixed-size'
             else:
@@ -431,7 +443,8 @@ def install(
     org.kde.plasma.notifications), hidden_applets ones behind its "show hidden icons" arrow; tasks_config (key,
     value) pairs for the taskbar widget's settings; taskbar_style the taskbar Setup installs whatever the look
     (classic, luna or aero); settings (key, value) pairs Setup applies with its animations step too; components
-    further Setup components to install (such as desktop); launchers replaces the number of Quick Launch entries;
+    further Setup components to install (such as desktop); launchers supplies either a count of test icons or
+    the themed icon names for Quick Launch;
     screen (width, height) replaces the look's own size, 640x480 or SCREENS'. setup_scale supplies the
     display scale to Setup."""
     work = Path(work)
@@ -454,9 +467,12 @@ def install(
 
     applications = home / ".local/share/applications"
     applications.mkdir(parents=True, exist_ok=True)
+    if launchers is None:
+        launchers = CONTENT["luna" if look == "aero" else look]["launchers"]
+    icons = [TEST_ICON] * launchers if isinstance(launchers, int) else launchers
     launcher_files = [
-        desktop_file(applications, f"c95-launcher-{index}", f"Launcher {index}", TEST_ICON).as_uri()
-        for index in range(CONTENT["luna" if look == "aero" else look]["launchers"] if launchers is None else launchers)
+        desktop_file(applications, f"c95-launcher-{index}", f"Launcher {index}", icon).as_uri()
+        for index, icon in enumerate(icons)
     ]
     (work / "setup.sh").write_text(
         SETUP.format(
@@ -508,7 +524,7 @@ def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_
     opens them before Plasma starts, as a login that restores the last session does; tray_icons is the number of
     the test's icons in the tray, beside the original's; pointer_steps (see eis_pointer.py) drive the pointer
     before the screenshot, to open a context menu (see MENU_OPENERS) and hover one of its rows.
-    window_state records the settled frame bounds and caption capabilities of the requested windows.
+    window_state records frame bounds and caption capabilities before and after the pointer steps.
     The screenshot's info holds KWin's loaded effects, its log, and Setup's own session's screenshot
     ("setup_screen": the taskbar right after Setup restarted Plasma, before anyone touched it)."""
     look, work, screen_size, environment = installed
@@ -533,7 +549,8 @@ def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_
             windows_after_plasma="" if windows_first else window_script,
             places=json.dumps(places),
             active=json.dumps(content["active"]),
-            window_state=WINDOW_STATE.format(places=json.dumps(places)) if window_state else "",
+            window_state_before=WINDOW_STATE.format(places=json.dumps(places), phase="before") if window_state else "",
+            window_state_after=WINDOW_STATE.format(places=json.dumps(places), phase="after") if window_state else "",
             pointer_command=(
                 f'python3 "$WORK/eis_pointer.py" {" ".join(quote(step) for step in pointer_steps)} '
                 '>"$WORK/pointer.log" 2>&1; sleep 1'

@@ -21,6 +21,7 @@ Rectangle {
     property bool manual: false
     property bool largeText: false
     property bool reveal: false
+    property bool rejected: false
     property int sessionIndex: Math.max(0, lastSession)
     readonly property string uiFamily: Qt.fontFamilies().includes("Segoe UI") ? "Segoe UI"
         : fallbackFont.status === FontLoader.Ready ? fallbackFont.name : "sans-serif"
@@ -35,21 +36,27 @@ Rectangle {
         account = name;
         manual = !name;
         choosing = false;
-        failure.text = "";
+        rejected = false;
         password.clear();
         reveal = false;
         if (manual) userField.forceActiveFocus();
         else password.forceActiveFocus();
     }
-    function focusPassword() { password.forceActiveFocus(); }
-    function clear() { password.clear(); focusPassword(); }
+    function focusPassword() {
+        if (rejected) failureConfirm.forceActiveFocus();
+        else password.forceActiveFocus();
+    }
+    function clear() {
+        password.clear();
+        rejected = false;
+        focusPassword();
+    }
     function submit() {
         const name = manual ? userField.text.trim() : account;
         if (!name) {
             userField.forceActiveFocus();
             return;
         }
-        failure.text = "";
         greeter.login(name, password.text, sessionIndex);
     }
     Image {
@@ -85,7 +92,7 @@ Rectangle {
     Item {
         id: credentials
         anchors.fill: parent
-        visible: !page.choosing
+        visible: !page.choosing && !page.rejected
         Item {
             id: portrait
             anchors.horizontalCenter: parent.horizontalCenter
@@ -195,15 +202,6 @@ Rectangle {
                 }
             }
         }
-        Text {
-            id: failure
-            anchors.top: fields.bottom
-            anchors.topMargin: 6
-            anchors.horizontalCenter: parent.horizontalCenter
-            color: "white"
-            font.family: page.uiFamily
-            font.pixelSize: page.largeText ? 18 : 13
-        }
         GlassButton {
             anchors.top: page.unlockOnly ? portrait.bottom : fields.bottom
             anchors.topMargin: page.unlockOnly ? 138 : 48
@@ -227,7 +225,7 @@ Rectangle {
     GridView {
         id: accountList
         anchors.centerIn: parent
-        visible: page.choosing
+        visible: page.choosing && !page.rejected
         cellWidth: 140
         cellHeight: 145
         width: Math.max(1, Math.min(count, Math.floor(page.width / cellWidth))) * cellWidth
@@ -266,6 +264,49 @@ Rectangle {
     }
     Row {
         anchors.horizontalCenter: parent.horizontalCenter
+        anchors.horizontalCenterOffset: -7
+        anchors.bottom: failureConfirm.top
+        anchors.bottomMargin: 40
+        spacing: 10
+        visible: page.rejected
+        Image {
+            width: 32
+            height: 32
+            source: Qt.resolvedUrl("AeroCredentialError.svg")
+        }
+        Text {
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: 1
+            width: Math.min(implicitWidth, Math.max(1, page.width - 80))
+            wrapMode: Text.WordWrap
+            text: qsTr("The user name or password is incorrect.")
+            color: "white"
+            style: Text.Raised
+            styleColor: "#306090"
+            font.family: page.uiFamily
+            font.pixelSize: page.largeText ? 18 : 12
+        }
+    }
+    GlassButton {
+        id: failureConfirm
+        objectName: "aeroFailureConfirm"
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 96
+        width: Math.max(93, contentItem.implicitWidth + 20)
+        height: page.largeText ? 34 : 28
+        visible: page.rejected
+        text: qsTr("OK")
+        background: Image {
+            source: failureConfirm.down ? page.art("switch-user-button-active.svg")
+                : Qt.resolvedUrl("AeroCredentialConfirm.svg")
+        }
+        Keys.onReturnPressed: page.clear()
+        Keys.onEnterPressed: page.clear()
+        onClicked: page.clear()
+    }
+    Row {
+        anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 22
         spacing: 7
@@ -295,6 +336,7 @@ Rectangle {
         height: 28
         sprite: "access-button"
         glyph: "12213.svg"
+        visible: !page.rejected
         Accessible.name: qsTr("Ease of Access and sign-in options")
         onClicked: settings.open()
         Menu {
@@ -356,7 +398,7 @@ Rectangle {
         anchors.right: parent.right
         anchors.bottom: options.bottom
         anchors.rightMargin: 34
-        visible: page.greeter.canPowerOff || page.greeter.canReboot
+        visible: !page.rejected && (page.greeter.canPowerOff || page.greeter.canReboot)
         GlassButton {
             objectName: "aeroShutdown"
             width: 38
@@ -398,9 +440,10 @@ Rectangle {
     Connections {
         target: page.greeter
         function onLoginFailed() {
-            failure.text = qsTr("The user name or password is incorrect.");
             password.clear();
-            password.forceActiveFocus();
+            page.reveal = false;
+            page.rejected = true;
+            page.focusPassword();
         }
     }
     Component.onCompleted: if (!unlockOnly && choosing) accountList.forceActiveFocus(); else password.forceActiveFocus()

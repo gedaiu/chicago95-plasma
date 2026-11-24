@@ -167,6 +167,29 @@ sign-in remains available through the Ease of Access menu.
 
 ## Desktop motion and power
 
+The shared visual suite covers the idle desktop, an open desktop context menu, the hover fill, and a populated
+taskbar for all six themes. Five sets of samples came from the local reference VMs. Windows 7 uses archived
+captures. The current strict comparisons still show differences in the desktop icon placements, menu commands,
+and taskbar controls. [Capture details](../tests/references/SOURCES.md) · [Shared comparisons](../tests/visual/parity.py)
+
+XP Luna and Windows 7 now use their stock wallpapers when no background choice is saved. In unoccupied desktop
+regions, mean RGB error fell from 80.18 to 1.05 out of 255 for Luna and from 22.04 to 0.88 for Aero. The Luna
+preset also defaults to the Recycle Bin. Explicit icon and background selections are supported by Setup and
+Control Panel. [Background settings tests](../tests/test_background.py)
+
+At 120 DPI the native Classic taskbars occupied 32–33 device pixels and Luna occupied 34. The installed
+defaults used 35 and 38 respectively. Setup now selects 26 logical pixels for Classic and 27 for Luna at
+that scale. In the six live panel-height comparisons, Windows 7 matches the 40-pixel reference at 96 DPI,
+and the other five land within one physical pixel of their references. The native single active task buttons
+measure 160 device pixels at 120 DPI. The default Classic and Luna width uses 128 logical pixels at that scale,
+and all five live width checks pass.
+[Live taskbar comparisons](../tests/visual/parity.py)
+
+The Windows 2000 and XP Classic Plasma menu fills now match the VM colours. The 120-DPI Luna hover band
+matches the native 21-pixel strip. Aero's selected menu brush reduced mean RGB error from 11.23 to 0.17
+out of 255 on a 22-pixel Qt menu row. The live Aero row still occupies 24 pixels, and the full popup retains
+Plasma's commands. [Menu regressions](../tests/test_plasma_menus_reference.py)
+
 The caption-state comparison covers Windows 95 OSR2, Windows 98 SE, Windows 2000 Professional, XP Classic, XP Luna and Windows 7 Aero. It pairs native VM crops with the theme SVGs for the resting, hovered and held Minimize, Maximize and Close buttons, the disabled Maximize and Close buttons, and Restore after maximizing Notepad. The classic guests keep the face unchanged when hovered. Luna and Aero change the face on hover. All six looks change the button while held and return to the idle face after the pointer leaves and the press is cancelled. The visual comparisons sample settled states. [Side-by-side comparison](compare/caption-states-vms.png) · [Regression and exact RGB tests](../tests/test_caption_states_reference.py)
 
 The 60 Classic SVG face comparisons pass at strict RGB tolerance at 120 DPI. The faces use device-size vector geometry for the bevel and glyph. Windows 2000 and XP Classic use the guests' RGB565 display palette for comparison. The native software cursor occupies a 6×6 mask in hover and held-press captures. The table shows the highest mean absolute RGB error out of 255 among the tested SVG faces in each state. The Luna comparison generates the same 120-DPI art that Setup installs.
@@ -183,7 +206,10 @@ The 60 Classic SVG face comparisons pass at strict RGB tolerance at 120 DPI. The
 Live KWin captures at 125% also pass all 48 Classic face comparisons. The wrapper requests the 120-DPI face at its
 logical size, and KSVG rasterizes it once at the output scale. GTK 3 and GTK 4 share the device-size vector outlines
 when Setup configures 120 DPI. The 144 GTK comparisons across the six themes still show differences. In the four
-Classic themes, fractional positioning spreads the face across an extra row or column. The tested Luna faces have the
+Classic themes, fractional positioning spreads the face across an extra row or column. At 120 DPI, GTK 3 uses
+the 2× SVG variant for the backing surface. GTK 4 uses a logical-size SVG aligned to the top-left of the button.
+Across the 48 faces in each toolkit, mean RGB error fell from 20.59 to 17.23 in GTK 3 and from 30.94 to 22.07 in
+GTK 4. All 96 strict Classic GTK comparisons still show differences. The tested Luna faces have the
 native dimensions and differ in RGB. A 27-pixel PNG export of the same Luna artwork gave mean RGB error of 20.43
 in GTK 3 and 18.07 in GTK 4, within 0.02 of the earlier installed SVGs across 12 states per toolkit. A larger CSS
 face spread across up to 28 pixels and softened the glyph interiors. At 120 DPI, Setup now gives GTK 3 an SVG
@@ -198,6 +224,11 @@ Mean RGB error against the XP guest fell from 7.33 to 2.74 across those 12 faces
 Luna and Aero still show RGB differences.
 Aero Restore now clips its top device row at the screen edge when maximized, giving the same 40×29 visible face
 as the 144-DPI VM. [Exact tests by renderer](../tests/visual/parity.py)
+
+The live KWin cancellation test presses each caption button, moves over the client, and releases. It checks that
+the window stays open and visible and that Maximize leaves its bounds unchanged. The QML decorations check the
+release position against the button bounds before acting. The gesture passes on all six themes. The four Classic
+themes also match all 12 VM crops after cancellation. [KWin gesture and pixel comparisons](../tests/visual/parity.py)
 
 On Windows 98 SE, minimizing Notepad left its white client visible as a shrinking title bar travelled toward the taskbar. The system menu was gone at 0.178 s and the desktop had settled by 0.339 s from recording start.
 
@@ -246,6 +277,31 @@ Windows 2000 Professional at 1280×1024 and 120 DPI showed “Saving your settin
 The Windows 95, 98 SE and XP guests completed a real shutdown. On the 98 SE guest with an emulated Pentium II and instruction-count timing, the first captured shutdown wordmark appeared 0.877 seconds after confirmation and the first subsequent black frame appeared at 1.385 seconds. These timestamps describe one run. [Native shutdown dialog](../tests/references/win98-se-shutdown-dialog.png) · [Captured shutdown artwork](../tests/references/win98-se-shutdown-vm.png)
 
 XP displayed “Saving your settings…” during sign-out. The project's Luna shutdown preview switches from “Logging off…” to “Windows is shutting down…”. Recording the VM captures native text and transitions. It does not establish a portable duration for saving a user's session.
+
+The shared suite compares sign-in for every theme and the Windows 7 lock screen at 800×600 and 1024×768.
+The Windows 7 sign-in and lock frames exclude the interior of the account picture. The comparisons still
+show differences in the account name, field surrounds and footer branding. A rejected password now replaces the credential form with the
+error and focused OK button captured in the guest. Enter or a click on OK returns focus to the empty password
+field. The error icon and confirmation button are SVGs. Mean RGB error on the rejected sign-in frame fell from
+8.81 to 1.19 out of 255 and the strict comparison still shows differences. [Session-screen comparisons](../tests/visual/parity.py)
+
+Windows 2000 and both XP sign-in captures come from the reference VMs at 120 DPI. The Windows 95 and 98
+comparisons use the archived 640×480 screenshots. XP Classic now paints the black backdrop seen in the guest's
+alternate sign-in dialog and passes the exact backdrop test. Full-frame mean RGB error fell from 104.32 to 7.64
+out of 255. The dialog size and controls still differ. All nine full session-screen comparisons show
+pixel differences. [Capture provenance](../tests/references/SOURCES.md)
+
+The shared suite now opens Thunar in an isolated KWin session for each theme. The five pre-Aero navigation
+references came from the guests at 120 DPI. The Windows 7 strip comes from the archived Explorer capture.
+The Windows 7 Thunar test visits a parent folder so Back is enabled and Forward is disabled, as in the capture.
+All six comparisons report differences in the menus, toolbar controls, or address field. Setup now writes
+the selected font to GTK 3 and GTK 4 on a fresh install. This reduced the Windows 95 navigation error from
+36.22 to 34.90 out of 255. Windows 98's error rose from 45.21 to 46.56. [Navigation comparisons](../tests/visual/parity.py)
+
+The GTK 3 and GTK 4 radio tests match the idle and selected Windows 95 indicators at 96 DPI. Centering the
+high-density Windows 7 SVG circles on both axes brings three of the four GTK crops to the VM's 19×19 pixels
+at 144 DPI. The selected GTK 3 crop still measures 20×20. Mean RGB error across the four crops fell from
+21.54 to 18.22 out of 255. All four strict comparisons still show differences. [Live indicator comparisons](../tests/visual/parity.py)
 
 ## Regression coverage
 

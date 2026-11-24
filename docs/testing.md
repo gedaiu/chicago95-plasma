@@ -189,7 +189,7 @@ python3 -m pytest tests/visual/parity.py -q -k control_panel_hover
 
 The suite discovers each theme's manifest under [tests/references/themes](../tests/references/themes).
 The folder names are `win95`, `win98`, `win2k`, `winxp-classic`, `winxp`, and `win7`.
-Every folder uses `caption-states.png`, `run.png`, `taskbar-band.png`, `device-manager.png`,
+Every folder uses `caption-states.png`, `run.png`, `desktop.png`, `taskbar-band.png`, `device-manager.png`,
 `start-menu.png`, `control-panel.png`, and `display-properties.png`.
 The existing reference helpers resolve the old names for any captures moved into these folders.
 
@@ -197,7 +197,8 @@ The existing reference helpers resolve the old names for any captures moved into
 | --- | --- | --- |
 | Caption | Qt SVG, KWin, GTK 3, GTK 4 | Rest, hover, held press, disabled Maximize and Close, and Restore. |
 | Run | Qt | One dialog per theme. Luna and Aero comparisons use the client area. |
-| Taskbar | Plasma | One unoccupied band per theme. Interactive and populated states remain in the existing suites. |
+| Desktop | Plasma | Idle desktop, open context menu and a hover band on every theme. The Windows 7 idle crop is the unobstructed top of the archived desktop. |
+| Taskbar | Plasma | Unoccupied and populated bands on all six themes. Live height checks use the native DPI, and a single active button width is measured for the five older themes. |
 | Device Manager | Qt | Four-button action row on Windows 95 and 98. Console command chrome on Windows 2000, XP, and Windows 7. |
 | Start menu | Qt | Root menu on the classic looks and Luna. The opaque search area on Windows 7. |
 | Control Panel | Qt | Icon view from Windows 95 through XP and the category view on Windows 7. The rendered window requests the guest client size at the captured DPI. Windows 7 also compares the steady hover and opening at 96 DPI and three hover exits at 144 DPI. |
@@ -235,6 +236,11 @@ and below the painted face. Only the Windows reference test checks that the resu
 Windows, including partially painted edge pixels.
 The Windows reference checks compare every unmasked RGB pixel and fail when the dimensions differ.
 The known software-cursor mask is applied only to affected reference crops.
+
+The desktop suite opens its menu in a nested Plasma session and takes a separate screenshot while hovering over
+a command. It measures the right-hand gutter of the highlight independently of the command label. The full
+menu comparison includes the menu's geometry and commands. The panel and button dimension checks sample
+the painted geometry and allow for rounding at fractional output scales.
 
 To check disabled KWin buttons against Windows specifically, run
 `python3 -m pytest tests/visual/parity.py -q -k 'test_caption_matches_windows_pixels and kwin and disabled'`.

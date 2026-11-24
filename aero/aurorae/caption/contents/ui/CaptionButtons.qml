@@ -24,7 +24,7 @@ Item {
 
         Repeater {
             model: group.buttons
-            delegate: SystemDecorationButton {
+            delegate: CaptionInput {
                 id: button
                 required property int modelData
                 buttonType: modelData
@@ -49,8 +49,8 @@ Item {
                     artwork: button.closeButton ? group.theme.closeButtonPath : button.minimizeButton ? group.theme.minimizeButtonPath
                              : button.restoreButton ? group.theme.restoreButtonPath : group.theme.maximizeButtonPath
                     activeWindow: decoration.client.active
-                    hovered: button.hovered
-                    held: button.pressed
+                    hovered: button.containsMouse
+                    held: button.containsPress
                     closeButton: button.closeButton
                 }
             }
