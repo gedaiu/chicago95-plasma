@@ -12,6 +12,10 @@
   "device_manager_scale": 1.25,
   "device_manager_rgb565": true,
   "device_manager_blank_band": [260, 0, 630, 25],
+  "device_manager_console_states": {
+    "scale": 1.25,
+    "cursor": [[16, 11, 27, 25], [15, 11, 27, 25]]
+  },
   "start_menu_active": 4,
   "properties_scale": 1.25,
   "control_panel_icons": {

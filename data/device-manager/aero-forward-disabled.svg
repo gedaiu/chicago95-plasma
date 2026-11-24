@@ -1,13 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
   <defs>
-    <linearGradient id="rim" x2="0" y2="1"><stop stop-color="#5c5c5c"/><stop offset="1" stop-color="#747474"/></linearGradient>
-    <linearGradient id="bevel"><stop stop-color="#ccc"/><stop offset="1" stop-color="#9f9f9f"/></linearGradient>
-    <linearGradient id="face" x1=".25" y1=".25" x2=".85" y2=".85">
-      <stop stop-color="#9a9a9a"/><stop offset=".46" stop-color="#aaa"/><stop offset="1" stop-color="#676767"/>
+    <linearGradient id="rim" x2="0" y2="1">
+      <stop stop-color="#5b5b5b"/>
+      <stop offset="1" stop-color="#747474"/>
+    </linearGradient>
+    <linearGradient id="bevel" x1="0" x2=".4" y2="1">
+      <stop stop-color="#989898"/>
+      <stop offset=".64" stop-color="#bcbcbc"/>
+      <stop offset="1" stop-color="#c0c0c0"/>
+    </linearGradient>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="10" y1="5" x2="12" y2="10.5">
+      <stop stop-color="#aaa"/>
+      <stop offset=".45" stop-color="#969696"/>
+      <stop offset="1" stop-color="#797979"/>
     </linearGradient>
   </defs>
-  <g transform="translate(16 0) scale(-1 1)">
-    <path d="M.5 8.5l7-7v4h8v6h-8v4z" fill="url(#bevel)" stroke="url(#rim)" stroke-linejoin="round"/>
-    <path d="M2 8.5l4.5-4.6v2.6H14v3.8H6.5v2.6z" fill="url(#face)"/>
-  </g>
+  <path d="M16 8 9 1H8v4H1L0 6v5l1 1h7v4h1l7-7Z" fill="url(#rim)"/>
+  <path d="M15 8.5 9 2.5V6H1v5h8v4Z" fill="url(#bevel)"/>
+  <path d="M14 8.5 9 3.5V6H2v4h7v2.3Z" fill="url(#face)"/>
 </svg>

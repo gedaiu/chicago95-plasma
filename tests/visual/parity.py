@@ -583,7 +583,9 @@ def test_taskbar_band(theme, installed, visual_output):
     exact(expected, actual, visual_output / theme / "taskbar" / "plasma" / "empty-band")
 
 
-def render_device_manager(look, scale, output, size=(), *, refresh_states=False, console_tree_states=False):
+def render_device_manager(look, scale, output, size=(), *,
+                          refresh_states=False, console_tree_states=False, console_tree_origin=(),
+                          aero_branches=False, root_context=False, scan_states=False):
     subprocess.run(
         [
             sys.executable,
@@ -594,6 +596,10 @@ def render_device_manager(look, scale, output, size=(), *, refresh_states=False,
             *map(str, size),
             *(["--refresh-states"] if refresh_states else []),
             *(["--console-tree-states"] if console_tree_states else []),
+            *(["--console-tree-origin", *map(str, console_tree_origin)] if console_tree_origin else []),
+            *(["--aero-branches"] if aero_branches else []),
+            *(["--root-context"] if root_context else []),
+            *(["--scan-states"] if scan_states else []),
         ],
         check=True,
         timeout=45,
@@ -610,7 +616,7 @@ def device_manager_command_band(request, tmp_path_factory):
         expected = expected.crop(metadata["device_manager_crop"])
     look = metadata["look"]
     output = tmp_path_factory.mktemp(f"{theme}-device-manager-band") / "device-manager.png"
-    render_device_manager(look, metadata["device_manager_scale"], output)
+    render_device_manager(look, metadata["device_manager_scale"], output, root_context=look == "aero")
     with Image.open(output) as capture:
         if look in CLASSIC[:2]:
             actual = capture.convert("RGB")
@@ -636,6 +642,86 @@ def test_device_manager_blank_band(device_manager_command_band, visual_output):
     exact(expected.crop(bounds), actual.crop(bounds), visual_output / theme / "device-manager" / "qt" / "blank-band")
 
 
+@pytest.fixture(scope="module", params=("96dpi", "120dpi"))
+def device_manager_luna_bands(request, tmp_path_factory):
+    density = request.param
+    folder, metadata = THEMES["winxp"]
+    high_dpi = density == "120dpi"
+    if high_dpi:
+        reference = folder / "device-manager" / "command-bands-120dpi.png"
+        seam, bottom, height = 27, 50, 411
+    else:
+        reference = folder / "device-manager.png"
+        seam, bottom, height = 23, 46, 417
+    output = tmp_path_factory.mktemp(f"luna-bands-{density}") / "device-manager.png"
+    render_device_manager(metadata["look"], 1.25 if high_dpi else 1, output, (632, height))
+    with Image.open(reference) as original, Image.open(output) as render:
+        expected = original.convert("RGB").crop((240, 0, 620, bottom))
+        actual = (rgb565(render) if high_dpi else render.convert("RGB")).crop((240, 0, 620, bottom))
+    return density, seam, expected, actual
+
+
+@pytest.mark.parametrize("part", ("menu", "toolbar", "bevels"))
+def test_device_manager_luna_bands(device_manager_luna_bands, part, visual_output):
+    density, seam, expected, actual = device_manager_luna_bands
+    width, height = expected.size
+    mask = None
+    if part == "bevels":
+        mask = np.zeros((height, width), dtype=bool)
+        mask[[seam - 1, seam, height - 1]] = True
+    else:
+        top, bottom = (0, seam) if part == "menu" else (seam, height)
+        expected, actual = (image.crop((0, top, width, bottom)) for image in (expected, actual))
+    exact(expected, actual, visual_output / "winxp" / "device-manager" / "qt" / density / part, mask)
+
+
+@pytest.mark.parametrize("device_manager_command_band", ["win2k"], indirect=True)
+def test_device_manager_mmc_grips_and_separators(device_manager_command_band, visual_output):
+    theme, expected, actual = device_manager_command_band
+    mask = np.zeros((expected.height, expected.width), dtype=bool)
+    for left, right in ((0, 12), (108, 124), (168, 180), (222, 232)):
+        mask[:, left:right] = True
+    exact(expected, actual, visual_output / theme / "device-manager" / "qt" / "grips-and-separators", mask)
+
+
+@pytest.mark.parametrize("device_manager_command_band", ["win7"], indirect=True)
+def test_device_manager_aero_toolbar_interior(device_manager_command_band, visual_output):
+    theme, expected, actual = device_manager_command_band
+    # Compare the unused interior and all three separators at their native positions.
+    mask = np.zeros((expected.height, expected.width), dtype=bool)
+    mask[23:46, 200:777] = True
+    for left in (49, 80, 134):
+        mask[23:46, left:left + 2] = True
+    exact(expected, actual, visual_output / theme / "device-manager" / "qt" / "toolbar-interior", mask)
+
+
+@pytest.mark.parametrize(
+    ("device_manager_command_band", "command", "origin"),
+    [
+        ("win2k", "back", (126, 4)),
+        ("win2k", "forward", (149, 4)),
+        ("win2k", "up-one-level", (181, 4)),
+        ("win2k", "console-tree", (203, 4)),
+        ("win2k", "help", (234, 4)),
+        ("winxp", "help", (90, 27)),
+        ("winxp-classic", "help", (90, 28)),
+        ("win7", "back", (4, 27)),
+        ("win7", "forward", (27, 27)),
+        ("win7", "console-tree", (58, 27)),
+        ("win7", "help", (89, 27)),
+        ("win7", "action-pane", (112, 27)),
+        ("win7", "scan-for-hardware", (143, 27)),
+    ],
+    indirect=["device_manager_command_band"],
+)
+def test_device_manager_mmc_command_icon(device_manager_command_band, command, origin, visual_output):
+    theme, expected, actual = device_manager_command_band
+    left, top = origin
+    box = (left, top, left + 16, top + 16)
+    output = visual_output / theme / "device-manager" / "qt" / "icons" / command
+    exact(expected.crop(box), actual.crop(box), output)
+
+
 @pytest.fixture(scope="module", params=[theme for theme, (_, m) in THEMES.items() if m.get("device_manager_actions_scale")])
 def device_manager_actions(request, tmp_path_factory):
     theme = request.param
@@ -649,31 +735,148 @@ def device_manager_actions(request, tmp_path_factory):
 
 
 @pytest.mark.parametrize("state", ("actions-120dpi", "refresh-states"))
-def test_device_manager_actions(device_manager_actions, state, visual_output):
+@pytest.mark.parametrize("face_only", (False, True), ids=("full", "face"))
+def test_device_manager_actions(device_manager_actions, state, face_only, visual_output):
     theme, reference, output = device_manager_actions
     with Image.open(reference / f"{state}.png") as original, Image.open(output / f"{state}.png") as capture:
         expected, actual = original.convert("RGB"), capture.convert("RGB")
-    mask = None
+    mask = np.ones((expected.height, expected.width), dtype=bool)
     if state == "refresh-states":
-        # The QEMU cursor appears only over the second, hovered button.
-        mask = np.ones((expected.height, expected.width), dtype=bool)
+        # The QEMU cursor appears over the hovered and held mouse states.
         mask[10:, 170:187] = False
-    exact(expected, actual, visual_output / theme / "device-manager" / "qt" / state, mask)
+        mask[11:, 616:632] = False
+    folder = visual_output / theme / "device-manager" / "qt" / state
+    if face_only:
+        # Keep the full bevels, focus frames, and gaps. Captions still have their full comparison above.
+        if state == "refresh-states":
+            for left in range(0, expected.width, 112):
+                mask[5:23, left + 28:left + 84] = False
+        else:
+            for left in range(0, expected.width, 120):
+                mask[5:23, left + 10:left + 102] = False
+        folder = folder.with_name(f"{state}-face")
+    exact(expected, actual, folder, mask)
 
 
-@pytest.mark.parametrize("theme", [theme for theme, (_, m) in THEMES.items() if m.get("device_manager_console_states")])
-def test_device_manager_console_states(theme, tmp_path, visual_output):
+@pytest.fixture(scope="module", params=[theme for theme, (_, m) in THEMES.items() if m.get("device_manager_console_states")])
+def device_manager_console_states(request, tmp_path_factory):
+    theme = request.param
     folder, metadata = THEMES[theme]
     settings = metadata["device_manager_console_states"]
-    path = tmp_path / "console-tree-states.png"
-    render_device_manager(metadata["look"], settings["scale"], path, console_tree_states=True)
+    path = tmp_path_factory.mktemp(f"{theme}-console-tree-states") / "console-tree-states.png"
+    render_device_manager(
+        metadata["look"], settings["scale"], path, settings.get("client_size", ()),
+        console_tree_states=True, console_tree_origin=settings.get("origin", ()),
+    )
     with Image.open(folder / "device-manager" / path.name) as original, Image.open(path) as render:
-        expected, actual = original.convert("RGB"), rgb565(render)
-    # Mask only the guest pointer in the hover and pressed tiles.
-    mask = np.ones((expected.height, expected.width), dtype=bool)
-    for tile, (left, top, right, bottom) in zip((1, 2), settings["cursor"], strict=True):
+        expected = original.convert("RGB")
+        actual = render.convert("RGB") if theme == "win7" else rgb565(render)
+    return theme, expected, actual, settings["cursor"]
+
+
+def test_device_manager_console_tree_return_to_idle(device_manager_console_states):
+    theme, expected, actual, cursor = device_manager_console_states
+    # Compare the same part of each tile, clear of the pointer in both source states.
+    pointer_free_height = min(top for _, top, _, _ in cursor)
+    for strip in (expected, actual):
+        idle, hover, pressed, held_outside, cancelled, checked, restored = [
+            strip.crop((left, 0, left + 27, strip.height)).tobytes()
+            for left in range(0, strip.width, 27)
+        ]
+        assert idle == held_outside == cancelled == restored
+        limit = 27 * pointer_free_height * 3
+        if theme == "win7":
+            assert len({tile[:limit] for tile in (idle, hover, pressed)}) == 3
+            assert checked[:limit] not in {idle[:limit], hover[:limit]}
+        else:
+            assert len({tile[:limit] for tile in (idle, hover, pressed, checked)}) == 4
+
+
+def toolbar_pointer_mask(image, cursor):
+    mask = np.ones((image.height, image.width), dtype=bool)
+    for tile, (left, top, right, bottom) in zip((1, 2), cursor, strict=True):
         mask[top:bottom, 27 * tile + left:27 * tile + right] = False
+    return mask
+
+
+def test_device_manager_console_states(device_manager_console_states, visual_output):
+    theme, expected, actual, cursor = device_manager_console_states
+    mask = toolbar_pointer_mask(expected, cursor)
     exact(expected, actual, visual_output / theme / "device-manager" / "qt" / "console-tree-states", mask)
+
+
+@pytest.mark.parametrize("device_manager_console_states", ["winxp", "winxp-classic"], indirect=True)
+def test_device_manager_console_tree_icon_frame(device_manager_console_states):
+    _, expected, actual, cursor = device_manager_console_states
+    mask = toolbar_pointer_mask(expected, cursor)
+
+    def frame(image):
+        red, green, blue = np.asarray(image).transpose(2, 0, 1)
+        return (red < 45) & (green < 45) & (blue > 80) & mask
+
+    np.testing.assert_array_equal(frame(actual), frame(expected))
+
+
+@pytest.mark.parametrize("device_manager_console_states", ["win2k", "winxp-classic"], indirect=True)
+def test_device_manager_console_tree_bevels(device_manager_console_states, visual_output):
+    theme, expected, actual, cursor = device_manager_console_states
+    mask = np.zeros((expected.height, expected.width), dtype=bool)
+    for left in range(0, expected.width, 27):
+        mask[1:23, left + 4:left + 27] = True
+        mask[6:19, left + 8:left + 23] = False  # The glyph has its own full-state comparison.
+    mask &= toolbar_pointer_mask(expected, cursor)
+    exact(expected, actual, visual_output / theme / "device-manager" / "qt" / "console-tree-bevels", mask)
+
+
+def test_device_manager_xp_classic_bands_120dpi(tmp_path, visual_output):
+    folder, metadata = THEMES["winxp-classic"]
+    with Image.open(folder / "device-manager" / "command-bands-120dpi.png") as original:
+        expected = original.convert("RGB")
+    output = tmp_path / "device-manager.png"
+    client = metadata["device_manager_console_states"]
+    render_device_manager(metadata["look"], client["scale"], output, client["client_size"])
+    with Image.open(output) as render:
+        actual = rgb565(render).crop((0, 0, expected.width, expected.height))
+    mask = np.zeros((expected.height, expected.width), dtype=bool)
+    mask[:, :2] = mask[:, 240:620] = mask[:, -2:] = True
+    exact(expected, actual, visual_output / "winxp-classic" / "device-manager" / "qt" / "120dpi" / "blank-band", mask)
+
+
+@pytest.fixture(scope="module")
+def device_manager_scan_reference(tmp_path_factory):
+    folder, metadata = THEMES["win7"]
+    output = tmp_path_factory.mktemp("win7-hardware-scan")
+    render_device_manager(metadata["look"], 1, output / "scan-states.png", (778, 518), scan_states=True)
+    return folder / "device-manager", output
+
+
+@pytest.mark.parametrize("state", ("unselected", "states"))
+def test_device_manager_scan(device_manager_scan_reference, state, visual_output):
+    reference, output = device_manager_scan_reference
+    filename = f"scan-{state}.png"
+    with Image.open(reference / filename) as original, Image.open(output / filename) as capture:
+        expected, actual = original.convert("RGB"), capture.convert("RGB")
+    mask = toolbar_pointer_mask(expected, ((14, 8, 27, 23), (14, 8, 27, 23))) if state == "states" else None
+    exact(expected, actual, visual_output / "win7" / "device-manager" / "qt" / f"scan-{state}", mask)
+
+
+@pytest.mark.parametrize(
+    ("region", "bounds"),
+    (("dialog", None), ("blank-message-panel", (8, 55, 274, 80)), ("bottom-frame", (0, 80, 282, 88))),
+)
+def test_device_manager_scan_progress(device_manager_scan_reference, region, bounds, visual_output):
+    reference, output = device_manager_scan_reference
+    with Image.open(reference / "scan-progress.png") as original, Image.open(output / "scan-progress.png") as capture:
+        expected, actual = original.convert("RGB"), capture.convert("RGB")
+    mask = None
+    if bounds is not None:
+        assert actual.size == expected.size
+        expected, actual = expected.crop(bounds), actual.crop(bounds)
+    else:
+        mask = np.ones((expected.height, expected.width), dtype=bool)
+        # The window underneath shows through the two rounded corners.
+        mask[:6, :6] = mask[:6, -6:] = False
+    exact(expected, actual, visual_output / "win7" / "device-manager" / "qt" / "scan-progress" / region, mask)
 
 
 @pytest.fixture(scope="module", params=[theme for theme, (_, m) in THEMES.items() if m.get("device_manager_tree_frame")])
@@ -705,6 +908,22 @@ def test_device_manager_tree_frame(device_manager_tree, visual_output):
 def test_device_manager_tree_branches(device_manager_tree, state, bounds, visual_output):
     theme, expected, actual = device_manager_tree
     exact(expected.crop(bounds), actual.crop(bounds), visual_output / theme / "device-manager" / "qt" / state)
+
+
+@pytest.fixture(scope="module")
+def device_manager_aero_branches(tmp_path_factory):
+    folder, metadata = THEMES["win7"]
+    path = tmp_path_factory.mktemp("aero-tree-branches") / "tree-branch-hover.png"
+    render_device_manager(metadata["look"], metadata["device_manager_scale"], path, (778, 518), aero_branches=True)
+    with Image.open(folder / "device-manager" / path.name) as reference, Image.open(path) as render:
+        return reference.convert("RGB"), render.convert("RGB")
+
+
+@pytest.mark.parametrize(("state", "left"), [("expanded", 0), ("collapsed", 13), ("held-open", 26)])
+def test_device_manager_tree_branch_hover(device_manager_aero_branches, state, left, visual_output):
+    expected, actual = device_manager_aero_branches
+    box = (left, 0, left + 13, 11)
+    exact(expected.crop(box), actual.crop(box), visual_output / "win7" / "device-manager" / "qt" / f"{state}-hover")
 
 
 @pytest.mark.parametrize("theme", THEMES)

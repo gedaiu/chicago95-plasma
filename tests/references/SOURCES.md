@@ -421,20 +421,71 @@ of `win7-sp1-aero-device-manager.png`. The test uses its first 778 columns,
 which end before the glass frame. `win7/device-manager/tree-frame.png` uses
 the 778 × 518 client at the same origin. Tests sample the gutter, sunken
 tree edges, unobstructed viewport, and the expanded and collapsed branch
-glyphs at their native positions. The Windows 2000 Device Manager band
+glyphs at their native positions. `tree-branch-hover.png` contains three
+13 × 11 crops from Windows 7 SP1 Aero at 800 × 600 and 96 DPI. The order
+is the expanded root with the pointer over its branch (20, 89), the
+collapsed Computer branch under the pointer (40, 107), and Computer
+opened with the mouse button still held (40, 107). The pointer was within
+the branch cell below the crop for each frame.
+`win7/device-manager/console-tree-states.png` contains seven 27 × 23
+frames cropped at (64, 53) from the 800 × 600 VM at 96 DPI. The toolbar
+starts at (14, 53) on that desktop. The frames show idle, hover, press,
+held outside, released outside, checked and restored. The cursor
+rectangles are masked in hover and press. The command-band reference
+also supplies the six 16 × 16 toolbar icon crops beginning at row 27
+and columns 4, 27, 58, 89, 112 and 143 within the client.
+`win7/device-manager/scan-unselected.png` and `scan-states.png` use
+the 27 × 23 crop at (149, 53) on the 800 × 600 VM at 96 DPI.
+The first records the toolbar on launch before selecting a device.
+The second records idle, hover, pressed, held outside and released
+outside with the computer selected. The scan icon in the older
+command-band reference also uses the selected-computer context.
+`win7/device-manager/scan-progress.png` is the 282 × 88 dialog crop
+at (13, 30) from the 800 × 600 VM at 96 DPI during an active scan.
+The dialog comparison masks the exposed desktop at its upper corners.
+The Windows 2000 Device Manager band
 uses the VM's RGB565 color depth for the comparison.
 The `win2k` manifest also samples the unobstructed 370 × 25 band from
-(260, 0) within that capture.
+(260, 0) within that capture. The five 16 × 16 toolbar icon comparisons
+use (126, 4), (149, 4), (181, 4), (203, 4), and (234, 4) within the
+same capture, in the order Back, Forward, Up one level, Console Tree,
+and Help. The 16 × 16 XP Help comparisons use (90, 27) in the Luna
+command band and (90, 28) in XP Classic at 96 DPI.
+The Windows 2000 `device-manager/console-tree-states.png`
+contains seven 27 × 25 tiles from (200, 30) on the 1280 × 1024 RGB565
+desktop at 120 DPI. The sequence is idle, hover, pressed, held outside,
+released outside, checked with the pointer away, and unchecked with the
+pointer away. The comparison masks the pointer in hover and pressed.
 
 Under `win95/device-manager/` and `win98/device-manager/`,
 `actions-120dpi.png` shows the four-button row in System Properties on
 the Device Manager tab. Windows 95 OSR2 was at 1024 × 768 and the crop
 starts at (89, 500). Windows 98 SE was at 1280 × 1024 and the crop starts
-at (170, 581). The `refresh-states.png` sheets concatenate five 112 × 28
+at (170, 581). The `refresh-states.png` sheets concatenate eight 112 × 28
 frames of the Refresh button in the same windows. The order is idle,
-pointer hover, focus after clicking, held Space, and released Space.
-Only the hover tile has a mouse cursor in the crop. The test excludes
-the rectangle containing it.
+pointer hover, focus after clicking, held Space, released Space, held
+click, held click after dragging outside, and released outside. The
+comparison excludes the cursor rectangles in the hover and held-click
+frames.
+
+Under `winxp/device-manager/` and `winxp-classic/device-manager/`,
+`console-tree-states.png` contains seven unscaled 27 × 23 frames from the
+Console Tree button at 120 DPI. Both XP SP3 guests had a 1280 × 1024
+RGB565 desktop. The crop starts at (127, 105) in Luna and (127, 99) in
+XP Classic. The sequence is idle, hover, pressed, held outside, released
+outside, checked with the pointer away, and unchecked with the pointer
+away. The pixel comparison masks the guest pointer in hover and pressed.
+The Luna fixture uses client origin (52, 27) for the button in a
+632 × 411 client. In the same guest capture, `command-bands-120dpi.png`
+contains the 632 × 50 menu and toolbar crop starting at (75, 78).
+The background tests use columns 240 through 619 at both 96 and 120 DPI.
+The 96-DPI background comes from `device-manager.png`. The bevel checks
+compare the menu's bottom row and both toolbar edges at their guest
+positions.
+The XP Classic fixture uses client origin (52, 28) for the button in a
+632 × 420 client. Its `command-bands-120dpi.png` comes from (75, 71)
+and measures 632 × 52. The band comparison samples the unobstructed
+columns 240 through 619 and the two columns along each outer edge.
 
 The Windows 2000 and XP Classic Start menu files use
 the rectangles (2, 113, 206, 456) in `w2kstartmenu.png` and (2, 233, 193, 576) in `xpclassic.png`.

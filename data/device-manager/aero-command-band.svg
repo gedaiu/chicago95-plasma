@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="778" height="23" viewBox="0 0 778 23" preserveAspectRatio="none">
+  <linearGradient id="face" x2="0" y2="1">
+    <stop stop-color="#d3daed"/>
+    <stop offset=".326" stop-color="#d3daed"/>
+    <stop offset=".457" stop-color="#d5dcee"/>
+    <stop offset=".543" stop-color="#d7def0"/>
+    <stop offset=".587" stop-color="#d9dff0"/>
+    <stop offset=".717" stop-color="#dce2f3"/>
+    <stop offset=".761" stop-color="#dee3f3"/>
+    <stop offset=".848" stop-color="#e0e5f5"/>
+    <stop offset=".891" stop-color="#e1e6f5"/>
+    <stop offset=".935" stop-color="#e1e6f6"/>
+    <stop offset="1" stop-color="#e1e6f6"/>
+  </linearGradient>
+  <rect width="778" height="23" fill="url(#face)"/>
+</svg>

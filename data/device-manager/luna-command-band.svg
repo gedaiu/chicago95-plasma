@@ -1,13 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="632" height="23" viewBox="0 0 632 23" preserveAspectRatio="none">
   <defs>
-    <linearGradient id="base"><stop stop-color="#f1f2ef"/><stop offset="1" stop-color="#edead4"/></linearGradient>
+    <linearGradient id="face">
+      <stop stop-color="#f1f2ee"/>
+      <stop offset="1" stop-color="#eeebd5"/>
+    </linearGradient>
     <linearGradient id="shade" x2="0" y2="1">
-      <stop stop-color="#cac6aa" stop-opacity="0"/><stop offset=".14" stop-color="#cac6aa" stop-opacity="0"/>
-      <stop offset=".58" stop-color="#cac6aa" stop-opacity=".09"/><stop offset=".85" stop-color="#cac6aa" stop-opacity=".15"/>
-      <stop offset=".93" stop-color="#cac6aa" stop-opacity=".22"/><stop offset="1" stop-color="#cac6aa" stop-opacity=".51"/>
+      <stop stop-color="#ccc6ae" stop-opacity="0"/>
+      <stop offset="0.17" stop-color="#ccc6ae" stop-opacity="0"/>
+      <stop offset="0.4" stop-color="#ccc6ae" stop-opacity="0.062"/>
+      <stop offset="0.62" stop-color="#ccc6ae" stop-opacity=".10"/>
+      <stop offset="0.79" stop-color="#ccc6ae" stop-opacity="0.125"/>
+      <stop offset="0.88" stop-color="#ccc6ae" stop-opacity=".16"/>
+      <stop offset="0.93" stop-color="#ccc6ae" stop-opacity=".24"/>
+      <stop offset="1" stop-color="#ccc6ae" stop-opacity=".57"/>
     </linearGradient>
   </defs>
-  <rect width="632" height="23" fill="url(#base)"/>
+  <rect width="632" height="23" fill="url(#face)"/>
   <rect y="1" width="632" height="21" fill="url(#shade)"/>
   <path d="M0 .5h632" stroke="white"/>
   <path d="M0 22.5h632" stroke="#cdcabb"/>

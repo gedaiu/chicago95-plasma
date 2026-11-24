@@ -4,6 +4,19 @@ connection, with a read-only property sheet per device (General, Driver, Resourc
 import pytest
 from conftest import REPO, load_script
 
+
+def wait_for_scan(window):
+    from time import monotonic, sleep
+
+    from PySide6.QtWidgets import QApplication
+
+    deadline = monotonic() + 3
+    while window.scan_progress is not None and monotonic() < deadline:
+        QApplication.processEvents()
+        sleep(0.005)
+    assert window.scan_progress is None
+
+
 INVENTORY = {
     "id": "box",
     "class": "system",
@@ -354,12 +367,17 @@ def test_aero_commands_stay_above_tree_when_resized(devmgr, snapshot, qt_app, mo
             "Action pane",
             "Scan for hardware changes",
         ]
-        centres = [toolbar.actionGeometry(a).center().x() for a in commands]
-        assert centres == pytest.approx([12, 35, 67, 98, 121, 151], abs=4)
         assert toolbar.geometry().bottom() < window.tree.mapTo(window, QPoint()).y()
         assert window.height() - window.tree.mapTo(window, window.tree.rect().bottomRight()).y() < 32
         root = window.tree.topLevelItem(0)
         assert window.tree.currentItem() is root and not window.tree.selectedItems()
+        assert not window.scan_toolbar_action.isVisible() and not window.scan_toolbar_separator.isVisible()
+        assert scan.isVisible()
+        window.tree.setCurrentItem(root)
+        qt_app.processEvents()
+        assert window.scan_toolbar_action.isVisible() and window.scan_toolbar_separator.isVisible()
+        centres = [toolbar.actionGeometry(a).center().x() for a in commands]
+        assert centres == pytest.approx([12, 35, 67, 98, 121, 151], abs=4)
         assert window.tree.visualItemRect(root).height() == 18
         assert window.status_label.isHidden()
         # Selecting a device enables Back in place, as well as its Properties command.
@@ -380,9 +398,58 @@ def test_aero_commands_stay_above_tree_when_resized(devmgr, snapshot, qt_app, mo
         window.by_connection_radio.trigger()
         assert window.item_texts()[1] == "  Motherboard"
         scan.trigger()
+        wait_for_scan(window)
         assert window.snapshot is snapshot
     finally:
         window.close()
+
+
+@pytest.mark.parametrize("failure", [False, True])
+def test_aero_scan_progress_stays_open_until_inventory_returns(devmgr, snapshot, qt_app, monkeypatch, failure):
+    from threading import Event
+
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    monkeypatch.setattr(devmgr.chicago95ui, "widget_style", lambda: "aero")
+    window = devmgr.DeviceManagerWindow(load=lambda: snapshot)
+    window.show()
+    window.refresh()
+    window.tree.setCurrentItem(window.tree.topLevelItem(0))
+    release = Event()
+    loads = []
+
+    def scan_inventory():
+        loads.append(True)
+        if not release.wait(3):
+            raise RuntimeError("Test did not release the inventory")
+        if failure:
+            raise RuntimeError("Inventory unavailable")
+        return snapshot
+
+    window.load = scan_inventory
+    try:
+        window.scan_toolbar_action.trigger()
+        progress = window.scan_progress
+        assert progress.isVisible()
+        assert progress.windowModality() == Qt.WindowModal
+        QTest.keyClick(progress, Qt.Key_Escape)
+        assert progress.isVisible()
+        window.scan_action.trigger()
+        assert window.scan_progress is progress
+        assert window.snapshot is snapshot
+        assert not window.close()
+    finally:
+        release.set()
+        wait_for_scan(window)
+        window.close()
+
+    assert loads == [True]
+    assert window.scan_action.isEnabled()
+    if failure:
+        assert "Inventory unavailable" in window.snapshot.error
+    else:
+        assert window.snapshot is snapshot
 
 
 def test_aero_displays_inventory_errors_below_the_tree(devmgr, snapshot, qt_app, monkeypatch):
@@ -478,6 +545,9 @@ def test_aero_console_bands_match_win7_sp1(
         window.resize(782, 521)
         window.show()
         window.refresh()
+        if style == "aero":
+            # The Aero reference has the Scan command for the selected computer.
+            window.tree.setCurrentItem(window.tree.topLevelItem(0))
         qt_app.processEvents()
         capture = tmp_path / "device-manager.png"
         assert window.grab().save(str(capture))

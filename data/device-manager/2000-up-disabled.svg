@@ -3,11 +3,12 @@
     <pattern id="stipple" patternUnits="userSpaceOnUse" width="2" height="2">
       <path d="M0 0h1v1H0zM1 1h1v1H1z" fill="gray"/>
     </pattern>
-    <path id="folder" d="M.5 3.5 2.5 1.5h4l2 2h5l1 1v9h-14z"/>
-    <path id="up" d="M3 7.5 6 4.5l3 3H7v2h4v1.5H5.5V7.5z"/>
+    <path id="up" d="M3.5 7.5 5.5 5.5 7.5 7.5H6V10H11V11H5V7.5Z"/>
   </defs>
-  <use xlink:href="#folder" transform="translate(1 1)" fill="none" stroke="white"/>
-  <use xlink:href="#folder" fill="url(#stipple)" stroke="gray"/>
+  <path d="M1 14H15V5H16V15H1Z M3 2H6V3H3Z M1 4H14V5H2V13H1Z" fill="white"/>
   <use xlink:href="#up" transform="translate(1 1)" fill="white"/>
+  <path d="M3 2H6V3H3Z M1 4H14V13H1Z" fill="url(#stipple)"/>
+  <path d="M.5 3.5 2.5 1.5H6.5L8.5 3.5H14.5V13.5H.5Z" fill="none" stroke="gray"/>
+  <path d="M0 3H15V4H0Z" fill="gray"/>
   <use xlink:href="#up" fill="gray"/>
 </svg>

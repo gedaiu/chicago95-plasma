@@ -21,8 +21,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import chicago95ui  # noqa: E702
-from PySide6.QtCore import QEvent, QItemSelectionModel, QPoint, QRectF, QSize, Qt
-from PySide6.QtGui import QActionGroup, QColor, QFont, QIcon, QPainter, QPen, QPolygon
+from PySide6.QtCore import QEvent, QItemSelectionModel, QPoint, QPointF, QRect, QRectF, QSize, Qt, QThread
+from PySide6.QtGui import QActionGroup, QBrush, QColor, QFont, QIcon, QPainter, QPen, QPolygon
+from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
@@ -39,6 +40,7 @@ from PySide6.QtWidgets import (
     QRadioButton,
     QStyle,
     QStyleOptionButton,
+    QStyleOptionToolButton,
     QTabWidget,
     QToolBar,
     QToolButton,
@@ -497,10 +499,6 @@ class PropertiesDialog(QDialog):
 
 class ClassicDeviceActionButton(QPushButton):
     def paintEvent(self, event):
-        if not self.hasFocus():
-            super().paintEvent(event)
-            return
-
         option = QStyleOptionButton()
         self.initStyleOption(option)
         painter = QPainter(self)
@@ -508,8 +506,9 @@ class ClassicDeviceActionButton(QPushButton):
         outer = QRectF(0, 0, round(self.width() / pixel) * pixel, round(self.height() / pixel) * pixel)
         black, face = option.palette.shadow(), option.palette.button()
         shadow, white = option.palette.dark(), option.palette.light()
+        focused = self.hasFocus()
         painter.fillRect(outer, black)
-        bevel = outer.adjusted(pixel, pixel, -pixel, -pixel)
+        bevel = outer.adjusted(pixel, pixel, -pixel, -pixel) if focused else outer
         if self.isDown():
             painter.fillRect(bevel, shadow)
             painter.fillRect(bevel.adjusted(pixel, pixel, -pixel, -pixel), face)
@@ -519,9 +518,10 @@ class ClassicDeviceActionButton(QPushButton):
             inner = bevel.adjusted(pixel, pixel, -pixel, -pixel)
             painter.fillRect(inner, shadow)
             painter.fillRect(inner.adjusted(0, 0, -pixel, -pixel), face)
-        focus = outer.adjusted(4 * pixel, 4 * pixel, -4 * pixel, -4 * pixel)
-        painter.fillRect(focus, black)
-        painter.fillRect(focus.adjusted(pixel, pixel, -pixel, -pixel), face)
+        if focused:
+            focus = outer.adjusted(4 * pixel, 4 * pixel, -4 * pixel, -4 * pixel)
+            painter.fillRect(focus, black)
+            painter.fillRect(focus.adjusted(pixel, pixel, -pixel, -pixel), face)
         self.style().drawControl(QStyle.CE_PushButtonLabel, option, painter, self)
 
 
@@ -545,20 +545,295 @@ class AeroDeviceTreeFrame(QFrame):
         painter.fillRect(0, height - 2, width - 1, 1, light)
 
 
+class AeroCommandBar(QToolBar):
+    def __init__(self):
+        super().__init__()
+        self.band = QSvgRenderer(str(DEVICE_ART / "aero-command-band.svg"), self)
+        self.separator = QSvgRenderer(str(DEVICE_ART / "aero-command-separator.svg"), self)
+        self.hover_face = QSvgRenderer(str(DEVICE_ART / "aero-command-hover.svg"), self)
+        self.pressed_face = QSvgRenderer(str(DEVICE_ART / "aero-command-pressed.svg"), self)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        scale = painter.deviceTransform().m22()
+        pixel = 1 / scale
+        width = round(self.width() * scale) * pixel
+        height = round(self.height() * scale) * pixel
+        self.band.render(painter, QRectF(0, 0, width, height))
+        painter.fillRect(QRectF(width - pixel, pixel, pixel, height - 2 * pixel), QColor(255, 255, 255, 124))
+        painter.fillRect(QRectF(0, 0, width, pixel), QColor("#f4f7fc"))
+        painter.fillRect(QRectF(0, height - pixel, width, pixel), QColor("#b6bccc"))
+        for action in self.actions():
+            widget = self.widgetForAction(action)
+            if widget is None or widget.isHidden():
+                continue
+            if action.isSeparator():
+                center = widget.x() + widget.width() / 2
+                left = round(center * scale - 0.5) * pixel
+                self.separator.render(painter, QRectF(left, 3 * pixel, 2 * pixel, height - 5 * pixel))
+            elif isinstance(widget, QToolButton) and widget.isEnabled():
+                face = self.pressed_face if widget.isDown() or widget.isChecked() else (
+                    self.hover_face if widget.property("consolePointerInside") else None
+                )
+                if face is not None:
+                    left = (round(widget.x() * scale) + 1) * pixel
+                    button_width = round(widget.width() * scale) * pixel
+                    face.render(painter, QRectF(left, 2 * pixel, button_width, height - 3 * pixel))
+
+
+class AeroDeviceTree(QTreeWidget):
+    def __init__(self):
+        super().__init__()
+        self.setUniformRowHeights(True)
+        self.setMouseTracking(True)
+        self.setStyleSheet(
+            "QTreeWidget { background: white; color: black; } QTreeWidget::item { height: 18px; }"
+        )
+        self.branch_pointer = None
+        self.branch_icons = {
+            (expanded, hovered): QIcon(str(DEVICE_ART / f"aero-tree-{state}{suffix}.svg"))
+            for expanded, state in ((False, "collapsed"), (True, "expanded"))
+            for hovered, suffix in ((False, ""), (True, "-hover"))
+        }
+
+    def viewportEvent(self, event):
+        if event.type() == QEvent.MouseMove:
+            self.branch_pointer = event.position().toPoint()
+            self.viewport().update()
+        elif event.type() == QEvent.Leave:
+            self.branch_pointer = None
+            self.viewport().update()
+        return super().viewportEvent(event)
+
+    def drawBranches(self, painter, rect, index):
+        if not self.model().hasChildren(index):
+            return
+        indent = self.indentation()
+        branch = QRect(rect.right() - indent + 1, rect.top(), indent, rect.height())
+        branch = QStyle.visualRect(self.layoutDirection(), rect, branch)
+        hovered = self.branch_pointer is not None and branch.contains(self.branch_pointer)
+        icon_rect = QStyle.alignedRect(self.layoutDirection(), Qt.AlignCenter, QSize(18, 18), branch)
+        expanded = self.isExpanded(index)
+        if expanded and index.parent().isValid():
+            # MMC offsets open child arrows one pixel toward the parent.
+            icon_rect.translate(1 if self.isRightToLeft() else -1, 0)
+        self.branch_icons[expanded, hovered].paint(painter, icon_rect)
+
+
+def paint_classic_command(painter, rect, palette, pixel, down, checked, *, stipple_offset=0):
+    upper, lower = palette.light(), palette.dark()
+    if down or checked:
+        upper, lower = lower, upper
+    painter.fillRect(rect, lower)
+    painter.fillRect(rect.adjusted(0, 0, -pixel, -pixel), upper)
+    painter.fillRect(rect.adjusted(pixel, pixel, -pixel, -pixel), palette.button())
+    if checked and not down:
+        # The native stipple repeats once per physical pixel.
+        inset = 2 * pixel
+        painter.save()
+        painter.setBrushOrigin(QPointF(stipple_offset, 0))
+        painter.fillRect(rect.adjusted(inset, inset, -inset, -inset), QBrush(Qt.white, Qt.Dense4Pattern))
+        painter.restore()
+
+
+class XPConsoleBands(QWidget):
+    def __init__(self, menus, toolbar, *, luna):
+        super().__init__()
+        self.menus = menus
+        self.toolbar = toolbar
+        self.luna = luna
+        if luna:
+            self.menu_art = QSvgRenderer(str(DEVICE_ART / "luna-menu-band.svg"), self)
+            self.toolbar_art = QSvgRenderer(str(DEVICE_ART / "luna-command-band.svg"), self)
+            self.command_faces = {
+                state: QSvgRenderer(str(DEVICE_ART / f"luna-command-{state}.svg"), self)
+                for state in ("hover", "pressed", "checked")
+            }
+        layout = QVBoxLayout(self)
+        # Reserve the final device-pixel bevel outside the fractional toolbar allocation.
+        bottom = 1 if not luna and self.devicePixelRatioF() == 1.25 else 0
+        layout.setContentsMargins(0, 0, 0, bottom)
+        layout.setSpacing(0)
+        layout.addWidget(menus)
+        layout.addWidget(toolbar)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        scale = painter.deviceTransform().m22()
+        # The two XP menu bars end on different device rows at 120 DPI.
+        split = int if self.luna else round
+        seam = split(self.menus.height() * scale) / scale
+        width = round(self.width() * scale) / scale
+        height = round(self.height() * scale) / scale
+        pixel = 1 / scale
+        if self.luna:
+            self.menu_art.render(painter, QRectF(0, 0, width, seam - pixel))
+            painter.fillRect(QRectF(0, seam - pixel, width, pixel), QColor("#d8d2bd"))
+            self.toolbar_art.render(painter, QRectF(0, seam, width, height - seam))
+        else:
+            height = seam + min(round(self.toolbar.height() * scale), 24) * pixel
+            self.paint_classic_bands(painter, width, height, seam, pixel)
+        for action in self.toolbar.actions():
+            button = self.toolbar.widgetForAction(action)
+            if button is None or button.isHidden():
+                continue
+            if action.isSeparator() and not self.luna and scale == 1.25:
+                center = button.mapTo(self, QPoint()).x() + button.width() / 2
+                left = round(center * scale) * pixel
+                top = seam + 3 * pixel
+                palette = self.palette()
+                painter.fillRect(QRectF(left, top, pixel, 18 * pixel), palette.dark())
+                painter.fillRect(QRectF(left + pixel, top, pixel, 18 * pixel), palette.light())
+            elif isinstance(button, QToolButton) and button.isEnabled():
+                self.paint_command(painter, button, scale, seam + pixel, height)
+
+    def paint_classic_bands(self, painter, width, height, seam, pixel):
+        palette = self.palette()
+        painter.fillRect(self.rect(), palette.button())
+        for y, brush in ((0, palette.light()), (seam - pixel, palette.dark()),
+                         (seam, palette.light()), (height - pixel, palette.dark())):
+            painter.fillRect(QRectF(0, y, width, pixel), brush)
+        for x, brush in ((0, palette.dark()), (pixel, palette.light()),
+                         (width - 2 * pixel, palette.dark())):
+            painter.fillRect(QRectF(x, 0, pixel, height - pixel), brush)
+        painter.fillRect(QRectF(width - pixel, 0, pixel, height), palette.light())
+
+    def paint_command(self, painter, button, scale, top, bottom):
+        down, checked = button.isDown(), button.isChecked()
+        if not (down or checked or button.property("consolePointerInside")):
+            return
+        left = (round(button.mapTo(self, QPoint()).x() * scale) + 1) / scale
+        width = int(button.width() * scale + 0.5) / scale
+        if self.luna:
+            face = self.command_faces["pressed" if down else "checked" if checked else "hover"]
+            face.render(painter, QRectF(left, top, width, bottom - top))
+        else:
+            pixel = 1 / scale
+            rect = QRectF(left, top, width, bottom - top - pixel)
+            paint_classic_command(painter, rect, self.palette(), pixel, down, checked, stipple_offset=pixel)
+
+
 class ClassicConsoleBand(QFrame):
+    GRIP_HEIGHT = 15
+
+    def __init__(self, menus, toolbar):
+        super().__init__()
+        self.menus = menus
+        self.toolbar = toolbar
+        self.grips = []
+
+    def add_grip(self, layout):
+        grip = QWidget()
+        grip.setFixedSize(3, self.GRIP_HEIGHT)
+        self.grips.append(grip)
+        layout.addWidget(grip, 0, Qt.AlignVCenter)
+
     def paintEvent(self, event):
         super().paintEvent(event)
         painter = QPainter(self)
         pixel = 1 / painter.deviceTransform().m22()
-        painter.fillRect(self.rect(), self.palette().button())
-        painter.fillRect(QRectF(0, 0, self.width(), pixel), Qt.white)
-        painter.fillRect(QRectF(0, self.height() - pixel, self.width(), pixel), QColor("#808080"))
+        face = self.palette().button()
+        shadow = self.palette().dark()
+        height = round(self.height() / pixel)
+
+        def paint(x, y, width, rows, colour):
+            painter.fillRect(QRectF(x * pixel, y * pixel, width * pixel, rows * pixel), colour)
+
+        painter.fillRect(self.rect(), face)
+        width = round(self.width() / pixel)
+        paint(0, 0, width, 1, Qt.white)
+        paint(0, height - 1, width, 1, shadow)
+        paint(0, 0, 1, height, shadow)
+        paint(1, 1, 1, height - 2, Qt.white)
+        menu_edge = self.menus.geometry().right() + 1
+        x = round(menu_edge / pixel)
+        paint(x, 1, 1, height - 2, shadow)
+        paint(x + 1, 1, 1, height - 2, Qt.white)
+
+        rows = round(self.GRIP_HEIGHT / pixel)
+        top = (height - rows) // 2
+        for grip in self.grips:
+            x = round(grip.x() / pixel)
+            paint(x, top, 3, rows, shadow)
+            paint(x, top, 1, rows - 1, Qt.white)
+            paint(x + 1, top, 1, 1, Qt.white)
+            paint(x + 1, top + 1, 1, rows - 2, face)
+        for action in self.toolbar.actions():
+            widget = self.toolbar.widgetForAction(action)
+            if widget is None or widget.isHidden():
+                continue
+            if action.isSeparator():
+                x = round((self.toolbar.x() + widget.geometry().center().x()) / pixel)
+                paint(x, top, 1, rows - 1, shadow)
+                paint(x + 1, top, 1, rows - 1, Qt.white)
+            elif widget.isEnabled():
+                self.paint_command(painter, widget, pixel, height)
+
+    def paint_command(self, painter, button, pixel, band_height):
+        down = button.isDown()
+        checked = button.isChecked()
+        if not (down or checked or button.property("consolePointerInside")):
+            return
+        x = round((self.toolbar.x() + button.x()) / pixel)
+        width = int(button.width() / pixel + 0.5)
+        rect = QRectF(x * pixel, pixel, width * pixel, (band_height - 3) * pixel)
+        paint_classic_command(painter, rect, self.palette(), pixel, down, checked)
+
+
+class ScanProgressDialog(QDialog):
+    def __init__(self, parent):
+        super().__init__(parent, Qt.Dialog | Qt.FramelessWindowHint)
+        self.setWindowTitle("Device Manager")
+        self.setWindowModality(Qt.WindowModal)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.art = QSvgRenderer(str(DEVICE_ART / "aero-scan-progress.svg"), self)
+        title = QLabel(self.windowTitle(), self)
+        message = QLabel("Scanning Plug and Play compliant hardware...", self)
+        for label, size in ((title, 12), (message, 11)):
+            font = chicago95ui.ui_font(size)
+            font.setFamilies(["Segoe UI", "Selawik", "Noto Sans"])
+            label.setFont(font)
+            label.setStyleSheet("background: transparent; color: black;")
+            label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        message_font = message.font()
+        message_font.setStretch(97)
+        message.setFont(message_font)
+        width = max(282, message.sizeHint().width() + 48)
+        self.setFixedSize(width, 88)
+        title.setGeometry(12, 8, width - 24, 20)
+        message.setGeometry(25, 33, width - 49, 22)
+        self.move(parent.mapToGlobal(QPoint(-1, 0)))
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        self.art.render(painter, QRectF(self.rect()))
+
+    def reject(self):
+        # The scan finishes on its own and has no user-facing cancel action.
+        pass
+
+
+class InventoryScan(QThread):
+    def __init__(self, load, parent):
+        super().__init__(parent)
+        self.load = load
+        self.snapshot = None
+
+    def run(self):
+        try:
+            self.snapshot = self.load()
+        except Exception as error:
+            self.snapshot = Snapshot(Device("Computer", "", "system"), [], f"Hardware scan failed: {error}")
 
 
 class DeviceManagerWindow(QWidget):
     def __init__(self, load=load_snapshot):
         super().__init__()
         self.load = load
+        self.xp_bands = None
+        self.scan_progress = None
+        self.scan_thread = None
         self.setWindowTitle("Device Manager")
         self.setWindowIcon(QIcon.fromTheme("computer"))
         self.snapshot = None
@@ -590,19 +865,11 @@ class DeviceManagerWindow(QWidget):
         panel = AeroDeviceTreeFrame() if self.aero else chicago95ui.sunken_panel()
         panel_layout = QVBoxLayout(panel)
         panel_layout.setContentsMargins(*(AeroDeviceTreeFrame.INSETS if self.aero else (0, 0, 0, 0)))
-        self.tree = QTreeWidget()
+        self.tree = AeroDeviceTree() if self.aero else QTreeWidget()
         self.tree.setHeaderHidden(True)
         self.tree.setIconSize(QSize(ICON_SIZE, ICON_SIZE))
         self.tree.setIndentation(20)
         self.tree.setFrameShape(QTreeWidget.NoFrame)
-        if self.aero:
-            self.tree.setStyleSheet(
-                "QTreeWidget { background: white; color: black; } QTreeWidget::item { height: 18px; }"
-                f'QTreeWidget::branch:open:has-children {{ image: url("{DEVICE_ART / "aero-tree-expanded.svg"}"); }}'
-                f'QTreeWidget::branch:closed:has-children {{ image: url("{DEVICE_ART / "aero-tree-collapsed.svg"}"); }}'
-                "QTreeWidget::branch:!has-children { image: none; }"
-            )
-            self.tree.setUniformRowHeights(True)
         self.tree.itemDoubleClicked.connect(lambda _item, _column: self.show_properties())
         self.tree.itemSelectionChanged.connect(self.update_buttons)
         panel_layout.addWidget(self.tree)
@@ -659,17 +926,21 @@ class DeviceManagerWindow(QWidget):
         menus = QMenuBar()
         menus.setNativeMenuBar(False)
         menus.setFixedHeight(23)
+        toolbar = AeroCommandBar() if self.aero else QToolBar()
         if single_band:
-            command_band = ClassicConsoleBand()
+            command_band = ClassicConsoleBand(menus, toolbar)
             commands = QHBoxLayout(command_band)
             commands.setContentsMargins(0, 0, 0, 0)
             commands.setSpacing(0)
             layout.addWidget(command_band)
         else:
-            layout.addWidget(menus)
+            if xp_console:
+                self.xp_bands = XPConsoleBands(menus, toolbar, luna=console_style == "luna")
+                layout.addWidget(self.xp_bands)
+            else:
+                layout.addWidget(menus)
             menus.addMenu("&File").addAction("E&xit", self.close)
         actions = menus.addMenu("&Action")
-        toolbar = QToolBar()
         toolbar.setFixedHeight(23)
         if classic_nt:
             height = 20 if single_band else 24
@@ -677,7 +948,7 @@ class DeviceManagerWindow(QWidget):
             toolbar.setFixedHeight(height)
             bands = (
                 "background: transparent; border: 0;" if single_band
-                else "background: palette(button); border-top: 1px solid white; border-bottom: 1px solid #808080;"
+                else "background: transparent; border-top: 1px solid transparent; border-bottom: 1px solid transparent;"
             )
             menus.setStyleSheet("QMenuBar {" + bands + "} QMenuBar::item { padding: 2px 6px; }")
             toolbar.setStyleSheet(
@@ -687,20 +958,18 @@ class DeviceManagerWindow(QWidget):
             )
         elif console_style == "luna":
             menus.setStyleSheet("""
-                QMenuBar { background: qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #f3f3f1,stop:1 #efebdb);
-                    border-bottom: 1px solid #d8d2bd; }
+                QMenuBar { background: transparent; border-bottom: 1px solid transparent; }
                 QMenuBar::item { background: transparent; padding: 2px 6px; }
                 QMenuBar::item:selected { background: palette(highlight); color: palette(highlighted-text); }
             """)
             toolbar.setStyleSheet(
                 """
-                QToolBar { padding: 0 0 0 2px;
-                    border-image: url("BAND_IMAGE") 1 0 1 0 stretch stretch;
-                    border-top: 1px solid white; border-bottom: 1px solid #cdcabb; spacing: 1px; }
+                QToolBar { padding: 0 0 0 2px; background: transparent;
+                    border-top: 1px solid transparent; border-bottom: 1px solid transparent; spacing: 1px; }
                 QToolButton { border: 0; }
                 QToolButton:hover { background: palette(highlight); }
                 QToolBar::separator { width: 7px; }
-            """.replace("BAND_IMAGE", str(art / "luna-command-band.svg"))
+                """
             )
         else:
             menus.setStyleSheet("""
@@ -711,10 +980,9 @@ class DeviceManagerWindow(QWidget):
                 QMenuBar::item:selected { background: #c4dcf0; }
             """)
             toolbar.setStyleSheet("""
-                QToolBar { min-height: 21px; border: 0; border-top: 1px solid #f4f7fc; border-bottom: 1px solid #b6bccc;
-                    spacing: 1px; background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-                    stop:0 #d3daed,stop:.32 #d3daed,stop:.55 #d6dcf0,stop:1 #e3e8f7); }
-                QToolButton { border: 0; padding: 2px 0 0 2px; } QToolButton:hover { background: #c4dcf0; }
+                QToolBar { min-height: 21px; border: 0; background: transparent;
+                    border-top: 1px solid transparent; border-bottom: 1px solid transparent; spacing: 1px; }
+                QToolButton { border: 0; padding: 2px 0 0 2px; background: transparent; }
                 QToolBar::separator { width: 7px; }
             """)
         if xp_console:
@@ -729,27 +997,25 @@ class DeviceManagerWindow(QWidget):
             font = QFont("Tahoma")
             font.setPixelSize(10)
             font.setHintingPreference(QFont.PreferFullHinting)
+            if scale == 1.25:
+                font.setStyleStrategy(QFont.NoAntialias)
             menus.setFont(font)
-            menus.setStyleSheet(menus.styleSheet() + "QMenuBar::item { padding: 4px 6px 1px 5px; }")
+            menus.setStyleSheet(menus.styleSheet() + "QMenuBar::item { padding: 5px 6px 1px 6px; }")
             toolbar.setStyleSheet(
                 toolbar.styleSheet()
-                + "QToolBar { padding: 0; spacing: 0; } QToolButton { padding: 0 2px 2px 0; }"
-                + "QToolBar::separator { width: 0; margin: 2px 2px 2px 3px; "
-                + "border-left: 1px solid gray; border-right: 1px solid white; }"
+                + "QToolBar { padding: 0; spacing: 0; }"
+                + "QToolButton { background: transparent; padding: 0 2px 2px 0; }"
+                + "QToolButton:hover { background: transparent; }"
+                + "QToolButton:pressed, QToolButton:checked { padding: 0; }"
+                + "QToolBar::separator { width: 7px; border: 0; background: transparent; }"
             )
             # Each MMC band starts with a raised grip and a small left inset.
             for widget, inset, stretch in ((menus, 4, 0), (toolbar, 3, 1)):
                 commands.addSpacing(3)
-                handle = QFrame()
-                handle.setFixedSize(3, 15)
-                handle.setStyleSheet(
-                    "background: palette(button); border: 1px solid white; "
-                    "border-right-color: gray; border-bottom-color: gray;"
-                )
-                commands.addWidget(handle, 0, Qt.AlignVCenter)
+                command_band.add_grip(commands)
                 commands.addSpacing(inset)
                 commands.addWidget(widget, stretch)
-        else:
+        elif not xp_console:
             layout.addWidget(toolbar)
 
         def icon(name, fallback, asset=None):
@@ -769,7 +1035,9 @@ class DeviceManagerWindow(QWidget):
             icon("document-properties", QStyle.SP_FileDialogDetailedView), "Properties", self.show_properties
         )
         self.scan_action = actions.addAction(
-            icon("view-refresh", QStyle.SP_BrowserReload, "scan.svg"), "Scan for hardware changes", self.refresh
+            icon("view-refresh", QStyle.SP_BrowserReload, "scan.svg"),
+            "Scan for hardware changes",
+            self.scan_for_hardware if self.aero else self.refresh,
         )
         self.scan_action.setShortcut("F5")
         view = menus.addMenu("&View")
@@ -817,17 +1085,24 @@ class DeviceManagerWindow(QWidget):
         if not single_band:
             toolbar.addAction(self.pane_action)
         if console_style == "aero":
-            toolbar.addSeparator()
-            toolbar.addAction(self.scan_action)
+            self.scan_toolbar_separator = toolbar.addSeparator()
+            self.scan_toolbar_action = toolbar.addAction(
+                self.scan_action.icon(), self.scan_action.text(), self.scan_action.trigger,
+            )
+        state_painter = self.xp_bands if self.xp_bands is not None else toolbar if self.aero else None
         for command in toolbar.actions():
             if not command.isSeparator():
                 width = 18 if single_band else round(22 / scale) if xp_console else 22
                 button = toolbar.widgetForAction(command)
                 button.setFixedWidth(width)
-                if xp_console:
+                if xp_console or single_band or self.aero:
                     button.setMouseTracking(True)
-                    button.setProperty("xpPointerInside", False)
+                    button.setProperty("consolePointerInside", False)
                     button.installEventFilter(self)
+                if state_painter is not None:
+                    button.pressed.connect(state_painter.update)
+                    button.released.connect(state_painter.update)
+                    button.toggled.connect(state_painter.update)
         view.addSeparator()
         modes = QActionGroup(self)
         for title in ("Devices by type", "Devices by connection"):
@@ -840,45 +1115,48 @@ class DeviceManagerWindow(QWidget):
 
     def style_xp_toolbar(self, toolbar, console_style, scale):
         luna = console_style == "luna"
-        toolbar.setFixedHeight(round((23 if luna else 24) / scale))
+        height = round((23 if luna else 24) / scale)
+        toolbar.setFixedHeight(height)
         top = 2 if luna else 1
         base = (
             f"QToolButton {{ border: 0; background: transparent; padding: {top}px 0 0 0; }}"
             "QToolButton:hover { background: transparent; }"
             f"QToolBar::separator {{ width: {round(7 / scale)}px; }}"
         )
-        if luna:
-            states = """
-                QToolButton[xpPointerInside=true]:enabled { border: 1px solid #cecfc4; border-radius: 3px;
-                    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #ffffff,
-                    stop:.75 #f8f7f2,stop:1 #e2dfd5); }
-                QToolButton:pressed:enabled { border: 1px solid #9ca094; border-radius: 3px;
-                    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #d9d6ca,
-                    stop:.40 #e8e5da,stop:1 #efede3); }
-                QToolButton:checked { border: 1px solid #7b9aad; border-radius: 3px; background: white; }
-            """
-        else:
-            states = """
-                QToolButton[xpPointerInside=true]:enabled { background: palette(button); border: 1px solid white;
-                    border-color: white #808080 #808080 white; }
-                QToolButton:pressed:enabled, QToolButton:checked {
-                    background: palette(button); border: 1px solid white; border-color: #808080 white white #808080; }
-            """ + f'QToolButton:checked {{ background-image: url("{DEVICE_ART / "xp-classic-command-stipple.svg"}"); }}'
+        if scale == 1.25:
+            base += "QToolBar { border: 0; } QToolButton { padding: 0; }"
+            if not luna:
+                base += "QToolBar::separator { border: 0; background: transparent; }"
+        states = "QToolButton:pressed, QToolButton:checked { padding-left: 2px; }"
         toolbar.setStyleSheet(toolbar.styleSheet() + base + states)
+        if scale == 1.25:
+            # MMC places the commands directly next to one another at 120 DPI.
+            toolbar.layout().setSpacing(0)
 
     def eventFilter(self, widget, event):
-        if widget.property("xpPointerInside") is not None:
+        if widget.property("consolePointerInside") is not None:
+            if (event.type() == QEvent.Paint and self.xp_bands is not None and not self.xp_bands.luna
+                    and widget.devicePixelRatioF() == 1.25):
+                # Keep Qt's normal label and interaction state on the native physical row.
+                option = QStyleOptionToolButton()
+                widget.initStyleOption(option)
+                painter = QPainter(widget)
+                painter.translate(0, 1 / painter.deviceTransform().m22())
+                widget.style().drawComplexControl(QStyle.CC_ToolButton, option, painter, widget)
+                painter.end()
+                return True
             if event.type() == QEvent.Leave:
                 inside = False
             elif event.type() in (QEvent.Enter, QEvent.MouseMove, QEvent.MouseButtonRelease):
                 inside = widget.rect().contains(event.position().toPoint())
             else:
                 return super().eventFilter(widget, event)
-            if widget.property("xpPointerInside") != inside:
-                widget.setProperty("xpPointerInside", inside)
-                style = widget.style()
-                style.unpolish(widget)
-                style.polish(widget)
+            if widget.property("consolePointerInside") != inside:
+                widget.setProperty("consolePointerInside", inside)
+                if self.xp_bands is not None:
+                    self.xp_bands.update()
+                elif isinstance(widget.parentWidget(), AeroCommandBar):
+                    widget.parentWidget().update()
                 widget.update()
         return super().eventFilter(widget, event)
 
@@ -916,23 +1194,31 @@ class DeviceManagerWindow(QWidget):
 
     def add_dialog_buttons(self, layout):
         matched_dpi = self.devicePixelRatioF() == 1.25
+        action_font = None
+        if matched_dpi and self.font().family() == chicago95ui.UI_FONT_FAMILY:
+            # The 120-DPI strike has thinner strokes and nearly the same caption widths.
+            action_font = self.font()
+            action_font.setPixelSize(10)
+            action_font.setStretch(108)
+            action_font.setHintingPreference(QFont.PreferFullHinting)
         self.properties_button = ClassicDeviceActionButton("P&roperties")
         self.properties_button.clicked.connect(self.show_properties)
         self.refresh_button = ClassicDeviceActionButton("Re&fresh")
         self.refresh_button.clicked.connect(self.refresh)
         action_row = QHBoxLayout()
         action_row.setSpacing(6)
+        remove_button = ClassicDeviceActionButton("R&emove")
+        remove_button.setEnabled(False)
+        print_button = ClassicDeviceActionButton("Pri&nt...")
+        print_button.setEnabled(False)
         for width, button in zip(
             (90, 90, 90, 88) if matched_dpi else (84, 84, 84, 83),
-            (
-                self.properties_button,
-                self.refresh_button,
-                chicago95ui.dialog_button("R&emove", enabled=False),
-                chicago95ui.dialog_button("Pri&nt...", enabled=False),
-            ),
+            (self.properties_button, self.refresh_button, remove_button, print_button),
             strict=True,
         ):
             button.setFixedSize(width, 22 if matched_dpi else chicago95ui.DIALOG_BUTTON_SIZE[1])
+            if action_font is not None:
+                button.setFont(action_font)
             action_row.addWidget(button)
         action_row.addStretch()
         layout.addLayout(action_row)
@@ -954,6 +1240,34 @@ class DeviceManagerWindow(QWidget):
         QApplication.processEvents()
         self.snapshot = self.load()
         self.rebuild_tree()
+
+    def scan_for_hardware(self):
+        if self.scan_thread is not None:
+            return
+        self.scan_action.setEnabled(False)
+        self.scan_toolbar_action.setEnabled(False)
+        self.scan_progress = ScanProgressDialog(self)
+        self.scan_thread = InventoryScan(self.load, self)
+        self.scan_thread.finished.connect(self.finish_scan)
+        self.scan_progress.show()
+        self.scan_thread.start()
+
+    def finish_scan(self):
+        thread, progress = self.scan_thread, self.scan_progress
+        self.snapshot = thread.snapshot
+        self.rebuild_tree()
+        self.scan_thread = self.scan_progress = None
+        self.scan_action.setEnabled(True)
+        self.scan_toolbar_action.setEnabled(True)
+        thread.deleteLater()
+        progress.done(QDialog.Accepted)
+        progress.deleteLater()
+
+    def closeEvent(self, event):
+        if self.scan_thread is not None:
+            event.ignore()
+        else:
+            super().closeEvent(event)
 
     def rebuild_tree(self):
         if self.snapshot is None:
@@ -979,6 +1293,10 @@ class DeviceManagerWindow(QWidget):
 
     def update_buttons(self):
         self.properties_button.setEnabled(self.selected_device() is not None)
+        if self.aero:
+            show_scan = bool(self.tree.selectedItems())
+            self.scan_toolbar_separator.setVisible(show_scan)
+            self.scan_toolbar_action.setVisible(show_scan)
 
     def show_properties(self):
         device = self.selected_device()

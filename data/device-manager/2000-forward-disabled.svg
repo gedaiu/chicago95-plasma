@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="16" height="16" viewBox="0 0 16 16">
-  <defs><path id="arrow" d="M14 8 8.5 2.5V6h-7v4h7v3.5z"/></defs>
+  <defs><path id="arrow" d="M14 7.35 9 2.35V6H2V10H9V13.3L14 8.65Z"/></defs>
   <use xlink:href="#arrow" transform="translate(1 1)" fill="white"/>
   <use xlink:href="#arrow" fill="gray"/>
 </svg>

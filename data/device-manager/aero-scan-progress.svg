@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="282" height="88" viewBox="0 0 282 88" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="glass" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="2.5" y2="29.5">
+      <stop stop-color="#98b4d0"/>
+      <stop offset=".30" stop-color="#a1bbd7"/>
+      <stop offset=".70" stop-color="#b0c8e2"/>
+      <stop offset="1" stop-color="#b9d1ea"/>
+    </linearGradient>
+    <linearGradient id="edge" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="29.5" y2="30.5">
+      <stop stop-color="#343434"/>
+      <stop offset="1" stop-color="black"/>
+    </linearGradient>
+    <linearGradient id="right-light" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="2.5" y2="80.5">
+      <stop stop-color="#d2f0f7"/>
+      <stop offset=".103" stop-color="#92e2f4"/>
+      <stop offset=".244" stop-color="#5fd5f3"/>
+      <stop offset=".359" stop-color="#3fcef2"/>
+      <stop offset=".987" stop-color="#3fcef2"/>
+      <stop offset="1" stop-color="#28cfe4"/>
+    </linearGradient>
+    <linearGradient id="side-reflection" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="42.5" y2="80">
+      <stop stop-color="#b9d1ea"/>
+      <stop offset=".32" stop-color="#c1d6ec"/>
+      <stop offset=".80" stop-color="#d9e6f4"/>
+      <stop offset=".92" stop-color="#dce8f4"/>
+      <stop offset="1" stop-color="#b9d1ea"/>
+    </linearGradient>
+  </defs>
+  <path d="M.5 87.5V6A5.5 5.5 0 0 1 6 .5H276A5.5 5.5 0 0 1 281.5 6V87.5Z"
+        fill="url(#glass)" stroke="url(#edge)"/>
+  <path d="M1.5 86.5V6A4.5 4.5 0 0 1 6 1.5H276"
+        fill="none" stroke="white"/>
+  <path d="M276 1.5A4.5 4.5 0 0 1 280.5 6V86.5"
+        fill="none" stroke="url(#right-light)"/>
+  <path d="M2 42h5v38H2z M275 42h5v38h-5z" fill="url(#side-reflection)"/>
+  <rect x="1" y="86" width="280" height="1" fill="#28cfe4"/>
+  <rect y="87" width="282" height="1" fill="black"/>
+  <rect x="8" y="30" width="266" height="50" fill="#f0f0f0"/>
+</svg>

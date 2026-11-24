@@ -13,6 +13,28 @@ The four reference guests booted from the owner's installation media. Windows 95
 
 The XP Luna and XP Classic Device Manager captures place the command glyphs one pixel lower than the earlier Qt render. The corrected Console Tree and Action Pane SVGs use a single triangular arrow and three list lines. The tests compare the entire 14×12 face of each button at its guest position, with a limit of three levels of mean absolute RGB error out of 255. Redrawing the yellow Help mark and its paper background reduced error over the 14×15 capture from 18.38 to 9.01 in Luna and from 16.82 to 8.30 in XP Classic. The disabled Back and Forward arrows average 1.10 and 1.22 in Luna, down from 16.40 and 16.18. In XP Classic they average 2.91 and 2.96, down from 9.92 and 9.86. The unobstructed 420×23 Luna toolbar background averages 0.79 after restoring its horizontal tint and lower bevel. [VM and rendered command glyphs](compare/xp-device-manager-commands.png)
 
+At 120 DPI, both XP Console Tree buttons return to their idle appearance while the pointer is held outside and after the release cancels the press. The tests also verify that a completed click shows the console tree and that a second click hides it. Mean RGB error across the seven Console Tree states fell from 66.47 to 38.70 in XP Classic and from 65.92 to 32.54 in Luna. Both strict comparisons still show differences in glyph alignment and the button face. The separate 420×48 empty command band in XP Classic matches at 96 DPI.
+
+The Luna menu and toolbar now share one device-pixel boundary. The three
+unobstructed bevel rows match all 1,140 tested pixels at each DPI.
+Within the same 380-pixel-wide background area, mean RGB error at
+96 DPI fell from 1.02/255 to 0.50/255 for the menu and from 0.80/255
+to 0.51/255 for the toolbar. At 120 DPI it fell from 1.92/255 to 0.77/255
+and from 3.15/255 to 0.46/255. The Luna Console Tree state test now
+uses the native client width and crop origin. With the corrected
+120-DPI toolbar spacing and SVG faces drawn behind the button glyph,
+its mean RGB error fell from 16.37/255 to 1.25/255. The navy frame of
+the icon matches at its native size and position in all seven states.
+The full-state comparison still differs in 1,102 of 3,931 pixels,
+including small colour differences in the rounded faces and background.
+
+The XP Classic 120-DPI command bands match all 19,968 tested pixels
+across their outer edges and unobstructed background. Its Console Tree
+test now uses the native client width and crop origin. The bevels,
+checked stipple, and navy icon frame match in all seven states.
+The full comparison differs in 70 of 3,931 pixels, mostly around
+the antialiased arrow. Mean RGB error is 0.48/255.
+
 XP Luna’s GTK 3 and GTK 4 checkmarks use two polygon arms. The radio dot uses a circle and a radial highlight. On both toolkits the checked marks cover the same pixels as the XP SP3 resources at 100% and 200%, measured at the green-channel threshold used in the tests. At 200%, the comparison resamples the 26-pixel GTK control to the original 25-pixel resource. The complete checked checkbox averages 1.01 RGB levels of difference out of 255 at 100% and 5.82 at 200%, down from 4.40 and 29.98 respectively. A density-specific SVG rectangle keeps the border one physical pixel wide at both scales. [XP SP3, GTK 3 and GTK 4 side by side](compare/xp-gtk-checkmarks.png)
 
 The XP GTK control generator now ships 84 standalone SVGs in each toolkit theme. This replaces 284 PNG files across the two themes. Tabs use CSS gradients and retain their measured 21-row profile. Switches use rounded rectangles, circles and a dashed focus line. Slider pointers use two straight beveled edges. The Linux toolkit comparisons cover horizontal and vertical tracks, three pointer shapes and all six tested control states and positions. The native-size GTK slider renders stay within one RGB level of the Qt samples. [GTK 3 and GTK 4 tab, switch and slider captures](compare/xp-gtk-vector-controls.png)
@@ -33,21 +55,56 @@ Windows 7 Aero Device Manager uses the MMC toolbar. Its 778×518 client
 has an unselected first row, an 18-pixel row pitch and a white viewport
 extending to the bottom bevel. Inventory errors remain visible. At 96 DPI
 the exposed gutter, tree surround, and empty viewport now match all
-182,878 tested pixels. The expanded and collapsed arrow SVG crops still
-differ by 3.45/255 and 9.90/255 mean RGB error, down from 30.32/255 and
-12.60/255. The command bands fell from 2.95/255 to 2.59/255 within the same
-778-column client. Device labels and icons depend on the detected hardware.
+182,878 tested pixels. Mean RGB error for the idle expanded and collapsed
+arrow SVGs fell from 3.45/255 and 9.90/255 to 1.48/255 and 2.15/255.
+The expanded hover, collapsed hover and held-open states measure
+1.88/255, 2.41/255 and 1.88/255. Pointer tests verify that moving from
+the arrow to the label clears the glow and that the branch opens on
+press and stays open when the button is released outside. The command
+bands fell from 2.59/255 to 2.11/255 within the same 778-column client.
+The exposed toolbar interior and all three separators match all 13,409
+tested pixels. Six individual 16×16 icon comparisons show remaining
+differences. The redrawn Scan icon fell from 12.03/255 to 6.67/255.
+The toolbar region where Scan appears matches all 621 pixels at startup
+with no selection. With the computer selected, the five Scan button
+states average 4.40/255. Releasing a held click outside cancels it.
+A click opens a 282×88 scan dialog while Linux collects the inventory.
+Interaction tests verify that it stays open during the scan and closes
+after a result or error. At 96 DPI the blank message panel and the
+bottom frame match all 6,650 and 2,256 pixels respectively. The SVG's
+side reflections and bevel bring the mean RGB error outside the caption
+regions from 0.36/255 to 0.20/255. The full dialog averages 4.27/255
+across 24,744 compared pixels. Caption rendering accounts for most
+of the remaining error. The redrawn Help icon fell
+from 10.29/255 to 3.06/255. The seven Console Tree states fell from
+11.38/255 to 4.27/255. Dragging a held press outside clears the highlight
+and releasing there cancels the click. Device labels and icons depend
+on the detected hardware.
 The Windows 95 and 98 button gaps and alignment still pass the geometry
 tests. The strict captures still differ in the button states and text.
 
-Fresh Windows 95 and 98 Device Manager captures at 120 DPI show a
-470×28 action row. The Qt render now matches the overall dimensions.
-The 112×28 Refresh crop covers idle, hover, focus, held Space and
-released Space. With the solid focus frame and inverted pressed bevel,
-mean RGB error in the state sheet fell from 38.94/255 in the previous
-overlap to 15.24/255. Captions and some bevel pixels still differ.
-The Windows 2000 command bar's unobstructed 370×25 band matches every
-RGB565 pixel. The full band fell from 7.18/255 to 5.57/255.
+The Windows 95 and 98 Device Manager captures at 120 DPI show a
+470×28 action row. The Qt row now matches the bevels and gaps exactly
+in both guests. The eight 112×28 Refresh frames also match outside
+the captions and pointer rectangles, including the focus frame while
+dragging a held click outside. The test verifies that releasing there
+does not activate Refresh. Mean RGB error across the full row fell
+from 23.91/255 to 9.17/255. The original five Refresh comparisons
+fell from 15.24/255 to 7.47/255, and all eight average 7.45/255.
+The strict comparisons still show differences in caption rendering
+and enabled states.
+The Windows 2000 command bar's unobstructed 370×25 band, pane edges,
+grips, and separators match every tested RGB565 pixel. Mean RGB error
+over the full band fell from 3.86/255 to 3.61/255 after redrawing the
+contributing SVGs. In separate 16×16 comparisons, Back fell from
+4.32/255 to 0.66/255, Forward from 4.48/255 to 0.87/255, Up one level
+from 7.23/255 to 1.65/255, and Console Tree from 1.50/255 to 1.15/255.
+The same 16×16 Help comparison improved from 6.41/255 to 3.86/255
+in Windows 2000, from 7.58/255 to 4.96/255 in XP Luna, and from
+6.80/255 to 4.28/255 in XP Classic. The Console Tree
+bevels and checked pattern match in all seven captured states. The
+full state strip still differs in 68 of 4,403 visible pixels, mostly
+around the arrow inside the icon. Its mean RGB error is 0.38/255.
 
 ## Comparisons on the installed guests
 
