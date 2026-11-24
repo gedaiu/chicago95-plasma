@@ -3,9 +3,9 @@ import sys
 
 import pytest
 from conftest import REPO, load_script
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QImage
-from PySide6.QtWidgets import QComboBox
+from PySide6.QtWidgets import QApplication, QComboBox
 
 APPLET_NAMES = [
     "Add New Hardware",
@@ -218,6 +218,27 @@ def test_xp_can_switch_between_category_and_classic_views(window, control_panel,
     finally:
         for sheet in panel.applet_windows.values():
             sheet.close()
+        panel.close()
+
+
+@pytest.mark.parametrize("initial_ratio", (1, 2))
+@pytest.mark.parametrize(
+    ("look", "style"), (("1995", "classic"), ("1998", "classic"), ("2000", "classic"), ("2001", "classic"), ("luna", "luna"))
+)
+def test_legacy_control_panel_sets_the_native_icon_size_before_wayland_show(
+    window, control_panel, monkeypatch, look, style, initial_ratio
+):
+    monkeypatch.setattr(control_panel.chicago95ui, "widget_style", lambda: style)
+    monkeypatch.setattr(control_panel.chicago95ui, "screen_scale", lambda: 1.25)
+    monkeypatch.setattr(QApplication, "platformName", lambda: "wayland")
+    monkeypatch.setattr(control_panel.ControlPanel, "devicePixelRatioF", lambda _window: initial_ratio)
+    control_panel.write_settings(window.settings_path, {"LOOK": look})
+    panel = control_panel.ControlPanel(settings_path=window.settings_path, actions=window.actions)
+    try:
+        assert panel.icon_view.iconSize() == QSize(26, 26)
+        panel.set_view("Small Icons")
+        assert panel.icon_view.iconSize() == QSize(13, 13)
+    finally:
         panel.close()
 
 

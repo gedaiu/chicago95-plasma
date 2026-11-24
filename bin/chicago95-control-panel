@@ -51,6 +51,7 @@ from PySide6.QtGui import (
     QAction,
     QActionGroup,
     QColor,
+    QFont,
     QFontDatabase,
     QFontMetrics,
     QGuiApplication,
@@ -147,6 +148,8 @@ COMPONENTS_BY_KEY = {
     "WIDGET_STYLE": ("look",),
     "CONTROL_PANEL_STYLE": ("look",),
     "BEVEL": ("look",),
+    "FACE": ("look",),
+    "SELECTION": ("look",),
     "TASKBAR_STYLE": ("taskbar", "look"),
     "START_MENU_STYLE": ("startmenu",),
     "TITLE_ACTIVE": ("look",),
@@ -211,83 +214,6 @@ COMPONENT_KEYS = ("DECORATION", "WIDGET_STYLE", "BEVEL", "TASKBAR_STYLE", "START
 # The ones the Appearance tab saves with its Scheme without a field of their own.
 UNSEEN_COMPONENT_KEYS = ("TASKBAR_STYLE", "START_MENU_STYLE", "BEVEL")
 
-# What setup/steps.sh's apply_look sets for each look (tests/test_control_panel.py compares the two).
-LOOK_PRESETS = {
-    "1995": {
-        "DECORATION": "classic",
-        "WIDGET_STYLE": "classic",
-        "TASKBAR_STYLE": "classic",
-        "START_MENU_STYLE": "1995",
-        "BEVEL": "1995",
-        "TITLE_ACTIVE": "#000080",
-        "TITLE_INACTIVE": "#808080",
-        "BANNER_BG": "#808080",
-        "BANNER_FG": "#C0C0C0",
-        "ICONS": "chicago95",
-        "BACKGROUND_COLOR": "#008080",
-    },
-    "1998": {
-        "DECORATION": "classic",
-        "WIDGET_STYLE": "classic",
-        "TASKBAR_STYLE": "classic",
-        "START_MENU_STYLE": "1998",
-        "BEVEL": "1995",
-        "TITLE_ACTIVE": "#000080,#1084D0",
-        "TITLE_INACTIVE": "#808080,#C0C0C0",
-        "BANNER_BG": "#00007B,#00007B@95,#0000B0@70,#0000F8@45,#0000EE@20,#0000A9@0",
-        "BANNER_FG": "#FFFFFF",
-        "ICONS": "se98",
-        "BACKGROUND_COLOR": "#008080",
-    },
-    "2000": {
-        "DECORATION": "classic",
-        "WIDGET_STYLE": "classic",
-        "TASKBAR_STYLE": "classic",
-        "START_MENU_STYLE": "2000",
-        "BEVEL": "2000",
-        "TITLE_ACTIVE": "#0A246A,#A6CAF0",
-        "TITLE_INACTIVE": "#808080,#C0C0C0",
-        "BANNER_BG": "#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0",
-        "BANNER_FG": "#FFFFFF",
-        "ICONS": "classicos2000",
-        "BACKGROUND_COLOR": "#3A6EA5",  # Windows 2000's desktop blue
-    },
-}
-LOOK_PRESETS["2001"] = {
-    **LOOK_PRESETS["2000"],
-    "START_MENU_STYLE": "2001",
-    "START_LOGO": "xp",
-    "BANNER_TEXT": "Windows XP Professional",
-}
-LOOK_PRESETS["luna"] = {
-    **LOOK_PRESETS["2000"],
-    "DECORATION": "luna",
-    "WIDGET_STYLE": "luna",
-    "TASKBAR_STYLE": "luna",
-    "START_MENU_STYLE": "luna",
-    "START_LOGO": "xp",
-    "ICONS": "windowsxp",
-    "TITLE_ACTIVE": "#0054E3,#3F97FF",
-    "TITLE_INACTIVE": "#7A96DF,#9DB9EB",
-    "BACKGROUND_COLOR": "#004E98",
-}
-LOOK_PRESETS["aero"] = {
-    **LOOK_PRESETS["2000"],
-    "DECORATION": "aero",
-    "TASKBAR_STYLE": "aero",
-    "START_MENU_STYLE": "aero",
-    "WIDGET_STYLE": "aero",
-    "LOGIN_STYLE": "aero",
-    "BOOT_STYLE": "7",
-    "ICONS": "windows7",
-    "SOUND_THEME": "Windows7",
-    "TITLE_ACTIVE": "#6B9CD3,#B9D1EA",
-    "TITLE_INACTIVE": "#BFCDDB,#DCE6F1",
-    "BANNER_BG": "#1E3F66,#2F5E94@100,#5B8FC8@0",
-    "BANNER_FG": "#FFFFFF",
-    "BACKGROUND_COLOR": "#1D5C9C",
-}
-
 COMPONENT_STYLES = [("Classic", "classic"), ("Windows XP", "luna"), ("Windows 7", "aero")]
 DECORATION_STYLES = COMPONENT_STYLES
 TASKBAR_STYLES = DECORATION_STYLES
@@ -321,11 +247,11 @@ def branding_defaults(settings):
     """Each name, text and logo as the look's Windows had it, before anyone changes it."""
     preset = LOOK_PRESETS.get(settings.get("LOOK"), LOOK_PRESETS["1995"])
     return {
-        "BANNER_TEXT": preset.get("BANNER_TEXT", "Chicago95"),
+        "BANNER_TEXT": preset["BANNER_TEXT"],
         "EDITION": "Professional",
         "TAGLINE": "Built on Linux Technology",
         "COMPANY": "KDE",
-        "START_LOGO": preset.get("START_LOGO", "flag"),
+        "START_LOGO": preset["START_LOGO"],
         "LOGIN_LOGO": "start",
         "COMPANY_LOGO": "text",
         "LOGIN_ICON": "keys",
@@ -619,6 +545,18 @@ XP_CATEGORIES = (
     ("Accessibility Options", "Accessibility Options", ("Accessibility Options", "Fonts")),
     ("Security Center", "Security Center", ("Automatic Updates", "Security Center", "Windows Firewall")),
 )
+XP_CATEGORY_ART = {
+    "Display": "xp-category-appearance.svg",
+    "Network Connections": "xp-category-network.svg",
+    "Add or Remove Programs": "xp-category-programs.svg",
+    "Sounds and Audio Devices": "xp-category-sound.svg",
+    "System": "xp-category-performance.svg",
+    "Printers and Faxes": "xp-category-hardware.svg",
+    "User Accounts": "xp-category-users.svg",
+    "Date and Time": "xp-category-regional.svg",
+    "Accessibility Options": "xp-category-accessibility.svg",
+    "Security Center": "xp-category-security.svg",
+}
 XP_CLASSIC_TOOLBAR_HEIGHT = 23
 XP_LUNA_MENU_HEIGHT = 19
 XP_LUNA_TOOLBAR_HEIGHT = 30
@@ -805,6 +743,14 @@ def read_settings(path):
 def write_settings(path, settings):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text("".join(f"{key}={value}\n" for key, value in settings.items()))
+
+
+def with_look_values(changed, saved):
+    look = changed.get("LOOK")
+    if look not in LOOK_PRESETS:
+        return changed
+    differing = {key: value for key, value in desktop_theme(look, saved).items() if saved.get(key) != value}
+    return {**differing, **changed}
 
 
 def components_for(changed_keys):
@@ -2046,6 +1992,8 @@ class ColorListField(QWidget):
 
 REPO_DIR = Path(__file__).resolve().parent.parent
 CHICAGO95_DATA = Path.home() / ".local/share/chicago95"
+LOOKS_DIR = REPO_DIR / "looks" if (REPO_DIR / "looks").is_dir() else CHICAGO95_DATA / "looks"
+LOOK_PRESETS = {path.stem: read_settings(path) for path in sorted(LOOKS_DIR.glob("*.conf"))}
 PREVIEW_SCRATCH = tempfile.TemporaryDirectory(prefix="chicago95-previews-")
 
 
@@ -3659,10 +3607,7 @@ class PropertiesPage(QWidget):
             if look in LOOK_PRESETS:
                 return self.collect_values()
             return changed
-        if changed.get("LOOK") in ("2001", "luna", "aero"):
-            preset = desktop_theme(changed["LOOK"], self.settings_tabs[0].saved)
-            changed.update({key: preset[key] for key in ("LOGIN_STYLE", "BOOT_STYLE", "SOUND_THEME")})
-        return with_custom_look(changed)
+        return with_custom_look(with_look_values(changed, self.settings_tabs[0].saved))
 
     def refresh_apply_button(self):
         self.apply_button.setEnabled(bool(self.changed_values()))
@@ -4915,43 +4860,25 @@ SOUND_EVENTS = (
 )
 
 
+def resolved_look(look, settings):
+    preset = LOOK_PRESETS.get(look, LOOK_PRESETS["1995"])
+    image, splash = preset["BACKGROUND_IMAGE"], preset["SPLASH_IMAGE"]
+    installed = CHICAGO95_DATA / "wallpapers" / Path(image).name
+    wallpaper = installed if installed.is_file() else repo_of(settings) / image
+    return {
+        **preset,
+        "BACKGROUND_IMAGE": str(wallpaper) if "/" in image else image,
+        "SPLASH_IMAGE": str(splash_of(settings) / "images" / Path(splash).name) if "/" in splash else splash,
+    }
+
+
 def preset_wallpaper(look, settings):
-    names = {"luna": ("Bliss.png", "stretch"), "aero": ("Windows7.jpg", "cover")}
-    if look not in names:
-        return {"BACKGROUND_MODE": "color", "BACKGROUND_IMAGE": "", "BACKGROUND_FILL": "center"}
-    name, placement = names[look]
-    installed = CHICAGO95_DATA / "wallpapers" / name
-    image = installed if installed.is_file() else repo_of(settings) / "data/wallpapers" / name
-    return {"BACKGROUND_MODE": "image", "BACKGROUND_IMAGE": str(image), "BACKGROUND_FILL": placement}
+    resolved = resolved_look(look, settings)
+    return {key: resolved[key] for key in ("BACKGROUND_MODE", "BACKGROUND_IMAGE", "BACKGROUND_FILL")}
 
 
 def desktop_theme(look, settings):
-    login, boot, sound = {
-        "1995": ("classic", "classic", "Chicago95"),
-        "1998": ("classic", "classic", "Windows98"),
-        "2000": ("2000", "2000", "Windows2000"),
-        "2001": ("2000", "luna", "WindowsXP"),
-        "luna": ("luna", "luna", "WindowsXP"),
-        "aero": ("aero", "7", "Windows7"),
-    }[look]
-    return {
-        "LOGIN_STYLE": login,
-        "BOOT_STYLE": boot,
-        "SOUND_THEME": sound,
-        "PANEL": str(preset_panel_height(LOOK_PRESETS[look]["TASKBAR_STYLE"])),
-        "CONTROL_PANEL_STYLE": "auto",
-        "START_LOGO": "flag",
-        "BANNER_TEXT": "Chicago95",
-        **preset_wallpaper(look, settings),
-        "DESKTOP_ICONS": "auto",
-        "SPLASH_IMAGE": str(splash_of(settings) / "images/windows98.png") if look == "1998" else "classic",
-        "QUICK_LAUNCH": "auto",
-        "TASK_GROUPING": "auto",
-        "ANIM_MINIMIZE": "aero" if look == "aero" else "zoom",
-        "ANIM_MAXIMIZE": "aero" if look == "aero" else "zoom",
-        **LOOK_PRESETS[look],
-        "ICONS": "windowsxp" if look == "2001" else LOOK_PRESETS[look]["ICONS"],
-    }
+    return {**resolved_look(look, settings), "PANEL": str(preset_panel_height(LOOK_PRESETS[look]["TASKBAR_STYLE"]))}
 
 
 class DesktopThemePreview(QWidget):
@@ -5738,13 +5665,15 @@ class XPTaskPane(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 15, 12, 10)
         layout.setSpacing(14)
-        self.view_link = self.link("Switch to Category View", self.view_requested.emit)
+        self.view_link = self.link("Switch to Category View", self.view_requested.emit, "win98-control-panel.svg")
         layout.addWidget(self.task_group("Control Panel", [self.view_link], primary=True, luna=luna))
         links = [
-            self.link("Chicago95 Updates", lambda: actions.start_process(
-                "xdg-open", ["https://github.com/gedaiu/chicago95-plasma/releases"]
-            )),
-            self.link("Choose a desktop theme", self.theme_requested.emit),
+            self.link(
+                "Chicago95 Updates",
+                lambda: actions.start_process("xdg-open", ["https://github.com/gedaiu/chicago95-plasma/releases"]),
+                "xp-task-updates.svg",
+            ),
+            self.link("Choose a desktop theme", self.theme_requested.emit, "xp-applet-display.svg"),
         ]
         layout.addWidget(self.task_group("See Also", links, primary=False, luna=luna))
         self.search = QLineEdit()
@@ -5755,9 +5684,12 @@ class XPTaskPane(QWidget):
         layout.addStretch()
 
     @staticmethod
-    def link(text, activate):
+    def link(text, activate, asset):
         item = QPushButton(text)
         item.setCursor(Qt.PointingHandCursor)
+        item.setFocusPolicy(Qt.TabFocus)
+        item.setIcon(QIcon(str(control_panel_asset(asset))))
+        item.setIconSize(QSize(13, 13))
         item.setFixedHeight(19)
         item.clicked.connect(activate)
         return item
@@ -5774,6 +5706,9 @@ class XPTaskPane(QWidget):
         header.setChecked(True)
         header.setFixedHeight(20)
         header.setCursor(Qt.PointingHandCursor)
+        if primary:
+            header.setIcon(QIcon(str(control_panel_asset("xp-task-panel.svg"))))
+            header.setIconSize(QSize(22, 20))
         arrow = QLabel("⌃", header)
         arrow.setObjectName("xpTaskArrow")
         arrow.setAttribute(Qt.WA_TransparentForMouseEvents)
@@ -5792,7 +5727,7 @@ class XPTaskPane(QWidget):
         frame.setStyleSheet(
             f"#xpTaskGroup {{ border: 1px solid {'#ffffff' if luna else '#a4a4a4'}; }}"
             f"#xpTaskHeader {{ border: 0; background: {header_fill}; color: {header_colour};"
-            " font-weight: bold; padding-left: 9px; }"
+            f" font-weight: bold; padding-left: {1 if primary else 9}px; }}"
             f"#xpTaskArrow {{ color: {header_colour}; font-weight: bold; }}"
             f"#xpTaskContent {{ background: {'#e2eaff' if luna else '#ffffff'}; }}"
             f"QPushButton {{ border: 0; background: transparent; color: {'#1648a6' if luna else '#101010'};"
@@ -5800,7 +5735,7 @@ class XPTaskPane(QWidget):
             "QPushButton:hover { text-decoration: underline; }"
         )
         inner = QVBoxLayout(content)
-        inner.setContentsMargins(8, 5, 7, 6)
+        inner.setContentsMargins(9, 5, 7, 6)
         inner.setSpacing(0)
         for item in links:
             inner.addWidget(item)
@@ -5816,6 +5751,40 @@ class XPTaskPane(QWidget):
         painter.fillRect(self.rect(), Qt.white)
         if self.background:
             self.background.render(painter, QRectF(self.rect()))
+
+
+class XPCategoryPage(QWidget):
+    def __init__(self, *, luna):
+        super().__init__()
+        self.background = QColor("#6375d6") if luna else QColor(Qt.white)
+        self.watermark = control_panel_picture("xp-category-watermark.svg") if luna else None
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), self.background)
+        if self.watermark:
+            # The paper and pencil sit at the lower-right of the page.
+            width, height = 227, 244
+            bounds = QRectF(self.width() - width, self.height() - height, width, height)
+            painter.setOpacity(.65)
+            self.watermark.render(painter, bounds)
+
+
+class XPCategoryLink(QLabel):
+    def __init__(self, title, *, luna):
+        super().__init__()
+        self.title = title
+        self.luna = luna
+        self.setObjectName("xpCategoryLink")
+        self.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        self.setWordWrap(True)
+        self.linkHovered.connect(self.show_hover)
+        self.show_hover("")
+
+    def show_hover(self, address):
+        color = "#ffffff" if self.luna else "#000080" if address else "#000000"
+        decoration = "underline" if address else "none"
+        self.setText(f'<a href="category" style="color:{color}; text-decoration:{decoration}">{self.title}</a>')
 
 
 class ControlPanel(QMainWindow):
@@ -6030,7 +5999,7 @@ class ControlPanel(QMainWindow):
         )
         row = QHBoxLayout(self.toolbar)
         # Aero keeps the band compact when the rest of the shell is scaled up.
-        compact = self.devicePixelRatioF() >= 1.5
+        compact = chicago95ui.window_scale(self) >= 1.5
         vertical_padding = 1 if compact else 3
         nav_size = 23 if compact else 27
         row.setContentsMargins(1, vertical_padding, 2, vertical_padding)
@@ -6532,43 +6501,49 @@ class ControlPanel(QMainWindow):
         scroll = QScrollArea()
         scroll.setFrameShape(QFrame.NoFrame)
         scroll.setWidgetResizable(True)
-        page = QWidget()
-        page.setObjectName("xpCategories")
-        text = "#ffffff" if self.xp_luna else "#141414"
-        page.setStyleSheet(
-            f"#xpCategories {{ background: {'#6571cb' if self.xp_luna else '#ffffff'}; }}"
-            f"QLabel {{ color: {text}; }}"
-            "QToolButton { border: 0; background: transparent; }"
-        )
+        page = XPCategoryPage(luna=self.xp_luna)
+        text = "#ffffff" if self.xp_luna else "#000000"
+        page.setStyleSheet("QToolButton { border: 0; background: transparent; padding: 0; }")
+        category_font = page.font()
+        category_font.setFamilies(["Tahoma", "Wine Tahoma", "Liberation Sans", "DejaVu Sans"])
+        category_font.setPixelSize(11 if self.xp_luna else 12)
+        category_font.setBold(self.xp_luna)
+        category_font.setStyleStrategy(QFont.NoAntialias)
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(24, 17, 16, 16)
+        layout.setContentsMargins(18, 19 if self.xp_luna else 17, 16, 16)
         layout.setSpacing(8)
         heading = QLabel("Pick a category")
-        font = heading.font()
+        font = QFont(category_font)
         font.setBold(True)
-        font.setPixelSize(23)
+        font.setPixelSize(27)
+        font.setStretch(99)
+        font.setStyleStrategy(QFont.NoSubpixelAntialias)
         heading.setFont(font)
+        heading.setIndent(6 if self.xp_luna else 5)
+        heading.setStyleSheet(f"color: {'#d6dff7' if self.xp_luna else text}")
         layout.addWidget(heading)
         grid = QGridLayout()
-        grid.setSpacing(4)
+        grid.setHorizontalSpacing(4)
+        grid.setVerticalSpacing(0)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 1)
         for index, (title, primary, members) in enumerate(XP_CATEGORIES):
             card = QHBoxLayout()
-            card.setSpacing(5)
+            card.setSpacing(3)
             glyph = QToolButton()
-            glyph.setIcon(themed_icon(self.applet_by_name[primary].icon_names))
-            glyph.setIconSize(QSize(35, 35))
-            glyph.setFixedSize(38, 47)
+            glyph.setIcon(QIcon(str(control_panel_asset(XP_CATEGORY_ART[primary]))))
+            glyph.setIconSize(QSize(38, 38))
+            glyph.setFixedSize(44, 52)
             glyph.setAccessibleName(title)
             glyph.setCursor(Qt.PointingHandCursor)
             glyph.clicked.connect(lambda _checked=False, names=members: self.open_xp_category(names))
             card.addWidget(glyph)
-            link = QLabel(f'<a href="category" style="color:{text}; text-decoration:none">{title}</a>')
-            link.setTextInteractionFlags(Qt.TextBrowserInteraction)
-            link.setWordWrap(True)
+            link = XPCategoryLink(title, luna=self.xp_luna)
+            link.setFont(category_font)
+            link.setMaximumWidth(137)
             link.linkActivated.connect(lambda _target, names=members: self.open_xp_category(names))
             card.addWidget(link, 1)
+            card.addStretch()
             grid.addLayout(card, index % 5, index // 5)
         layout.addLayout(grid)
         layout.addStretch()
@@ -6615,7 +6590,7 @@ class ControlPanel(QMainWindow):
         self.icon_view.setWrapping(view.wrapping)
         icon_size = view.icon_size
         if self.win95 or self.uses_web_view:
-            icon_size = round(icon_size / self.devicePixelRatioF())
+            icon_size = round(icon_size / chicago95ui.window_scale(self))
         self.icon_view.setIconSize(QSize(icon_size, icon_size))
         self.icon_view.setGridSize(QSize(60, 75) if self.win2000 and name == "Large Icons" else view.grid)
         for row in range(self.icon_view.count()):
@@ -6886,6 +6861,7 @@ def main():
     parser.add_argument("--screenshot", metavar="PNG", help="save a picture of the window and exit")
     arguments = parser.parse_args()
     app = chicago95ui.make_app("Control Panel")
+    app.setDesktopFileName(INSTANCE_NAME)
     # One window: a later launch (Properties on the taskbar) hands its page to the open one, which comes back up.
     if not arguments.screenshot and chicago95ui.send_to_running(INSTANCE_NAME, arguments.page or ""):
         return 0

@@ -175,6 +175,9 @@ def test_gtk_three_and_four_share_the_widget_rules():
             .replace(generator.scale_backend_rules(version), "")
             .replace(generator.input_backend_rules(version), "")
             .replace(generator.libadwaita_block(), "")
+            .removesuffix(generator.titlebar_block(
+                "title-active", "title-inactive", generator.INACTIVE_CAPTION, gtk3=version == "3.0"
+            ))
         )
 
     assert shared("3.0") == shared("4.0")

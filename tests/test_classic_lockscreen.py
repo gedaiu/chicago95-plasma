@@ -215,7 +215,7 @@ def test_setup_installs_the_classic_screen_inside_the_lockscreen_package(tmp_pat
 def test_setup_writes_the_look_and_desktop_colour_into_the_lock_screen_settings(tmp_path):
     run_bash_with_steps(
         tmp_path,
-        "SETUP_DRY_RUN=0 SETUP_START_MENU_STYLE=2000 SETUP_BACKGROUND_COLOR=#3A6EA5; "
+        "SETUP_DRY_RUN=0 SETUP_LOGIN_STYLE=2000 SETUP_START_MENU_STYLE=2000 SETUP_BACKGROUND_COLOR=#3A6EA5; "
         f"write_lockscreen_settings {tmp_path}",
     )
     assert (

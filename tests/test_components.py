@@ -39,19 +39,6 @@ def flat_menu_styles(control_panel):
     return {preset["START_MENU_STYLE"] for preset in control_panel.LOOK_PRESETS.values()} & FLAT_MENU_STYLES
 
 
-def applied_components(tmp_path, look):
-    variables = " ".join(f'"${{SETUP_{key}}}"' for key in COMPONENT_KEYS)
-    line = run_bash_with_steps(tmp_path, f"apply_look {look}; echo {variables}")[0]
-    return dict(zip(COMPONENT_KEYS, line.split(), strict=True))
-
-
-@pytest.mark.parametrize("look", ["1995", "1998", "2000", "2001", "luna", "aero"])
-def test_apply_look_sets_the_components_the_preset_lists_for_that_look(control_panel, tmp_path, look):
-    preset = control_panel.LOOK_PRESETS[look]
-
-    assert applied_components(tmp_path, look) == {key: preset[key] for key in COMPONENT_KEYS}
-
-
 def test_every_look_preset_lists_every_component(control_panel):
     assert {look: sorted(set(COMPONENT_KEYS) - set(preset)) for look, preset in control_panel.LOOK_PRESETS.items()} == {
         look: [] for look in control_panel.LOOK_PRESETS

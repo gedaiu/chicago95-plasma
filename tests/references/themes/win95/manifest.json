@@ -12,6 +12,7 @@
   },
   "boot_step": 0,
   "caption_scale": 1.25,
+  "caption_cluster_scale": 1,
   "aliases": {
     "win95login.png": "sign-in.png",
     "win95-osr2-run.png": "run.png",

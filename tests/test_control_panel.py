@@ -150,18 +150,6 @@ def test_tasks_launchers_are_unknown_when_the_applet_never_saved_any(control_pan
     assert control_panel.read_launchers(appletsrc) is None
 
 
-@pytest.mark.parametrize("look", ["1995", "1998", "2000", "luna", "aero"])
-def test_look_presets_match_what_setup_applies_for_that_look(control_panel, tmp_path, look):
-    applied = run_bash_with_steps(
-        tmp_path,
-        f'apply_look {look}; echo "$SETUP_TITLE_ACTIVE|$SETUP_TITLE_INACTIVE|'
-        '$SETUP_BANNER_BG|$SETUP_BANNER_FG|$SETUP_ICONS"',
-    )[0].split("|")
-    preset = control_panel.LOOK_PRESETS[look]
-
-    assert [preset[key] for key in ("TITLE_ACTIVE", "TITLE_INACTIVE", "BANNER_BG", "BANNER_FG", "ICONS")] == applied
-
-
 @pytest.mark.parametrize("look, logo", [("1995", "flag"), ("2001", "xp"), ("luna", "xp")])
 def test_look_start_logo_is_the_same_in_setup_and_the_control_panel(control_panel, tmp_path, look, logo):
     applied = run_bash_with_steps(tmp_path, f'SETUP_START_LOGO=flag; apply_look {look}; echo "$SETUP_START_LOGO"')[0]

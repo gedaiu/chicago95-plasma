@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs>
+    <linearGradient id="case" x2="0" y2="1">
+      <stop stop-color="#fffcf0"/><stop offset=".52" stop-color="#d7d4cb"/><stop offset="1" stop-color="#868784"/>
+    </linearGradient>
+    <linearGradient id="paper" x2="1" y2="1">
+      <stop stop-color="#e1ecfc"/><stop offset="1" stop-color="#fafbff"/>
+    </linearGradient>
+    <radialGradient id="mouse" cx=".37" cy=".24" r=".83">
+      <stop stop-color="#fffffc"/><stop offset=".64" stop-color="#e6e3d9"/><stop offset="1" stop-color="#888986"/>
+    </radialGradient>
+  </defs>
+  <path d="M34 9c2-5-7-1-9-4-3-4 4-4 6-1 3 4 9 3 12 2" fill="none" stroke="#7e7b73" stroke-width="1.3"/>
+  <path d="M30 10c8-2 15 6 16 16 1 8-8 11-14 6-7-6-9-19-2-22z"
+        fill="url(#mouse)" stroke="#86847e" stroke-width=".9"/>
+  <path d="M27 16c5 2 11 1 14-2M32 10l5 7" fill="none" stroke="#929088"/>
+  <path d="m2 28 18-6 12 9-1 9-17 6-12-8z" fill="url(#case)" stroke="#767977"/>
+  <path d="m2 28 12 7 18-4M14 35v11" fill="none" stroke="#92938d"/>
+  <path d="M8 27 5 14l14-4 7 15z" fill="#b0b5ca" stroke="#777b8d"/>
+  <path d="M8 13 23 9l6 16-16 5z" fill="url(#paper)" stroke="#929cb2"/>
+  <path d="m8 30 13-4 7 4-13 4z" fill="#686d6c"/>
+  <path d="m5 35 6 3 2 4-7-3z" fill="#e6e5df" stroke="#92948e" stroke-width=".6"/>
+  <path d="m18 38 9-3v2l-9 3z" fill="#f5f2e6"/>
+</svg>

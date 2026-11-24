@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs>
+    <linearGradient id="rim" x2="1" y2="1">
+      <stop stop-color="#fffde2"/><stop offset=".45" stop-color="#b8b39c"/><stop offset="1" stop-color="#484546"/>
+    </linearGradient>
+    <radialGradient id="cone" cx=".34" cy=".44" r=".65">
+      <stop stop-color="#fdfbe9"/><stop offset=".5" stop-color="#b2a586"/><stop offset="1" stop-color="#554e43"/>
+    </radialGradient>
+    <linearGradient id="note" x1="0" y1="0" x2=".8" y2="1">
+      <stop stop-color="#b1a0ec"/><stop offset=".45" stop-color="#6965ba"/><stop offset="1" stop-color="#38357a"/>
+    </linearGradient>
+  </defs>
+  <path d="M20 31c1-8 5-13 16-16 6-2 10 3 10 9 1 10-5 18-13 18-8 0-14-5-13-11z"
+        fill="#56565b" stroke="#262a35"/>
+  <ellipse cx="34" cy="28.5" rx="10" ry="12.5" fill="url(#rim)" stroke="#4d4d5d"/>
+  <ellipse cx="34" cy="28.5" rx="7" ry="9.8" fill="url(#cone)" stroke="#6e6354"/>
+  <ellipse cx="34" cy="27.5" rx="3.2" ry="4.3" fill="#69635b"/>
+  <path d="M11 10V4c8 2 16 7 17 15-2-2-5-4-11-6l3 21c1 4-1 9-6 12-5 3-11 1-12-3-2-5 5-10 12-9z"
+        fill="url(#note)" stroke="#43457e"/>
+  <path d="m11 7 3 1 5 26-3 2z" fill="#d5c8f0" opacity=".68"/>
+  <ellipse cx="9" cy="40" rx="5" ry="3.2" fill="#bfb2ee" opacity=".55"/>
+</svg>

@@ -157,6 +157,25 @@ def test_run_can_open_history_while_search_suggestions_are_visible(run, qt_app, 
         dialog.close()
 
 
+@pytest.mark.parametrize("style", ("1995", "1998", "2000", "2001", "luna", "aero"))
+def test_run_history_mouse_hover_keeps_the_field_until_click(run, qt_app, style):
+    dialog = run.RunDialog({"style": style}, [], [], history=["calc", "notepad"])
+    try:
+        dialog.show()
+        QTest.keyClick(dialog.field.lineEdit(), Qt.Key_Down, Qt.AltModifier)
+        view = dialog.field.view()
+        target = view.visualRect(dialog.field.model().index(1, 0)).center()
+        QTest.mouseMove(view.viewport(), target)
+        assert dialog.field.currentText() == "calc"
+        QTest.mouseClick(view.viewport(), Qt.LeftButton, pos=target)
+        qt_app.processEvents()
+        assert dialog.field.currentText() == "notepad"
+        assert dialog.buttons["OK"].isEnabled()
+        assert dialog.isVisible()
+    finally:
+        dialog.close()
+
+
 @pytest.mark.parametrize(("style", "width"), (("1998", 293), ("2000", 256), ("2001", 256), ("luna", 256)))
 @pytest.mark.parametrize("initial_ratio", (1.0, 2.0))
 def test_run_uses_the_wayland_output_scale_before_its_first_frame(run, qt_app, monkeypatch, style, width, initial_ratio):

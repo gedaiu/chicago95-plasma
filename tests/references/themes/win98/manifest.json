@@ -11,6 +11,7 @@
   },
   "boot_step": 18,
   "caption_scale": 1.25,
+  "caption_cluster_scale": 1.25,
   "aliases": {
     "win98login.png": "sign-in.png",
     "win98-se-run.png": "run.png",

@@ -47,6 +47,11 @@ def close_windows_left_open():
 
 def run_bash_with_steps(tmp_path, script):
     """The output lines of a script that has setup/steps.sh's functions, in a home of its own."""
+    return run_bash_with_steps_result(tmp_path, script).stdout.splitlines()
+
+
+def run_bash_with_steps_result(tmp_path, script):
+    """The finished process of a script that has setup/steps.sh's functions, in a home of its own."""
     return subprocess.run(
         ["bash", "-c", f"REPO={REPO}; source {REPO}/setup/steps.sh; {script}"],
         capture_output=True,
@@ -55,7 +60,7 @@ def run_bash_with_steps(tmp_path, script):
         env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path)},
         cwd=tmp_path,  # a relative path in the script lands in the test's home, never in the checkout
         check=False,
-    ).stdout.splitlines()
+    )
 
 
 def load_script(name):

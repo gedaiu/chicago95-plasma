@@ -17,7 +17,7 @@ AUDIT = "--consistency" in sys.argv[4:]
 CAPTION_CROPS = "--caption-crops" in sys.argv[4:]
 COMPOSITOR_CAPTIONS = "--compositor-captions" in sys.argv[4:]
 COMPOSITOR_RADIOS = "--compositor-radios" in sys.argv[4:]
-CAPTION_MARKER_COLOUR = "#e10ccf"
+CAPTION_MARKER_RGB = (225, 12, 207)
 gi.require_version("Gtk", VERSION)
 from gi.repository import GLib, Gtk  # noqa: E402
 
@@ -47,6 +47,20 @@ def add(box, widget):
         box.append(widget)
     else:
         box.pack_start(widget, False, False, 0)
+
+
+def caption_marker(position):
+    red, green, blue = CAPTION_MARKER_RGB
+    return red, green, (blue + position) % 256
+
+
+def frame_has_caption_marker(path, marker):
+    import numpy as np
+    from PIL import Image
+
+    with Image.open(path) as image:
+        pixels = np.asarray(image.convert("RGB"))
+    return np.any(np.all(pixels == marker, axis=-1))
 
 
 def radio_capture_layout(radio):
@@ -500,7 +514,8 @@ def gtk_caption_regions(header, root, label, scale, origin):
                 width -= margin.left + margin.right
                 height -= margin.top + margin.bottom
             if AERO_CAPTION_CROPS:
-                image_width, image_height = (CELL_WIDTHS if V4 else palette.BUTTON_WIDTHS)[kind], FACE_HEIGHT
+                face_kind = "restore" if V4 and label == "caption restore" and kind == "maximize" else kind
+                image_width, image_height = (CELL_WIDTHS if V4 else palette.BUTTON_WIDTHS)[face_kind], FACE_HEIGHT
             elif LUNA_CAPTION_CROPS:
                 image_width = image_height = LUNA_CAPTION_PIXELS_120 / scale if V4 and scale == 1.25 else LUNA_CAPTION_SIZE
             else:
@@ -508,6 +523,8 @@ def gtk_caption_regions(header, root, label, scale, origin):
                 image_height = CAPTION_H_120 / scale if scale == 1.25 else CAPTION_H
             top_left = V4 and CLASSIC_CAPTION_CROPS and scale == 1.25
             left = (x if top_left else x + (width - image_width) / 2) * scale
+            if V4 and AERO_CAPTION_CROPS and label == "caption restore" and kind == "maximize":
+                left = (x + width) * scale - image_width * scale
             if top_left and kind == "close":
                 # The CSS offset snaps the opaque face to the output grid.
                 # GTK's reported allocation still includes the fractional margin.
@@ -585,16 +602,20 @@ def main():
             box.remove(children[0])
         if COMPOSITOR_CAPTIONS:
             # A solid marker ties the widget crop coordinates to the on-screen
-            # frame without relying on the window manager's shadow geometry.
+            # frame. Each state has its own color so a delayed capture cannot
+            # mistake the previous window for the current one.
             box.set_size_request(360, 140)
             box.get_style_context().add_class("capture-marker")
             provider = Gtk.CssProvider()
-            provider.load_from_data(f".capture-marker {{ background-color: {CAPTION_MARKER_COLOUR}; }}".encode())
+            colour = "#{:02x}{:02x}{:02x}".format(*caption_marker(position))
+            provider.load_from_data(f".capture-marker {{ background-color: {colour}; }}".encode())
             box.get_style_context().add_provider(provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
         # A real window, never Gtk.OffscreenWindow: only a real one follows the screen's scale.
         window = Gtk.Window()
         if CAPTION_CROPS and label == "caption restore":
             window.get_style_context().add_class("maximized")
+            if V4 and AERO_CAPTION_CROPS:
+                window.maximize()
         if native_caption:
             window.set_titlebar(children[0])
         elif not V4:
@@ -751,6 +772,12 @@ def main():
         if native_caption:
             header = children[0]
             state, flag, target = header._caption_state
+            if V4 and AERO_CAPTION_CROPS and state == "restore" and not window.is_maximized():
+                capture_attempts += 1
+                if capture_attempts <= 10:
+                    return True
+                loop.quit()
+                raise RuntimeError("The GTK window did not maximize before its Restore capture")
             assert header._caption_buttons == native_caption_controls(header), label
             if state == "disabled":
                 for kind in ("maximize", "close"):
@@ -823,8 +850,15 @@ def main():
                 except (OSError, subprocess.SubprocessError):
                     loop.quit()
                     raise
+                marker = caption_marker(position)
+                if not frame_has_caption_marker(screen, marker):
+                    capture_attempts += 1
+                    if capture_attempts <= 10:
+                        return True
+                    loop.quit()
+                    raise RuntimeError(f"The compositor did not present the GTK window for {label}")
                 caption_crops[label]["compositor"] = screen.name
-                caption_crops[label]["marker"] = CAPTION_MARKER_COLOUR
+                caption_crops[label]["marker"] = "#{:02x}{:02x}{:02x}".format(*marker)
         manifest.append([group, label, path.name])
         window.destroy()
         position += 1

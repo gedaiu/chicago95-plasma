@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs>
+    <linearGradient id="edge" x1="0" y1="0" x2=".35" y2="1">
+      <stop stop-color="#a39fe4"/><stop offset="1" stop-color="#423b9c"/>
+    </linearGradient>
+    <radialGradient id="chart" cx=".36" cy=".3" r=".78">
+      <stop stop-color="#f2f7ff"/><stop offset=".65" stop-color="#c5c7ff"/><stop offset="1" stop-color="#8b8ae3"/>
+    </radialGradient>
+    <linearGradient id="slice" x1=".08" y1=".1" x2=".86" y2=".9">
+      <stop stop-color="#2ea3ee"/><stop offset=".56" stop-color="#5285df"/><stop offset="1" stop-color="#104a99"/>
+    </linearGradient>
+  </defs>
+  <path d="M6 22v5c0 10 9 18 20 18S46 37 46 27v-5z" fill="url(#edge)" stroke="#4b4596"/>
+  <path d="M6 22h20l3-17c10 1 17 9 17 17 0 10-9 19-20 19S6 32 6 22Z"
+        fill="url(#chart)" stroke="#7775b6"/>
+  <path d="M3 20v3h20l4-18-1-3z" fill="#1964ab" stroke="#24478b"/>
+  <path d="M3 20C3 10 12 2 26 2l-4 18z" fill="url(#slice)" stroke="#24508f"/>
+  <path d="M7 17c3-7 9-11 16-12" fill="none" stroke="#86cefc" stroke-opacity=".7"/>
+</svg>

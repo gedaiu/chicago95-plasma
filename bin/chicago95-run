@@ -19,10 +19,9 @@ from pathlib import Path
 
 import chicago95ui  # noqa: E401,E702
 from chicago95aerobutton import AeroDialogButton, aero_button_artwork
-from PySide6.QtCore import QEvent, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPalette
+from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPalette, QPixmap
 from PySide6.QtWidgets import (
-    QApplication,
     QComboBox,
     QDialog,
     QFileDialog,
@@ -31,7 +30,9 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QScrollBar,
     QStyle,
+    QStyleOptionSlider,
     QWidget,
 )
 
@@ -236,10 +237,43 @@ class RunHistoryField(QComboBox):
         super().showPopup()
 
 
+class RunHistoryScrollBar(QScrollBar):
+    def paintEvent(self, event):  # noqa: N802
+        super().paintEvent(event)
+        if self.maximum() > self.minimum():
+            return
+        option = QStyleOptionSlider()
+        self.initStyleOption(option)
+        style = self.style()
+        top = style.subControlRect(QStyle.CC_ScrollBar, option, QStyle.SC_ScrollBarSubLine, self).bottom() + 1
+        bottom = style.subControlRect(QStyle.CC_ScrollBar, option, QStyle.SC_ScrollBarAddLine, self).top()
+        if bottom <= top:
+            return
+        track = QRectF(0, top, self.width(), bottom - top)
+        origin = self.mapTo(self.window(), QPoint(0, top))
+        painter = QPainter(self)
+        transform = painter.deviceTransform()
+        scale = transform.m11()
+        # Anchor the Windows 9x checkerboard to the frame's physical pixels.
+        parity = (floor(origin.x() * scale + 0.5) + floor(origin.y() * scale + 0.5)) % 2
+        tile = QPixmap(2, 2)
+        tile.fill(option.palette.button().color())
+        with QPainter(tile) as stipple:
+            stipple.fillRect(1 - parity, 0, 1, 1, Qt.white)
+            stipple.fillRect(parity, 1, 1, 1, Qt.white)
+        tile.setDevicePixelRatio(scale)
+        physical = transform.mapRect(track)
+        inverse, _ = transform.inverted()
+        painter.drawTiledPixmap(inverse.mapRect(QRectF(physical.toRect())), tile)
+        painter.end()
+
+
 class RunHistoryRows(chicago95ui.ListRowDelegate):
     def __init__(self, view, style, scale):
         super().__init__(view)
-        self.legacy_9x = style in ("1995", "1998")
+        self.label_offset = (3, 1) if style in ("1995", "1998") else (0, 0)
+        if style == "1998" and scale == 1.25:
+            self.label_offset = (3, 0)
         self.scale = scale
 
     def sizeHint(self, option, index):  # noqa: N802
@@ -270,7 +304,7 @@ class RunHistoryRows(chicago95ui.ListRowDelegate):
         painter.fillRect(inverse.mapRect(face), palette.highlight() if selected else palette.base())
         painter.setFont(option.font)
         painter.setPen(palette.highlightedText().color() if selected else palette.text().color())
-        inset, drop = (3, 1) if self.legacy_9x else (0, 0)
+        inset, drop = self.label_offset
         label = face.adjusted(inset, drop, -inset, drop)
         painter.drawText(inverse.mapRect(label), Qt.AlignLeading | Qt.AlignVCenter, index.data())
         painter.restore()
@@ -285,12 +319,7 @@ class RunBehaviour:
         self.layout = LAYOUTS[layout_key(look)]
         self.style = prompt_key(look)
         super().__init__("Run", self.style, self.layout.body, help_button=True)
-        self.layout_scale = self.devicePixelRatioF()
-        if QApplication.platformName().startswith("wayland"):
-            # Before showing, Qt can report either 1 or a rounded output scale.
-            output_scale = chicago95ui.screen_scale()
-            if output_scale != 1:
-                self.layout_scale = output_scale
+        self.layout_scale = chicago95ui.window_scale(self)
         self.button_size = (82, 28) if self.style == "aero" else chicago95ui.DIALOG_BUTTON_SIZE
         self.win98_hidpi = self.style == "1998" and self.layout_scale == 1.25
         if self.win98_hidpi:
@@ -359,12 +388,14 @@ class RunBehaviour:
         if self.style != "aero":
             self.field.setMaxVisibleItems(9 if self.style in ("1995", "1998") else HISTORY_LENGTH)
             view = self.field.view()
+            if self.style in ("1995", "1998"):
+                view.setVerticalScrollBar(RunHistoryScrollBar(Qt.Vertical, view))
             view.setItemDelegate(RunHistoryRows(view, self.style, scale))
             if self.win98_hidpi or self.style == "luna":
                 font = view.font()
                 font.setFamilies(["Tahoma", "Liberation Sans", "Selawik", "Noto Sans"])
                 font.setPixelSize(11)
-                font.setStyleStrategy(QFont.NoSubpixelAntialias)
+                font.setStyleStrategy(QFont.NoAntialias if self.win98_hidpi else QFont.NoSubpixelAntialias)
                 view.setFont(font)
             view.setTextElideMode(Qt.ElideNone)
             view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)

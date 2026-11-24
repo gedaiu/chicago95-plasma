@@ -12,6 +12,7 @@
   },
   "boot_step": 9,
   "caption_scale": 1.25,
+  "caption_cluster_scale": 1.25,
   "aliases": {
     "xp-sp3-classic-run.png": "run.png",
     "xp-sp3-classic-taskbar-band.png": "taskbar-band.png",
@@ -44,6 +45,18 @@
     "printers-and-faxes": [480, 371, 516, 408]
   },
   "control_panel_category": true,
+  "control_panel_category_icons": {
+    "appearance-and-themes": [285, 166, 341, 219],
+    "network-and-internet": [285, 231, 341, 284],
+    "add-or-remove-programs": [285, 296, 341, 349],
+    "sounds-speech-and-audio": [285, 361, 341, 414],
+    "performance-and-maintenance": [285, 426, 341, 479],
+    "printers-and-other-hardware": [532, 166, 588, 219],
+    "user-accounts": [532, 231, 588, 284],
+    "date-time-and-region": [532, 296, 588, 349],
+    "accessibility-options": [532, 361, 588, 414],
+    "security-center": [532, 426, 588, 479]
+  },
   "control_panel_end": "Wireless Network Setup Wizard",
   "properties_rgb565": true,
   "display_page": "Settings",

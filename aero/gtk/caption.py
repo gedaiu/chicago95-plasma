@@ -9,8 +9,8 @@ from make_aero_aurorae import AURORAE_STATES, BUTTON_FACES, button_state, palett
 
 CELL_WIDTHS = {
     **palette.BUTTON_WIDTHS,
-    "minimize": palette.BUTTON_WIDTHS["minimize"] - 1,
     "maximize": palette.BUTTON_WIDTHS["maximize"] - 1,
+    "restore": 40 / 1.5,
 }
 FACE_HEIGHT = palette.BUTTON_HEIGHT
 GTK4_CAPTION_TOP = 4
@@ -29,9 +29,8 @@ def write_face(directory, kind, state, width, artwork, large_artwork=None):
 
 def write_caption_faces(directory, gtk4=False):
     directory.mkdir(parents=True, exist_ok=True)
-    widths = CELL_WIDTHS if gtk4 else palette.BUTTON_WIDTHS
     for kind in BUTTON_FACES:
-        width = widths["maximize" if kind == "restore" else kind]
+        width = CELL_WIDTHS[kind] if gtk4 else palette.BUTTON_WIDTHS["maximize" if kind == "restore" else kind]
         for state, (window, look) in AURORAE_STATES.items():
             defs, shapes = button_state(kind, window, look, "face", cell_width=width)
             # GTK 3's wider Maximize cell uses the existing fractional-scale
@@ -93,6 +92,7 @@ headerbar windowcontrols button > image, headerbar button.titlebutton > image {
     if gtk4:
         rules.append(f"""
 headerbar windowcontrols {{ border-spacing: 0; }}
+headerbar windowcontrols button > image {{ min-width: 0; min-height: 0; -gtk-icon-size: 1px; }}
 headerbar windowcontrols button, headerbar windowcontrols button:disabled {{
   background-position: center {GTK4_CAPTION_TOP}px;
 }}
@@ -132,13 +132,20 @@ window.maximized:not(.nautilus-window) headerbar button.titlebutton {{
   background-position: center {MAXIMIZED_CAPTION_TOP:.6f}px;
 }}
 """)
+    if gtk4:
+        rules.append(f"""
+window.maximized:not(.nautilus-window) headerbar windowcontrols button.maximize,
+window.maximized:not(.nautilus-window) headerbar button.titlebutton.maximize {{
+  background-position: right {MAXIMIZED_CAPTION_TOP:.6f}px;
+}}
+""")
     for kind in BUTTON_FACES:
         button = "maximize" if kind == "restore" else kind
         prefix = "window.maximized " if kind == "restore" else ""
         selectors = [
             prefix + "headerbar " + part + "." + button for part in ("windowcontrols button", "button.titlebutton")
         ]
-        width = CELL_WIDTHS[button] if gtk4 else palette.BUTTON_WIDTHS[button]
+        width = CELL_WIDTHS[kind] if gtk4 else palette.BUTTON_WIDTHS[button]
         for state, (window, look) in AURORAE_STATES.items():
             suffix = (":backdrop" if window == "inactive" else "") + {
                 "normal": "",

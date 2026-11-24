@@ -579,16 +579,16 @@ def test_boxes_guest_titlebar_uses_vector_faces_and_fades(aero_gtk_home, tmp_pat
         assert min(native) - 25 <= duration <= max(native) + 25, (duration, native)
 
 
-@pytest.mark.parametrize(("subdirectory", "widths"), [("gtk3", (30, 27, 50)), ("", (29, 26, 50))])
+@pytest.mark.parametrize(("subdirectory", "widths"), [("gtk3", (30, 27, 50, 27)), ("", (30, 26, 50, 40 / 1.5))])
 def test_caption_svg_is_rasterized_at_the_button_size(aero_gtk_home, subdirectory, widths):
     import xml.etree.ElementTree as ET
 
     assets = aero_gtk_home / ".local/share/chicago95/gtk4-caption" / subdirectory
-    for kind, width in zip(("minimize", "maximize", "close", "restore"), (*widths, widths[1]), strict=True):
+    for kind, width in zip(("minimize", "maximize", "close", "restore"), widths, strict=True):
         for density, suffix in ((1, ""), (2, "@2x")):
             svg = ET.parse(assets / f"{kind}-active{suffix}.svg").getroot()
-            assert svg.get("viewBox") == f"0 0 {width} 20"
-            assert int(svg.get("width")) == density * width
+            assert [float(value) for value in svg.get("viewBox").split()] == [0, 0, width, 20]
+            assert float(svg.get("width")) == density * width
             assert int(svg.get("height")) == density * 20
 
 

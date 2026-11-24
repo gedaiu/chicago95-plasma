@@ -1396,6 +1396,10 @@ headerbar windowcontrols {
   margin: 0;
 }
 
+headerbar windowcontrols {
+  border-spacing: 2px;
+}
+
 headerbar button.titlebutton.minimize, headerbar windowcontrols button.minimize {
   min-width: 21px;
   min-height: 21px;
@@ -1408,6 +1412,10 @@ headerbar button.titlebutton.minimize, headerbar windowcontrols button.minimize 
   background-position: center;
   background-size: 21px 21px;
   box-shadow: none;
+}
+
+headerbar windowcontrols button.minimize {
+  margin: 0;
 }
 
 headerbar button.titlebutton.minimize image, headerbar windowcontrols button.minimize image {
@@ -1476,6 +1484,10 @@ headerbar button.titlebutton.maximize, headerbar windowcontrols button.maximize 
   box-shadow: none;
 }
 
+headerbar windowcontrols button.maximize {
+  margin: 0;
+}
+
 headerbar button.titlebutton.maximize image, headerbar windowcontrols button.maximize image {
   opacity: 0;
 }
@@ -1542,6 +1554,10 @@ headerbar button.titlebutton.close, headerbar windowcontrols button.close {
   box-shadow: none;
 }
 
+headerbar windowcontrols button.close {
+  margin: 0;
+}
+
 headerbar button.titlebutton.close image, headerbar windowcontrols button.close image {
   opacity: 0;
 }
@@ -1606,6 +1622,10 @@ window.maximized headerbar button.titlebutton.maximize, window.maximized headerb
   background-position: center;
   background-size: 21px 21px;
   box-shadow: none;
+}
+
+window.maximized headerbar windowcontrols button.maximize {
+  margin: 0;
 }
 
 window.maximized headerbar button.titlebutton.maximize image, window.maximized headerbar windowcontrols button.maximize image {

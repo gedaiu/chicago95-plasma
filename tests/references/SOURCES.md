@@ -563,6 +563,18 @@ window. Its style includes `WS_MINIMIZEBOX`, and leaves out
 `WS_MAXIMIZEBOX`. Its system menu greys `SC_CLOSE` via `EnableMenuItem`.
 All PNGs preserve the unscaled guest pixels from their selected areas.
 
+The four Classic themes also have a `caption/cluster.png` crop of the restored
+Notepad title bar with its inter-button gaps intact. These are direct libvirt
+framebuffer captures. The 96-DPI Windows 95 OSR2 crop is `(463, 50, 520, 64)`.
+The 120-DPI crops are `(432, 33, 504, 52)` for Windows 98 SE,
+`(1019, 141, 1090, 159)` for Windows 2000 Professional and
+`(1046, 168, 1117, 186)` for XP SP3 Classic. The left bevel highlights start
+16 and 18 pixels apart at 96 DPI, and 21 and 23 pixels apart at 120 DPI.
+
+The Luna cluster is the restored XP SP3 Notepad frame from the same capture
+procedure. The 120-DPI crop at `(1026, 216, 1119, 243)` preserves the original
+29-pixel pitch from Minimize to Maximize and from Maximize to Close.
+
 The theme manifests map several earlier fixture basenames to the canonical
 `run.png` and `taskbar-band.png` files. The alias retains the capture provenance
 listed above. The Windows 7 folder adds two native-sized crops. The 144-DPI
@@ -733,6 +745,14 @@ The `control_panel_icons` rectangles select the Date and Time, Display,
 Mouse, Power Options, and Printers and Faxes icons in each guest's existing
 Classic View client. Tests compare the same 36×37 physical-pixel rectangles
 in the live Qt render, including each icon's position and white backdrop.
+
+The `control_panel_category_icons` rectangles cover all ten tiles in the existing
+XP Category View captures. Both XP themes also have a `category-link-hover.png`
+with three 100×30 crops of the Appearance and Themes link at idle, hovered, and
+after the pointer left. They were recorded on the same guests at 120 DPI in
+RGB565. The XP Classic crop starts at (591, 399). The XP Luna crop starts at
+(591, 463). Both exclude the cursor. XP Classic changes the link to navy and
+underlines it. Luna leaves the ink white and adds the underline.
 
 `themes/win7/display-properties/resolution-picker.png` stacks three unscaled
 202×312 crops at (227, 287) from Windows 7 SP1 Basic at 800×600 and 96 DPI.

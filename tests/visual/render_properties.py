@@ -13,7 +13,7 @@ from PIL import Image  # noqa: E402
 from PySide6.QtCore import QElapsedTimer, QPoint, QRect, QSize, Qt  # noqa: E402
 from PySide6.QtGui import QIcon  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
-from PySide6.QtWidgets import QFrame, QPushButton, QTabWidget, QToolButton  # noqa: E402
+from PySide6.QtWidgets import QFrame, QLabel, QPushButton, QTabWidget, QToolButton  # noqa: E402
 from reference import installed_look, qimage_to_pil  # noqa: E402
 from showcase import themed  # noqa: E402
 
@@ -114,6 +114,26 @@ def capture_category_press(window, output):
     QTest.mouseMove(window.windowHandle(), inside)
     QTest.mouseRelease(window.windowHandle(), Qt.LeftButton, pos=inside)
     assert window.address_bar.crumbs()[-1] == heading.text()
+    strip.save(output)
+
+
+def capture_xp_category_link(window, output):
+    heading = window.xp_category_view.findChild(QLabel, "xpCategoryLink")
+    assert heading is not None
+    center = heading.height() // 2
+    sample = QRect(heading.mapTo(window, QPoint(42, center - 12)), QSize(80, 24))
+    outside = window.toolbar.mapTo(window, window.toolbar.rect().center())
+    inside = heading.mapTo(window, QPoint(12, center))
+    strip = Image.new("RGB", (300, 30))
+    for index, position in enumerate((outside, inside, outside)):
+        QTest.mouseMove(window.windowHandle(), position)
+        frame = qimage_to_pil(window.grab(sample).toImage())
+        assert frame.size == (100, 30)
+        strip.paste(frame, (index * 100, 0))
+    QTest.mouseMove(window.windowHandle(), inside)
+    QTest.mouseClick(window.windowHandle(), Qt.LeftButton, pos=inside)
+    assert window.xp_views.currentWidget() is window.icon_view
+    assert window.xp_group is not None
     strip.save(output)
 
 
@@ -364,7 +384,10 @@ def render(manifest, component, output, width, height, scale_override=None):
             if component == "control-panel-category-press":
                 capture_category_press(window, output)
                 return
-            if component in ("control-panel", "control-panel-end", "control-panel-selection", "control-panel-category"):
+            if component in (
+                "control-panel", "control-panel-end", "control-panel-selection",
+                "control-panel-category", "control-panel-category-link",
+            ):
                 window.resize(round(int(width) / scale), round(int(height) / scale))
                 window.show()
                 target = window
@@ -377,10 +400,14 @@ def render(manifest, component, output, width, height, scale_override=None):
                     current = window.icon_view.currentItem()
                     actual = current.data(Qt.UserRole).name if current else None
                     assert actual == wanted, f"End selected {actual!r}, expected {wanted!r}"
-                elif component == "control-panel-category":
+                elif component in ("control-panel-category", "control-panel-category-link"):
                     app.processEvents()
                     QTest.mouseClick(window.sidebar.view_link, Qt.LeftButton)
                     assert window.xp_views.currentWidget() is window.xp_category_view
+                    if component == "control-panel-category-link":
+                        app.processEvents()
+                        capture_xp_category_link(window, output)
+                        return
                 elif component == "control-panel-selection":
                     app.processEvents()
                     selection = metadata["control_panel_selection"]

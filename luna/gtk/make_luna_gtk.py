@@ -671,8 +671,10 @@ def caption_url(asset):
     return 'url("' + (asset.as_uri() if asset.is_absolute() else asset.as_posix()) + '")'
 
 
-def caption_controls(assets, *, gtk3_hidpi=False, caption_size=aurorae.BUTTON):
-    size = f"{caption_size:g}px"
+def caption_controls(assets, *, gtk3=False, dpi=96):
+    high_dpi = dpi == aurorae.LARGE_CAPTION_DPI
+    size = aurorae.LARGE_CAPTION * 96 / dpi if high_dpi and not gtk3 else aurorae.BUTTON
+    size = f"{size:g}px"
     rules = [
         block("headerbar", min_height="26px", padding="2px 4px"),
         block(
@@ -692,6 +694,21 @@ def caption_controls(assets, *, gtk3_hidpi=False, caption_size=aurorae.BUTTON):
         block("headerbar button:active", background_image=vertical("button-pressed"), box_shadow="none"),
         block("headerbar windowcontrols", padding="0", margin="0"),
     ]
+    if gtk3:
+        # GtkHeaderBar adds six pixels between controls. Keep Luna's
+        # two-pixel gap after accounting for the preceding right margin.
+        adjacent = "headerbar.titlebar button.titlebutton + button.titlebutton"
+        for direction, side in (("ltr", "left"), ("rtl", "right")):
+            margin = f"margin_{side}"
+            rules.append(block(f"{adjacent}:dir({direction})", **{margin: "-5px"}))
+            if high_dpi:
+                # At 120 DPI the extra unit before Close keeps the three
+                # faces in phase with the compositor's pixel sampling.
+                rules.append(block(f"{adjacent}.close:dir({direction})", **{margin: "-4px"}))
+    else:
+        # GTK 4 rounds both margins separately. One spacing value preserves
+        # the native 120-DPI pitch when the 27-pixel face is installed.
+        rules.append(block("headerbar windowcontrols", border_spacing="1px" if high_dpi else "2px"))
     for kind in CAPTION_KINDS:
         css_kind = "maximize" if kind == "restore" else kind
         parent = "window.maximized headerbar" if kind == "restore" else "headerbar"
@@ -712,11 +729,13 @@ def caption_controls(assets, *, gtk3_hidpi=False, caption_size=aurorae.BUTTON):
                 box_shadow="none",
             )
         )
+        if not gtk3:
+            rules.append(block(bases[1], margin="0"))
         rules.append(block(", ".join(base + " image" for base in bases), opacity="0"))
         for state, index in CAPTION_STATES:
             asset = assets / caption_filename(kind, index)
             image = caption_url(asset)
-            if gtk3_hidpi:
+            if gtk3 and high_dpi:
                 doubled = caption_url(asset.with_name(asset.stem + "@2.svg"))
                 image = f"-gtk-scaled({image}, {doubled})"
             rules.append(
@@ -730,11 +749,11 @@ def caption_controls(assets, *, gtk3_hidpi=False, caption_size=aurorae.BUTTON):
     return "\n".join(rules)
 
 
-def titlebar_block(active, inactive, caption, assets=Path("../caption"), *, gtk3_hidpi=False, caption_size=aurorae.BUTTON):
+def titlebar_block(active, inactive, caption, assets=Path("../caption"), *, gtk3=False, dpi=96):
     return (
         titlebar_state("", active, aurorae_stops.SIDE_OVERLAY, "#FFFFFF")
         + titlebar_state(":backdrop", inactive, aurorae_stops.INACTIVE_SIDE_OVERLAY, caption)
-        + caption_controls(assets, gtk3_hidpi=gtk3_hidpi, caption_size=caption_size)
+        + caption_controls(assets, gtk3=gtk3, dpi=dpi)
     )
 
 
@@ -1212,7 +1231,7 @@ def build_css(version):
         + scrollbar_backend_rules(version)
         + input_backend_rules(version)
         + "\n"
-        + titlebar_block("title-active", "title-inactive", INACTIVE_CAPTION)
+        + titlebar_block("title-active", "title-inactive", INACTIVE_CAPTION, gtk3=version == "3.0")
     )
 
 
@@ -1293,16 +1312,10 @@ if __name__ == "__main__":
     elif options.titlebar:
         assets = options.caption_assets.resolve()
         gtk_version = os.environ.get("GTK_VERSION")
-        high_dpi = options.dpi == aurorae.LARGE_CAPTION_DPI
-        gtk3_hidpi = high_dpi and gtk_version == "3.0"
-        caption_size = aurorae.BUTTON
-        if high_dpi and gtk_version == "4.0":
-            # Preserve the native 27px face when GTK 4 renders at 125%.
-            caption_size = aurorae.LARGE_CAPTION * 96 / options.dpi
         if options.dpi >= aurorae.LARGE_CAPTION_DPI:
             assets /= "large"
         sys.stdout.write(titlebar_block(
-            "title-active", "title-inactive", INACTIVE_CAPTION, assets, gtk3_hidpi=gtk3_hidpi, caption_size=caption_size
+            "title-active", "title-inactive", INACTIVE_CAPTION, assets, gtk3=gtk_version == "3.0", dpi=options.dpi
         ))
     else:
         write_theme(options.out)

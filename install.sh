@@ -444,11 +444,16 @@ ui_step_start 1
 py_ok=1
 [ -n "$SETUP_PY_MISSING" ] && py_ok=0
 # Earlier runs' choices and components are this run's defaults; flags and the screens still change them.
+# The default look sits underneath them; a --look flag replaces every value the look owns.
 SAVED_SETTINGS=~/.config/chicago95/setup.conf
-[ -f "$SAVED_SETTINGS" ] && load_settings "$SAVED_SETTINGS"
-previous_look=${SETUP_LOOK:-}
-# A remembered look keeps its saved colours (a custom one has nothing else); a flag or a first run applies the look.
-if [ -n "${OPT_LOOK:-}" ] || [ -z "${SETUP_LOOK:-}" ]; then apply_look "${OPT_LOOK:-1995}"; fi
+if [ -z "${OPT_LOOK:-}" ]; then
+  apply_look 1995
+  SETUP_ANIM_MINIMIZE= SETUP_ANIM_MAXIMIZE= # unchosen: the animations table decides
+fi
+previous_look=
+[ ! -f "$SAVED_SETTINGS" ] || previous_look=$(sed -n 's/^LOOK=//p' "$SAVED_SETTINGS" | tail -1)
+[ ! -f "$SAVED_SETTINGS" ] || load_settings "$SAVED_SETTINGS"
+[ -z "${OPT_LOOK:-}" ] || apply_look "$OPT_LOOK"
 [ -n "${OPT_LOOK:-}" ] || choose_look
 # An explicit XP preset restores its taskbar defaults. The options below and
 # an explicit settings file can still supply a custom panel or previews.

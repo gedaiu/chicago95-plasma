@@ -243,10 +243,10 @@ def live_kwin(installed, visual_output):
 
 
 @pytest.fixture(scope="module")
-def live_gtk(installed):
+def live_gtk(installed, visual_output):
     @cache
     def capture(look, scale, component="caption"):
-        session = installed(look, scale) if look in (*CLASSIC, "luna") else installed(look)
+        session = installed(look, scale) if component == "caption" or look in (*CLASSIC, "luna") else installed(look)
         home = session.work / "home"
         script = session.work / f"{component}-gtk.sh"
         commands = ["#!/bin/sh", "set -eu"]
@@ -260,9 +260,7 @@ def live_gtk(installed):
                 f"{version} {quote(theme)} {quote(str(directory))} --consistency --only {quote(component)}"
             )
             if component == "caption":
-                command += " --caption-crops"
-                if look == "luna" or (look in CLASSIC and scale == 1.25):
-                    command += " --compositor-captions"
+                command += " --caption-crops --compositor-captions"
             elif component == "radio" and look in CLASSIC and scale == 1.25:
                 command += " --compositor-radios"
             commands.append(command)
@@ -276,9 +274,13 @@ def live_gtk(installed):
         run_session(session.work, script, env, session.screen, scale=scale)
         for version in ("3.0", "4.0"):
             manifest = "caption-crops.json" if component == "caption" else "manifest.json"
-            assert (session.work / f"{component}-gtk-{version}" / manifest).is_file(), (
-                f"GTK {version} capture incomplete. See {session.work}/kwin-*.log"
-            )
+            if not (session.work / f"{component}-gtk-{version}" / manifest).is_file():
+                theme = next(name for name, (_, metadata) in THEMES.items() if metadata["look"] == look)
+                logs = visual_output / theme / f"{component}-gtk-capture-logs"
+                logs.mkdir(parents=True, exist_ok=True)
+                for log in session.work.glob("kwin-*.log"):
+                    shutil.copyfile(log, logs / log.name)
+                pytest.fail(f"GTK {version} capture incomplete. See {logs}")
         return session.work
 
     return capture
@@ -364,9 +366,35 @@ def kwin_face(capture, theme, look, scale, state, index):
 
 
 def marker_bounds(image, colour):
-    rows, columns = np.where(np.all(np.asarray(image) == ImageColor.getrgb(colour), axis=-1))
-    assert len(rows) > 0, "GTK compositor capture is missing the geometry marker"
-    return columns.min(), rows.min(), columns.max() + 1, rows.max() + 1
+    mask = np.all(np.asarray(image) == ImageColor.getrgb(colour), axis=-1)
+    counts = mask.sum(axis=1)
+    assert counts.max() > 0, "GTK compositor capture is missing the geometry marker"
+    # A handful of coincident pixels in the frame or a transition can have
+    # the marker's color. Find the solid client rectangle they surround.
+    rows = np.flatnonzero(counts * 2 >= counts.max())
+    columns = np.flatnonzero(mask[rows].sum(axis=0) * 2 >= len(rows))
+    assert len(columns) > 0, "GTK compositor geometry marker is fragmented"
+    return columns[0], rows[0], columns[-1] + 1, rows[-1] + 1
+
+
+def test_caption_capture_marker_ignores_matching_frame_pixels():
+    frame = Image.new("RGB", (40, 30))
+    marker = "#e10ccf"
+    frame.paste(marker, (6, 10, 36, 25))
+    frame.paste(marker, (2, 2, 5, 3))
+    frame.paste(marker, (38, 15, 39, 17))
+    assert marker_bounds(frame, marker) == (6, 10, 36, 25)
+
+
+def gtk_compositor_frame(directory, record):
+    with Image.open(directory / record["frame"]) as frame:
+        marker = marker_bounds(frame.convert("RGB"), record["marker"])
+    with Image.open(directory / record["compositor"]) as captured:
+        screen = captured.convert("RGB")
+    placed = marker_bounds(screen, record["marker"])
+    for dimension in (0, 1):
+        assert abs((placed[dimension + 2] - placed[dimension]) - (marker[dimension + 2] - marker[dimension])) <= 1
+    return screen, placed[0] - marker[0], placed[1] - marker[1]
 
 
 def gtk_face(directory, state, index):
@@ -374,18 +402,69 @@ def gtk_face(directory, state, index):
     suffix = f"-{BUTTONS[index]}" if state in ("hover", "pressed") else ""
     record = records[f"caption {GTK_STATES[state]}{suffix}"]
     box = record["faces"][BUTTONS[index]]
-    with Image.open(directory / record["frame"]) as frame:
-        if "compositor" not in record:
+    if "compositor" not in record:
+        with Image.open(directory / record["frame"]) as frame:
             return frame.crop(box).convert("RGB")
-        marker = marker_bounds(frame.convert("RGB"), record["marker"])
-    with Image.open(directory / record["compositor"]) as captured:
-        screen = captured.convert("RGB")
-    placed = marker_bounds(screen, record["marker"])
-    for dimension in (0, 1):
-        assert abs((placed[dimension + 2] - placed[dimension]) - (marker[dimension + 2] - marker[dimension])) <= 1
-    dx, dy = placed[0] - marker[0], placed[1] - marker[1]
+    screen, dx, dy = gtk_compositor_frame(directory, record)
     x0, y0, x1, y1 = box
     return screen.crop((x0 + dx, y0 + dy, x1 + dx, y1 + dy))
+
+
+def gtk_caption_cluster_spacing(directory):
+    record = json.loads((directory / "caption-crops.json").read_text())["caption normal"]
+    screen, dx, dy = gtk_compositor_frame(directory, record)
+    starts = []
+    for kind in BUTTONS:
+        left, top, _, bottom = record["faces"][kind]
+        # The left bevel is the strongest rise in brightness near the
+        # button origin, even on GTK 3's fractionally scaled output.
+        crop = screen.crop((left + dx - 2, top + dy + 2, left + dx + 4, bottom + dy - 2))
+        strength = np.diff(np.asarray(crop, dtype=int).mean(axis=(0, 2)))
+        starts.append(left + dx - 1 + int(strength.argmax()))
+    return np.diff(starts)
+
+
+def native_caption_cluster_spacing(folder, highlight):
+    with Image.open(folder / "caption/cluster.png") as reference:
+        top = np.asarray(reference.convert("RGB"))[0]
+    highlights = np.flatnonzero(np.min(top, axis=-1) >= highlight)
+    starts = highlights[np.r_[True, np.diff(highlights) > 1]]
+    assert len(starts) == len(BUTTONS)
+    return np.diff(starts)
+
+
+@pytest.mark.parametrize("theme", [name for name, (_, metadata) in THEMES.items() if "caption_cluster_scale" in metadata])
+def test_classic_gtk3_caption_button_spacing_matches_windows(theme, live_gtk):
+    folder, metadata = THEMES[theme]
+    scale = metadata["caption_cluster_scale"]
+    directory = live_gtk(metadata["look"], scale) / "caption-gtk-3.0"
+    gaps = gtk_caption_cluster_spacing(directory)
+    reference_gaps = native_caption_cluster_spacing(folder, 255)
+    # GTK 3 allocates integer logical positions, so one physical pixel can
+    # move between the gaps at fractional output scale.
+    tolerance = int(scale != 1)
+    assert np.all(np.abs(gaps - reference_gaps) <= tolerance), (gaps, reference_gaps)
+    assert gaps.sum() == reference_gaps.sum()
+
+
+@pytest.mark.parametrize("version", ("3.0", "4.0"))
+def test_winxp_luna_gtk_caption_button_spacing_matches_windows(version, live_gtk):
+    folder, metadata = THEMES["winxp"]
+    directory = live_gtk(metadata["look"], metadata["caption_scale"]) / f"caption-gtk-{version}"
+    gaps = gtk_caption_cluster_spacing(directory)
+    reference_gaps = native_caption_cluster_spacing(folder, 225)
+    assert np.all(np.abs(gaps - reference_gaps) <= int(version == "3.0")), (gaps, reference_gaps)
+    assert abs(gaps.sum() - reference_gaps.sum()) <= int(version == "3.0")
+
+
+def test_win7_gtk4_caption_button_spacing_matches_windows(live_gtk):
+    _, metadata = THEMES["win7"]
+    look = metadata["look"]
+    directory = live_gtk(look, metadata["caption_scale"]) / "caption-gtk-4.0"
+    # The original matte capture has Minimize, Maximize and Close flush.
+    native = caption_reference(look)
+    expected = [face_region(native, look, "rest", index)[0].width for index in (0, 1)]
+    assert gtk_caption_cluster_spacing(directory).tolist() == expected
 
 
 @pytest.fixture(scope="module")
@@ -799,11 +878,33 @@ def test_run_history_native_frame_and_highlight_rows(theme, run_history_popup, v
         exact(expected.crop(bounds), actual.crop(bounds), output / "highlight-rows")
 
 
+def test_win98_run_history_labels_keep_the_native_origin_and_colours(run_history_popup):
+    for state in ("open", "down"):
+        expected, actual = run_history_popup("win98", state)
+        for y in (1, 17):
+            bounds = (1, y, 200, y + 16)
+            measured = []
+            for image in (expected, actual):
+                pixels = np.asarray(image.crop(bounds))
+                rows, columns = np.where(np.any(pixels != pixels[0, -1], axis=2))
+                colours = np.unique(pixels.reshape(-1, 3), axis=0).tolist()
+                measured.append((rows.min(), columns.min(), colours))
+            assert measured[0] == measured[1]
+
+
 def test_luna_run_history_disabled_scrollbar_matches_the_native_colours(run_history_popup):
     expected, actual = run_history_popup("winxp", "open")
     for box in ((303, 4, 315, 17), (303, 193, 315, 206)):
         left, right = (np.asarray(image.crop(box), dtype=int) for image in (expected, actual))
         assert np.abs(left - right).mean() < 8
+
+
+@pytest.mark.parametrize(("theme", "extent"), (("win95", 16), ("win98", 20), ("win2k", 20), ("winxp-classic", 20)))
+def test_classic_run_history_scrollbar_track_matches_the_native_pixels(theme, extent, run_history_popup, visual_output):
+    expected, actual = run_history_popup(theme, "open")
+    width, height = expected.size
+    bounds = (width - extent - 1, extent + 1, width - 1, height - extent - 1)
+    exact(expected.crop(bounds), actual.crop(bounds), visual_output / theme / "run/qt/history-open/scrollbar-track")
 
 
 def test_run_history_wayland_uses_the_120dpi_field_and_popup(installed, visual_output):
@@ -1686,16 +1787,64 @@ def test_control_panel_end(theme, tmp_path, visual_output):
     exact(expected, actual, visual_output / theme / "control-panel" / "qt" / "end")
 
 
-@pytest.mark.parametrize("theme", [theme for theme, (_, data) in THEMES.items() if data.get("control_panel_category")])
-def test_control_panel_category(theme, tmp_path, visual_output):
+@pytest.fixture(scope="module", params=[theme for theme, (_, data) in THEMES.items() if data.get("control_panel_category")])
+def xp_category_render(request, tmp_path_factory):
+    theme = request.param
     folder, metadata = THEMES[theme]
     with Image.open(folder / "control-panel" / "category.png") as frame:
         expected = frame.convert("RGB")
-    output = tmp_path / "category.png"
+    output = tmp_path_factory.mktemp(f"{theme}-category") / "category.png"
     render_properties(folder, "control-panel-category", output, expected.size)
     with Image.open(output) as frame:
         actual = rgb565(frame) if metadata.get("properties_rgb565") else frame.convert("RGB")
+    return theme, expected, actual
+
+
+def test_control_panel_category(xp_category_render, visual_output):
+    theme, expected, actual = xp_category_render
     exact(expected, actual, visual_output / theme / "control-panel" / "qt" / "category")
+
+
+def test_control_panel_category_background(xp_category_render, visual_output):
+    theme, expected, actual = xp_category_render
+    # The right end of the banner leaves the category page color exposed.
+    band = (590, 120, 776, 151)
+    exact(expected.crop(band), actual.crop(band), visual_output / theme / "control-panel/qt/category/background")
+
+
+@pytest.mark.parametrize("icon", THEMES["winxp"][1]["control_panel_category_icons"])
+def test_control_panel_category_icon(xp_category_render, icon, visual_output):
+    theme, expected, actual = xp_category_render
+    bounds = THEMES[theme][1]["control_panel_category_icons"][icon]
+    exact(expected.crop(bounds), actual.crop(bounds), visual_output / theme / "control-panel/qt/category/icons" / icon)
+
+
+@pytest.mark.parametrize("theme", ("winxp", "winxp-classic"))
+def test_control_panel_category_link_hover(theme, tmp_path, visual_output):
+    folder, _metadata = THEMES[theme]
+    with Image.open(folder / "control-panel/category.png") as client:
+        size = client.size
+    output = tmp_path / "link.png"
+    render_properties(folder, "control-panel-category-link", output, size)
+    directory = visual_output / theme / "control-panel/qt/category/link"
+    directory.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(output, directory / "rendered.png")
+    with Image.open(folder / "control-panel/category-link-hover.png") as native, Image.open(output) as rendered:
+        strips = native.convert("RGB"), rgb565(rendered)
+    assert strips[0].getpixel((0, 0)) == strips[1].getpixel((0, 0))
+    strokes = []
+    for strip in strips:
+        idle, hover, exit_frame = (np.asarray(strip.crop((x, 0, x + 100, 30))) for x in (0, 100, 200))
+        assert np.array_equal(idle, exit_frame)
+        # The underline is the solid row across this sample where the idle
+        # label had no ink. The separate full view keeps its glyph comparison.
+        plain = np.all(idle == idle[0, 0], axis=(1, 2))
+        solid = np.all(hover == hover[:, :1], axis=(1, 2))
+        changed = np.any(idle != hover, axis=(1, 2))
+        rows = np.flatnonzero(plain & solid & changed)
+        assert len(rows) == 1
+        strokes.append(Image.fromarray(hover[rows]))
+    exact(*strokes, directory / "underline")
 
 
 @pytest.mark.parametrize("theme", [theme for theme, (_, data) in THEMES.items() if data.get("control_panel_selection")])
@@ -2225,7 +2374,7 @@ def gtk4_file_manager(installed, visual_output):
             '    spectacle -b -n -f -o "$WORK/gtk4-file-manager.png"\n'
             "    python3 -c 'from PIL import Image; import sys; "
             'image = Image.open("gtk4-file-manager.png").convert("RGB"); '
-            'sys.exit(image.getcolors(20) is not None)\' && break\n'
+            'sys.exit(image.getbbox() != (0, 0, *image.size) or image.getcolors(20) is not None)\' && break\n'
             'done\n'
         )
         if aero:
@@ -2254,7 +2403,9 @@ def gtk4_file_manager(installed, visual_output):
         assert frame.is_file(), f"Missing GNOME Files capture. See {output}"
         with Image.open(frame) as image:
             screen = image.convert("RGB")
-        assert screen.getcolors(20) is None, f"GNOME Files did not render. See {output}"
+        assert screen.getbbox() == (0, 0, *screen.size) and screen.getcolors(20) is None, (
+            f"GNOME Files did not finish opening at the maximized size. See {output}"
+        )
         screen.save(output / "screen.png")
         if aero:
             for state in ("history-hover", "history-after-back"):

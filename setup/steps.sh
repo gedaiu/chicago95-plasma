@@ -98,7 +98,7 @@ kconf() {
 }
 
 # The choices the Control Panel saves in ~/.config/chicago95/setup.conf, one KEY=value per line; KEY sets SETUP_KEY.
-SETTINGS_KEYS="LOOK CONTROL_PANEL_STYLE DECORATION WIDGET_STYLE TASKBAR_STYLE START_MENU_STYLE BEVEL TITLE_ACTIVE TITLE_INACTIVE BANNER_BG BANNER_FG ICONS FONT FONT_SCOPE CURSOR PANEL MOUSE_HAND DOUBLE_CLICK_MS POINTER_SPEED
+SETTINGS_KEYS="LOOK CONTROL_PANEL_STYLE DECORATION WIDGET_STYLE TASKBAR_STYLE START_MENU_STYLE BEVEL FACE SELECTION TITLE_ACTIVE TITLE_INACTIVE BANNER_BG BANNER_FG ICONS FONT FONT_SCOPE CURSOR PANEL MOUSE_HAND DOUBLE_CLICK_MS POINTER_SPEED
     TASK_BUTTON_WIDTH QUICK_LAUNCH TASK_GROUPING LAUNCHERS TASKBAR_AUTOHIDE TASKBAR_ON_TOP CLOCK_SHOW CLOCK_HOURS START_TEXT START_LOGO BANNER_TEXT
     SAVER IDLE_MIN LOGIN_STYLE LOGIN_TITLE LOGIN_MESSAGE LOGIN_ICON LOGIN_LOGO EDITION TAGLINE COMPANY COMPANY_LOGO
     BOOT_LOGO BOOT_NAME BOOT_TEXT BOOT_FOOTER BOOT_BACKGROUND BOOT_FOREGROUND BOOT_ACCENT BOOT_FONT
@@ -130,83 +130,20 @@ detected_distro_name() { distro_branding_lines | awk -F'\t' '$1 == "BANNER_TEXT"
 
 default_banner_text() { [ "${SETUP_START_MENU_STYLE:-1995}" = 2001 ] && printf 'Windows XP Professional' || printf Chicago95; }
 
-apply_look() {
-  if [ -n "${SETUP_LOOK:-}" ] && [ "$SETUP_LOOK" != aero ] && [ "$1" = aero ]; then
-    SETUP_ANIM_MINIMIZE=aero
-    SETUP_ANIM_MAXIMIZE=aero
-  elif [ "${SETUP_LOOK:-}" = aero ] && [ "$1" != aero ]; then
-    [ "${SETUP_ANIM_MINIMIZE:-aero}" != aero ] || SETUP_ANIM_MINIMIZE=zoom
-    [ "${SETUP_ANIM_MAXIMIZE:-aero}" != aero ] || SETUP_ANIM_MAXIMIZE=zoom
+apply_look() { # apply_look <look>   every KEY=value of looks/<look>.conf, read as data, sets SETUP_KEY
+  local lookFile="$REPO/looks/$1.conf" key value
+  if [ ! -f "$lookFile" ]; then
+    printf 'Unknown look "%s"; known looks: %s\n' "$1" "$(cd "$REPO/looks" && ls *.conf | sed 's/\.conf$//' | sort | tr '\n' ' ' | sed 's/ $//')" >&2
+    return 1
   fi
   SETUP_LOOK=$1
-  SETUP_CONTROL_PANEL_STYLE=auto
-  SETUP_SOUND_THEME=${OPT_SOUNDS:-Chicago95}
-  SETUP_DECORATION=classic
-  SETUP_WIDGET_STYLE=classic
-  SETUP_TASKBAR_STYLE=classic
-  SETUP_BEVEL=1995
-  SETUP_START_MENU_STYLE=1995
-  SETUP_FACE=""
-  SETUP_SELECTION=""
-  SETUP_BOOT_STYLE=classic
-  SETUP_LOGIN_STYLE=classic
-  SETUP_SPLASH_IMAGE=classic
-  SETUP_ICONS=${OPT_ICONS:-chicago95}
-  case "$1" in
-  1995) set -- "#000080;#808080;#808080;#C0C0C0" ;;
-  1998)
-    SETUP_SOUND_THEME=${OPT_SOUNDS:-Windows98}
-    SETUP_START_MENU_STYLE=1998
-    SETUP_SPLASH_IMAGE="$REPO/splash/chicago95.splashscreen/contents/splash/images/windows98.png"
-    SETUP_ICONS=${OPT_ICONS:-se98}
-    set -- "#000080,#1084D0;#808080,#C0C0C0;#00007B,#00007B@95,#0000B0@70,#0000F8@45,#0000EE@20,#0000A9@0;#FFFFFF"
-    ;;
-  2000 | 2001)
-    SETUP_SOUND_THEME=${OPT_SOUNDS:-Windows2000}
-    [ "$1" != 2001 ] || SETUP_SOUND_THEME=${OPT_SOUNDS:-WindowsXP}
-    SETUP_START_MENU_STYLE=$1
-    SETUP_BEVEL=2000
-    SETUP_FACE="212,208,200"
-    SETUP_SELECTION="10,36,106"
-    SETUP_ICONS=${OPT_ICONS:-classicos2000}
-    SETUP_START_LOGO=$(default_start_logo)
-    SETUP_BANNER_TEXT=$(default_banner_text)
-    SETUP_LOGIN_STYLE=2000
-    SETUP_BOOT_STYLE=2000
-    [ "$1" = 2001 ] && SETUP_BOOT_STYLE=luna SETUP_ICONS=${OPT_ICONS:-windowsxp} SETUP_COMPANY=Microsoft
-    set -- "#0A246A,#A6CAF0;#808080,#C0C0C0;#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0;#FFFFFF"
-    ;;
-  luna)
-    SETUP_SOUND_THEME=${OPT_SOUNDS:-WindowsXP}
-    SETUP_DECORATION=luna
-    SETUP_WIDGET_STYLE=luna
-    SETUP_TASKBAR_STYLE=luna
-    SETUP_START_MENU_STYLE=luna
-    SETUP_START_LOGO=$(default_start_logo)
-    SETUP_LOGIN_STYLE=luna
-    SETUP_BOOT_STYLE=luna
-    SETUP_BEVEL=2000
-    SETUP_FACE="236,233,216"
-    SETUP_SELECTION="49,106,197"
-    SETUP_ICONS=${OPT_ICONS:-windowsxp}
-    set -- "#0054E3,#3F97FF;#7A96DF,#9DB9EB;#000000,#000021@200,#000081@120,#0000B2@70,#0000E3@45,#0000F3@20,#0000FF@0;#FFFFFF"
-    ;;
-  aero)
-    SETUP_WIDGET_STYLE=aero
-    SETUP_START_MENU_STYLE=aero
-    SETUP_ICONS=${OPT_ICONS:-windows7}
-    SETUP_SOUND_THEME=${OPT_SOUNDS:-Windows7}
-    SETUP_LOGIN_STYLE=aero
-    SETUP_DECORATION=aero
-    SETUP_TASKBAR_STYLE=aero
-    SETUP_BOOT_STYLE=7
-    SETUP_BEVEL=2000
-    SETUP_FACE="240,240,240"
-    SETUP_SELECTION="51,153,255"
-    set -- "#6B9CD3,#B9D1EA;#BFCDDB,#DCE6F1;#1E3F66,#2F5E94@100,#5B8FC8@0;#FFFFFF"
-    ;;
-  esac
-  IFS=';' read -r SETUP_TITLE_ACTIVE SETUP_TITLE_INACTIVE SETUP_BANNER_BG SETUP_BANNER_FG <<<"$1"
+  while IFS='=' read -r key value; do
+    [ -n "$key" ] && [ "${key#\#}" = "$key" ] || continue
+    case "$key:$value" in SPLASH_IMAGE:*/* | BACKGROUND_IMAGE:*/*) value="$REPO/$value" ;; esac
+    printf -v "SETUP_$key" '%s' "$value"
+  done <"$lookFile"
+  [ -z "${OPT_ICONS:-}" ] || SETUP_ICONS=$OPT_ICONS
+  [ -z "${OPT_SOUNDS:-}" ] || SETUP_SOUND_THEME=$OPT_SOUNDS
 }
 
 save_settings() { # keys this run did not set keep their saved values
@@ -241,7 +178,7 @@ remembered_components() { # remembered_components <previous setup.conf text>   e
 load_settings() { # load_settings <file>   values are data: the file is read, never executed
   local key value look
   look=$(sed -n 's/^LOOK=//p' "$1" | tail -1)
-  case "$look" in 1995 | 1998 | 2000 | 2001 | luna | aero) apply_look "$look" ;; esac
+  [ -z "$look" ] || [ ! -f "$REPO/looks/$look.conf" ] || apply_look "$look"
   while IFS='=' read -r key value; do
     case " ${SETTINGS_KEYS//$'\n'/ } COMPONENTS CLASSIC_EFFECTS " in *" $key "*) printf -v "SETUP_$key" '%s' "$value" ;; esac
   done <"$1"
@@ -1471,6 +1408,7 @@ step_controlpanel() { # one window for every choice Setup asked; it saves them a
   put_file "$REPO/config/applications/chicago95-control-panel.desktop" ~/.local/share/applications/chicago95-control-panel.desktop
   put_tree "$REPO/data/screensaver-previews" ~/.local/share/chicago95/screensaver-previews # the Screen Saver tab's monitor
   put_tree "$REPO/data/control-panel" ~/.local/share/chicago95/control-panel               # the Mouse page's pictures
+  put_tree "$REPO/looks" ~/.local/share/chicago95/looks                                    # the looks' defaults
   substitute_home ~/.local/share/applications
 }
 
@@ -1873,14 +1811,7 @@ step_explorer() {
   run kwriteconfig6 --file mimeapps.list --group "Default Applications" --key inode/directory thunar.desktop
 }
 
-lockscreen_style() {
-  case "${SETUP_LOGIN_STYLE:-}" in
-  aero | luna) printf '%s' "$SETUP_LOGIN_STYLE" ;;
-  classic) case "${SETUP_START_MENU_STYLE:-1995}" in aero | luna) printf 1995 ;; *) printf '%s' "${SETUP_START_MENU_STYLE:-1995}" ;; esac ;;
-  '') printf '%s' "${SETUP_START_MENU_STYLE:-1995}" ;;
-  *) printf '%s' "$SETUP_LOGIN_STYLE" ;;
-  esac
-}
+lockscreen_style() { printf '%s' "${SETUP_LOGIN_STYLE:-}"; }
 
 write_lockscreen_settings() { # <dir>  settings.js: the look the lock screen is drawn in, on the desktop colour
   local dir="$1"

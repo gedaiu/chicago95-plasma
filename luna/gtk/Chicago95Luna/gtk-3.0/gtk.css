@@ -1320,6 +1320,14 @@ headerbar windowcontrols {
   margin: 0;
 }
 
+headerbar.titlebar button.titlebutton + button.titlebutton:dir(ltr) {
+  margin-left: -5px;
+}
+
+headerbar.titlebar button.titlebutton + button.titlebutton:dir(rtl) {
+  margin-right: -5px;
+}
+
 headerbar button.titlebutton.minimize, headerbar windowcontrols button.minimize {
   min-width: 21px;
   min-height: 21px;

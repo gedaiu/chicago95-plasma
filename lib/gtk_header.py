@@ -41,6 +41,8 @@ CAPTION_BUTTONS = (
 )
 # 9x leaves 2px before the close button; minimize and maximize sit flush.
 CLOSE_GAP = 2
+# GtkHeaderBar's built-in GTK 3 controls have six logical pixels between them.
+GTK3_HEADER_SPACING = 6
 # At 120 DPI the native gap is three device pixels. GTK's two logical
 # pixels leave the Close face half a pixel off the compositor grid.
 CLOSE_OFFSET_120 = 0.4
@@ -155,7 +157,6 @@ def caption_css(face, light, shadow, dark, assets=None, dpi=96, *, gtk4=True, co
             background_position="left top" if high_dpi and gtk4 else "center",
             background_size=f"{CAPTION_W}px {face_height:g}px",
         ),
-        rule(buttons(".close"), margin_left=f"{CLOSE_GAP}px"),
         # libadwaita pads the glyph 4px a side, which would widen each button to 24px around the 16px face.
         rule(buttons(" > image"), opacity="0", min_width="0", min_height="0", padding="0", margin="0"),
         # 9x greyed only the title of an unfocused window: libadwaita fades its whole header to half strength, and the
@@ -163,8 +164,19 @@ def caption_css(face, light, shadow, dark, assets=None, dpi=96, *, gtk4=True, co
         rule("headerbar:backdrop > windowhandle", filter="none"),
         rule("window:backdrop headerbar button:not(.flat):not(:disabled) label", color="#000000"),
     ]
-    if high_dpi and gtk4:
-        rules.append(rule(buttons(".close"), transform=f"translateX({CLOSE_OFFSET_120:g}px)"))
+    if gtk4:
+        rules.append(rule(buttons(".close"), margin_left=f"{CLOSE_GAP}px"))
+        if high_dpi:
+            rules.append(rule(buttons(".close"), transform=f"translateX({CLOSE_OFFSET_120:g}px)"))
+    else:
+        # The 120-DPI Windows pair has about one logical pixel of separation.
+        # GTK 3 allocates the button positions in whole logical pixels.
+        pair_gap = int(high_dpi)
+        adjacent = "headerbar.titlebar button.titlebutton + button.titlebutton"
+        for direction, side in (("ltr", "left"), ("rtl", "right")):
+            margin = f"margin_{side}"
+            rules.append(rule(f"{adjacent}:dir({direction})", **{margin: f"{pair_gap - GTK3_HEADER_SPACING}px"}))
+            rules.append(rule(f"{adjacent}.close:dir({direction})", **{margin: f"{CLOSE_GAP - GTK3_HEADER_SPACING}px"}))
     faces = [(kind, f".{kind}", "") for kind in ("minimize", "maximize", "close")]
     faces.append(("restore", ".maximize", "window.maximized "))
     for kind, suffix, ancestor in faces:

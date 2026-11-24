@@ -531,6 +531,16 @@ import functools
 screen_scale = functools.lru_cache(maxsize=None)(screen_scale)  # kscreen-doctor is asked once per process
 
 
+def window_scale(widget):
+    """Use the output scale until Wayland has configured the window."""
+    handle = widget.windowHandle()
+    if QApplication.platformName().startswith("wayland") and (handle is None or not handle.isExposed()):
+        scale = screen_scale()
+        if scale != 1:
+            return scale
+    return widget.devicePixelRatioF()
+
+
 def ui_font(pixel_size=11, bold=False):
     """The UI font at the originals' size: MS Sans Serif 8 points, 11px. The pixel font is drawn on an
     11px grid; at any other size its letters land on fractional pixels and space unevenly. On a whole

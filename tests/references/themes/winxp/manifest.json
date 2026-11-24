@@ -49,6 +49,18 @@
     "printers-and-faxes": [480, 374, 516, 411]
   },
   "control_panel_category": true,
+  "control_panel_category_icons": {
+    "appearance-and-themes": [285, 170, 341, 223],
+    "network-and-internet": [285, 235, 341, 288],
+    "add-or-remove-programs": [285, 300, 341, 353],
+    "sounds-speech-and-audio": [285, 365, 341, 418],
+    "performance-and-maintenance": [285, 430, 341, 483],
+    "printers-and-other-hardware": [532, 170, 588, 223],
+    "user-accounts": [532, 235, 588, 288],
+    "date-time-and-region": [532, 300, 588, 353],
+    "accessibility-options": [532, 365, 588, 418],
+    "security-center": [532, 430, 588, 483]
+  },
   "control_panel_end": "Wireless Network Setup Wizard",
   "properties_rgb565": true,
   "display_page": "Settings",
