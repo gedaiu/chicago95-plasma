@@ -25,8 +25,9 @@ Rectangle {
     property int bootStripStep: -1
     property string textBootName: Settings.brandText || "Windows 95"
     property url statusBanner: "brand-banner.png"
+    property real statusStripPhase: -1
     // KSplash stage is supplied by the session, not a timer or a fabricated service list.
-    property string sessionStatus: stage < 5 ? "Starting your desktop..." : "Waiting for desktop readiness..."
+    property string sessionStatus: stage < 5 ? "Loading your personal settings..." : "Waiting for desktop readiness..."
     function playBootPreview() {
         textFill.stop();
         bitmapTimer.stop();
@@ -58,10 +59,11 @@ Rectangle {
     Loader {
         active: !root.booting && Settings.logonStyle === "2000"
         visible: active
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: parent.height / 2 - 129
+        anchors.centerIn: parent
+        anchors.verticalCenterOffset: -parent.height * 0.14
+        scale: Math.min(1, parent.width / (width + 12))
         sourceComponent: Component {
-            StartupStatus { statusText: root.sessionStatus; banner: root.statusBanner }
+            StartupStatus { statusText: root.sessionStatus; banner: root.statusBanner; stripPhase: root.statusStripPhase }
         }
     }
 

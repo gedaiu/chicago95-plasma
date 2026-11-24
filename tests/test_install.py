@@ -531,7 +531,7 @@ def test_hiding_the_clock_removes_it_from_the_taskbar(tmp_path):
 
 
 def test_showing_the_clock_adds_one_to_a_taskbar_without_it(tmp_path):
-    written = squeezed(taskbar_script_written(tmp_path, "SETUP_CLOCK_SHOW=yes SETUP_START_MENU_STYLE=2000"))
+    written = squeezed(taskbar_script_written(tmp_path, "SETUP_CLOCK_SHOW=yes SETUP_START_MENU_STYLE=2000 SETUP_TASKBAR_STYLE=classic"))
 
     assert (
         "if (panel.widgets('org.chicago95.tasks').length > 0 && panel.widgets('org.chicago95.clock').length === 0) { "
@@ -1425,7 +1425,7 @@ def test_the_look_paints_gtk_drawn_title_bars_in_its_active_and_inactive_colours
     for _ in range(2):
         run_bash_with_steps(
             tmp_path,
-            f"SETUP_DRY_RUN=0; SETUP_DPI={dpi}; MANIFEST={tmp_path}/manifest; STATE_DIR={tmp_path}; "
+            f"apply_look 1995; SETUP_DRY_RUN=0; SETUP_DPI={dpi}; MANIFEST={tmp_path}/manifest; STATE_DIR={tmp_path}; "
             'write_gtk_titlebar_css "#0A246A,#A6CAF0" "#808080,#C0C0C0" "rgb(212,208,200)"',
         )
     gtk3 = (tmp_path / ".config/gtk-3.0/gtk.css").read_text()
@@ -1482,7 +1482,7 @@ def install_shell_files(home):
     shared = home / ".local/share/chicago95"
     shared.mkdir(parents=True)
     stylesheet = run_bash_with_steps(
-        home, 'SETUP_LOOK=1995 SETUP_SCALE=1 render_menus_qss "$REPO/data/plasmashell-menus.qss"'
+        home, 'apply_look 1995; SETUP_SCALE=1 render_menus_qss "$REPO/data/plasmashell-menus.qss"'
     )
     (shared / "plasmashell-menus.qss").write_text("\n".join(stylesheet) + "\n")
     shutil.copytree(REPO / "data/qml", shared / "qml")
@@ -2276,7 +2276,7 @@ def test_the_users_picture_falls_back_to_their_accounts_service_icon(tmp_path):
 def test_the_loading_screen_settings_carry_the_login_style_desktop_colour_and_user(tmp_path):
     script = (
         "ensure_waving_flag() { :; }; put_company_logo() { :; }; mkdir -p ~/splash; touch ~/.face; USER=ada; "
-        "SETUP_LOGIN_STYLE=luna; SETUP_START_MENU_STYLE=luna; write_splash_settings ~/splash >/dev/null; "
+        "apply_look luna; write_splash_settings ~/splash >/dev/null; "
         "grep -E '^var (logonStyle|desktopColor|userName|userPicture) ' ~/splash/settings.js"
     )
     assert run_bash_with_steps(tmp_path, script) == [
@@ -2284,6 +2284,25 @@ def test_the_loading_screen_settings_carry_the_login_style_desktop_colour_and_us
         'var desktopColor = "#004E98"',
         'var userName = "ada"',
         f'var userPicture = "{tmp_path}/.face"',
+    ]
+
+
+def test_aero_writes_the_windows_wordmark_to_the_greeter_and_lock_screen(tmp_path):
+    lines = run_bash_with_steps(
+        tmp_path,
+        "apply_look aero; mkdir -p ~/lock; "
+        "sddm_theme_conf | grep -E '^(brandText|brandLogo|edition)='; "
+        "write_lockscreen_settings ~/lock >/dev/null; grep '^var brand' ~/lock/settings.js; "
+        "login_logo; echo",
+    )
+    assert lines == [
+        "brandText=Windows 7",
+        "brandLogo=brand-logo.svg",
+        "edition=Professional",
+        'var brandText = "Windows 7";',
+        'var brandEdition = "Professional";',
+        'var brandLogo = "classic/brand-logo.svg";',
+        str(REPO / "sddm/Chicago95Plasma/AeroBrandFlag.svg"),
     ]
 
 
@@ -2426,7 +2445,7 @@ def test_luna_install_includes_the_flow_test_without_needing_source_checkout(tmp
 def test_2000_splash_install_renders_a_banner_for_live_session_status(tmp_path):
     run_setup(tmp_path, "--dry-run", "--login-style=2000", "--components=splash")
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
-    assert "--login-banner" in log
+    assert "--status-banner" in log
     assert "contents/splash/brand-banner.png" in log
 
 

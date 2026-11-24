@@ -10,7 +10,7 @@ BRANDING = "SETUP_BANNER_TEXT=Windows2026 SETUP_COMPANY=KDE SETUP_EDITION=Profes
 
 
 def theme_conf(tmp_path, style):
-    lines = run_bash_with_steps(tmp_path, f"SETUP_LOGIN_STYLE={style} {BRANDING} sddm_theme_conf")
+    lines = run_bash_with_steps(tmp_path, f"apply_look 1995; SETUP_LOGIN_STYLE={style} {BRANDING} sddm_theme_conf")
     settings = configparser.ConfigParser(interpolation=None)
     settings.read_string("\n".join(lines))
     return dict(settings["General"])
@@ -35,7 +35,7 @@ def test_the_other_login_styles_carry_no_xp_branding(tmp_path, style):
 def test_the_xp_login_copies_the_logo_next_to_the_theme(tmp_path):
     lines = run_bash_with_steps(
         tmp_path,
-        f"SETUP_DRY_RUN=1; SETUP_LOG=$HOME/log; SETUP_LOGIN_STYLE=luna; {BRANDING.replace(' ', '; ')}; "
+        f"apply_look 1995; SETUP_DRY_RUN=1; SETUP_LOG=$HOME/log; SETUP_LOGIN_STYLE=luna; {BRANDING.replace(' ', '; ')}; "
         "ui_sudo() { printf '%s\\n' \"${@:2}\"; return 1; }; ui_message() { :; }; step_sddm",
     )
 

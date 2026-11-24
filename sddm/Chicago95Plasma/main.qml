@@ -741,6 +741,7 @@ Rectangle {
             lastSession: root.sessionIndex
             lastUser: root.users.lastUser || ""
             brandText: root.theme.brandText || ""
+            brandEdition: root.theme.edition || ""
             brandLogo: root.theme.brandLogo ? Qt.resolvedUrl(root.theme.brandLogo) : ""
         }
     }

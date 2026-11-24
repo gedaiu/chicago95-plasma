@@ -8,6 +8,7 @@ import math
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import gi
@@ -577,11 +578,13 @@ def main():
     position = 0
     window = None
     capture_attempts = 0
+    caption_deadline = 0
     render_scale = float(os.environ.get("CHICAGO95_RENDER_SCALE", os.environ.get("CHICAGO95_CAPTION_SCALE", "0")))
 
     def show_next():
-        nonlocal position, window, capture_attempts
+        nonlocal position, window, capture_attempts, caption_deadline
         capture_attempts = 0
+        caption_deadline = time.monotonic() + 15
         if position == len(catalogue):
             (output / "manifest.json").write_text(json.dumps(manifest))
             if CAPTION_CROPS:
@@ -845,6 +848,7 @@ def main():
             caption_crops[label] = {"frame": path.name, "allocations": allocations, "faces": faces}
             if COMPOSITOR_CAPTIONS:
                 screen = output / f"{position}-compositor.png"
+                screen.unlink(missing_ok=True)
                 try:
                     subprocess.run(["spectacle", "-b", "-n", "-f", "-o", str(screen)], check=True, timeout=15)
                 except (OSError, subprocess.SubprocessError):
@@ -852,11 +856,10 @@ def main():
                     raise
                 marker = caption_marker(position)
                 if not frame_has_caption_marker(screen, marker):
-                    capture_attempts += 1
-                    if capture_attempts <= 10:
+                    if time.monotonic() < caption_deadline:
                         return True
                     loop.quit()
-                    raise RuntimeError(f"The compositor did not present the GTK window for {label}")
+                    raise RuntimeError(f"The compositor did not present the GTK window for {label}. Last frame: {screen}")
                 caption_crops[label]["compositor"] = screen.name
                 caption_crops[label]["marker"] = "#{:02x}{:02x}{:02x}".format(*marker)
         manifest.append([group, label, path.name])

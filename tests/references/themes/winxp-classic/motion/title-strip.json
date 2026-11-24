@@ -1,0 +1,26 @@
+{
+  "source": "Windows XP SP3 Classic Notepad",
+  "reference_screen": [
+    1280,
+    1024
+  ],
+  "render_scales": [
+    1.25
+  ],
+  "minimize_button": "711,163",
+  "native_speed_px_ms": [
+    3.29,
+    3.37
+  ],
+  "sampling_tolerance_px_ms": [
+    0.39,
+    0.33
+  ],
+  "maximize_buttons": {
+    "normal": [
+      728,
+      163
+    ],
+    "maximized": "998,9"
+  }
+}

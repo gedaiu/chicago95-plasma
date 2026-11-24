@@ -1,0 +1,118 @@
+{
+  "minimize": [
+    {
+      "sample_ms": -281.796,
+      "capture_interval_ms": 50.777
+    },
+    {
+      "sample_ms": -35.631,
+      "capture_interval_ms": 47.766
+    },
+    {
+      "sample_ms": 60.811,
+      "capture_interval_ms": 48.859
+    },
+    {
+      "sample_ms": 110.185,
+      "capture_interval_ms": 49.696
+    },
+    {
+      "sample_ms": 159.184,
+      "capture_interval_ms": 48.107
+    },
+    {
+      "sample_ms": 207.932,
+      "capture_interval_ms": 49.152
+    },
+    {
+      "sample_ms": 257.421,
+      "capture_interval_ms": 49.493
+    },
+    {
+      "sample_ms": 308.35,
+      "capture_interval_ms": 52.079
+    },
+    {
+      "sample_ms": 362.323,
+      "capture_interval_ms": 55.602
+    },
+    {
+      "sample_ms": 415.876,
+      "capture_interval_ms": 51.189
+    },
+    {
+      "sample_ms": 466.59,
+      "capture_interval_ms": 49.994
+    },
+    {
+      "sample_ms": 517.252,
+      "capture_interval_ms": 51.05
+    },
+    {
+      "sample_ms": 567.749,
+      "capture_interval_ms": 49.669
+    },
+    {
+      "sample_ms": 638.047,
+      "capture_interval_ms": 90.668
+    }
+  ],
+  "restore": [
+    {
+      "sample_ms": -285.766,
+      "capture_interval_ms": 90.628
+    },
+    {
+      "sample_ms": -15.238,
+      "capture_interval_ms": 88.632
+    },
+    {
+      "sample_ms": 73.189,
+      "capture_interval_ms": 87.899
+    },
+    {
+      "sample_ms": 160.892,
+      "capture_interval_ms": 87.171
+    },
+    {
+      "sample_ms": 248.637,
+      "capture_interval_ms": 87.989
+    },
+    {
+      "sample_ms": 338.343,
+      "capture_interval_ms": 91.079
+    },
+    {
+      "sample_ms": 428.501,
+      "capture_interval_ms": 88.938
+    },
+    {
+      "sample_ms": 517.902,
+      "capture_interval_ms": 89.546
+    },
+    {
+      "sample_ms": 606.209,
+      "capture_interval_ms": 86.745
+    },
+    {
+      "sample_ms": 692.917,
+      "capture_interval_ms": 86.4
+    },
+    {
+      "sample_ms": 780.035,
+      "capture_interval_ms": 87.616
+    },
+    {
+      "sample_ms": 867.576,
+      "capture_interval_ms": 87.245
+    },
+    {
+      "sample_ms": 954.631,
+      "capture_interval_ms": 86.615
+    },
+    {
+      "sample_ms": 1021.646,
+      "capture_interval_ms": 47.183
+    }
+  ]
+}

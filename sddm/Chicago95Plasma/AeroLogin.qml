@@ -15,6 +15,7 @@ Rectangle {
     signal switchUserRequested()
     property url userPicture
     property string brandText
+    property string brandEdition
     property url brandLogo
     property string account: lastUser || users[0] || ""
     property bool choosing: !account
@@ -344,21 +345,34 @@ Rectangle {
     Row {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 22
+        anchors.bottomMargin: page.brandEdition ? 29 : 22
         spacing: 7
+        visible: !!page.brandText || !!page.brandLogo.toString()
         Image {
-            width: 35
-            height: 35
+            width: page.brandEdition ? 28 : 35
+            height: width
+            anchors.verticalCenter: parent.verticalCenter
             visible: !!page.brandLogo.toString()
             source: page.brandLogo
             fillMode: Image.PreserveAspectFit
         }
         Text {
+            id: brandName
             anchors.verticalCenter: parent.verticalCenter
             font.family: page.uiFamily
-            font.pixelSize: 26
+            font.pixelSize: page.brandEdition ? 27 : 26
+            renderType: Text.NativeRendering
             color: "white"
             text: page.brandText
+        }
+        Text {
+            anchors.baseline: brandName.baseline
+            visible: !!page.brandEdition
+            font.family: page.uiFamily
+            font.pixelSize: 19
+            renderType: Text.NativeRendering
+            color: "white"
+            text: page.brandEdition
         }
     }
     GlassButton {

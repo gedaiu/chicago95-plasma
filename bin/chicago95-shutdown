@@ -1377,17 +1377,18 @@ def play_shutdown_sound(dry_run):
 
 
 LOGIN_BANNER_SIZE = (411, 93)
+STATUS_BANNER_SIZE = (437, 61)
 
 
-def render_login_banner(look, path, scale=4):
-    """The login screen's 2000 banner as a PNG, scale times the original's pixels: the login theme can't
-    run this code, so Setup draws the banner here and copies the picture next to the theme."""
+def render_login_banner(look, path, scale=4, *, status=False):
+    """Draw the classic login banner or the shorter session status banner for QML."""
     original = {"2000": ("Windows 2000", "2000-logon-banner.png"), "2001": ("Windows XP", "xp-logon-banner.png")}.get(
         look.get("style")
     )
     default_logos = ("", "waving-flag.png", "logo-flag-16.png", "logo-xp-16.png")
     if (
-        original
+        not status
+        and original
         and look.get("osName", "").startswith(original[0])
         and look.get("osCompany", "Microsoft") == "Microsoft"
         and os.path.basename(look.get("osLogo", "")) in default_logos
@@ -1403,9 +1404,10 @@ def render_login_banner(look, path, scale=4):
                 return image.scaled(
                     image.width() * scale, image.height() * scale, Qt.IgnoreAspectRatio, Qt.FastTransformation
                 ).save(str(path))
-    banner = BrandBanner(look, login=True)
-    banner.resize(*LOGIN_BANNER_SIZE)
-    image = QImage(LOGIN_BANNER_SIZE[0] * scale, LOGIN_BANNER_SIZE[1] * scale, QImage.Format_ARGB32)
+    width, height = STATUS_BANNER_SIZE if status else LOGIN_BANNER_SIZE
+    banner = BrandBanner(look, login=not status)
+    banner.resize(width, height)
+    image = QImage(width * scale, height * scale, QImage.Format_ARGB32)
     image.fill(Qt.white)
     painter = QPainter(image)
     painter.setRenderHint(QPainter.Antialiasing)
@@ -1478,6 +1480,7 @@ def main():
     parser.add_argument("--screenshot", metavar="PATH", help="save the dialog as PNG and exit")
     parser.add_argument("--screenshot-safe", metavar="PATH", help="save the safe screen at 1280x720 and exit")
     parser.add_argument("--login-banner", metavar="PATH", help="save the login screen's 2000 banner as PNG and exit")
+    parser.add_argument("--status-banner", metavar="PATH", help="save the 2000 session status banner as PNG and exit")
     args = parser.parse_args()
 
     app = chicago95ui.make_app("chicago95-shutdown")
@@ -1494,6 +1497,8 @@ def main():
         return 0
     if args.login_banner:
         return 0 if render_login_banner(chicago95ui.look_settings(), args.login_banner) else 1
+    if args.status_banner:
+        return 0 if render_login_banner(chicago95ui.look_settings(), args.status_banner, status=True) else 1
     if args.screenshot_safe:
         grab_widget(shutting_down_screen(QRect(0, 0, 1280, 720), hold_until_input=False), args.screenshot_safe)
         return 0

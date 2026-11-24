@@ -37,6 +37,7 @@ emulate firmware, run DOS, or alter the installed Plymouth sequence.
 With the Windows 2000 login style, the installed post-login splash displays a
 “Please wait” dialog. Its text follows actual KSplash session stages; it stays up
 until the session completes instead of playing timed network/service messages.
+The banner’s blue strip moves at the speed measured in the Windows 2000 guest.
 Individual systemd unit reporting is not connected yet. The current banner variant
 differs from the supplied video's; visual tests explicitly exclude that artwork.
 
@@ -185,6 +186,7 @@ python3 -m pytest tests/visual/parity.py -q -k "win95 and caption and gtk4"
 python3 -m pytest tests/visual/parity.py -q -k "device_manager or start_menu"
 python3 -m pytest tests/visual/parity.py -q -k properties
 python3 -m pytest tests/visual/parity.py -q -k control_panel_hover
+python3 -m pytest tests/visual/parity.py -q -k motion
 ```
 
 The suite discovers each theme's manifest under [tests/references/themes](../tests/references/themes).
@@ -202,10 +204,13 @@ The existing reference helpers resolve the old names for any captures moved into
 | Device Manager | Qt | Four-button action row on Windows 95 and 98. Console command chrome on Windows 2000, XP, and Windows 7. |
 | Start menu | Qt | Root menus, the Programs selection band and cascade edge on the classic looks, the selection bands and popup edges for All Programs and My Recent Documents in Luna, and the opaque search area, selected Back face and expanded Programs pane in Aero. |
 | Boot | Qt, generated Plymouth artwork | Full sampled frames on all six looks. Both compare 11 Windows 95 phases, 20 Windows 98 strip phases, six Windows 2000 strip phases and 45 Windows 7 animation phases. Windows 2000 also has a Qt playback cadence check. |
+| Post-login | Qt Quick | Windows 2000 compares the 120-DPI status window, bounds, dialog fill and banner-strip travel speed. |
+| Lock screen | Qt Quick | Windows 2000 compares the empty and typed unlock fields, the rejected-password dialog, and the prompt bounds at 120 DPI. Aero compares the credential prompt at 800×600 and 1024×768. |
 | Radio controls | GTK 3, GTK 4, Qt SVG | Idle and selected indicators on all six looks at their captured DPI. Windows 98, Windows 2000 and XP Classic also compare the installed SVG source at its native size. |
 | File manager | Thunar (GTK 3), GNOME Files (GTK 4) | The installed themes' navigation bands against Explorer on all six looks. The GTK 4 capture waits for the maximized window to occupy the framebuffer. The tests also check the Classic title strip across the sidebar seam, the Luna Address field fill, and Aero's address and Back/Forward states. |
-| Control Panel | Qt | Icon view from Windows 95 through XP and Category View on XP and Windows 7. XP tests compare all ten category icons, the page background, and the native link underline on hover and exit. Windows 7 compares the steady hover and opening at 96 DPI and three hover exits at 144 DPI. The rendered window requests the guest client size at the captured DPI. |
+| Control Panel | Qt | Icon view from Windows 95 through XP and Category View on XP and Windows 7. XP tests compare all ten category icons, the page background, and the native link underline on hover and exit. Windows 7 compares the steady hover and opening at 96 DPI, the focused heading after a cancelled click, and three hover exits at 144 DPI. The rendered window requests the guest client size at the captured DPI. |
 | Display Properties | Qt | Appearance on 95, 98, and 2000. Settings on both XP looks. Windows 7 Screen Resolution provides the native counterpart to the theme's Settings page. The renderer checks that the selected tab is visible and its page fits without scrollbars. |
+| Window and caption motion | KWin, Qt Quick | All five older looks record a real minimize and taskbar restore. The Classic presets compare strip speed with the native measurements, and Luna checks that the strip travels while the window client retains its previous visibility. Aero compares live KWin window transitions and the Qt Quick caption face's hover and focus timing with the recorded Windows 7 frames. |
 
 The SVG renderer draws the actual artwork at the fixture dimensions. The KWin adapter opens a real window in a
 nested session, drives the pointer and records the frame while the press is held. A second, fixed-size Qt window
@@ -266,6 +271,10 @@ The coverage checks fail for references, components and renderers still missing 
 regression suites continue to cover more surfaces, including their motion and full application layouts. As new
 components move into the common layout, add their references to each theme folder and register their rendering
 scenarios once in the suite. A file alone cannot specify how to put a widget, desktop or session in the captured state.
+
+Motion tests write the captured KWin video and measured results under `visual/<theme>/motion/`.
+The timing assertions account for the sampling interval. Full frame-by-frame pixel comparisons for these transitions
+remain open.
 
 The Device Manager renderer uses a fixed device inventory and draws at the captured guest DPI. The Start menu
 references keep their original rows. A missing menu entry can produce a dimension mismatch even when the common

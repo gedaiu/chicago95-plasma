@@ -1,0 +1,19 @@
+{
+  "source": "Windows 2000 Professional Notepad",
+  "reference_screen": [
+    1280,
+    1024
+  ],
+  "render_scales": [
+    1.25
+  ],
+  "minimize_button": "711,163",
+  "native_speed_px_ms": [
+    3.1,
+    3.15
+  ],
+  "sampling_tolerance_px_ms": [
+    0.4,
+    0.35
+  ]
+}

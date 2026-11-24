@@ -448,7 +448,7 @@ py_ok=1
 SAVED_SETTINGS=~/.config/chicago95/setup.conf
 if [ -z "${OPT_LOOK:-}" ]; then
   apply_look 1995
-  SETUP_ANIM_MINIMIZE= SETUP_ANIM_MAXIMIZE= # unchosen: the animations table decides
+  SETUP_ANIM_MINIMIZE='' SETUP_ANIM_MAXIMIZE='' # unchosen: the animations table decides
 fi
 previous_look=
 [ ! -f "$SAVED_SETTINGS" ] || previous_look=$(sed -n 's/^LOOK=//p' "$SAVED_SETTINGS" | tail -1)
@@ -538,15 +538,15 @@ if [ "$SETUP_YES" = 0 ] && [ -z "${OPT_CONTROL_PANEL_STYLE:-}${OPT_SETTINGS:-}" 
   panel_styles=(auto classic luna aero)
   marked=1
   for index in "${!panel_styles[@]}"; do
-    [ "${panel_styles[$index]}" = "${SETUP_CONTROL_PANEL_STYLE:-auto}" ] && marked=$((index + 1))
+    [ "${panel_styles[$index]}" = "$SETUP_CONTROL_PANEL_STYLE" ] && marked=$((index + 1))
   done
   choice=$(ui_choose "Control Panel" "Which style should Control Panel use?" "$marked" "Follow desktop theme" "Classic" "Windows XP" "Windows 7")
   SETUP_CONTROL_PANEL_STYLE=${panel_styles[$((choice - 1))]}
 fi
-SETUP_DECORATION=${OPT_DECORATION:-${SETUP_DECORATION:-classic}}
-SETUP_WIDGET_STYLE=${OPT_WIDGET_STYLE:-${SETUP_WIDGET_STYLE:-classic}}
-SETUP_TASKBAR_STYLE=${OPT_TASKBAR_STYLE:-${SETUP_TASKBAR_STYLE:-classic}}
-SETUP_START_MENU_STYLE=${OPT_START_MENU_STYLE:-${SETUP_START_MENU_STYLE:-1995}}
+SETUP_DECORATION=${OPT_DECORATION:-$SETUP_DECORATION}
+SETUP_WIDGET_STYLE=${OPT_WIDGET_STYLE:-$SETUP_WIDGET_STYLE}
+SETUP_TASKBAR_STYLE=${OPT_TASKBAR_STYLE:-$SETUP_TASKBAR_STYLE}
+SETUP_START_MENU_STYLE=${OPT_START_MENU_STYLE:-$SETUP_START_MENU_STYLE}
 if [ -z "${OPT_PANEL:-}" ] && [ "${OPT_LOOK:-}" = aero ] && [ "$SETUP_PANEL" = 28 ]; then
   SETUP_PANEL=$AERO_PANEL_HEIGHT
 elif [ -z "$PANEL_CHOSEN" ] && [ "$SETUP_PANEL" = 28 ]; then
@@ -561,10 +561,10 @@ elif [ -z "${SETUP_BRANDING:-}" ] && [[ " $COMPONENTS " =~ \ (startmenu|taskbar|
 fi
 [ "${SETUP_BRANDING:-}" = distro ] && { [ -n "${OPT_BRANDING:-}" ] || [ "$LOOK_APPLIED" = 1 ]; } && apply_distro_branding
 SETUP_START_TEXT=${OPT_START_TEXT:-${SETUP_START_TEXT:-Start}}
-SETUP_START_LOGO=${OPT_START_LOGO:-${SETUP_START_LOGO:-$(default_start_logo)}}
-SETUP_BANNER_TEXT=${OPT_BANNER_TEXT:-${SETUP_BANNER_TEXT:-$(default_banner_text)}}
+SETUP_START_LOGO=${OPT_START_LOGO:-$SETUP_START_LOGO}
+SETUP_BANNER_TEXT=${OPT_BANNER_TEXT:-$SETUP_BANNER_TEXT}
 [[ " $COMPONENTS " == *" startmenu "* || " $COMPONENTS " == *" taskbar "* ]] && choose_start_menu
-SETUP_LOGIN_STYLE=${OPT_LOGIN_STYLE:-${SETUP_LOGIN_STYLE:-classic}}
+SETUP_LOGIN_STYLE=${OPT_LOGIN_STYLE:-$SETUP_LOGIN_STYLE}
 [[ " $COMPONENTS " == *" sddm "* || " $COMPONENTS " == *" splash "* ]] && [ -z "${OPT_LOGIN_STYLE:-}" ] && choose_login_style
 # An explicit login style historically selects its matching boot style when no
 # look or boot override was requested. Preserve that after resetting look defaults.
@@ -572,30 +572,18 @@ if [ -n "${OPT_LOGIN_STYLE:-}" ] && [ -z "${OPT_LOOK:-}${OPT_BOOT_STYLE:-}" ]; t
   SETUP_BOOT_STYLE=$OPT_LOGIN_STYLE
   [ "$OPT_LOGIN_STYLE" != aero ] || SETUP_BOOT_STYLE=7
 fi
-SETUP_BOOT_STYLE=${OPT_BOOT_STYLE:-${SETUP_BOOT_STYLE:-$SETUP_LOGIN_STYLE}}
-SETUP_LOGIN_TITLE=${SETUP_LOGIN_TITLE:-"$([ "$SETUP_LOGIN_STYLE" = classic ] && echo 'Welcome to Windows' || echo 'Log On to %h')"}
-SETUP_LOGIN_MESSAGE=${SETUP_LOGIN_MESSAGE:-"Type a user name and password to log on to Windows."}
-SETUP_LOGIN_ICON=${SETUP_LOGIN_ICON:-keys}
-SETUP_SPLASH_IMAGE=${SETUP_SPLASH_IMAGE:-classic}
-# The 2000 look's logo is the waving flag of its start-up screen; the others repeat the Start button's logo.
-SETUP_LOGIN_LOGO=${SETUP_LOGIN_LOGO:-$([ "$SETUP_START_MENU_STYLE" = 2000 ] && echo waving-flag || echo start)}
-SETUP_EDITION=${SETUP_EDITION:-Professional}
-SETUP_TAGLINE=${SETUP_TAGLINE:-"Built on Linux Technology"}
-SETUP_COMPANY=${SETUP_COMPANY:-KDE}
-SETUP_COMPANY_LOGO=${SETUP_COMPANY_LOGO:-text}
-SETUP_LOADING_TEXT=${SETUP_LOADING_TEXT:-"Starting up..."}
-SETUP_LOADING_FOOTER=${SETUP_LOADING_FOOTER:-"Chicago95 for KDE Plasma"}
+SETUP_BOOT_STYLE=${OPT_BOOT_STYLE:-$SETUP_BOOT_STYLE}
 [[ " $COMPONENTS " == *" sddm "* || " $COMPONENTS " == *" splash "* ]] && choose_branding
 SETUP_SAVER=${OPT_SAVER:-${SETUP_SAVER:-deepstars}}
 [[ " $COMPONENTS " == *" screensaver "* ]] && [ "$py_ok" = 1 ] && choose_screensaver
-SETUP_SOUND_THEME=${OPT_SOUNDS:-${SETUP_SOUND_THEME:-Chicago95}}
+SETUP_SOUND_THEME=${OPT_SOUNDS:-$SETUP_SOUND_THEME}
 [[ " $COMPONENTS " == *" sounds "* ]] && [ -z "${OPT_SOUNDS:-}" ] && choose_sounds
 [ -n "${OPT_SETTINGS:-}" ] && load_settings "$OPT_SETTINGS"
 if [ -n "${OPT_ICONS:-}" ]; then
   SETUP_ICONS=$OPT_ICONS
   [[ " $COMPONENTS " == *" look "* || " $COMPONENTS " == *" icons "* ]] || COMPONENTS+=" icons"
 fi
-SETUP_CONTROL_PANEL_STYLE=${OPT_CONTROL_PANEL_STYLE:-${SETUP_CONTROL_PANEL_STYLE:-auto}}
+SETUP_CONTROL_PANEL_STYLE=${OPT_CONTROL_PANEL_STYLE:-$SETUP_CONTROL_PANEL_STYLE}
 if [ -n "${OPT_WOBBLY:-}" ]; then
   SETUP_ANIM_WOBBLY=$OPT_WOBBLY
   [[ " $COMPONENTS " == *" animations "* ]] || COMPONENTS+=" animations"

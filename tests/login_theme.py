@@ -6,8 +6,9 @@ from pathlib import Path
 
 from conftest import REPO
 from login_preview import login_context, prepare_login_theme
-from PySide6.QtCore import QTimer, QUrl
+from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtQuick import QQuickView
+from PySide6.QtTest import QTest
 
 THEME = REPO / "sddm/Chicago95Plasma"
 
@@ -75,7 +76,7 @@ def render_login(app, folder, **options):
         return qimage_to_pil(view.grabWindow())
 
 
-def render_aero_lock(app, folder, size, user, brand_text):
+def render_aero_lock(app, folder, size, user, brand_text, *, edition="", logo=""):
     """Render the lock page with the same stand-in user and authenticator used by the greeter tests."""
     from reference import qimage_to_pil
 
@@ -88,7 +89,14 @@ AeroLockScreen {
 }""")
     view = QQuickView()
     view.setResizeMode(QQuickView.SizeRootObjectToView)
-    view.setInitialProperties({"userName": user, "brandText": brand_text})
+    view.setInitialProperties(
+        {
+            "userName": user,
+            "brandText": brand_text,
+            "brandEdition": edition,
+            "brandLogo": QUrl.fromLocalFile(str(theme / logo)) if logo else QUrl(),
+        }
+    )
     view.resize(*size)
     view.setSource(QUrl.fromLocalFile(str(scene)))
     errors = [error.toString() for error in view.errors()]
@@ -97,6 +105,38 @@ AeroLockScreen {
     try:
         QTimer.singleShot(300, app.quit)
         app.exec()
+        return qimage_to_pil(view.grabWindow())
+    finally:
+        view.close()
+
+
+def render_classic_lock(folder, size, banner, *, typed=False, rejected=False):
+    from reference import qimage_to_pil
+
+    theme = prepare_login_theme(THEME, folder, banner=banner).parent
+    scene = theme / "test-lock.qml"
+    scene.write_text("""import QtQuick
+ClassicLockScreen {
+    userName: "ref"
+    modern: true
+    bannerSource: Qt.resolvedUrl("brand-banner.png")
+    authenticator: QtObject { signal failed(int kind) }
+    onPasswordEntered: authenticator.failed(0)
+}""")
+    view = QQuickView()
+    view.setResizeMode(QQuickView.SizeRootObjectToView)
+    view.resize(*size)
+    view.setSource(QUrl.fromLocalFile(str(scene)))
+    assert not view.errors()
+    view.show()
+    try:
+        QTest.qWait(150)
+        if typed or rejected:
+            for key in (Qt.Key_Z, Qt.Key_X, Qt.Key_Y):
+                QTest.keyClick(view, key)
+            if rejected:
+                QTest.keyClick(view, Qt.Key_Return)
+        QTest.qWait(120)
         return qimage_to_pil(view.grabWindow())
     finally:
         view.close()

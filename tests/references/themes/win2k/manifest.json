@@ -3,13 +3,23 @@
   "radio_rgb565": true,
   "start_menu_interaction": {"scale": 1.25, "rgb565": true},
   "look": "2000",
+  "motion": {"title_strip": "motion/title-strip.json"},
   "desktop_samples": {"screen": [1280, 1024], "scale": 1.25, "launchers": ["user-desktop", "web-browser", "mail-client"], "cursor": [640, 512, 662, 536]},
   "file_manager_scale": 1.25,
   "session_screens": {
     "sign-in": {
       "1280x1024": {"frame": "sign-in.png", "exclude": [639, 512, 661, 537], "scale": 1.25}
+    },
+    "post-login": {
+      "1280x1024": {"frame": "post-login/1280x1024.png", "exclude": [639, 510, 665, 537], "scale": 1.25, "strip_phase": 0.0082}
+    },
+    "lock-screen": {
+      "1280x1024": {"frame": "lock-screen/1280x1024.png", "exclude": [0, 0, 24, 24], "scale": 1.25},
+      "password-typed": {"frame": "lock-screen/password-typed.png", "exclude": [0, 0, 24, 24], "scale": 1.25, "entry": "typed"},
+      "rejected": {"frame": "lock-screen/rejected.png", "exclude": [0, 0, 24, 24], "scale": 1.25, "failed": true}
     }
   },
+  "post_login_strip": {"frame": "post-login/strip-travel.png", "sample_interval_ms": 1098},
   "boot_step": 2,
   "boot_strip_step": 3,
   "caption_scale": 1.25,

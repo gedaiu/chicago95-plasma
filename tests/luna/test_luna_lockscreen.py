@@ -134,7 +134,10 @@ def test_setup_installs_the_luna_trees_next_to_each_other_inside_the_lockscreen_
 
 
 def test_setup_writes_the_look_into_the_lock_screen_settings(tmp_path):
-    run_bash_with_steps(tmp_path, f"SETUP_DRY_RUN=0 SETUP_LOGIN_STYLE=luna SETUP_START_MENU_STYLE=luna; write_lockscreen_settings {tmp_path}")
+    run_bash_with_steps(
+        tmp_path,
+        f"SETUP_DRY_RUN=0 SETUP_LOGIN_STYLE=luna SETUP_START_MENU_STYLE=luna; write_lockscreen_settings {tmp_path}",
+    )
 
     assert (tmp_path / "settings.js").read_text().startswith('.pragma library\nvar look = "luna";\n')
 

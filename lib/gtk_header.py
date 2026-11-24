@@ -204,10 +204,11 @@ def gradient(colours):
     return f"linear-gradient(to right, {start}, {end or start})"
 
 
-def header_css(active, inactive, inactive_text, face):
+def header_css(active, inactive, inactive_text, face, *, gtk4=True):
     # Lifted into a box exactly the strip's height: from the strip's top, ending TITLE_H below it.
     lifted = dict(margin_top=f"-{TOOLBAR_TOP}px", margin_bottom=f"{TOOLBAR_ROW + TOOLBAR_TOP - TITLE_H}px")
     first = {colours: colours.partition(",")[0] for colours in (active, inactive)}
+    sidebar_border = "var(--sidebar-border-color, #808080)" if gtk4 else "#808080"
     return "".join(
         [
             rule(
@@ -235,12 +236,12 @@ def header_css(active, inactive, inactive_text, face):
             rule(
                 ".nautilus-window .sidebar-pane placessidebar:dir(ltr)",
                 border_right="1px solid #FFFFFF",
-                box_shadow="inset -1px 0 var(--sidebar-border-color, #808080)",
+                box_shadow=f"inset -1px 0 {sidebar_border}",
             ),
             rule(
                 ".nautilus-window .sidebar-pane placessidebar:dir(rtl)",
                 border_left="1px solid #FFFFFF",
-                box_shadow="inset 1px 0 var(--sidebar-border-color, #808080)",
+                box_shadow=f"inset 1px 0 {sidebar_border}",
             ),
             # libadwaita insets the sidebar's rows 6px from its edges: the sidebar's buttons line up with them.
             rule(
@@ -472,7 +473,7 @@ def main():
             gtk4=args.gtk == "4.0",
             converter=shutil.which("rsvg-convert"),
         )
-        + header_css(args.active, args.inactive, args.inactive_text, args.face)
+        + header_css(args.active, args.inactive, args.inactive_text, args.face, gtk4=args.gtk == "4.0")
         + path_bar_css(args.light, args.shadow, args.dark)
         + list_view_css()
     )

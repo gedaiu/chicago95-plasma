@@ -16,7 +16,7 @@ def desktop_script(tmp_path, assignments=""):
 
 
 def chosen(tmp_path, assignments=""):
-    return run_bash_with_steps(tmp_path, f"{assignments} desktop_icons_chosen")
+    return run_bash_with_steps(tmp_path, f"apply_look 1995; {assignments} desktop_icons_chosen")
 
 
 def link(name):

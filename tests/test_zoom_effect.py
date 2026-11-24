@@ -165,12 +165,14 @@ def test_luna_title_strip_travels_from_the_frame_to_the_center_of_the_task_butto
 def test_classic_style_moves_the_inset_caption_band_at_the_measured_device_pixel_speed(zoom):
     uniforms = call(zoom, "titleStripGeometry", FRAME, FRAME, ICON, 18, True, 4)["uniforms"]
     assert (uniforms["stripX"], uniforms["stripY"], uniforms["stripWidth"], uniforms["stripHeight"]) == (4, 4, 392, 18)
-    assert call(zoom, "classicStripDuration", uniforms, 1, 3) == 137
-    assert call(zoom, "classicStripDuration", uniforms, 1.25, 3) == 171
-    assert call(zoom, "classicStripDuration", uniforms, 1.25, 4.4) == 117
+    assert call(zoom, "classicStripDuration", uniforms, 1, 3) == 133
+    assert call(zoom, "classicStripDuration", uniforms, 1.25, 3) == 167
+    assert call(zoom, "classicStripDuration", uniforms, 1.25, 4.4) == 114
+    assert call(zoom, "classicStripDuration", {**uniforms, "taskX": 354}, 1, 3) == 133
+    assert call(zoom, "classicStripDuration", {**uniforms, "taskX": 404, "taskY": 4}, 1, 3) == 133
 
 
 def test_windows_98_title_strip_caps_long_travel_without_sluggish_high_dpi_motion(zoom):
     uniforms = call(zoom, "titleStripGeometry", FRAME, FRAME, ICON, 18, True, 4)["uniforms"]
-    assert call(zoom, "classicStripDuration", uniforms, 1.25, 3, 300) == 171
+    assert call(zoom, "classicStripDuration", uniforms, 1.25, 3, 300) == 167
     assert call(zoom, "classicStripDuration", uniforms, 3, 3, 300) == 300

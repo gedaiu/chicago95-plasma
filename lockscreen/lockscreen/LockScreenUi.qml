@@ -259,6 +259,7 @@ Item {
                     item.canSwitchUser = Qt.binding(() => sessionManagement.canSwitchUser);
                     item.switchUserRequested.connect(() => sessionManagement.switchUser());
                     item.brandText = Settings.brandText;
+                    item.brandEdition = Settings.brandEdition || "";
                     item.brandLogo = Qt.resolvedUrl(Settings.brandLogo);
                 }
                 if (lockScreenUi.luna || lockScreenUi.aero) {
@@ -266,6 +267,8 @@ Item {
                     return;
                 }
                 item.modern = Settings.look === "2000";
+                if (item.modern)
+                    item.bannerSource = Qt.resolvedUrl("classic/brand-banner.png");
                 item.desktopColor = Settings.desktopColor;
             }
         }

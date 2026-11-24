@@ -8,15 +8,44 @@ LOOKS_DIR = REPO / "looks"
 LOOK_NAMES = ["1995", "1998", "2000", "2001", "aero", "luna"]
 REPO_RELATIVE_KEYS = {"SPLASH_IMAGE", "BACKGROUND_IMAGE"}
 LOOK_KEYS = {
-    "CONTROL_PANEL_STYLE", "DECORATION", "WIDGET_STYLE", "TASKBAR_STYLE",
-    "START_MENU_STYLE", "BEVEL", "FACE", "SELECTION", "TITLE_ACTIVE",
-    "TITLE_INACTIVE", "BANNER_BG", "BANNER_FG", "ICONS",
-    "START_LOGO", "BANNER_TEXT", "LOGIN_STYLE", "LOGIN_TITLE",
-    "LOGIN_MESSAGE", "LOGIN_ICON", "LOGIN_LOGO", "EDITION", "TAGLINE",
-    "COMPANY", "COMPANY_LOGO", "BOOT_STYLE", "SPLASH_IMAGE", "LOADING_TEXT",
-    "LOADING_FOOTER", "SOUND_THEME", "BACKGROUND_MODE", "BACKGROUND_COLOR",
-    "BACKGROUND_IMAGE", "BACKGROUND_FILL", "DESKTOP_ICONS", "QUICK_LAUNCH",
-    "TASK_GROUPING", "ANIM_MINIMIZE", "ANIM_MAXIMIZE",
+    "CONTROL_PANEL_STYLE",
+    "DECORATION",
+    "WIDGET_STYLE",
+    "TASKBAR_STYLE",
+    "START_MENU_STYLE",
+    "BEVEL",
+    "FACE",
+    "SELECTION",
+    "TITLE_ACTIVE",
+    "TITLE_INACTIVE",
+    "BANNER_BG",
+    "BANNER_FG",
+    "ICONS",
+    "START_LOGO",
+    "BANNER_TEXT",
+    "LOGIN_STYLE",
+    "LOGIN_TITLE",
+    "LOGIN_MESSAGE",
+    "LOGIN_ICON",
+    "LOGIN_LOGO",
+    "EDITION",
+    "TAGLINE",
+    "COMPANY",
+    "COMPANY_LOGO",
+    "BOOT_STYLE",
+    "SPLASH_IMAGE",
+    "LOADING_TEXT",
+    "LOADING_FOOTER",
+    "SOUND_THEME",
+    "BACKGROUND_MODE",
+    "BACKGROUND_COLOR",
+    "BACKGROUND_IMAGE",
+    "BACKGROUND_FILL",
+    "DESKTOP_ICONS",
+    "QUICK_LAUNCH",
+    "TASK_GROUPING",
+    "ANIM_MINIMIZE",
+    "ANIM_MAXIMIZE",
 }
 
 
@@ -52,7 +81,8 @@ def expected_setup_values(look_name):
 @pytest.mark.parametrize("look_name", LOOK_NAMES)
 def test_apply_look_sets_every_value_of_that_looks_file(tmp_path, look_name):
     keys = " ".join(["LOOK", *sorted(LOOK_KEYS)])
-    script = f'apply_look {look_name}; for key in {keys}; do variable=SETUP_$key; printf "%s=%s\\n" "$key" "${{!variable}}"; done'
+    print_values = 'variable=SETUP_$key; printf "%s=%s\\n" "$key" "${!variable}"'
+    script = f"apply_look {look_name}; for key in {keys}; do {print_values}; done"
     applied = dict(line.split("=", 1) for line in run_bash_with_steps(tmp_path, script))
     assert applied == expected_setup_values(look_name)
 
@@ -65,7 +95,10 @@ def test_apply_look_win2k_fails_naming_the_known_looks(tmp_path):
     )
 
 
-@pytest.mark.skipif(not Path("/usr/share/plasma/shells/org.kde.plasma.desktop").exists(), reason="Setup skips the lock screen step without the Plasma shell")
+@pytest.mark.skipif(
+    not Path("/usr/share/plasma/shells/org.kde.plasma.desktop").exists(),
+    reason="Setup skips the lock screen step without the Plasma shell",
+)
 def test_look_2000_over_a_saved_1998_install_writes_the_2000_lock_screen(tmp_path):
     saved_settings = ["LOOK=1998", *(f"{key}={value}" for key, value in parse_look(LOOKS_DIR / "1998.conf").items())]
     saved_file = tmp_path / ".config/chicago95/setup.conf"
@@ -73,7 +106,9 @@ def test_look_2000_over_a_saved_1998_install_writes_the_2000_lock_screen(tmp_pat
     saved_file.write_text("\n".join([*saved_settings, "COMPONENTS=base look lockscreen"]) + "\n")
 
     result = run_setup(tmp_path, "--look=2000", "--components=lockscreen")
-    lock_screen_settings = tmp_path / ".local/share/plasma/shells/org.kde.plasma.desktop/contents/lockscreen/settings.js"
+    lock_screen_settings = (
+        tmp_path / ".local/share/plasma/shells/org.kde.plasma.desktop/contents/lockscreen/settings.js"
+    )
 
     assert (result.returncode, lock_screen_settings.read_text()) == (
         0,
@@ -105,6 +140,15 @@ def control_panel():
 @pytest.mark.parametrize("look_name", LOOK_NAMES)
 def test_control_panel_preset_is_that_looks_file(control_panel, look_name):
     assert control_panel.LOOK_PRESETS[look_name] == parse_look(LOOKS_DIR / f"{look_name}.conf")
+
+
+@pytest.mark.parametrize("look_name", LOOK_NAMES)
+def test_branding_defaults_are_that_looks_file_values(control_panel, look_name):
+    look_values = control_panel.resolved_look(look_name, {"LOOK": look_name})
+    defaults = control_panel.branding_defaults({"LOOK": look_name})
+    shared_keys = [key for key in defaults if key in look_values]
+
+    assert {key: defaults[key] for key in shared_keys} == {key: look_values[key] for key in shared_keys}
 
 
 def display_page_over_saved_1998_look(control_panel):

@@ -2,6 +2,7 @@
   "radio_scale": 1.25,
   "start_menu_interaction": {"scale": 1.25},
   "look": "1998",
+  "motion": {"title_strip": "motion/title-strip.json"},
   "desktop_samples": {"screen": [1280, 1024], "scale": 1.25, "launchers": ["user-desktop", "web-browser", "mail-client"], "cursor": [640, 512, 662, 536]},
   "file_manager_scale": 1.25,
   "session_screens": {

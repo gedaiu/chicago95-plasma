@@ -7,6 +7,7 @@ or wait:SECONDS. Coordinates are in the compositor's logical pixels.
 """
 
 import ctypes
+import json
 import os
 import subprocess
 import sys
@@ -98,6 +99,24 @@ def run_step(context, device, step):
         time.sleep(0.05)
 
 
+def wait_for_recording(capture):
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        if capture.poll() is not None:
+            raise RuntimeError(f"Spectacle exited before recording started ({capture.returncode})")
+        graph = json.loads(subprocess.check_output(["pw-dump"], timeout=5))
+        for entry in graph:
+            if entry["type"] != "PipeWire:Interface:Node":
+                continue
+            info = entry["info"]
+            props = info["props"]
+            if info["state"] == "running" and props.get("media.class") == "Stream/Input/Video":
+                if props.get("node.name") == "spectacle":
+                    return
+        time.sleep(0.1)
+    raise RuntimeError("Spectacle did not start receiving video from the isolated PipeWire server")
+
+
 def record(steps, output):
     """Record the nested KWin output with its own PipeWire server and Spectacle."""
 
@@ -117,7 +136,7 @@ def record(steps, output):
         time.sleep(1.5)
         capture = subprocess.Popen(["spectacle", "-R", "s", "-b", "-n", "-o", output])
         processes.callback(stop, capture)
-        time.sleep(2)
+        wait_for_recording(capture)
         main(steps)
         subprocess.run(["spectacle", "-R", "s", "-b", "-n"], check=True, timeout=15)
         capture.wait(timeout=15)

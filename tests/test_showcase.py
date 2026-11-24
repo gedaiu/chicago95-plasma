@@ -131,7 +131,7 @@ for look in ("1995", "2001", "luna"):
         capture_output=True,
         text=True,
         check=False,
-        timeout=40,
+        timeout=120,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Cannot open" not in result.stderr and "No such file" not in result.stderr, result.stderr

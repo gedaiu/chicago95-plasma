@@ -235,6 +235,7 @@ BRANDING_PICTURES = {
         ("Waving flag", "waving-flag"),
         ("Classic flag", "flag"),
         ("Windows XP flag", "xp"),
+        ("Windows 7 flag", "aero-flag"),
         ("Penguin", "penguin"),
     ],
     "LOGIN_ICON": [("Keys", "keys"), ("Padlock", "padlock")],
@@ -243,25 +244,27 @@ BRANDING_PICTURES = {
 }
 
 
+BRANDING_LOOK_KEYS = (
+    "BANNER_TEXT",
+    "EDITION",
+    "TAGLINE",
+    "COMPANY",
+    "START_LOGO",
+    "LOGIN_LOGO",
+    "COMPANY_LOGO",
+    "LOGIN_ICON",
+    "LOGIN_TITLE",
+    "LOGIN_MESSAGE",
+    "LOADING_TEXT",
+    "LOADING_FOOTER",
+    "SPLASH_IMAGE",
+)
+
+
 def branding_defaults(settings):
     """Each name, text and logo as the look's Windows had it, before anyone changes it."""
-    preset = LOOK_PRESETS.get(settings.get("LOOK"), LOOK_PRESETS["1995"])
-    return {
-        "BANNER_TEXT": preset["BANNER_TEXT"],
-        "EDITION": "Professional",
-        "TAGLINE": "Built on Linux Technology",
-        "COMPANY": "KDE",
-        "START_LOGO": preset["START_LOGO"],
-        "LOGIN_LOGO": "start",
-        "COMPANY_LOGO": "text",
-        "LOGIN_ICON": "keys",
-        "START_TEXT": "Start",
-        "LOGIN_TITLE": "Log On to %h",
-        "LOGIN_MESSAGE": "Type a user name and password to log on.",
-        "LOADING_TEXT": "Starting up...",
-        "LOADING_FOOTER": "Chicago95 for KDE Plasma",
-        "SPLASH_IMAGE": "classic",
-    }
+    look = resolved_look(settings.get("LOOK"), settings)
+    return {**{key: look[key] for key in BRANDING_LOOK_KEYS}, "START_TEXT": "Start"}
 
 
 def branding_field(tab, key, label, settings):
@@ -359,35 +362,79 @@ APPLETS = (
 APPLET_BY_NAME = {applet.name: applet for applet in APPLETS}
 
 WIN95_APPLETS = (
-    Applet("Accessibility Options", ("preferences-desktop-accessibility", "preferences-desktop"),
-           "Adjusts accessibility settings.", command=("kcmshell6", "kcm_access")),
+    Applet(
+        "Accessibility Options",
+        ("preferences-desktop-accessibility", "preferences-desktop"),
+        "Adjusts accessibility settings.",
+        command=("kcmshell6", "kcm_access"),
+    ),
     APPLET_BY_NAME["Add New Hardware"],
-    Applet("Add/Remove Programs", ("system-software-install", "package-x-generic"),
-           "Installs and removes programs.", command=("plasma-discover",)),
-    Applet("Date/Time", ("preferences-system-time", "clock"),
-           "Sets the date, time and time zone.", command=("kcmshell6", "kcm_clock")),
+    Applet(
+        "Add/Remove Programs",
+        ("system-software-install", "package-x-generic"),
+        "Installs and removes programs.",
+        command=("plasma-discover",),
+    ),
+    Applet(
+        "Date/Time",
+        ("preferences-system-time", "clock"),
+        "Sets the date, time and time zone.",
+        command=("kcmshell6", "kcm_clock"),
+    ),
     APPLET_BY_NAME["Display"],
     APPLET_BY_NAME["Fonts"],
-    Applet("Internet", ("applications-internet", "internet-web-browser"),
-           "Configures the Internet proxy.", command=("kcmshell6", "kcm_proxy")),
-    Applet("Keyboard", ("preferences-desktop-keyboard", "input-keyboard"),
-           "Adjusts the keyboard layout and repeat speed.", command=("kcmshell6", "kcm_keyboard")),
+    Applet(
+        "Internet",
+        ("applications-internet", "internet-web-browser"),
+        "Configures the Internet proxy.",
+        command=("kcmshell6", "kcm_proxy"),
+    ),
+    Applet(
+        "Keyboard",
+        ("preferences-desktop-keyboard", "input-keyboard"),
+        "Adjusts the keyboard layout and repeat speed.",
+        command=("kcmshell6", "kcm_keyboard"),
+    ),
     APPLET_BY_NAME["Modems"],
     APPLET_BY_NAME["Mouse"],
-    Applet("Multimedia", ("applications-multimedia", "audio-card"),
-           "Configures audio devices and volume.", command=("kcmshell6", "kcm_pulseaudio")),
-    Applet("Network", ("preferences-system-network", "network-workgroup"),
-           "Sets up network connections.", command=("kcmshell6", "kcm_networkmanagement")),
+    Applet(
+        "Multimedia",
+        ("applications-multimedia", "audio-card"),
+        "Configures audio devices and volume.",
+        command=("kcmshell6", "kcm_pulseaudio"),
+    ),
+    Applet(
+        "Network",
+        ("preferences-system-network", "network-workgroup"),
+        "Sets up network connections.",
+        command=("kcmshell6", "kcm_networkmanagement"),
+    ),
     APPLET_BY_NAME["Passwords"],
-    Applet("Power", ("preferences-system-power-management", "battery"),
-           "Changes power management settings.", command=("kcmshell6", "kcm_powerdevilprofilesconfig")),
-    Applet("Printers", ("preferences-system-printer", "printer"),
-           "Manages printers and print queues.", command=("kcmshell6", "kcm_printer_manager")),
-    Applet("Regional Settings", ("preferences-desktop-locale", "applications-internet"),
-           "Changes language, formats and other regional settings.", command=("kcmshell6", "kcm_regionandlang")),
+    Applet(
+        "Power",
+        ("preferences-system-power-management", "battery"),
+        "Changes power management settings.",
+        command=("kcmshell6", "kcm_powerdevilprofilesconfig"),
+    ),
+    Applet(
+        "Printers",
+        ("preferences-system-printer", "printer"),
+        "Manages printers and print queues.",
+        command=("kcmshell6", "kcm_printer_manager"),
+    ),
+    Applet(
+        "Regional Settings",
+        ("preferences-desktop-locale", "applications-internet"),
+        "Changes language, formats and other regional settings.",
+        command=("kcmshell6", "kcm_regionandlang"),
+    ),
     APPLET_BY_NAME["Sounds"],
-    Applet("System", APPLET_BY_NAME["System"].icon_names,
-           "Provides system information and changes advanced settings.", APPLET_BY_NAME["System"].external_tool),
+    Applet(
+        "System",
+        APPLET_BY_NAME["System"].icon_names,
+        "Provides system information and changes advanced settings.",
+        APPLET_BY_NAME["System"].external_tool,
+    ),
 )
 
 CLASSIC_APPLET_ART = {
@@ -426,16 +473,24 @@ WIN98_APPLETS = (
     *WIN95_APPLETS[:4],
     replace(APPLET_BY_NAME["Display"], description="Changes display settings."),
     APPLET_BY_NAME["Fonts"],
-    Applet("Game Controllers", ("input-gaming", "applications-games"), "Tests and configures game controllers.",
-           command=("kcmshell6", "kcm_gamecontroller")),
+    Applet(
+        "Game Controllers",
+        ("input-gaming", "applications-games"),
+        "Tests and configures game controllers.",
+        command=("kcmshell6", "kcm_gamecontroller"),
+    ),
     replace(_WIN95_BY_NAME["Internet"], name="Internet Options"),
     _WIN95_BY_NAME["Keyboard"],
     _WIN95_BY_NAME["Modems"],
     _WIN95_BY_NAME["Mouse"],
     _WIN95_BY_NAME["Multimedia"],
     _WIN95_BY_NAME["Network"],
-    Applet("ODBC Data Sources (32bit)", ("server-database", "folder"), "Manages ODBC data sources.",
-           command=("ODBCConfig",)),
+    Applet(
+        "ODBC Data Sources (32bit)",
+        ("server-database", "folder"),
+        "Manages ODBC data sources.",
+        command=("ODBCConfig",),
+    ),
     _WIN95_BY_NAME["Passwords"],
     replace(_WIN95_BY_NAME["Power"], name="Power Management"),
     _WIN95_BY_NAME["Printers"],
@@ -443,8 +498,12 @@ WIN98_APPLETS = (
     _WIN95_BY_NAME["Sounds"],
     _WIN95_BY_NAME["System"],
     Applet("Telephony", ("modem", "network-modem"), "Opens Dial-Up Networking.", "chicago95-dialup"),
-    Applet("Users", ("system-users", "preferences-desktop-user"), "Manages local user accounts.",
-           command=("kcmshell6", "kcm_users")),
+    Applet(
+        "Users",
+        ("system-users", "preferences-desktop-user"),
+        "Manages local user accounts.",
+        command=("kcmshell6", "kcm_users"),
+    ),
 )
 
 WIN98_TOOLBAR_HEIGHT = 34
@@ -454,10 +513,18 @@ WIN2000_APPLETS = (
     _WIN95_BY_NAME["Accessibility Options"],
     replace(_WIN95_BY_NAME["Add New Hardware"], name="Add/Remove Hardware"),
     _WIN95_BY_NAME["Add/Remove Programs"],
-    Applet("Administrative Tools", ("preferences-system", "folder"), "Opens the system monitor.",
-           command=("plasma-systemmonitor",)),
-    Applet("Automatic Updates", ("system-software-update",), "Changes automatic software update settings.",
-           command=("kcmshell6", "kcm_updates")),
+    Applet(
+        "Administrative Tools",
+        ("preferences-system", "folder"),
+        "Opens the system monitor.",
+        command=("plasma-systemmonitor",),
+    ),
+    Applet(
+        "Automatic Updates",
+        ("system-software-update",),
+        "Changes automatic software update settings.",
+        command=("kcmshell6", "kcm_updates"),
+    ),
     _WIN95_BY_NAME["Date/Time"],
     replace(_WIN98_BY_NAME["Display"], description="Customizes your desktop display and screen saver"),
     replace(APPLET_BY_NAME["Explorer"], name="Folder Options", target="Explorer"),
@@ -471,10 +538,15 @@ WIN2000_APPLETS = (
     replace(_WIN95_BY_NAME["Power"], name="Power Options"),
     _WIN95_BY_NAME["Printers"],
     replace(_WIN95_BY_NAME["Regional Settings"], name="Regional Options"),
-    Applet("Scanners and Cameras", ("scanner", "camera-photo"), "Opens the scanner application.",
-           command=("skanpage",)),
-    Applet("Scheduled Tasks", ("view-calendar", "appointment-new"), "Manages scheduled tasks.",
-           command=("kcmshell6", "kcm_cron")),
+    Applet(
+        "Scanners and Cameras", ("scanner", "camera-photo"), "Opens the scanner application.", command=("skanpage",)
+    ),
+    Applet(
+        "Scheduled Tasks",
+        ("view-calendar", "appointment-new"),
+        "Manages scheduled tasks.",
+        command=("kcmshell6", "kcm_cron"),
+    ),
     replace(APPLET_BY_NAME["Sounds"], name="Sounds and Multimedia", target="Sounds"),
     _WIN95_BY_NAME["System"],
     replace(_WIN98_BY_NAME["Users"], name="Users and Passwords"),
@@ -504,16 +576,28 @@ XP_APPLETS = (
     replace(_WIN95_BY_NAME["Regional Settings"], name="Regional and Language Options"),
     _WIN2000_BY_NAME["Scanners and Cameras"],
     _WIN2000_BY_NAME["Scheduled Tasks"],
-    Applet("Security Center", ("security-high", "security-medium"), "Shows firmware security information.",
-           command=("kcmshell6", "kcm_firmware_security")),
+    Applet(
+        "Security Center",
+        ("security-high", "security-medium"),
+        "Shows firmware security information.",
+        command=("kcmshell6", "kcm_firmware_security"),
+    ),
     replace(APPLET_BY_NAME["Sounds"], name="Sounds and Audio Devices", target="Sounds"),
-    Applet("Speech", ("preferences-desktop-accessibility",), "Opens accessibility settings.",
-           command=("kcmshell6", "kcm_access")),
+    Applet(
+        "Speech",
+        ("preferences-desktop-accessibility",),
+        "Opens accessibility settings.",
+        command=("kcmshell6", "kcm_access"),
+    ),
     _WIN95_BY_NAME["System"],
     replace(APPLET_BY_NAME["Taskbar"], name="Taskbar and Start Menu", target="Taskbar"),
     replace(_WIN98_BY_NAME["Users"], name="User Accounts"),
-    Applet("Windows Firewall", ("security-high", "network-wired"), "Opens the firewall configuration tool.",
-           command=("firewall-config",)),
+    Applet(
+        "Windows Firewall",
+        ("security-high", "network-wired"),
+        "Opens the firewall configuration tool.",
+        command=("firewall-config",),
+    ),
     replace(_WIN95_BY_NAME["Network"], name="Wireless Network Setup Wizard"),
 )
 XP_APPLET_ART = {
@@ -532,14 +616,27 @@ XP_ICON_CAPTIONS = {
 }
 XP_CATEGORIES = (
     ("Appearance and Themes", "Display", ("Display", "Folder Options", "Taskbar and Start Menu")),
-    ("Network and Internet Connections", "Network Connections",
-     ("Internet Options", "Network Connections", "Network Setup Wizard", "Wireless Network Setup Wizard")),
+    (
+        "Network and Internet Connections",
+        "Network Connections",
+        ("Internet Options", "Network Connections", "Network Setup Wizard", "Wireless Network Setup Wizard"),
+    ),
     ("Add or Remove Programs", "Add or Remove Programs", ("Add or Remove Programs",)),
     ("Sounds, Speech, and Audio Devices", "Sounds and Audio Devices", ("Sounds and Audio Devices", "Speech")),
     ("Performance and Maintenance", "System", ("Administrative Tools", "Power Options", "Scheduled Tasks", "System")),
-    ("Printers and Other Hardware", "Printers and Faxes",
-     ("Add Hardware", "Game Controllers", "Keyboard", "Mouse", "Phone and Modem Options", "Printers and Faxes",
-      "Scanners and Cameras")),
+    (
+        "Printers and Other Hardware",
+        "Printers and Faxes",
+        (
+            "Add Hardware",
+            "Game Controllers",
+            "Keyboard",
+            "Mouse",
+            "Phone and Modem Options",
+            "Printers and Faxes",
+            "Scanners and Cameras",
+        ),
+    ),
     ("User Accounts", "User Accounts", ("User Accounts",)),
     ("Date, Time, Language, and Regional Options", "Date and Time", ("Date and Time", "Regional and Language Options")),
     ("Accessibility Options", "Accessibility Options", ("Accessibility Options", "Fonts")),
@@ -2048,6 +2145,7 @@ def picture_file(choice, repo=REPO_DIR):
     named = {
         "flag": flag,
         "xp": repo / "plasmoids/org.chicago95.start/contents/images/logo-xp-16.png",
+        "aero-flag": repo / "sddm/Chicago95Plasma/AeroBrandFlag.svg",
         "penguin": repo / "plasmoids/org.chicago95.start/contents/images/logo-penguin.svg",
         "waving-flag": CHICAGO95_DATA / "waving-flag.png",
         "keys": repo / "sddm/Chicago95Plasma/key.svg",
@@ -2084,8 +2182,8 @@ def branding_look(values):
     }
 
 
-def render_banner(values, path):
-    load_tool("chicago95-shutdown").render_login_banner(branding_look(values), path)
+def render_banner(values, path, *, status=False):
+    load_tool("chicago95-shutdown").render_login_banner(branding_look(values), path, status=status)
     return path
 
 
@@ -2150,8 +2248,8 @@ Item {{
         return root.property("dialog") if root is not None and self.scale != 1.0 else root
 
 
-def luna_login_branding(values, theme):
-    """The XP welcome screen's branding as Setup writes it into theme.conf (sddm_theme_conf), with the logo copied
+def login_branding(values, theme):
+    """The welcome screen's branding as Setup writes it into theme.conf, with the logo copied
     next to the theme as brand-logo.*."""
     logo = picture_file(values.get("LOGIN_LOGO", "start"), repo_of(values))
     copied = theme / f"brand-logo{logo.suffix}"
@@ -2185,7 +2283,7 @@ class LogOnPreview(QmlPreview):
         icon = picture_file(values.get("LOGIN_ICON", "keys"), repo_of(values))
         main_qml = login_preview.prepare_login_theme(theme, folder, banner=banner, icon=icon)
         add_luna_screen(values, folder / "theme", "sddm", style)
-        branding = luna_login_branding(values, folder / "theme") if style == "luna" else {}
+        branding = login_branding(values, folder / "theme") if style in ("luna", "aero") else {}
         self.fit(
             *dict.fromkeys(("luna", "aero"), (self.LUNA_SIZE, self.LUNA_SCALE)).get(style, (self.SIZE, self.SCALE))
         )
@@ -2619,7 +2717,7 @@ class LoadingPreview(QmlPreview):
         self.add_screens(values, folder)
         (folder / "settings.js").write_text(self.settings_js(values))
         if values.get("LOGIN_STYLE") == "2000":
-            render_banner(values, folder / "brand-banner.png")
+            render_banner(values, folder / "brand-banner.png", status=True)
         self.load(folder / "Splash.qml")
         if self.dialog() is not None:
             self.dialog().setProperty("booting", self.BOOTING)
@@ -3413,8 +3511,9 @@ class AeroCategoryCard(QFrame):
 class AeroCategoryView(QWidget):
     def paintEvent(self, _event):
         painter = QPainter(self)
-        tint = QLinearGradient(0, 0, 0, 25)
-        tint.setColorAt(0, QColor("#f8fafc"))
+        # Continue the heading's tint and reach white above the first row of cards.
+        tint = QLinearGradient(0, 0, 0, 4)
+        tint.setColorAt(0, QColor("#fefeff"))
         tint.setColorAt(1, QColor("white"))
         painter.fillRect(self.rect(), tint)
 
@@ -3980,7 +4079,9 @@ def preset_panel_height(style):
 def taskbar_style_and_size_fields(tab, settings):
     style = taskbar_style_field(tab, settings)
     form = tab.form
-    height = tab.number("PANEL", "Taskbar height:", 22, 64, default=preset_panel_height(style.currentData()), suffix=" pixels")
+    height = tab.number(
+        "PANEL", "Taskbar height:", 22, 64, default=preset_panel_height(style.currentData()), suffix=" pixels"
+    )
     width = ButtonWidthField(settings.get("LOOK", "1995"))
     tab.register("TASK_BUTTON_WIDTH", "Taskbar button width:", width, width.value, width.set_value, "0", width.changed)
     tab.previews.append(width)
@@ -4715,8 +4816,9 @@ def display_settings_tab(settings, actions):
     tab.outer.insertWidget(0, tab.monitor, 0, Qt.AlignHCenter)
     screen = actions.current_screen()
     tab.display_name = QLabel(screen.output if screen else "Unknown monitor")
-    colours, area = QGroupBox("Color quality" if xp else "Colors"), QGroupBox(
-        "Screen resolution" if xp else "Screen area"
+    colours, area = (
+        QGroupBox("Color quality" if xp else "Colors"),
+        QGroupBox("Screen resolution" if xp else "Screen area"),
     )
     colour_layout = QVBoxLayout(colours)
     colour_combo = chicago95ui.classic_combo(QComboBox())
@@ -4771,7 +4873,8 @@ def display_settings_tab(settings, actions):
         troubleshoot.setFixedWidth(94)
         troubleshoot.clicked.connect(
             lambda: actions.show_message(
-                tab, "Display Troubleshooter",
+                tab,
+                "Display Troubleshooter",
                 "If the display becomes unreadable after applying a resolution, wait for the previous size to return. "
                 "Use Advanced to check connected displays and their supported modes.",
             )
@@ -5189,12 +5292,16 @@ def background_tab(settings, actions):
         if chosen:
             show_wallpaper(chosen)
 
-    defaults = preset_wallpaper(settings.get("LOOK"), settings) if not (
-        settings.get("BACKGROUND_MODE") or settings.get("BACKGROUND_COLOR")
-    ) else preset_wallpaper(None, settings)
+    defaults = (
+        preset_wallpaper(settings.get("LOOK"), settings)
+        if not (settings.get("BACKGROUND_MODE") or settings.get("BACKGROUND_COLOR"))
+        else preset_wallpaper(None, settings)
+    )
     tab.track("BACKGROUND_MODE", mode, lambda _value: None, defaults["BACKGROUND_MODE"])
     tab.track("BACKGROUND_PATTERN", lambda: pattern["name"], set_pattern, "none")
-    tab.track("BACKGROUND_IMAGE", wallpaper, show_wallpaper, defaults["BACKGROUND_IMAGE"], tab.wallpapers.currentRowChanged)
+    tab.track(
+        "BACKGROUND_IMAGE", wallpaper, show_wallpaper, defaults["BACKGROUND_IMAGE"], tab.wallpapers.currentRowChanged
+    )
     tab.track(
         "BACKGROUND_FILL",
         tab.display.currentData,
@@ -5240,9 +5347,7 @@ class ResolutionSlider(QSlider):
             for position in range(span + 1):
                 y = y1 + round((y2 - y1) * position / max(1, span))
                 painter.drawLine(11, y, 28, y)
-            control_panel_picture("aero-resolution-track.svg").render(
-                painter, QRectF(7, y1, 18, y2 - y1 + 1)
-            )
+            control_panel_picture("aero-resolution-track.svg").render(painter, QRectF(7, y1, 18, y2 - y1 + 1))
         super().paintEvent(event)
 
     def keyPressEvent(self, event):
@@ -5307,7 +5412,7 @@ class ResolutionPicker(QComboBox):
         self.slider.setStyleSheet(
             "QSlider::groove:vertical { width: 18px; margin: 0 4px 0 0; background: transparent; }"
             "QSlider::handle:vertical { height: 11px; margin: 0 0 0 -2px; "
-            f"border-image: url(\"{thumb}\"); }}"
+            f'border-image: url("{thumb}"); }}'
         )
         self.slider.dismissed.connect(self.hidePopup)
         self.slider.valueChanged.connect(self.select_position)
@@ -5546,8 +5651,10 @@ class ScreenResolutionPage(QWidget):
 
     def show_help(self):
         self.actions.show_message(
-            self, "Screen Resolution", "Choose a resolution supported by your display. "
-            "Higher resolutions fit more on the screen. Confirm the change to keep it."
+            self,
+            "Screen Resolution",
+            "Choose a resolution supported by your display. "
+            "Higher resolutions fit more on the screen. Confirm the change to keep it.",
         )
 
     def update_apply(self):
@@ -5623,7 +5730,10 @@ class ExplorerSidebar(QWidget):
         layout.addWidget(self.description)
         for caption, address in (
             ("Chicago95 Updates" if win2000 else "Chicago95 Repository", "https://github.com/gedaiu/chicago95-plasma"),
-            ("Technical Support" if win2000 else "Report an issue", "https://github.com/gedaiu/chicago95-plasma/issues"),
+            (
+                "Technical Support" if win2000 else "Report an issue",
+                "https://github.com/gedaiu/chicago95-plasma/issues",
+            ),
         ):
             link = QLabel(f'<a href="{address}">{caption}</a>')
             link.setTextInteractionFlags(Qt.TextBrowserInteraction)
@@ -5643,8 +5753,9 @@ class ExplorerSidebar(QWidget):
         self.applet_title.setText(applet.name if applet else "")
         self.description.setFixedHeight(35 if applet else 105)
         self.description.setText(
-            applet.description if applet else
-            "Use the settings in Control Panel to personalize your computer.\n\n"
+            applet.description
+            if applet
+            else "Use the settings in Control Panel to personalize your computer.\n\n"
             "Select an item to view its description."
         )
 
@@ -5719,9 +5830,12 @@ class XPTaskPane(QWidget):
         header.toggled.connect(lambda opened: arrow.setText("⌃" if opened else "⌄"))
         header_colour = "#ffffff" if primary else "#104090" if luna else "#111111"
         header_fill = (
-            "qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #0752b9,stop:1 #3e75ce)" if primary and luna
-            else "#0a246a" if primary
-            else "qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #ffffff,stop:1 #bdcef5)" if luna
+            "qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #0752b9,stop:1 #3e75ce)"
+            if primary and luna
+            else "#0a246a"
+            if primary
+            else "qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #ffffff,stop:1 #bdcef5)"
+            if luna
             else "#d4d0c8"
         )
         frame.setStyleSheet(
@@ -5766,7 +5880,7 @@ class XPCategoryPage(QWidget):
             # The paper and pencil sit at the lower-right of the page.
             width, height = 227, 244
             bounds = QRectF(self.width() - width, self.height() - height, width, height)
-            painter.setOpacity(.65)
+            painter.setOpacity(0.65)
             self.watermark.render(painter, bounds)
 
 
@@ -5871,7 +5985,8 @@ class ControlPanel(QMainWindow):
         self.icon_view.setFrameShape(QFrame.NoFrame)
         self.sidebar = (
             XPTaskPane(self.actions, luna=self.xp_luna)
-            if self.xp else ExplorerSidebar(self.actions, win2000=self.win2000)
+            if self.xp
+            else ExplorerSidebar(self.actions, win2000=self.win2000)
         )
         self.sidebar.theme_requested.connect(lambda: self.open_applet("Themes"))
         if self.win2000 or self.xp:
@@ -5918,8 +6033,8 @@ class ControlPanel(QMainWindow):
             chrome.status_pane(QLabel()),
             chrome.status_pane(self.status_place_icon, QLabel("My Computer")),
         )
-        status_bar = ClassicStatusBar(self.status_panes, (64, 13, 23)) if self.win2000 else chrome.status_bar(
-            self.status_panes
+        status_bar = (
+            ClassicStatusBar(self.status_panes, (64, 13, 23)) if self.win2000 else chrome.status_bar(self.status_panes)
         )
         self.setStatusBar(status_bar)
 
@@ -5933,10 +6048,7 @@ class ControlPanel(QMainWindow):
         menu_height = 20 if compact_menu else MENU_BAR_HEIGHT
         if self.xp_luna:
             menu_height = XP_LUNA_MENU_HEIGHT
-        self.menu_style = (
-            MenuBandStyle("Windows", item_height=menu_height)
-            if compact_menu else chrome.menu_style()
-        )
+        self.menu_style = MenuBandStyle("Windows", item_height=menu_height) if compact_menu else chrome.menu_style()
         self.menu_bar.setStyle(self.menu_style)
         self.menu_bar.setFixedHeight(menu_height)
         self.build_menus()
@@ -6072,7 +6184,7 @@ class ControlPanel(QMainWindow):
         self.home_heading.setStyleSheet(
             "QWidget#aeroHomeHeading { background: white; }"
             "QWidget#aeroHomeHeading[category=true] { background: "
-            "qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #edf3fa,stop:1 #f8fafc); }"
+            "qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #f2f6fb,stop:1 #fefeff); }"
             "QLabel { color: #526477; }"
             "QToolButton { background: transparent; border: 1px solid transparent; color: #0066cc; }"
             "QToolButton:hover { background: #e5f1ff; border-color: #b9d7fc; }"
@@ -6338,7 +6450,8 @@ class ControlPanel(QMainWindow):
             help_menu.addAction(
                 "Help &Topics",
                 lambda: self.actions.show_message(
-                    self, "Control Panel",
+                    self,
+                    "Control Panel",
                     "Double-click an icon to change its settings. Open Chicago95 Settings from the File menu "
                     "to select a desktop theme or change Chicago95 features.",
                 ),
@@ -6353,7 +6466,9 @@ class ControlPanel(QMainWindow):
         self.up_action.triggered.connect(lambda: self.navigate(parent_location(self.history.current)))
         if self.win95:
             for action, shortcut in (
-                (self.back_action, "Alt+Left"), (self.forward_action, "Alt+Right"), (self.up_action, "Alt+Up")
+                (self.back_action, "Alt+Left"),
+                (self.forward_action, "Alt+Right"),
+                (self.up_action, "Alt+Up"),
             ):
                 action.setShortcut(shortcut)
                 self.addAction(action)
@@ -6406,9 +6521,7 @@ class ControlPanel(QMainWindow):
     def build_compact_toolbar(self):
         toolbar = QWidget()
         height = (
-            XP_LUNA_TOOLBAR_HEIGHT if self.xp_luna
-            else XP_CLASSIC_TOOLBAR_HEIGHT if self.xp
-            else WIN2000_TOOLBAR_HEIGHT
+            XP_LUNA_TOOLBAR_HEIGHT if self.xp_luna else XP_CLASSIC_TOOLBAR_HEIGHT if self.xp else WIN2000_TOOLBAR_HEIGHT
         )
         toolbar.setFixedHeight(height)
         row = QHBoxLayout(toolbar)
@@ -6454,7 +6567,10 @@ class ControlPanel(QMainWindow):
             button(history, text=True, popup=QToolButton.InstantPopup)
             separator()
             for caption, icon in (
-                ("Copy", "edit-copy"), ("Paste", "edit-paste"), ("Delete", "edit-delete"), ("Undo", "edit-undo")
+                ("Copy", "edit-copy"),
+                ("Paste", "edit-paste"),
+                ("Delete", "edit-delete"),
+                ("Undo", "edit-undo"),
             ):
                 action = QAction(themed_icon((icon,)), caption, self)
                 action.setEnabled(False)

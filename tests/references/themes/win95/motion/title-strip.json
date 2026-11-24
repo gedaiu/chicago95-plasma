@@ -1,0 +1,19 @@
+{
+  "source": "Windows 95 OSR2 Notepad",
+  "reference_screen": [
+    1024,
+    768
+  ],
+  "render_scales": [
+    1.25
+  ],
+  "minimize_button": "711,163",
+  "native_speed_px_ms": [
+    4.3,
+    4.6
+  ],
+  "sampling_tolerance_px_ms": [
+    0.5,
+    0.4
+  ]
+}

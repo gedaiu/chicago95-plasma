@@ -163,7 +163,9 @@ def listening_compositor(short_runtime_dir, monkeypatch):
 
 def pytest_addoption(parser):
     parser.addoption(
-        "--exact-originals", action="store_true", help="Require exact RGB in Windows reference comparisons that support it"
+        "--exact-originals",
+        action="store_true",
+        help="Require exact RGB in Windows reference comparisons that support it",
     )
 
 

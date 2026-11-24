@@ -568,10 +568,12 @@ def test_boxes_guest_titlebar_uses_vector_faces_and_fades(aero_gtk_home, tmp_pat
     def region(name):
         return np.asarray(Image.open(frames / (name + ".png")).convert("RGB").crop(crop), dtype=int)
 
-    from test_aero_caption_motion import native_times
+    from motion import caption_times
+    from reference import reference_path
 
     assert np.abs(region("rest") - region("hover")).mean() > 8
-    for label, native in zip(("hover", "rest"), native_times("close"), strict=True):
+    native_close = reference_path("win7-sp1-caption-close-motion.png").with_suffix("")
+    for label, native in zip(("hover", "rest"), caption_times(native_close), strict=True):
         timestamps, level = np.asarray(json.loads((frames / (label + ".json")).read_text())).T
         progress = (level - level[0]) / (level[-1] - level[0])
         assert ((progress > 0.1) & (progress < 0.9)).any()

@@ -48,6 +48,8 @@ def wait(app, milliseconds):
 def lock_screen(app, tmp_path, modern=False, screen_scale=None, size=(800, 600)):
     harness = tmp_path / "harness.qml"
     scale_line = f"screenScale: {screen_scale}" if screen_scale else ""
+    if modern:
+        scale_line += f'\n    bannerSource: "{(REPO / "data/2000-logon-banner.png").as_uri()}"'
     harness.write_text(HARNESS % (THEME.as_uri(), str(modern).lower(), scale_line))
     authenticator = Authenticator()
     view = QQuickView()
@@ -142,6 +144,15 @@ def test_wrong_password_brings_up_the_message_box(qt_app, tmp_path):
         assert named(view, "lockMessage").isVisible()
 
 
+def test_2000_rejected_password_dialog_fits_a_small_screen(qt_app, tmp_path):
+    with lock_screen(qt_app, tmp_path, modern=True, size=(512, 384)) as (view, authenticator):
+        authenticator.failed.emit(0)
+        wait(qt_app, 50)
+        message = named(view, "lockMessage")
+        assert message.isVisible() and sits_inside(message, view.rootObject())
+        assert sits_inside(named(view, "lockMessageOk"), message)
+
+
 def test_a_fingerprint_failure_brings_up_no_message_box(qt_app, tmp_path):
     with lock_screen(qt_app, tmp_path) as (view, authenticator):
         authenticator.failed.emit(1)
@@ -210,6 +221,12 @@ def test_lock_screen_ui_hides_breezes_own_prompt_and_footer():
 def test_setup_installs_the_classic_screen_inside_the_lockscreen_package(tmp_path):
     log = dry_run_log(tmp_path, "--components=lockscreen", "--look=1998").replace(str(tmp_path), "~")
     assert "lockscreen/classic/ClassicLockScreen.qml" in log
+
+
+def test_setup_draws_and_installs_the_windows_2000_lock_banner(tmp_path):
+    log = dry_run_log(tmp_path, "--components=lockscreen", "--look=2000")
+    assert "--login-banner" in log
+    assert "lockscreen/classic/brand-banner.png" in log
 
 
 def test_setup_writes_the_look_and_desktop_colour_into_the_lock_screen_settings(tmp_path):

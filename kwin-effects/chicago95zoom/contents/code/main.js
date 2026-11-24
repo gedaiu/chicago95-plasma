@@ -186,7 +186,8 @@ function titleStripGeometry(frame, texture, button, titleHeight, minimizing, ins
 }
 
 function classicStripDuration({ stripX, stripY, taskX, taskY }, scale, speed, maximum = 0) {
-  const distance = Math.hypot(taskX - stripX, taskY - stripY);
+  // The native speed is measured on the main axis of travel.
+  const distance = Math.max(Math.abs(taskX - stripX), Math.abs(taskY - stripY));
   return Math.max(1, Math.min(maximum || Infinity, Math.round(distance * scale / speed)));
 }
 

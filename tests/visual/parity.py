@@ -65,6 +65,7 @@ COMPONENTS = (
     "widget-controls",
     "boot",
     "sign-in",
+    "post-login",
     "lock-screen",
     "shutdown",
     "motion",
@@ -280,6 +281,12 @@ def live_gtk(installed, visual_output):
                 logs.mkdir(parents=True, exist_ok=True)
                 for log in session.work.glob("kwin-*.log"):
                     shutil.copyfile(log, logs / log.name)
+                if component == "caption":
+                    # Preserve the failed compositor frame so a missing marker can be diagnosed.
+                    capture_folder = session.work / f"{component}-gtk-{version}"
+                    screenshots = sorted(capture_folder.glob("*-compositor.png"), key=lambda image: image.stat().st_mtime)
+                    if screenshots:
+                        shutil.copyfile(screenshots[-1], logs / f"gtk-{version}-last-frame.png")
                 pytest.fail(f"GTK {version} capture incomplete. See {logs}")
         return session.work
 
@@ -2207,6 +2214,18 @@ def test_control_panel_category_focus_dots(category_press, visual_output):
     exact(focus_dots(references), focus_dots(outputs), visual_output / theme / "control-panel/qt/focus-dots")
 
 
+def test_control_panel_category_focus_background(category_press, visual_output):
+    theme, references, outputs = category_press
+    with Image.open(references / "category-focus.png") as native, Image.open(outputs / "category-focus.png") as render:
+        # A focused heading should leave the card face idle after a cancelled click.
+        blank = (160, 0, 165, 24)
+        exact(
+            native.convert("RGB").crop(blank),
+            render.convert("RGB").crop(blank),
+            visual_output / theme / "control-panel/qt/focus-background",
+        )
+
+
 def test_theme_inventory():
     assert set(THEMES) == EXPECTED_THEMES
 
@@ -2532,6 +2551,82 @@ def session_screen_images(theme, component, state, tmp_path):
     with Image.open(output) as frame:
         actual = rgb565(frame) if metadata["look"] in ("2000", "2001", "luna") else frame.convert("RGB")
     return expected, actual, capture
+
+
+def test_win2k_unlock_window_bounds(tmp_path):
+    expected, actual, _ = session_screen_images("win2k", "lock-screen", "1280x1024", tmp_path)
+
+    def window_bounds(image):
+        # Keep the guest's pointer near the top-left outside the measurement.
+        client = image.crop((0, 100, image.width, image.height))
+        background = Image.new("RGB", client.size, client.getpixel((0, 0)))
+        return ImageChops.difference(client, background).getbbox()
+
+    assert window_bounds(actual) == pytest.approx(window_bounds(expected), abs=1)
+
+
+def test_win2k_post_login_window_bounds(tmp_path):
+    expected, actual, capture = session_screen_images("win2k", "post-login", "1280x1024", tmp_path)
+
+    def dialog_bounds(image):
+        neutral = Image.new("RGB", image.size, image.getpixel((0, 0)))
+        diff = ImageChops.difference(image, neutral)
+        diff.paste(0, capture["exclude"])
+        return diff.getbbox()
+
+    assert dialog_bounds(actual) == pytest.approx(dialog_bounds(expected), abs=1)
+
+
+def test_win2k_post_login_body_fill(tmp_path, visual_output):
+    expected, actual, _capture = session_screen_images("win2k", "post-login", "1280x1024", tmp_path)
+    bounds = (650, 398, 900, 439)
+    exact(expected.crop(bounds), actual.crop(bounds), visual_output / "win2k/post-login/qt/body-fill")
+
+
+def test_win2k_post_login_strip_travel_matches_windows(qt_app, visual_output):
+    from time import monotonic
+
+    from PySide6.QtCore import QObject
+    from PySide6.QtTest import QTest
+    from test_boot_visual_states import rendered
+
+    folder, metadata = THEMES["win2k"]
+    capture = metadata["post_login_strip"]
+    with Image.open(folder / capture["frame"]) as image:
+        native = image.convert("RGB")
+
+    def highlight_x(frame):
+        row = np.asarray(frame)[frame.height // 2]
+        bright = np.flatnonzero(row[:, 1] > 173)
+        assert bright.size > 30
+        return bright.mean() / frame.width
+
+    midpoint = native.height // 2
+    native_start, native_end = (native.crop((0, y, native.width, y + midpoint)) for y in (0, midpoint))
+    native_distance = highlight_x(native_end) - highlight_x(native_start)
+    milliseconds = capture["sample_interval_ms"]
+    with rendered(qt_app, "StartupStatus.qml", (443, 127), {"stripPhase": 0, "banner": ""}) as view:
+        root = view.rootObject()
+        strip = root.findChild(QObject, "sessionStatusStrip")
+        bounds = (round(strip.x()), round(strip.y()), round(strip.x() + strip.width()), round(strip.y() + strip.height()))
+        before = qimage_to_pil(view.grabWindow()).convert("RGB").crop(bounds)
+        start = monotonic()
+        root.setProperty("stripPhase", -1)
+        QTest.qWait(milliseconds)
+        actual_ms = (monotonic() - start) * 1000
+        after = qimage_to_pil(view.grabWindow()).convert("RGB").crop(bounds)
+
+    output = visual_output / "win2k/post-login/qt/strip-travel"
+    output.mkdir(parents=True, exist_ok=True)
+    before.save(output / "start.png")
+    after.save(output / "end.png")
+    actual_distance = highlight_x(after) - highlight_x(before)
+    measurements = {
+        "native": {"distance_in_strip_widths": native_distance, "elapsed_ms": milliseconds},
+        "qt": {"distance_in_strip_widths": actual_distance, "elapsed_ms": actual_ms},
+    }
+    (output / "timing.json").write_text(json.dumps(measurements, indent=2) + "\n")
+    assert actual_distance / actual_ms == pytest.approx(native_distance / milliseconds, rel=0.15)
 
 
 def test_win7_sign_in_power_menu_frame(tmp_path, visual_output):
@@ -2964,6 +3059,99 @@ def test_boot_win7_native_animation_phase(phase, renderer, request, visual_outpu
     exact(expected, actual, visual_output / "win7" / "boot" / renderer / f"animation-{phase:03}")
 
 
+AERO_MOTION_THEMES = [theme for theme, (_, metadata) in THEMES.items() if "caption" in metadata.get("motion", {})]
+TITLE_STRIP_REFERENCES = {
+    theme: json.loads((folder / spec).read_text())
+    for theme, (folder, metadata) in THEMES.items()
+    if (spec := metadata.get("motion", {}).get("title_strip"))
+}
+
+
+@pytest.mark.parametrize(
+    ("theme", "action", "width"),
+    [
+        (theme, action, width)
+        for theme in AERO_MOTION_THEMES
+        for action, width in THEMES[theme][1]["motion"]["caption"].items()
+    ],
+)
+def test_caption_motion(theme, action, width, qt_app, visual_output):
+    from motion import caption_times, check_timing, compare_caption_motion
+
+    stem = THEMES[theme][0] / "motion" / f"caption-{action}"
+    measured = compare_caption_motion(action, width, caption_times(stem))
+    check_timing(measured, visual_output / theme / "motion/qt-quick" / f"caption-{action}.json")
+
+
+@pytest.mark.parametrize("theme", AERO_MOTION_THEMES)
+def test_high_dpi_caption_motion(theme, visual_output):
+    from motion import check_timing, compare_high_dpi_caption
+
+    folder, metadata = THEMES[theme]
+    measured = compare_high_dpi_caption(folder / "motion/caption-close-144dpi", metadata["motion"]["close_scale"])
+    check_timing(measured, visual_output / theme / "motion/qt-quick/caption-close-144dpi.json")
+
+
+@pytest.mark.parametrize("theme", AERO_MOTION_THEMES)
+def test_window_motion(theme, desktops, visual_output):
+    from motion import TOOLS, check_timing, compare_window_motion
+
+    missing = [*missing_programs(), *(tool for tool in TOOLS if not shutil.which(tool))]
+    assert not missing, f"Missing live motion dependencies: {', '.join(missing)}"
+    folder, metadata = THEMES[theme]
+    output = visual_output / theme / "motion/kwin"
+    output.mkdir(parents=True, exist_ok=True)
+    stems = [folder / "motion" / f"window-{action}" for action in metadata["motion"]["window"]]
+    measured = compare_window_motion(desktops, output / "window-motion.webm", metadata["look"], stems)
+    check_timing(measured, output / "window-motion.json")
+
+
+@pytest.mark.parametrize(
+    ("theme", "scale"),
+    [(theme, scale) for theme, spec in TITLE_STRIP_REFERENCES.items() for scale in spec["render_scales"]],
+)
+def test_title_strip_motion(theme, scale, desktops, visual_output):
+    from legacy_motion import check_title_strip_speed, measure_title_strip, native_luna_title_strip
+    from motion import TOOLS
+
+    missing = [*missing_programs(), *(tool for tool in TOOLS if not shutil.which(tool))]
+    assert not missing, f"Missing live motion dependencies: {', '.join(missing)}"
+    folder, metadata = THEMES[theme]
+    spec = TITLE_STRIP_REFERENCES[theme]
+    output = visual_output / theme / "motion/kwin" / f"scale-{scale:g}"
+    output.mkdir(parents=True, exist_ok=True)
+    native_frames = spec.get("native_title_strip_recording", ())
+    if native_frames:
+        native_folder = (folder / metadata["motion"]["title_strip"]).parent
+        assert all((native_folder / name).is_file() for name in native_frames)
+        native_measurements = native_luna_title_strip(native_folder)
+    else:
+        native_measurements = {"speed_px_ms": spec["native_speed_px_ms"]}
+    measured = measure_title_strip(
+        desktops, output / "title-strip.webm", metadata["look"], scale, spec["minimize_button"], classic=not native_frames
+    )
+    measurements = {"native": native_measurements, "rendered": measured}
+    (output / "title-strip.json").write_text(json.dumps(measurements, indent=2) + "\n")
+    check_title_strip_speed(measured, spec)
+
+
+@pytest.mark.parametrize("theme", [theme for theme, spec in TITLE_STRIP_REFERENCES.items() if "maximize_buttons" in spec])
+def test_legacy_maximize_motion(theme, desktops, visual_output):
+    from legacy_motion import check_maximize_and_restore
+    from motion import TOOLS
+
+    missing = [*missing_programs(), *(tool for tool in TOOLS if not shutil.which(tool))]
+    assert not missing, f"Missing live motion dependencies: {', '.join(missing)}"
+    look = THEMES[theme][1]["look"]
+    buttons = TITLE_STRIP_REFERENCES[theme]["maximize_buttons"]
+    output = visual_output / theme / "motion/kwin"
+    output.mkdir(parents=True, exist_ok=True)
+    measured = check_maximize_and_restore(
+        desktops, output / "maximize-restore.webm", look, buttons["normal"], buttons["maximized"]
+    )
+    (output / "maximize-restore.json").write_text(json.dumps(measured, indent=2) + "\n")
+
+
 @pytest.mark.parametrize("theme", THEMES)
 def test_coverage(theme):
     folder, metadata = THEMES[theme]
@@ -2985,10 +3173,15 @@ def test_coverage(theme):
             "widget-controls",
             "boot",
             "sign-in",
+            "post-login",
             "lock-screen",
             "shutdown",
+            "motion",
         }
     ]
+    if "motion" not in metadata:
+        gaps.append("motion: native recordings and matching live scenarios")
+    gaps.append("motion: remaining animation and output-scale variants, plus frame-by-frame comparison")
     if not (folder / "boot.png").is_file():
         gaps.append("boot: full-frame native reference and renderer")
     gaps.append("boot: complete graphical and text transitions and live Plymouth playback")
@@ -2996,6 +3189,8 @@ def test_coverage(theme):
         gaps.append("run: native history popup")
     gaps.append("run: Browse, remaining pointer and button states and output scales")
     session_screens = metadata.get("session_screens", {})
+    if not session_screens.get("post-login"):
+        gaps.append("post-login: native frame and renderer for the strict comparison")
     for component in ("sign-in", "lock-screen"):
         if not session_screens.get(component):
             gaps.append(f"{component}: native frame and renderer for the strict comparison")
@@ -3004,7 +3199,12 @@ def test_coverage(theme):
         gaps.append("sign-in: password entry, selection and clearing")
     if not any(state.get("failed") for state in session_screens.get("sign-in", {}).values()):
         gaps.append("sign-in: rejected authentication state")
-    gaps.append("lock-screen: entry, focus, and rejected authentication states")
+    lock_states = session_screens.get("lock-screen", {}).values()
+    if not any(state.get("entry") for state in lock_states):
+        gaps.append("lock-screen: password entry")
+    if not any(state.get("failed") for state in lock_states):
+        gaps.append("lock-screen: rejected authentication state")
+    gaps.append("lock-screen: remaining output scales, selection, clearing and focus states")
     if "file_manager_scale" not in metadata:
         gaps.append("file-manager / GTK 3 and GTK 4: navigation reference")
     gaps.append("file-manager: contents, action states, and other supported file managers")

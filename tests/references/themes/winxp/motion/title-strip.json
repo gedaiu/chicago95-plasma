@@ -1,0 +1,24 @@
+{
+  "source": "Windows XP SP3 Luna Notepad",
+  "reference_screen": [
+    1280,
+    1024
+  ],
+  "render_scales": [
+    1,
+    1.5
+  ],
+  "minimize_button": "698,166",
+  "native_title_strip_recording": [
+    "minimize.png",
+    "restore.png",
+    "timestamps.json"
+  ],
+  "maximize_buttons": {
+    "normal": [
+      722,
+      165
+    ],
+    "maximized": "982,14"
+  }
+}

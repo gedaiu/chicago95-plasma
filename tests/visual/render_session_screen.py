@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from conftest import REPO, load_script  # noqa: E402
-from login_theme import login_view, render_aero_lock, render_login  # noqa: E402
+from login_theme import login_view, render_aero_lock, render_classic_lock, render_login  # noqa: E402
 from PIL import Image  # noqa: E402
 from PySide6.QtCore import QObject, QPointF, Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
@@ -56,7 +56,7 @@ def render_aero_entry(app, folder, size, account, brand, state):
 
 
 def render(manifest, component, state, destination):
-    from chicago95ui import make_app
+    from chicago95ui import look_settings, make_app
 
     manifest = Path(manifest)
     output = Path(destination)
@@ -73,9 +73,10 @@ def render(manifest, component, state, destination):
     os.environ["QT_SCALE_FACTOR"] = str(scale)
     app = make_app("Session screen parity")
     if look == "aero":
-        account, brand = "Reference", "Windows 7 Professional"
+        account, brand = "Reference", "Windows 7"
+        edition, logo = "Professional", "AeroBrandFlag.svg"
         if component == "lock-screen":
-            actual = render_aero_lock(app, output.parent, size, account, brand)
+            actual = render_aero_lock(app, output.parent, size, account, brand, edition=edition, logo=logo)
         elif "menu_down" in capture:
             actual = render_aero_power_menu(app, output.parent, size, capture["menu_down"], account, brand)
         elif "entry" in capture:
@@ -83,7 +84,7 @@ def render(manifest, component, state, destination):
         else:
             actual = render_login(
                 app, output.parent, size=size, user=account, users=(account,),
-                loginStyle="aero", brandText=brand, failed=capture.get("failed", False),
+                loginStyle="aero", brandText=brand, edition=edition, brandLogo=logo, failed=capture.get("failed", False),
             )
     elif look == "luna":
         from chicago95lunapreviews import copy_screen_trees
@@ -102,12 +103,42 @@ def render(manifest, component, state, destination):
         name = "Windows 2000" if look == "2000" else "Windows XP"
         banner = output.parent / "brand-banner.png"
         shutdown = load_script("chicago95-shutdown")
-        assert shutdown.render_login_banner({"style": look, "osName": name, "osCompany": "Microsoft"}, banner)
-        actual = render_login(
-            app, output.parent, size=size, user="ref", users=("ref",), banner=banner,
-            loginStyle="2000", loginTitle="Log On to Windows", titleActive="#0A246A,#A6CAF0", scale=round(scale),
-            desktopColor="#000000" if look == "2001" else "",
+        branding = {
+            **look_settings(output.parent / "branding.rc"),
+            "style": look,
+            "osName": name,
+            "osCompany": "Microsoft",
+            "osLogo": str(REPO / "plasmoids/org.chicago95.start/contents/images/logo-flag.png"),
+        }
+        assert shutdown.render_login_banner(
+            branding if component == "post-login" else {"style": look, "osName": name, "osCompany": "Microsoft"},
+            banner, status=component == "post-login",
         )
+        if component == "post-login":
+            from PySide6.QtCore import QUrl
+            from test_loading_screen_reference import splash_view
+
+            with splash_view(
+                app, output.parent / "splash", booting=False, size=size, stage=3,
+                logonStyle="2000", desktopColor="#3a6ea5",
+            ) as view:
+                view.rootObject().setProperty("statusBanner", QUrl.fromLocalFile(str(banner)))
+                view.rootObject().setProperty("statusStripPhase", capture["strip_phase"])
+                QTest.qWait(100)
+                actual = qimage_to_pil(view.grabWindow())
+        elif component == "lock-screen":
+            from showcase import themed
+
+            with themed(app, look):
+                actual = render_classic_lock(
+                    output.parent, size, banner, typed=capture.get("entry") == "typed", rejected=capture.get("failed", False)
+                )
+        else:
+            actual = render_login(
+                app, output.parent, size=size, user="ref", users=("ref",), banner=banner,
+                loginStyle="2000", loginTitle="Log On to Windows", titleActive="#0A246A,#A6CAF0", scale=round(scale),
+                desktopColor="#000000" if look == "2001" else "",
+            )
     if "bounds" in capture:
         actual = actual.crop(capture["bounds"])
     actual.save(output)

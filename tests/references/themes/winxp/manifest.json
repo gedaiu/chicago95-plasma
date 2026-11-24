@@ -3,6 +3,7 @@
   "radio_rgb565": true,
   "start_menu_interaction": {"scale": 1.25, "rgb565": true},
   "look": "luna",
+  "motion": {"title_strip": "motion/title-strip.json"},
   "desktop_samples": {"screen": [1280, 1024], "scale": 1.25, "launchers": [], "cursor": [640, 512, 662, 536]},
   "file_manager_scale": 1.25,
   "session_screens": {

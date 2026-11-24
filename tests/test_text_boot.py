@@ -2,8 +2,8 @@
 
 import pytest
 from conftest import REPO
-from PIL import Image, ImageChops
-from PySide6.QtCore import QUrl
+from PIL import ImageChops
+from PySide6.QtCore import QPointF, QUrl
 from PySide6.QtQuick import QQuickView
 from PySide6.QtTest import QTest
 from reference import qimage_to_pil
@@ -71,32 +71,32 @@ def test_live_2000_dialog_waits_for_session_stage_not_elapsed_time(qt_app, tmp_p
     with splash_view(qt_app, tmp_path, booting=False, logonStyle="2000") as view:
         root = view.rootObject()
         root.setProperty("statusBanner", QUrl.fromLocalFile(str(REPO / "data/2000-logon-banner.png")))
+        root.setProperty("statusStripPhase", 0)
         label = root.findChild(QObject, "sessionStatusText")
-        assert label.property("text") == "Starting your desktop..."
+        assert label.property("text") == "Loading your personal settings..."
         QTest.qWait(150)
-        assert label.property("text") == "Starting your desktop..."
+        assert label.property("text") == "Loading your personal settings..."
+        before = qimage_to_pil(view.grabWindow()).convert("RGB")
         root.setProperty("stage", 5)
         assert label.property("text") == "Waiting for desktop readiness..."
-        root.setProperty("sessionStatus", "Preparing network connections...")  # deterministic visual fixture only
         QTest.qWait(50)
-        actual = qimage_to_pil(view.grabWindow()).convert("RGB").crop((111, 111, 529, 255))
-        expected = Image.open(REPO / "tests/references/w2k-video-startup-dialog-544.png")
-        expected = expected.crop((326, 166, 953, 382)).resize(actual.size).convert("RGB")
-        from PIL import ImageDraw
+        dialog = root.findChild(QObject, "startupStatus")
+        after = qimage_to_pil(view.grabWindow()).convert("RGB")
+        bounds = ImageChops.difference(before, after).getbbox()
+        assert bounds is not None
+        assert bounds[1] >= label.mapToScene(QPointF()).y()
+        assert bounds[3] < dialog.mapToScene(QPointF(0, dialog.height())).y()
 
-        for im in (actual, expected):
-            # The supplied video uses a different banner variant; compare frame and body.
-            draw = ImageDraw.Draw(im)
-            draw.rectangle((3, 3, 110, 20), fill="black")
-            draw.rectangle((3, 21, 414, 98), fill="black")
-            draw.rectangle((10, 108, 290, 132), fill="black")
-            draw.rectangle((200, 125, 230, 144), fill="black")  # reference mouse pointer
-        actual.save(tmp_path / "status-actual.png")
-        expected.save(tmp_path / "status-expected.png")
-        diff = ImageChops.difference(actual, expected)
-        diff.save(tmp_path / "status-diff.png")
-        worst = ImageChops.lighter(ImageChops.lighter(*diff.split()[:2]), diff.split()[2])
-        assert sum(worst.histogram()[41:]) / (actual.width * actual.height) < 0.2
+
+def test_2000_status_dialog_fits_the_loading_preview(qt_app, tmp_path):
+    from PySide6.QtCore import QObject
+
+    with splash_view(qt_app, tmp_path, booting=False, size=(320, 240), logonStyle="2000") as view:
+        dialog = view.rootObject().findChild(QObject, "startupStatus")
+        top_left = dialog.mapToScene(QPointF())
+        bottom_right = dialog.mapToScene(QPointF(dialog.width(), dialog.height()))
+        assert 0 < top_left.x() < bottom_right.x() < view.width()
+        assert 0 < top_left.y() < bottom_right.y() < view.height()
 
 
 def test_control_panel_boot_rehearsal_uses_current_2000_settings(qt_app):

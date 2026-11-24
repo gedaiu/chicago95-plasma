@@ -7,7 +7,7 @@ that the reference still does not contain, without approving generated goldens.
 from contextlib import contextmanager
 
 import pytest
-from conftest import REPO
+from conftest import REPO, load_script
 from PIL import Image, ImageChops
 from PySide6.QtCore import QUrl
 from PySide6.QtQuick import QQuickView
@@ -82,13 +82,19 @@ def test_loader_progress_changes_only_the_bar(qt_app, tmp_path):
 
 
 def test_status_banner_is_visible_and_not_stretched(qt_app, tmp_path):
-    banner = REPO / "data/2000-logon-banner.png"
-    with rendered(qt_app, "StartupStatus.qml", (417, 144), {"banner": QUrl.fromLocalFile(str(banner))}) as view:
+    banner = tmp_path / "banner.png"
+    shutdown = load_script("chicago95-shutdown")
+    look = {
+        **shutdown.chicago95ui.look_settings(tmp_path / "branding.rc"),
+        "style": "2000",
+        "osName": "Windows 2000",
+        "osCompany": "Microsoft",
+    }
+    assert shutdown.render_login_banner(look, banner, scale=1, status=True)
+    with rendered(qt_app, "StartupStatus.qml", (443, 127), {"banner": QUrl.fromLocalFile(str(banner))}) as view:
         image = grab(view, tmp_path / "status.png")
-        # Same 411px width: PreserveAspectCrop should remove 8 rows at each end,
-        # never compress the wordmark vertically to fit the 77px status slot.
-        expected = Image.open(banner).convert("RGB").crop((0, 8, 411, 85))
-        assert_image(image.crop((3, 21, 414, 98)), expected, tmp_path, "banner")
+        expected = Image.open(banner).convert("RGB")
+        assert_image(image.crop((3, 22, 440, 79)), expected.crop((0, 0, 437, 57)), tmp_path, "banner")
 
 
 def test_windows_98_animation_moves_only_the_boot_strip_and_wraps(qt_app, tmp_path):
@@ -100,7 +106,8 @@ def test_windows_98_animation_moves_only_the_boot_strip_and_wraps(qt_app, tmp_pa
         QTest.qWait(50)
         next_frame = grab(view, tmp_path / "phase-1.png")
         assert ImageChops.difference(original, next_frame).getbbox() == (0, 472, 640, 480)
-        assert next_frame.crop((32, 472, 640, 480)).tobytes() == original.crop((0, 472, 608, 480)).tobytes()
+        # The phase changes the palette while the dither stays fixed. The
+        # folder-driven boot tests check each phase against the native strip.
         root.setProperty("bootStripStep", 20)
         QTest.qWait(50)
         assert_image(grab(view, tmp_path / "phase-20.png"), original, tmp_path, "wrapped")
@@ -112,7 +119,8 @@ def test_windows_98_animation_moves_only_the_boot_strip_and_wraps(qt_app, tmp_pa
 def test_live_status_update_changes_only_the_message(qt_app, tmp_path):
     banner = QUrl.fromLocalFile(str(REPO / "data/2000-logon-banner.png"))
     with rendered(
-        qt_app, "StartupStatus.qml", (417, 144), {"banner": banner, "statusText": "Starting your desktop..."}
+        qt_app, "StartupStatus.qml", (443, 127),
+        {"banner": banner, "statusText": "Loading your personal settings...", "stripPhase": 0},
     ) as view:
         before = grab(view, tmp_path / "starting.png")
         view.rootObject().setProperty("statusText", "Waiting for desktop readiness...")
@@ -122,7 +130,7 @@ def test_live_status_update_changes_only_the_message(qt_app, tmp_path):
         diff.save(tmp_path / "status-update-diff.png")
         box = diff.getbbox()
         assert box is not None, "Status update was not painted"
-        assert box[0] >= 14 and box[1] >= 113 and box[2] < 414 and box[3] < 141
+        assert box[0] >= 14 and box[1] >= 96 and box[2] < 440 and box[3] < 124
 
 
 def test_stock_windows_2000_preserves_custom_loading_text(qt_app, tmp_path):

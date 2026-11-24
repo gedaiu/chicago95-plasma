@@ -103,7 +103,7 @@ Windows XP (Luna and XP Classic), from Toasty Technology, GUIdebook, Wikipedia a
 | `themes/win2k/shutdown.png` | Windows 2000 at 1280×1024, 96 DPI. Alt+F4 from the desktop. Dialog at (431, 251), 417×269. |
 | `xp-sp3-classic-120dpi-run-icon.png` | Windows Classic on a separate XP SP3 disk, 1280×1024 at 120 DPI. Run icon at (19, 816), 40×40. |
 | `win7-sp1-144dpi-radio-normal.png`, `win7-sp1-144dpi-radio-checked.png` | Windows 7 Display control panel at 150%, 1280×960. Smaller and Larger radio faces at (423, 261) and (423, 399), 19×19 each. |
-| `win7-sp1-144dpi-close-motion.png`, `win7-sp1-144dpi-close-motion.txt` | 144-DPI Notepad, 1280×960. Three 90-frame trials at 60 Hz of the 13×16 left interior of the close button at (638, 80). Pointer entered at frame 12 and left at 48. Timestamps are elapsed milliseconds. |
+| `themes/win7/motion/caption-close-144dpi.png` and `.txt` | 144-DPI Notepad, 1280×960. Three 90-frame trials at 60 Hz of the 13×16 left interior of the close button at (638, 80). Pointer entered at frame 12 and left at 48. Timestamps are elapsed milliseconds. |
 | `win7-sp1-144dpi-restore.png` | Same 144-DPI Aero guest, maximized Notepad. Restore button at (1163, 0), 40×29. |
 | `win7-sp1-mmc-commands.png` | Six 16×16 RGBA cells read from the installed Windows 7 Professional SP1 x86 VM. In order, Back, Forward, Console Tree, Help and Action Pane are zero-based cells 0, 1, 10, 15 and 17 of System32/mmc.exe RT_BITMAP 202. Scan is cell 0 of System32/devmgr.dll RT_BITMAP 358. The four commands visible in their enabled state in the Aero screenshot composite over its clear toolbar to within one level per RGB channel. |
 | `win7-sp1-144dpi-caption.png` | Windows 7 SP1 WDDM, 1280×960 at 150% after logging back in. Active restored Notepad button cluster at (545, 75), 160×30. Captured directly from the VirtualBox framebuffer. |
@@ -408,7 +408,7 @@ opening was checked with both keyboard and mouse. The tests measure change
 between displayed frames. Input latency and individual GPU refresh timing are
 outside these comparisons.
 
-The five `win7-sp1-caption-*-motion.png` sheets record Notepad's minimize, maximize,
+The five 96-DPI `themes/win7/motion/caption-*.png` sheets record Notepad's minimize, maximize,
 restore and close button hover transitions and a separate change of window focus.
 Each has three successive trials of 120 frames, ten frames per row, in reading
 order. Each frame is an unscaled 25-pixel-high crop. The accompanying text file
@@ -418,11 +418,35 @@ the title were clicked at those frame indices. Restore was captured with Notepad
 maximized. The upper-left desktop coordinates for minimize, maximize, close,
 focus and restore are (758, 99), (787, 99), (813, 99), (813, 99) and (946, 0).
 
-The two `win7-sp1-window-*-motion.png` sheets use the same trial layout and
+The two `themes/win7/motion/window-*.png` sheets use the same trial layout and
 timestamps for whole-window transitions. A click on Notepad's Maximize or
 Minimize button starts each transition. A click on Restore or the taskbar button
 returns it to its original bounds. Each tile summarizes the 1024 × 768 desktop
 at 32 × 24 pixels for measuring the displayed change across the workspace.
+
+The Classic `themes/*/motion/title-strip.json` files preserve the measured vertical
+speeds from the Notepad minimize and taskbar restore captures listed in the [legacy audit](../../docs/legacy-windows-visual-audit.md).
+Their sampling allowances are the existing live KWin regression limits. The XP Luna
+`themes/winxp/motion/{minimize,restore}.png` sheets show the same actions in Notepad.
+Each sheet contains fourteen copies of the 1280 × 1024 QEMU framebuffer reduced to
+160 × 128, read left to right and top to bottom. The timestamps record screenshot
+midpoints relative to the click release and the duration of each screenshot call.
+The sparse capture distinguishes the moving strip from the stationary window client.
+
+The Windows 2000 Professional `themes/win2k/lock-screen/` frames came from the
+local QEMU guest at 1280 × 1024, 120 DPI and RGB565. Ctrl+Alt+Delete and **Lock
+Computer** opened the unlock prompt. The next two frames show three sample
+characters entered and the result of submitting them. The pointer is at the
+top-left corner, outside every dialog. The strict frame comparison masks that
+pointer area, and a separate check measures the window bounds.
+
+The Windows 2000 `themes/win2k/post-login/1280x1024.png` frame follows automatic
+logon in the same guest. It shows “Loading your personal settings...” before the
+desktop appears. The status dialog occupies (363, 288)–(917, 447).
+`post-login/strip-travel.png` contains two 548 × 5 crops of the banner’s moving
+strip, taken at (366, 387) before logon while the same status window says
+“Windows is starting up...”. The samples are 1,098 ms apart. Their highlight
+moves 175 framebuffer pixels while the window and strip geometry stay fixed.
 
 The Windows 7 shutdown measurements used the same offline SP1 WDDM guest.
 `win7-sp1-shutdown-1024.png` and `win7-sp1-shutdown-800.png` are unscaled

@@ -3,11 +3,14 @@ the classic sheet keeps them apart like the originals' dialogs."""
 
 import json
 import os
+import shutil
 import subprocess
 import sys
+from shlex import join, quote
 
 import pytest
 from conftest import REPO, run_bash_with_steps
+from plasma_session import run_session
 
 PROBE = """
 import json, sys
@@ -113,11 +116,10 @@ Gtk.main()
 """
 
 
-def test_a_libhandy_window_like_gnome_boxes_gets_the_raised_frame_light_white_then_face(tmp_path):
-    from PIL import Image
-
-    if not (os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY")):
-        pytest.skip("GTK needs a display")
+@pytest.fixture
+def handy_probe(tmp_path, short_runtime_dir):
+    if not shutil.which("kwin_wayland"):
+        pytest.skip("libhandy frame tests require isolated KWin")
     sheet = tmp_path / "sheet.css"
     sheet.write_text(
         subprocess.run(
@@ -127,17 +129,45 @@ def test_a_libhandy_window_like_gnome_boxes_gets_the_raised_frame_light_white_th
             check=True,
         ).stdout
     )
+
+    def render(probe, *arguments):
+        script = tmp_path / "handy"
+        output = tmp_path / "probe.out"
+        completed = tmp_path / "probe.completed"
+        command = join(["timeout", "30", sys.executable, "-c", probe, *map(str, arguments), str(sheet)])
+        script.write_text(
+            f"#!/bin/sh\nset -e\n{command} > {quote(str(output))}\ntouch {quote(str(completed))}\n"
+        )
+        run_session(
+            tmp_path,
+            script,
+            {
+                "PATH": os.environ["PATH"],
+                "HOME": str(tmp_path),
+                "XDG_CONFIG_HOME": str(tmp_path / "config"),
+                "XDG_RUNTIME_DIR": short_runtime_dir,
+                "GDK_BACKEND": "wayland",
+                "GIO_USE_VFS": "local",
+                "GTK_THEME": "Adwaita",
+                "GTK_A11Y": "none",
+            },
+            (800, 600),
+        )
+        assert completed.is_file(), (tmp_path / "kwin-handy.log").read_text()
+        return output.read_text()
+
+    return render
+
+
+def test_a_libhandy_window_like_gnome_boxes_gets_the_raised_frame_light_white_then_face(tmp_path, handy_probe):
+    from PIL import Image
+
     shot = tmp_path / "window.png"
-    subprocess.run(
-        [sys.executable, "-c", HANDY_WINDOW, str(shot), str(sheet)],
-        capture_output=True,
-        check=True,
-        timeout=30,
-        env={**os.environ, "GTK_THEME": "Adwaita"},
-    )
-    image = Image.open(shot).convert("RGB")
-    margin = next(x for x in range(image.width) if Image.open(shot).getpixel((x, 60))[3] == 255)
-    assert [image.getpixel((margin + step, 60)) for step in range(4)] == [
+    handy_probe(HANDY_WINDOW, shot)
+    with Image.open(shot) as png:
+        image = png.convert("RGBA")
+    margin = next(x for x in range(image.width) if image.getpixel((x, 60))[3] == 255)
+    assert [image.getpixel((margin + step, 60))[:3] for step in range(4)] == [
         (223, 223, 223),
         (255, 255, 255),
         (192, 192, 192),
@@ -175,25 +205,5 @@ Gtk.main()
 """
 
 
-def test_a_libhandy_windows_content_moves_4_pixels_in_so_a_vm_screen_leaves_the_frame_showing(tmp_path):
-    if not (os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY")):
-        pytest.skip("GTK needs a display")
-    sheet = tmp_path / "sheet.css"
-    sheet.write_text(
-        subprocess.run(
-            [sys.executable, str(REPO / "lib/gtk_header.py"), "--gtk", "3.0"],
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout
-    )
-    shift = subprocess.run(
-        [sys.executable, "-c", CONTENT_SHIFT, str(sheet)],
-        capture_output=True,
-        text=True,
-        check=True,
-        timeout=30,
-        # An empty settings folder: the user's own gtk.css, once Setup installed it, already moves the content in.
-        env={**os.environ, "GTK_THEME": "Adwaita", "XDG_CONFIG_HOME": str(tmp_path / "config")},
-    ).stdout
-    assert shift == "4\n"
+def test_a_libhandy_windows_content_moves_4_pixels_in_so_a_vm_screen_leaves_the_frame_showing(handy_probe):
+    assert handy_probe(CONTENT_SHIFT) == "4\n"

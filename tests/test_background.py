@@ -19,7 +19,7 @@ def load_pattern_module():
 
 
 def test_background_is_the_classic_teal_colour_wallpaper_by_default(tmp_path):
-    script = background_script(tmp_path)
+    script = background_script(tmp_path, "apply_look 1995;")
 
     assert (
         'desktop.wallpaperPlugin = "org.kde.color";' in script,
@@ -30,7 +30,7 @@ def test_background_is_the_classic_teal_colour_wallpaper_by_default(tmp_path):
 
 @pytest.mark.parametrize("look, name, fill", [("luna", "Bliss.png", 0), ("aero", "Windows7.jpg", 2)])
 def test_wallpaper_preset_uses_the_original_picture_and_placement(tmp_path, look, name, fill):
-    script = background_script(tmp_path, f"SETUP_LOOK={look}")
+    script = background_script(tmp_path, f"apply_look {look};")
     assert f'desktop.writeConfig("Image", "file://{REPO}/data/wallpapers/{name}");' in script
     assert f'desktop.writeConfig("FillMode", {fill});' in script
 
@@ -158,7 +158,7 @@ def test_named_patterns_are_eight_rows_of_eight_bits():
 def test_background_color_is_the_desktop_of_that_looks_windows_when_none_is_saved(
     tmp_path, start_menu_style, red_green_blue
 ):
-    script = background_script(tmp_path, f"SETUP_START_MENU_STYLE={start_menu_style}")
+    script = background_script(tmp_path, f"apply_look {start_menu_style};")
 
     assert f'desktop.writeConfig("Color", "{red_green_blue}");' in script
 

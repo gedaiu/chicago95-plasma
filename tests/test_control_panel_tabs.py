@@ -259,8 +259,8 @@ def test_start_menu_tab_defaults_to_start_the_flag_and_chicago95(control_panel, 
 def test_log_on_tab_defaults_to_the_classic_dialog_with_its_texts_and_pictures(control_panel, qt_app):
     assert built(control_panel, "Passwords", "Log On").values() == {
         "LOGIN_STYLE": "classic",
-        "LOGIN_TITLE": "Log On to %h",
-        "LOGIN_MESSAGE": "Type a user name and password to log on.",
+        "LOGIN_TITLE": "Welcome to Windows",
+        "LOGIN_MESSAGE": "Type a user name and password to log on to Windows.",
         "LOGIN_ICON": "keys",
         "LOGIN_LOGO": "start",
     }
@@ -818,12 +818,23 @@ def appearance(control_panel, settings=None):
     return built(control_panel, "Display", "Appearance", settings)
 
 
+APPEARANCE_KEYS = (
+    "DECORATION",
+    "WIDGET_STYLE",
+    "TASKBAR_STYLE",
+    "START_MENU_STYLE",
+    "BEVEL",
+    "TITLE_ACTIVE",
+    "TITLE_INACTIVE",
+    "BANNER_BG",
+    "BANNER_FG",
+    "ICONS",
+    "BACKGROUND_COLOR",
+)
+
+
 def preset_values(control_panel, look):
-    branding = control_panel.branding_defaults({})
-    return {
-        "LOOK": look,
-        **{key: value for key, value in control_panel.LOOK_PRESETS[look].items() if key not in branding},
-    }
+    return {"LOOK": look, **{key: control_panel.LOOK_PRESETS[look][key] for key in APPEARANCE_KEYS}}
 
 
 def test_appearance_tab_defaults_to_the_windows_95_scheme_with_all_its_settings(control_panel, qt_app):

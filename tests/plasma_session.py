@@ -542,6 +542,15 @@ def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_
     home = work / "home"
     shutil.rmtree(home)
     shutil.copytree(work / HOME_AFTER_SETUP, home, symlinks=True)
+    if pointer_steps and pointer_steps[0].startswith("record:"):
+        # The recording notification overlaps a maximized window's caption controls.
+        subprocess.run(
+            [
+                "kwriteconfig6", "--file", str(home / ".config/plasmanotifyrc"),
+                "--group", "Applications", "--group", "org.kde.spectacle", "--key", "ShowPopups", "false",
+            ],
+            check=True,
+        )
     for leaving in DESKTOP_LEAVINGS:  # an earlier desktop's in this folder: a session that dies must show nothing
         for path in work.glob(leaving):
             path.unlink()

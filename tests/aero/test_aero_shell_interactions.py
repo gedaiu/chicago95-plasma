@@ -129,7 +129,7 @@ def test_start_power_menu_dispatches_only_offered_actions(qt_app):
 def test_desktop_defaults_and_independent_login_selection(tmp_path):
     assert run_bash_with_steps(
         tmp_path,
-        "SETUP_START_MENU_STYLE=aero; desktop_icons_chosen; look_background_color; echo; "
+        "apply_look aero; desktop_icons_chosen; background_color; echo; "
         "SETUP_LOGIN_STYLE=luna; lockscreen_style; echo; SETUP_START_MENU_STYLE=1995; "
         "SETUP_LOGIN_STYLE=aero; lockscreen_style",
     ) == ["recycle", "#1D5C9C", "luna", "aero"]

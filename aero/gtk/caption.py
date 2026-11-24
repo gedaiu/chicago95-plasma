@@ -1,5 +1,6 @@
 """Generate the Windows 7 caption faces and header layout for GTK 3 and GTK 4."""
 
+import math
 import os
 import sys
 from pathlib import Path
@@ -157,7 +158,7 @@ window.maximized:not(.nautilus-window) headerbar button.titlebutton.maximize {{
             graphic = (directory / f"{kind}-{state}.svg").as_uri()
             hidpi = (directory / f"{kind}-{state}@2x.svg").as_uri()
             rules.append(
-                f"{selector} {{ min-width: {width}px; min-height: {FACE_HEIGHT}px; "
+                f"{selector} {{ min-width: {math.floor(width)}px; min-height: {FACE_HEIGHT}px; "
                 f'background-image: -gtk-scaled(url("{graphic}"), url("{hidpi}")); '
                 f"background-size: {width}px {FACE_HEIGHT}px; }}"
             )

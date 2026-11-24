@@ -7,6 +7,7 @@ from aero_sprites import requires_sprites
 from conftest import REPO
 from fit_aero_stops import FACES, STATES, glyph_image, state_image
 from PIL import Image
+from reference import screenshot
 from test_caption_states_reference import caption_pixels, caption_reference, face_region
 
 spec = importlib.util.spec_from_file_location("make_aero_aurorae", REPO / "aero/aurorae/make_aero_aurorae.py")
@@ -138,7 +139,7 @@ def test_complete_caption_face_against_guest(
         expected, glass = face_region(caption_reference("aero"), "aero", "restore", 1)
         actual = caption_pixels(theme, kind, "restore", "aero", glass.resize(expected.size))
     else:
-        reference = Image.open(REPO / f"tests/references/win7-sp1-{name}.png").convert("RGB")
+        reference = screenshot(f"win7-sp1-{name}")
         expected = reference.crop((left, top, left + width, top + height - restore))
         asset = theme / f"{kind}{'-large' if large else ''}.svg"
         button = render(asset.read_bytes(), (width, height), "active-center")
@@ -166,14 +167,16 @@ def test_maximize_sheen_matches_native_glass(qt_app, band):
     assert difference.mean() < 2, difference.mean()
 
 
-@pytest.mark.parametrize(("kind", "width", "ink_pixels"), [("minimize", 30, 56), ("maximize", 27, 108), ("restore", 27, 126)])
+@pytest.mark.parametrize(
+    ("kind", "width", "ink_pixels"), [("minimize", 30, 56), ("maximize", 27, 108), ("restore", 27, 126)]
+)
 @pytest.mark.parametrize(("state", "frame"), [("active", 0), ("hover", 55)])
 def test_96dpi_caption_glyph_matches_native_ink(qt_app, kind, width, ink_pixels, state, frame):
     import numpy as np
     from test_aero_imported_art import render
 
     restore = kind == "restore"
-    reference = Image.open(REPO / f"tests/references/win7-sp1-caption-{kind}-motion.png")
+    reference = screenshot(f"win7-sp1-caption-{kind}-motion")
     x, y = frame % 10 * width, frame // 10 * 25 + (0 if restore else 2)
     native = np.asarray(reference.crop((x + 5, y + 2, x + width - 5, y + 16)))
     asset = REPO / f"aero/aurorae/theme/{kind}.svg"
