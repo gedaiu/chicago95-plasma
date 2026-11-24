@@ -1357,6 +1357,7 @@ step_tools_common() { # shared by every PySide6 component; idempotent
   for lib_module in "$REPO"/lib/*.py; do put_file "$lib_module" ~/.local/lib/chicago95/"$(basename "$lib_module")"; done
   put_file "$REPO/data/2000-logon-banner.png" ~/.local/share/chicago95/2000-logon-banner.png
   put_file "$REPO/data/xp-logon-banner.png" ~/.local/share/chicago95/xp-logon-banner.png
+  put_file "$REPO/aero/shutdown-button.svg" ~/.local/share/chicago95/aero-shutdown-button.svg
   # The XP modules and screens whatever the look: the Control Panel previews XP's screens from any look (its log on,
   # boot and Distro Setup pages), and the interactive boot/login flow test runs without the source checkout.
   for luna_module in "$REPO"/luna/lib/*.py; do put_file "$luna_module" ~/.local/lib/chicago95/"$(basename "$luna_module")"; done

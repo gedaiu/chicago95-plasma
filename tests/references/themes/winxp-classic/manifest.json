@@ -17,6 +17,7 @@
   ],
   "start_menu_user": "Classic",
   "properties_scale": 1.25,
+  "properties_rgb565": true,
   "display_page": "Settings",
   "display_resolution": "1280x1024",
   "shutdown_scale": 1.25,
@@ -28,5 +29,35 @@
     448,
     244
   ],
-  "shutdown_standard_dpi": "shutdown-96dpi.png"
+  "shutdown_standard_dpi": "shutdown-96dpi.png",
+  "shutdown_combo_states": {
+    "scale": 1.25,
+    "choice_crop": [
+      76,
+      140,
+      393,
+      236
+    ],
+    "user": "ref"
+  },
+  "shutdown_button_crops": {
+    "confirm": [
+      193,
+      237,
+      283,
+      267
+    ],
+    "cancel": [
+      287,
+      237,
+      377,
+      267
+    ],
+    "help": [
+      382,
+      237,
+      472,
+      267
+    ]
+  }
 }

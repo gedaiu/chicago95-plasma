@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 146 82" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="wash" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="104" y2="56">
+      <stop stop-color="#d5ecff"/>
+      <stop offset=".56" stop-color="#f4faff"/>
+      <stop offset="1" stop-color="#fff"/>
+    </linearGradient>
+    <linearGradient id="stripe">
+      <stop stop-color="#285caa"/>
+      <stop offset="1" stop-color="#64b5f0"/>
+    </linearGradient>
+  </defs>
+  <path d="M0 0h146v82H0z" fill="url(#wash)"/>
+  <path d="M2 1h16v17H2z" fill="none" stroke="#ed8d45" stroke-width="2"/>
+  <path d="M15 13h29v24H15z" fill="none" stroke="#e6ad35" stroke-width="3"/>
+  <path d="M42 0h20v8H42z" fill="none" stroke="#7cbc63" stroke-width="2"/>
+  <path d="M75 4h18v19H75z" fill="none" stroke="#528fd7" stroke-width="2"/>
+  <path d="M31 12h65v25H31z" fill="#fff" opacity=".41"/>
+  <path d="M0 62h146v1H0z" fill="url(#stripe)"/>
+</svg>

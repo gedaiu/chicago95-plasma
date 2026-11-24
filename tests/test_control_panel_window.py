@@ -78,6 +78,96 @@ def test_menu_bar_is_the_windows_98_explorers(window):
     ]
 
 
+def test_windows_95_menu_only_shell_opens_original_and_project_applets(window, control_panel, monkeypatch):
+    window.close()
+    monkeypatch.setattr(control_panel.chicago95ui, "widget_style", lambda: "classic")
+    monkeypatch.setattr(window.actions, "program_installed", lambda program: program == "kcmshell6")
+    control_panel.write_settings(window.settings_path, {"LOOK": "1995"})
+    panel = control_panel.ControlPanel(settings_path=window.settings_path, actions=window.actions)
+    try:
+        assert [action.text() for action in panel.menu_bar.actions()] == ["&File", "&Edit", "&View", "&Help"]
+        assert panel.menuWidget() is panel.menu_bar
+        assert len(panel.status_panes) == 1 and panel.status_message.text() == "18 object(s)"
+        assert item_texts(panel) == [
+            "Accessibility Options", "Add New Hardware", "Add/Remove Programs", "Date/Time",
+            "Display", "Fonts", "Internet", "Keyboard", "Modems", "Mouse", "Multimedia", "Network",
+            "Passwords", "Power", "Printers", "Regional Settings", "Sounds", "System",
+        ]
+        panel.menu_bar.actions()[1].menu().actions()[0].trigger()
+        assert len(panel.icon_view.selectedItems()) == 18
+        panel.icon_view.clearSelection()
+        select(panel, "Date/Time")
+        panel.icon_view.itemActivated.emit(panel.icon_view.currentItem())
+        assert window.started[-1] == ("kcmshell6", ["kcm_clock"])
+        select(panel, "Add/Remove Programs")
+        panel.icon_view.itemActivated.emit(panel.icon_view.currentItem())
+        assert window.messages[-1] == ("Add/Remove Programs", "plasma-discover is unavailable on this desktop.")
+        select(panel, "Display")
+        panel.icon_view.itemActivated.emit(panel.icon_view.currentItem())
+        assert panel.applet_windows["Display"].isVisible()
+        project = next(action.menu() for action in panel.menu_bar.actions()[0].menu().actions() if action.menu())
+        next(action for action in project.actions() if action.text() == "Themes").trigger()
+        assert panel.history.current[-1] == "Themes"
+        panel.back_action.trigger()
+        assert panel.pages.currentWidget() is panel.icon_view
+    finally:
+        for sheet in panel.applet_windows.values():
+            sheet.close()
+        panel.close()
+
+
+def test_windows_98_web_view_tracks_selection_and_can_be_hidden(window, control_panel, monkeypatch):
+    window.close()
+    monkeypatch.setattr(control_panel.chicago95ui, "widget_style", lambda: "classic")
+    control_panel.write_settings(window.settings_path, {"LOOK": "1998"})
+    panel = control_panel.ControlPanel(settings_path=window.settings_path, actions=window.actions)
+    panel.show()
+    try:
+        assert panel.icon_view.count() == 22
+        assert panel.sidebar.isVisible()
+        assert list(panel.toolbar_buttons) == [
+            "Back", "Forward", "Up", "Cut", "Copy", "Paste", "Undo", "Delete", "Properties", "Views",
+        ]
+        select(panel, "Display")
+        assert panel.sidebar.applet_title.text() == "Display"
+        assert panel.sidebar.description.text() == "Changes display settings."
+        assert panel.toolbar_buttons["Properties"].isEnabled()
+        panel.toolbar_buttons["Properties"].click()
+        assert panel.applet_windows["Display"].isVisible()
+        panel.web_view_action.trigger()
+        assert not panel.sidebar.isVisible() and panel.icon_view.currentItem().text() == "Display"
+        panel.web_view_action.trigger()
+        assert panel.sidebar.isVisible()
+    finally:
+        for sheet in panel.applet_windows.values():
+            sheet.close()
+        panel.close()
+
+
+def test_windows_2000_compact_toolbar_and_web_view_search(window, control_panel, monkeypatch):
+    window.close()
+    monkeypatch.setattr(control_panel.chicago95ui, "widget_style", lambda: "classic")
+    control_panel.write_settings(window.settings_path, {"LOOK": "2000"})
+    panel = control_panel.ControlPanel(settings_path=window.settings_path, actions=window.actions)
+    panel.show()
+    try:
+        assert panel.icon_view.count() == 23
+        assert [action.text() for action in panel.menu_bar.actions()] == [
+            "&File", "&Edit", "&View", "F&avorites", "&Tools", "&Help",
+        ]
+        assert {"Search", "Folders", "History", "Views"} <= set(panel.toolbar_buttons)
+        panel.toolbar_buttons["Search"].click()
+        panel.sidebar.search.setText("Display")
+        assert [item_texts(panel)[i] for i in range(23) if not panel.icon_view.item(i).isHidden()] == ["Display"]
+        panel.toolbar_buttons["Search"].click()
+        assert sum(not panel.icon_view.item(i).isHidden() for i in range(23)) == 23
+        select(panel, "Display")
+        assert panel.sidebar.applet_title.text() == "Display"
+        assert panel.status_message.text() == "Changes display settings."
+    finally:
+        panel.close()
+
+
 def test_view_menu_offers_large_icons_small_icons_list_and_details(window):
     view_menu = next(action.menu() for action in window.menu_bar.actions() if action.text() == "&View")
 

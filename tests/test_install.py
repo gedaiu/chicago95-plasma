@@ -1700,6 +1700,12 @@ def test_dry_run_of_the_luna_look_installs_the_dialog_flag_pictures_with_the_too
     assert f"would: cp -r {REPO}/luna/lib/images {tmp_path}/.local/lib/chicago95/images" in log
 
 
+def test_dry_run_of_the_aero_look_installs_the_shutdown_button_svg(tmp_path):
+    log = component_dry_run_log(tmp_path, "--look=aero", "--components=controlpanel")
+
+    assert f"{REPO}/aero/shutdown-button.svg -> {tmp_path}/.local/share/chicago95/aero-shutdown-button.svg" in log
+
+
 def test_dry_run_of_the_2001_look_uses_the_xp_flag_and_the_xp_professional_banner(tmp_path):
     log = component_dry_run_log(tmp_path, "--look=2001", "--components=startmenu")
 

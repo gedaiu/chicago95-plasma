@@ -26,6 +26,7 @@ from PySide6.QtGui import (
     QColor,
     QFont,
     QIcon,
+    QLinearGradient,
     QPainter,
     QPainterPath,
     QPalette,
@@ -639,7 +640,11 @@ def paint_tab_page(painter, option):
     inner = rect.adjusted(1, 1, -1, -1)
     painter.save()
     painter.setRenderHint(QPainter.Antialiasing, False)
-    fill_rows(painter, inner, blend_rows(*TAB_PAGE_FILL, inner.height()))
+    top, bottom = (QColor(colour) for colour in TAB_PAGE_FILL)
+    gradient = QLinearGradient(0, inner.top(), 0, inner.bottom() + 1)
+    # XP's tab body reaches its beige fill before the lower fifth of the page.
+    gradient.setStops([(0, top), (0.035, top), (0.8, bottom), (1, bottom)])
+    painter.fillRect(inner, gradient)
     stroke_rect(painter, rect, TAB_BORDER)
     painter.restore()
 

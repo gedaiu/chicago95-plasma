@@ -261,9 +261,11 @@ def test_aero_categories_open_applets_and_restore_home(qt_app, monkeypatch, tmp_
         window.forward_action.trigger()
         window.up_action.trigger()
         QTest.mouseClick(buttons["Adjust screen resolution"], Qt.LeftButton)
-        display = window.applet_windows["Display"]
-        assert display.isVisible() and display.page.tabs.currentIndex() == display.page.tab_names().index("Settings")
-        display.reject()
+        assert window.address_bar.crumbs() == ["Control Panel", "Screen Resolution"]
+        display = window.pages.currentWidget()
+        assert display is window.screen_resolution and display.isVisible()
+        display.cancel_button.click()
+        assert window.pages.currentWidget() is window.category_view
         buttons["Change the theme"].click()
         assert window.history.current == panel.HOME_PAGE + ("Themes",)
         window.back_action.trigger()
@@ -285,6 +287,10 @@ def test_aero_categories_open_applets_and_restore_home(qt_app, monkeypatch, tmp_
                 applet = panel.APPLET_BY_NAME[name]
                 if applet.external_tool:
                     assert launched[-1] == panel.tool_path(applet.external_tool)
+                    continue
+                if name == "Display" and tab == "Settings":
+                    assert window.pages.currentWidget() is window.screen_resolution
+                    window.screen_resolution.cancel_button.click()
                     continue
                 sheet = window.applet_sheet(name)
                 assert sheet.isVisible()

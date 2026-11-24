@@ -166,13 +166,14 @@ def test_aero_log_off_uses_a_decorated_dialog_and_defaults_to_cancel(shutdown, a
 
 
 def test_aero_shutdown_chooser_uses_native_client_geometry_and_accepts_the_selected_action(
-    shutdown, asked_dialogs, qt_app
+    shutdown, asked_dialogs, qt_app, monkeypatch
 ):
     from PySide6.QtCore import QRect, Qt
     from PySide6.QtTest import QTest
     from PySide6.QtWidgets import QComboBox, QPushButton
 
     dialogs = asked_dialogs("aero")
+    monkeypatch.setattr(shutdown, "sleep_action_available", lambda action: action == shutdown.HIBERNATE)
     assert shutdown.turn_off_choice() is None
     dialog = dialogs[0]
     dialog.show()
@@ -181,7 +182,16 @@ def test_aero_shutdown_chooser_uses_native_client_geometry_and_accepts_the_selec
     combo = dialog.findChild(QComboBox)
     assert combo.geometry() == QRect(66, 105, 317, 21)
     assert combo.currentData() == shutdown.SHUT_DOWN
-    assert [button.text() for button in dialog.findChildren(QPushButton)] == ["OK", "Cancel", "Help"]
+    assert [combo.itemText(i) for i in range(combo.count())] == [
+        "Switch user",
+        "Log off",
+        "Restart",
+        "Hibernate",
+        "Shut down",
+    ]
+    assert [button.text() for button in dialog.findChildren(QPushButton)] == ["OK", "Cancel", "&Help"]
+    QTest.keyClick(combo, Qt.Key_Home)
+    QTest.keyClick(combo, Qt.Key_Down)
     QTest.keyClick(combo, Qt.Key_Down)
     assert dialog.choice == shutdown.RESTART
     assert dialog.focusWidget() is combo
@@ -190,3 +200,16 @@ def test_aero_shutdown_chooser_uses_native_client_geometry_and_accepts_the_selec
     assert buttons[0].isDefault()
     QTest.keyClick(combo, Qt.Key_Return)
     assert dialog.result() == dialog.DialogCode.Accepted
+
+
+@pytest.mark.parametrize("sleep_supported", [False, True])
+def test_aero_shutdown_chooser_offers_sleep_only_when_available(shutdown, asked_dialogs, monkeypatch, sleep_supported):
+    dialogs = asked_dialogs("aero")
+    monkeypatch.setattr(
+        shutdown, "sleep_action_available", lambda action: action == shutdown.STAND_BY and sleep_supported
+    )
+    assert shutdown.turn_off_choice() is None
+    combo = dialogs[0].combo
+    assert (combo.findData(shutdown.STAND_BY) >= 0) is sleep_supported
+    assert combo.findData(shutdown.HIBERNATE) == -1
+    assert combo.currentData() == shutdown.SHUT_DOWN

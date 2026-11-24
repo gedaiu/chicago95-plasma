@@ -23,7 +23,7 @@ import time
 import xml.etree.ElementTree as ElementTree
 from collections import namedtuple
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import chicago95animations
@@ -62,6 +62,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtQuickWidgets import QQuickWidget
 from PySide6.QtSvg import QSvgRenderer
+from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
@@ -99,6 +100,8 @@ from PySide6.QtWidgets import (
     QStyleOptionButton,
     QStyleOptionFrame,
     QStyleOptionMenuItem,
+    QStyleOptionSlider,
+    QStyleOptionViewItem,
     QTabWidget,
     QToolButton,
     QVBoxLayout,
@@ -351,6 +354,7 @@ def detected_branding():
 
 
 HOME_PAGE = ("Control Panel",)
+SCREEN_RESOLUTION_PAGE = HOME_PAGE + ("Screen Resolution",)
 DETAILS_SEPARATOR = "  -  "
 MENU_BAR_HEIGHT, STATUS_BAR_HEIGHT = (
     22,
@@ -375,6 +379,8 @@ class Applet:
     description: str
     external_tool: str = ""
     own_window: bool = False  # opens as its own property sheet, as Windows 98's Display Properties did
+    command: tuple[str, ...] = ()
+    target: str = ""
 
 
 APPLETS = (
@@ -424,6 +430,117 @@ APPLETS = (
 
 
 APPLET_BY_NAME = {applet.name: applet for applet in APPLETS}
+
+WIN95_APPLETS = (
+    Applet("Accessibility Options", ("preferences-desktop-accessibility", "preferences-desktop"),
+           "Adjusts accessibility settings.", command=("kcmshell6", "kcm_access")),
+    APPLET_BY_NAME["Add New Hardware"],
+    Applet("Add/Remove Programs", ("system-software-install", "package-x-generic"),
+           "Installs and removes programs.", command=("plasma-discover",)),
+    Applet("Date/Time", ("preferences-system-time", "clock"),
+           "Sets the date, time and time zone.", command=("kcmshell6", "kcm_clock")),
+    APPLET_BY_NAME["Display"],
+    APPLET_BY_NAME["Fonts"],
+    Applet("Internet", ("applications-internet", "internet-web-browser"),
+           "Configures the Internet proxy.", command=("kcmshell6", "kcm_proxy")),
+    Applet("Keyboard", ("preferences-desktop-keyboard", "input-keyboard"),
+           "Adjusts the keyboard layout and repeat speed.", command=("kcmshell6", "kcm_keyboard")),
+    APPLET_BY_NAME["Modems"],
+    APPLET_BY_NAME["Mouse"],
+    Applet("Multimedia", ("applications-multimedia", "audio-card"),
+           "Configures audio devices and volume.", command=("kcmshell6", "kcm_pulseaudio")),
+    Applet("Network", ("preferences-system-network", "network-workgroup"),
+           "Sets up network connections.", command=("kcmshell6", "kcm_networkmanagement")),
+    APPLET_BY_NAME["Passwords"],
+    Applet("Power", ("preferences-system-power-management", "battery"),
+           "Changes power management settings.", command=("kcmshell6", "kcm_powerdevilprofilesconfig")),
+    Applet("Printers", ("preferences-system-printer", "printer"),
+           "Manages printers and print queues.", command=("kcmshell6", "kcm_printer_manager")),
+    Applet("Regional Settings", ("preferences-desktop-locale", "applications-internet"),
+           "Changes language, formats and other regional settings.", command=("kcmshell6", "kcm_regionandlang")),
+    APPLET_BY_NAME["Sounds"],
+    Applet("System", APPLET_BY_NAME["System"].icon_names,
+           "Provides system information and changes advanced settings.", APPLET_BY_NAME["System"].external_tool),
+)
+
+WIN95_APPLET_ART = {
+    "Add New Hardware": "win95-add-hardware.svg",
+    "Add/Remove Programs": "win95-add-programs.svg",
+    "Date/Time": "win95-date-time.svg",
+    "Mouse": "win95-mouse.svg",
+    "Multimedia": "win95-multimedia.svg",
+    "Network": "win95-network.svg",
+    "Power": "win95-power.svg",
+    "Power Management": "win95-power.svg",
+}
+
+_WIN95_BY_NAME = {applet.name: applet for applet in WIN95_APPLETS}
+WIN98_APPLETS = (
+    *WIN95_APPLETS[:4],
+    replace(APPLET_BY_NAME["Display"], description="Changes display settings."),
+    APPLET_BY_NAME["Fonts"],
+    Applet("Game Controllers", ("input-gaming", "applications-games"), "Tests and configures game controllers.",
+           command=("kcmshell6", "kcm_gamecontroller")),
+    replace(_WIN95_BY_NAME["Internet"], name="Internet Options"),
+    _WIN95_BY_NAME["Keyboard"],
+    _WIN95_BY_NAME["Modems"],
+    _WIN95_BY_NAME["Mouse"],
+    _WIN95_BY_NAME["Multimedia"],
+    _WIN95_BY_NAME["Network"],
+    Applet("ODBC Data Sources (32bit)", ("server-database", "folder"), "Manages ODBC data sources.",
+           command=("ODBCConfig",)),
+    _WIN95_BY_NAME["Passwords"],
+    replace(_WIN95_BY_NAME["Power"], name="Power Management"),
+    _WIN95_BY_NAME["Printers"],
+    _WIN95_BY_NAME["Regional Settings"],
+    _WIN95_BY_NAME["Sounds"],
+    _WIN95_BY_NAME["System"],
+    Applet("Telephony", ("modem", "network-modem"), "Opens Dial-Up Networking.", "chicago95-dialup"),
+    Applet("Users", ("system-users", "preferences-desktop-user"), "Manages local user accounts.",
+           command=("kcmshell6", "kcm_users")),
+)
+
+WIN98_TOOLBAR_HEIGHT = 34
+WIN2000_TOOLBAR_HEIGHT = 19
+_WIN98_BY_NAME = {applet.name: applet for applet in WIN98_APPLETS}
+WIN2000_APPLETS = (
+    _WIN95_BY_NAME["Accessibility Options"],
+    replace(_WIN95_BY_NAME["Add New Hardware"], name="Add/Remove Hardware"),
+    _WIN95_BY_NAME["Add/Remove Programs"],
+    Applet("Administrative Tools", ("preferences-system", "folder"), "Opens the system monitor.",
+           command=("plasma-systemmonitor",)),
+    Applet("Automatic Updates", ("system-software-update",), "Changes automatic software update settings.",
+           command=("kcmshell6", "kcm_updates")),
+    _WIN95_BY_NAME["Date/Time"],
+    _WIN98_BY_NAME["Display"],
+    replace(APPLET_BY_NAME["Explorer"], name="Folder Options", target="Explorer"),
+    _WIN95_BY_NAME["Fonts"],
+    _WIN98_BY_NAME["Game Controllers"],
+    _WIN98_BY_NAME["Internet Options"],
+    _WIN95_BY_NAME["Keyboard"],
+    _WIN95_BY_NAME["Mouse"],
+    replace(_WIN95_BY_NAME["Network"], name="Network and Dial-up Connections"),
+    replace(_WIN95_BY_NAME["Modems"], name="Phone and Modem Options"),
+    replace(_WIN95_BY_NAME["Power"], name="Power Options"),
+    _WIN95_BY_NAME["Printers"],
+    replace(_WIN95_BY_NAME["Regional Settings"], name="Regional Options"),
+    Applet("Scanners and Cameras", ("scanner", "camera-photo"), "Opens the scanner application.",
+           command=("skanpage",)),
+    Applet("Scheduled Tasks", ("view-calendar", "appointment-new"), "Manages scheduled tasks.",
+           command=("kcmshell6", "kcm_cron")),
+    replace(APPLET_BY_NAME["Sounds"], name="Sounds and Multimedia", target="Sounds"),
+    _WIN95_BY_NAME["System"],
+    replace(_WIN98_BY_NAME["Users"], name="Users and Passwords"),
+)
+WIN2000_ICON_CAPTIONS = {
+    "Add/Remove Hardware": "Add/Re…\nHardware",
+    "Add/Remove Programs": "Add/Re…\nPrograms",
+    "Administrative Tools": "Administr…\nTools",
+    "Network and Dial-up Connections": "Network\nand Dial-…",
+    "Phone and Modem Options": "Phone and\nModem …",
+    "Scanners and Cameras": "Scanners\nand Ca…",
+    "Sounds and Multimedia": "Sounds\nand Mul…",
+}
 
 PAGE_TABS = {
     "Booting Screen": ("Boot Screen",),
@@ -793,6 +910,12 @@ def set_screen_mode(output, mode):
     )
 
 
+def display_depth(output):
+    display = next((screen for screen in QGuiApplication.screens() if screen.name() == output), None)
+    display = display or QGuiApplication.primaryScreen()
+    return display.depth() if display is not None else 0
+
+
 KEEP_SCREEN_SECONDS = 15
 
 
@@ -1120,18 +1243,19 @@ class Actions:
     keep_screen_mode: Callable = keep_screen_mode
     installed_effects: Callable = chicago95animations.installed_effects
     live_animations: Callable = chicago95animations.live_state
+    display_depth: Callable = display_depth
 
 
 class HeaderBand(QWidget):
     """One band of Explorer's header: an etched line above it (shadow over white), a raised grip at
     its left, then its content."""
 
-    def __init__(self, content=None, content_height=MENU_BAR_HEIGHT, grip=True, trailing=None):
+    def __init__(self, content=None, content_height=MENU_BAR_HEIGHT, grip=True, trailing=None, inset=BAND_INSET):
         super().__init__()
         self.has_grip = grip
         self.setFixedHeight(ETCHED_ROWS + content_height)
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(BAND_INSET if grip else 0, ETCHED_ROWS, 0 if trailing else 2, 0)
+        layout.setContentsMargins(inset if grip else 0, ETCHED_ROWS, 0 if trailing else 2, 0)
         layout.setSpacing(0)
         if content is not None:
             layout.addWidget(content, 1)
@@ -1161,10 +1285,14 @@ class MenuBandStyle(chicago95ui.ClassicStyle):
     """The menu bar's captions centred in its 22-row band (tests/test_control_panel_header_reference.py):
     Qt sizes its items to the font and sits them against the top."""
 
+    def __init__(self, base, *, item_height=MENU_BAR_HEIGHT):
+        super().__init__(base)
+        self.item_height = item_height
+
     def sizeFromContents(self, contents, option, size, widget=None):
         grown = super().sizeFromContents(contents, option, size, widget)
         if contents == QStyle.CT_MenuBarItem:
-            grown.setHeight(MENU_BAR_HEIGHT)
+            grown.setHeight(self.item_height)
         return grown
 
     def drawControl(self, element, option, painter, widget=None):
@@ -1179,20 +1307,21 @@ class ToolbarButton(QToolButton):
     with a raised face while the pointer is over it and sunken while held, the label along the bottom, and an
     11px arrow section for a button with a menu."""
 
+    HEIGHT = TOOLBAR_HEIGHT
     ARROW_WIDTH, ICON_SIZE, ICON_TOP, LABEL_TOP = 11, 22, 1, 26
 
     def __init__(self, action, has_menu=False):
         super().__init__()
         self.setDefaultAction(action)
         self.has_menu = has_menu
-        self.setFixedHeight(TOOLBAR_HEIGHT)
+        self.setFixedHeight(self.HEIGHT)
         self.setAttribute(Qt.WA_Hover)
 
     def main_width(self):
         return max(48, QFontMetrics(self.font()).horizontalAdvance(self.text()) + 12)
 
     def sizeHint(self):
-        return QSize(self.main_width() + (self.ARROW_WIDTH if self.has_menu else 0), TOOLBAR_HEIGHT)
+        return QSize(self.main_width() + (self.ARROW_WIDTH if self.has_menu else 0), self.HEIGHT)
 
     def minimumSizeHint(self):
         return self.sizeHint()
@@ -1262,6 +1391,10 @@ class ToolbarButton(QToolButton):
         super().mousePressEvent(event)
 
 
+class Win98ToolbarButton(ToolbarButton):
+    HEIGHT, ICON_SIZE, LABEL_TOP = WIN98_TOOLBAR_HEIGHT, 14, 18
+
+
 def start_logo_pixmap():
     """The Start button's logo: Setup's copy, else the flag shipped with the Start applet."""
     copies = sorted((Path.home() / ".local/share/chicago95").glob("start-logo.*"))
@@ -1318,7 +1451,8 @@ class ClassicStatusBar(QStatusBar):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        frames = status_pane_frames(self.width(), STATUS_PANE_STRETCHES)
+        stretches = (1,) if len(self.panes) == 1 else STATUS_PANE_STRETCHES
+        frames = status_pane_frames(self.width(), stretches)
         for pane, (left, width) in zip(self.panes, frames, strict=True):
             pane.setGeometry(left, STATUS_PANE_TOP, width, self.height() - STATUS_PANE_TOP)
         self.grip.move(self.width() - self.grip.width(), self.height() - self.grip.height())
@@ -1391,7 +1525,7 @@ class AddressBar(QWidget):
     navigate = Signal(tuple)
     refresh_requested = Signal()
 
-    def __init__(self, known_pages, aero=False):
+    def __init__(self, known_pages, aero=False, icon=None):
         super().__init__()
         self.aero = aero
         self.known_page_tuples = known_pages
@@ -1413,7 +1547,7 @@ class AddressBar(QWidget):
         box_layout.setSpacing(0)
         self.icon = QLabel()
         self.icon.setFixedSize(16, 16)
-        icon = themed_icon(("preferences-system",))
+        icon = icon if icon is not None else themed_icon(("preferences-system",))
         self.icon.setPixmap(
             icon.pixmap(16, 16)
             if not icon.isNull()
@@ -2743,9 +2877,12 @@ class AppearancePreview(QWidget):
     SIZE = QSize(358, 178)
     INACTIVE, ACTIVE, MESSAGE = QRect(10, 9, 302, 112), QRect(16, 29, 300, 126), QRect(22, 104, 212, 66)
     TITLE_HEIGHT = 18
+    CLASSIC_SHEET_SIZE = QSize(379, 190)
+    CLASSIC_SHEET_WINDOWS = QRect(8, 8, 344, 155), QRect(11, 30, 364, 134), QRect(17, 116, 231, 70)
 
-    def __init__(self):
+    def __init__(self, classic_sheet=False):
         super().__init__()
+        self.classic_sheet = classic_sheet
         self.active, self.inactive, self.desktop, self.look = "#000080", "#808080", "#008080", "1995"
         self.sample_windows = (self.INACTIVE, self.ACTIVE, self.MESSAGE)
         self.active_title = QRect()
@@ -2753,7 +2890,10 @@ class AppearancePreview(QWidget):
 
     def show_colors(self, active, inactive, desktop, look):
         self.active, self.inactive, self.desktop, self.look = active, inactive, desktop, look
-        if look == "1998":
+        if self.classic_sheet and look in ("1995", "1998", "2000"):
+            self.setFixedSize(self.CLASSIC_SHEET_SIZE)
+            self.sample_windows = self.CLASSIC_SHEET_WINDOWS
+        elif look == "1998":
             # Native 96-DPI Display Properties, measured from the SE guest.
             self.setFixedSize(355, 193)
             self.sample_windows = (QRect(10, 10, 317, 151), QRect(14, 33, 335, 133), QRect(22, 118, 213, 69))
@@ -2840,7 +2980,7 @@ class AppearancePreview(QWidget):
         for word, kind in (("Normal", "normal"), ("Disabled", "disabled"), ("Selected", "selected")):
             width = painter.fontMetrics().horizontalAdvance(word) + 12
             cell = QRect(x - 6, menu.top(), width, menu.height())
-            if self.look == "1998" and kind == "selected":
+            if (self.look == "1998" or self.classic_sheet and self.look == "2000") and kind == "selected":
                 cell = QRect(menu.left() + 98, menu.top(), 54, 17)
                 painter.fillRect(cell, Qt.white)
                 painter.fillRect(cell.adjusted(0, 0, -1, -1), QColor("#808080"))
@@ -2850,7 +2990,7 @@ class AppearancePreview(QWidget):
                 painter.fillRect(cell, self.palette().highlight())
                 painter.setPen(self.palette().highlightedText().color())
             elif kind == "disabled":
-                if self.look == "1998":
+                if self.look == "1998" or self.classic_sheet:
                     painter.setPen(Qt.white)
                     painter.drawText(cell.translated(1, 1), Qt.AlignCenter, word)
                 painter.setPen(chicago95ui.bevel_colors(self.face(), chicago95ui.bevel_for_style(self.look))["shadow"])
@@ -2859,7 +2999,7 @@ class AppearancePreview(QWidget):
             painter.drawText(cell, Qt.AlignCenter, word)
             x += width
         text = QRect(menu.left() + 2, menu.bottom() + 3, menu.width() - 4, rect.bottom() - menu.bottom() - 8)
-        if self.look == "1998":
+        if self.look == "1998" or self.classic_sheet:
             frame = QRect(menu.left(), menu.bottom() + 1, menu.width(), rect.bottom() - menu.bottom() - 4)
             self.sunken(painter, frame)
             text = frame.adjusted(2, 2, -2, -2)
@@ -2882,8 +3022,10 @@ class AppearancePreview(QWidget):
         painter.setFont(chicago95ui.ui_font())
         painter.setPen(QColor("#000000"))
         painter.drawText(rect.adjusted(8, 4 + self.TITLE_HEIGHT + 4, 0, 0), Qt.AlignTop | Qt.AlignLeft, "Message Text")
-        if self.look == "1998":
+        if self.look == "1998" or self.classic_sheet:
             button = QRect(rect.left() + 70, rect.bottom() - 29, 72, 24)
+            if self.classic_sheet:
+                button = QRect(rect.center().x() - 33, rect.bottom() - 27, 67, 22)
             painter.fillRect(button, Qt.black)
             painter.fillRect(button.adjusted(0, 0, -1, -1), Qt.white)
             painter.fillRect(button.adjusted(1, 1, -1, -1), QColor("#808080"))
@@ -2937,11 +3079,14 @@ class CurrentPageStack(QStackedWidget):
 class AppearanceSwitch(QStackedWidget):
     """The Appearance sample in the widget style chosen: the classic mock, or the Windows XP one, swapped live."""
 
-    def __init__(self):
+    def __init__(self, classic_sheet=False):
         super().__init__()
         import chicago95lunacontrolpanel
 
-        self.mocks = {"classic": AppearancePreview(), "luna": chicago95lunacontrolpanel.LunaAppearancePreview()}
+        self.mocks = {
+            "classic": AppearancePreview(classic_sheet),
+            "luna": chicago95lunacontrolpanel.LunaAppearancePreview(),
+        }
         for mock in self.mocks.values():
             self.addWidget(mock)
         self.show_style("luna" if chicago95ui.luna_widgets() else "classic")
@@ -3203,6 +3348,32 @@ class AeroCategoryView(QWidget):
         painter.fillRect(self.rect(), tint)
 
 
+class ClassicAppletDelegate(QStyledItemDelegate):
+    """Draw SVG applet art on the native icon grid at fractional desktop scales."""
+
+    def paint(self, painter, option, index):
+        art = WIN95_APPLET_ART.get(index.data(Qt.UserRole).name)
+        if not art or option.state & QStyle.State_Selected:
+            super().paint(painter, option, index)
+            return
+
+        item = QStyleOptionViewItem(option)
+        self.initStyleOption(item, index)
+        style = item.widget.style() if item.widget else QApplication.style()
+        icon = style.subElementRect(QStyle.SE_ItemViewItemDecoration, item, item.widget)
+        item.icon = QIcon()
+        style.drawControl(QStyle.CE_ItemViewItem, item, painter, item.widget)
+
+        transform = painter.deviceTransform()
+        device_bounds = transform.mapRect(QRectF(icon))
+        # The guest keeps 16px and 32px icons when DPI changes its text and grid spacing.
+        side = 16 if device_bounds.width() < 24 else 32
+        centre = device_bounds.center()
+        square = QRectF(round(centre.x() - side / 2), round(centre.y() - side / 2), side, side)
+        inverse, _ = transform.inverted()
+        control_panel_picture(art).render(painter, inverse.mapRect(square))
+
+
 class AeroAppletDelegate(QStyledItemDelegate):
     def initStyleOption(self, option, index):
         super().initStyleOption(option, index)
@@ -3306,6 +3477,8 @@ class PropertiesPage(QWidget):
         self.apply_changes = apply_changes
         self.tabs = window_chrome().tab_control()
         self.settings_tabs = [tab for _name, tab in tabs]
+        self.classic_display = title == "Display" and bool(tabs) and is_classic_display(self.settings_tabs[0].saved)
+        self.luna_display = title == "Display" and chicago95ui.luna_widgets()
         for name, tab in tabs:
             area = tab if title == "Themes" else scrolling(tab)
             if title == "Display":
@@ -3320,6 +3493,8 @@ class PropertiesPage(QWidget):
         self.preview_timer.timeout.connect(self.refresh_previews)
         self.refresh_previews()
         self.ok_button = chicago95ui.dialog_button("OK")
+        if self.luna_display:
+            self.ok_button.setDefault(True)
         self.cancel_button = chicago95ui.dialog_button("Cancel")
         self.apply_button = chicago95ui.dialog_button("&Apply", enabled=False)
         self.ok_button.clicked.connect(self.ok)
@@ -3328,9 +3503,14 @@ class PropertiesPage(QWidget):
         buttons = QHBoxLayout()
         buttons.addStretch(1)
         for button in (self.ok_button, self.cancel_button, self.apply_button):
+            if self.classic_display:
+                button.setFixedSize(80, 22)
+            elif self.luna_display:
+                button.setFixedSize(79, 21)
             buttons.addWidget(button)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(*SHEET_MARGINS)
+        margins = (6, 6, 6, 7) if self.classic_display or self.luna_display else SHEET_MARGINS
+        layout.setContentsMargins(*margins)
         layout.addWidget(self.tabs, 1)
         layout.addLayout(buttons)
 
@@ -3397,6 +3577,13 @@ class PropertiesPage(QWidget):
 
 
 SHEET_SIZE = QSize(398, 424)  # Display Properties inside its 3px frame and title bar (the tech2u pictures: 404 by 448)
+CLASSIC_DISPLAY_SIZE = QSize(422, 415)
+LUNA_DISPLAY_SIZE = QSize(422, 414)
+CLASSIC_DISPLAY_LOOKS = ("1995", "1998", "2000", "2001")
+
+
+def is_classic_display(settings):
+    return settings.get("LOOK") in CLASSIC_DISPLAY_LOOKS and chicago95ui.widget_style() == "classic"
 
 
 class PropertySheetWindow(QDialog):
@@ -3423,7 +3610,13 @@ class PropertySheetWindow(QDialog):
                 page.tabs.setUsesScrollButtons(False)
                 page.tabs.tabBar().setElideMode(Qt.ElideNone)
             self.ensurePolished()
-            self.setFixedSize(SHEET_SIZE.expandedTo(self.minimumSizeHint()))
+            if page.classic_display:
+                preferred = CLASSIC_DISPLAY_SIZE
+            elif page.luna_display:
+                preferred = LUNA_DISPLAY_SIZE
+            else:
+                preferred = SHEET_SIZE
+            self.setFixedSize(preferred.expandedTo(self.minimumSizeHint()))
         elif page.title == "Taskbar" and chicago95ui.widget_style() == "aero":
             self.setWindowTitle("Taskbar and Start Menu Properties")
             page.tabs.tabBar().setStyleSheet(
@@ -4111,14 +4304,50 @@ APPEARANCE_ITEMS = (
 )
 
 
+def appearance_column(caption, widget, width):
+    column = QVBoxLayout()
+    column.setSpacing(3)
+    label = buddy_label(caption, widget)
+    label.setEnabled(widget.isEnabled())
+    column.addWidget(label, 0, Qt.AlignLeft)
+    widget.setFixedWidth(width)
+    column.addWidget(widget)
+    return column
+
+
+def disabled_appearance_combo():
+    combo = chicago95ui.classic_combo(QComboBox())
+    combo.setEnabled(False)
+    return combo
+
+
+def classic_desktop_controls(colour, second_colour):
+    row = QHBoxLayout()
+    row.setSpacing(7)
+    size = chicago95ui.plain_disabled_text(QSpinBox())
+    size.setSpecialValueText(" ")
+    size.setEnabled(False)
+    row.addLayout(appearance_column("Size:", size, 60))
+    row.addLayout(appearance_column("Color:", colour, 44))
+    if second_colour:
+        row.addLayout(appearance_column("Color 2:", disabled_appearance_combo(), 44))
+    else:
+        row.addStretch()
+    return row
+
+
 @tab_builder("Display", "Appearance")
 def appearance_tab(settings, actions):
     """Windows 98's Appearance tab (the tech2u Display Properties picture): the sample windows in the scheme's
     colours, Scheme with Save As and Delete, and Item with the chosen part's settings."""
     tab = SettingsTab(settings, actions)
-    tab.outer.setContentsMargins(12, PAGE_INSETS[1], 12, PAGE_INSETS[3])  # the 358px preview fits the sheet's 386
+    classic_sheet = is_classic_display(settings) and settings.get("LOOK") != "2001"
+    tab.outer.setContentsMargins(*(14, 8, 13, 8) if classic_sheet else (12, PAGE_INSETS[1], 12, PAGE_INSETS[3]))
+    if classic_sheet:
+        tab.outer.setSpacing(9)
+        tab.form.setVerticalSpacing(5)
     start = LOOK_PRESETS["1995"]
-    tab.preview = AppearanceSwitch()
+    tab.preview = AppearanceSwitch(classic_sheet)
     tab.previews.append(tab.preview)
     tab.outer.insertWidget(0, tab.preview)
     tab.scheme = chicago95ui.classic_combo(QComboBox())
@@ -4157,6 +4386,8 @@ def appearance_tab(settings, actions):
                 edit = chicago95ui.dialog_button("Edit gradient…")
                 edit.clicked.connect(dialog.show)
                 form.addRow("Color:", edit)
+            elif classic_sheet and key == "BACKGROUND_COLOR":
+                form.addRow(classic_desktop_controls(tab.color_edits[key], settings.get("LOOK") != "1995"))
             else:
                 form.addRow("Color:", tab.color_edits[key])
         tab.items.addItem(label, key)
@@ -4164,27 +4395,55 @@ def appearance_tab(settings, actions):
     tab.items.currentIndexChanged.connect(tab.item_editors.setCurrentIndex)
     tab.items.setCurrentIndex(tab.items.findText("Desktop"))
     scheme_row = QHBoxLayout()
+    if classic_sheet:
+        scheme_row.setSpacing(0)
+        tab.save_as_button.setFixedSize(80, 22)
+        tab.delete_button.setFixedSize(80, 22)
     scheme_row.addWidget(tab.scheme, 1)
+    if classic_sheet:
+        scheme_row.addSpacing(7)
     scheme_row.addWidget(tab.save_as_button)
+    if classic_sheet:
+        scheme_row.addSpacing(5)
     scheme_row.addWidget(tab.delete_button)
     item_row = QHBoxLayout()
-    item_row.addWidget(tab.items, 1)
-    item_row.addWidget(tab.item_editors, 1)
-    for label, row, buddy in (("&Scheme:", scheme_row, tab.scheme), ("&Item:", item_row, tab.items)):
-        tab.form.addRow(buddy_label(label, buddy))
-        tab.form.addRow(row)
+    if classic_sheet:
+        item_row.setSpacing(7)
+    tab.form.addRow(buddy_label("&Scheme:", tab.scheme))
+    tab.form.addRow(scheme_row)
+    if classic_sheet:
+        item_row.setContentsMargins(0, 5, 0, 0)
+        item_row.addLayout(appearance_column("&Item:", tab.items, 208))
+        item_row.addWidget(tab.item_editors, 1, Qt.AlignBottom)
+    else:
+        tab.form.addRow(buddy_label("&Item:", tab.items))
+        item_row.addWidget(tab.items, 1)
+        item_row.addWidget(tab.item_editors, 1)
+    tab.form.addRow(item_row)
     font_row = QHBoxLayout()  # the original's Font line, greyed out as for the Desktop: fonts are the Fonts applet's
     font = chicago95ui.classic_combo(QComboBox())
-    font.addItem(chicago95ui.ui_font().family())
-    font_row.addWidget(font, 1)
+    font.setEnabled(False)
+    if classic_sheet:
+        font_row.setContentsMargins(0, 6, 0, 0)
+        font_row.setSpacing(7)
+        font_row.addLayout(appearance_column("&Font:", font, 208))
+        font_row.addLayout(appearance_column("Size:", disabled_appearance_combo(), 60))
+        font_row.addLayout(appearance_column("Color:", disabled_appearance_combo(), 44))
+        style_row = QHBoxLayout()
+        style_row.setSpacing(2)
+        font_row.addLayout(style_row)
+        font_row.setAlignment(style_row, Qt.AlignBottom)
+    else:
+        font.addItem(chicago95ui.ui_font().family())
+        font_row.addWidget(font, 1)
+        tab.form.addRow(buddy_label("&Font:", font))
+        style_row = font_row
     for caption in ("B", "I"):
         style_button = QPushButton(caption)
         style_button.setFixedSize(20, 21)
-        font_row.addWidget(style_button)
-    tab.form.addRow(buddy_label("&Font:", font))
+        style_button.setEnabled(False)
+        style_row.addWidget(style_button)
     tab.form.addRow(font_row)
-    for index in range(font_row.count()):
-        font_row.itemAt(index).widget().setEnabled(False)
     tab.track(
         "LOOK",
         tab.scheme.currentData,
@@ -4357,22 +4616,64 @@ def desktop_colour(settings):
 
 @tab_builder("Display", "Settings")
 def display_settings_tab(settings, actions):
-    """Windows 98's Settings tab: the monitor, the display's name, Colors and Screen area side by side, Advanced."""
+    """Display Settings with a monitor preview, resolution slider, and access to advanced settings."""
     tab = SettingsTab(settings, actions)
-    tab.monitor = MonitorPreview(desktop_colour(settings))
+    luna = chicago95ui.luna_widgets()
+    xp = luna or (is_classic_display(settings) and settings.get("LOOK") == "2001")
+    if xp:
+        tab.outer.setContentsMargins(14, 32, 14, 6 if luna else 9)
+        tab.monitor = QSvgWidget()
+        desktop = desktop_colour(settings).split(",")[0]
+        art = control_panel_art("xp-display-monitor.svg").replace(b"#3a6ea5", desktop.encode("ascii"))
+        tab.monitor.load(art)
+        tab.monitor.setFixedSize(141, 127)
+    else:
+        tab.monitor = MonitorPreview(desktop_colour(settings))
     tab.outer.insertWidget(0, tab.monitor, 0, Qt.AlignHCenter)
     screen = actions.current_screen()
     tab.display_name = QLabel(screen.output if screen else "Unknown monitor")
-    tab.form.addRow("Display:", tab.display_name)
-    colours, area = QGroupBox("Colors"), QGroupBox("Screen area")
-    QVBoxLayout(colours).addWidget(chicago95ui.classic_combo(QComboBox()))
-    colours.findChild(QComboBox).addItem("True Color (32 bit)")
+    colours, area = QGroupBox("Color quality" if xp else "Colors"), QGroupBox(
+        "Screen resolution" if xp else "Screen area"
+    )
+    colour_layout = QVBoxLayout(colours)
+    colour_combo = chicago95ui.classic_combo(QComboBox())
+    if xp and screen is not None:
+        depth = actions.display_depth(screen.output)
+        if depth == 16:
+            colour_combo.addItem("Medium (16 bit)")
+        elif depth == 24:
+            colour_combo.addItem("Highest (24 bit)")
+        elif depth == 32:
+            colour_combo.addItem("Highest (32 bit)")
+        elif depth > 0:
+            colour_combo.addItem(f"{depth} bit")
+    if colour_combo.count() == 0:
+        colour_combo.addItem("Unknown" if xp else "True Color (32 bit)")
+    colour_layout.addWidget(colour_combo)
+    if xp:
+        tab.outer.insertSpacing(1, 32 if luna else 35)
+        tab.form.setVerticalSpacing(3)
+        tab.form.addRow(QLabel("Display:"))
+        tab.form.addRow(tab.display_name)
+        spectrum = QSvgWidget(str(control_panel_asset("xp-display-colour.svg")))
+        spectrum.setFixedHeight(14 if luna else 15)
+        if luna:
+            colour_combo.setFixedHeight(22)
+        colour_layout.setContentsMargins(9, 2, 9, 9)
+        colour_layout.addWidget(spectrum)
+    else:
+        tab.form.addRow("Display:", tab.display_name)
     tab.screen_area = ScreenAreaField(screen.sizes if screen else [])
     tab.screen_area.setEnabled(screen is not None)
-    QVBoxLayout(area).addWidget(tab.screen_area)
+    area_layout = QVBoxLayout(area)
+    area_layout.addWidget(tab.screen_area)
     row = QHBoxLayout()
-    row.addWidget(colours, 1)
-    row.addWidget(area, 1)
+    row.addWidget(area if xp else colours, 1)
+    row.addWidget(colours if xp else area, 1)
+    if xp:
+        tab.outer.insertSpacing(tab.outer.count() - 1, 6 if luna else 11)
+        area_layout.setContentsMargins(9, 2, 9, 9)
+        tab.screen_area.slider.setTickPosition(QSlider.TicksBelow)
     tab.outer.insertLayout(tab.outer.count() - 1, row)
     if screen is not None:
         tab.fields["SCREEN_AREA"] = (tab.screen_area.value, tab.screen_area.set_value, screen.current)
@@ -4382,6 +4683,22 @@ def display_settings_tab(settings, actions):
     tab.advanced_button.clicked.connect(lambda: actions.start_process("kcmshell6", ["kcm_kscreen"]))
     buttons = QHBoxLayout()
     buttons.addStretch(1)
+    if xp:
+        troubleshoot = chicago95ui.dialog_button("&Troubleshoot...")
+        troubleshoot.setFixedWidth(94)
+        troubleshoot.clicked.connect(
+            lambda: actions.show_message(
+                tab, "Display Troubleshooter",
+                "If the display becomes unreadable after applying a resolution, wait for the previous size to return. "
+                "Use Advanced to check connected displays and their supported modes.",
+            )
+        )
+        buttons.addWidget(troubleshoot)
+        tab.advanced_button.setText("Ad&vanced")
+        tab.advanced_button.setFixedWidth(90)
+        if luna:
+            troubleshoot.setFixedHeight(21)
+            tab.advanced_button.setFixedHeight(21)
     buttons.addWidget(tab.advanced_button)
     tab.outer.insertLayout(tab.outer.count() - 1, buttons)
     return tab
@@ -4621,13 +4938,18 @@ def effects_tab(settings, actions):
     installed = actions.installed_effects()
     live = actions.live_animations()
     tab.combos, tab.settings_buttons = {}, {}
+    luna_display = chicago95ui.luna_widgets()
     icons = tab.choice("DESKTOP_ICONS", "Desktop icons:", DESKTOP_ICON_CHOICES, default="auto")
     icons.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
     icons.setMinimumContentsLength(12)
-    if chicago95ui.luna_widgets():
+    compact = luna_display or is_classic_display(settings)
+    if compact:
         tab.outer.setContentsMargins(10, 6, 10, 6)
         tab.outer.setSpacing(3)
     tab.classic_button = chicago95ui.dialog_button("&Classic")
+    if luna_display:
+        icons.setFixedHeight(20)
+        tab.classic_button.setFixedHeight(20)
     tab.classic_button.clicked.connect(
         lambda: (
             tab.load(
@@ -4644,20 +4966,20 @@ def effects_tab(settings, actions):
         box = QGroupBox(group)
         grid = QGridLayout(box)
         grid.setVerticalSpacing(2)
-        if chicago95ui.luna_widgets():
+        if compact:
             grid.setContentsMargins(6, 2, 6, 2)
         events = [event for event in table.events if event.group == group]
         for index, event in enumerate(events):
             current = chicago95animations.current_choice(table, event.key, installed, live)
-            field = animation_field(tab, table, installed, event, current)
+            field = animation_field(tab, table, installed, event, current, compact_luna=luna_display)
             grid.addWidget(field, index // EFFECTS_COLUMNS, index % EFFECTS_COLUMNS)
-        if group == events[-1].group == table.events[-1].group:
+        if group == table.events[-1].group:
             grid.addWidget(tab.classic_button, len(events) // EFFECTS_COLUMNS, 1, Qt.AlignRight | Qt.AlignBottom)
         tab.outer.insertWidget(tab.outer.count() - 1, box)
     return tab
 
 
-def animation_field(tab, table, installed, event, current):
+def animation_field(tab, table, installed, event, current, *, compact_luna=False):
     """One event's control under its caption: the speed slider, the wobbly check box, or a list with a button
     that opens the chosen effect's KDE settings."""
     options = chicago95animations.event_choices(table, event.key, installed)
@@ -4688,7 +5010,10 @@ def animation_field(tab, table, installed, event, current):
     for label, value in options:
         combo.addItem(label, value)
     button = QPushButton("...")
-    button.setFixedSize(20, combo.sizeHint().height())
+    height = 20 if compact_luna else combo.sizeHint().height()
+    if compact_luna:
+        combo.setFixedHeight(height)
+    button.setFixedSize(20, height)
     button.setToolTip("Settings for this effect")
     row = QHBoxLayout()
     row.setSpacing(2)
@@ -4725,6 +5050,8 @@ def background_tab(settings, actions):
     """Windows 98's Background tab (the tech2u Display Properties picture): the monitor showing the desktop, the
     Wallpaper list with (None) first, Browse..., Pattern... and Display. The desktop colour is Appearance's."""
     tab = SettingsTab(settings, actions)
+    if chicago95ui.luna_widgets():
+        tab.outer.setContentsMargins(PAGE_INSETS[0], 8, PAGE_INSETS[2], 8)
     patterns = background_patterns(settings)
     tab.monitor = MonitorPreview(desktop_colour(settings))
     tab.outer.insertWidget(0, tab.monitor, 0, Qt.AlignHCenter)
@@ -4818,6 +5145,427 @@ def add_wallpaper(wallpapers, label, path):
     wallpapers.addItem(item)
 
 
+class ResolutionSlider(QSlider):
+    dismissed = Signal()
+
+    def paintEvent(self, event):
+        option = QStyleOptionSlider()
+        self.initStyleOption(option)
+        option.sliderPosition = self.minimum()
+        low = self.style().subControlRect(QStyle.CC_Slider, option, QStyle.SC_SliderHandle, self)
+        option.sliderPosition = self.maximum()
+        high = self.style().subControlRect(QStyle.CC_Slider, option, QStyle.SC_SliderHandle, self)
+        y1, y2 = high.center().y(), low.center().y()
+        with QPainter(self) as painter:
+            painter.setPen(QColor("#d5dfe5"))
+            span = self.maximum() - self.minimum()
+            for position in range(span + 1):
+                y = y1 + round((y2 - y1) * position / max(1, span))
+                painter.drawLine(11, y, 28, y)
+            control_panel_picture("aero-resolution-track.svg").render(
+                painter, QRectF(7, y1, 18, y2 - y1 + 1)
+            )
+        super().paintEvent(event)
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key_Escape, Qt.Key_Return, Qt.Key_Enter, Qt.Key_Tab, Qt.Key_Backtab) or (
+            event.key() in (Qt.Key_Up, Qt.Key_Down) and event.modifiers() & Qt.AltModifier
+        ):
+            self.dismissed.emit()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+
+class ResolutionPicker(QComboBox):
+    """The Windows 7 resolution field uses a vertical scale in its dropdown."""
+
+    ROW_HEIGHT = 19
+    POPUP_WIDTH = 202
+
+    def __init__(self):
+        super().__init__()
+        self.popup = None
+        self.currentIndexChanged.connect(self.sync_slider)
+
+    def showPopup(self):
+        if self.count() == 0 or self.popup is not None:
+            return
+        popup = QFrame(self, Qt.Popup | Qt.FramelessWindowHint)
+        popup.setAttribute(Qt.WA_DeleteOnClose)
+        popup.destroyed.connect(self.popup_destroyed)
+        popup.setFont(chicago95ui.ui_font(11))
+        popup.setObjectName("resolutionFlyout")
+        popup.setStyleSheet(
+            "#resolutionFlyout { background: white; border: 1px solid #646464; }"
+            "QToolButton { background: transparent; border: 0; color: #111; padding: 0; }"
+            "QLabel { color: #646464; }"
+        )
+        self.popup = popup
+
+        scale = QWidget()
+        layout = QVBoxLayout(scale)
+        layout.setContentsMargins(12, 8, 9, 8)
+        layout.setSpacing(0)
+        high = QLabel("High")
+        high.setIndent(8)
+        high.setFixedHeight(20)
+        layout.addWidget(high)
+
+        row = QHBoxLayout()
+        row.setSpacing(3)
+        track = QFrame()
+        track.setObjectName("resolutionTrack")
+        track.setStyleSheet("#resolutionTrack { border: 1px dotted #606060; }")
+        track.setFixedSize(31, self.count() * self.ROW_HEIGHT + 7)
+        track_layout = QHBoxLayout(track)
+        track_layout.setContentsMargins(0, 0, 0, 0)
+        self.slider = ResolutionSlider(Qt.Vertical, track)
+        self.slider.setAccessibleName("Resolution")
+        self.slider.setRange(0, self.count() - 1)
+        self.slider.setPageStep(1)
+        self.slider.setFixedSize(28, (self.count() - 1) * self.ROW_HEIGHT + 10)
+        thumb = control_panel_asset("aero-resolution-thumb.svg")
+        self.slider.setStyleSheet(
+            "QSlider::groove:vertical { width: 18px; margin: 0 4px 0 0; background: transparent; }"
+            "QSlider::handle:vertical { height: 11px; margin: 0 0 0 -2px; "
+            f"border-image: url(\"{thumb}\"); }}"
+        )
+        self.slider.dismissed.connect(self.hidePopup)
+        self.slider.valueChanged.connect(self.select_position)
+        track_layout.addWidget(self.slider, 0, Qt.AlignVCenter)
+        row.addWidget(track)
+
+        modes = QVBoxLayout()
+        modes.setContentsMargins(0, 3, 0, 3)
+        modes.setSpacing(0)
+        for index in range(self.count()):
+            label = QToolButton()
+            label.setText(self.itemText(index))
+            label.setFocusPolicy(Qt.NoFocus)
+            label.setFixedHeight(self.ROW_HEIGHT)
+            label.clicked.connect(lambda _checked=False, i=index: self.setCurrentIndex(i))
+            modes.addWidget(label, 0, Qt.AlignLeft)
+        row.addLayout(modes, 1)
+        layout.addLayout(row)
+        low = QLabel("Low")
+        low.setIndent(8)
+        low.setFixedHeight(20)
+        layout.addWidget(low)
+
+        desktop = self.screen().geometry()
+        size = QSize(self.POPUP_WIDTH, scale.sizeHint().height())
+        popup_layout = QVBoxLayout(popup)
+        popup_layout.setContentsMargins(0, 0, 0, 0)
+        if size.height() > desktop.height():
+            scroller = QScrollArea()
+            scroller.setFrameShape(QFrame.NoFrame)
+            scroller.setWidget(scale)
+            scroller.setWidgetResizable(True)
+            popup_layout.addWidget(scroller)
+            size.setHeight(desktop.height())
+        else:
+            popup_layout.addWidget(scale)
+        popup.resize(size)
+        origin = self.mapToGlobal(QPoint(0, 7))
+        popup.move(
+            max(desktop.left(), min(origin.x(), desktop.right() - size.width() + 1)),
+            max(desktop.top(), min(origin.y(), desktop.bottom() - size.height() + 1)),
+        )
+        self.sync_slider()
+        popup.show()
+        self.slider.setFocus(Qt.PopupFocusReason)
+
+    def popup_destroyed(self):
+        self.popup = None
+
+    def hidePopup(self):
+        if self.popup is not None:
+            self.popup.close()
+        super().hidePopup()
+
+    def select_position(self, value):
+        self.setCurrentIndex(self.count() - 1 - value)
+
+    def sync_slider(self):
+        if self.popup is not None:
+            self.slider.setValue(self.count() - 1 - self.currentIndex())
+
+
+class ScreenResolutionPage(QWidget):
+    finished = Signal()
+
+    def __init__(self, actions, change_screen_area):
+        super().__init__()
+        self.actions = actions
+        self.change_screen_area = change_screen_area
+        self.current_resolution = ""
+        self.setFont(chicago95ui.ui_font(11))
+        self.setObjectName("screenResolution")
+        self.setStyleSheet(
+            "#screenResolution { background: white; }"
+            "#resolutionHeading { color: #003399; font-size: 16px; }"
+            "QPushButton[link=true] { background: transparent; border: 0; padding: 0;"
+            " color: #0066cc; text-align: left; }"
+            "QPushButton[link=true]:hover { text-decoration: underline; }"
+            "QPushButton[link=true]:focus { border: 1px dotted #0066cc; }"
+        )
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 20, 0, 0)
+        layout.setSpacing(0)
+        form = QWidget()
+        form.setMaximumWidth(565)
+        fields = QVBoxLayout(form)
+        fields.setContentsMargins(0, 0, 0, 0)
+        fields.setSpacing(0)
+        aligned = QHBoxLayout()
+        aligned.setContentsMargins(12, 0, 0, 0)
+        aligned.addStretch(1)
+        aligned.addWidget(form, 10)
+        aligned.addStretch(1)
+        layout.addLayout(aligned)
+
+        headline = QLabel("Change the appearance of your display")
+        headline.setObjectName("resolutionHeading")
+        headline.setFixedHeight(26)
+        fields.addWidget(headline)
+        fields.addSpacing(6)
+        preview = QFrame()
+        preview.setObjectName("resolutionPreview")
+        preview.setFixedHeight(114)
+        preview.setStyleSheet("#resolutionPreview { border: 1px solid #a0a0a0; }")
+        preview_row = QHBoxLayout(preview)
+        preview_row.setContentsMargins(0, 0, 12, 0)
+        preview_row.setSpacing(12)
+        self.monitor = QSvgWidget(str(control_panel_asset("aero-resolution-monitor.svg")))
+        self.monitor.setFixedSize(128, 96)
+        self.monitor.setAccessibleName("Display 1")
+        preview_row.addStretch(1)
+        preview_row.addWidget(self.monitor, 0, Qt.AlignVCenter)
+        preview_row.addStretch(1)
+        tools = QVBoxLayout()
+        tools.setContentsMargins(0, 11, 0, 0)
+        tools.setSpacing(7)
+        detect = chicago95ui.dialog_button("Detect")
+        self.identify = chicago95ui.dialog_button("Identify")
+        for button in (detect, self.identify):
+            button.setFixedHeight(22)
+        detect.clicked.connect(self.refresh_screen)
+        self.identify.clicked.connect(self.identify_display)
+        tools.addWidget(detect)
+        tools.addWidget(self.identify)
+        tools.addStretch(1)
+        preview_row.addLayout(tools)
+        fields.addWidget(preview)
+        fields.addSpacing(16)
+
+        self.display = QComboBox()
+        self.display.setMinimumWidth(171)
+        self.display.setFixedHeight(22)
+        self.display.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.resolutions = ResolutionPicker()
+        self.resolutions.setFixedSize(100, 24)
+        for label, combo in (("&Display:", self.display), ("&Resolution:", self.resolutions)):
+            row = QHBoxLayout()
+            row.setSpacing(0)
+            caption = buddy_label(label, combo)
+            caption.setFixedWidth(103)
+            row.addWidget(caption)
+            row.addWidget(combo)
+            row.addStretch()
+            fields.addLayout(row)
+            fields.addSpacing(12)
+
+        fields.addSpacing(5)
+        fields.addWidget(self.link("Advanced settings", self.open_kde_display), 0, Qt.AlignRight)
+        fields.addSpacing(6)
+        fields.addWidget(self.rule(1))
+        fields.addSpacing(8)
+        for caption, command in (
+            ("Connect to a projector", self.open_kde_display),
+            ("Make text and other items larger or smaller", self.open_kde_display),
+            ("What display settings should I choose?", self.show_help),
+        ):
+            fields.addWidget(self.link(caption, command), 0, Qt.AlignLeft)
+            fields.addSpacing(6)
+        layout.addSpacing(10)
+        layout.addWidget(self.rule(1))
+        layout.addSpacing(10)
+        self.ok_button = chicago95ui.dialog_button("OK")
+        self.cancel_button = chicago95ui.dialog_button("Cancel")
+        self.apply_button = chicago95ui.dialog_button("Apply", enabled=False)
+        buttons = QHBoxLayout()
+        buttons.setContentsMargins(12, 0, 0, 0)
+        buttons.addStretch(1)
+        button_group = QWidget()
+        button_group.setMaximumWidth(form.maximumWidth())
+        button_row = QHBoxLayout(button_group)
+        button_row.setContentsMargins(0, 0, 0, 0)
+        button_row.setSpacing(7)
+        button_row.addStretch()
+        for button in (self.ok_button, self.cancel_button, self.apply_button):
+            button.setFixedHeight(22)
+            button_row.addWidget(button)
+        buttons.addWidget(button_group, 10)
+        buttons.addStretch(1)
+        layout.addLayout(buttons)
+        layout.addStretch()
+        self.resolutions.currentIndexChanged.connect(self.update_apply)
+        self.resolutions.currentIndexChanged.connect(self.update_preview)
+        self.ok_button.clicked.connect(self.finish)
+        self.apply_button.clicked.connect(self.apply)
+        self.cancel_button.clicked.connect(self.finished)
+
+    def sizeHint(self):
+        return QSize(785, 536)
+
+    @staticmethod
+    def rule(height):
+        line = QWidget()
+        line.setFixedHeight(height)
+        line.setStyleSheet("background: #ccc;")
+        return line
+
+    def link(self, caption, command):
+        button = QPushButton(caption)
+        button.setProperty("link", True)
+        button.setCursor(Qt.PointingHandCursor)
+        button.setFixedHeight(20)
+        button.clicked.connect(command)
+        return button
+
+    def refresh_screen(self):
+        screen = self.actions.current_screen()
+        self.current_resolution = screen.current if screen else ""
+        self.display.clear()
+        self.display.addItem(f"1. {screen.output}" if screen else "Unknown monitor")
+        self.display.setEnabled(screen is not None)
+        self.identify.setEnabled(screen is not None)
+        self.monitor.setVisible(screen is not None)
+        self.resolutions.blockSignals(True)
+        self.resolutions.clear()
+        if screen:
+            for size in reversed(screen.sizes):
+                self.resolutions.addItem(size.replace("x", " × "), size)
+            self.resolutions.setCurrentIndex(self.resolutions.findData(screen.current))
+        self.resolutions.blockSignals(False)
+        self.resolutions.setEnabled(screen is not None)
+        self.update_apply()
+        self.update_preview()
+
+    def identify_display(self):
+        indicator = QLabel("1", self, Qt.ToolTip)
+        indicator.setStyleSheet("background: #254a82; color: white; padding: 16px; font-size: 36px;")
+        indicator.adjustSize()
+        indicator.move(self.screen().availableGeometry().center() - indicator.rect().center())
+        indicator.show()
+        QTimer.singleShot(2000, indicator.deleteLater)
+
+    def open_kde_display(self):
+        self.actions.start_process("kcmshell6", ["kcm_kscreen"])
+
+    def show_help(self):
+        self.actions.show_message(
+            self, "Screen Resolution", "Choose a resolution supported by your display. "
+            "Higher resolutions fit more on the screen. Confirm the change to keep it."
+        )
+
+    def update_apply(self):
+        selected = self.resolutions.currentData()
+        self.apply_button.setEnabled(bool(selected and selected != self.current_resolution))
+
+    def update_preview(self):
+        selected = self.resolutions.currentData()
+        if selected:
+            width, height = (max(1, round(int(side) / 10)) for side in selected.split("x"))
+            size = QSize(width, height)
+            limit = QSize(248, 96)
+            if width > limit.width() or height > limit.height():
+                size = size.scaled(limit, Qt.KeepAspectRatio)
+            self.monitor.setFixedSize(size)
+
+    def apply(self):
+        if not self.apply_button.isEnabled():
+            return
+        self.current_resolution = self.change_screen_area(self.resolutions.currentData())
+        if self.current_resolution is None:
+            self.refresh_screen()
+            return
+        self.resolutions.setCurrentIndex(self.resolutions.findData(self.current_resolution))
+        self.update_apply()
+
+    def finish(self):
+        self.apply()
+        self.finished.emit()
+
+
+class ExplorerSidebar(QWidget):
+    """The Web View introduction and the selected applet's description."""
+
+    def __init__(self, actions, *, win2000=False):
+        super().__init__()
+        self.art = control_panel_picture("win2000-sidebar.svg" if win2000 else "win98-sidebar.svg")
+        self.art_height = 82 if win2000 else 124
+        self.setFixedWidth(146 if win2000 else 174)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(10 if win2000 else 12, 9 if win2000 else 14, 10, 10)
+        layout.setSpacing(0)
+        icon = QLabel()
+        icon.setPixmap(QIcon(str(control_panel_asset("win98-control-panel.svg"))).pixmap(26, 26))
+        layout.addWidget(icon, 0, Qt.AlignLeft)
+        layout.addSpacing(5)
+        heading = QLabel("Control Panel" if win2000 else "Control\nPanel")
+        font = heading.font()
+        font.setFamily("Sans Serif")
+        font.setPixelSize(17 if win2000 else 22)
+        font.setBold(True)
+        heading.setFont(font)
+        heading.setFixedHeight(25 if win2000 else 51)
+        layout.addWidget(heading)
+        layout.addSpacing(15 if win2000 else 25)
+        self.search = QLineEdit()
+        self.search.setAccessibleName("Search Control Panel")
+        self.search.setPlaceholderText("Search Control Panel")
+        self.search.hide()
+        layout.addWidget(self.search)
+        self.applet_title = QLabel()
+        title_font = self.applet_title.font()
+        title_font.setBold(True)
+        self.applet_title.setFont(title_font)
+        layout.addWidget(self.applet_title)
+        self.description = QLabel()
+        self.description.setTextFormat(Qt.PlainText)
+        self.description.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.description.setWordWrap(True)
+        layout.addWidget(self.description)
+        for caption, address in (
+            ("Chicago95 Updates" if win2000 else "Chicago95 Home", "https://github.com/gedaiu/chicago95-plasma"),
+            ("Technical Support", "https://github.com/gedaiu/chicago95-plasma/issues"),
+        ):
+            link = QLabel(f'<a href="{address}">{caption}</a>')
+            link.setTextInteractionFlags(Qt.TextBrowserInteraction)
+            link.linkActivated.connect(lambda target: actions.start_process("xdg-open", [target]))
+            layout.addWidget(link)
+            layout.addSpacing(3)
+        layout.addStretch()
+        self.show_applet(None)
+
+    def show_applet(self, applet):
+        self.applet_title.setVisible(applet is not None)
+        self.applet_title.setText(applet.name if applet else "")
+        self.description.setFixedHeight(35 if applet else 105)
+        self.description.setText(
+            applet.description if applet else
+            "Use the settings in Control Panel to personalize your computer.\n\n"
+            "Select an item to view its description."
+        )
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), Qt.white)
+        self.art.render(painter, QRectF(0, 0, self.width(), self.art_height))
+
+
 class ControlPanel(QMainWindow):
     def __init__(self, settings_path=SETTINGS_FILE, actions=None):
         super().__init__()
@@ -4826,14 +5574,23 @@ class ControlPanel(QMainWindow):
         self.history = NavigationHistory(HOME_PAGE)
         self.applet_pages = {}
         self.applet_windows = {}
+        self.screen_resolution = None
         self.showing_page = False
         self.setWindowTitle("Control Panel")
         self.setWindowIcon(QIcon.fromTheme("preferences-system"))
-        self.aero = chicago95ui.widget_style() == "aero"
+        style = chicago95ui.widget_style()
+        look = read_settings(self.settings_path).get("LOOK")
+        self.aero = style == "aero"
+        self.win95 = style == "classic" and look == "1995"
+        self.win98 = style == "classic" and look == "1998"
+        classic_applets = {"1995": WIN95_APPLETS, "1998": WIN98_APPLETS}
+        self.applets = classic_applets.get(look, APPLETS) if style == "classic" else APPLETS
+        self.applet_by_name = {**APPLET_BY_NAME, **{applet.name: applet for applet in self.applets}}
         self.resize(QSize(780, 540) if self.aero else QSize(500, 420))
         self.icon_view = self.build_icon_view()
         self.pages = QStackedWidget()
-        self.pages.addWidget(self.icon_view)
+        self.home_view = self.build_web_view() if self.win98 else self.icon_view
+        self.pages.addWidget(self.home_view)
         self.setCentralWidget(self.pages)
         self.build_header()
         self.build_status_bar()
@@ -4852,23 +5609,52 @@ class ControlPanel(QMainWindow):
         if self.aero:
             view.setMouseTracking(True)
             view.setItemDelegate(AeroAppletDelegate(view))
+        elif self.win95 or self.win98:
+            view.setItemDelegate(ClassicAppletDelegate(view))
+            view.setSelectionMode(QListView.ExtendedSelection)
         view.setMovement(QListView.Static)
         view.setSpacing(0)
         view.setWordWrap(True)
         view.setResizeMode(QListView.Adjust)
         view.setFrameStyle(QFrame.StyledPanel | QFrame.Sunken)
         view.setLineWidth(2)
-        for applet in APPLETS:
-            item = QListWidgetItem(themed_icon(applet.icon_names), applet.name)
+        for applet in self.applets:
+            art = WIN95_APPLET_ART.get(applet.name) if self.win95 or self.win98 else None
+            icon = QIcon(str(control_panel_asset(art))) if art else themed_icon(applet.icon_names)
+            item = QListWidgetItem(icon, applet.name)
             item.setData(Qt.UserRole, applet)
             view.addItem(item)
         view.itemSelectionChanged.connect(self.show_selection)
         view.itemActivated.connect(lambda item: self.open_applet(item.data(Qt.UserRole).name))
         return view
 
+    def build_web_view(self):
+        frame = QFrame()
+        frame.setFrameStyle(QFrame.StyledPanel | QFrame.Sunken)
+        frame.setLineWidth(2)
+        self.icon_view.setFrameShape(QFrame.NoFrame)
+        self.sidebar = Win98Sidebar(self.actions)
+        self.sidebar_area = QWidget()
+        sidebar_layout = QHBoxLayout(self.sidebar_area)
+        sidebar_layout.setContentsMargins(0, 0, 16, 0)
+        sidebar_layout.addWidget(self.sidebar)
+        self.sidebar_area.setAutoFillBackground(True)
+        self.sidebar_area.setBackgroundRole(QPalette.Base)
+        row = QHBoxLayout(frame)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(0)
+        row.addWidget(self.sidebar_area)
+        row.addWidget(self.icon_view, 1)
+        return frame
+
     def build_status_bar(self):
         """Windows 98's status bar: three sunken panes (the message, a spare one, the place) and a size grip."""
         self.status_message = QLabel()
+        chrome = window_chrome()
+        if self.win95:
+            self.status_panes = (chrome.status_pane(self.status_message),)
+            self.setStatusBar(chrome.status_bar(self.status_panes))
+            return
         self.status_place_icon = QLabel()
         icon = themed_icon(("computer",))
         self.status_place_icon.setPixmap(
@@ -4876,7 +5662,6 @@ class ControlPanel(QMainWindow):
             if not icon.isNull()
             else start_logo_pixmap().scaled(16, 16, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         )
-        chrome = window_chrome()
         self.status_panes = (
             chrome.status_pane(self.status_message),
             chrome.status_pane(QLabel()),
@@ -4890,26 +5675,36 @@ class ControlPanel(QMainWindow):
             self.build_aero_header()
             return
         self.menu_bar = QMenuBar()
-        self.menu_style = chrome.menu_style()
+        menu_height = 20 if self.win98 else 21 if self.win95 else MENU_BAR_HEIGHT
+        self.menu_style = (
+            MenuBandStyle("Windows", item_height=menu_height) if self.win95 or self.win98 else chrome.menu_style()
+        )
         self.menu_bar.setStyle(self.menu_style)
-        self.menu_bar.setFixedHeight(MENU_BAR_HEIGHT)
+        self.menu_bar.setFixedHeight(menu_height)
         self.build_menus()
+        self.build_standard_navigation()
+        if self.win95:
+            self.setMenuWidget(self.menu_bar)
+            return
         self.toolbar = self.build_standard_toolbar()
         self.logo_box = chrome.logo_box()
         known_pages = [HOME_PAGE] + [HOME_PAGE + (applet.name,) for applet in APPLETS if not applet.external_tool]
-        self.address_bar = AddressBar(known_pages)
+        address_icon = QIcon(str(control_panel_asset("win98-control-panel.svg"))) if self.win98 else None
+        self.address_bar = AddressBar(known_pages, icon=address_icon)
         self.address_bar.navigate.connect(self.navigate)
         self.header = QWidget()
         layout = QVBoxLayout(self.header)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+        header_band = functools.partial(HeaderBand, inset=6) if self.win98 else chrome.header_band
         for band in (
-            chrome.header_band(self.menu_bar, trailing=self.logo_box),
-            chrome.header_band(self.toolbar, TOOLBAR_HEIGHT),
-            chrome.header_band(self.address_bar),
-            chrome.header_band(None, 0, grip=False),
+            header_band(self.menu_bar, menu_height, trailing=self.logo_box),
+            header_band(self.toolbar, self.toolbar.height()),
+            header_band(self.address_bar),
         ):
             layout.addWidget(band)
+        if not self.win98:
+            layout.addWidget(header_band(None, 0, grip=False))
         self.setMenuWidget(self.header)
 
     def build_aero_header(self):
@@ -4967,6 +5762,7 @@ class ControlPanel(QMainWindow):
         row.addWidget(history)
         pages = [HOME_PAGE, *(HOME_PAGE + (name,) for name in AERO_CATEGORIES)]
         pages.extend(HOME_PAGE + (applet.name,) for applet in APPLETS if not applet.external_tool)
+        pages.append(SCREEN_RESOLUTION_PAGE)
         self.address_bar = AddressBar(pages, aero=True)
         self.address_bar.navigate.connect(self.navigate)
         refresh = QAction("Refresh", self)
@@ -5193,7 +5989,12 @@ class ControlPanel(QMainWindow):
         return page
 
     def open_category_task(self, name, tab):
-        self.open_applet(name)
+        if self.aero and name == "Display" and tab and tab != "Settings":
+            self.open_window(name)
+        else:
+            self.open_applet(name)
+            if self.aero and name == "Display":
+                return
         if tab:
             sheet = self.applet_sheet(name)
             sheet.tabs.setCurrentIndex(sheet.tab_names().index(tab))
@@ -5230,8 +6031,8 @@ class ControlPanel(QMainWindow):
 
     def build_menus(self):
         menu_bar = self.menu_bar
-        for title in ("&File", "&Edit"):
-            menu_bar.addMenu(title)
+        file_menu = menu_bar.addMenu("&File")
+        edit_menu = menu_bar.addMenu("&Edit")
         self.view_menu = menu_bar.addMenu("&View")
         view_choices = QActionGroup(self)
         for name, mode in VIEW_MODES.items():
@@ -5240,33 +6041,89 @@ class ControlPanel(QMainWindow):
             choice.setChecked(name == "Large Icons")
             choice.triggered.connect(lambda _checked=False, name=name: self.set_view(name))
             view_choices.addAction(choice)
-        for title in ("&Go", "F&avorites", "&Help"):
-            menu_bar.addMenu(title)
+        if self.win95 or self.win98:
+            project_menu = file_menu.addMenu("Chicago95 &Settings")
+            originals = {applet.name for applet in self.applets}
+            for applet in APPLETS:
+                if applet.name not in originals:
+                    project_menu.addAction(applet.name, lambda name=applet.name: self.open_applet(name))
+            file_menu.addAction("&Close", self.close)
+        if self.win95:
+            edit_menu.addAction("Select &All", self.icon_view.selectAll).setShortcut("Ctrl+A")
+        else:
+            menu_bar.addMenu("&Go")
+            menu_bar.addMenu("F&avorites")
+        if self.win98:
+            self.view_menu.addSeparator()
+            self.web_view_action = self.view_menu.addAction("as &Web Page")
+            self.web_view_action.setCheckable(True)
+            self.web_view_action.setChecked(True)
+            self.web_view_action.toggled.connect(self.sidebar_area.setVisible)
+        help_menu = menu_bar.addMenu("&Help")
+        if self.win95:
+            help_menu.addAction(
+                "Help &Topics",
+                lambda: self.actions.show_message(
+                    self, "Control Panel",
+                    "Double-click an icon to change its settings. Open Chicago95 Settings from the File menu "
+                    "to select a desktop theme or change Chicago95 features.",
+                ),
+            )
 
-    def build_standard_toolbar(self):
-        toolbar = QWidget()
-        toolbar.setFixedHeight(TOOLBAR_HEIGHT)
-        layout = QHBoxLayout(toolbar)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+    def build_standard_navigation(self):
         self.back_action = QAction(QIcon.fromTheme("go-previous"), "Back", self)
         self.forward_action = QAction(QIcon.fromTheme("go-next"), "Forward", self)
         self.up_action = QAction(QIcon.fromTheme("go-up"), "Up", self)
-        views_action = QAction(QIcon.fromTheme("view-list-icons"), "Views", self)
-        views_action.setMenu(self.view_menu)
         self.back_action.triggered.connect(lambda: self.jump(-1))
         self.forward_action.triggered.connect(lambda: self.jump(1))
         self.up_action.triggered.connect(lambda: self.navigate(parent_location(self.history.current)))
+        if self.win95:
+            for action, shortcut in (
+                (self.back_action, "Alt+Left"), (self.forward_action, "Alt+Right"), (self.up_action, "Alt+Up")
+            ):
+                action.setShortcut(shortcut)
+                self.addAction(action)
+
+    def build_standard_toolbar(self):
+        toolbar = QWidget()
+        toolbar.setFixedHeight(WIN98_TOOLBAR_HEIGHT if self.win98 else TOOLBAR_HEIGHT)
+        layout = QHBoxLayout(toolbar)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        views_action = QAction(QIcon.fromTheme("view-list-icons"), "Views", self)
+        views_action.setMenu(self.view_menu)
         self.toolbar_buttons = {}
+
+        def add_button(action, has_menu=False):
+            button_class = Win98ToolbarButton if self.win98 else window_chrome().toolbar_button
+            button = button_class(action, has_menu)
+            self.toolbar_buttons[action.text()] = button
+            layout.addWidget(button)
+
+        def add_separator():
+            separator = QFrame()
+            separator.setFrameStyle(QFrame.VLine | QFrame.Sunken)
+            separator.setFixedWidth(6)
+            layout.addWidget(separator)
+
         for action, has_menu in ((self.back_action, True), (self.forward_action, True), (self.up_action, False)):
-            self.toolbar_buttons[action.text()] = window_chrome().toolbar_button(action, has_menu)
-            layout.addWidget(self.toolbar_buttons[action.text()])
-        separator = QFrame()
-        separator.setFrameStyle(QFrame.VLine | QFrame.Sunken)
-        separator.setFixedWidth(6)
-        layout.addWidget(separator)
-        self.toolbar_buttons["Views"] = window_chrome().toolbar_button(views_action, has_menu=True)
-        layout.addWidget(self.toolbar_buttons["Views"])
+            add_button(action, has_menu)
+        add_separator()
+        if self.win98:
+            groups = (
+                (("Cut", "edit-cut"), ("Copy", "edit-copy"), ("Paste", "edit-paste")),
+                (("Undo", "edit-undo"),),
+                (("Delete", "edit-delete"), ("Properties", "document-properties")),
+            )
+            for group in groups:
+                for caption, icon in group:
+                    action = QAction(QIcon.fromTheme(icon), caption, self)
+                    action.setEnabled(False)
+                    add_button(action)
+                add_separator()
+            self.toolbar_buttons["Copy"].defaultAction().triggered.connect(self.copy_current_applet)
+            self.toolbar_buttons["Properties"].defaultAction().triggered.connect(self.open_current_applet)
+        add_button(views_action, has_menu=True)
         layout.addStretch(1)
         return toolbar
 
@@ -5289,7 +6146,8 @@ class ControlPanel(QMainWindow):
         self.icon_view.setViewMode(view.mode)
         self.icon_view.setFlow(view.flow)
         self.icon_view.setWrapping(view.wrapping)
-        self.icon_view.setIconSize(QSize(view.icon_size, view.icon_size))
+        icon_size = round(view.icon_size / self.devicePixelRatioF()) if self.win95 or self.win98 else view.icon_size
+        self.icon_view.setIconSize(QSize(icon_size, icon_size))
         self.icon_view.setGridSize(view.grid)
         for row in range(self.icon_view.count()):
             item = self.icon_view.item(row)
@@ -5300,9 +6158,30 @@ class ControlPanel(QMainWindow):
 
     def show_selection(self):
         selected = self.icon_view.selectedItems()
-        self.status_message.setText(
-            selected[0].data(Qt.UserRole).description if selected else f"{self.icon_view.count()} object(s)"
-        )
+        if self.win98:
+            applet = selected[0].data(Qt.UserRole) if selected else None
+            self.sidebar.show_applet(applet)
+            self.toolbar_buttons["Copy"].defaultAction().setEnabled(bool(applet))
+            self.toolbar_buttons["Properties"].defaultAction().setEnabled(bool(applet))
+            self.status_message.setText(applet.description if applet else "")
+            return
+        if self.win95 and len(selected) > 1:
+            message = f"{len(selected)} object(s) selected"
+        elif selected:
+            message = selected[0].data(Qt.UserRole).description
+        else:
+            message = f"{self.icon_view.count()} object(s)"
+        self.status_message.setText(message)
+
+    def copy_current_applet(self):
+        item = self.icon_view.currentItem()
+        if item and item.isSelected():
+            QApplication.clipboard().setText(item.data(Qt.UserRole).name)
+
+    def open_current_applet(self):
+        item = self.icon_view.currentItem()
+        if item and item.isSelected():
+            self.open_applet(item.data(Qt.UserRole).name)
 
     def show_again(self, page_slug):
         """A later launch asked for the window: its page, if named, then the window up and in front."""
@@ -5313,9 +6192,19 @@ class ControlPanel(QMainWindow):
             self.open_applet(PAGE_SLUGS[page_slug])
 
     def open_applet(self, name):
-        applet = APPLET_BY_NAME[name]
+        applet = self.applet_by_name[name]
+        if applet.command:
+            program, *arguments = applet.command
+            if self.actions.program_installed(program):
+                self.actions.start_process(program, arguments)
+            else:
+                self.actions.show_message(self, applet.name, f"{program} is unavailable on this desktop.")
+            return
         if applet.external_tool:
             self.actions.start_process(tool_path(applet.external_tool), [])
+            return
+        if self.aero and name == "Display":
+            self.navigate(SCREEN_RESOLUTION_PAGE)
             return
         if applet.own_window:
             self.open_window(name)
@@ -5343,6 +6232,8 @@ class ControlPanel(QMainWindow):
         return PropertiesPage(applet_name, tabs, self.apply_changes)
 
     def navigate(self, page):
+        if self.aero and page == HOME_PAGE + ("Display",):
+            page = SCREEN_RESOLUTION_PAGE
         if self.aero and page[1:2] == ("Taskbar",):
             self.open_window("Taskbar")
             return
@@ -5403,10 +6294,19 @@ class ControlPanel(QMainWindow):
             if self.aero:
                 self.show_aero_home(self.search.text())
             else:
-                self.pages.setCurrentWidget(self.icon_view)
+                self.pages.setCurrentWidget(self.home_view)
             self.show_selection()
         elif self.aero and page[1] in AERO_CATEGORIES:
             self.pages.setCurrentWidget(self.category_detail(page[1]))
+        elif self.aero and page == SCREEN_RESOLUTION_PAGE:
+            if self.screen_resolution is None:
+                self.screen_resolution = ScreenResolutionPage(self.actions, self.change_screen_area)
+                self.screen_resolution.finished.connect(lambda: self.jump(-1))
+                self.pages.addWidget(self.screen_resolution)
+            self.screen_resolution.refresh_screen()
+            self.pages.setCurrentWidget(self.screen_resolution)
+            size = self.screen_resolution.sizeHint() + QSize(0, self.toolbar.sizeHint().height())
+            self.resize(self.size().expandedTo(size.boundedTo(self.screen().availableGeometry().size())))
         else:
             applet_page = self.page_for(page[1])
             applet_page.tabs.setCurrentIndex(applet_page.tab_names().index(page[2]) if len(page) > 2 else 0)
@@ -5451,15 +6351,18 @@ class ControlPanel(QMainWindow):
         """A new size for the screen, kept only when confirmed in time; otherwise the old size and its slider return."""
         screen = self.actions.current_screen()
         if screen is None or area not in screen.modes:
-            return
+            return None
+        if area == screen.current:
+            return screen.current
         self.actions.set_screen_mode(screen.output, screen.modes[area])
         if self.actions.keep_screen_mode(self):
-            return
+            return area
         self.actions.set_screen_mode(screen.output, screen.modes[screen.current])
         for sheet in [window.page for window in self.applet_windows.values()] + list(self.applet_pages.values()):
             for tab in sheet.settings_tabs:
                 if hasattr(tab, "screen_area"):
                     tab.screen_area.set_value(screen.current)
+        return screen.current
 
     def tab_changed(self, applet_name, index):
         if self.showing_page:
@@ -5469,12 +6372,15 @@ class ControlPanel(QMainWindow):
 
     def refresh_navigation(self):
         current = self.history.current
-        self.address_bar.show_page(current)
+        if not self.win95:
+            self.address_bar.show_page(current)
         self.back_action.setEnabled(self.history.can_go_back)
         self.forward_action.setEnabled(self.history.can_go_forward)
         self.up_action.setEnabled(parent_location(current) != current)
         if self.aero:
             self.home_heading.setVisible(current == HOME_PAGE)
+            return
+        if self.win95:
             return
         self.back_action.setMenu(self.history_menu(self.history.pages_before, -1))
         self.forward_action.setMenu(self.history_menu(self.history.pages_after, 1))

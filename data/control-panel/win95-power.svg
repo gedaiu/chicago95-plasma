@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="metal">
+      <stop stop-color="#898989"/>
+      <stop offset=".25" stop-color="#f4f4f4"/>
+      <stop offset=".68" stop-color="#c1c1c1"/>
+      <stop offset="1" stop-color="#666"/>
+    </linearGradient>
+    <linearGradient id="label">
+      <stop stop-color="#b1a716"/>
+      <stop offset=".29" stop-color="#fff768"/>
+      <stop offset=".7" stop-color="#f7e948"/>
+      <stop offset="1" stop-color="#9e8e06"/>
+    </linearGradient>
+  </defs>
+  <path d="M12.5 6.5C12.5 4 17 2.5 22 2.5S31.5 4 31.5 6.5v21c0 2.5-4 4-9.5 4s-9.5-1.5-9.5-4z"
+        fill="url(#metal)" stroke="#202020"/>
+  <path d="M13 19c2 1.5 5.5 2 9 2s7-.5 9-2v8.5c0 2-4 3.5-9 3.5s-9-1.5-9-3.5z" fill="url(#label)"/>
+  <ellipse cx="22" cy="6.5" rx="8.5" ry="2.5" fill="#e8e8e8" stroke="#686868"/>
+  <path d="M19.5 4.5v-2c0-1 1-1.5 2.5-1.5s2.5.5 2.5 1.5v2c0 1-1 1.5-2.5 1.5s-2.5-.5-2.5-1.5z"
+        fill="#c4c4c4" stroke="#3b3b3b"/>
+  <path d="M21 10h2v2h2v2h-2v2h-2v-2h-2v-2h2zm-2 16h6v2h-6z" fill="#da1515"/>
+  <path d="M7 20v4c0 4-2 6-6 6" fill="none" stroke="#333" stroke-width="2"/>
+  <path d="M3 7h3v8H3zm6 0h3v8H9z" fill="#e7d945" stroke="#333"/>
+  <path d="M2 14h11v4l-3 4H5l-3-4z" fill="#c6c6c6" stroke="#555"/>
+  <path d="M3 15h9v1H3zm2 4h5v1H5z" fill="#fff"/>
+</svg>

@@ -12,9 +12,42 @@
   "device_manager_scale": 1.25,
   "start_menu_active": 4,
   "properties_scale": 1.25,
+  "properties_rgb565": true,
   "display_page": "Appearance",
   "display_resolution": "1280x1024",
   "shutdown_scale": 1,
   "shutdown_os_name": "Windows 2000",
-  "shutdown_rgb565": true
+  "shutdown_rgb565": true,
+  "shutdown_120dpi": "shutdown-120dpi.png",
+  "shutdown_combo_states": {
+    "scale": 1.25,
+    "choice_crop": [
+      76,
+      140,
+      393,
+      226
+    ],
+    "user": "ref"
+  },
+  "shutdown_button_scale": 1.25,
+  "shutdown_button_crops": {
+    "confirm": [
+      193,
+      267,
+      283,
+      297
+    ],
+    "cancel": [
+      287,
+      267,
+      377,
+      297
+    ],
+    "help": [
+      382,
+      267,
+      472,
+      297
+    ]
+  }
 }

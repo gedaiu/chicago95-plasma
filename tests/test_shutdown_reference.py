@@ -408,8 +408,9 @@ XP_DESCRIPTIONS = {
     "Log off {user}": "Ends your session, leaving the computer running on full power.",
     "Shut down": "Ends your session and shuts down Windows so that you can safely turn off power.",
     "Restart": "Ends your session, shuts down Windows, and starts Windows again.",
-    "Stand by": "Keeps your session in memory and puts the computer in a low-power state so that you can quickly "
-    "resume working.",
+    "Stand by": "Maintains your session, keeping the computer running on low power with data still in memory.",
+    "Hibernate": "Saves your session to disk so that you can safely turn off power. "
+    "Your session is restored the next time you start Windows.",
 }
 
 
@@ -420,7 +421,7 @@ def test_2001_choice_list_is_the_xp_one(shutdown):
 def test_2001_descriptions_are_the_xp_wording_for_each_choice(shutdown, qt_app):
     dialog = dialog_for(shutdown, qt_app, "2001", banner="Windows")
     shown = {}
-    for index, (_, label) in enumerate(dialog.choices[:4]):
+    for index, (_, label) in enumerate(dialog.choices):
         dialog.combo.setCurrentIndex(index)
         shown[label] = dialog.description.text()
     dialog.close()
@@ -437,14 +438,13 @@ def test_2001_asks_the_2000_question_in_a_combo_layout(shutdown):
 def test_xp_classic_keyboard_updates_the_selected_action_and_its_help(shutdown, qt_app, monkeypatch):
     from PySide6.QtCore import Qt
     from PySide6.QtTest import QTest
-    from PySide6.QtWidgets import QPushButton
 
     dialog = dialog_for(shutdown, qt_app, "2001", banner="Windows")
     help_text = []
     monkeypatch.setattr(shutdown.QMessageBox, "information", lambda _parent, _title, text: help_text.append(text))
     QTest.keyClick(dialog.combo, Qt.Key_Down)
     assert dialog.combo.currentData() == shutdown.RESTART
-    next(button for button in dialog.findChildren(QPushButton) if button.text() == "Help").click()
+    dialog.buttons["help"].click()
     assert help_text == [XP_DESCRIPTIONS["Restart"]]
     assert dialog.isVisible() and dialog.choice is None
     dialog.combo.setFocus()
@@ -461,3 +461,23 @@ def test_installed_windows_2000_shutdown_frame(whole_2000):
     assert rendered.size == original.size
     for band in [(0, 0, 417, 3), (0, 266, 417, 269), (0, 21, 3, 266)]:
         assert rendered.crop(band).tobytes() == original.crop(band).tobytes()
+
+
+def test_windows_2000_uses_the_vm_dimensions_at_120_dpi(shutdown, qt_app, monkeypatch):
+    from PIL import Image
+
+    scale = 1.25
+    monkeypatch.setattr(shutdown.ShutDownDialog, "devicePixelRatioF", lambda _dialog: scale)
+    dialog = shutdown.ShutDownDialog({"style": "2000", "osName": "Windows 2000"})
+    with Image.open(REFERENCES / "themes/win2k/shutdown-120dpi.png") as capture:
+        assert tuple(int(length * scale + 0.5) for length in dialog.size().toTuple()) == capture.size
+
+
+def test_windows_2000_help_explains_the_current_selection_without_running_it(shutdown, qt_app, monkeypatch):
+    descriptions = []
+    monkeypatch.setattr(shutdown.QMessageBox, "information", lambda _parent, _title, text: descriptions.append(text))
+    dialog = dialog_for(shutdown, qt_app, "2000", banner="Windows 2000")
+    dialog.combo.setCurrentIndex(dialog.combo.findData(shutdown.RESTART))
+    dialog.buttons["help"].click()
+    assert descriptions == ["Ends your session, shuts down Windows, and starts Windows again."]
+    assert dialog.choice is None and dialog.isVisible()

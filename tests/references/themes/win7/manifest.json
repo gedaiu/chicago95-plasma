@@ -12,6 +12,16 @@
   "properties_scale": 1.5,
   "display_page": "Settings",
   "display_resolution": "1280x960",
+  "display_resolution_picker": {
+    "scale": 1,
+    "current": "800x600",
+    "click_mode": "1280 × 768",
+    "modes": [
+      "800x600", "1024x768", "1152x864", "1280x720", "1280x768",
+      "1280x800", "1280x960", "1280x1024", "1400x1050", "1440x900",
+      "1600x900", "1680x1050", "1920x1080"
+    ]
+  },
   "control_panel_hover_scale": 1,
   "control_panel_hover_exit": true,
   "shutdown_scale": 1,
@@ -21,5 +31,42 @@
     155,
     247,
     182
+  ],
+  "shutdown_combo_states": {
+    "scale": 1,
+    "choice_crop": [
+      63,
+      102,
+      399,
+      170
+    ],
+    "sleep_actions": [
+      "HIBERNATE"
+    ]
+  },
+  "shutdown_button_crops": {
+    "confirm": [
+      209,
+      186,
+      284,
+      209
+    ],
+    "cancel": [
+      290,
+      186,
+      365,
+      209
+    ],
+    "help": [
+      371,
+      186,
+      446,
+      209
+    ]
+  },
+  "shutdown_button_hover_settle_ms": 650,
+  "shutdown_hover_sample": [
+    299,
+    202
   ]
 }

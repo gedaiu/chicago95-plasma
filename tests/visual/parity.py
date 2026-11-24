@@ -671,13 +671,54 @@ def render_properties(folder, component, output, size, *, scale=None):
 @pytest.mark.parametrize("theme", THEMES)
 @pytest.mark.parametrize("component", ["control-panel", "display-properties"])
 def test_properties(theme, component, tmp_path, visual_output):
-    folder, _metadata = THEMES[theme]
+    folder, metadata = THEMES[theme]
     with Image.open(folder / f"{component}.png") as frame:
         expected = frame.convert("RGB")
     output = tmp_path / f"{component}.png"
     render_properties(folder, component, output, expected.size)
+    with Image.open(output) as frame:
+        actual = rgb565(frame) if metadata.get("properties_rgb565") else frame.convert("RGB")
+    exact(expected, actual, visual_output / theme / component / "qt")
+
+
+@pytest.mark.parametrize("theme", [theme for theme, (_, data) in THEMES.items() if data.get("control_panel_end")])
+def test_control_panel_end(theme, tmp_path, visual_output):
+    folder, _metadata = THEMES[theme]
+    with Image.open(folder / "control-panel" / "end.png") as frame:
+        expected = frame.convert("RGB")
+    output = tmp_path / "end.png"
+    render_properties(folder, "control-panel-end", output, expected.size)
+    with Image.open(output) as frame:
+        exact(expected, frame.convert("RGB"), visual_output / theme / "control-panel" / "qt" / "end")
+
+
+@pytest.mark.parametrize("theme", [theme for theme, (_, data) in THEMES.items() if data.get("control_panel_selection")])
+def test_control_panel_selection(theme, tmp_path, visual_output):
+    folder, metadata = THEMES[theme]
+    state = f"{metadata['control_panel_selection'].lower()}-selected"
+    with Image.open(folder / "control-panel" / f"{state}.png") as frame:
+        expected = frame.convert("RGB")
+    output = tmp_path / "selected.png"
+    render_properties(folder, "control-panel-selection", output, expected.size)
+    with Image.open(output) as frame:
+        exact(expected, frame.convert("RGB"), visual_output / theme / "control-panel" / "qt" / state)
+
+
+@pytest.mark.parametrize("theme", [theme for theme, (_, data) in THEMES.items() if "display_resolution_picker" in data])
+@pytest.mark.parametrize("state", ["open", "up", "click"])
+def test_display_resolution_picker(theme, state, tmp_path, visual_output):
+    folder, metadata = THEMES[theme]
+    with Image.open(folder / "display-properties/resolution-picker.png") as sheet:
+        height = sheet.height // 3
+        top = ["open", "up", "click"].index(state) * height
+        expected = sheet.crop((0, top, sheet.width, top + height)).convert("RGB")
+    output = tmp_path / f"{state}.png"
+    render_properties(
+        folder, f"display-resolution-picker-{state}", output, expected.size,
+        scale=metadata["display_resolution_picker"]["scale"],
+    )
     with Image.open(output) as actual:
-        exact(expected, actual, visual_output / theme / component / "qt")
+        exact(expected, actual, visual_output / theme / "display-properties" / "qt" / "resolution-picker" / state)
 
 
 def check_shutdown_chooser(theme, tmp_path, visual_output, *, source="shutdown.png", scale=None):
@@ -732,19 +773,100 @@ def test_shutdown_button_states(theme, tmp_path, visual_output):
     exact(expected, actual, visual_output / theme / "shutdown" / "qt" / "button-states")
 
 
-def test_shutdown_win95_held_button_frames_match_native_pixels(tmp_path, visual_output):
-    expected, actual = shutdown_button_state_images("win95", tmp_path)
-    box = (160, 0, 240, 75)
-    # Compare each held face, including its solid inset outline, without the caption's ink.
-    mask = np.ones((75, 80), dtype=bool)
-    for top in (0, 25, 50):
-        mask[top + 6 : top + 19, 10:70] = False
-    exact(
-        expected.crop(box),
-        actual.crop(box),
-        visual_output / "win95" / "shutdown" / "qt" / "held-frames",
-        mask,
-    )
+def hover_settled_ms(samples):
+    final_colour = samples[-1][1]
+    for index in range(len(samples) - 2, -1, -1):
+        if samples[index][1] != final_colour:
+            return samples[index + 1][0]
+    raise AssertionError("No change in the sampled button colour")
+
+
+def test_shutdown_win7_button_hover_timing(tmp_path, visual_output):
+    folder, _ = THEMES["win7"]
+    original = json.loads((folder / "shutdown/button-hover-timing.json").read_text())
+    output = tmp_path / "button-hover-timing.json"
+    render_properties(folder, "shutdown-button-hover", output, (1, 1))
+    actual = json.loads(output.read_text())
+    directory = visual_output / "win7" / "shutdown" / "qt"
+    directory.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(output, directory / "button-hover-timing.json")
+    assert actual["enter"][0][1] == actual["leave"][-1][1]
+    for state, samples in actual.items():
+        times = [hover_settled_ms(trial[state]) for trial in original]
+        # Compare the first presented frame at the new steady colour, allowing one capture interval.
+        measured = hover_settled_ms(samples)
+        assert min(times) - 60 <= measured <= max(times) + 60, (state, measured, times)
+        native = original[0][state][-1][1]
+        assert max(abs(a - b) for a, b in zip(samples[-1][1], native, strict=True)) <= 5
+        assert len({tuple(rgb) for _, rgb in samples}) > 2
+
+
+@pytest.mark.parametrize(
+    "theme,label,columns",
+    [
+        ("win95", (10, 6, 70, 19), (2,)),
+        ("win98", (10, 6, 96, 24), (2,)),
+        ("win2k", (10, 7, 80, 24), (0, 2)),
+        ("winxp-classic", (10, 7, 80, 24), (0, 2)),
+    ],
+)
+def test_shutdown_button_frames_match_native_pixels(theme, label, columns, tmp_path, visual_output):
+    expected, actual = shutdown_button_state_images(theme, tmp_path)
+    width = expected.width // 3
+    mask = np.ones((expected.height, width), dtype=bool)
+    left, top, right, bottom = label
+    for y in range(0, expected.height, expected.height // 3):
+        mask[y + top : y + bottom, left:right] = False
+    for column in columns:
+        box = (column * width, 0, (column + 1) * width, expected.height)
+        state = "held-frames" if column == 2 else "idle-frames"
+        exact(expected.crop(box), actual.crop(box), visual_output / theme / "shutdown" / "qt" / state, mask)
+
+
+@pytest.mark.parametrize("theme", ["win95", "win98", "win2k", "winxp-classic"])
+def test_shutdown_classic_buttons_keep_their_idle_appearance_on_hover(theme, tmp_path):
+    for sheet in shutdown_button_state_images(theme, tmp_path):
+        width = sheet.width // 3
+        assert sheet.crop((0, 0, width, sheet.height)).tobytes() == sheet.crop(
+            (width, 0, 2 * width, sheet.height)
+        ).tobytes()
+
+
+@pytest.mark.parametrize("theme", [theme for theme, (_, metadata) in THEMES.items() if "shutdown_radio_states" in metadata])
+def test_shutdown_radio_states(theme, tmp_path, visual_output):
+    folder, metadata = THEMES[theme]
+    with Image.open(folder / "shutdown/radio-states.png") as frame:
+        expected = frame.convert("RGB")
+    output = tmp_path / "radio-states.png"
+    render_properties(folder, "shutdown-radio-states", output, expected.size, scale=metadata["shutdown_radio_states"]["scale"])
+    with Image.open(output) as frame:
+        actual = rgb565(frame) if metadata.get("shutdown_rgb565") else frame.convert("RGB")
+    exact(expected, actual, visual_output / theme / "shutdown" / "qt" / "radio-states")
+
+
+def shutdown_combo_state_images(theme, state, tmp_path):
+    folder, metadata = THEMES[theme]
+    with Image.open(folder / "shutdown" / f"{state}.png") as frame:
+        expected = frame.convert("RGB")
+    output = tmp_path / f"{state}.png"
+    render_properties(folder, f"shutdown-{state}", output, expected.size, scale=metadata["shutdown_combo_states"]["scale"])
+    with Image.open(output) as frame:
+        actual = rgb565(frame) if metadata.get("shutdown_rgb565") else frame.convert("RGB")
+    return expected, actual
+
+
+@pytest.mark.parametrize("theme", [theme for theme, (_, metadata) in THEMES.items() if "shutdown_combo_states" in metadata])
+@pytest.mark.parametrize("state", ["dropdown", "choices"])
+def test_shutdown_combo_states(theme, state, tmp_path, visual_output):
+    expected, actual = shutdown_combo_state_images(theme, state, tmp_path)
+    exact(expected, actual, visual_output / theme / "shutdown" / "qt" / state)
+
+
+def test_shutdown_win7_dropdown_matches_native_pixels_outside_labels(tmp_path, visual_output):
+    expected, actual = shutdown_combo_state_images("win7", "dropdown", tmp_path)
+    mask = np.ones((expected.height, expected.width), dtype=bool)
+    mask[1:-1, 1:80] = False
+    exact(expected, actual, visual_output / "win7" / "shutdown" / "qt" / "dropdown-frame", mask)
 
 
 @pytest.fixture(scope="module", params=[theme for theme, (_, m) in THEMES.items() if "control_panel_hover_scale" in m])
@@ -826,10 +948,21 @@ def test_coverage(theme):
         )
     )
     if "shutdown_button_crops" in metadata:
-        remaining = "Cancel, focus, disabled and tooltips" if theme == "winxp" else "radio indicators, focus and tooltips"
+        if theme == "winxp":
+            remaining = "Cancel, focus, disabled and tooltips"
+        elif "shutdown_combo_states" in metadata:
+            remaining = "dropdown item hover, button focus, Help window and tooltips"
+            if "shutdown_hover_sample" in metadata:
+                remaining += ", plus press and default-button animation timing"
+        elif "shutdown_radio_states" in metadata:
+            remaining = "optional radio choice, radio hover and press, other focus states and tooltips"
+        else:
+            remaining = "radio indicators, focus and tooltips"
         gaps.append(f"shutdown / Qt: {remaining}")
     else:
         gaps.append("shutdown / Qt: hover and pressed states")
+        if "shutdown_combo_states" in metadata:
+            gaps.append("shutdown / Qt: dropdown item hover, button focus and Help window")
     if theme == "win7":
         gaps.append("start-menu / Qt: glass pane and search results")
         gaps.append("control-panel / Qt: remaining category and action states")

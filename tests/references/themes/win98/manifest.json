@@ -11,6 +11,7 @@
   "taskbar_x": 535,
   "device_manager_scale": 1,
   "properties_scale": 1.25,
+  "control_panel_selection": "Display",
   "display_page": "Appearance",
   "display_resolution": "1280x1024",
   "shutdown_scale": 1,
@@ -43,6 +44,15 @@
       170,
       410,
       201
+    ]
+  },
+  "shutdown_radio_states": {
+    "scale": 1.25,
+    "crop": [
+      74,
+      73,
+      334,
+      157
     ]
   }
 }

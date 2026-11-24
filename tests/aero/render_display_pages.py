@@ -14,7 +14,7 @@ def compare_display_pages(output):
     app = panel["chicago95ui"].make_app("Control Panel")
     assert panel["chicago95ui"].widget_style() == "aero"
     window = panel["ControlPanel"]()
-    window.open_applet("Display")
+    window.open_category_task("Display", "Appearance")
     sheet = window.applet_windows["Display"]
     tabs = sheet.page.tabs
     for index in range(tabs.count()):

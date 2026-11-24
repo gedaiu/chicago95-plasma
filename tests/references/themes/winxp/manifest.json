@@ -23,6 +23,7 @@
     46
   ],
   "properties_scale": 1.25,
+  "properties_rgb565": true,
   "display_page": "Settings",
   "display_resolution": "1280x1024",
   "shutdown_scale": 1.25,

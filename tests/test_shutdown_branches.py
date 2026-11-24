@@ -472,10 +472,13 @@ def test_switch_user_commands_lock_the_session_then_show_the_greeter_of_the_seat
     ]
 
 
-def test_main_switches_user_without_logging_off_when_switch_user_is_chosen(shutdown, app_for_main, monkeypatch, capsys):
-    monkeypatch.setattr(shutdown, "log_off_choice", lambda: shutdown.SWITCH_USER)
+@pytest.mark.parametrize("arguments,chooser", [(("--log-off",), "log_off_choice"), ((), "turn_off_choice")])
+def test_main_switches_user_without_logging_off_when_switch_user_is_chosen(
+    shutdown, app_for_main, monkeypatch, capsys, arguments, chooser
+):
+    monkeypatch.setattr(shutdown, chooser, lambda: shutdown.SWITCH_USER)
 
-    exit_code = run_main(shutdown, monkeypatch, "--log-off", "--dry-run")
+    exit_code = run_main(shutdown, monkeypatch, *arguments, "--dry-run")
 
     assert (exit_code, capsys.readouterr().out) == (
         0,

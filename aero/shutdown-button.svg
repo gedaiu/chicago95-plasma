@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 73 21" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="paper" x2="0" y2="1">
+      <stop stop-color="#fcfcfc"/>
+      <stop offset="1" stop-color="#f3f3f3"/>
+    </linearGradient>
+    <linearGradient id="defaultRim" x2="0" y2="1">
+      <stop stop-color="#48d8fb"/>
+      <stop offset="1" stop-color="#3dcdf0"/>
+    </linearGradient>
+    <linearGradient id="hoverRim" x2="0" y2="1">
+      <stop stop-color="#fafdfe"/>
+      <stop offset="1" stop-color="#e8f5fc"/>
+    </linearGradient>
+    <linearGradient id="heldRim" x2="0" y2="1">
+      <stop stop-color="#9eb0ba"/>
+      <stop offset="1" stop-color="#68b3db"/>
+    </linearGradient>
+    <linearGradient id="greyFace" x2="0" y2="1">
+      <stop stop-color="#f3f3f3"/>
+      <stop offset=".47" stop-color="#ebebeb"/>
+      <stop offset=".47" stop-color="#dedede"/>
+      <stop offset="1" stop-color="#cecece"/>
+    </linearGradient>
+    <linearGradient id="blueFace" x2="0" y2="1">
+      <stop stop-color="#ecf7fe"/>
+      <stop offset=".47" stop-color="#d8f0fc"/>
+      <stop offset=".47" stop-color="#bfe7fd"/>
+      <stop offset="1" stop-color="#a5d8f5"/>
+    </linearGradient>
+    <linearGradient id="heldFace" x2="0" y2="1">
+      <stop stop-color="#edf6fd"/>
+      <stop offset=".53" stop-color="#c5e5f6"/>
+      <stop offset=".53" stop-color="#9bd3f0"/>
+      <stop offset="1" stop-color="#70b8de"/>
+    </linearGradient>
+    <rect id="edge" width="73" height="21" rx="2.5"/>
+    <rect id="rim" x="1" y="1" width="71" height="19" rx="1.7"/>
+    <rect id="face" x="2" y="2" width="69" height="17" rx=".7"/>
+    <g id="normal">
+      <use href="#edge" fill="#707070"/>
+      <use href="#rim" fill="url(#paper)"/>
+      <use href="#face" fill="url(#greyFace)"/>
+    </g>
+    <g id="default">
+      <use href="#edge" fill="#3c7fb1"/>
+      <use href="#rim" fill="url(#defaultRim)"/>
+      <use href="#face" fill="url(#greyFace)"/>
+    </g>
+    <g id="hover">
+      <use href="#edge" fill="#3c7fb1"/>
+      <use href="#rim" fill="url(#hoverRim)"/>
+      <use href="#face" fill="url(#blueFace)"/>
+    </g>
+    <g id="pressed">
+      <use href="#edge" fill="#2c628b"/>
+      <use href="#rim" fill="url(#heldRim)"/>
+      <use href="#face" fill="url(#heldFace)"/>
+    </g>
+  </defs>
+  <use href="#normal"/>
+</svg>

@@ -309,6 +309,7 @@ chooser from the desktop. The upper-left corners are in framebuffer pixels.
 | Windows 98 SE | 640×480, 96 DPI | (158, 100), 323×173 | Radio chooser without Stand by |
 | Windows 98 SE (`shutdown-120dpi.png`) | 1280×1024, 120 DPI | (426, 341), 428×212 | Same chooser, pointer outside the crop |
 | Windows 2000 Professional | 1280×1024, 96 DPI | (431, 251), 417×269 | Dropdown with Shut down selected |
+| Windows 2000 Professional (`shutdown-120dpi.png`) | 1280×1024, 120 DPI | (397, 237), 486×313 | Same chooser, RGB565, pointer outside the crop |
 | XP SP3 Classic | 1280×1024, 120 DPI | (397, 246), 486×285 | Classic dropdown with the Welcome screen disabled |
 | XP SP3 Classic (`shutdown-96dpi.png`) | 1280×1024, 96 DPI | (431, 259), 417×247 | Same dropdown, pointer outside the crop |
 | XP SP3 Luna | 1280×1024, 120 DPI | (432, 260), 418×246 | Welcome-screen power chooser |
@@ -332,6 +333,50 @@ hover sample equals idle. Each held press was released outside its button.
 Windows 95 guest. Rows show Yes, No and Help. Columns show idle, hover and held
 press. The active-state crops use the same two-pointer-position method. All
 three hover tiles equal idle. The held states show the solid inset outline.
+
+`themes/win98/shutdown/button-states.png` uses 106×31 crops from the 120-DPI
+Windows 98 SE guest. The rows are OK, Cancel and Help. The columns are idle,
+hover and held press. Each hover was captured before any button press.
+The held tiles were assembled from two pointer positions and released outside
+the button. The three hover tiles match idle.
+
+`themes/win98/shutdown/radio-states.png` uses unscaled 260×84 crops at
+(500, 414) from the same Windows 98 SE guest. The rows show the initial Shut
+down choice, Restart after pressing Down once, and Restart in MS-DOS mode
+after pressing Down twice. The pointer was outside the crop.
+
+The Windows 2000 Professional state files are unscaled RGB565 captures from the
+120-DPI guest. `themes/win2k/shutdown/dropdown.png` is the 303×66 popup at
+(477, 405) after Alt+Down. `choices.png` stacks four 317×86 crops at (473, 377).
+Home selects Log off ref, then Down selects Shut down, Restart and Stand by.
+`button-states.png` uses 90×30 tiles, with rows for OK, Cancel and Help, and
+columns for idle, hover and held press. Hover equals idle. The held tiles use
+the same two-pointer-position method and each press was released outside.
+
+XP Classic uses the 120-DPI SP3 guest with the Welcome screen disabled.
+`themes/winxp-classic/shutdown/dropdown.png` is the 303×82 list at (477, 414)
+after Alt+Down. `choices.png` stacks five 317×96 crops at (473, 386).
+Home selects Log off ref. Down advances through Shut down, Restart, Stand by
+and Hibernate. The pointer is outside the crops.
+`themes/winxp-classic/shutdown/button-states.png` uses the same 90×30 RGB565
+tiles as the Windows 2000 state sheet. Rows show OK, Cancel and Help. Columns
+show idle, hover and held press. Each hover was captured before pressing its
+button. Held tiles use two pointer positions, and each press was released
+outside the button. The entire sheet matches the Windows 2000 capture.
+
+Windows 7 uses the same 800×600 Basic desktop as its primary chooser
+reference. `themes/win7/shutdown/dropdown.png` is the 317×67 list at (237, 269),
+with the shadow outside the list excluded. `choices.png` stacks five 336×68
+crops at (234, 245). Home selects Switch user, then Down advances through
+Log off, Restart, Hibernate and Shut down. The guest did not offer Sleep.
+
+`themes/win7/shutdown/button-states.png` uses 75×23 crops of OK, Cancel and
+Help from the 96-DPI Basic desktop. Columns show idle, settled hover and held
+press. Paired captures after the fade completed use two cursor positions to
+keep the crop unobstructed. Each held press was released outside the button.
+`button-hover-timing.json` records three separate Cancel-button enter and leave
+trials, sampled at screen pixel (470, 345) from QEMU screenshots. Times are
+milliseconds from input dispatch to the end of each capture.
 
 ## Caption interaction states
 
@@ -389,3 +434,29 @@ and use exclusive right and bottom edges.
 | `winxp-classic` | 1280×1024, 120 DPI | (166, 189, 958, 758) | Settings (30, 53, 558, 572) |
 | `winxp` | 1280×1024, 120 DPI | (166, 246, 958, 806) | Settings (57, 105, 585, 622) |
 | `win7` | 1280×960, 144 DPI | (61, 50, 1239, 893) | Screen Resolution content (61, 89, 1239, 893) |
+
+A fresh capture of the Windows 98 SE Appearance tab at 120 DPI matched the
+existing (165, 188, 693, 707) crop pixel for pixel. The VM used 256 colors,
+the Windows Standard scheme, and solid preview title bars.
+
+The Windows 2000 and both XP guests captured these Control Panel and Display
+views in RGB565. Their manifest entries apply the same conversion to the Qt
+render before comparing every RGB pixel.
+
+The Windows 95 OSR2 Control Panel was opened by running `control` at 120 DPI.
+The fresh initial client matched the existing 407×309 crop. For
+`themes/win95/control-panel/end.png`, End selected System and scrolled the
+same window to the final row. The crop retains the native scroll thumb,
+selection and status text.
+
+`themes/win98/control-panel/display-selected.png` is the Windows 98 SE
+Web View at 120 DPI after a single click on Display. Before capture, the
+pointer was moved outside the client. The crop uses the same 792×707 bounds
+as the initial view and includes the updated sidebar and status text.
+
+`themes/win7/display-properties/resolution-picker.png` stacks three unscaled
+202×312 crops at (227, 287) from Windows 7 SP1 Basic at 800×600 and 96 DPI.
+The first frame follows Alt+R and Alt+Down with 800×600 selected. Up moves
+the thumb to 1024×768 in the second. Clicking the 1280×768 label selects it
+in the third frame. The pointer is outside the crops. Escape dismisses the
+flyout and leaves the choice pending. The guest's resolution stayed at 800×600.
