@@ -24,7 +24,7 @@
     "scale": 1.25,
     "client_size": [632, 420],
     "origin": [52, 28],
-    "cursor": [[11, 10, 27, 23], [11, 10, 27, 23]]
+    "cursor": [[11, 9, 27, 23], [11, 9, 27, 23]]
   },
   "device_manager_blank_band": [200, 0, 620, 48],
   "device_manager_crop": [

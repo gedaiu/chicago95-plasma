@@ -51,6 +51,8 @@ At 120 DPI the Windows 2000 Device Manager command band is 25 physical pixels hi
 | Console tree | 41.04 | 0.87 |
 | Help | 52.04 | 3.72 |
 
+The shared strict suite now matches the five 16×16 Windows 2000 toolbar crops after RGB565 conversion. The disabled arrows, Console Tree and Help markings use aligned SVG paths. Windows 2000 and XP Classic also match the seven captured Console Tree states outside the guest cursor. The XP Classic cursor tip enters one row above the previous mask in the hover and held captures. XP Luna's Help crop measures 0.26/255 mean error with the same artwork. [Native comparisons](../tests/visual/parity.py) · [Capture provenance](../tests/references/SOURCES.md)
+
 Windows 7 Aero Device Manager uses the MMC toolbar. Its 778×518 client
 has an unselected first row, an 18-pixel row pitch and a white viewport
 extending to the bottom bevel. Inventory errors remain visible. At 96 DPI
@@ -63,6 +65,11 @@ glow gradients. Pointer tests verify that moving from
 the arrow to the label clears the glow and that the branch opens on
 press and stays open when the button is released outside. The command
 bands fell from 2.59/255 to 2.02/255 within the same 778-column client.
+The Aero toolbar hover and held faces now extend one physical pixel past
+the command cell. Mean RGB error fell from 4.27/255 to 3.34/255 across the
+Console Tree states and from 4.40/255 to 4.10/255 across the Scan states.
+The collapsed branch hover measures 0.95/255 after adjusting its glow.
+The full state crops still differ. [Device Manager comparisons](../tests/visual/parity.py)
 The exposed toolbar interior and all three separators match all 13,409
 tested pixels. Six individual 16×16 icon comparisons show remaining
 differences. The disabled Back and Forward icons use SVG paths for the
@@ -185,6 +192,13 @@ measure 160 device pixels at 120 DPI. The default Classic and Luna width uses 12
 and all five live width checks pass.
 [Live taskbar comparisons](../tests/visual/parity.py)
 
+Fresh 24-bit guest captures distinguish the Windows 95 and 98 taskbars' light upper edge
+from the flat gray first row in 256-color mode. The Windows 95 true-color band matches every
+pixel at 96 DPI. At 120 DPI, the first four rows of the Windows 98 band still differ.
+Refitting the Luna taskbar's SVG gradient to the XP SP3 guest lowers mean RGB error in the
+96-DPI empty band from 1.29/255 to 0.44/255. [Live taskbar comparisons](../tests/visual/parity.py) ·
+[Capture provenance](../tests/references/SOURCES.md)
+
 The Windows 2000 and XP Classic Plasma menu fills now match the VM colours. The 120-DPI Luna hover band
 matches the native 21-pixel strip. Aero's selected menu brush reduced mean RGB error from 11.23 to 0.17
 out of 255 on a 22-pixel Qt menu row. The live Aero row still occupies 24 pixels, and the full popup retains
@@ -305,12 +319,31 @@ alternate sign-in dialog and passes the exact backdrop test. Full-frame mean RGB
 out of 255. The dialog size and controls still differ. All nine full session-screen comparisons show
 pixel differences. [Capture provenance](../tests/references/SOURCES.md)
 
+The 1280×960 Win7 guest capture shows the rejection OK button at (593, 660).
+The greeter placed it 176 pixels lower before the change. The button's origin now matches at
+800×600 and 1280×960. The 1280×960 rejection frame measures 0.38/255 mean RGB error.
+The sign-in power menu matches the native 147×80 frame, gutter and separator outside the text.
+The keyboard tests exercise Restart and Hibernate, and verify that the menu skips unavailable Sleep.
+The four full power-menu crops still differ, with mean RGB errors of 5.77–5.95/255.
+[Session-screen comparisons](../tests/visual/parity.py) · [Capture provenance](../tests/references/SOURCES.md)
+
 The shared suite now opens Thunar in an isolated KWin session for each theme. The five pre-Aero navigation
 references came from the guests at 120 DPI. The Windows 7 strip comes from the archived Explorer capture.
 The Windows 7 Thunar test visits a parent folder so Back is enabled and Forward is disabled, as in the capture.
 All six comparisons report differences in the menus, toolbar controls, or address field. Setup now writes
 the selected font to GTK 3 and GTK 4 on a fresh install. This reduced the Windows 95 navigation error from
 36.22 to 34.90 out of 255. Windows 98's error rose from 45.21 to 46.56. [Navigation comparisons](../tests/visual/parity.py)
+
+Setup requests the window icon on the left and Minimize, Maximize and Close on the right for
+GTK 3 and GTK 4 in all six looks. It writes GTK settings and the GNOME desktop preference used in
+Wayland sessions. Isolated Wayland sessions displayed all three buttons in both GTK versions. The
+GTK 3 test window had an empty left group. Aero Files keeps its two header bars aligned with the
+window icon at 100% and 150%. [GTK layout setting](https://docs.gtk.org/gtk4/property.Settings.gtk-decoration-layout.html) · [Live Files tests](../tests/aero/test_aero_gtk.py)
+
+The Classic GTK 3 caption checks at 125% now compare the nested KWin capture. The stills identify
+which pixels the compositor actually displays at fractional scale. All 48 comparisons across Windows
+95, 98, 2000 and XP Classic differ. The typical 20×18 native crop becomes 21×19 after scaling.
+The matching GTK 4 checks use the same compositor capture path. [Caption comparisons](../tests/visual/parity.py)
 
 The GTK 3 and GTK 4 radio tests match the idle and selected Windows 95 indicators at 96 DPI. Centering the
 high-density Windows 7 SVG circles on both axes brings three of the four GTK crops to the VM's 19×19 pixels
@@ -325,13 +358,15 @@ at 144 DPI. The selected GTK 3 crop still measures 20×20. Mean RGB error across
 - Windows 95 has 96-DPI idle, hover and held-press comparisons for Yes, No and Help. The held frames and inset outlines match the native pixels outside the labels. The full state sheet still differs, with mean RGB error reduced from 18.85/255 to 10.20/255. [Held-frame comparison](../tests/visual/parity.py)
 - Windows 98 has 120-DPI idle, hover and held-press comparisons for OK, Cancel and Help. Both classic dialogs keep their idle faces on hover, as the guests do. The three Windows 98 held frames match the native pixels outside the captions. Mean RGB error across the full Windows 98 button sheet fell from 22.71/255 to 14.18/255. The arrow-key radio comparison covers all three available choices. Keeping the indicators at their native 12-pixel size and drawing a solid focus outline reduced mean RGB error there from 14.02/255 to 12.21/255. [State comparisons](../tests/visual/parity.py)
 - Windows 2000 matches the 417×269 and 486×313 chooser dimensions at 96 and 120 DPI. The 120-DPI list popup matches the 303×66 reference dimensions. Its strict comparison still shows differences in the list border, selection and lettering. All three button frames match at idle and while held outside their captions. The full chooser, button and keyboard-choice comparisons still differ. The Help button explains the selected action in the Linux dialog. The guest opens a separate Windows Help window. [State captures](../tests/references/SOURCES.md#desktop-shutdown-choosers)
-- XP Classic and Windows 7 now use the same dropdown and keyboard-choice comparisons as Windows 2000. The XP Classic popup matches the 303-pixel width but is one pixel taller than the 82-pixel VM capture. The XP descriptions use the guest’s wording for Stand by and Hibernate. The Windows 7 list is 317×67 and matches the VM outside its labels, including the frame and selection fill. Its five captured choices include Switch user and Hibernate. Sleep and Hibernate appear only when supported on the Linux desktop. The closed field’s focus indicator, lettering, and further action states still differ or need captures. [State comparisons](../tests/visual/parity.py)
+- XP Classic and Windows 7 use the same dropdown and keyboard-choice comparisons as Windows 2000. The XP Classic popup matches the 303-pixel width but is one pixel taller than the 82-pixel VM capture. The XP descriptions use the guest’s wording for Stand by and Hibernate. The Windows 7 list is 317×67 and matches the VM outside its labels, including the frame and selection fill. Its five captured choices include Switch user and Hibernate. Sleep and Hibernate appear only when supported on the Linux desktop. The closed selector now matches the native focus-dot and arrow geometry. The chooser's full image still differs by 12.19/255 and the choice sheet by 11.49/255 in mean RGB error. [State comparisons](../tests/visual/parity.py)
+- Direct QEMU captures record the Windows 95 and 98 graphical wait frames before power-off. The first samples with the graphics appeared at 993 ms and 1106 ms respectively after Enter. The generated Windows 95 frame matches every native pixel after Setup expands the stock VGA palette. The Windows 98 background and lower sky match exactly in their tested regions. Adjusting the SVG caption reduced the full Windows 98 image error from 0.46/255 to 0.36/255. Live Plymouth presentation and shutdown timing still need comparisons. [Capture provenance](../tests/references/SOURCES.md#desktop-shutdown-choosers) · [QEMU VGA palette implementation](https://gitlab.com/qemu-project/qemu/-/blob/master/hw/display/vga_int.h)
 - Windows 7’s shutdown chooser uses SVG faces for the idle, default, hover and held buttons. The 96-DPI button sheet compares OK, Cancel and Help. The full sheet still shows pixel differences in the captions, corners and inset strokes. Across three native Cancel-button trials at the sampled pixel, hover settled in 476–564 ms and leave settled in 1,608–1,755 ms. The Qt timing test compares those intervals and the final colors. Whole-button motion, the default button’s timing and the press transition still need independent comparisons. [Capture details](../tests/references/SOURCES.md#desktop-shutdown-choosers)
 - XP Classic uses the guest's two layouts, 417×247 at 96 DPI and 486×285 at 120 DPI. Its banner background and CRT icon are vector artwork. The 120-DPI mean RGB error fell from 55.10/255 in the old top-left overlap to 11.47/255 at matching dimensions. The 96-DPI comparison measures 10.11/255. Lettering, the title gradient, the flag and other controls still differ. [Shutdown reference tests](../tests/test_shutdown_reference.py)
 - The native 120-DPI XP Classic and Windows 2000 sheets for OK, Cancel and Help match pixel for pixel. The shared renderer matches all three XP Classic frames outside the captions in idle and held states. Hover matches idle. Mean RGB error for the full XP Classic sheet fell from 33.99/255 to 9.94/255. [State comparisons](../tests/visual/parity.py)
 - XP Luna measures 314×200 at 96 DPI and 418×246 at 120 DPI. The higher-DPI panel uses an SVG background, and the power button faces use vector bevels, gradients and strokes. Mean RGB error is 6.80/255 at 96 DPI and 6.75/255 at 120 DPI. The 120-DPI button sheet compares idle, hover and held press for Stand By, Turn Off and Restart. Its mean RGB error fell from 35.05/255 to 24.00/255. Cancel, focus, disabled states and tooltips still need corresponding guest comparisons. [Luna dialog tests](../tests/luna/test_luna_dialogs.py)
 - GTK 3 and GTK 4 render real controls in isolated KWin sessions. The classic palette tests exercise Windows 95, 98, 2000 and XP Classic separately, including the white interior of enabled text fields. Luna has separate cross-toolkit control and state tests. These comparisons cover specific controls and do not certify every application's layout.
 - The full Control Panel and display settings comparisons still differ for all six themes. Windows 7's Display entry and Adjust screen resolution link open Screen Resolution inside Control Panel. At the native 144-DPI viewport of 1178×804, 80,477 of 947,112 pixels differ, with a mean RGB error of 4.21/255. The SVG preview resizes as the pending resolution changes. [Application comparisons](../tests/visual/parity.py)
+- The top and vertical focus dots on the Windows 7 System and Security heading match the VM after a click is released outside. Both vertical edges retain the native alternating pattern. The full focused heading still differs in lettering and the lower outline. [Focus comparisons](../tests/visual/parity.py)
 - Windows 7 Category View has strict crops for all eight icons at 144 DPI. System and Security, Clock, Language, and Region, and Ease of Access now measure 13.15/255, 20.78/255, and 28.03/255 mean RGB error. The existing User Accounts and Family Safety artwork is closer to the VM than the SVG trial. The full panel fell from 10.66/255 to 10.31/255. The 96-DPI hover-opening and press-and-cancel samples and the 144-DPI hover-exit samples all match the VM exactly. At 96 DPI the settled hover strip fell from 0.17/255 to 0.09/255, and the complete border measures 0.05/255. The heading keeps its dotted focus outline after a cancelled click. The strict focused-heading comparison fell from 46.44/255 to 32.82/255. The Control Panel uses the checkout artwork when it runs from the repository. [Capture details](../tests/references/SOURCES.md)
 - The Windows 7 resolution flyout uses a vertical slider with clickable modes and SVG artwork for its track and thumb. It matches the native 202×312 dimensions in all three 96-DPI captures. The thumb moves 19 pixels after Up and 76 pixels after clicking 1280×768 from 800×600, matching the VM. The strict comparisons still differ by 9.07–9.08/255 in mean RGB. [Capture and interaction states](../tests/references/SOURCES.md#control-panel-and-display-properties)
 - Windows 98 Display Properties matches the 528×519 client at 120 DPI. All implemented tabs and Appearance editors fit without scrolling. In the common 498×519 region, mean RGB error fell from 38.05/255 to 20.51/255. The full Appearance crop differs on 59,104 of 274,032 pixels. Remaining differences include the missing Web tab, lettering, controls, and the gradient title bars in the installed preset versus the VM's solid title bars. [Application comparisons](../tests/visual/parity.py)
@@ -455,4 +490,6 @@ mean RGB error fell from 4.21 to 3.89 out of 255. Both full clients still differ
 Windows references. [Shared comparisons](../tests/visual/parity.py)
 
 XP Classic and Luna draw the clock, mouse, display, battery and printer icons directly from
-SVG on the physical icon grid. The five icon crops still differ on both looks.
+SVG on the physical icon grid. Mean RGB error across those icon crops fell from 21.74 to
+20.13 out of 255 on XP Classic and from 22.03 to 19.43 on Luna. The five icon crops still
+differ on both looks.

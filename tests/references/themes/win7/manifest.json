@@ -16,9 +16,15 @@
   "session_screens": {
     "sign-in": {
       "800x600": {"frame": "sign-in.png", "exclude": [336, 212, 462, 338]},
+      "1280x960": {"frame": "sign-in/1280x960.png", "exclude": [575, 392, 703, 518]},
       "rejected-800x600": {
         "frame": "sign-in/rejected-800x600.png", "exclude": [399, 299, 416, 321], "failed": true
-      }
+      },
+      "rejected-1280x960": {"frame": "sign-in/rejected-1280x960.png", "failed": true},
+      "power-menu-open": {"frame": "sign-in/power-menu-open.png", "screen_size": [800, 600], "menu_down": 0},
+      "power-menu-restart": {"frame": "sign-in/power-menu-restart.png", "screen_size": [800, 600], "menu_down": 1},
+      "power-menu-hibernate": {"frame": "sign-in/power-menu-hibernate.png", "screen_size": [800, 600], "menu_down": 2},
+      "power-menu-shutdown": {"frame": "sign-in/power-menu-shutdown.png", "screen_size": [800, 600], "menu_down": 3}
     },
     "lock-screen": {
       "800x600": {"frame": "lock-screen/800x600.png", "exclude": [336, 179, 462, 306]},

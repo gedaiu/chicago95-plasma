@@ -31,6 +31,13 @@ def build(source, artwork, target, *, look="98"):
         with Image.open(artwork) as animation:
             for phase, frame in enumerate(ImageSequence.Iterator(animation)):
                 frame.convert("RGB").save(target / f"win95_boot_{phase}.png")
+        shutdown = target / "win95_shutdown-01.png"
+        if shutdown.is_file():
+            with Image.open(shutdown) as picture:
+                if picture.mode == "P":
+                    # Expand the VGA DAC's six bits using the same rule as QEMU's c6_to_8.
+                    picture.putpalette([(value & 252) | (3 if value & 4 else 0) for value in picture.getpalette()])
+                    picture.save(shutdown)
         return
 
     theme = target / "Chicago95.plymouth"
@@ -47,12 +54,13 @@ def build(source, artwork, target, *, look="98"):
         frame.paste(strips.crop((0, phase * 8, 640, (phase + 1) * 8)), (0, 472))
         frame.save(target / f"win95_boot_{phase}.png")
 
-    # LOGOW.SYS uses the same clouds and branding. Replace the cycling strip
-    # with sky and put the caption at the measured 640×480 display coordinates.
+    # LOGOW.SYS uses the same clouds and branding. The sky continues below the
+    # boot strip. The caption is vector artwork at the measured display coordinates.
     shutdown = image.copy()
-    shutdown.paste(image.crop((0, 464, 640, 472)).transpose(Image.Transpose.FLIP_TOP_BOTTOM), (0, 472))
+    with Image.open(Path(__file__).with_name("windows98-shutdown-sky.png")) as sky:
+        shutdown.paste(sky, (0, 472))
     overlay = svg_image(Path(__file__).with_name("windows98-shutdown-caption.svg"))
-    shutdown.paste(overlay, (220, 446), overlay)
+    shutdown.paste(overlay, (219, 446), overlay)
     shutdown.save(target / "win95_shutdown-01.png")
 
 

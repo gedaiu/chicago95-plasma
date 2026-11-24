@@ -5,7 +5,7 @@ with the original's 3D light (#DFDFDF, the second line of a button's bevel) read
 """
 
 import pytest
-from conftest import needs_ui_font
+from conftest import needs_ui_font, run_bash_with_steps
 from reference import differing_pixels, qimage_to_pil, rgb565, screenshot
 from test_install import dry_run_log, kwriteconfig
 
@@ -68,9 +68,12 @@ def test_everything_but_the_icon_and_the_lettering_matches_the_original_pixel_fo
 
 def test_setup_installs_run_with_its_place_above_the_taskbar_and_the_originals_keys(tmp_path):
     log = dry_run_log(tmp_path, "--components=startmenu", "--screen=1280x1024@1")
+    files = log.replace(str(tmp_path), "~")
+    assert "lib/chicago95aerobutton.py -> ~/.local/lib/chicago95/chicago95aerobutton.py" in files
+    assert "data/run/aero-down.svg -> ~/.local/share/chicago95/run/aero-down.svg" in files
 
     assert (
-        "bin/chicago95-run -> ~/.local/bin/chicago95-run" in log.replace(str(tmp_path), "~"),
+        "bin/chicago95-run -> ~/.local/bin/chicago95-run" in files,
         "would: write kwin rule [chicago95-run]" in log,
         "would: kwriteconfig6 --file kglobalshortcutsrc --group services --group chicago95-run.desktop "
         "--key _launch Meta+R" in log,
@@ -86,6 +89,15 @@ def test_setup_installs_run_with_its_place_above_the_taskbar_and_the_originals_k
         )
         in log,
     ) == (True, True, True, True, True, True, True)
+
+
+def test_setup_positions_the_windows_98_run_dialog_using_its_120dpi_height(tmp_path):
+    heights = run_bash_with_steps(
+        tmp_path,
+        "SETUP_WIDGET_STYLE=classic; SETUP_START_MENU_STYLE=1998; "
+        "SETUP_SCALE=1 run_window_height; SETUP_SCALE=1.25 run_window_height",
+    )
+    assert heights == ["163", "160"]
 
 
 @pytest.mark.parametrize("edition", ["win95-osr2-run", "win98-se-run"])

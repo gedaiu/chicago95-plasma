@@ -63,6 +63,7 @@ from PySide6.QtWidgets import (
     QStyle,
     QStyledItemDelegate,
     QStyleOptionButton,
+    QStyleOptionComboBox,
     QStylePainter,
     QVBoxLayout,
     QWidget,
@@ -1038,6 +1039,43 @@ class AeroShutdownChoices(QStyledItemDelegate):
         painter.restore()
 
 
+class AeroShutdownComboFace(QWidget):
+    """Keep the native combo box interaction while drawing the Aero selector face."""
+
+    def __init__(self, combo, artwork):
+        super().__init__(combo)
+        self.combo = combo
+        self.artwork = artwork
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.setGeometry(combo.rect())
+        combo.currentIndexChanged.connect(self.update)
+
+    def paintEvent(self, _event):
+        option = QStyleOptionComboBox()
+        self.combo.initStyleOption(option)
+        painter = QStylePainter(self, self.combo)
+        option.subControls &= ~QStyle.SC_ComboBoxArrow
+        option.state &= ~QStyle.State_HasFocus
+        painter.drawComplexControl(QStyle.CC_ComboBox, option)
+
+        label = QStyle.visualRect(option.direction, self.rect(), self.rect().adjusted(3, 3, -20, -3))
+        painter.setPen(option.palette.buttonText().color())
+        text = option.fontMetrics.elidedText(option.currentText, Qt.ElideRight, label.width())
+        painter.drawText(label, Qt.AlignLeading | Qt.AlignVCenter, text)
+
+        arrow = QRect(self.width() - 12, (self.height() - 4 + 1) // 2, 7, 4)
+        arrow = QStyle.visualRect(option.direction, self.rect(), arrow)
+        self.artwork.render(painter, "choice-arrow", QRectF(arrow))
+        if self.combo.hasFocus():
+            painter.setCompositionMode(QPainter.CompositionMode_Difference)
+            pen = QPen(Qt.white, 0)
+            pen.setCapStyle(Qt.FlatCap)
+            pen.setDashPattern([1, 1])
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+            painter.drawRect(label.adjusted(0, 0, -1, -1))
+
+
 class AeroSessionDialog(QDialog):
     """A native decorated session dialog using the current Qt controls and KWin frame."""
 
@@ -1122,8 +1160,11 @@ class AeroSessionDialog(QDialog):
         icon.move(20, 85)
         question = QLabel("&What do you want the computer to do?", self)
         question.setGeometry(66, 79, 317, 20)
+        artwork = aero_button_artwork()
         self.combo = QComboBox(self)
         self.combo.setGeometry(66, 105, 317, 21)
+        if artwork.elementExists("choice-arrow"):
+            self.combo_face = AeroShutdownComboFace(self.combo, artwork)
         question.setBuddy(self.combo)
         popup = self.combo.view().window()
         popup.setFrameStyle(QFrame.Box | QFrame.Plain)
@@ -1175,7 +1216,6 @@ class AeroSessionDialog(QDialog):
 
         self.combo.currentIndexChanged.connect(select_action)
         select_action()
-        artwork = aero_button_artwork()
         confirm = AeroDialogButton("OK", artwork, self)
         confirm.setGeometry(210, 187, 73, 21)
         confirm.clicked.connect(self.accept)

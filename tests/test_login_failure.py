@@ -103,12 +103,14 @@ def test_a_wrong_classic_password_shows_the_line_under_the_fields(qt_app, tmp_pa
         assert child(view, "failureLine").property("text") == "The password is incorrect. Try again."
 
 
-def test_aero_rejected_password_hides_credentials_and_focuses_the_confirmation(qt_app, tmp_path):
-    with login_view(qt_app, tmp_path, loginStyle="aero", failed=True) as view:
+@pytest.mark.parametrize("size,confirm_origin", [((800, 600), (353, 476)), ((1280, 960), (593, 660))])
+def test_aero_rejected_password_hides_credentials_and_focuses_the_confirmation(qt_app, tmp_path, size, confirm_origin):
+    with login_view(qt_app, tmp_path, size=size, loginStyle="aero", failed=True) as view:
         field = child(view, "aeroPassword")
         confirmation = child(view, "aeroFailureConfirm")
         assert not field.isVisible()
         assert confirmation.isVisible() and confirmation.hasActiveFocus()
+        assert confirmation.mapToScene(QPointF(0, 0)) == QPointF(*confirm_origin)
         QTest.keyClick(view, Qt.Key_Return)
         assert not confirmation.isVisible()
         assert field.isVisible() and field.hasActiveFocus()
@@ -123,7 +125,7 @@ def test_aero_centres_the_225_pixel_password_box_below_the_account_portrait(qt_a
 
 
 def test_aero_power_arrow_opens_the_menu_without_requesting_shutdown(qt_app, tmp_path):
-    with login_view(qt_app, tmp_path, size=(1024, 768), loginStyle="aero") as view:
+    with login_view(qt_app, tmp_path, size=(1024, 768), loginStyle="aero", can_sleep=False, can_hibernate=True) as view:
         shutdown = child(view, "aeroShutdown")
         arrow = child(view, "aeroPowerOptions")
         menu = child(view, "aeroPowerMenu")
@@ -138,8 +140,14 @@ def test_aero_power_arrow_opens_the_menu_without_requesting_shutdown(qt_app, tmp
         QTest.keyClick(view, Qt.Key_Return)
         QTest.qWait(200)
         assert requests == ["Restart"]
+        QTest.mouseClick(view, Qt.LeftButton, pos=arrow.mapToScene(QPointF(10, 14)).toPoint())
+        QTest.keyClick(view, Qt.Key_Down)
+        QTest.keyClick(view, Qt.Key_Down)
+        QTest.keyClick(view, Qt.Key_Return)
+        QTest.qWait(200)
+        assert requests == ["Restart", "Hibernate"]
         QTest.mouseClick(view, Qt.LeftButton, pos=shutdown.mapToScene(QPointF(19, 14)).toPoint())
-        assert requests == ["Restart", "Power off"]
+        assert requests == ["Restart", "Hibernate", "Power off"]
 
 
 def test_aero_ease_of_access_enlarges_the_credentials_without_submitting(qt_app, tmp_path):

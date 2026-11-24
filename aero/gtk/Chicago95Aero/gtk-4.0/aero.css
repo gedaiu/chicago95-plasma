@@ -37,7 +37,7 @@
   margin-bottom: 3px;
 }
 /* The header's 6px end padding supplies the Aero caption group's outer inset. */
-.nautilus-window headerbar windowcontrols { margin-top: 11px; margin-bottom: 11px; }
+.nautilus-window headerbar windowcontrols.end { margin-top: 11px; margin-bottom: 11px; }
 .nautilus-window .nautilus-pathbar {
   background: white;
   border: 1px solid #8899a7;

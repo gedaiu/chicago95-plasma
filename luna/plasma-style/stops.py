@@ -5,8 +5,9 @@ list is
 the piecewise-linear fit (dynamic programming, fewest stops that keep each channel within the stated tolerance of every
 measured row) of a profile averaged over text-free columns, so compression noise and dithering are smoothed out.
 
-  TASKBAR      xptaskbar-1x.png (lossless), columns x 1200..1399 and 1600..2399 averaged, tolerance 6; the tray box
-               (luna/plasmoids/org.chicago95.trayframe TrayBox.qml) is the same fit over the text-free x 2988..2998
+  TASKBAR      XP SP3 VM at 96 DPI (tests/references/themes/winxp/taskbar-band.png), 8 unoccupied columns,
+               tolerance 2. The tray box is fitted separately from the text-free columns 2988..2998 of
+               xptaskbar-1x.png.
   TASK_NORMAL  xprunning.png, the "Control Panel" button x 106..265, rows 3..27 (the pill's rows 0..24); body profile
                averaged over x 236..257, tolerance 5; ring colours: left column x=106, right column x=265 (rows 8..21),
                top and bottom rows over x 236..257
@@ -31,10 +32,11 @@ TASKBAR = [
     (1, "#3888E9"),
     (2, "#4993E6"),
     (3, "#307BE5"),
-    (4, "#286ADD"),
-    (6, "#2359D6"),
-    (21, "#2661DD"),
+    (5, "#245DD7"),
+    (7, "#2257D5"),
+    (25, "#2663E0"),
     (27, "#235BD9"),
+    (28, "#1E50C4"),
     (29, "#1941A5"),
 ]
 

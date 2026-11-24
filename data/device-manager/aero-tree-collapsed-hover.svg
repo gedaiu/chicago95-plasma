@@ -9,7 +9,7 @@
       <stop offset="1" stop-color="#16b8ef" stop-opacity="0"/>
     </radialGradient>
   </defs>
-  <ellipse cx="9.84" cy="10.53" rx="6.7" ry="8.5" fill="url(#glow)"/>
+  <ellipse cx="9.54" cy="10.48" rx="6.63" ry="8.41" fill="url(#glow)" opacity=".84"/>
   <path d="M8.11 6.48Q8.11 6.06 8.79 6.5L12.93 10.16Q13.37 10.45 12.93 10.74
            L8.79 14.49Q8.11 14.93 8.11 14.51Z M9 7.72V13.26L12.04 10.46Z"
         fill="#14c1f6" fill-rule="evenodd"/>

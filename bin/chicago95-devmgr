@@ -578,7 +578,8 @@ class AeroCommandBar(QToolBar):
                 )
                 if face is not None:
                     left = (round(widget.x() * scale) + 1) * pixel
-                    button_width = round(widget.width() * scale) * pixel
+                    # The MMC face extends one device pixel past the action cell.
+                    button_width = (round(widget.width() * scale) + 1) * pixel
                     face.render(painter, QRectF(left, 2 * pixel, button_width, height - 3 * pixel))
 
 
@@ -591,8 +592,8 @@ class AeroDeviceTree(QTreeWidget):
             "QTreeWidget { background: white; color: black; } QTreeWidget::item { height: 18px; }"
         )
         self.branch_pointer = None
-        self.branch_icons = {
-            (expanded, hovered): QIcon(str(DEVICE_ART / f"aero-tree-{state}{suffix}.svg"))
+        self.branch_artwork = {
+            (expanded, hovered): QSvgRenderer(str(DEVICE_ART / f"aero-tree-{state}{suffix}.svg"), self)
             for expanded, state in ((False, "collapsed"), (True, "expanded"))
             for hovered, suffix in ((False, ""), (True, "-hover"))
         }
@@ -618,7 +619,7 @@ class AeroDeviceTree(QTreeWidget):
         if expanded and index.parent().isValid():
             # MMC offsets open child arrows one pixel toward the parent.
             icon_rect.translate(1 if self.isRightToLeft() else -1, 0)
-        self.branch_icons[expanded, hovered].paint(painter, icon_rect)
+        self.branch_artwork[expanded, hovered].render(painter, QRectF(icon_rect))
 
 
 def paint_classic_command(painter, rect, palette, pixel, down, checked, *, stipple_offset=0):

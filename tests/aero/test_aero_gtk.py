@@ -31,7 +31,9 @@ def aero_gtk_home(tmp_path_factory):
             "/* obsolete classic header */\n/* <<< Chicago95 title bars END */\n"
         )
     run_bash_with_steps(
-        tmp_path, 'SETUP_DECORATION=aero; import_gtk4_theme Chicago95Aero; write_gtk_titlebar_css "" "" ""'
+        tmp_path,
+        'export GSETTINGS_BACKEND=keyfile; SETUP_DECORATION=aero; import_gtk4_theme Chicago95Aero; '
+        'write_gtk_titlebar_css "" "" ""; set_gtk_caption_layout',
     )
     return tmp_path
 
@@ -149,7 +151,6 @@ set -eu
 gsettings set org.gnome.desktop.interface enable-animations false
 gsettings set org.gnome.nautilus.preferences always-use-location-entry "$EDIT_LOCATION"
 gsettings set org.gnome.nautilus.window-state maximized true
-gsettings set org.gnome.desktop.wm.preferences button-layout ":minimize,maximize,close"
 gsettings set org.gnome.nautilus.preferences default-folder-viewer "$VIEW-view"
 nautilus --select "$FOLDER/Documents" >"$VIEW.log" 2>&1 &
 for attempt in 1 2 3 4 5 6; do
@@ -188,8 +189,12 @@ spectacle -b -n -f -o "$PWD/$VIEW.png"
     image = Image.open(tmp_path / f"{view}.png").convert("RGB")
     assert image.size == (1000 * scale, 700 * scale)
     header = np.asarray(image, dtype=int)
-    # Both halves meet at 20% of the window width. Compare the glass and bottom rule.
-    left, right = [header[: round(44 * scale), round(x * scale)] for x in (195, 204)]
+    # The window icon can widen the sidebar. Find the file pane from its white background.
+    scan_left, scan_right = round(160 * scale), round(250 * scale)
+    pane = header[round(80 * scale):round(330 * scale), scan_left:scan_right]
+    white = np.all(pane == 255, axis=2).mean(axis=0)
+    split = scan_left + np.flatnonzero(white > 0.5)[0]
+    left, right = [header[: round(44 * scale), split + round(x * scale)] for x in (-5, 4)]
     assert np.abs(left - right).mean() < 3
     # Centre the 20px painted group in the 42px toolbar, with 6px outside its
     # right edge. The red interior sits inside the glass border and its highlight.
@@ -446,7 +451,6 @@ gsettings set org.gnome.desktop.interface enable-animations false
 kscreen-doctor output.Virtual-0.scale."$OUTPUT_SCALE" >/dev/null
 gsettings set org.gnome.nautilus.window-state maximized false
 gsettings set org.gnome.nautilus.window-state initial-size '(890, 550)'
-gsettings set org.gnome.desktop.wm.preferences button-layout ':minimize,maximize,close'
 nautilus "$HOME" >files.log 2>&1 &
 for attempt in $(seq 12); do
     sleep 0.5

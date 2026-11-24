@@ -1,18 +1,19 @@
 """Checked-in regression portraits of the controls we draw. Windows reference tests live alongside these."""
 
+import math
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 from PIL import Image, ImageChops, ImageStat
+from reference import REFERENCES
 
 HERE = Path(__file__).parent
 SCENES = (
     "shutdown",
     "restart",
     "logoff",
-    "chooser",
     "balloon",
     "power-options",
     "start",
@@ -64,6 +65,13 @@ def test_background_shows_through_menu_and_preview_glass(pictures):
             scale = surface.width / logical_width
             x, y = (round(value * scale) for value in point)
             assert 1 - surface.convert("RGBA").getpixel((x, y))[3] / 255 == pytest.approx(transmission, abs=0.02)
+
+
+def test_shutdown_chooser_keeps_native_client_dimensions(pictures):
+    output, portraits = pictures
+    scale = float(portraits.name)
+    with Image.open(REFERENCES / "themes/win7/shutdown.png") as native, Image.open(output / "chooser.png") as actual:
+        assert actual.size == tuple(math.ceil(length * scale) for length in native.size)
 
 
 def test_search_field_interior_matches_sp1_at_native_scale(pictures):

@@ -1,12 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="22" height="20" viewBox="0 0 22 20" preserveAspectRatio="none">
+<svg xmlns="http://www.w3.org/2000/svg" width="23" height="20" viewBox="0 0 23 20" preserveAspectRatio="none">
   <linearGradient id="face" x2="0" y2="1">
-    <stop stop-color="#f3f5fa"/>
-    <stop offset=".29" stop-color="#d9deeb"/>
-    <stop offset=".55" stop-color="#d4d9e8"/>
-    <stop offset=".85" stop-color="#dce0ee"/>
+    <stop stop-color="#eff2f8"/>
+    <stop offset=".25" stop-color="#d7dced"/>
+    <stop offset=".417" stop-color="#d2d8e6"/>
+    <stop offset=".85" stop-color="#dfe3f2"/>
     <stop offset="1" stop-color="#f0f2fa"/>
   </linearGradient>
-  <rect width="22" height="20" rx="3" fill="black" opacity=".3"/>
-  <rect x="1" y="1" width="20" height="18" rx="2" fill="url(#face)"/>
-  <rect x="1.5" y="1.5" width="19" height="17" rx="1.5" fill="none" stroke="white" stroke-opacity=".5"/>
+  <rect width="23" height="20" rx="3.5" fill="black" opacity=".305"/>
+  <rect x="1" y="1" width="21" height="18" rx="2.5" fill="url(#face)"/>
+  <rect x="1.5" y="1.5" width="20" height="17" rx="2" fill="none" stroke="white" stroke-opacity=".55"/>
 </svg>

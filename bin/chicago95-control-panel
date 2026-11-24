@@ -3434,6 +3434,10 @@ class AeroCategoryCard(QFrame):
         painter.setPen(pen)
         painter.setBrush(Qt.NoBrush)
         width = min(heading.width(), heading.fontMetrics().horizontalAdvance(heading.text()))
+        # Keep the dashes on both vertical edges in phase on the device grid.
+        scale = painter.deviceTransform().m11()
+        pixels = round(width * scale)
+        width = (pixels + pixels % 2) / scale
         box = QRectF(heading.x() - 2.5, heading.y() - 2.5, width, heading.height() + 1)
         painter.drawRect(box)
 

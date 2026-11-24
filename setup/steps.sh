@@ -338,6 +338,22 @@ set_gtk_font() { # set_gtk_font <Pango font description>   X11, Wayland and sett
   done
 }
 
+set_gtk_caption_layout() {
+  local version settings layout=icon:minimize,maximize,close
+  for version in 3.0 4.0; do
+    settings="$HOME/.config/gtk-$version/settings.ini"
+    backup "$settings"
+    run mkdir -p "$(dirname "$settings")"
+    run kwriteconfig6 --file "$settings" --group Settings --key gtk-decoration-layout "$layout"
+    record "$settings"
+  done
+  if command -v gsettings >/dev/null 2>&1 || [ "${SETUP_DRY_RUN:-0}" = 1 ]; then
+    if run gsettings set org.gnome.desktop.wm.preferences button-layout "$layout"; then
+      record "gsettings-wm:button-layout"
+    fi
+  fi
+}
+
 set_gtk_theme() { # set_gtk_theme <theme name>   GTK 3 and GTK 4 settings
   local version
   if [ "$1" = Chicago95 ] && [ -d ~/.themes/Chicago95 ]; then
@@ -1186,6 +1202,7 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   # The originals' title bar: the window icon on the left; minimize, maximize and close on the right.
   kconf kwinrc org.kde.kdecoration2 ButtonsOnLeft M
   kconf kwinrc org.kde.kdecoration2 ButtonsOnRight IAX
+  set_gtk_caption_layout
   # chicago95-sync-colors draws the bevels with the look's colours, and reads the look from here.
   run kwriteconfig6 --file chicago95rc --group Look --key decoration "${SETUP_DECORATION:-classic}"
   run kwriteconfig6 --file chicago95rc --group Look --key captionDpi "${SETUP_DPI:-96}"
@@ -1491,7 +1508,7 @@ place_run_dialog() {
 # the title and bottom border KWin's decoration adds around it.
 run_window_height() {
   local dialog
-  dialog=$(QT_QPA_PLATFORM=offscreen QT_SCALE_FACTOR=1 python3 "$REPO/bin/chicago95-run" --height \
+  dialog=$(QT_QPA_PLATFORM=offscreen QT_SCALE_FACTOR="${SETUP_SCALE:-1}" python3 "$REPO/bin/chicago95-run" --height \
     --widget-style="${SETUP_WIDGET_STYLE:-classic}" --menu-style="${SETUP_START_MENU_STYLE:-1995}" 2>/dev/null | tail -1)
   [[ "$dialog" =~ ^[0-9]+$ ]] || dialog=$RUN_HEIGHT
   [ "${SETUP_WIDGET_STYLE:-classic}" != classic ] || {

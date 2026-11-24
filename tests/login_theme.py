@@ -25,6 +25,7 @@ def login_view(
     users=("user",),
     caps_lock=False,
     can_sleep=True,
+    can_hibernate=None,
     failed=False,
     **settings,
 ):
@@ -41,6 +42,7 @@ def login_view(
         layouts=layouts,
         caps_lock=caps_lock,
         can_sleep=can_sleep,
+        can_hibernate=can_hibernate,
         **settings,
     )
     view = QQuickView()

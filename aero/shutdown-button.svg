@@ -62,6 +62,7 @@
       <use href="#rim" fill="url(#heldRim)"/>
       <use href="#face" fill="url(#heldFace)"/>
     </g>
+    <path id="choice-arrow" d="M0 0H7V1H6V2H5V3H4V4H3V3H2V2H1V1H0Z"/>
   </defs>
   <use href="#normal"/>
 </svg>

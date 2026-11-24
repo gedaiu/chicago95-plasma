@@ -1,17 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="22" height="20" viewBox="0 0 22 20" preserveAspectRatio="none">
+<svg xmlns="http://www.w3.org/2000/svg" width="23" height="20" viewBox="0 0 23 20" preserveAspectRatio="none">
   <linearGradient id="face" x2="0" y2="1">
     <stop stop-color="#8b8f9a"/>
-    <stop offset=".19" stop-color="#b1b6c6"/>
-    <stop offset=".38" stop-color="#c2c7da"/>
-    <stop offset=".58" stop-color="#ccd3e4"/>
+    <stop offset=".19" stop-color="#b9bfce"/>
+    <stop offset=".38" stop-color="#c7cedf"/>
+    <stop offset=".55" stop-color="#cdd4e4"/>
+    <stop offset=".64" stop-color="#cad0e0"/>
     <stop offset=".88" stop-color="#d4d8e8"/>
     <stop offset="1" stop-color="#d5dae8"/>
   </linearGradient>
   <linearGradient id="shadow">
-    <stop stop-color="black" stop-opacity=".21"/>
-    <stop offset=".15" stop-color="black" stop-opacity="0"/>
+    <stop stop-color="black" stop-opacity=".20"/>
+    <stop offset=".21" stop-color="black" stop-opacity="0"/>
   </linearGradient>
-  <rect width="22" height="20" rx="3" fill="black" opacity=".65"/>
-  <rect x="1" y="1" width="20" height="18" rx="2" fill="url(#face)"/>
-  <rect x="1" y="1" width="20" height="18" rx="2" fill="url(#shadow)"/>
+  <rect width="23" height="20" rx="3.5" fill="black" opacity=".655"/>
+  <rect x="1" y="1" width="21" height="18" rx="2.5" fill="url(#face)"/>
+  <rect x="1" y="1" width="21" height="18" rx="2.5" fill="url(#shadow)"/>
 </svg>

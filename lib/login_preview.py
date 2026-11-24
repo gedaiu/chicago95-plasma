@@ -22,9 +22,10 @@ class Greeter(QObject):
     loginAttempted = Signal(str, int)
     powerRequested = Signal(str)
 
-    def __init__(self, host_name, can_sleep):
+    def __init__(self, host_name, can_sleep, can_hibernate=None):
         super().__init__()
         self._host_name, self._can_sleep = host_name, can_sleep
+        self._can_hibernate = can_sleep if can_hibernate is None else can_hibernate
 
     @Property(str, constant=True)
     def hostName(self):
@@ -36,7 +37,7 @@ class Greeter(QObject):
 
     @Property(bool, constant=True)
     def canHibernate(self):
-        return self._can_sleep
+        return self._can_hibernate
 
     @Property(bool, constant=True)
     def canPowerOff(self):
@@ -197,13 +198,14 @@ def login_context(
     layouts=(("us", "English (US)"),),
     caps_lock=False,
     can_sleep=True,
+    can_hibernate=None,
     sessions=("Plasma (Wayland)",),
     **settings,
 ):
     """The context objects SDDM gives the theme, as {name: object}; the caller keeps them alive."""
     return {
         "config": theme_settings(theme_source, **{"previewMode": True, **settings}),
-        "sddm": Greeter(host_name, can_sleep),
+        "sddm": Greeter(host_name, can_sleep, can_hibernate),
         "userModel": Users(users, user),
         "sessionModel": Sessions(sessions),
         "keyboard": Keyboard(layouts, caps_lock),

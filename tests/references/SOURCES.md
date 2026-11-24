@@ -113,7 +113,8 @@ Windows XP (Luna and XP Classic), from Toasty Technology, GUIdebook, Wikipedia a
 | `xp-sp3-classic-run.png`, `xp-sp3-classic-taskbar-band.png`, `xp-sp3-classic-device-manager-bands.png` | XP Professional SP3 with Windows Classic applied in a separate guest overlay at 800×600. Run at (5, 389), 347×179. Empty taskbar band and the first 74 Device Manager client rows at (75, 66). |
 | `win95-osr2-run.png`, `win98-se-run.png` | English OSR2 and SE reference guests, 640×480 VGA. Empty Run dialog at (5, 285), 347×163. |
 | `win95-osr2-start.png`, `win98-se-start.png` | Root menus opened with Ctrl+Esc on the same guests. OSR2 at (2, 185), 164×271. SE at (2, 114), 177×342. |
-| `win95-osr2-taskbar-band.png`, `win98-se-taskbar-band.png` | Unoccupied section of the respective panels at (535, 452), 8×28. |
+| `win95-osr2-taskbar-band.png`, `win98-se-taskbar-band.png` | Unoccupied section of the respective 256-color panels at (535, 452), 8×28. |
+| `themes/{win95,win98}/taskbar/truecolor-band.png` | The same QEMU guests with True Color (24 bit) selected in the Display Settings, at 640×480. Windows 95 uses 96 DPI, cropped at (400, 452), 8×28. Windows 98 uses 120 DPI, cropped at (400, 447), 8×33. Row zero is RGB (223, 223, 223) in true color and RGB (192, 192, 192) in the 256-color captures. |
 | `win98-se-device-actions.png`, `win98-se-appearance.png` | English SE guest. System Properties action row at (28, 365), 353×23. Display Properties Appearance sample at (47, 60), 355×193. |
 | `win98-se-display-monitor.png` | Display Properties Background tab, complete monitor and stand at (132, 60), 184×169. |
 | `win98-se-mouse-right.png`, `win98-se-mouse-left.png`, `win98-se-jack-closed.png`, `win98-se-jack-open.png` | English SE Mouse Properties. Both handedness states at (204, 128), 83×80. Double-click test box at (343, 328), 25×17 closed, and (337, 305), 31×40 open. |
@@ -219,6 +220,12 @@ is IMAGE resource 5032 in the installed guest's `Windows/System32/imageres.dll`.
 The same guest at 800×600 produced `themes/win7/sign-in/rejected-800x600.png`
 after one incorrect password submission. The comparison masks the software cursor.
 Return dismisses the confirmation and restores the credential form.
+The 1280×960 sign-in and rejection frames come from the same Windows 7 SP1
+installation running under VirtualBox with Guest Additions. The sign-in
+surface uses 96-DPI controls at that resolution. The four `sign-in/power-menu-*.png`
+crops are from the 800×600 QEMU guest at (619, 458) through (765, 537).
+They show the initial menu and the three keyboard highlights entered
+with Down. Hibernate was available and Sleep was unavailable in this guest.
 
 The Windows 2000 Professional and XP SP3 sign-in PNGs in the corresponding
 theme folders are 1280×1024 QEMU framebuffers at 120 DPI after sign-out.
@@ -433,6 +440,19 @@ and Windows 7. It quantizes the rendered output to RGB565 for the three guests
 that presented that format. The other reference pixels and the crop dimensions
 are compared exactly. The Windows 98 comparisons use the guest's solid blue title
 bar setting. The other Windows 98 theme colours stay in effect.
+
+The `themes/{win95,win98}/shutdown/transition-wait.png` files are unscaled
+640×400 framebuffer captures. Both QEMU guests started from a 640×480
+true-color desktop. The script timestamped each newly presented image after
+pressing Enter in the shutdown chooser. The Windows 95 wait graphic first
+appeared in the 993 ms sample, followed by black at 1008 ms. Windows 98
+first showed its wait graphic at 1106 ms and black at 1632 ms. These are
+host sample times from a single run per guest.
+The Windows 95 image is compared at the native framebuffer size. The
+Windows 98 capture is corrected to 640×480 with nearest-neighbour scaling
+to match the display aspect ratio used by Setup's generated artwork.
+The sky below the boot strip is supplied as one photographic crop,
+`setup/windows98-shutdown-sky.png`. The caption uses a separate SVG.
 
 `themes/winxp/shutdown/button-states.png` contains 44×42 crops from the
 120-DPI XP SP3 Luna guest. The rows are Stand By, Turn Off and Restart.

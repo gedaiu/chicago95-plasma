@@ -8,8 +8,32 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from conftest import REPO, load_script  # noqa: E402
-from login_theme import render_aero_lock, render_login  # noqa: E402
+from login_theme import login_view, render_aero_lock, render_login  # noqa: E402
 from PIL import Image  # noqa: E402
+from PySide6.QtCore import QObject, QPointF, Qt  # noqa: E402
+from PySide6.QtTest import QTest  # noqa: E402
+from reference import qimage_to_pil  # noqa: E402
+
+
+def render_aero_power_menu(app, folder, size, steps, account, brand):
+    with login_view(
+        app, folder, size=size, user=account, users=(account,),
+        loginStyle="aero", brandText=brand, can_sleep=False, can_hibernate=True,
+    ) as view:
+        root = view.rootObject()
+        button = root.findChild(QObject, "aeroPowerOptions")
+        menu = root.findChild(QObject, "aeroPowerMenu")
+        QTest.mouseClick(view, Qt.LeftButton, pos=button.mapToScene(QPointF(10, 14)).toPoint())
+        QTest.qWait(150)
+        assert menu.property("opened")
+        for _ in range(steps):
+            QTest.keyClick(view, Qt.Key_Down)
+        QTest.qWait(150)
+        background = menu.property("background")
+        bounds = background.mapRectToScene(background.boundingRect())
+        frame = view.grabWindow()
+        box = tuple(round(edge * frame.devicePixelRatio()) for edge in bounds.getCoords())
+        return qimage_to_pil(frame).crop(box)
 
 
 def render(manifest, component, state, destination):
@@ -21,14 +45,20 @@ def render(manifest, component, state, destination):
     capture = metadata["session_screens"][component][state]
     look = metadata["look"]
     scale = capture.get("scale", 1)
-    with Image.open(manifest.parent / capture["frame"]) as reference:
-        size = tuple(round(value / scale) for value in reference.size)
+    if "screen_size" in capture:
+        physical_size = capture["screen_size"]
+    else:
+        with Image.open(manifest.parent / capture["frame"]) as reference:
+            physical_size = reference.size
+    size = tuple(round(value / scale) for value in physical_size)
     os.environ["QT_SCALE_FACTOR"] = str(scale)
     app = make_app("Session screen parity")
     if look == "aero":
         account, brand = "Reference", "Windows 7 Professional"
         if component == "lock-screen":
             actual = render_aero_lock(app, output.parent, size, account, brand)
+        elif "menu_down" in capture:
+            actual = render_aero_power_menu(app, output.parent, size, capture["menu_down"], account, brand)
         else:
             actual = render_login(
                 app, output.parent, size=size, user=account, users=(account,),

@@ -16,6 +16,7 @@ from conftest import REPO, load_script
 from original_pixels import compare
 from PIL import Image, ImageChops, ImageColor, ImageFilter
 from plasma_session import (
+    CHICAGO95_SRC,
     HOME_AFTER_SETUP,
     hover_steps,
     install,
@@ -260,7 +261,7 @@ def live_gtk(installed):
             )
             if component == "caption":
                 command += " --caption-crops"
-                if (look == "luna" and version == "3.0") or (look in CLASSIC and version == "4.0" and scale == 1.25):
+                if (look == "luna" and version == "3.0") or (look in CLASSIC and scale == 1.25):
                     command += " --compositor-captions"
             commands.append(command)
         script.write_text("\n".join(commands) + "\n")
@@ -700,6 +701,21 @@ def test_taskbar_band(theme, installed, visual_output):
     if metadata.get("taskbar_band_rgb565"):
         actual = rgb565(actual)
     exact(expected, actual, visual_output / theme / "taskbar" / "plasma" / "empty-band")
+
+
+@pytest.mark.parametrize("theme", [name for name, (_, data) in THEMES.items() if "taskbar_truecolor" in data])
+def test_truecolor_taskbar_band(theme, installed, visual_output):
+    folder, metadata = THEMES[theme]
+    spec = metadata["taskbar_truecolor"]
+    scale = spec["scale"]
+    size = tuple(round(value / scale) for value in spec["screen"])
+    frame = show(installed(metadata["look"], scale, screen=size), windows=[], scale=scale)
+    assert frame.size == tuple(spec["screen"])
+    with Image.open(folder / "taskbar/truecolor-band.png") as reference:
+        expected = reference.convert("RGB")
+    x = spec["x"]
+    actual = frame.crop((x, frame.height - expected.height, x + expected.width, frame.height))
+    exact(expected, actual, visual_output / theme / "taskbar/plasma/truecolor-band")
 
 
 @pytest.fixture(scope="module")
@@ -1535,6 +1551,24 @@ def test_shutdown_win7_dropdown_matches_native_pixels_outside_labels(tmp_path, v
     exact(expected, actual, visual_output / "win7" / "shutdown" / "qt" / "dropdown-frame", mask)
 
 
+def test_shutdown_win7_selector_focus_and_arrow(tmp_path, visual_output):
+    folder, _ = THEMES["win7"]
+    source = folder / "shutdown.png"
+    output = tmp_path / "shutdown.png"
+    with Image.open(source) as frame:
+        expected = frame.convert("RGB")
+    render_properties(folder, "shutdown", output, expected.size)
+    with Image.open(output) as frame:
+        actual = frame.convert("RGB")
+
+    # ClearType affects the label. The focus dots and arrow can be checked independently.
+    def ink(frame):
+        return frame.convert("L").point(lambda value: 0 if value < 80 else 255).convert("RGB")
+
+    for name, rect in (("focus", (130, 108, 363, 123)), ("arrow", (363, 109, 381, 122))):
+        exact(ink(expected.crop(rect)), ink(actual.crop(rect)), visual_output / "win7/shutdown/qt" / name)
+
+
 @pytest.fixture(scope="module", params=[theme for theme, (_, m) in THEMES.items() if "control_panel_hover_scale" in m])
 def category_hover(request, tmp_path_factory):
     theme = request.param
@@ -1604,6 +1638,18 @@ def test_control_panel_category_press(category_press, state, visual_output):
     with Image.open(outputs / f"{state}.png") as frame:
         actual = frame.convert("RGB")
     exact(expected, actual, visual_output / theme / "control-panel" / "qt" / state)
+
+
+def test_control_panel_category_focus_dots(category_press, visual_output):
+    theme, references, outputs = category_press
+
+    def focus_dots(path):
+        with Image.open(path / "category-focus.png") as image:
+            # The label's descenders overlap the bottom line of the focus rectangle.
+            dark = np.asarray(image.convert("RGB"))[:19].max(axis=2) < 100
+        return Image.fromarray(dark).convert("RGB")
+
+    exact(focus_dots(references), focus_dots(outputs), visual_output / theme / "control-panel/qt/focus-dots")
 
 
 def test_theme_inventory():
@@ -1747,6 +1793,17 @@ def test_file_manager_navigation(theme, installed, visual_output):
     ],
 )
 def test_session_screen(theme, component, state, tmp_path, visual_output):
+    expected, actual, capture = session_screen_images(theme, component, state, tmp_path)
+    # Exclude the personal account picture or the guest's software cursor.
+    mask = None
+    if "exclude" in capture:
+        mask = np.ones((expected.height, expected.width), dtype=bool)
+        left, top, right, bottom = capture["exclude"]
+        mask[top:bottom, left:right] = False
+    exact(expected, actual, visual_output / theme / component / "qt" / state, mask)
+
+
+def session_screen_images(theme, component, state, tmp_path):
     folder, metadata = THEMES[theme]
     capture = metadata["session_screens"][component][state]
     with Image.open(folder / capture["frame"]) as frame:
@@ -1759,13 +1816,16 @@ def test_session_screen(theme, component, state, tmp_path, visual_output):
     )
     with Image.open(output) as frame:
         actual = rgb565(frame) if metadata["look"] in ("2000", "2001", "luna") else frame.convert("RGB")
-    # Exclude the personal account picture or the guest's software cursor.
-    mask = None
-    if "exclude" in capture:
-        mask = np.ones((expected.height, expected.width), dtype=bool)
-        left, top, right, bottom = capture["exclude"]
-        mask[top:bottom, left:right] = False
-    exact(expected, actual, visual_output / theme / component / "qt" / state, mask)
+    return expected, actual, capture
+
+
+def test_win7_sign_in_power_menu_frame(tmp_path, visual_output):
+    expected, actual, _ = session_screen_images("win7", "sign-in", "power-menu-open", tmp_path)
+    mask = np.ones((expected.height, expected.width), dtype=bool)
+    # The menu lettering occupies these three boxes. Keep the frame and separators in the comparison.
+    for top, bottom in ((7, 21), (37, 51), (59, 73)):
+        mask[top:bottom, 34:100] = False
+    exact(expected, actual, visual_output / "win7/sign-in/qt/power-menu-frame", mask)
 
 
 @pytest.fixture(scope="module")
@@ -1869,10 +1929,8 @@ def plymouth_boot_strip_frames(tmp_path_factory):
         work = tmp_path_factory.mktemp(f"{theme}-plymouth-strip")
         output = work / "theme"
         if theme in ("win95", "win98"):
-            source = work / "source"
-            source.mkdir()
-            (source / "Chicago95.plymouth").write_text("[Plymouth Theme]\nName=Chicago95\n")
-            (source / "Chicago95.script").write_text("Plymouth.SetRefreshRate(10);\n")
+            source = CHICAGO95_SRC / "Plymouth/Chicago95"
+            assert (source / "Chicago95.script").is_file(), f"Missing Setup's Plymouth source in {source}"
             artwork = "windows95-boot.gif" if theme == "win95" else "windows98.png"
             command = [
                 str(REPO / "setup/make_9x_boot.py"),
@@ -2001,6 +2059,38 @@ def test_boot_9x_plymouth_full_frame(theme, plymouth_boot_strip_frames, visual_o
     with Image.open(output / f"win95_boot_{metadata.get('boot_step', 0)}.png") as frame:
         actual = frame.convert("RGB")
     exact(expected, actual, visual_output / theme / "boot" / "plymouth" / "frame")
+
+
+@pytest.fixture(scope="module")
+def shutdown_9x_plymouth_frames(plymouth_boot_strip_frames):
+    @cache
+    def capture(theme):
+        folder, _ = THEMES[theme]
+        output = plymouth_boot_strip_frames(theme)
+        # The upstream script uses this filename in Plymouth's shutdown mode for both looks.
+        with Image.open(output / "win95_shutdown-01.png") as asset:
+            actual = asset.convert("RGB")
+        with Image.open(folder / "shutdown/transition-wait.png") as reference:
+            expected = reference.convert("RGB")
+        # Windows 98's generated asset uses the display aspect ratio instead of the VGA framebuffer ratio.
+        if theme == "win98":
+            expected = expected.resize((640, 480), Image.Resampling.NEAREST)
+        return expected, actual
+
+    return capture
+
+
+@pytest.mark.parametrize("theme", ("win95", "win98"))
+def test_shutdown_9x_plymouth_full_frame(theme, shutdown_9x_plymouth_frames, visual_output):
+    expected, actual = shutdown_9x_plymouth_frames(theme)
+    exact(expected, actual, visual_output / theme / "shutdown/plymouth/frame")
+
+
+def test_shutdown_win98_plymouth_background(shutdown_9x_plymouth_frames, visual_output):
+    expected, actual = shutdown_9x_plymouth_frames("win98")
+    # Keep the photographic asset comparison independent of the caption's lettering.
+    for name, bounds in (("main", (0, 0, 640, 445)), ("lower-sky", (0, 472, 640, 480))):
+        exact(expected.crop(bounds), actual.crop(bounds), visual_output / "win98/shutdown/plymouth" / name)
 
 
 def test_boot_win2k_plymouth_full_frame(plymouth_boot_strip_frames, visual_output):
@@ -2168,14 +2258,18 @@ def test_coverage(theme):
     if not (folder / "boot.png").is_file():
         gaps.append("boot: full-frame native reference and renderer")
     gaps.append("boot: complete graphical and text transitions and live Plymouth playback")
+    gaps.append("run: history popup, Browse, and remaining button states and output scales")
     session_screens = metadata.get("session_screens", {})
     for component in ("sign-in", "lock-screen"):
         if not session_screens.get(component):
             gaps.append(f"{component}: native frame and renderer for the strict comparison")
-    gaps.append("sign-in: account chooser, entry, focus, and rejected authentication states")
+    gaps.append("sign-in: account chooser, entry, and focus states")
+    if not any(state.get("failed") for state in session_screens.get("sign-in", {}).values()):
+        gaps.append("sign-in: rejected authentication state")
     gaps.append("lock-screen: entry, focus, and rejected authentication states")
     if "file_manager_scale" not in metadata:
         gaps.append("file-manager / GTK 3: navigation reference")
+    gaps.append("file-manager / GTK 4: strict navigation comparison")
     gaps.append("file-manager: contents, action states, and other supported file managers")
     if "radio_scale" not in metadata:
         gaps.append("widget-controls / GTK: native radio reference")

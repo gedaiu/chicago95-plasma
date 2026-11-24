@@ -89,6 +89,38 @@ Rectangle {
             }
         }
     }
+    component PowerMenuItem: MenuItem {
+        id: item
+        leftPadding: 32
+        rightPadding: 12
+        topPadding: 0
+        bottomPadding: 2
+        implicitWidth: contentItem.implicitWidth + leftPadding + rightPadding
+        height: visible ? (page.largeText ? 30 : 22) : 0
+        hoverEnabled: true
+        contentItem: Text {
+            text: item.text
+            color: item.enabled ? "#000000" : "#777777"
+            font: item.font
+            verticalAlignment: Text.AlignVCenter
+        }
+        background: Rectangle {
+            visible: item.highlighted
+            radius: 2
+            color: "transparent"
+            border.color: "#bc96c3fa"
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 1
+                radius: 1
+                border.color: "#50ffffff"
+                gradient: Gradient {
+                    GradientStop { position: 0; color: "#66f6fcff" }
+                    GradientStop { position: 1; color: "#66d5e8ff" }
+                }
+            }
+        }
+    }
     Item {
         id: credentials
         anchors.fill: parent
@@ -291,8 +323,8 @@ Rectangle {
         id: failureConfirm
         objectName: "aeroFailureConfirm"
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 96
+        // The guest moves this confirmation with the credential group as the screen grows.
+        y: Math.min(476 + Math.round((page.height - 600) * 184 / 360), page.height - height - 90)
         width: Math.max(93, contentItem.implicitWidth + 20)
         height: page.largeText ? 34 : 28
         visible: page.rejected
@@ -428,12 +460,66 @@ Rectangle {
             Menu {
                 id: powerMenu
                 font.family: page.uiFamily
-                font.pixelSize: page.largeText ? 17 : 13
+                font.pixelSize: page.largeText ? 17 : 12
                 objectName: "aeroPowerMenu"
+                padding: 3
+                width: Math.max(147, restart.implicitWidth + 6, sleep.implicitWidth + 6,
+                    hibernate.implicitWidth + 6, shutDown.implicitWidth + 6)
                 y: -height
                 x: powerOptions.width - width
-                MenuItem { text: qsTr("Restart"); enabled: page.greeter.canReboot; onTriggered: page.greeter.reboot() }
-                MenuItem { text: qsTr("Shut down"); enabled: page.greeter.canPowerOff; onTriggered: page.greeter.powerOff() }
+                background: Rectangle {
+                    color: "#f5f5f5"
+                    border.color: "#979797"
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: 3
+                        color: "#f0f0f0"
+                        Row {
+                            height: parent.height
+                            Rectangle { width: 26; height: parent.height; color: "#f1f1f1" }
+                            Rectangle { width: 1; height: parent.height; color: "#e2e3e3" }
+                            Rectangle { width: 1; height: parent.height; color: "#ffffff" }
+                        }
+                    }
+                }
+                PowerMenuItem {
+                    id: restart
+                    text: qsTr("Restart")
+                    enabled: page.greeter.canReboot
+                    onTriggered: page.greeter.reboot()
+                }
+                MenuSeparator {
+                    topPadding: 4
+                    bottomPadding: 2
+                    leftPadding: 28
+                    rightPadding: 0
+                    contentItem: Rectangle {
+                        implicitHeight: 2
+                        color: "#e0e0e0"
+                        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: "#ffffff" }
+                    }
+                    background: null
+                }
+                PowerMenuItem {
+                    id: sleep
+                    text: qsTr("Sleep")
+                    visible: page.greeter.canSuspend === true
+                    enabled: page.greeter.canSuspend === true
+                    onTriggered: page.greeter.suspend()
+                }
+                PowerMenuItem {
+                    id: hibernate
+                    text: qsTr("Hibernate")
+                    visible: page.greeter.canHibernate === true
+                    enabled: page.greeter.canHibernate === true
+                    onTriggered: page.greeter.hibernate()
+                }
+                PowerMenuItem {
+                    id: shutDown
+                    text: qsTr("Shut down")
+                    enabled: page.greeter.canPowerOff
+                    onTriggered: page.greeter.powerOff()
+                }
             }
         }
     }

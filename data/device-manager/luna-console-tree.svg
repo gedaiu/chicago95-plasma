@@ -4,6 +4,6 @@
     <rect x="2" y="4" width="4" height="9" fill="white"/>
     <rect x="7" y="4" width="7" height="9" fill="silver"/>
     <path d="M3 6.5h2m-2 2h2m-2 2h2" fill="none" stroke="black"/>
-    <path d="M11 5.5 7.875 8.5 11 11.25Z"/>
+    <path d="M10 6H11V11H10V10H9V9H8V8H9V7H10Z"/>
   </g>
 </svg>

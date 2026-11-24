@@ -791,7 +791,7 @@ def test_animations_are_left_alone_when_no_choice_was_saved(tmp_path):
 def test_uninstall_resets_the_gsettings_keys_setup_wrote(tmp_path):
     state = tmp_path / ".local/share/chicago95"
     state.mkdir(parents=True)
-    (state / "installed-files.txt").write_text("gsettings:gtk-theme\ngsettings:font-name\n")
+    (state / "installed-files.txt").write_text("gsettings:gtk-theme\ngsettings:font-name\ngsettings-wm:button-layout\n")
     stubs = tmp_path / "stubs"
     stubs.mkdir()
     for program in ("gsettings", "kwriteconfig6"):
@@ -811,6 +811,7 @@ def test_uninstall_resets_the_gsettings_keys_setup_wrote(tmp_path):
     assert (tmp_path / "gsettings-calls").read_text().splitlines() == [
         "reset org.gnome.desktop.interface gtk-theme",
         "reset org.gnome.desktop.interface font-name",
+        "reset org.gnome.desktop.wm.preferences button-layout",
     ]
 
 
@@ -1292,6 +1293,16 @@ def test_explicit_desktop_look_includes_icons_after_partial_setup(tmp_path):
     log = dry_run_log(tmp_path, "--look=aero")
     assert "Components: look animations" in log
     assert kwriteconfig("kdeglobals", "Icons", "Theme", "Windows-7-SVG") in log
+
+
+@pytest.mark.parametrize("look", ["1995", "1998", "2000", "2001", "luna", "aero"])
+def test_setup_selects_the_title_buttons_in_both_gtk_versions(tmp_path, look):
+    log = dry_run_log(tmp_path, "--components=look", f"--look={look}")
+    buttons = "icon:minimize,maximize,close"
+    for version in ("3.0", "4.0"):
+        config = tmp_path / f".config/gtk-{version}/settings.ini"
+        assert kwriteconfig(config, "Settings", "gtk-decoration-layout", buttons) in log
+    assert f"would: gsettings set org.gnome.desktop.wm.preferences button-layout {buttons}" in log
 
 
 def test_the_components_of_earlier_runs_are_remembered_and_picked_again_by_default(tmp_path):
