@@ -14,5 +14,28 @@
   "display_page": "Appearance",
   "display_resolution": "1024x768",
   "shutdown_scale": 1.25,
-  "shutdown_os_name": "Windows 95"
+  "shutdown_os_name": "Windows 95",
+  "shutdown_optional_radio": false,
+  "shutdown_standard_dpi": "shutdown-96dpi.png",
+  "shutdown_button_scale": 1,
+  "shutdown_button_crops": {
+    "confirm": [
+      86,
+      161,
+      166,
+      186
+    ],
+    "cancel": [
+      170,
+      161,
+      250,
+      186
+    ],
+    "help": [
+      254,
+      161,
+      334,
+      186
+    ]
+  }
 }

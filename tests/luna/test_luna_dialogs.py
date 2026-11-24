@@ -104,6 +104,14 @@ def test_grab_is_314_by_200(qt_app, name):
     assert drawn(qt_app, name).size == (314, 200)
 
 
+@pytest.mark.parametrize("scale, capture", [(1, "shutdown-96dpi.png"), (1.25, "shutdown.png")], ids=["96dpi", "120dpi"])
+def test_power_chooser_geometry_matches_the_guest_at_both_dpis(qt_app, commands, monkeypatch, scale, capture):
+    monkeypatch.setattr(luna_dialogs.TurnOffDialog, "devicePixelRatioF", lambda _dialog: scale)
+    dialog = luna_dialogs.TurnOffDialog(commands)
+    physical_size = tuple(int(length * scale + 0.5) for length in dialog.size().toTuple())
+    assert physical_size == reference(f"themes/winxp/{capture}").size
+
+
 DIALOGS = [("turn off", "xpshutdowndialog.png"), ("log off", "xplogoff.png")]
 
 
@@ -227,7 +235,7 @@ def test_stand_by_falls_back_to_hibernate(qt_app, calls):
         ("log_off", "log_off"),
     ],
 )
-def test_vector_button_states_keep_hover_focus_and_pressed_distinct(request, dialog_name, key):
+def test_vector_button_states_keep_focus_and_press_visible(request, dialog_name, key):
     dialog = request.getfixturevalue(dialog_name)
     button = dialog.buttons[key]
     dialog.activateWindow()
@@ -243,8 +251,11 @@ def test_vector_button_states_keep_hover_focus_and_pressed_distinct(request, dia
     focused = button.grab().toImage()
     button.setDown(True)
     pressed = button.grab().toImage()
-    assert focused == hot
-    assert hot.pixelColor(4, 16).lightness() > idle.pixelColor(4, 16).lightness()
+    if key == "stand_by":
+        assert hot == idle
+    else:
+        assert focused == hot
+    assert focused.pixelColor(4, 16).lightness() > idle.pixelColor(4, 16).lightness()
     assert pressed.pixelColor(4, 16).lightness() < idle.pixelColor(4, 16).lightness()
 
 

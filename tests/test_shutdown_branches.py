@@ -219,7 +219,7 @@ def test_shut_down_dialog_2000_describes_the_selected_choice(shutdown, qt_app):
 
 
 def test_shut_down_dialog_1998_chooses_the_checked_radio_when_accepted(shutdown, qt_app):
-    dialog = shutdown.ShutDownDialog(LOOK_1998)
+    dialog = shutdown.ShutDownDialog(LOOK_1998, include_optional_radio=True)
     dialog.radios[3].setChecked(True)
 
     dialog.accept()
@@ -228,9 +228,56 @@ def test_shut_down_dialog_1998_chooses_the_checked_radio_when_accepted(shutdown,
 
 
 def test_shut_down_dialog_with_unknown_style_lists_the_1995_choices(shutdown, qt_app):
-    dialog = shutdown.ShutDownDialog({"style": "3000", "osName": "Windows 95"})
+    dialog = shutdown.ShutDownDialog({"style": "3000", "osName": "Windows 95"}, include_optional_radio=True)
 
     assert dialog.choices == shutdown.CHOICES["1995"]
+
+
+@pytest.mark.parametrize(
+    "style,users,suspend,expected",
+    [
+        ("1995", ["one"], "yes", False),
+        ("1995", ["one", "two"], "yes", True),
+        ("1998", [], "na", False),
+        ("1998", [], "no", False),
+        ("1998", [], "yes", True),
+        ("1998", [], "challenge", True),
+    ],
+)
+def test_classic_optional_power_choices_follow_desktop_capability(
+    shutdown, monkeypatch, style, users, suspend, expected
+):
+    from types import SimpleNamespace
+
+    services = SimpleNamespace(ListCachedUsers=lambda **kwargs: users, CanSuspend=lambda **kwargs: suspend)
+    monkeypatch.setattr(shutdown.dbus, "SystemBus", lambda: SimpleNamespace(get_object=lambda *args, **kw: services))
+    assert shutdown.optional_radio_available(style) is expected
+
+
+def test_missing_capability_service_keeps_the_optional_action(shutdown, monkeypatch):
+    def offline():
+        raise shutdown.dbus.DBusException("system bus unavailable")
+
+    monkeypatch.setattr(shutdown.dbus, "SystemBus", offline)
+    assert all(shutdown.optional_radio_available(style) for style in ("1995", "1998"))
+
+
+@pytest.mark.parametrize("style", ["1995", "1998"])
+def test_three_choice_dialog_keyboard_selection_agrees_with_help(shutdown, qt_app, monkeypatch, style):
+    monkeypatch.setattr(shutdown, "optional_radio_available", lambda _style: False)
+    messages = []
+    monkeypatch.setattr(shutdown.QMessageBox, "information", lambda _parent, _title, text: messages.append(text))
+    dialog = shutdown.ShutDownDialog({"style": style, "osName": "Windows"})
+    dialog.show()
+    qt_app.processEvents()
+
+    QTest.keyClick(dialog.radios[0], Qt.Key_Down)
+    assert dialog.radios[1].isChecked()
+    next(button for button in dialog.findChildren(shutdown.QPushButton) if button.text() == "&Help").click()
+    assert messages == ["Ends your session, shuts down Windows, and starts Windows again."]
+    assert dialog.choice is None and dialog.isVisible()
+    QTest.keyClick(dialog.radios[1], Qt.Key_Return)
+    assert dialog.choice == shutdown.RESTART
 
 
 def test_banner_load_is_null_when_path_is_empty(shutdown, qt_app):

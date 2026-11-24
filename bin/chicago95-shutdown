@@ -17,7 +17,7 @@ from pathlib import Path
 
 import chicago95ui  # noqa: E401,E702
 import dbus
-from PySide6.QtCore import QObject, QPoint, QPointF, QRect, QSize, QStandardPaths, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QObject, QPoint, QPointF, QRect, QRectF, QSize, QStandardPaths, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import (
     QBrush,
     QColor,
@@ -34,6 +34,7 @@ from PySide6.QtGui import (
     QPixmap,
 )
 from PySide6.QtQuick import QQuickView
+from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -43,6 +44,9 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QRadioButton,
+    QStyle,
+    QStyleOptionButton,
+    QStylePainter,
     QVBoxLayout,
     QWidget,
 )
@@ -54,14 +58,14 @@ CHOICES = {
     "1995": [
         (SHUT_DOWN, "&Shut down the computer?"),
         (RESTART, "&Restart the computer?"),
-        (DOS_MODE, "Restart the computer in &DOS mode?"),
+        (DOS_MODE, "Restart the computer in &MS-DOS mode?"),
         (LOG_OFF, "&Close all programs and log on as a different user?"),
     ],
     "1998": [
         (STAND_BY, "S&tand by"),
         (SHUT_DOWN, "&Shut down"),
         (RESTART, "&Restart"),
-        (DOS_MODE, "Restart in &DOS mode"),
+        (DOS_MODE, "Restart in &MS-DOS mode"),
     ],
     "2000": [(LOG_OFF, "Log off {user}"), (SHUT_DOWN, "Shut down"), (RESTART, "Restart"), (STAND_BY, "Stand by")],
 }  # labels and descriptions take chicago95ui.fill_placeholders: {os}, {user}, {company}...
@@ -95,6 +99,7 @@ DESCRIPTIONS_BY_STYLE = {
     }
 }
 LAYOUT = {"1995": "radio", "1998": "radio", "2000": "combo", "2001": "combo"}
+OPTIONAL_RADIO_ACTION = {"1995": LOG_OFF, "1998": STAND_BY}
 
 
 def os_name(look):
@@ -287,6 +292,15 @@ def dialog_icon(name):
     return icon_label
 
 
+def classic_shutdown_icon(parent, size):
+    import chicago95lunadialogs
+
+    label = QLabel(parent)
+    artwork = Path(chicago95lunadialogs.__file__).with_name("images") / "xp-classic-shutdown-computer.svg"
+    label.setPixmap(QIcon(str(artwork)).pixmap(size, label.devicePixelRatioF()))
+    return label
+
+
 def centre_on_screen(dialog):
     screen_geometry = dialog.screen().availableGeometry()
     dialog.move(screen_geometry.center() - dialog.rect().center())
@@ -311,29 +325,41 @@ class LogOffDialog(chicago95ui.ClassicDialog):
         layout.addLayout(yes_no_buttons(self))
 
 
-def dialog_buttons(dialog, labels):
-    """A row of 75x23 buttons, right-aligned; the first accepts, the second rejects, Help is disabled."""
-    buttons = QHBoxLayout()
-    buttons.setSpacing(6)
-    buttons.addStretch()
-    made = []
-    for label in labels:
-        button = QPushButton(label)
-        button.setFixedSize(75, 23)
-        buttons.addWidget(button)
-        made.append(button)
-        button.setToolTip(
-            "Performs the selected action."
-            if len(made) == 1
-            else "Closes this dialog without changing your session."
-            if len(made) == 2
-            else "Help is not available."
-        )
-    made[0].setDefault(True)
-    made[0].clicked.connect(dialog.accept)
-    made[1].clicked.connect(dialog.reject)
-    made[-1].setEnabled(False)
-    return buttons, made
+def optional_radio_available(style):
+    """Check whether the desktop has the additional action shown in the four-choice dialog."""
+    try:
+        bus = dbus.SystemBus()
+        if style == "1995":
+            service = "org.freedesktop.Accounts"
+            accounts = bus.get_object(service, "/org/freedesktop/Accounts", introspect=False)
+            return len(accounts.ListCachedUsers(dbus_interface=service, timeout=0.5)) > 1
+        login = bus.get_object("org.freedesktop.login1", "/org/freedesktop/login1", introspect=False)
+        return login.CanSuspend(dbus_interface="org.freedesktop.login1.Manager", timeout=0.5) in ("yes", "challenge")
+    except dbus.DBusException:
+        # When the desktop cannot report capability, keep the existing action visible.
+        return True
+
+
+class ClassicShutdownButton(QPushButton):
+    def __init__(self, label, parent, *, leading_inset):
+        super().__init__(label, parent)
+        self.leading_inset = leading_inset
+
+    def paintEvent(self, event):
+        if not self.isDown():
+            super().paintEvent(event)
+            return
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        painter = QStylePainter(self)
+        palette = option.palette
+        # A held classic shutdown button has two flat outer rings and a solid inset outline.
+        outer = self.rect().adjusted(self.leading_inset, 0, -1, -1)
+        for inset, brush in enumerate((palette.windowText(), palette.dark(), palette.button())):
+            painter.fillRect(outer.adjusted(inset, inset, -inset, -inset), brush)
+        painter.fillRect(outer.adjusted(4, 4, -4, -4), palette.windowText())
+        painter.fillRect(outer.adjusted(5, 5, -5, -5), palette.button())
+        painter.drawControl(QStyle.CE_PushButtonLabel, option)
 
 
 class BrandBanner(QWidget):
@@ -479,36 +505,151 @@ class BrandBanner(QWidget):
         painter.end()
 
 
+class XPShutdownBanner(QWidget):
+    def __init__(self, look, parent):
+        super().__init__(parent)
+        import chicago95lunadialogs
+
+        self.look = look
+        artwork = Path(chicago95lunadialogs.__file__).with_name("images")
+        self.art = QSvgRenderer(str(artwork / "xp-classic-shutdown-banner.svg"))
+        self.logo = chicago95lunadialogs.logo_picture(look["osLogo"])
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        # XP keeps the wide banner artwork centred and crops its sides in the narrower 96-DPI window.
+        scale = self.height() / 62
+        painter.translate((self.width() - 384 * scale) / 2, 0)
+        painter.scale(scale, scale)
+        self.art.render(painter, QRectF(0, 0, 384, 62))
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform)
+        flag_slot = QRectF(115, 6, 46, 43)
+        if isinstance(self.logo, QSvgRenderer):
+            self.logo.render(painter, flag_slot)
+        else:
+            size = self.logo.size().scaled(flag_slot.size().toSize(), Qt.KeepAspectRatio)
+            target = QRectF(0, 0, size.width(), size.height())
+            target.moveCenter(flag_slot.center())
+            painter.drawImage(target, self.logo)
+
+        company = self.look["osCompany"]
+        name = self.look["osName"]
+        painter.setPen(Qt.white)
+        painter.setFont(BrandBanner.font(8))
+        painter.drawText(QPointF(167, 15), company)
+        suffix = name.endswith(" XP")
+        name = name[:-3] if suffix else name
+        title_font = BrandBanner.font(23, bold=True, spacing=-1.25)
+        painter.setFont(title_font)
+        name = QFontMetrics(title_font).elidedText(name, Qt.ElideRight, 178)
+        painter.drawText(QPointF(167, 32), name)
+        if suffix:
+            painter.setPen(QColor("#f45026"))
+            painter.setFont(BrandBanner.font(13, bold=True))
+            painter.drawText(QPointF(167 + QFontMetricsF(title_font).horizontalAdvance(name) + 2, 24), "xp")
+
+        painter.setPen(Qt.white)
+        edition_font = BrandBanner.font(13)
+        painter.setFont(edition_font)
+        edition = QFontMetrics(edition_font).elidedText(self.look["edition"], Qt.ElideRight, 178)
+        painter.drawText(QPointF(171, 44), edition)
+        if company == "Microsoft":
+            painter.setFont(BrandBanner.font(8))
+            painter.drawText(QPointF(31, 45), "Copyright © 1985–2001")
+            painter.drawText(QPointF(31, 53), "Microsoft Corporation")
+        if company:
+            font = BrandBanner.font(9, bold=True, italic=True)
+            painter.setFont(font)
+            painter.drawText(QPointF(353 - QFontMetricsF(font).horizontalAdvance(company), 54), company)
+        painter.end()
+
+
 class ShutDownDialog(chicago95ui.ClassicDialog):
     """Shut Down dialog of the chosen style: 1995 and 1998 list radio buttons, 2000 a dropdown under a banner.
     The client sizes, with the 3px frame and 18px title around them, are the originals' dialogs'
     (tests/test_shutdown_reference.py); 2000's client area starts a pixel further in."""
 
-    BODIES = {"1995": ((340, 200), 3), "1998": ((318, 172), 3), "2000": ((409, 245), 4), "2001": ((409, 245), 4)}
+    BODIES = {"1995": ((340, 200), 3), "1998": ((318, 172), 3), "2000": ((409, 245), 4), "2001": ((411, 223), 3)}
 
-    def __init__(self, look=None):
+    def __init__(self, look=None, *, include_optional_radio=None):
         self.look = {**chicago95ui.look_settings(), **(look or {})}
         self.style = self.look["style"] if self.look["style"] in CHOICES else "1995"
         body, inset = self.BODIES[self.style]
         super().__init__(f"Shut Down {chicago95ui.short_os_name(self.look['osName'])}", self.style, body, inset)
         self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-        self.choices = CHOICES[self.style]
+        optional = OPTIONAL_RADIO_ACTION.get(self.style)
+        if optional is not None and include_optional_radio is None:
+            include_optional_radio = optional_radio_available(self.style)
+        self.choices = [entry for entry in CHOICES[self.style] if entry[0] != optional or include_optional_radio]
         self.choice = None
         {"combo": self.build_combo_list, "radio": self.build_radio_list}[LAYOUT[self.style]]()
 
     def build_radio_list(self):
-        # Measured on the originals (tests/test_shutdown_reference.py): the question's top margin, the gap
-        # under it, the options' spacing and the buttons' bottom margin.
-        top, gap, spacing, bottom = {"1995": (22, 12, 5, 12), "1998": (22, 12, 3, 10)}[self.style]
-        self.radios = [QRadioButton(label) for _, label in self.choices]
+        self.radios = [QRadioButton(label, self.body) for _, label in self.choices]
         chosen = self.radios[[choice for choice, _ in self.choices].index(SHUT_DOWN)]
         chosen.setChecked(True)
+        for radio, (choice, _) in zip(self.radios, self.choices, strict=True):
+            radio.setToolTip(chicago95ui.fill_placeholders(DESCRIPTIONS[choice], self.look))
+        labels = ("&Yes", "&No", "&Help") if self.style == "1995" else ("OK", "Cancel", "&Help")
+        buttons = [
+            ClassicShutdownButton(label, self.body, leading_inset=int(index != 0))
+            for index, label in enumerate(labels)
+        ]
+        confirm, cancel, help_button = buttons
+        self.buttons = {"confirm": confirm, "cancel": cancel, "help": help_button}
+        confirm.setDefault(True)
+        confirm.clicked.connect(self.accept)
+        cancel.clicked.connect(self.reject)
+        help_button.clicked.connect(self.show_radio_help)
+        confirm.setToolTip("Performs the selected action.")
+        cancel.setToolTip("Closes this dialog without changing your session.")
+        help_button.setToolTip("Describes the selected action.")
+        if len(self.choices) == 3:
+            self.place_compact_radios(buttons)
+        else:
+            self.layout_expanded_radios(buttons)
+        chosen.setFocus()
+
+    def show_radio_help(self):
+        radio = next(radio for radio in self.radios if radio.isChecked())
+        QMessageBox.information(self, self.windowTitle(), radio.toolTip())
+
+    def place_compact_radios(self, buttons):
+        # The guest dialog templates use different logical metrics at 96 and 120 DPI.
+        large_fonts = self.devicePixelRatioF() >= 1.125
+        if self.style == "1995" and large_fonts:
+            size, icon_size, icon_pos, question_pos = (362, 173), QSize(22, 26), (12, 18), (60, 20)
+            radio_x, radio_top, pitch = 61, 43, 21
+            button_x, button_y, button_pitch, button_width = 89, 138, 90, 84
+        elif self.style == "1998" and large_fonts:
+            size, icon_size, icon_pos, question_pos = (336, 146), QSize(22, 26), (12, 18), (60, 20)
+            radio_x, radio_top, pitch = 61, 43, 19
+            button_x, button_y, button_pitch, button_width = 62, 116, 90, 84
+        elif self.style == "1995":
+            size, icon_size, icon_pos, question_pos = (341, 177), QSize(27, 32), (14, 19), (56, 21)
+            radio_x, radio_top, pitch = 58, 44, 21
+            button_x, button_y, button_pitch, button_width = 84, 141, 84, 79
+        else:
+            size, icon_size, icon_pos, question_pos = (317, 149), QSize(27, 32), (14, 19), (56, 21)
+            radio_x, radio_top, pitch = 58, 44, 20
+            button_x, button_y, button_pitch, button_width = 59, 118, 84, 79
+        self.resize_body(*size)
+        classic_shutdown_icon(self.body, icon_size).move(*icon_pos)
+        QLabel(QUESTIONS[self.style], self.body).move(*question_pos)
+        for index, radio in enumerate(self.radios):
+            radio.setGeometry(radio_x, radio_top + index * pitch, self.body.width() - radio_x - 12, 15)
+        for index, button in enumerate(buttons):
+            x = button_x + index * button_pitch
+            button.setGeometry(x if index == 0 else x - 1, button_y, button_width + (index != 0), 24)
+
+    def layout_expanded_radios(self, buttons):
+        top, spacing, bottom = (22, 5, 12) if self.style == "1995" else (22, 3, 10)
         options = QVBoxLayout()
         options.setSpacing(spacing)
         options.addWidget(QLabel(QUESTIONS[self.style]))
-        options.addSpacing(gap)
-        for radio, (choice, _) in zip(self.radios, self.choices, strict=True):
-            radio.setToolTip(chicago95ui.fill_placeholders(DESCRIPTIONS[choice], self.look))
+        options.addSpacing(12)
+        for radio in self.radios:
             options.addWidget(radio)
         options.addStretch()
 
@@ -517,24 +658,60 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         upper.addWidget(dialog_icon("system-shutdown"))
         upper.addLayout(options)
 
-        labels = ("&Yes", "&No", "&Help") if self.style == "1995" else ("OK", "Cancel", "&Help")
-        buttons, _ = dialog_buttons(self, labels)
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        row.addStretch()
+        for button in buttons:
+            button.setFixedSize(75, 23)
+            row.addWidget(button)
         layout = QVBoxLayout(self.body)
         layout.setContentsMargins(12, top, 12, bottom)
         layout.addLayout(upper)
-        layout.addLayout(buttons)
-        chosen.setFocus()  # the originals open with the chosen option focused
+        layout.addLayout(row)
 
     def build_combo_list(self):
         # Positions measured on the original's client area (tests/test_shutdown_reference.py).
         body = self.body
-        BrandBanner(self.look, body).setGeometry(0, 1, 409, 77)
-        icon = dialog_icon("system-shutdown")
-        icon.setParent(body)
-        icon.move(22, 89)
-        QLabel(QUESTIONS[self.style], body).move(65, 91)
+        xp = self.style == "2001"
+        # The XP dialog template produces different effective dialog units at 96 and 120 DPI.
+        large_fonts = xp and self.devicePixelRatioF() >= 1.125
+        if large_fonts:
+            self.resize_body(383, 204)
+        if xp:
+            from chicago95luna import luna_font
+
+            body.setFont(luna_font())
+            banner = XPShutdownBanner(self.look, body)
+            banner.setGeometry(0, 1, body.width(), 62 if large_fonts else 77)
+            size = QSize(23, 26) if large_fonts else QSize(27, 32)
+            icon = classic_shutdown_icon(body, size)
+        else:
+            BrandBanner(self.look, body).setGeometry(0, 1, 409, 77)
+            icon = dialog_icon("system-shutdown")
+            icon.setParent(body)
+        icon.move(*((19, 73) if large_fonts else (22, 89)))
+        if large_fonts:
+            question_pos = (61, 74)
+            combo_rect = (61, 94, 241, 19)
+            description_rect = (61, 124, 245, 34)
+            x_positions, y, width, height = (152, 227, 303), 169, 70, 23
+        elif xp:
+            question_pos = (66, 89)
+            combo_rect = (66, 111, 260, 21)
+            description_rect = (66, 141, 258, 34)
+            x_positions, y, width, height = (164, 245, 326), 187, 75, 24
+        else:
+            question_pos = (65, 91)
+            combo_rect = (65, 111, 260, 21)
+            description_rect = (65, 135, 280, 34)
+            x_positions, y, width, height = (163, 244, 325), 211, 75, 24
+        question = QLabel(QUESTIONS[self.style], body)
+        question.move(*question_pos)
         self.combo = QComboBox(body)
-        self.combo.setGeometry(65, 111, 260, 21)
+        self.combo.setGeometry(*combo_rect)
+        if xp:
+            question.setText("&" + question.text())
+            question.setBuddy(self.combo)
         for choice, label in self.choices:
             self.combo.addItem(chicago95ui.fill_placeholders(label, self.look), choice)
             description = DESCRIPTIONS_BY_STYLE.get(self.style, DESCRIPTIONS)[choice]
@@ -544,20 +721,20 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         self.combo.setCurrentIndex([choice for choice, _ in self.choices].index(SHUT_DOWN))
         self.description = QLabel(body)
         self.description.setWordWrap(True)
-        self.description.setGeometry(65, 135, 280, 34)
+        self.description.setGeometry(*description_rect)
         self.combo.currentIndexChanged.connect(self.describe)
         self.describe()
         self.combo.setFocus()  # the original opens with the choice focused
-        # The original's buttons are 75x23 at x 163, 244 and 325. Qt draws a button's bottom and right edges
-        # 1px inside its rectangle, and a non-default button's left edge too, so the rectangles grow to match.
-        for x, label in zip((163, 244, 325), ("OK", "Cancel", "Help"), strict=False):
+        # Qt paints the bottom and right edges inside the rectangle, and the left edge too for ordinary buttons.
+        for x, label in zip(x_positions, ("OK", "Cancel", "Help"), strict=True):
             button = QPushButton(label, body)
-            button.setGeometry(x if label == "OK" else x - 1, 211, 76 if label == "OK" else 77, 24)
+            start, painted_width = (x, width + 1) if label == "OK" else (x - 1, width + 2)
+            button.setGeometry(start, y, painted_width, height)
             button.setToolTip(
                 {
                     "OK": "Performs the selected action.",
                     "Cancel": "Closes this dialog without changing your session.",
-                    "Help": "Help is not available.",
+                    "Help": "Describes the selected action." if xp else "Help is not available.",
                 }[label]
             )
             if label == "OK":
@@ -565,6 +742,10 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
                 button.clicked.connect(self.accept)
             elif label == "Cancel":
                 button.clicked.connect(self.reject)
+            elif xp:
+                button.clicked.connect(
+                    lambda: QMessageBox.information(self, self.windowTitle(), self.description.text())
+                )
             else:
                 button.setEnabled(False)
 
@@ -756,21 +937,29 @@ class AeroSessionDialog(QDialog):
         self.setWindowTitle(f"Shut Down {os_name(look)}")
         self.setWindowIcon(QIcon.fromTheme("computer"))
         self.setFixedSize(458, 223)
-        palette = self.palette()
-        palette.setColor(QPalette.Window, QColor("#f0f0f0"))
-        palette.setColor(QPalette.WindowText, QColor("#000000"))
-        self.setPalette(palette)
+        self.setFont(chicago95ui.ui_font())
+        self.setObjectName("aeroShutdownChooser")
+        self.setStyleSheet("#aeroShutdownChooser { background-color: #f0f0f0; }")
 
         logo = QLabel(self)
         logo.setAlignment(Qt.AlignCenter)
         logo.setGeometry(48, 17, 39, 37)
         logo.setPixmap(QIcon(look["osLogo"]).pixmap(QSize(39, 37), self.devicePixelRatioF()))
-        title = QLabel(
-            f'<span style="font-size:38px">{escape(look["osName"])}</span> '
-            f'<span style="font-size:28px">{escape(look["edition"])}</span>',
-            self,
-        )
+        name, edition = escape(look["osName"]), escape(look["edition"])
+        title = QLabel(self)
         title.setGeometry(94, 12, 354, 50)
+        heading = (
+            '<span style="font-size:{name_size}px">{name}</span> '
+            '<span style="font-size:{edition_size}px">{edition}</span>'
+        )
+        title.setText(heading.format(name_size=34, edition_size=26, name=name, edition=edition))
+        if title.sizeHint().width() > title.width():
+            scale = title.width() / title.sizeHint().width()
+            title.setText(
+                heading.format(
+                    name_size=max(1, int(34 * scale)), edition_size=max(1, int(26 * scale)), name=name, edition=edition
+                )
+            )
 
         icon = dialog_icon("computer")
         icon.setParent(self)
@@ -790,7 +979,9 @@ class AeroSessionDialog(QDialog):
         def select_action():
             self.choice = combo.currentData()
             if self.choice == SHUT_DOWN:
-                detail.setText(f"Closes all open programs, shuts down {os_name(look)}, and then turns off your computer.")
+                detail.setText(
+                    f"Closes all open programs, shuts down {os_name(look)}, and then turns off your computer."
+                )
             else:
                 detail.setText(self.actions[self.choice][1])
 
@@ -809,7 +1000,7 @@ class AeroSessionDialog(QDialog):
         combo.setFocus()
 
 
-def screenshot_dialog(log_off, action=None):
+def screenshot_dialog(log_off, action=None, *, include_optional_radio=None):
     if action is not None or chicago95ui.widget_style() == "aero":
         return AeroSessionDialog(LOG_OFF if log_off else action)
     if luna_dialogs_wanted():
@@ -818,7 +1009,7 @@ def screenshot_dialog(log_off, action=None):
         names = ("turn_off", "restart", "stand_by", "hibernate", "cancel", "log_off", "switch_user")
         dialog_class = chicago95lunadialogs.LogOffDialog if log_off else chicago95lunadialogs.TurnOffDialog
         return dialog_class({name: (lambda: None) for name in names}, **luna_branding())
-    return LogOffDialog() if log_off else ShutDownDialog()
+    return LogOffDialog() if log_off else ShutDownDialog(include_optional_radio=include_optional_radio)
 
 
 def shutting_down_screen(geometry, hold_until_input):

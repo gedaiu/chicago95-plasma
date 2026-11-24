@@ -14,5 +14,35 @@
   "display_page": "Appearance",
   "display_resolution": "1280x1024",
   "shutdown_scale": 1,
-  "shutdown_os_name": "Windows 98"
+  "shutdown_os_name": "Windows 98",
+  "shutdown_cursor": [
+    160,
+    139,
+    174,
+    161
+  ],
+  "shutdown_optional_radio": false,
+  "shutdown_flat_title": true,
+  "shutdown_120dpi": "shutdown-120dpi.png",
+  "shutdown_button_scale": 1.25,
+  "shutdown_button_crops": {
+    "confirm": [
+      80,
+      170,
+      186,
+      201
+    ],
+    "cancel": [
+      192,
+      170,
+      298,
+      201
+    ],
+    "help": [
+      304,
+      170,
+      410,
+      201
+    ]
+  }
 }

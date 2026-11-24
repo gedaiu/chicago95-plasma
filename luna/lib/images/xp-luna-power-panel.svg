@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 418 246" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="panel-base" gradientUnits="userSpaceOnUse" x1="1" x2="417">
+      <stop stop-color="#5c7fdf"/>
+      <stop offset="1" stop-color="#6c8fe5"/>
+    </linearGradient>
+    <radialGradient id="panel-glow" gradientUnits="userSpaceOnUse" cx="244" cy="108" r="228">
+      <stop stop-color="#9ab8f6"/>
+      <stop offset=".55" stop-color="#9ab8f6" stop-opacity=".48"/>
+      <stop offset="1" stop-color="#9ab8f6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="divider" gradientUnits="userSpaceOnUse" x1="1" x2="417">
+      <stop stop-color="#3c64ba"/>
+      <stop offset=".37" stop-color="#dce7ff"/>
+      <stop offset=".50" stop-color="#dce7ff"/>
+      <stop offset=".69" stop-color="#bcd0f1"/>
+      <stop offset="1" stop-color="#3c64ba"/>
+    </linearGradient>
+  </defs>
+  <path fill="#000" d="M0 0h418v246H0z"/>
+  <path fill="#003399" d="M1 1h416v244H1z"/>
+  <path fill="url(#divider)" d="M1 54h416v2H1z"/>
+  <path fill="url(#panel-base)" d="M1 56h416v136H1z"/>
+  <path fill="url(#panel-glow)" d="M1 56h416v136H1z"/>
+  <path fill="#1042a5" d="M1 192h416v1H1z"/>
+</svg>

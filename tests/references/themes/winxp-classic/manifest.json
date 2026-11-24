@@ -21,5 +21,12 @@
   "display_resolution": "1280x1024",
   "shutdown_scale": 1.25,
   "shutdown_os_name": "Windows XP",
-  "shutdown_rgb565": true
+  "shutdown_rgb565": true,
+  "shutdown_cursor": [
+    429,
+    218,
+    448,
+    244
+  ],
+  "shutdown_standard_dpi": "shutdown-96dpi.png"
 }

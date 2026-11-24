@@ -7,10 +7,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from conftest import REPO, load_script  # noqa: E402
 from aurorae_model import build_theme  # noqa: E402
+from conftest import REPO, load_script  # noqa: E402
 from PIL import Image  # noqa: E402
-from PySide6.QtCore import QPoint, QRect, QSize  # noqa: E402
+from PySide6.QtCore import QPoint, QRect, QSize, Qt  # noqa: E402
 from PySide6.QtGui import QIcon  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QFrame, QPushButton, QTabWidget  # noqa: E402
@@ -81,19 +81,61 @@ def capture_hover_exit(window, output, scale):
     strip.save(output)
 
 
-def capture_shutdown(app, look, output, scale, branding):
+def capture_shutdown_buttons(dialog, crops, output):
+    left, top, right, bottom = next(iter(crops.values()))
+    width, height = right - left, bottom - top
+    sheet = Image.new("RGB", (3 * width, len(crops) * height))
+    outside = QPoint(8, 8)
+    idle_focus = dialog.focusWidget()
+
+    def sample(box, row, column):
+        tile = qimage_to_pil(dialog.grab().toImage()).crop(tuple(box))
+        assert tile.size == (width, height)
+        sheet.paste(tile, (column * width, row * height))
+
+    for row, (name, box) in enumerate(crops.items()):
+        button = dialog.buttons[name]
+        centre = button.rect().center()
+        QTest.mouseMove(dialog.windowHandle(), outside)
+        idle_focus.setFocus()
+
+        assert not button.underMouse()
+        sample(box, row, 0)
+        QTest.mouseMove(dialog.windowHandle(), button.mapTo(dialog, centre))
+        assert button.underMouse()
+        sample(box, row, 1)
+        QTest.mousePress(button, Qt.LeftButton, pos=centre)
+        assert button.isDown()
+        sample(box, row, 2)
+        QTest.mouseRelease(button, Qt.LeftButton, pos=QPoint(-4, -4))
+        assert dialog.isVisible() and not button.isDown()
+    sheet.save(output)
+
+
+def capture_shutdown(app, metadata, component, output, scale):
     import chicago95ui
 
+    look = metadata["look"]
     # The classic dialogs draw their own frame. The Aero comparison is the Qt client area.
     if look in ("1995", "1998", "2000", "2001"):
         chicago95ui.DECORATION = build_theme(Path(output).with_name("aurorae"), look)
+    if metadata.get("shutdown_flat_title"):
+        with Path(chicago95ui.KDEGLOBALS).open("a") as scheme:
+            scheme.write("\n[WM]\nactiveBlend=0,0,128\n")
+    branding = metadata["shutdown_os_name"]
     flag = REPO / "luna/images/windows-xp-flag.svg" if look in ("2001", "luna", "aero") else ""
     with Path(chicago95ui.CHICAGO95RC).open("a") as config:
         config.write(f"\n[Branding]\nosCompany=Microsoft\nosName={branding}\nosEdition=Professional\nosLogo={flag}\n")
-    dialog = load_script("chicago95-shutdown").screenshot_dialog(False)
+    dialog = load_script("chicago95-shutdown").screenshot_dialog(
+        False, include_optional_radio=metadata.get("shutdown_optional_radio")
+    )
     try:
         dialog.show()
         app.processEvents()
+        if component == "shutdown-button-states":
+            assert dialog.devicePixelRatioF() == scale
+            capture_shutdown_buttons(dialog, metadata["shutdown_button_crops"], output)
+            return
         shot = dialog.grab()
         assert shot.devicePixelRatio() == scale
         assert shot.save(output)
@@ -101,7 +143,7 @@ def capture_shutdown(app, look, output, scale, branding):
         dialog.close()
 
 
-def render(manifest, component, output, width, height):
+def render(manifest, component, output, width, height, scale_override=None):
     import chicago95ui
 
     metadata = json.loads(Path(manifest).read_text())
@@ -110,9 +152,10 @@ def render(manifest, component, output, width, height):
     hover_exit = component == "control-panel-hover-exit"
     scale_key = {
         "shutdown": "shutdown_scale",
+        "shutdown-button-states": "shutdown_scale",
         "control-panel-hover": "control_panel_hover_scale",
     }.get(component, "properties_scale")
-    scale = metadata[scale_key]
+    scale = float(scale_override) if scale_override is not None else metadata[scale_key]
     os.environ["QT_SCALE_FACTOR"] = str(scale)
     app = chicago95ui.make_app("Control Panel")
     context = aero_style(app) if look == "aero" else themed(app, look)
@@ -120,8 +163,8 @@ def render(manifest, component, output, width, height):
         if look == "aero":
             chicago95ui.apply_style(app)
             QIcon.setThemeName("Windows-7-SVG")
-        if component == "shutdown":
-            capture_shutdown(app, look, output, scale, metadata["shutdown_os_name"])
+        if component in ("shutdown", "shutdown-button-states"):
+            capture_shutdown(app, metadata, component, output, scale)
             return
         panel = load_script("chicago95-control-panel")
         resolution = metadata["display_resolution"]

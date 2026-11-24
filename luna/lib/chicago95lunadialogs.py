@@ -1,4 +1,4 @@
-"""Windows XP Luna "Turn off computer" and "Log Off Windows" dialogs, drawn with QPainter at 1x.
+"""Windows XP Luna "Turn off computer" and "Log Off Windows" dialogs.
 
 Every box was measured with PIL on tests/references/xpshutdowndialog.png and xplogoff.png (both 314x200,
 x then y of the first pixel):
@@ -21,6 +21,9 @@ per channel of that average (positions are pixel columns, colours "#RRGGBB"):
   HIGHLIGHT_STOPS   xpshutdowndialog.png and xplogoff.png, rows 44..45 averaged, columns 1..312 (max deviation 6.7)
   MIDDLE_STOPS      the same images, rows 50..75 averaged (above the buttons and the labels), columns 1..312
                     (max deviation 4.8)
+
+At 120 DPI the XP power chooser uses a wider and shorter logical layout from the SP3 guest's
+418×246 capture. Its background uses the SVG panel and its button faces are drawn at the device scale.
 """
 
 from pathlib import Path
@@ -58,11 +61,33 @@ TITLE_ORIGIN = (13, 28)
 FLAG_ORIGIN = (270, 7)
 ICON_SIZE = 32
 ICON_TOP = 81
-BUTTON_AREA = QRect(0, 78, 86, 58)
 LABEL_BASELINE = 130
-UNDERLINE_ROW = 131
 CANCEL_RECT = QRect(243, 168, 60, 20)
+LARGE_POWER_SIZE = (334, 197)
+LARGE_POWER_ICON_RECTS = (QRect(58, 79, 35, 32), QRect(149, 79, 35, 32), QRect(240, 79, 35, 32))
+LARGE_POWER_CANCEL = QRect(258, 165, 66, 21)
+LARGE_POWER_FLAG = QRectF(292, 9, 31, 27)
 WHITE = QColor("#FFFFFF")
+POWER_BUTTON_COLOURS = {
+    "stand_by": (
+        ("#ffd59a", "#ffad37", "#f7c609"),
+        ("#ffe0a4", "#ffbc44", "#ffd816"),
+        ("#754500", "#c17000", "#db8b00"),
+        "#dfab57",
+    ),
+    "turn_off": (
+        ("#fa9985", "#e86643", "#de3909"),
+        ("#ffad9c", "#ff7863", "#ff693f"),
+        ("#7b260e", "#b83817", "#ce4921"),
+        "#dd937e",
+    ),
+    "restart": (
+        ("#8bd38b", "#38a039", "#039a03"),
+        ("#8bd38b", "#44c045", "#19d71a"),
+        ("#004500", "#007d00", "#008e00"),
+        "#84bf84",
+    ),
+}
 
 
 class ButtonSpec:
@@ -115,18 +140,18 @@ def paint_bands(painter):
     painter.fillRect(QRect(1, MIDDLE_ROWS[0], width - 2, MIDDLE_ROWS[1] - MIDDLE_ROWS[0] + 1), middle)
 
 
-def title_font():
+def title_font(pixel_size):
     font = QFont()
     font.setFamilies(TITLE_FAMILIES)
-    font.setPixelSize(TITLE_PIXEL_SIZE)
+    font.setPixelSize(pixel_size)
     font.setStyleStrategy(QFont.PreferAntialias)
     return font
 
 
-def paint_title(painter, title):
-    painter.setFont(title_font())
+def paint_title(painter, title, large_power):
+    painter.setFont(title_font(18 if large_power else TITLE_PIXEL_SIZE))
     painter.setPen(WHITE)
-    painter.drawText(QPointF(*TITLE_ORIGIN), title)
+    painter.drawText(QPointF(12, TITLE_ORIGIN[1]) if large_power else QPointF(*TITLE_ORIGIN), title)
 
 
 def flag_picture_path():
@@ -151,7 +176,7 @@ def logo_picture(logo=""):
     return QSvgRenderer(str(path)) if path.suffix == ".svg" else QImage(str(path))
 
 
-def paint_flag(painter, picture):
+def paint_flag(painter, picture, slot):
     painter.save()
     painter.setRenderHint(QPainter.Antialiasing)
     painter.setRenderHint(QPainter.SmoothPixmapTransform)
@@ -159,9 +184,10 @@ def paint_flag(painter, picture):
     # paths at the painter's actual device scale, including fractional scales.
     svg = isinstance(picture, QSvgRenderer)
     size = picture.viewBoxF().size() if svg else QSizeF(picture.size())
-    scale = min(38 / size.width(), 32 / size.height())
+    scale = min(slot.width() / size.width(), slot.height() / size.height())
     width, height = size.width() * scale, size.height() * scale
-    target = QRectF(FLAG_ORIGIN[0] + (38 - width) / 2, FLAG_ORIGIN[1] + (32 - height) / 2, width, height)
+    target = QRectF(0, 0, width, height)
+    target.moveCenter(slot.center())
     if svg:
         picture.render(painter, target)
     else:
@@ -197,48 +223,78 @@ def paint_cancel(painter, option):
 
 def paint_icon(painter, spec, pressed=False, hot=False, enabled=True):
     """Render at the display resolution instead of enlarging a 32px bitmap."""
-    colours = {
-        "stand_by": ("#FBC66A", "#E69B0C"),
-        "turn_off": ("#ED876E", "#CF3712"),
-        "restart": ("#70B970", "#138513"),
+    other_colours = {
         "switch_user": ("#75CC70", "#159F0A"),
         "log_off": ("#E8BB75", "#CD880D"),
     }
-    top, bottom = map(QColor, colours[spec.command])
+    power_colours = POWER_BUTTON_COLOURS.get(spec.command)
+    if power_colours:
+        idle, hover, down, pressed_glyph = power_colours
+        top, middle, bottom = map(QColor, down if pressed else hover if hot else idle)
+    else:
+        top, bottom = map(QColor, other_colours[spec.command])
     if not enabled:
         top, bottom = QColor("#8EA8CF"), QColor("#718FB8")
-    elif pressed:
+        middle = QColor("#809CC6")
+    elif pressed and not power_colours:
         top, bottom = top.darker(145), bottom.darker(145)
-    elif hot:
+    elif hot and not pressed and not power_colours:
         top, bottom = top.lighter(120), bottom.lighter(120)
     painter.save()
     painter.setRenderHint(QPainter.Antialiasing)
     painter.setPen(QPen(QColor("#FFFFFF" if not pressed else "#C4C9D5"), 1))
-    painter.setBrush(smooth_gradient(top, bottom, 31))
+    if power_colours:
+        face = QLinearGradient(4, 3, 26, 31)
+        face.setColorAt(0, top)
+        face.setColorAt(0.47, middle)
+        face.setColorAt(1, bottom)
+    else:
+        face = smooth_gradient(top, bottom, 31)
+    painter.setBrush(face)
     painter.drawRoundedRect(QRectF(0.5, 0.5, 31, 31), 3.5, 3.5)
-    gloss = QRadialGradient(QPointF(7, 5), 24)
-    gloss.setColorAt(0, QColor(255, 255, 255, 65 if not pressed else 15))
+    if power_colours and enabled:
+        edge = QLinearGradient(4, 2, 28, 30)
+        edge.setColorAt(0, top.darker(165) if pressed else QColor(255, 255, 255, 185))
+        edge.setColorAt(1, bottom.lighter(130) if pressed else bottom.darker(170))
+        painter.setBrush(Qt.NoBrush)
+        painter.setPen(QPen(edge, 1.5))
+        painter.drawRoundedRect(QRectF(2, 2, 28, 28), 2.5, 2.5)
+    if power_colours:
+        gloss = QRadialGradient(QPointF(6, 6), 7)
+        opacity = 0 if pressed else 30
+    else:
+        gloss = QRadialGradient(QPointF(7, 5), 24)
+        opacity = 15 if pressed else 65
+    gloss.setColorAt(0, QColor(255, 255, 255, opacity))
     gloss.setColorAt(1, QColor(255, 255, 255, 0))
     painter.setPen(Qt.NoPen)
     painter.setBrush(gloss)
     painter.drawRoundedRect(QRectF(1.5, 1.5, 29, 29), 2.5, 2.5)
-    pen = QPen(QColor("#FFFFFF" if enabled and not pressed else "#C3CEDD"), 2)
+    glyph = QColor("#FFFFFF" if enabled and not pressed else "#C3CEDD")
+    if power_colours and enabled and pressed:
+        glyph = QColor(pressed_glyph)
+    pen = QPen(glyph, 2)
     pen.setCapStyle(Qt.RoundCap)
     pen.setJoinStyle(Qt.RoundJoin)
     painter.setPen(pen)
     painter.setBrush(Qt.NoBrush)
     if spec.command in ("stand_by", "turn_off"):
         if spec.command == "stand_by":
-            painter.drawArc(QRectF(8, 8, 16, 17), 125 * 16, 290 * 16)
-            painter.drawLine(QPointF(16, 6), QPointF(16, 15))
+            pen.setWidthF(1.6)
+            painter.setPen(pen)
+            painter.drawArc(QRectF(8.5, 8, 15.5, 16.5), 125 * 16, 290 * 16)
+            painter.drawLine(QPointF(16.5, 6.5), QPointF(16.5, 15))
         else:
-            painter.drawEllipse(QRectF(7.5, 7, 17, 18))
+            painter.drawEllipse(QRectF(6.8, 6.8, 18.4, 18.4))
             painter.drawLine(QPointF(16, 11), QPointF(16, 21))
     elif spec.command == "restart":
+        pen.setCapStyle(Qt.FlatCap)
         for angle in range(0, 360, 45):
             painter.save()
-            painter.translate(16, 16)
+            painter.translate(16.5, 16.5)
             painter.rotate(angle)
+            pen.setWidthF(2.8 if angle % 90 else 2)
+            painter.setPen(pen)
             painter.drawLine(QPointF(0, -11), QPointF(0, -5))
             painter.restore()
     elif spec.command == "switch_user":
@@ -258,35 +314,40 @@ def paint_icon(painter, spec, pressed=False, hot=False, enabled=True):
     painter.restore()
 
 
-def label_font():
+def power_font():
     font = luna_font()
+    font.setFamilies(["Tahoma", "Liberation Sans", "Noto Sans"])
+    return font
+
+
+def label_font(power):
+    font = power_font() if power else luna_font()
     font.setBold(True)
     return font
 
 
-def paint_label(painter, spec, enabled=True):
-    font = label_font()
+def paint_label(painter, spec, centre, baseline, enabled=True):
+    font = label_font(spec.command in POWER_BUTTON_COLOURS)
     metrics = QFontMetrics(font)
-    left = (BUTTON_AREA.width() - metrics.horizontalAdvance(spec.label)) // 2
+    left = (2 * centre - metrics.horizontalAdvance(spec.label)) // 2
     painter.setFont(font)
     colour = WHITE if enabled else QColor(160, 160, 160)
     painter.setPen(colour)
-    baseline = LABEL_BASELINE - BUTTON_AREA.top()
     painter.drawText(left, baseline, spec.label)
     if not spec.underlined:
         return
     index = spec.label.upper().index(spec.mnemonic)
     start = left + metrics.horizontalAdvance(spec.label[:index])
-    painter.fillRect(start, UNDERLINE_ROW - BUTTON_AREA.top(), metrics.horizontalAdvance(spec.mnemonic), 1, colour)
+    painter.fillRect(start, baseline + 1, metrics.horizontalAdvance(spec.mnemonic), 1, colour)
 
 
 class IconButton(QAbstractButton):
-    def __init__(self, spec, parent=None):
+    def __init__(self, spec, rect, parent=None):
         super().__init__(parent)
         self.spec = spec
         self.setAttribute(Qt.WA_Hover)
         self.setFocusPolicy(Qt.StrongFocus)
-        self.setGeometry(spec.centre - ICON_SIZE // 2, ICON_TOP, ICON_SIZE, ICON_SIZE)
+        self.setGeometry(rect)
         self.setCursor(Qt.PointingHandCursor)
         self.setText(spec.label)
         self.setToolTip(
@@ -302,42 +363,62 @@ class IconButton(QAbstractButton):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        paint_icon(painter, self.spec, self.isDown(), self.underMouse() or self.hasFocus(), self.isEnabled())
+        painter.scale(self.width() / ICON_SIZE, self.height() / ICON_SIZE)
+        hot = self.hasFocus() or (self.underMouse() and self.spec.command != "stand_by")
+        paint_icon(painter, self.spec, self.isDown(), hot, self.isEnabled())
 
 
 class LunaDialog(QDialog):
     TITLE = ""
     SPECS = []
+    IS_POWER_CHOOSER = False
 
     def __init__(self, commands, parent=None, logo="", name="Windows"):
         super().__init__(parent, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.commands = commands
         self.title = self.TITLE.format(name=name)
         self.flag = logo_picture(logo)
+        self.large_power = self.IS_POWER_CHOOSER and self.devicePixelRatioF() >= 1.125
+        self.power_panel = None
+        if self.large_power:
+            artwork = Path(__file__).with_name("images") / "xp-luna-power-panel.svg"
+            self.power_panel = QSvgRenderer(str(artwork))
         self.luna_style = LunaStyle()
         # Smooth dialog-specific faces, with no shadow beneath Cancel.
         button_painter = paint_cancel
         self.luna_style.primitive_painters[QStyle.PE_PanelButtonCommand] = button_painter
         self.luna_style.control_painters[QStyle.CE_PushButtonBevel] = button_painter
         self.setWindowTitle(self.title)
-        self.setFixedSize(*DIALOG_SIZE)
+        self.setFixedSize(*(LARGE_POWER_SIZE if self.large_power else DIALOG_SIZE))
         self.setPalette(luna_palette())
         self.setFont(luna_font())
-        self.buttons = {spec.command: self.add_icon_button(spec) for spec in self.SPECS}
+        rects = (
+            LARGE_POWER_ICON_RECTS
+            if self.large_power
+            else (QRect(spec.centre - ICON_SIZE // 2, ICON_TOP, ICON_SIZE, ICON_SIZE) for spec in self.SPECS)
+        )
+        self.buttons = {
+            spec.command: self.add_icon_button(spec, rect) for spec, rect in zip(self.SPECS, rects, strict=True)
+        }
         self.cancel_button = self.add_cancel_button()
-        self.buttons[self.SPECS[0].command].setFocus()
+        if self.IS_POWER_CHOOSER:
+            self.cancel_button.setFocus()
+        else:
+            self.buttons[self.SPECS[0].command].setFocus()
 
-    def add_icon_button(self, spec):
-        button = IconButton(spec, self)
+    def add_icon_button(self, spec, rect):
+        button = IconButton(spec, rect, self)
         button.clicked.connect(lambda: self.run(spec.command))
         return button
 
     def add_cancel_button(self):
         button = QPushButton("Cancel", self)
         button.setStyle(self.luna_style)
+        if self.IS_POWER_CHOOSER:
+            button.setFont(power_font())
         button.setAutoDefault(False)
         button.setToolTip("Closes this dialog without changing your session.")
-        button.setGeometry(CANCEL_RECT)
+        button.setGeometry(LARGE_POWER_CANCEL if self.large_power else CANCEL_RECT)
         button.clicked.connect(self.reject)
         return button
 
@@ -359,19 +440,23 @@ class LunaDialog(QDialog):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        paint_bands(painter)
-        paint_title(painter, self.title)
-        paint_flag(painter, self.flag)
+        if self.power_panel is not None:
+            self.power_panel.render(painter, QRectF(self.rect()))
+        else:
+            paint_bands(painter)
+        paint_title(painter, self.title, self.large_power)
+        slot = LARGE_POWER_FLAG if self.large_power else QRectF(*FLAG_ORIGIN, 38, 32)
+        paint_flag(painter, self.flag, slot)
         for spec in self.SPECS:
-            painter.save()
-            painter.translate(spec.centre - BUTTON_AREA.width() // 2, BUTTON_AREA.top())
-            paint_label(painter, spec, self.buttons[spec.command].isEnabled())
-            painter.restore()
+            button = self.buttons[spec.command]
+            centre = button.x() + button.width() // 2
+            paint_label(painter, spec, centre, 128 if self.large_power else LABEL_BASELINE, button.isEnabled())
 
 
 class TurnOffDialog(LunaDialog):
     TITLE = "Turn off computer"
     SPECS = TURN_OFF_SPECS
+    IS_POWER_CHOOSER = True
 
     def __init__(self, commands, parent=None, **branding):
         resolved = dict(commands)
@@ -385,7 +470,7 @@ class LogOffDialog(LunaDialog):
 
 
 def grab_image(dialog):
-    image = QImage(*DIALOG_SIZE, QImage.Format_RGB32)
+    image = QImage(dialog.size(), QImage.Format_RGB32)
     dialog.render(image)
     return image
 

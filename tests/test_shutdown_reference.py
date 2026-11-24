@@ -4,12 +4,14 @@
 artwork, icon and lettering, plus the measured layout. 1995 and 1998 are half-size thumbnails
 (win95shutdownsm.png, win98shutsm.png), so for those the client size and option spacing are measured
 at half scale and compared within a pixel of the thumbnail.
+XP Classic uses its own 96-DPI VM capture in this file and 96- and 120-DPI comparisons in the strict suite.
 """
 
 import pytest
 from conftest import needs_ui_font
 from reference import (
     LOOK_2000_KDEGLOBALS,
+    REFERENCES,
     bounding_box,
     close,
     differing_pixels,
@@ -56,7 +58,8 @@ def dialog_for(shutdown, qt_app, style, banner="Chicago95", company=""):
             "edition": "Professional",
             "osLogo": "",
             "companyLogo": "",
-        }
+        },
+        include_optional_radio=True,
     )
     dialog.show()
     qt_app.processEvents()
@@ -96,8 +99,11 @@ def ours_2000(whole_2000):
 
 
 @pytest.fixture(scope="module")
-def ours_2001(whole_2001):
-    return client_area(whole_2001)
+def native_2001():
+    from PIL import Image
+
+    with Image.open(REFERENCES / "themes/winxp-classic/shutdown-96dpi.png") as capture:
+        return capture.convert("RGB")
 
 
 @pytest.fixture(scope="module")
@@ -179,14 +185,14 @@ def test_2000_banner_lettering_covers_the_original_lines_within_2_pixels(referen
     assert all(abs(a - e) <= LETTERING_SLACK for a, e in zip(actual, expected, strict=False)), (actual, expected)
 
 
-def button_frames(image):
+def button_frames(image, rows=range(200, 240)):
     """Each push button's black bottom edge, as (left, right, y), in the button row."""
     frames = []
 
     def dark(c):
         return sum(c) < 220  # black on 1995/1998, #404040 on 2000
 
-    y = max(y for y in range(200, 240) if sum(1 for x in range(image.width) if dark(image.getpixel((x, y)))) > 60)
+    y = max(y for y in rows if sum(1 for x in range(image.width) if dark(image.getpixel((x, y)))) > 60)
     run = None
     for x in range(image.width + 1):
         edge = x < image.width and dark(image.getpixel((x, y)))
@@ -207,15 +213,21 @@ def test_2000_dropdown_frame_matches(reference_2000, ours_2000):
     assert dropdown_frame(ours_2000) == dropdown_frame(reference_2000)
 
 
-def test_2001_dialog_is_417_by_269_like_2000(whole_2000, whole_2001):
-    assert whole_2001.size == whole_2000.size
+def test_xp_classic_dialog_matches_its_own_vm_geometry(whole_2001, native_2001):
+    assert whole_2001.size == native_2001.size
 
 
-def test_2001_buttons_and_dropdown_frame_sit_where_2000s_do(ours_2000, ours_2001):
-    assert (button_frames(ours_2001), dropdown_frame(ours_2001)) == (
-        button_frames(ours_2000),
-        dropdown_frame(ours_2000),
-    )
+def test_xp_classic_button_and_dropdown_frames_align_with_the_guest(whole_2001, native_2001):
+    from reference import rgb565
+
+    rendered = rgb565(whole_2001)
+    button_rows = range(207, 233)
+    assert button_frames(rendered, button_rows) == button_frames(native_2001, button_rows)
+
+    def combo_frame(image):
+        return bounding_box(image, lambda colour: colour == (132, 130, 132), (66, 332), (130, 154))
+
+    assert combo_frame(rendered) == combo_frame(native_2001)
 
 
 def dropdown_frame(image):
@@ -224,10 +236,12 @@ def dropdown_frame(image):
     )
 
 
-@needs_ui_font
-def test_2001_everything_but_the_wordmark_matches_the_2000_original(reference_2000, ours_2001, tmp_path):
-    count = differing_pixels(reference_2000, ours_2001, UNCOMPARED_2000, tmp_path / "shutdown-2001-diff.png", 0.15)
-    assert count == 0, f"{count} pixels differ; see {tmp_path}"
+def test_xp_classic_banner_uses_the_guest_blue_and_orange_palette(whole_2001, native_2001):
+    from reference import rgb565
+
+    rendered = rgb565(whole_2001)
+    for point in ((10, 29), (280, 30), (220, 97)):
+        assert close(rendered.getpixel(point), native_2001.getpixel(point), 10), point
 
 
 UNCOMPARED_2000 = [
@@ -364,6 +378,31 @@ def test_radio_dialog_opens_with_the_checked_option_focused(shutdown, qt_app, st
     assert focused is not None and focused.isChecked() and "Shut down" in focused.text().replace("&", "")
 
 
+@pytest.mark.parametrize(
+    "style,theme,scale,reference_name,optional_action,height_slack",
+    [
+        ("1995", "win95", 1, "shutdown-96dpi.png", "LOG_OFF", 0),
+        ("1995", "win95", 1.25, "shutdown.png", "LOG_OFF", 0),
+        ("1998", "win98", 1, "shutdown.png", "STAND_BY", 0),
+        ("1998", "win98", 1.25, "shutdown-120dpi.png", "STAND_BY", 1),
+    ],
+)
+def test_radio_dialog_matches_the_vm_when_the_optional_action_is_unavailable(
+    shutdown, qt_app, monkeypatch, style, theme, scale, reference_name, optional_action, height_slack
+):
+    from PIL import Image
+
+    monkeypatch.setattr(shutdown.ShutDownDialog, "devicePixelRatioF", lambda _dialog: scale)
+    dialog = shutdown.ShutDownDialog({"style": style}, include_optional_radio=False)
+    with Image.open(REFERENCES / f"themes/{theme}/{reference_name}") as reference:
+        width, height = (int(n * scale + 0.5) for n in dialog.size().toTuple())
+        assert width == reference.width and abs(height - reference.height) <= height_slack
+    assert [choice for choice, _ in dialog.choices] == [shutdown.SHUT_DOWN, shutdown.RESTART, shutdown.DOS_MODE]
+    assert dialog.radios[0].isChecked()
+    expanded = shutdown.ShutDownDialog({"style": style}, include_optional_radio=True)
+    assert getattr(shutdown, optional_action) in [choice for choice, _ in expanded.choices]
+
+
 XP_CHOICES = ["Log off {user}", "Shut down", "Restart", "Stand by", "Hibernate"]
 XP_DESCRIPTIONS = {
     "Log off {user}": "Ends your session, leaving the computer running on full power.",
@@ -393,6 +432,25 @@ def test_2001_asks_the_2000_question_in_a_combo_layout(shutdown):
         "What do you want the computer to do?",
         "combo",
     )
+
+
+def test_xp_classic_keyboard_updates_the_selected_action_and_its_help(shutdown, qt_app, monkeypatch):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QPushButton
+
+    dialog = dialog_for(shutdown, qt_app, "2001", banner="Windows")
+    help_text = []
+    monkeypatch.setattr(shutdown.QMessageBox, "information", lambda _parent, _title, text: help_text.append(text))
+    QTest.keyClick(dialog.combo, Qt.Key_Down)
+    assert dialog.combo.currentData() == shutdown.RESTART
+    next(button for button in dialog.findChildren(QPushButton) if button.text() == "Help").click()
+    assert help_text == [XP_DESCRIPTIONS["Restart"]]
+    assert dialog.isVisible() and dialog.choice is None
+    dialog.combo.setFocus()
+    QTest.keyClick(dialog.combo, Qt.Key_Return)
+    assert dialog.result() == dialog.DialogCode.Accepted
+    assert dialog.choice == shutdown.RESTART
 
 
 def test_installed_windows_2000_shutdown_frame(whole_2000):

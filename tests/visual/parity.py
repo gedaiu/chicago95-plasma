@@ -651,7 +651,7 @@ def test_start_menu(theme, qt_app, tmp_path, visual_output, monkeypatch):
     exact(expected, actual, visual_output / theme / "start-menu" / "qt")
 
 
-def render_properties(folder, component, output, size):
+def render_properties(folder, component, output, size, *, scale=None):
     subprocess.run(
         [
             sys.executable,
@@ -661,6 +661,7 @@ def render_properties(folder, component, output, size):
             str(output),
             str(size[0]),
             str(size[1]),
+            *([str(scale)] if scale is not None else []),
         ],
         check=True,
         timeout=45,
@@ -679,16 +680,71 @@ def test_properties(theme, component, tmp_path, visual_output):
         exact(expected, actual, visual_output / theme / component / "qt")
 
 
-@pytest.mark.parametrize("theme", THEMES)
-def test_shutdown_chooser(theme, tmp_path, visual_output):
+def check_shutdown_chooser(theme, tmp_path, visual_output, *, source="shutdown.png", scale=None):
     folder, metadata = THEMES[theme]
-    with Image.open(folder / "shutdown.png") as frame:
+    with Image.open(folder / source) as frame:
         expected = frame.convert("RGB")
     output = tmp_path / "shutdown.png"
-    render_properties(folder, "shutdown", output, expected.size)
+    render_properties(folder, "shutdown", output, expected.size, scale=scale)
     with Image.open(output) as frame:
         actual = rgb565(frame) if metadata.get("shutdown_rgb565") else frame.convert("RGB")
-    exact(expected, actual, visual_output / theme / "shutdown" / "qt")
+    mask = None
+    cursor = metadata.get("shutdown_cursor") if source == "shutdown.png" else None
+    if cursor:
+        left, top, right, bottom = cursor
+        mask = np.ones((expected.height, expected.width), dtype=bool)
+        mask[top:bottom, left:right] = False
+    exact(expected, actual, visual_output / theme / "shutdown" / "qt", mask)
+
+
+@pytest.mark.parametrize("theme", THEMES)
+def test_shutdown_chooser(theme, tmp_path, visual_output):
+    check_shutdown_chooser(theme, tmp_path, visual_output)
+
+
+@pytest.mark.parametrize(
+    "theme,dpi,source",
+    [
+        (theme, dpi, metadata[key])
+        for theme, (_, metadata) in THEMES.items()
+        for dpi, key in ((96, "shutdown_standard_dpi"), (120, "shutdown_120dpi"))
+        if key in metadata
+    ],
+)
+def test_shutdown_chooser_additional_dpi(theme, dpi, source, tmp_path, visual_output):
+    check_shutdown_chooser(theme, tmp_path, visual_output / f"{dpi}dpi", source=source, scale=dpi / 96)
+
+
+def shutdown_button_state_images(theme, tmp_path):
+    folder, metadata = THEMES[theme]
+    with Image.open(folder / "shutdown/button-states.png") as frame:
+        expected = frame.convert("RGB")
+    output = tmp_path / "button-states.png"
+    render_properties(folder, "shutdown-button-states", output, expected.size, scale=metadata.get("shutdown_button_scale"))
+    with Image.open(output) as frame:
+        actual = rgb565(frame) if metadata.get("shutdown_rgb565") else frame.convert("RGB")
+    return expected, actual
+
+
+@pytest.mark.parametrize("theme", [theme for theme, (_, m) in THEMES.items() if "shutdown_button_crops" in m])
+def test_shutdown_button_states(theme, tmp_path, visual_output):
+    expected, actual = shutdown_button_state_images(theme, tmp_path)
+    exact(expected, actual, visual_output / theme / "shutdown" / "qt" / "button-states")
+
+
+def test_shutdown_win95_held_button_frames_match_native_pixels(tmp_path, visual_output):
+    expected, actual = shutdown_button_state_images("win95", tmp_path)
+    box = (160, 0, 240, 75)
+    # Compare each held face, including its solid inset outline, without the caption's ink.
+    mask = np.ones((75, 80), dtype=bool)
+    for top in (0, 25, 50):
+        mask[top + 6 : top + 19, 10:70] = False
+    exact(
+        expected.crop(box),
+        actual.crop(box),
+        visual_output / "win95" / "shutdown" / "qt" / "held-frames",
+        mask,
+    )
 
 
 @pytest.fixture(scope="module", params=[theme for theme, (_, m) in THEMES.items() if "control_panel_hover_scale" in m])
@@ -736,7 +792,7 @@ def test_theme_inventory():
 
 @pytest.mark.parametrize("theme", THEMES)
 def test_coverage(theme):
-    folder, _metadata = THEMES[theme]
+    folder, metadata = THEMES[theme]
     assert (folder / "caption-states.png").is_file()
     gaps = [
         f"{component}: reference and renderer not registered"
@@ -765,10 +821,15 @@ def test_coverage(theme):
             "device-manager / Qt: remaining chrome, tree and device properties",
             "control-panel / Qt: navigation and category or icon-view variants",
             "display-properties / Qt: remaining tabs and control states",
-            "shutdown / Qt: additional choices, hover and pressed states",
+            "shutdown / Qt: additional choices",
             "shutdown: desktop transition and session-ending sequence",
         )
     )
+    if "shutdown_button_crops" in metadata:
+        remaining = "Cancel, focus, disabled and tooltips" if theme == "winxp" else "radio indicators, focus and tooltips"
+        gaps.append(f"shutdown / Qt: {remaining}")
+    else:
+        gaps.append("shutdown / Qt: hover and pressed states")
     if theme == "win7":
         gaps.append("start-menu / Qt: glass pane and search results")
         gaps.append("control-panel / Qt: remaining category and action states")

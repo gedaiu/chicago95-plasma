@@ -99,7 +99,7 @@ Windows XP (Luna and XP Classic), from Toasty Technology, GUIdebook, Wikipedia a
 | `win95-osr2-120dpi-run-icon.png`, `win98-se-120dpi-run-icon.png` | Installed Cirrus drivers at 120 DPI and 256 colours. Capture coordinates (22, 580) at 1024×768 on 95 and (22, 836) at 1280×1024 on 98 SE, both 32×32. |
 | `win2000-pro-120dpi-run-icon.png`, `xp-sp3-120dpi-run-icon.png` | 1280×1024, 120 DPI, RGB565. Windows 2000 Run hourglass at (20, 816), 32×32. XP Luna Run at (17, 814), 40×40. |
 | `win2000-pro-120dpi-device-manager-band.png` | Installed Windows 2000 Professional, 1280×1024, 120 DPI. The Action and View menus and five MMC commands share one native band at (4, 30), 630×25. |
-| `win2000-pro-shutdown-dialog.png` | Windows 2000 at 1280×1024, 96 DPI. Alt+F4 from the desktop. Dialog at (431, 251), 417×269. |
+| `themes/win2k/shutdown.png` | Windows 2000 at 1280×1024, 96 DPI. Alt+F4 from the desktop. Dialog at (431, 251), 417×269. |
 | `xp-sp3-classic-120dpi-run-icon.png` | Windows Classic on a separate XP SP3 disk, 1280×1024 at 120 DPI. Run icon at (19, 816), 40×40. |
 | `win7-sp1-144dpi-radio-normal.png`, `win7-sp1-144dpi-radio-checked.png` | Windows 7 Display control panel at 150%, 1280×960. Smaller and Larger radio faces at (423, 261) and (423, 399), 19×19 each. |
 | `win7-sp1-144dpi-close-motion.png`, `win7-sp1-144dpi-close-motion.txt` | 144-DPI Notepad, 1280×960. Three 90-frame trials at 60 Hz of the 13×16 left interior of the close button at (638, 80). Pointer entered at frame 12 and left at 48. Timestamps are elapsed milliseconds. |
@@ -296,6 +296,42 @@ The native spinner's changing pixels span a 20 × 20 square at (409, 324)
 and (297, 240). The 1024 × 768 time series sampled the presented guest at
 30 Hz from the final Start menu click. The 800 × 600 capture contributes
 geometry only. At 1280 × 960 and 144 DPI, `win7-sp1-shutdown-144dpi.png` is a native 360 × 102 crop. The spinner spans 30 × 30 pixels at desktop (487, 390). Its poses repeated after 0.833–0.867 seconds in the presented-frame capture. [Shutdown timings and method](../../docs/windows-7-pixel-audit.md#shutdown-from-the-desktop-to-power-off)
+
+## Desktop shutdown choosers
+
+The six `themes/*/shutdown.png` fixtures are unscaled crops of the default Alt+F4
+chooser from the desktop. The upper-left corners are in framebuffer pixels.
+
+| Theme | Framebuffer and DPI | Crop | Guest state |
+| --- | --- | --- | --- |
+| Windows 95 OSR2 | 1024×768, 120 DPI | (282, 261), 460×246 | Single-user radio chooser |
+| Windows 95 OSR2 (`shutdown-96dpi.png`) | 1024×768, 96 DPI | (338, 283), 347×201 | Same chooser, pointer outside the crop |
+| Windows 98 SE | 640×480, 96 DPI | (158, 100), 323×173 | Radio chooser without Stand by |
+| Windows 98 SE (`shutdown-120dpi.png`) | 1280×1024, 120 DPI | (426, 341), 428×212 | Same chooser, pointer outside the crop |
+| Windows 2000 Professional | 1280×1024, 96 DPI | (431, 251), 417×269 | Dropdown with Shut down selected |
+| XP SP3 Classic | 1280×1024, 120 DPI | (397, 246), 486×285 | Classic dropdown with the Welcome screen disabled |
+| XP SP3 Classic (`shutdown-96dpi.png`) | 1280×1024, 96 DPI | (431, 259), 417×247 | Same dropdown, pointer outside the crop |
+| XP SP3 Luna | 1280×1024, 120 DPI | (432, 260), 418×246 | Welcome-screen power chooser |
+| XP SP3 Luna (`shutdown-96dpi.png`) | 1280×1024, 96 DPI | (484, 275), 314×200 | Same chooser, pointer outside the crop |
+| Windows 7 SP1 | 800×600, 96 DPI | (171, 143), 458×223 | Basic desktop, client area only |
+
+The strict Qt comparison masks the captured pointers in Windows 98, XP Classic
+and Windows 7. It quantizes the rendered output to RGB565 for the three guests
+that presented that format. The other reference pixels and the crop dimensions
+are compared exactly. The Windows 98 comparisons use the guest's solid blue title
+bar setting. The other Windows 98 theme colours stay in effect.
+
+`themes/winxp/shutdown/button-states.png` contains 44×42 crops from the
+120-DPI XP SP3 Luna guest. The rows are Stand By, Turn Off and Restart.
+The columns are idle, hovered and held down. Each active state was captured
+twice with the pointer in different positions. The sheet joins the unobstructed
+regions at their original coordinates and uses no resampling. The Stand By
+hover sample equals idle. Each held press was released outside its button.
+
+`themes/win95/shutdown/button-states.png` uses 80×25 crops from the 96-DPI
+Windows 95 guest. Rows show Yes, No and Help. Columns show idle, hover and held
+press. The active-state crops use the same two-pointer-position method. All
+three hover tiles equal idle. The held states show the solid inset outline.
 
 ## Caption interaction states
 
