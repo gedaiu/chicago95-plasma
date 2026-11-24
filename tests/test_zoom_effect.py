@@ -168,3 +168,9 @@ def test_classic_style_moves_the_inset_caption_band_at_the_measured_device_pixel
     assert call(zoom, "classicStripDuration", uniforms, 1, 3) == 137
     assert call(zoom, "classicStripDuration", uniforms, 1.25, 3) == 171
     assert call(zoom, "classicStripDuration", uniforms, 1.25, 4.4) == 117
+
+
+def test_windows_98_title_strip_caps_long_travel_without_sluggish_high_dpi_motion(zoom):
+    uniforms = call(zoom, "titleStripGeometry", FRAME, FRAME, ICON, 18, True, 4)["uniforms"]
+    assert call(zoom, "classicStripDuration", uniforms, 1.25, 3, 300) == 171
+    assert call(zoom, "classicStripDuration", uniforms, 3, 3, 300) == 300

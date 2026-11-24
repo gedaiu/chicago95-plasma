@@ -5,18 +5,20 @@
     <linearGradient id="green" x2=".8" y2="1"><stop stop-color="#a5c58b"/><stop offset=".65" stop-color="#247016"/><stop offset="1" stop-color="#549c30"/></linearGradient>
     <linearGradient id="blue" x2="1" y2="1"><stop stop-color="#0d479f"/><stop offset="1" stop-color="#a9e4fa"/></linearGradient>
     <linearGradient id="yellow" x2=".8" y2="1"><stop stop-color="#fff6a0"/><stop offset="1" stop-color="#eeb500"/></linearGradient>
-    <linearGradient id="pie" x2="0" y2="1"><stop stop-color="#b5cfee"/><stop offset="1" stop-color="#6387ba"/></linearGradient>
+    <linearGradient id="pie" x1=".18" x2=".8" y2="1"><stop stop-color="#b5cfee"/><stop offset="1" stop-color="#6387ba"/></linearGradient>
     <linearGradient id="slice" x2="1" y2="1"><stop stop-color="#7296c3"/><stop offset="1" stop-color="#23477f"/></linearGradient>
     <radialGradient id="shadow"><stop stop-color="#26272a" stop-opacity=".42"/><stop offset="1" stop-color="#26272a" stop-opacity="0"/></radialGradient>
   </defs>
-  <ellipse cx="34" cy="42" rx="14" ry="5" fill="url(#shadow)"/>
-  <path d="M15 2C11 5 7 7 2 8v6q0 4 .74 7H15Z" fill="url(#red)"/>
-  <path d="M15 2C19 5 23 7 28 8v6q0 4-.74 7H15Z" fill="url(#green)"/>
-  <path d="M2.74 21C4.4 29 8.7 34.8 15 38V21Z" fill="url(#blue)"/>
-  <path d="M27.26 21C25.6 29 21.3 34.8 15 38V21Z" fill="url(#yellow)"/>
-  <use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#shield" fill="none" stroke="#adb1ad" stroke-width="1.6"/>
-  <path d="M3.4 9c4.3-1 8.3-3 11.6-5.4C18.3 6 22.3 8 26.6 9" fill="none" stroke="#f6f7f4" stroke-linecap="round"/>
-  <circle cx="32" cy="35" r="12" fill="url(#pie)" stroke="#9ab2d2" stroke-width=".7"/>
-  <path d="M32 35h12a12 12 0 0 0-7.7-11.2Z" fill="#335d9c"/>
-  <path d="M30.9 33.5h12a12 12 0 0 0-7.7-11.2Z" fill="url(#slice)" stroke="#688abd" stroke-width=".65"/>
+  <g transform="translate(.67 .3)">
+    <ellipse cx="34" cy="42" rx="14" ry="5" fill="url(#shadow)"/>
+    <path d="M15 2C11 5 7 7 2 8v6q0 4 .74 7H15Z" fill="url(#red)"/>
+    <path d="M15 2C19 5 23 7 28 8v6q0 4-.74 7H15Z" fill="url(#green)"/>
+    <path d="M2.74 21C4.4 29 8.7 34.8 15 38V21Z" fill="url(#blue)"/>
+    <path d="M27.26 21C25.6 29 21.3 34.8 15 38V21Z" fill="url(#yellow)"/>
+    <use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#shield" fill="none" stroke="#adb1ad" stroke-width="1.6"/>
+    <path d="M3.4 9c4.3-1 8.3-3 11.6-5.4C18.3 6 22.3 8 26.6 9" fill="none" stroke="#f6f7f4" stroke-linecap="round"/>
+    <circle cx="32" cy="35" r="12" fill="url(#pie)" stroke="#9ab2d2" stroke-width=".7"/>
+    <path d="M32 35h12a12 12 0 0 0-7.7-11.2Z" fill="#335d9c"/>
+    <path d="M30.9 33.5h12a12 12 0 0 0-7.7-11.2Z" fill="url(#slice)" stroke="#688abd" stroke-width=".65"/>
+  </g>
 </svg>

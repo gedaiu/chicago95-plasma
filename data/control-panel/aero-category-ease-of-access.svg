@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs>
+    <linearGradient id="rim" x2=".8" y2="1">
+      <stop stop-color="#f3f4ed"/>
+      <stop offset=".38" stop-color="#b5b7ad"/>
+      <stop offset=".65" stop-color="#909baf"/>
+      <stop offset="1" stop-color="#e7e8e2"/>
+    </linearGradient>
+    <linearGradient id="blue" x1=".23" x2=".7" y2="1">
+      <stop stop-color="#5683d8"/>
+      <stop offset=".55" stop-color="#2e55b1"/>
+      <stop offset="1" stop-color="#203780"/>
+    </linearGradient>
+    <linearGradient id="silver" x1=".24" x2=".73" y2="1">
+      <stop stop-color="#ffffff"/>
+      <stop offset=".51" stop-color="#f1f3f6"/>
+      <stop offset="1" stop-color="#aab1c1"/>
+    </linearGradient>
+    <path id="segment" d="M22.9 8.8a15.2 15.2 0 0 0-9.3 4.1l5.1 5.1a8.2 8.2 0 0 1 4.2-1.8z"/>
+  </defs>
+  <g transform="translate(-.35 -1.2) scale(.95)">
+    <circle cx="23.5" cy="24" r="23" fill="#a5a8a7"/>
+    <circle cx="23.5" cy="23.6" r="22.3" fill="url(#rim)" stroke="#dce0dd" stroke-width="1"/>
+    <circle cx="23.5" cy="23.6" r="20.1" fill="url(#blue)" stroke="#6585c5" stroke-width=".65"/>
+    <g fill="url(#silver)">
+      <use href="#segment"/>
+      <use href="#segment" transform="rotate(-45 23.6 24)"/>
+      <use href="#segment" transform="rotate(-90 23.6 24)"/>
+      <use href="#segment" transform="rotate(-135 23.6 24)"/>
+      <use href="#segment" transform="rotate(-180 23.6 24)"/>
+      <use href="#segment" transform="rotate(-225 23.6 24)"/>
+      <path d="M23.9 5.7h5.8v16.8l2.1.1-5 4.8-5.5-4.8h2.6z" stroke="#526184" stroke-width=".65"/>
+      <path d="M28 28.8l6.1-6.5h4.7v-3.7l6 6.1-6 6.1v-3.1l-8.7-.1z" stroke="#526184" stroke-width=".65" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>

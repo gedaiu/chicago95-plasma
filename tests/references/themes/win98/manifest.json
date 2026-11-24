@@ -10,7 +10,14 @@
   },
   "taskbar_x": 535,
   "device_manager_scale": 1,
+  "device_manager_actions_scale": 1.25,
   "properties_scale": 1.25,
+  "control_panel_icons": {
+    "display": [644, 105, 678, 139],
+    "internet-options": [456, 199, 490, 233],
+    "power-management": [268, 387, 302, 421],
+    "telephony": [268, 481, 302, 515]
+  },
   "control_panel_selection": "Display",
   "display_page": "Appearance",
   "display_resolution": "1280x1024",

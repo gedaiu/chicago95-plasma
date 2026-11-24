@@ -21,6 +21,7 @@ class ZoomEffect {
     this.titleBarHeight = effect.readConfig("TitleBarHeight", METRICS.titleBarHeight);
     this.lunaTitleStrip = effect.readConfig("LunaTitleStrip", false);
     this.classicStripSpeed = effect.readConfig("ClassicStripSpeed", 0);
+    this.classicStripMaxMs = effect.readConfig("ClassicStripMaxMs", 0);
     const palette = effect.readConfig("ClassicStripPalette", "");
     this.classicStripPalette = /^(#[0-9a-f]{6})(,#[0-9a-f]{6})?$/i.test(palette)
       ? palette.split(",").map((color) => parseInt(color.slice(1), 16))
@@ -86,7 +87,7 @@ class ZoomEffect {
     uniforms.classicEnd = end;
     const outputScale = window.screen?.devicePixelRatio || window.screen?.scale || 1;
     const duration = this.classicStripSpeed
-      ? animationTime(classicStripDuration(uniforms, outputScale, this.classicStripSpeed))
+      ? animationTime(classicStripDuration(uniforms, outputScale, this.classicStripSpeed, this.classicStripMaxMs))
       : this.duration;
     const transform = placement(canvas, frame);
     const uniformTracks = Object.entries(uniforms).map(([uniform, value]) => ({
@@ -184,9 +185,9 @@ function titleStripGeometry(frame, texture, button, titleHeight, minimizing, ins
   };
 }
 
-function classicStripDuration({ stripX, stripY, taskX, taskY }, scale, speed) {
+function classicStripDuration({ stripX, stripY, taskX, taskY }, scale, speed, maximum = 0) {
   const distance = Math.hypot(taskX - stripX, taskY - stripY);
-  return Math.max(1, Math.round(distance * scale / speed));
+  return Math.max(1, Math.min(maximum || Infinity, Math.round(distance * scale / speed)));
 }
 
 function metrics() {

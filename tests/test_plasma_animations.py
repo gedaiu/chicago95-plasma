@@ -152,9 +152,9 @@ def recorded_frames(video):
 )
 @pytest.mark.parametrize(
     ("look", "maximize_button", "restore_button"),
-    [("luna", (722, 165), "982,14"), ("2001", (728, 163), "998,9")],
+    [("1998", (728, 163), "998,9"), ("luna", (722, 165), "982,14"), ("2001", (728, 163), "998,9")],
 )
-def test_xp_maximize_and_restore_keep_the_client_visible(desktops, tmp_path, look, maximize_button, restore_button):
+def test_maximize_and_restore_keep_the_client_visible(desktops, tmp_path, look, maximize_button, restore_button):
     video = tmp_path / f"{look}-maximize.webm"
     x, y = maximize_button
     screen = desktops(

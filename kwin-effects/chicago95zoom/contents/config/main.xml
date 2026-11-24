@@ -23,6 +23,9 @@
         <entry name="ClassicStripSpeed" type="Double">
             <default>0</default>
         </entry>
+        <entry name="ClassicStripMaxMs" type="UInt">
+            <default>0</default>
+        </entry>
         <entry name="ClassicStripPalette" type="String"/>
     </group>
 </kcfg>

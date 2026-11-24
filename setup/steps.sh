@@ -759,7 +759,7 @@ event_effects() { # event_effects <event>   every effect its choices name, and t
 }
 
 configure_zoom_titlebar() {
-  local speed palette=--delete instant=--delete active="${SETUP_TITLE_ACTIVE:-#000080}"
+  local speed maximum=--delete palette=--delete instant=--delete active="${SETUP_TITLE_ACTIVE:-#000080}"
   if [ "${SETUP_DECORATION:-classic}" = luna ]; then
     kconf kwinrc Effect-chicago95zoom TitleBarHeight 30
     kconf kwinrc Effect-chicago95zoom LunaTitleStrip true
@@ -770,14 +770,15 @@ configure_zoom_titlebar() {
   # Travelling caption speed in device pixels per millisecond.
   case "${SETUP_LOOK:-}:${SETUP_DECORATION:-classic}" in
   1995:classic) speed=4.4; palette="${active%%,*}" ;;
-  1998:classic) speed=3; palette="${active%%,*}" ;;
+  1998:classic) speed=3; maximum=300; palette="${active%%,*}"; instant=true ;;
   2000:classic) speed=3.1; palette="${active%%,*},${active##*,}" ;;
   2001:classic) speed=3.3; palette="${active%%,*},${active##*,}"; instant=true ;;
   *) speed=--delete ;;
   esac
   kconf kwinrc Effect-chicago95zoom ClassicStripSpeed "$speed"
+  kconf kwinrc Effect-chicago95zoom ClassicStripMaxMs "$maximum"
   kconf kwinrc Effect-chicago95zoom ClassicStripPalette "$palette"
-  # Keep saved Zoom choices from folding the whole client in the XP presets.
+  # The native clients stay in place during the caption motion.
   [ "${SETUP_DECORATION:-classic}" != luna ] || instant=true
   kconf kwinrc Effect-chicago95zoom InstantMaximize "$instant"
 }

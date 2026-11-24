@@ -81,6 +81,42 @@ def capture_hover_exit(window, output, scale):
     strip.save(output)
 
 
+def capture_category_press(window, output):
+    window.show()
+    card = window.category_view.findChild(QFrame, "categoryCard")
+    heading = card.findChild(QPushButton)
+    outside = window.toolbar.mapTo(window, window.toolbar.rect().center())
+    inside = heading.mapTo(window, QPoint(12, 6))
+    region = QRect(card.mapTo(window, QPoint(card.width() - 36, 28)), QSize(8, 8))
+    strip = Image.new("RGB", (48, 8))
+
+    def sample(frame, position):
+        QTest.mouseMove(window.windowHandle(), position)
+        strip.paste(qimage_to_pil(window.grab(region).toImage()), (frame * 8, 0))
+
+    sample(0, outside)
+    sample(1, inside)
+    QTest.mousePress(window.windowHandle(), Qt.LeftButton, pos=inside)
+    sample(2, inside)
+    sample(3, outside)
+    sample(4, inside)
+    QTest.mouseMove(window.windowHandle(), outside)
+    QTest.mouseRelease(window.windowHandle(), Qt.LeftButton, pos=outside)
+    sample(5, outside)
+    assert window.pages.currentWidget() is window.category_view
+    assert heading.hasFocus()
+    focus_region = QRect(card.mapTo(window, QPoint(52, 0)), QSize(165, 24))
+    assert window.grab(focus_region).save(str(Path(output).with_name("category-focus.png")))
+
+    QTest.mouseMove(window.windowHandle(), inside)
+    QTest.mousePress(window.windowHandle(), Qt.LeftButton, pos=inside)
+    QTest.mouseMove(window.windowHandle(), outside)
+    QTest.mouseMove(window.windowHandle(), inside)
+    QTest.mouseRelease(window.windowHandle(), Qt.LeftButton, pos=inside)
+    assert window.address_bar.crumbs()[-1] == heading.text()
+    strip.save(output)
+
+
 def capture_shutdown_buttons(dialog, crops, output, hover_settle_ms):
     left, top, right, bottom = next(iter(crops.values()))
     width, height = right - left, bottom - top
@@ -238,7 +274,7 @@ def render(manifest, component, output, width, height, scale_override=None):
     hover_exit = component == "control-panel-hover-exit"
     picker = component.startswith("display-resolution-picker-")
     scale_key = "shutdown_scale" if component.startswith("shutdown") else "properties_scale"
-    if hover:
+    if hover or component == "control-panel-category-press":
         scale_key = "control_panel_hover_scale"
     scale = float(scale_override) if scale_override is not None else metadata[scale_key]
     os.environ["QT_SCALE_FACTOR"] = str(scale)
@@ -280,14 +316,26 @@ def render(manifest, component, output, width, height, scale_override=None):
                 window.resize(round(int(width) / scale), round(int(height) / scale))
                 capture_hover_exit(window, output, scale)
                 return
-            if component in ("control-panel", "control-panel-end", "control-panel-selection"):
+            if component == "control-panel-category-press":
+                capture_category_press(window, output)
+                return
+            if component in ("control-panel", "control-panel-end", "control-panel-selection", "control-panel-category"):
                 window.resize(round(int(width) / scale), round(int(height) / scale))
                 window.show()
                 target = window
                 if component == "control-panel-end":
+                    window.icon_view.setFocus()
                     app.processEvents()
                     QTest.keyClick(window.icon_view, Qt.Key_End)
-                    assert window.icon_view.currentItem().text() == "System"
+                    selected = metadata["control_panel_end"]
+                    wanted = selected if isinstance(selected, str) else "System"
+                    current = window.icon_view.currentItem()
+                    actual = current.data(Qt.UserRole).name if current else None
+                    assert actual == wanted, f"End selected {actual!r}, expected {wanted!r}"
+                elif component == "control-panel-category":
+                    app.processEvents()
+                    QTest.mouseClick(window.sidebar.view_link, Qt.LeftButton)
+                    assert window.xp_views.currentWidget() is window.xp_category_view
                 elif component == "control-panel-selection":
                     app.processEvents()
                     selection = metadata["control_panel_selection"]

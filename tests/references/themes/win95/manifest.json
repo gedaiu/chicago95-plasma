@@ -10,7 +10,15 @@
   },
   "taskbar_x": 535,
   "device_manager_scale": 1,
+  "device_manager_actions_scale": 1.25,
   "properties_scale": 1.25,
+  "control_panel_icons": {
+    "accessibility-options": [32, 28, 66, 62],
+    "display": [32, 122, 66, 156],
+    "fonts": [126, 122, 160, 156],
+    "internet": [220, 122, 254, 156],
+    "keyboard": [314, 122, 348, 156]
+  },
   "control_panel_end": true,
   "display_page": "Appearance",
   "display_resolution": "1024x768",

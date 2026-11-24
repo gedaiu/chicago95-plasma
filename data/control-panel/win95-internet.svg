@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <radialGradient id="ocean" cx=".26" cy=".19" r=".84">
+      <stop stop-color="#7dfcff"/>
+      <stop offset=".38" stop-color="#0000ff"/>
+      <stop offset=".74" stop-color="#0000b8"/>
+      <stop offset="1" stop-color="#000046"/>
+    </radialGradient>
+  </defs>
+  <g transform="translate(1 0)">
+    <circle cx="15.2" cy="15.5" r="14.6" fill="url(#ocean)" stroke="#171939"/>
+    <path d="m5 5 3-2 5-2-1 3-3 2-1 2-3 1-2 3H1.5zM3 16l3-3 3 1 .5 2.5 4 2L11 23l-2 4-4-2zm14-14 5 1 5 4 2 4-3 2-1-2h-6l-3 2-2-3 3-3-1-3z" fill="#007d0c"/>
+    <path d="m3 10 3-5 5-3m-6 8 3-4m-6 8 .7-2" fill="none" stroke="#fff" stroke-width="1.05"/>
+    <path d="m23 23 6.5 6 .5 2-2 .5-7-7z" fill="#e71613" stroke="#4b070d" stroke-linejoin="round"/>
+    <path d="m25 25 4 4" stroke="#ff8981" stroke-width=".75"/>
+    <circle cx="18.5" cy="18.5" r="6.5" fill="#73fdff" stroke="#53555a" stroke-width="1.8"/>
+    <path d="M14.5 18a4.4 4.4 0 0 1 3.7-3.9" fill="none" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
+  </g>
+</svg>

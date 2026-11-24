@@ -583,26 +583,34 @@ def test_taskbar_band(theme, installed, visual_output):
     exact(expected, actual, visual_output / theme / "taskbar" / "plasma" / "empty-band")
 
 
-@pytest.mark.parametrize("theme", THEMES)
-def test_device_manager(theme, tmp_path, visual_output):
+def render_device_manager(look, scale, output, size=(), *, refresh_states=False, console_tree_states=False):
+    subprocess.run(
+        [
+            sys.executable,
+            str(REPO / "tests/visual/render_device_manager.py"),
+            look,
+            str(scale),
+            str(output),
+            *map(str, size),
+            *(["--refresh-states"] if refresh_states else []),
+            *(["--console-tree-states"] if console_tree_states else []),
+        ],
+        check=True,
+        timeout=45,
+    )
+
+
+@pytest.fixture(scope="module", params=THEMES)
+def device_manager_command_band(request, tmp_path_factory):
+    theme = request.param
     folder, metadata = THEMES[theme]
     with Image.open(folder / "device-manager.png") as reference:
         expected = reference.convert("RGB")
     if "device_manager_crop" in metadata:
         expected = expected.crop(metadata["device_manager_crop"])
     look = metadata["look"]
-    output = tmp_path / "device-manager.png"
-    subprocess.run(
-        [
-            sys.executable,
-            str(REPO / "tests/visual/render_device_manager.py"),
-            look,
-            str(metadata["device_manager_scale"]),
-            str(output),
-        ],
-        check=True,
-        timeout=45,
-    )
+    output = tmp_path_factory.mktemp(f"{theme}-device-manager-band") / "device-manager.png"
+    render_device_manager(look, metadata["device_manager_scale"], output)
     with Image.open(output) as capture:
         if look in CLASSIC[:2]:
             actual = capture.convert("RGB")
@@ -610,7 +618,93 @@ def test_device_manager(theme, tmp_path, visual_output):
             # Both regions start at the console client origin. A short render
             # stays short so the comparator reports the geometry difference.
             actual = capture.crop((0, 0, min(expected.width, capture.width), min(expected.height, capture.height)))
+    if metadata.get("device_manager_rgb565"):
+        actual = rgb565(actual)
+    return theme, expected, actual
+
+
+def test_device_manager(device_manager_command_band, visual_output):
+    theme, expected, actual = device_manager_command_band
     exact(expected, actual, visual_output / theme / "device-manager" / "qt")
+
+
+def test_device_manager_blank_band(device_manager_command_band, visual_output):
+    theme, expected, actual = device_manager_command_band
+    bounds = THEMES[theme][1].get("device_manager_blank_band")
+    if bounds is None:
+        pytest.skip("No blank command band reference")
+    exact(expected.crop(bounds), actual.crop(bounds), visual_output / theme / "device-manager" / "qt" / "blank-band")
+
+
+@pytest.fixture(scope="module", params=[theme for theme, (_, m) in THEMES.items() if m.get("device_manager_actions_scale")])
+def device_manager_actions(request, tmp_path_factory):
+    theme = request.param
+    folder, metadata = THEMES[theme]
+    output = tmp_path_factory.mktemp(f"{theme}-device-manager-actions")
+    render_device_manager(
+        metadata["look"], metadata["device_manager_actions_scale"],
+        output / "actions-120dpi.png", refresh_states=True,
+    )
+    return theme, folder / "device-manager", output
+
+
+@pytest.mark.parametrize("state", ("actions-120dpi", "refresh-states"))
+def test_device_manager_actions(device_manager_actions, state, visual_output):
+    theme, reference, output = device_manager_actions
+    with Image.open(reference / f"{state}.png") as original, Image.open(output / f"{state}.png") as capture:
+        expected, actual = original.convert("RGB"), capture.convert("RGB")
+    mask = None
+    if state == "refresh-states":
+        # The QEMU cursor appears only over the second, hovered button.
+        mask = np.ones((expected.height, expected.width), dtype=bool)
+        mask[10:, 170:187] = False
+    exact(expected, actual, visual_output / theme / "device-manager" / "qt" / state, mask)
+
+
+@pytest.mark.parametrize("theme", [theme for theme, (_, m) in THEMES.items() if m.get("device_manager_console_states")])
+def test_device_manager_console_states(theme, tmp_path, visual_output):
+    folder, metadata = THEMES[theme]
+    settings = metadata["device_manager_console_states"]
+    path = tmp_path / "console-tree-states.png"
+    render_device_manager(metadata["look"], settings["scale"], path, console_tree_states=True)
+    with Image.open(folder / "device-manager" / path.name) as original, Image.open(path) as render:
+        expected, actual = original.convert("RGB"), rgb565(render)
+    # Mask only the guest pointer in the hover and pressed tiles.
+    mask = np.ones((expected.height, expected.width), dtype=bool)
+    for tile, (left, top, right, bottom) in zip((1, 2), settings["cursor"], strict=True):
+        mask[top:bottom, 27 * tile + left:27 * tile + right] = False
+    exact(expected, actual, visual_output / theme / "device-manager" / "qt" / "console-tree-states", mask)
+
+
+@pytest.fixture(scope="module", params=[theme for theme, (_, m) in THEMES.items() if m.get("device_manager_tree_frame")])
+def device_manager_tree(request, tmp_path_factory):
+    theme = request.param
+    folder, metadata = THEMES[theme]
+    with Image.open(folder / "device-manager/tree-frame.png") as frame:
+        expected = frame.convert("RGB")
+    output = tmp_path_factory.mktemp(f"{theme}-device-manager") / "device-manager.png"
+    render_device_manager(metadata["look"], metadata["device_manager_scale"], output, expected.size)
+    with Image.open(output) as frame:
+        actual = frame.convert("RGB")
+    return theme, expected, actual
+
+
+def test_device_manager_tree_frame(device_manager_tree, visual_output):
+    theme, expected, actual = device_manager_tree
+    # The devices are supplied by Linux on the live window. The tree surround occupies the same client coordinates.
+    mask = np.ones((expected.height, expected.width), dtype=bool)
+    mask[:46] = False
+    mask[54:516, 1:400] = False
+    exact(expected, actual, visual_output / theme / "device-manager" / "qt" / "tree-frame", mask)
+
+
+@pytest.mark.parametrize(
+    ("state", "bounds"),
+    [("expanded", (6, 59, 19, 70)), ("collapsed", (26, 77, 39, 88))],
+)
+def test_device_manager_tree_branches(device_manager_tree, state, bounds, visual_output):
+    theme, expected, actual = device_manager_tree
+    exact(expected.crop(bounds), actual.crop(bounds), visual_output / theme / "device-manager" / "qt" / state)
 
 
 @pytest.mark.parametrize("theme", THEMES)
@@ -681,15 +775,53 @@ def test_properties(theme, component, tmp_path, visual_output):
     exact(expected, actual, visual_output / theme / component / "qt")
 
 
+@pytest.fixture(scope="module")
+def control_panel_icons(request, tmp_path_factory):
+    theme = request.param
+    folder, metadata = THEMES[theme]
+    output = tmp_path_factory.mktemp(f"{theme}-control-panel-icons") / "control-panel.png"
+    with Image.open(folder / "control-panel.png") as frame:
+        expected = frame.convert("RGB")
+    render_properties(folder, "control-panel", output, expected.size)
+    with Image.open(output) as frame:
+        actual = rgb565(frame) if metadata.get("properties_rgb565") else frame.convert("RGB")
+    return theme, metadata["control_panel_icons"], expected, actual
+
+
+@pytest.mark.parametrize(
+    ("control_panel_icons", "icon"),
+    [(theme, icon) for theme, (_, data) in THEMES.items() for icon in data.get("control_panel_icons", {})],
+    indirect=["control_panel_icons"],
+)
+def test_control_panel_icons(control_panel_icons, icon, visual_output):
+    theme, crops, expected, actual = control_panel_icons
+    crop = crops[icon]
+    directory = visual_output / theme / "control-panel" / "qt" / "icons" / icon
+    exact(expected.crop(crop), actual.crop(crop), directory)
+
+
 @pytest.mark.parametrize("theme", [theme for theme, (_, data) in THEMES.items() if data.get("control_panel_end")])
 def test_control_panel_end(theme, tmp_path, visual_output):
-    folder, _metadata = THEMES[theme]
+    folder, metadata = THEMES[theme]
     with Image.open(folder / "control-panel" / "end.png") as frame:
         expected = frame.convert("RGB")
     output = tmp_path / "end.png"
     render_properties(folder, "control-panel-end", output, expected.size)
     with Image.open(output) as frame:
-        exact(expected, frame.convert("RGB"), visual_output / theme / "control-panel" / "qt" / "end")
+        actual = rgb565(frame) if metadata.get("properties_rgb565") else frame.convert("RGB")
+    exact(expected, actual, visual_output / theme / "control-panel" / "qt" / "end")
+
+
+@pytest.mark.parametrize("theme", [theme for theme, (_, data) in THEMES.items() if data.get("control_panel_category")])
+def test_control_panel_category(theme, tmp_path, visual_output):
+    folder, metadata = THEMES[theme]
+    with Image.open(folder / "control-panel" / "category.png") as frame:
+        expected = frame.convert("RGB")
+    output = tmp_path / "category.png"
+    render_properties(folder, "control-panel-category", output, expected.size)
+    with Image.open(output) as frame:
+        actual = rgb565(frame) if metadata.get("properties_rgb565") else frame.convert("RGB")
+    exact(expected, actual, visual_output / theme / "control-panel" / "qt" / "category")
 
 
 @pytest.mark.parametrize("theme", [theme for theme, (_, data) in THEMES.items() if data.get("control_panel_selection")])
@@ -701,7 +833,8 @@ def test_control_panel_selection(theme, tmp_path, visual_output):
     output = tmp_path / "selected.png"
     render_properties(folder, "control-panel-selection", output, expected.size)
     with Image.open(output) as frame:
-        exact(expected, frame.convert("RGB"), visual_output / theme / "control-panel" / "qt" / state)
+        actual = rgb565(frame) if metadata.get("properties_rgb565") else frame.convert("RGB")
+    exact(expected, actual, visual_output / theme / "control-panel" / "qt" / state)
 
 
 @pytest.mark.parametrize("theme", [theme for theme, (_, data) in THEMES.items() if "display_resolution_picker" in data])
@@ -892,6 +1025,17 @@ def test_control_panel_hover(category_hover, state, visual_output):
     exact(expected, actual, visual_output / theme / "control-panel" / "qt" / state)
 
 
+def test_control_panel_hover_outline(category_hover, visual_output):
+    theme, references, outputs = category_hover
+    if not (references / "hover-outline.png").is_file():
+        pytest.skip("No native capture matching the full card width")
+    with Image.open(references / "hover-outline.png") as original, Image.open(outputs / "hover.png") as render:
+        expected, actual = original.convert("RGB"), render.convert("RGB")
+    outline = np.ones((expected.height, expected.width), dtype=bool)
+    outline[2:-2, 2:-2] = False
+    exact(expected, actual, visual_output / theme / "control-panel" / "qt" / "hover-outline", outline)
+
+
 @pytest.mark.parametrize("theme", [theme for theme, (_, m) in THEMES.items() if m.get("control_panel_hover_exit")])
 def test_control_panel_hover_exit(theme, tmp_path, visual_output):
     folder, _metadata = THEMES[theme]
@@ -906,6 +1050,27 @@ def test_control_panel_hover_exit(theme, tmp_path, visual_output):
                 frames = [image.crop((x, top, x + 12, top + 12)).tobytes() for x in range(0, image.width, 12)]
                 assert frames[0] != frames[1] and all(frame == frames[1] for frame in frames[2:])
         exact(expected, actual, visual_output / theme / "control-panel" / "qt" / "hover-exit")
+
+
+@pytest.fixture(scope="module", params=[theme for theme, (_, m) in THEMES.items() if m.get("control_panel_category_press")])
+def category_press(request, tmp_path_factory):
+    theme = request.param
+    folder, _metadata = THEMES[theme]
+    references = folder / "control-panel"
+    outputs = tmp_path_factory.mktemp(f"{theme}-category-press")
+    with Image.open(references / "category-press.png") as frame:
+        render_properties(folder, "control-panel-category-press", outputs / "category-press.png", frame.size)
+    return theme, references, outputs
+
+
+@pytest.mark.parametrize("state", ("category-press", "category-focus"))
+def test_control_panel_category_press(category_press, state, visual_output):
+    theme, references, outputs = category_press
+    with Image.open(references / f"{state}.png") as frame:
+        expected = frame.convert("RGB")
+    with Image.open(outputs / f"{state}.png") as frame:
+        actual = frame.convert("RGB")
+    exact(expected, actual, visual_output / theme / "control-panel" / "qt" / state)
 
 
 def test_theme_inventory():

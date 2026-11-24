@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="cell">
+      <stop stop-color="#b4b4b4"/>
+      <stop offset=".24" stop-color="#fff"/>
+      <stop offset=".53" stop-color="#e4e5ef"/>
+      <stop offset=".85" stop-color="#a4a6cf"/>
+      <stop offset="1" stop-color="#626494"/>
+    </linearGradient>
+    <linearGradient id="band">
+      <stop stop-color="#ffc14a"/>
+      <stop offset=".29" stop-color="#ffe396"/>
+      <stop offset=".61" stop-color="#ffb249"/>
+      <stop offset=".84" stop-color="#db5014"/>
+      <stop offset="1" stop-color="#8d1e1b"/>
+    </linearGradient>
+    <linearGradient id="plug" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#e0ddff"/>
+      <stop offset=".48" stop-color="#a2a2da"/>
+      <stop offset="1" stop-color="#66679f"/>
+    </linearGradient>
+  </defs>
+  <path d="M9 17C-1 17-1 5 7 8M20 10c7-1 9 2 9 8" fill="none" stroke="#616164" stroke-width="2" stroke-linecap="round"/>
+  <path d="M8 16C1 16 0 7 6 8m15 1c5-1 8 2 8 6" fill="none" stroke="#b8b8ba" stroke-width=".7" stroke-linecap="round"/>
+  <path d="M8 6c0-3 13-3 13 0v16c0 4-13 4-13 0z" fill="url(#cell)" stroke="#595967" stroke-width=".75"/>
+  <path d="M8.4 8c3 2 9 2 12.2 0v6c-3 2-9 2-12.2 0z" fill="url(#band)"/>
+  <ellipse cx="14.5" cy="6" rx="6.1" ry="2.1" fill="url(#cell)" stroke="#aeafbd" stroke-width=".55"/>
+  <path d="M12.7 5.5V3c.5-1 3.2-1 3.8 0v2.5c-.7.7-3 .7-3.8 0z" fill="url(#band)" stroke="#888b9d" stroke-width=".45"/>
+  <path d="M19 24v-4c0-2 7-4 10-2l2 2v6l-5 2z" fill="url(#plug)" stroke="#646588" stroke-width=".75" stroke-linejoin="round"/>
+  <path d="m21 24 2 1-.6 4-2-1zm6 2 2 1-.7 4-2-1z" fill="#be9c46" stroke="#66572c" stroke-width=".6" stroke-linejoin="round"/>
+  <path d="M20 20c2-1 5-2 7-1" fill="none" stroke="#daddfc" stroke-width=".9" stroke-linecap="round"/>
+</svg>

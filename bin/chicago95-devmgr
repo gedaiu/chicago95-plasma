@@ -21,8 +21,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import chicago95ui  # noqa: E702
-from PySide6.QtCore import QPoint, QSize, Qt
-from PySide6.QtGui import QActionGroup, QColor, QIcon, QPainter, QPen, QPolygon
+from PySide6.QtCore import QEvent, QItemSelectionModel, QPoint, QRectF, QSize, Qt
+from PySide6.QtGui import QActionGroup, QColor, QFont, QIcon, QPainter, QPen, QPolygon
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
@@ -35,8 +35,10 @@ from PySide6.QtWidgets import (
     QLabel,
     QMenuBar,
     QMessageBox,
+    QPushButton,
     QRadioButton,
     QStyle,
+    QStyleOptionButton,
     QTabWidget,
     QToolBar,
     QToolButton,
@@ -51,6 +53,9 @@ LSHW_TIMEOUT_SECONDS = 90
 ICON_SIZE = 16
 ITEM_ROLE = Qt.UserRole
 SYSFS_PCI = Path("/sys/bus/pci/devices")
+DEVICE_ART = Path(__file__).resolve().parents[1] / "data/device-manager"
+if not DEVICE_ART.is_dir():
+    DEVICE_ART = Path.home() / ".local/share/chicago95/device-manager"
 IO_RESOURCE, MEMORY_RESOURCE = 0x100, 0x200  # IORESOURCE_IO and IORESOURCE_MEM in a sysfs "resource" line's flags
 WORKING = "This device is working properly."
 NO_DRIVER = "The drivers for this device are not installed. (Code 28)"
@@ -490,6 +495,66 @@ class PropertiesDialog(QDialog):
         return page
 
 
+class ClassicDeviceActionButton(QPushButton):
+    def paintEvent(self, event):
+        if not self.hasFocus():
+            super().paintEvent(event)
+            return
+
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        painter = QPainter(self)
+        pixel = 1 / painter.deviceTransform().m11()
+        outer = QRectF(0, 0, round(self.width() / pixel) * pixel, round(self.height() / pixel) * pixel)
+        black, face = option.palette.shadow(), option.palette.button()
+        shadow, white = option.palette.dark(), option.palette.light()
+        painter.fillRect(outer, black)
+        bevel = outer.adjusted(pixel, pixel, -pixel, -pixel)
+        if self.isDown():
+            painter.fillRect(bevel, shadow)
+            painter.fillRect(bevel.adjusted(pixel, pixel, -pixel, -pixel), face)
+        else:
+            painter.fillRect(bevel, black)
+            painter.fillRect(bevel.adjusted(0, 0, -pixel, -pixel), white)
+            inner = bevel.adjusted(pixel, pixel, -pixel, -pixel)
+            painter.fillRect(inner, shadow)
+            painter.fillRect(inner.adjusted(0, 0, -pixel, -pixel), face)
+        focus = outer.adjusted(4 * pixel, 4 * pixel, -4 * pixel, -4 * pixel)
+        painter.fillRect(focus, black)
+        painter.fillRect(focus.adjusted(pixel, pixel, -pixel, -pixel), face)
+        self.style().drawControl(QStyle.CE_PushButtonLabel, option, painter, self)
+
+
+class AeroDeviceTreeFrame(QFrame):
+    INSETS = (1, 2, 2, 2)
+
+    def __init__(self):
+        super().__init__()
+        self.setObjectName("aeroDeviceTree")
+        self.setStyleSheet("QFrame#aeroDeviceTree { background: white; }")
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        top, shadow, light = QColor("#a0a0a0"), QColor("#696969"), QColor("#e3e3e3")
+        width, height = self.width(), self.height()
+        painter.fillRect(0, 0, width - 1, 1, top)
+        painter.fillRect(0, 1, width - 2, 1, shadow)
+        painter.fillRect(0, 2, 1, height - 4, shadow)
+        painter.fillRect(width - 2, 1, 1, height - 3, light)
+        painter.fillRect(0, height - 2, width - 1, 1, light)
+
+
+class ClassicConsoleBand(QFrame):
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        pixel = 1 / painter.deviceTransform().m22()
+        painter.fillRect(self.rect(), self.palette().button())
+        painter.fillRect(QRectF(0, 0, self.width(), pixel), Qt.white)
+        painter.fillRect(QRectF(0, self.height() - pixel, self.width(), pixel), QColor("#808080"))
+
+
 class DeviceManagerWindow(QWidget):
     def __init__(self, load=load_snapshot):
         super().__init__()
@@ -507,9 +572,10 @@ class DeviceManagerWindow(QWidget):
             if edition in ("2000", "2001"):
                 console_style = edition
         console = console_style in ("2000", "2001", "luna", "aero")
+        self.aero = console_style == "aero"
         if console:
             available = self.screen().availableGeometry().size() - QSize(16, 38)
-            size = QSize(632, 417) if console_style != "aero" else QSize(782, 521)
+            size = QSize(778, 518) if self.aero else QSize(632, 417)
             self.resize(size.boundedTo(available))
         else:
             self.resize(420, 480)
@@ -521,21 +587,34 @@ class DeviceManagerWindow(QWidget):
         else:
             self.add_view_radios(layout)
             layout.addWidget(self.status_label)
-        panel = chicago95ui.sunken_panel()
+        panel = AeroDeviceTreeFrame() if self.aero else chicago95ui.sunken_panel()
         panel_layout = QVBoxLayout(panel)
-        panel_layout.setContentsMargins(0, 0, 0, 0)
+        panel_layout.setContentsMargins(*(AeroDeviceTreeFrame.INSETS if self.aero else (0, 0, 0, 0)))
         self.tree = QTreeWidget()
         self.tree.setHeaderHidden(True)
         self.tree.setIconSize(QSize(ICON_SIZE, ICON_SIZE))
         self.tree.setIndentation(20)
         self.tree.setFrameShape(QTreeWidget.NoFrame)
+        if self.aero:
+            self.tree.setStyleSheet(
+                "QTreeWidget { background: white; color: black; } QTreeWidget::item { height: 18px; }"
+                f'QTreeWidget::branch:open:has-children {{ image: url("{DEVICE_ART / "aero-tree-expanded.svg"}"); }}'
+                f'QTreeWidget::branch:closed:has-children {{ image: url("{DEVICE_ART / "aero-tree-collapsed.svg"}"); }}'
+                "QTreeWidget::branch:!has-children { image: none; }"
+            )
+            self.tree.setUniformRowHeights(True)
         self.tree.itemDoubleClicked.connect(lambda _item, _column: self.show_properties())
         self.tree.itemSelectionChanged.connect(self.update_buttons)
         panel_layout.addWidget(self.tree)
         if console:
             tree_row = QHBoxLayout()
-            inset = 6 if console_style == "aero" else 0
-            tree_row.setContentsMargins(inset, 2 if console_style == "2000" else 6, inset, 0)
+            tree_row.setContentsMargins(0, 2 if console_style == "2000" else 6, 0, 0)
+            if self.aero:
+                gutter = QFrame()
+                gutter.setFixedHeight(6)
+                gutter.setStyleSheet("background: #f0f0f0;")
+                layout.addWidget(gutter)
+                tree_row.setContentsMargins(0, 0, 0, 0)
             self.scope_tree = QTreeWidget()
             self.scope_tree.setHeaderHidden(True)
             self.scope_tree.setMaximumWidth(170)
@@ -565,28 +644,23 @@ class DeviceManagerWindow(QWidget):
             self.status_label.setFixedHeight(21)
             self.status_label.setContentsMargins(4, 1, 4, 1)
             layout.addWidget(self.status_label)
+            if self.aero:
+                self.status_label.hide()
         else:
             self.add_dialog_buttons(layout)
         self.update_buttons()
 
     def add_console_commands(self, layout, console_style):
-        art = Path(__file__).resolve().parents[1] / "data/device-manager"
-        if not art.is_dir():
-            art = Path.home() / ".local/share/chicago95/device-manager"
-
+        art = DEVICE_ART
         classic_nt = console_style in ("2000", "2001")
         single_band = console_style == "2000"
+        xp_console = console_style in ("2001", "luna")
+        scale = self.devicePixelRatioF()
         menus = QMenuBar()
         menus.setNativeMenuBar(False)
         menus.setFixedHeight(23)
         if single_band:
-            command_band = QFrame()
-            command_band.setObjectName("mmcBand")
-            command_band.setStyleSheet(
-                "QFrame#mmcBand { background: qlineargradient(x1:0,y1:0,x2:0,y2:1, "
-                "stop:0 white, stop:.045 white, stop:.046 palette(button), stop:.95 palette(button), "
-                "stop:.951 #808080, stop:1 #808080); }"
-            )
+            command_band = ClassicConsoleBand()
             commands = QHBoxLayout(command_band)
             commands.setContentsMargins(0, 0, 0, 0)
             commands.setSpacing(0)
@@ -601,7 +675,10 @@ class DeviceManagerWindow(QWidget):
             height = 20 if single_band else 24
             menus.setFixedHeight(height)
             toolbar.setFixedHeight(height)
-            bands = "background: palette(button); border-top: 1px solid white; border-bottom: 1px solid #808080;"
+            bands = (
+                "background: transparent; border: 0;" if single_band
+                else "background: palette(button); border-top: 1px solid white; border-bottom: 1px solid #808080;"
+            )
             menus.setStyleSheet("QMenuBar {" + bands + "} QMenuBar::item { padding: 2px 6px; }")
             toolbar.setStyleSheet(
                 "QToolBar {" + bands + "padding-left: 2px; spacing: 1px; } "
@@ -617,7 +694,7 @@ class DeviceManagerWindow(QWidget):
             """)
             toolbar.setStyleSheet(
                 """
-                QToolBar { min-height: 21px; padding: 0 0 0 2px;
+                QToolBar { padding: 0 0 0 2px;
                     border-image: url("BAND_IMAGE") 1 0 1 0 stretch stretch;
                     border-top: 1px solid white; border-bottom: 1px solid #cdcabb; spacing: 1px; }
                 QToolButton { border: 0; }
@@ -627,28 +704,33 @@ class DeviceManagerWindow(QWidget):
             )
         else:
             menus.setStyleSheet("""
-                QMenuBar { border-bottom: 1px solid #b4b4b4;
-                    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #fefeff,
-                    stop:.39 #e5eaf5,stop:.43 #d3daed,stop:1 #d3daed); }
-                QMenuBar::item { background: transparent; padding: 4px 8px 2px; }
+                QMenuBar { color: black; padding-left: 2px; border-bottom: 1px solid #b4b4b4;
+                    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #ffffff,
+                    stop:.39 #e4eaf5,stop:.405 #d3daed,stop:1 #d3daed); }
+                QMenuBar::item { color: black; background: transparent; padding: 3px 6px; }
                 QMenuBar::item:selected { background: #c4dcf0; }
             """)
             toolbar.setStyleSheet("""
                 QToolBar { min-height: 21px; border: 0; border-top: 1px solid #f4f7fc; border-bottom: 1px solid #b6bccc;
                     spacing: 1px; background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-                    stop:0 #d3daed,stop:.32 #d3daed,stop:1 #e1e6f5); }
+                    stop:0 #d3daed,stop:.32 #d3daed,stop:.55 #d6dcf0,stop:1 #e3e8f7); }
                 QToolButton { border: 0; padding: 2px 0 0 2px; } QToolButton:hover { background: #c4dcf0; }
                 QToolBar::separator { width: 7px; }
             """)
-        if console_style in ("luna", "2001"):
-            top = 2 if console_style == "luna" else 1
-            toolbar.setStyleSheet(toolbar.styleSheet() + f"QToolButton {{ padding: {top}px 0 0 0; }}")
-        icon_side = 13 if single_band else 16
+        if xp_console:
+            self.style_xp_toolbar(toolbar, console_style, scale)
+            if scale == 1.25:
+                menus.setFixedHeight(22)
+        icon_side = 13 if single_band else round(16 / scale) if xp_console else 16
         toolbar.setIconSize(QSize(icon_side, icon_side))
         toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)
         if single_band:
-            menus.setMinimumWidth(80)
-            menus.setStyleSheet(menus.styleSheet() + "QMenuBar::item { padding: 6px 6px 0; }")
+            menus.setFixedWidth(80)
+            font = QFont("Tahoma")
+            font.setPixelSize(10)
+            font.setHintingPreference(QFont.PreferFullHinting)
+            menus.setFont(font)
+            menus.setStyleSheet(menus.styleSheet() + "QMenuBar::item { padding: 4px 6px 1px 5px; }")
             toolbar.setStyleSheet(
                 toolbar.styleSheet()
                 + "QToolBar { padding: 0; spacing: 0; } QToolButton { padding: 0 2px 2px 0; }"
@@ -739,7 +821,13 @@ class DeviceManagerWindow(QWidget):
             toolbar.addAction(self.scan_action)
         for command in toolbar.actions():
             if not command.isSeparator():
-                toolbar.widgetForAction(command).setFixedWidth(18 if single_band else 22)
+                width = 18 if single_band else round(22 / scale) if xp_console else 22
+                button = toolbar.widgetForAction(command)
+                button.setFixedWidth(width)
+                if xp_console:
+                    button.setMouseTracking(True)
+                    button.setProperty("xpPointerInside", False)
+                    button.installEventFilter(self)
         view.addSeparator()
         modes = QActionGroup(self)
         for title in ("Devices by type", "Devices by connection"):
@@ -749,6 +837,50 @@ class DeviceManagerWindow(QWidget):
         by_type, self.by_connection_radio = modes.actions()
         by_type.setChecked(True)
         modes.triggered.connect(self.rebuild_tree)
+
+    def style_xp_toolbar(self, toolbar, console_style, scale):
+        luna = console_style == "luna"
+        toolbar.setFixedHeight(round((23 if luna else 24) / scale))
+        top = 2 if luna else 1
+        base = (
+            f"QToolButton {{ border: 0; background: transparent; padding: {top}px 0 0 0; }}"
+            "QToolButton:hover { background: transparent; }"
+            f"QToolBar::separator {{ width: {round(7 / scale)}px; }}"
+        )
+        if luna:
+            states = """
+                QToolButton[xpPointerInside=true]:enabled { border: 1px solid #cecfc4; border-radius: 3px;
+                    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #ffffff,
+                    stop:.75 #f8f7f2,stop:1 #e2dfd5); }
+                QToolButton:pressed:enabled { border: 1px solid #9ca094; border-radius: 3px;
+                    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #d9d6ca,
+                    stop:.40 #e8e5da,stop:1 #efede3); }
+                QToolButton:checked { border: 1px solid #7b9aad; border-radius: 3px; background: white; }
+            """
+        else:
+            states = """
+                QToolButton[xpPointerInside=true]:enabled { background: palette(button); border: 1px solid white;
+                    border-color: white #808080 #808080 white; }
+                QToolButton:pressed:enabled, QToolButton:checked {
+                    background: palette(button); border: 1px solid white; border-color: #808080 white white #808080; }
+            """ + f'QToolButton:checked {{ background-image: url("{DEVICE_ART / "xp-classic-command-stipple.svg"}"); }}'
+        toolbar.setStyleSheet(toolbar.styleSheet() + base + states)
+
+    def eventFilter(self, widget, event):
+        if widget.property("xpPointerInside") is not None:
+            if event.type() == QEvent.Leave:
+                inside = False
+            elif event.type() in (QEvent.Enter, QEvent.MouseMove, QEvent.MouseButtonRelease):
+                inside = widget.rect().contains(event.position().toPoint())
+            else:
+                return super().eventFilter(widget, event)
+            if widget.property("xpPointerInside") != inside:
+                widget.setProperty("xpPointerInside", inside)
+                style = widget.style()
+                style.unpolish(widget)
+                style.polish(widget)
+                widget.update()
+        return super().eventFilter(widget, event)
 
     def update_navigation(self):
         self.back.setEnabled(self.history_position > 0)
@@ -783,23 +915,24 @@ class DeviceManagerWindow(QWidget):
         self.by_type_radio.toggled.connect(self.rebuild_tree)
 
     def add_dialog_buttons(self, layout):
-        self.properties_button = chicago95ui.dialog_button("P&roperties")
+        matched_dpi = self.devicePixelRatioF() == 1.25
+        self.properties_button = ClassicDeviceActionButton("P&roperties")
         self.properties_button.clicked.connect(self.show_properties)
-        refresh_button = chicago95ui.dialog_button("Re&fresh")
-        refresh_button.clicked.connect(self.refresh)
+        self.refresh_button = ClassicDeviceActionButton("Re&fresh")
+        self.refresh_button.clicked.connect(self.refresh)
         action_row = QHBoxLayout()
         action_row.setSpacing(6)
         for width, button in zip(
-            (84, 84, 84, 83),
+            (90, 90, 90, 88) if matched_dpi else (84, 84, 84, 83),
             (
                 self.properties_button,
-                refresh_button,
+                self.refresh_button,
                 chicago95ui.dialog_button("R&emove", enabled=False),
                 chicago95ui.dialog_button("Pri&nt...", enabled=False),
             ),
             strict=True,
         ):
-            button.setFixedWidth(width)
+            button.setFixedSize(width, 22 if matched_dpi else chicago95ui.DIALOG_BUTTON_SIZE[1])
             action_row.addWidget(button)
         action_row.addStretch()
         layout.addLayout(action_row)
@@ -809,6 +942,7 @@ class DeviceManagerWindow(QWidget):
         cancel_button = chicago95ui.dialog_button("Cancel")
         cancel_button.clicked.connect(self.close)
         dialog_row = QHBoxLayout()
+        dialog_row.setContentsMargins(0, 21, 0, 0)
         dialog_row.addStretch()
         dialog_row.addWidget(ok_button)
         dialog_row.addWidget(cancel_button)
@@ -816,6 +950,7 @@ class DeviceManagerWindow(QWidget):
 
     def refresh(self):
         self.status_label.setText("Searching for devices...")
+        self.status_label.show()
         QApplication.processEvents()
         self.snapshot = self.load()
         self.rebuild_tree()
@@ -829,8 +964,13 @@ class DeviceManagerWindow(QWidget):
             self.update_navigation()
         root = build_tree(self.tree, self.snapshot, self.by_connection_radio.isChecked())
         if hasattr(self, "history"):
-            self.tree.setCurrentItem(root)
+            if self.aero:
+                self.tree.setCurrentItem(root, 0, QItemSelectionModel.NoUpdate)
+            else:
+                self.tree.setCurrentItem(root)
         self.status_label.setText(summary_text(self.snapshot))
+        if self.aero:
+            self.status_label.setVisible(bool(self.snapshot.error))
         self.update_buttons()
 
     def selected_device(self):

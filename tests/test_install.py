@@ -660,7 +660,9 @@ def test_classic_animation_setup_uses_each_looks_travelling_title_strip(tmp_path
     log = animations_log(tmp_path, f"LOOK={look}\nANIM_MINIMIZE=zoom\n")
     assert kwriteconfig("kwinrc", "Effect-chicago95zoom", "ClassicStripSpeed", speed) in log
     assert kwriteconfig("kwinrc", "Effect-chicago95zoom", "ClassicStripPalette", palette) in log
-    instant = "true" if look == "2001" else "--delete"
+    limit = "300" if look == "1998" else "--delete"
+    assert kwriteconfig("kwinrc", "Effect-chicago95zoom", "ClassicStripMaxMs", limit) in log
+    instant = "true" if look in {"1998", "2001"} else "--delete"
     assert kwriteconfig("kwinrc", "Effect-chicago95zoom", "InstantMaximize", instant) in log
 
 
@@ -1546,6 +1548,7 @@ def test_reapplying_the_look_reloads_running_decoration_without_restarting_kwin(
         f"theme org.chicago95.{style}",
         *zoom_config,
         "ClassicStripSpeed --delete",
+        "ClassicStripMaxMs --delete",
         "ClassicStripPalette --delete",
         "InstantMaximize " + ("true" if style == "luna" else "--delete"),
         "library org.kde.breeze",

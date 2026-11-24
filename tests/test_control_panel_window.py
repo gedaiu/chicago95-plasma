@@ -117,6 +117,8 @@ def test_windows_95_menu_only_shell_opens_original_and_project_applets(window, c
 
 
 def test_windows_98_web_view_tracks_selection_and_can_be_hidden(window, control_panel, monkeypatch):
+    from PySide6.QtWidgets import QLabel
+
     window.close()
     monkeypatch.setattr(control_panel.chicago95ui, "widget_style", lambda: "classic")
     control_panel.write_settings(window.settings_path, {"LOOK": "1998"})
@@ -138,6 +140,15 @@ def test_windows_98_web_view_tracks_selection_and_can_be_hidden(window, control_
         assert not panel.sidebar.isVisible() and panel.icon_view.currentItem().text() == "Display"
         panel.web_view_action.trigger()
         assert panel.sidebar.isVisible()
+        links = {label.text().split(">")[1].split("<")[0]: label for label in panel.sidebar.findChildren(QLabel)
+                 if label.text().startswith("<a ")}
+        for caption, suffix in (("Chicago95 Repository", ""), ("Report an issue", "/issues")):
+            address = f"https://github.com/gedaiu/chicago95-plasma{suffix}"
+            assert address in links[caption].text()
+            links[caption].linkActivated.emit(address)
+            assert window.started[-1] == ("xdg-open", [address])
+        links["Choose a desktop theme"].linkActivated.emit("themes")
+        assert panel.history.current[-1] == "Themes"
     finally:
         for sheet in panel.applet_windows.values():
             sheet.close()
@@ -161,10 +172,52 @@ def test_windows_2000_compact_toolbar_and_web_view_search(window, control_panel,
         assert [item_texts(panel)[i] for i in range(23) if not panel.icon_view.item(i).isHidden()] == ["Display"]
         panel.toolbar_buttons["Search"].click()
         assert sum(not panel.icon_view.item(i).isHidden() for i in range(23)) == 23
+        panel.toolbar_buttons["Search"].click()
+        panel.sidebar.search.setText("Display")
+        panel.web_view_action.trigger()
+        assert panel.sidebar.search.isHidden()
+        assert sum(not panel.icon_view.item(i).isHidden() for i in range(23)) == 23
+        panel.web_view_action.trigger()
         select(panel, "Display")
         assert panel.sidebar.applet_title.text() == "Display"
-        assert panel.status_message.text() == "Changes display settings."
+        assert panel.status_message.text() == "Customizes your desktop display and screen saver"
     finally:
+        panel.close()
+
+
+@pytest.mark.parametrize(("look", "style"), [("2001", "classic"), ("luna", "luna")])
+def test_xp_can_switch_between_category_and_classic_views(window, control_panel, monkeypatch, look, style):
+    window.close()
+    monkeypatch.setattr(control_panel.chicago95ui, "widget_style", lambda: style)
+    control_panel.write_settings(window.settings_path, {"LOOK": look})
+    panel = control_panel.ControlPanel(settings_path=window.settings_path, actions=window.actions)
+    panel.show()
+    try:
+        assert panel.icon_view.count() == 29
+        assert panel.statusBar().isHidden()
+        assert list(panel.toolbar_buttons) == ["Back", "Forward", "Up", "Search", "Folders", "Views"]
+        assert panel.xp_views.currentWidget() is panel.icon_view
+        panel.sidebar.view_requested.emit()
+        assert panel.xp_views.currentWidget() is panel.xp_category_view
+        from PySide6.QtWidgets import QToolButton
+
+        appearance = next(
+            button for button in panel.xp_category_view.findChildren(QToolButton)
+            if button.accessibleName() == "Appearance and Themes"
+        )
+        appearance.click()
+        assert panel.xp_views.currentWidget() is panel.icon_view
+        assert [item_texts(panel)[i] for i in range(29) if not panel.icon_view.item(i).isHidden()] == [
+            "Display", "Folder Options", "Taskbar and\nStart Menu",
+        ]
+        panel.sidebar.view_requested.emit()
+        assert panel.xp_views.currentWidget() is panel.icon_view
+        select(panel, "Display")
+        panel.icon_view.itemActivated.emit(panel.icon_view.currentItem())
+        assert panel.applet_windows["Display"].isVisible()
+    finally:
+        for sheet in panel.applet_windows.values():
+            sheet.close()
         panel.close()
 
 

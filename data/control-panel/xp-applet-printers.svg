@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="folder" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#fff3a5"/>
+      <stop offset=".62" stop-color="#ffda65"/>
+      <stop offset="1" stop-color="#d69b35"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#f7fdff"/>
+      <stop offset=".58" stop-color="#d3edff"/>
+      <stop offset="1" stop-color="#92bfe9"/>
+    </linearGradient>
+    <linearGradient id="housing" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#fff"/>
+      <stop offset=".55" stop-color="#d5d6d6"/>
+      <stop offset="1" stop-color="#a0a3a5"/>
+    </linearGradient>
+    <linearGradient id="front" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f5f5f6"/>
+      <stop offset=".6" stop-color="#d5d7d8"/>
+      <stop offset="1" stop-color="#85898b"/>
+    </linearGradient>
+  </defs>
+  <path d="M1 3h8l2 2h7v15l-17 1z" fill="url(#folder)" stroke="#ba9333" stroke-width=".65" stroke-linejoin="round"/>
+  <path d="m1.5 19 1.4-12H17l-1.4 12z" fill="#ffe87e"/>
+  <path d="M10 4h10l3 4v9H10z" fill="url(#paper)" stroke="#8d9caf" stroke-width=".6"/>
+  <path d="M20 4v4h3z" fill="#bdd6eb"/>
+  <path d="m8 17 13-4 7 4 3 4v5l-12 4-12-5v-5z" fill="url(#housing)" stroke="#777a7a" stroke-width=".75" stroke-linejoin="round"/>
+  <path d="m7 21 12 4 12-4v5l-12 4-12-5z" fill="url(#front)" stroke="#8a8c8c" stroke-width=".6" stroke-linejoin="round"/>
+  <path d="m9 18 8 3 9-3M10 16.7l9 3 5-1.6" fill="none" stroke="#a8acaf" stroke-width=".65" stroke-linejoin="round"/>
+  <path d="m20 27 7-2-2 2.5-5 1.6z" fill="#62686d"/>
+  <path d="m8 23 10 3.4m2-2.2 8-2.6" fill="none" stroke="#f6f6f6" stroke-width=".7"/>
+  <path d="m27 24 1.7-.6" stroke="#709b46" stroke-width=".8" stroke-linecap="round"/>
+</svg>

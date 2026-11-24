@@ -9,6 +9,8 @@
   "taskbar_x": 535,
   "run_scale": 1.5,
   "device_manager_scale": 1,
+  "device_manager_crop": [0, 0, 778, 46],
+  "device_manager_tree_frame": true,
   "properties_scale": 1.5,
   "display_page": "Settings",
   "display_resolution": "1280x960",
@@ -22,8 +24,19 @@
       "1600x900", "1680x1050", "1920x1080"
     ]
   },
+  "control_panel_icons": {
+    "system-and-security": [108, 142, 186, 226],
+    "user-accounts-and-family-safety": [589, 142, 669, 226],
+    "clock-language-and-region": [589, 373, 669, 456],
+    "ease-of-access": [589, 456, 669, 539],
+    "network-and-internet": [108, 271, 186, 354],
+    "hardware-and-sound": [108, 410, 186, 495],
+    "programs": [108, 564, 186, 645],
+    "appearance-and-personalization": [589, 246, 669, 326]
+  },
   "control_panel_hover_scale": 1,
   "control_panel_hover_exit": true,
+  "control_panel_category_press": true,
   "shutdown_scale": 1,
   "shutdown_os_name": "Windows 7",
   "shutdown_cursor": [

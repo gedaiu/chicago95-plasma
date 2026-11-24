@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs>
+    <linearGradient id="paper" x2="1" y2="1">
+      <stop stop-color="#fff"/>
+      <stop offset=".7" stop-color="#e4e4e1"/>
+      <stop offset="1" stop-color="#9a9d9e"/>
+    </linearGradient>
+    <linearGradient id="lid" x1="0" y1="0" x2=".7" y2="1">
+      <stop stop-color="#dde1df"/>
+      <stop offset=".64" stop-color="#777e80"/>
+      <stop offset="1" stop-color="#30383b"/>
+    </linearGradient>
+    <radialGradient id="cone">
+      <stop stop-color="#d4e0e8"/>
+      <stop offset=".38" stop-color="#aab8c4"/>
+      <stop offset=".69" stop-color="#ebeef0"/>
+      <stop offset=".86" stop-color="#8b9da9"/>
+      <stop offset="1" stop-color="#d3dce2"/>
+    </radialGradient>
+  </defs>
+  <path d="m29 3 17 2-7 21-22-3z" fill="url(#paper)" stroke="#a8aeab" stroke-width=".65"/>
+  <path d="m17 18 26 5-3 13-25 5L2 34l1-7z" fill="#b0b5b7" stroke="#747a7c" stroke-width=".75"/>
+  <path d="m17 18 26 5-11 11L2 29z" fill="url(#lid)" stroke="#a9afaf" stroke-width=".7"/>
+  <path d="m5 31 22 4-6 4-19-4z" fill="#303b48"/>
+  <path d="m8 34 15 3-6 4-13-3z" fill="#eef1f2"/>
+  <path d="m8 36 10 2m-11-.4 7 1.5" stroke="#467ea1" stroke-width=".9"/>
+  <path d="m28 28 14-3 5 3v16l-6 4-13-4z" fill="#687d88" stroke="#6e7e83" stroke-width=".6"/>
+  <path d="m42 29 5-1v16l-5 3z" fill="#c7d2d7"/>
+  <ellipse cx="34.8" cy="37.4" rx="5.4" ry="7.0" fill="url(#cone)" stroke="#b5c5cb" stroke-width=".7" transform="rotate(-13 34.8 37.4)"/>
+  <ellipse cx="34.8" cy="37.4" rx="1.8" ry="2.3" fill="#889ba9"/>
+</svg>

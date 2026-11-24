@@ -16,6 +16,10 @@
   },
   "taskbar_x": 398,
   "device_manager_scale": 1,
+  "device_manager_console_states": {
+    "scale": 1.25,
+    "cursor": [[11, 10, 27, 23], [11, 10, 27, 23]]
+  },
   "device_manager_crop": [
     0,
     0,
@@ -23,6 +27,15 @@
     46
   ],
   "properties_scale": 1.25,
+  "control_panel_icons": {
+    "date-and-time": [292, 186, 328, 223],
+    "display": [386, 186, 422, 223],
+    "mouse": [480, 280, 516, 317],
+    "power-options": [386, 374, 422, 411],
+    "printers-and-faxes": [480, 374, 516, 411]
+  },
+  "control_panel_category": true,
+  "control_panel_end": "Wireless Network Setup Wizard",
   "properties_rgb565": true,
   "display_page": "Settings",
   "display_resolution": "1280x1024",

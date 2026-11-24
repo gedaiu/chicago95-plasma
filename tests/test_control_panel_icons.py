@@ -32,3 +32,22 @@ def test_an_applet_icon_at_one_and_a_half_scale_is_the_themes_48_pixel_picture(t
     pixmap = load_script("chicago95-control-panel").themed_icon(["probe"]).pixmap(QSize(32, 32), 1.5)
 
     assert (pixmap.size().toTuple(), pixmap.toImage().pixelColor(24, 24).name()) == ((48, 48), "#ff0000")
+
+
+def test_checkout_icon_takes_priority_over_an_older_install(tmp_path, monkeypatch):
+    panel = load_script("chicago95-control-panel")
+    monkeypatch.setattr(panel, "REPO_DIR", tmp_path / "checkout")
+    monkeypatch.setattr(panel, "CHICAGO95_DATA", tmp_path / "installed")
+    name = "aero-category-clock.svg"
+    checkout = panel.REPO_DIR / "data/control-panel" / name
+    installed = panel.CHICAGO95_DATA / "control-panel" / name
+    for asset in (checkout, installed):
+        asset.parent.mkdir(parents=True)
+        asset.touch()
+
+    assert panel.control_panel_asset(name) == checkout
+    checkout.unlink()
+    assert panel.control_panel_asset(name) == checkout
+
+    monkeypatch.setattr(panel, "REPO_DIR", tmp_path / "installed-prefix")
+    assert panel.control_panel_asset(name) == installed

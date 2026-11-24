@@ -463,7 +463,7 @@ WIN95_APPLETS = (
            "Provides system information and changes advanced settings.", APPLET_BY_NAME["System"].external_tool),
 )
 
-WIN95_APPLET_ART = {
+CLASSIC_APPLET_ART = {
     "Add New Hardware": "win95-add-hardware.svg",
     "Add/Remove Programs": "win95-add-programs.svg",
     "Date/Time": "win95-date-time.svg",
@@ -471,7 +471,27 @@ WIN95_APPLET_ART = {
     "Multimedia": "win95-multimedia.svg",
     "Network": "win95-network.svg",
     "Power": "win95-power.svg",
-    "Power Management": "win95-power.svg",
+    "Add/Remove Hardware": "win95-add-hardware.svg",
+    "Printers": "classic-printers.svg",
+}
+EXPLORER_APPLET_ART = {
+    **CLASSIC_APPLET_ART,
+    "Display": "classic-display.svg",
+    "Internet Options": "classic-internet-options.svg",
+    "Power Management": "classic-power-options.svg",
+    "Power Options": "classic-power-options.svg",
+    "ODBC Data Sources (32bit)": "win98-odbc.svg",
+    "Telephony": "win98-telephony.svg",
+    "Administrative Tools": "win2000-administrative-tools.svg",
+    "Network and Dial-up Connections": "win2000-network-dialup.svg",
+    "Scheduled Tasks": "win2000-scheduled-tasks.svg",
+}
+WIN95_APPLET_ART = {
+    **CLASSIC_APPLET_ART,
+    "Accessibility Options": "win95-accessibility.svg",
+    "Fonts": "win95-fonts.svg",
+    "Internet": "win95-internet.svg",
+    "Keyboard": "win95-keyboard.svg",
 }
 
 _WIN95_BY_NAME = {applet.name: applet for applet in WIN95_APPLETS}
@@ -512,7 +532,7 @@ WIN2000_APPLETS = (
     Applet("Automatic Updates", ("system-software-update",), "Changes automatic software update settings.",
            command=("kcmshell6", "kcm_updates")),
     _WIN95_BY_NAME["Date/Time"],
-    _WIN98_BY_NAME["Display"],
+    replace(_WIN98_BY_NAME["Display"], description="Customizes your desktop display and screen saver"),
     replace(APPLET_BY_NAME["Explorer"], name="Folder Options", target="Explorer"),
     _WIN95_BY_NAME["Fonts"],
     _WIN98_BY_NAME["Game Controllers"],
@@ -541,6 +561,66 @@ WIN2000_ICON_CAPTIONS = {
     "Scanners and Cameras": "Scanners\nand Ca…",
     "Sounds and Multimedia": "Sounds\nand Mul…",
 }
+_WIN2000_BY_NAME = {applet.name: applet for applet in WIN2000_APPLETS}
+XP_APPLETS = (
+    _WIN95_BY_NAME["Accessibility Options"],
+    replace(_WIN95_BY_NAME["Add New Hardware"], name="Add Hardware"),
+    replace(_WIN95_BY_NAME["Add/Remove Programs"], name="Add or Remove Programs"),
+    *WIN2000_APPLETS[3:5],
+    replace(_WIN95_BY_NAME["Date/Time"], name="Date and Time"),
+    *WIN2000_APPLETS[6:13],
+    replace(_WIN95_BY_NAME["Network"], name="Network Connections"),
+    replace(_WIN95_BY_NAME["Network"], name="Network Setup Wizard"),
+    _WIN2000_BY_NAME["Phone and Modem Options"],
+    _WIN2000_BY_NAME["Power Options"],
+    replace(_WIN95_BY_NAME["Printers"], name="Printers and Faxes"),
+    replace(_WIN95_BY_NAME["Regional Settings"], name="Regional and Language Options"),
+    _WIN2000_BY_NAME["Scanners and Cameras"],
+    _WIN2000_BY_NAME["Scheduled Tasks"],
+    Applet("Security Center", ("security-high", "security-medium"), "Shows firmware security information.",
+           command=("kcmshell6", "kcm_firmware_security")),
+    replace(APPLET_BY_NAME["Sounds"], name="Sounds and Audio Devices", target="Sounds"),
+    Applet("Speech", ("preferences-desktop-accessibility",), "Opens accessibility settings.",
+           command=("kcmshell6", "kcm_access")),
+    _WIN95_BY_NAME["System"],
+    replace(APPLET_BY_NAME["Taskbar"], name="Taskbar and Start Menu", target="Taskbar"),
+    replace(_WIN98_BY_NAME["Users"], name="User Accounts"),
+    Applet("Windows Firewall", ("security-high", "network-wired"), "Opens the firewall configuration tool.",
+           command=("firewall-config",)),
+    replace(_WIN95_BY_NAME["Network"], name="Wireless Network Setup Wizard"),
+)
+XP_APPLET_ART = {
+    "Date and Time": "xp-applet-date-time.svg",
+    "Display": "xp-applet-display.svg",
+    "Mouse": "xp-applet-mouse.svg",
+    "Power Options": "xp-applet-power.svg",
+    "Printers and Faxes": "xp-applet-printers.svg",
+}
+XP_ICON_CAPTIONS = {
+    "Add or Remove Programs": "Add or\nRemov…",
+    "Phone and Modem Options": "Phone and\nModem …",
+    "Regional and Language Options": "Regional and\nLanguage …",
+    "Taskbar and Start Menu": "Taskbar and\nStart Menu",
+    "Wireless Network Setup Wizard": "Wireless\nNetwork\nSetup Wizard",
+}
+XP_CATEGORIES = (
+    ("Appearance and Themes", "Display", ("Display", "Folder Options", "Taskbar and Start Menu")),
+    ("Network and Internet Connections", "Network Connections",
+     ("Internet Options", "Network Connections", "Network Setup Wizard", "Wireless Network Setup Wizard")),
+    ("Add or Remove Programs", "Add or Remove Programs", ("Add or Remove Programs",)),
+    ("Sounds, Speech, and Audio Devices", "Sounds and Audio Devices", ("Sounds and Audio Devices", "Speech")),
+    ("Performance and Maintenance", "System", ("Administrative Tools", "Power Options", "Scheduled Tasks", "System")),
+    ("Printers and Other Hardware", "Printers and Faxes",
+     ("Add Hardware", "Game Controllers", "Keyboard", "Mouse", "Phone and Modem Options", "Printers and Faxes",
+      "Scanners and Cameras")),
+    ("User Accounts", "User Accounts", ("User Accounts",)),
+    ("Date, Time, Language, and Regional Options", "Date and Time", ("Date and Time", "Regional and Language Options")),
+    ("Accessibility Options", "Accessibility Options", ("Accessibility Options", "Fonts")),
+    ("Security Center", "Security Center", ("Automatic Updates", "Security Center", "Windows Firewall")),
+)
+XP_CLASSIC_TOOLBAR_HEIGHT = 23
+XP_LUNA_MENU_HEIGHT = 19
+XP_LUNA_TOOLBAR_HEIGHT = 30
 
 PAGE_TABS = {
     "Booting Screen": ("Boot Screen",),
@@ -607,29 +687,25 @@ AERO_CATEGORY_STYLE = (
     "QPushButton { background: transparent; text-align: left; border: 0; padding: 0; color: #0066cc; }"
     "QPushButton[heading=true] { color: #006600; font-size: 15px; }"
     "QPushButton:hover, QPushButton:focus { text-decoration: underline; color: #004499; }"
+    "QPushButton[heading=true]:focus { color: #006600; text-decoration: none; }"
+    "QPushButton[heading=true]:hover { color: #006600; text-decoration: underline; }"
 )
 
 # Minimum card heights measured by the native heading intervals, excluding the 6 px gap.
 AERO_CATEGORY_HEIGHTS = (80, 80, 102, 0, 61, 83, 0, 0)
-AERO_CATEGORY_ASSETS = {
-    "System and Security": "aero-category-security.svg",
-    "Clock, Language, and Region": "aero-category-clock.svg",
-}
-
-
 # Windows 7 lists these categories down the left column, then down the right.
 AERO_CATEGORIES = {
     "System and Security": (
-        "security-high",
+        "aero-category-security.svg",
         (
             ("View system information", "System", ""),
             ("Check for updates", "Updates", ""),
             ("Change the boot screen", "Booting Screen", ""),
         ),
     ),
-    "Network and Internet": ("network-workgroup", (("Set up a dial-up connection", "Modems", ""),)),
+    "Network and Internet": ("aero-category-network.svg", (("Set up a dial-up connection", "Modems", ""),)),
     "Hardware and Sound": (
-        "printer",
+        "aero-category-hardware.svg",
         (
             ("View devices", "Add New Hardware", ""),
             ("Change system sounds", "Sounds", ""),
@@ -637,7 +713,7 @@ AERO_CATEGORIES = {
         ),
     ),
     "Programs": (
-        "package-install",
+        "aero-category-programs.svg",
         (("Configure the file manager", "Explorer", ""), ("Configure the Office Assistant", "Office Assistant", "")),
     ),
     "User Accounts and Family Safety": (
@@ -645,7 +721,7 @@ AERO_CATEGORIES = {
         (("Change logon settings", "Passwords", ""), ("Change system branding", "Distro Setup", "")),
     ),
     "Appearance and Personalization": (
-        "preferences-desktop-theme",
+        "aero-category-appearance.svg",
         (
             ("Change the theme", "Themes", ""),
             ("Change desktop background", "Display", "Background"),
@@ -653,11 +729,11 @@ AERO_CATEGORIES = {
         ),
     ),
     "Clock, Language, and Region": (
-        "preferences-system-time",
+        "aero-category-clock.svg",
         (("Change taskbar clock settings", "Taskbar", "Taskbar"),),
     ),
     "Ease of Access": (
-        "preferences-desktop-accessibility",
+        "aero-category-ease-of-access.svg",
         (("Change the screen font", "Fonts", ""), ("Change pointer size", "Mouse", "Pointers")),
     ),
 }
@@ -1439,11 +1515,12 @@ class ClassicStatusBar(QStatusBar):
     """Windows' status bar: the panes reach the bottom edge and the last one runs under the size grip to the right
     edge. Qt's own keeps a row under its panes and the grip beside them, so this one places them itself."""
 
-    def __init__(self, panes):
+    def __init__(self, panes, stretches=STATUS_PANE_STRETCHES):
         super().__init__()
         self.setSizeGripEnabled(False)
         self.setFixedHeight(STATUS_BAR_HEIGHT)
         self.panes = panes
+        self.stretches = (1,) if len(panes) == 1 else stretches
         for pane in panes:
             pane.setParent(self)
         self.grip = QSizeGrip(self)
@@ -1451,8 +1528,7 @@ class ClassicStatusBar(QStatusBar):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        stretches = (1,) if len(self.panes) == 1 else STATUS_PANE_STRETCHES
-        frames = status_pane_frames(self.width(), stretches)
+        frames = status_pane_frames(self.width(), self.stretches)
         for pane, (left, width) in zip(self.panes, frames, strict=True):
             pane.setGeometry(left, STATUS_PANE_TOP, width, self.height() - STATUS_PANE_TOP)
         self.grip.move(self.width() - self.grip.width(), self.height() - self.grip.height())
@@ -3302,6 +3378,22 @@ class AeroNavigationButton(QToolButton):
             painter.drawEllipse(self.rect().adjusted(1, 1, -2, -2))
 
 
+class AeroCategoryHeading(QPushButton):
+    def __init__(self, title):
+        super().__init__(title)
+        self.setProperty("heading", True)
+        self.setAutoDefault(True)
+        self.setCursor(Qt.PointingHandCursor)
+        font = self.font()
+        font.setStretch(98)
+        self.setFont(font)
+
+    def event(self, event):
+        if event.type() in (QEvent.FocusIn, QEvent.FocusOut) and (card := self.parentWidget()):
+            card.update()
+        return super().event(event)
+
+
 class AeroCategoryCard(QFrame):
     def __init__(self):
         super().__init__()
@@ -3320,23 +3412,44 @@ class AeroCategoryCard(QFrame):
 
     def paintEvent(self, event):
         super().paintEvent(event)
-        if not self.highlighted:
-            return
-        painter = QPainter(self)
+        heading = QApplication.focusWidget()
+        heading_focused = isinstance(heading, AeroCategoryHeading) and heading.parentWidget() is self
+        if self.highlighted or heading_focused:
+            painter = QPainter(self)
+            if self.highlighted:
+                self.paint_highlight(painter)
+            if heading_focused:
+                self.paint_heading_focus(painter, heading)
+
+    def paint_heading_focus(self, painter, heading):
+        pen = QPen(Qt.black, 1, Qt.DotLine, Qt.FlatCap)
+        pen.setDashPattern([1, 1])
+        pen.setCosmetic(True)
+        painter.setPen(pen)
+        painter.setBrush(Qt.NoBrush)
+        width = min(heading.width(), heading.fontMetrics().horizontalAdvance(heading.text()))
+        box = QRectF(heading.x() - 2.5, heading.y() - 2.5, width, heading.height() + 1)
+        painter.drawRect(box)
+
+    def paint_highlight(self, painter):
         painter.setRenderHint(QPainter.Antialiasing)
         outline = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
         fill = QLinearGradient(0, 1.5, 0, self.height() - 1.5)
-        fill.setColorAt(0, QColor("#fdfeff"))
-        fill.setColorAt(1, QColor("#ecf4ff"))
+        fill.setColorAt(0, QColor("#fcfeff"))
+        fill.setColorAt(0.27, QColor.fromRgbF(249 / 255, 251.35 / 255, 1))
+        fill.setColorAt(0.36, QColor.fromRgbF(246.83 / 255, 250.57 / 255, 1))
+        fill.setColorAt(0.78, QColor.fromRgbF(239.65 / 255, 246.4 / 255, 1))
+        fill.setColorAt(1, QColor.fromRgbF(236.4 / 255, 244.5 / 255, 1))
         painter.setPen(QColor("#b9d7fc"))
         painter.setBrush(fill)
-        painter.drawRoundedRect(outline, 2.25, 2.25)
+        painter.drawRoundedRect(outline, 2.5, 1.6)
         bevel = QLinearGradient(0, 1.5, 0, self.height() - 1.5)
         bevel.setColorAt(0, QColor("#fdfeff"))
         bevel.setColorAt(1, QColor("#f3f8ff"))
         painter.setPen(QPen(bevel, 1))
         painter.setBrush(Qt.NoBrush)
-        painter.drawRoundedRect(outline.adjusted(1, 1, -1, -1), 1.25, 1.25)
+        painter.drawRoundedRect(outline.adjusted(1, 1, -1, -1), 1.4, 1.4)
+        painter.setRenderHint(QPainter.Antialiasing, False)
 
 
 class AeroCategoryView(QWidget):
@@ -3351,8 +3464,12 @@ class AeroCategoryView(QWidget):
 class ClassicAppletDelegate(QStyledItemDelegate):
     """Draw SVG applet art on the native icon grid at fractional desktop scales."""
 
+    def __init__(self, view, artwork):
+        super().__init__(view)
+        self.artwork = artwork
+
     def paint(self, painter, option, index):
-        art = WIN95_APPLET_ART.get(index.data(Qt.UserRole).name)
+        art = self.artwork.get(index.data(Qt.UserRole).name)
         if not art or option.state & QStyle.State_Selected:
             super().paint(painter, option, index)
             return
@@ -3672,8 +3789,8 @@ def page_rect(rect):
 
 
 def control_panel_asset(name):
-    installed = CHICAGO95_DATA / "control-panel" / name
-    return installed if installed.exists() else REPO_DIR / "data/control-panel" / name
+    checkout = REPO_DIR / "data/control-panel"
+    return (checkout if checkout.is_dir() else CHICAGO95_DATA / "control-panel") / name
 
 
 def control_panel_art(name):
@@ -5502,6 +5619,8 @@ class ScreenResolutionPage(QWidget):
 class ExplorerSidebar(QWidget):
     """The Web View introduction and the selected applet's description."""
 
+    theme_requested = Signal()
+
     def __init__(self, actions, *, win2000=False):
         super().__init__()
         self.art = control_panel_picture("win2000-sidebar.svg" if win2000 else "win98-sidebar.svg")
@@ -5523,11 +5642,12 @@ class ExplorerSidebar(QWidget):
         heading.setFixedHeight(25 if win2000 else 51)
         layout.addWidget(heading)
         layout.addSpacing(15 if win2000 else 25)
-        self.search = QLineEdit()
-        self.search.setAccessibleName("Search Control Panel")
-        self.search.setPlaceholderText("Search Control Panel")
-        self.search.hide()
-        layout.addWidget(self.search)
+        if win2000:
+            self.search = QLineEdit()
+            self.search.setAccessibleName("Search Control Panel")
+            self.search.setPlaceholderText("Search Control Panel")
+            self.search.hide()
+            layout.addWidget(self.search)
         self.applet_title = QLabel()
         title_font = self.applet_title.font()
         title_font.setBold(True)
@@ -5539,14 +5659,19 @@ class ExplorerSidebar(QWidget):
         self.description.setWordWrap(True)
         layout.addWidget(self.description)
         for caption, address in (
-            ("Chicago95 Updates" if win2000 else "Chicago95 Home", "https://github.com/gedaiu/chicago95-plasma"),
-            ("Technical Support", "https://github.com/gedaiu/chicago95-plasma/issues"),
+            ("Chicago95 Updates" if win2000 else "Chicago95 Repository", "https://github.com/gedaiu/chicago95-plasma"),
+            ("Technical Support" if win2000 else "Report an issue", "https://github.com/gedaiu/chicago95-plasma/issues"),
         ):
             link = QLabel(f'<a href="{address}">{caption}</a>')
             link.setTextInteractionFlags(Qt.TextBrowserInteraction)
             link.linkActivated.connect(lambda target: actions.start_process("xdg-open", [target]))
             layout.addWidget(link)
             layout.addSpacing(3)
+        if not win2000:
+            themes = QLabel('<a href="themes">Choose a desktop theme</a>')
+            themes.setTextInteractionFlags(Qt.TextBrowserInteraction)
+            themes.linkActivated.connect(lambda _target: self.theme_requested.emit())
+            layout.addWidget(themes)
         layout.addStretch()
         self.show_applet(None)
 
@@ -5566,6 +5691,97 @@ class ExplorerSidebar(QWidget):
         self.art.render(painter, QRectF(0, 0, self.width(), self.art_height))
 
 
+class XPTaskPane(QWidget):
+    view_requested = Signal()
+    theme_requested = Signal()
+
+    def __init__(self, actions, *, luna=False):
+        super().__init__()
+        self.background = control_panel_picture("xp-task-pane.svg") if luna else None
+        self.setFixedWidth(210)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 15, 12, 10)
+        layout.setSpacing(14)
+        self.view_link = self.link("Switch to Category View", self.view_requested.emit)
+        layout.addWidget(self.task_group("Control Panel", [self.view_link], primary=True, luna=luna))
+        links = [
+            self.link("Chicago95 Updates", lambda: actions.start_process(
+                "xdg-open", ["https://github.com/gedaiu/chicago95-plasma/releases"]
+            )),
+            self.link("Choose a desktop theme", self.theme_requested.emit),
+        ]
+        layout.addWidget(self.task_group("See Also", links, primary=False, luna=luna))
+        self.search = QLineEdit()
+        self.search.setAccessibleName("Search Control Panel")
+        self.search.setPlaceholderText("Search Control Panel")
+        self.search.hide()
+        layout.addWidget(self.search)
+        layout.addStretch()
+
+    @staticmethod
+    def link(text, activate):
+        item = QPushButton(text)
+        item.setCursor(Qt.PointingHandCursor)
+        item.setFixedHeight(19)
+        item.clicked.connect(activate)
+        return item
+
+    @staticmethod
+    def task_group(title, links, *, primary, luna):
+        frame = QFrame()
+        frame.setObjectName("xpTaskGroup")
+        content = QWidget()
+        content.setObjectName("xpTaskContent")
+        header = QPushButton(title)
+        header.setObjectName("xpTaskHeader")
+        header.setCheckable(True)
+        header.setChecked(True)
+        header.setFixedHeight(20)
+        header.setCursor(Qt.PointingHandCursor)
+        arrow = QLabel("⌃", header)
+        arrow.setObjectName("xpTaskArrow")
+        arrow.setAttribute(Qt.WA_TransparentForMouseEvents)
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(0, 0, 8, 0)
+        header_layout.addWidget(arrow, 0, Qt.AlignRight | Qt.AlignVCenter)
+        header.toggled.connect(content.setVisible)
+        header.toggled.connect(lambda opened: arrow.setText("⌃" if opened else "⌄"))
+        header_colour = "#ffffff" if primary else "#104090" if luna else "#111111"
+        header_fill = (
+            "qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #0752b9,stop:1 #3e75ce)" if primary and luna
+            else "#0a246a" if primary
+            else "qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #ffffff,stop:1 #bdcef5)" if luna
+            else "#d4d0c8"
+        )
+        frame.setStyleSheet(
+            f"#xpTaskGroup {{ border: 1px solid {'#ffffff' if luna else '#a4a4a4'}; }}"
+            f"#xpTaskHeader {{ border: 0; background: {header_fill}; color: {header_colour};"
+            " font-weight: bold; padding-left: 9px; }"
+            f"#xpTaskArrow {{ color: {header_colour}; font-weight: bold; }}"
+            f"#xpTaskContent {{ background: {'#e2eaff' if luna else '#ffffff'}; }}"
+            f"QPushButton {{ border: 0; background: transparent; color: {'#1648a6' if luna else '#101010'};"
+            " text-align: left; padding-left: 4px; }"
+            "QPushButton:hover { text-decoration: underline; }"
+        )
+        inner = QVBoxLayout(content)
+        inner.setContentsMargins(8, 5, 7, 6)
+        inner.setSpacing(0)
+        for item in links:
+            inner.addWidget(item)
+        layout = QVBoxLayout(frame)
+        layout.setContentsMargins(1, 1, 1, 1)
+        layout.setSpacing(0)
+        layout.addWidget(header)
+        layout.addWidget(content)
+        return frame
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), Qt.white)
+        if self.background:
+            self.background.render(painter, QRectF(self.rect()))
+
+
 class ControlPanel(QMainWindow):
     def __init__(self, settings_path=SETTINGS_FILE, actions=None):
         super().__init__()
@@ -5583,34 +5799,48 @@ class ControlPanel(QMainWindow):
         self.aero = style == "aero"
         self.win95 = style == "classic" and look == "1995"
         self.win98 = style == "classic" and look == "1998"
-        classic_applets = {"1995": WIN95_APPLETS, "1998": WIN98_APPLETS}
+        self.win2000 = style == "classic" and look == "2000"
+        self.xp = look in ("2001", "luna") and style in ("classic", "luna")
+        self.xp_luna = self.xp and style == "luna"
+        self.xp_category = False
+        self.xp_group = None
+        self.uses_web_view = self.win98 or self.win2000 or self.xp
+        classic_applets = {"1995": WIN95_APPLETS, "1998": WIN98_APPLETS, "2000": WIN2000_APPLETS}
         self.applets = classic_applets.get(look, APPLETS) if style == "classic" else APPLETS
+        if self.xp:
+            self.applets = XP_APPLETS
         self.applet_by_name = {**APPLET_BY_NAME, **{applet.name: applet for applet in self.applets}}
         self.resize(QSize(780, 540) if self.aero else QSize(500, 420))
         self.icon_view = self.build_icon_view()
         self.pages = QStackedWidget()
-        self.home_view = self.build_web_view() if self.win98 else self.icon_view
+        self.home_view = self.build_web_view() if self.uses_web_view else self.icon_view
         self.pages.addWidget(self.home_view)
         self.setCentralWidget(self.pages)
         self.build_header()
         self.build_status_bar()
-        if self.aero:
+        if self.aero or self.xp:
             self.statusBar().hide()
         if self.aero:
             self.category_details = {}
             self.category_view = self.build_category_view()
             self.pages.addWidget(self.category_view)
         self.set_view("Category" if self.aero else "Large Icons")
+        if self.xp:
+            self.icon_view.setFocus()
         self.show_selection()
         self.refresh_navigation()
 
     def build_icon_view(self):
         view = QListWidget()
+        art_by_applet = {}
         if self.aero:
             view.setMouseTracking(True)
             view.setItemDelegate(AeroAppletDelegate(view))
-        elif self.win95 or self.win98:
-            view.setItemDelegate(ClassicAppletDelegate(view))
+        elif self.xp:
+            art_by_applet = XP_APPLET_ART
+        elif self.win95 or self.uses_web_view:
+            art_by_applet = WIN95_APPLET_ART if self.win95 else EXPLORER_APPLET_ART
+            view.setItemDelegate(ClassicAppletDelegate(view, art_by_applet))
             view.setSelectionMode(QListView.ExtendedSelection)
         view.setMovement(QListView.Static)
         view.setSpacing(0)
@@ -5619,7 +5849,7 @@ class ControlPanel(QMainWindow):
         view.setFrameStyle(QFrame.StyledPanel | QFrame.Sunken)
         view.setLineWidth(2)
         for applet in self.applets:
-            art = WIN95_APPLET_ART.get(applet.name) if self.win95 or self.win98 else None
+            art = art_by_applet.get(applet.name)
             icon = QIcon(str(control_panel_asset(art))) if art else themed_icon(applet.icon_names)
             item = QListWidgetItem(icon, applet.name)
             item.setData(Qt.UserRole, applet)
@@ -5633,10 +5863,17 @@ class ControlPanel(QMainWindow):
         frame.setFrameStyle(QFrame.StyledPanel | QFrame.Sunken)
         frame.setLineWidth(2)
         self.icon_view.setFrameShape(QFrame.NoFrame)
-        self.sidebar = Win98Sidebar(self.actions)
+        self.sidebar = (
+            XPTaskPane(self.actions, luna=self.xp_luna)
+            if self.xp else ExplorerSidebar(self.actions, win2000=self.win2000)
+        )
+        self.sidebar.theme_requested.connect(lambda: self.open_applet("Themes"))
+        if self.win2000 or self.xp:
+            self.sidebar.search.textChanged.connect(self.filter_web_applets)
         self.sidebar_area = QWidget()
         sidebar_layout = QHBoxLayout(self.sidebar_area)
-        sidebar_layout.setContentsMargins(0, 0, 16, 0)
+        gap = 0 if self.xp else 13 if self.win2000 else 15
+        sidebar_layout.setContentsMargins(0, 0, gap, 0)
         sidebar_layout.addWidget(self.sidebar)
         self.sidebar_area.setAutoFillBackground(True)
         self.sidebar_area.setBackgroundRole(QPalette.Base)
@@ -5644,7 +5881,15 @@ class ControlPanel(QMainWindow):
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(0)
         row.addWidget(self.sidebar_area)
-        row.addWidget(self.icon_view, 1)
+        if self.xp:
+            self.sidebar.view_requested.connect(self.toggle_xp_view)
+            self.xp_views = QStackedWidget()
+            self.xp_views.addWidget(self.icon_view)
+            self.xp_category_view = self.build_xp_categories()
+            self.xp_views.addWidget(self.xp_category_view)
+            row.addWidget(self.xp_views, 1)
+        else:
+            row.addWidget(self.icon_view, 1)
         return frame
 
     def build_status_bar(self):
@@ -5667,7 +5912,10 @@ class ControlPanel(QMainWindow):
             chrome.status_pane(QLabel()),
             chrome.status_pane(self.status_place_icon, QLabel("My Computer")),
         )
-        self.setStatusBar(chrome.status_bar(self.status_panes))
+        status_bar = ClassicStatusBar(self.status_panes, (64, 13, 23)) if self.win2000 else chrome.status_bar(
+            self.status_panes
+        )
+        self.setStatusBar(status_bar)
 
     def build_header(self):
         chrome = window_chrome()
@@ -5675,9 +5923,13 @@ class ControlPanel(QMainWindow):
             self.build_aero_header()
             return
         self.menu_bar = QMenuBar()
-        menu_height = 20 if self.win98 else 21 if self.win95 else MENU_BAR_HEIGHT
+        compact_menu = (self.uses_web_view and not self.xp_luna) or self.win95
+        menu_height = 20 if compact_menu else MENU_BAR_HEIGHT
+        if self.xp_luna:
+            menu_height = XP_LUNA_MENU_HEIGHT
         self.menu_style = (
-            MenuBandStyle("Windows", item_height=menu_height) if self.win95 or self.win98 else chrome.menu_style()
+            MenuBandStyle("Windows", item_height=menu_height)
+            if compact_menu else chrome.menu_style()
         )
         self.menu_bar.setStyle(self.menu_style)
         self.menu_bar.setFixedHeight(menu_height)
@@ -5687,23 +5939,43 @@ class ControlPanel(QMainWindow):
             self.setMenuWidget(self.menu_bar)
             return
         self.toolbar = self.build_standard_toolbar()
-        self.logo_box = chrome.logo_box()
+        if self.xp:
+            from chicago95lunacontrolpanel import LunaLogoBox
+
+            self.logo_box = LunaLogoBox()
+            self.logo_box.setFixedWidth(30)
+        else:
+            self.logo_box = chrome.logo_box()
         known_pages = [HOME_PAGE] + [HOME_PAGE + (applet.name,) for applet in APPLETS if not applet.external_tool]
-        address_icon = QIcon(str(control_panel_asset("win98-control-panel.svg"))) if self.win98 else None
+        address_icon = QIcon(str(control_panel_asset("win98-control-panel.svg"))) if self.uses_web_view else None
         self.address_bar = AddressBar(known_pages, icon=address_icon)
         self.address_bar.navigate.connect(self.navigate)
+        address_row = self.address_bar
+        if self.win2000 or self.xp:
+            address_row = QWidget()
+            address_layout = QHBoxLayout(address_row)
+            address_layout.setContentsMargins(0, 0, 0, 0)
+            address_layout.setSpacing(4)
+            address_layout.addWidget(self.address_bar, 1)
+            go = QToolButton()
+            go.setText("Go")
+            go.setIcon(QIcon.fromTheme("go-jump"))
+            go.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+            go.setAutoRaise(True)
+            go.clicked.connect(lambda: self.show_page(self.history.current))
+            address_layout.addWidget(go)
         self.header = QWidget()
         layout = QVBoxLayout(self.header)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        header_band = functools.partial(HeaderBand, inset=6) if self.win98 else chrome.header_band
+        header_band = functools.partial(HeaderBand, inset=6) if compact_menu else chrome.header_band
         for band in (
             header_band(self.menu_bar, menu_height, trailing=self.logo_box),
             header_band(self.toolbar, self.toolbar.height()),
-            header_band(self.address_bar),
+            header_band(address_row),
         ):
             layout.addWidget(band)
-        if not self.win98:
+        if not self.uses_web_view:
             layout.addWidget(header_band(None, 0, grip=False))
         self.setMenuWidget(self.header)
 
@@ -5757,7 +6029,7 @@ class ControlPanel(QMainWindow):
         history.setPopupMode(QToolButton.InstantPopup)
         history.setStyleSheet("QToolButton::menu-indicator { image: none; }")
         menu = QMenu(history)
-        menu.aboutToShow.connect(lambda: self.fill_aero_history(menu))
+        menu.aboutToShow.connect(lambda: self.fill_navigation_history(menu))
         history.setMenu(menu)
         row.addWidget(history)
         pages = [HOME_PAGE, *(HOME_PAGE + (name,) for name in AERO_CATEGORIES)]
@@ -5840,10 +6112,9 @@ class ControlPanel(QMainWindow):
                 row.setSpacing(11)
                 picture = QToolButton()
                 picture.setAccessibleName(category)
-                asset = AERO_CATEGORY_ASSETS.get(category)
                 picture.setIcon(
-                    QIcon(str(control_panel_asset(asset)))
-                    if asset
+                    QIcon(str(control_panel_asset(icon)))
+                    if icon.endswith(".svg")
                     else themed_icon((icon, APPLET_BY_NAME[links[0][1]].icon_names[0]))
                 )
                 picture.setIconSize(QSize(48, 48))
@@ -5855,10 +6126,7 @@ class ControlPanel(QMainWindow):
                 tasks.setSpacing(1)
                 row.addLayout(tasks, 1)
                 row.setAlignment(tasks, Qt.AlignTop)
-                heading = QPushButton(category)
-                heading.setAutoDefault(True)
-                heading.setProperty("heading", True)
-                heading.setCursor(Qt.PointingHandCursor)
+                heading = AeroCategoryHeading(category)
                 tasks.addWidget(heading)
                 heading.clicked.connect(lambda _, title=category: self.navigate(HOME_PAGE + (title,)))
                 picture.clicked.connect(heading.click)
@@ -5966,10 +6234,7 @@ class ControlPanel(QMainWindow):
             grid.setHorizontalSpacing(12)
             grid.setVerticalSpacing(2)
             title = {"Themes": "Personalization", "Taskbar": "Taskbar and Start Menu"}.get(applet, applet)
-            heading = QPushButton(title)
-            heading.setProperty("heading", True)
-            heading.setAutoDefault(True)
-            heading.setCursor(Qt.PointingHandCursor)
+            heading = AeroCategoryHeading(title)
             heading.clicked.connect(lambda _, name=applet: self.open_applet(name))
             grid.addWidget(heading, 0, 0, 1, 3)
             for index, (label, target_applet, tab) in enumerate(links):
@@ -5999,7 +6264,7 @@ class ControlPanel(QMainWindow):
             sheet = self.applet_sheet(name)
             sheet.tabs.setCurrentIndex(sheet.tab_names().index(tab))
 
-    def fill_aero_history(self, menu):
+    def fill_navigation_history(self, menu):
         menu.clear()
         for index, page in enumerate(self.history.pages):
             item = menu.addAction(breadcrumb_text(page))
@@ -6041,7 +6306,7 @@ class ControlPanel(QMainWindow):
             choice.setChecked(name == "Large Icons")
             choice.triggered.connect(lambda _checked=False, name=name: self.set_view(name))
             view_choices.addAction(choice)
-        if self.win95 or self.win98:
+        if self.win95 or self.uses_web_view:
             project_menu = file_menu.addMenu("Chicago95 &Settings")
             originals = {applet.name for applet in self.applets}
             for applet in APPLETS:
@@ -6050,15 +6315,18 @@ class ControlPanel(QMainWindow):
             file_menu.addAction("&Close", self.close)
         if self.win95:
             edit_menu.addAction("Select &All", self.icon_view.selectAll).setShortcut("Ctrl+A")
+        elif self.win2000 or self.xp:
+            menu_bar.addMenu("F&avorites")
+            menu_bar.addMenu("&Tools")
         else:
             menu_bar.addMenu("&Go")
             menu_bar.addMenu("F&avorites")
-        if self.win98:
+        if self.uses_web_view and not self.xp:
             self.view_menu.addSeparator()
             self.web_view_action = self.view_menu.addAction("as &Web Page")
             self.web_view_action.setCheckable(True)
             self.web_view_action.setChecked(True)
-            self.web_view_action.toggled.connect(self.sidebar_area.setVisible)
+            self.web_view_action.toggled.connect(self.set_web_view)
         help_menu = menu_bar.addMenu("&Help")
         if self.win95:
             help_menu.addAction(
@@ -6085,6 +6353,8 @@ class ControlPanel(QMainWindow):
                 self.addAction(action)
 
     def build_standard_toolbar(self):
+        if self.win2000 or self.xp:
+            return self.build_compact_toolbar()
         toolbar = QWidget()
         toolbar.setFixedHeight(WIN98_TOOLBAR_HEIGHT if self.win98 else TOOLBAR_HEIGHT)
         layout = QHBoxLayout(toolbar)
@@ -6127,6 +6397,166 @@ class ControlPanel(QMainWindow):
         layout.addStretch(1)
         return toolbar
 
+    def build_compact_toolbar(self):
+        toolbar = QWidget()
+        height = (
+            XP_LUNA_TOOLBAR_HEIGHT if self.xp_luna
+            else XP_CLASSIC_TOOLBAR_HEIGHT if self.xp
+            else WIN2000_TOOLBAR_HEIGHT
+        )
+        toolbar.setFixedHeight(height)
+        row = QHBoxLayout(toolbar)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(1)
+        self.toolbar_buttons = {}
+
+        def button(action, text=False, popup=None):
+            control = QToolButton()
+            control.setDefaultAction(action)
+            control.setAutoRaise(True)
+            icon_size = 18 if self.xp else 13
+            control.setIconSize(QSize(icon_size, icon_size))
+            control.setFixedHeight(height)
+            if text:
+                control.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+            if popup is not None:
+                control.setPopupMode(popup)
+            self.toolbar_buttons[action.text()] = control
+            row.addWidget(control)
+
+        def separator():
+            rule = QFrame()
+            rule.setFrameStyle(QFrame.VLine | QFrame.Sunken)
+            rule.setFixedWidth(5)
+            row.addWidget(rule)
+
+        button(self.back_action, text=True, popup=QToolButton.MenuButtonPopup)
+        button(self.forward_action, popup=QToolButton.MenuButtonPopup)
+        button(self.up_action)
+        separator()
+        search = QAction(themed_icon(("system-search", "edit-find")), "Search", self)
+        search.triggered.connect(self.toggle_web_search)
+        button(search, text=True)
+        folders = QAction(themed_icon(("folder-open", "folder")), "Folders", self)
+        folders.triggered.connect(lambda: self.actions.start_process("xdg-open", [str(Path.home())]))
+        button(folders, text=True)
+        if self.win2000:
+            history = QAction(themed_icon(("document-open-recent", "view-history")), "History", self)
+            menu = QMenu(toolbar)
+            menu.aboutToShow.connect(lambda: self.fill_navigation_history(menu))
+            history.setMenu(menu)
+            button(history, text=True, popup=QToolButton.InstantPopup)
+            separator()
+            for caption, icon in (
+                ("Copy", "edit-copy"), ("Paste", "edit-paste"), ("Delete", "edit-delete"), ("Undo", "edit-undo")
+            ):
+                action = QAction(themed_icon((icon,)), caption, self)
+                action.setEnabled(False)
+                button(action)
+            self.toolbar_buttons["Copy"].defaultAction().triggered.connect(self.copy_current_applet)
+        separator()
+        views = QAction(themed_icon(("view-list-icons", "view-list-details")), "Views", self)
+        views.setMenu(self.view_menu)
+        button(views, popup=QToolButton.InstantPopup)
+        row.addStretch(1)
+        return toolbar
+
+    def set_web_view(self, visible):
+        self.sidebar_area.setVisible(visible)
+        if self.win2000 and not visible:
+            self.sidebar.search.clear()
+            self.sidebar.search.hide()
+
+    def toggle_web_search(self):
+        search = self.sidebar.search
+        if self.history.current == HOME_PAGE and not search.isHidden():
+            search.clear()
+            search.hide()
+            if self.xp:
+                self.show_xp_view()
+            return
+        self.navigate(HOME_PAGE)
+        if self.history.current == HOME_PAGE:
+            if self.xp:
+                self.xp_group = None
+                self.xp_views.setCurrentWidget(self.icon_view)
+            else:
+                self.web_view_action.setChecked(True)
+            search.show()
+            search.setFocus()
+
+    def filter_web_applets(self, text):
+        query = text.casefold().strip()
+        for index, applet in enumerate(self.applets):
+            outside_group = self.xp_group is not None and applet.name not in self.xp_group
+            self.icon_view.item(index).setHidden(outside_group or query not in applet.name.casefold())
+
+    def build_xp_categories(self):
+        scroll = QScrollArea()
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setWidgetResizable(True)
+        page = QWidget()
+        page.setObjectName("xpCategories")
+        text = "#ffffff" if self.xp_luna else "#141414"
+        page.setStyleSheet(
+            f"#xpCategories {{ background: {'#6571cb' if self.xp_luna else '#ffffff'}; }}"
+            f"QLabel {{ color: {text}; }}"
+            "QToolButton { border: 0; background: transparent; }"
+        )
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(24, 17, 16, 16)
+        layout.setSpacing(8)
+        heading = QLabel("Pick a category")
+        font = heading.font()
+        font.setBold(True)
+        font.setPixelSize(23)
+        heading.setFont(font)
+        layout.addWidget(heading)
+        grid = QGridLayout()
+        grid.setSpacing(4)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
+        for index, (title, primary, members) in enumerate(XP_CATEGORIES):
+            card = QHBoxLayout()
+            card.setSpacing(5)
+            glyph = QToolButton()
+            glyph.setIcon(themed_icon(self.applet_by_name[primary].icon_names))
+            glyph.setIconSize(QSize(35, 35))
+            glyph.setFixedSize(38, 47)
+            glyph.setAccessibleName(title)
+            glyph.setCursor(Qt.PointingHandCursor)
+            glyph.clicked.connect(lambda _checked=False, names=members: self.open_xp_category(names))
+            card.addWidget(glyph)
+            link = QLabel(f'<a href="category" style="color:{text}; text-decoration:none">{title}</a>')
+            link.setTextInteractionFlags(Qt.TextBrowserInteraction)
+            link.setWordWrap(True)
+            link.linkActivated.connect(lambda _target, names=members: self.open_xp_category(names))
+            card.addWidget(link, 1)
+            grid.addLayout(card, index % 5, index // 5)
+        layout.addLayout(grid)
+        layout.addStretch()
+        scroll.setWidget(page)
+        return scroll
+
+    def open_xp_category(self, members):
+        self.xp_group = members
+        self.show_xp_view()
+
+    def toggle_xp_view(self):
+        self.sidebar.search.clear()
+        self.sidebar.search.hide()
+        self.xp_category = not self.xp_category
+        self.xp_group = None
+        self.show_xp_view()
+
+    def show_xp_view(self):
+        self.sidebar.view_link.setText("Switch to Classic View" if self.xp_category else "Switch to Category View")
+        show_categories = self.xp_category and self.xp_group is None and self.sidebar.search.isHidden()
+        self.xp_views.setCurrentWidget(self.xp_category_view if show_categories else self.icon_view)
+        self.filter_web_applets(self.sidebar.search.text())
+        if not show_categories and self.sidebar.search.isHidden():
+            self.icon_view.setFocus()
+
     def set_view(self, name):
         view = VIEW_MODES["Large Icons" if name == "Category" else name]
         if self.aero:
@@ -6146,24 +6576,36 @@ class ControlPanel(QMainWindow):
         self.icon_view.setViewMode(view.mode)
         self.icon_view.setFlow(view.flow)
         self.icon_view.setWrapping(view.wrapping)
-        icon_size = round(view.icon_size / self.devicePixelRatioF()) if self.win95 or self.win98 else view.icon_size
+        icon_size = view.icon_size
+        if self.win95 or self.uses_web_view:
+            icon_size = round(icon_size / self.devicePixelRatioF())
         self.icon_view.setIconSize(QSize(icon_size, icon_size))
-        self.icon_view.setGridSize(view.grid)
+        self.icon_view.setGridSize(QSize(60, 75) if self.win2000 and name == "Large Icons" else view.grid)
         for row in range(self.icon_view.count()):
             item = self.icon_view.item(row)
             applet = item.data(Qt.UserRole)
+            if (self.win2000 or self.xp) and name == "Large Icons":
+                captions = XP_ICON_CAPTIONS if self.xp else WIN2000_ICON_CAPTIONS
+                caption = captions.get(applet.name, applet.name)
+                item.setText(caption)
+                item.setToolTip(applet.name if caption != applet.name else "")
+                continue
+            item.setToolTip("")
             item.setText(
                 f"{applet.name}{DETAILS_SEPARATOR}{applet.description}" if view.shows_description else applet.name
             )
 
     def show_selection(self):
         selected = self.icon_view.selectedItems()
-        if self.win98:
+        if self.uses_web_view and not self.xp:
             applet = selected[0].data(Qt.UserRole) if selected else None
             self.sidebar.show_applet(applet)
             self.toolbar_buttons["Copy"].defaultAction().setEnabled(bool(applet))
-            self.toolbar_buttons["Properties"].defaultAction().setEnabled(bool(applet))
-            self.status_message.setText(applet.description if applet else "")
+            if self.win98:
+                self.toolbar_buttons["Properties"].defaultAction().setEnabled(bool(applet))
+            self.status_message.setText(
+                applet.description if applet else f"{self.icon_view.count()} object(s)" if self.win2000 else ""
+            )
             return
         if self.win95 and len(selected) > 1:
             message = f"{len(selected)} object(s) selected"
@@ -6193,6 +6635,8 @@ class ControlPanel(QMainWindow):
 
     def open_applet(self, name):
         applet = self.applet_by_name[name]
+        if applet.target:
+            return self.open_applet(applet.target)
         if applet.command:
             program, *arguments = applet.command
             if self.actions.program_installed(program):

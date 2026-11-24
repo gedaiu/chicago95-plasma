@@ -358,6 +358,10 @@ def test_aero_commands_stay_above_tree_when_resized(devmgr, snapshot, qt_app, mo
         assert centres == pytest.approx([12, 35, 67, 98, 121, 151], abs=4)
         assert toolbar.geometry().bottom() < window.tree.mapTo(window, QPoint()).y()
         assert window.height() - window.tree.mapTo(window, window.tree.rect().bottomRight()).y() < 32
+        root = window.tree.topLevelItem(0)
+        assert window.tree.currentItem() is root and not window.tree.selectedItems()
+        assert window.tree.visualItemRect(root).height() == 18
+        assert window.status_label.isHidden()
         # Selecting a device enables Back in place, as well as its Properties command.
         area = toolbar.actionGeometry(window.back)
         before = toolbar.grab(area).toImage()
@@ -377,6 +381,21 @@ def test_aero_commands_stay_above_tree_when_resized(devmgr, snapshot, qt_app, mo
         assert window.item_texts()[1] == "  Motherboard"
         scan.trigger()
         assert window.snapshot is snapshot
+    finally:
+        window.close()
+
+
+def test_aero_displays_inventory_errors_below_the_tree(devmgr, snapshot, qt_app, monkeypatch):
+    monkeypatch.setattr(devmgr.chicago95ui, "widget_style", lambda: "aero")
+    snapshots = iter((devmgr.Snapshot(snapshot.computer, [], "Inventory unavailable"), snapshot))
+    window = devmgr.DeviceManagerWindow(load=lambda: next(snapshots))
+    try:
+        window.show()
+        window.refresh()
+        assert window.status_label.isVisible()
+        assert window.status_label.text() == "Inventory unavailable"
+        window.refresh()
+        assert window.status_label.isHidden()
     finally:
         window.close()
 

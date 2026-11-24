@@ -264,6 +264,9 @@ are lossless and retain the guest pixel grid.
 | [Screen Resolution](../../docs/compare/win7-sp1-screen-resolution.png) | Native display settings opened with `control desk.cpl` |
 | `themes/win7/control-panel/hover-opening.png` | Five consecutive 8 × 8 samples at (362, 163) over the System and Security card, from its last idle frame through its first four highlighted frames |
 | `themes/win7/control-panel/hover-exit.png` | Three 60 Hz trials at 144 DPI on a 1280 × 960 desktop. Each row contains five consecutive 12 × 12 samples from (611, 224), beginning with the final highlighted frame. The pointer moved from (235, 210) to (155, 183). The frame sampled 33 ms after the host move still showed the highlight. The 50 ms frame showed the idle fill in all three trials. |
+| `themes/win7/control-panel/category-press.png` | Six 8 × 8 samples at (362, 163) from the Windows 7 SP1 reference VM at 800 × 600 and 96 DPI. Samples show idle, hover, left press on System and Security, pointer outside while held, pointer over the heading again while held, and release outside. The crop stays clear of the pointer and labels. |
+| `themes/win7/control-panel/hover-outline.png` | System and Security card at (78, 135), 320 × 80, with the pointer over the heading in the same 96-DPI VM session. The test compares the two outer rows and columns on each edge to cover the complete border. |
+| `themes/win7/control-panel/category-focus.png` | System and Security heading at (130, 135), 165 × 24, in the same capture sequence after release outside. The pointer stays outside the crop and the heading remains focused. |
 | `win7-sp1-start-opening.png` | Five consecutive 10 × 10 samples at desktop (206, 550), beginning with the last frame before the Start program pane appears |
 | `win7-sp1-start-orb-hover.png` | Twenty-five consecutive 7 × 12 samples at desktop (7, 740), left of the logo, beginning when the pointer moved onto the orb |
 
@@ -414,7 +417,26 @@ band is the unoccupied 8 × 40 region at (535, 728) in `win7screenres.png`.
 
 The manifests also keep aliases for the previously captured `device-manager.png` and
 `start-menu.png` fixtures. The Windows 7 Device Manager file is a 782 × 46 crop from (80, 72)
-of `win7-sp1-aero-device-manager.png`. The Windows 2000 and XP Classic Start menu files use
+of `win7-sp1-aero-device-manager.png`. The test uses its first 778 columns,
+which end before the glass frame. `win7/device-manager/tree-frame.png` uses
+the 778 × 518 client at the same origin. Tests sample the gutter, sunken
+tree edges, unobstructed viewport, and the expanded and collapsed branch
+glyphs at their native positions. The Windows 2000 Device Manager band
+uses the VM's RGB565 color depth for the comparison.
+The `win2k` manifest also samples the unobstructed 370 × 25 band from
+(260, 0) within that capture.
+
+Under `win95/device-manager/` and `win98/device-manager/`,
+`actions-120dpi.png` shows the four-button row in System Properties on
+the Device Manager tab. Windows 95 OSR2 was at 1024 × 768 and the crop
+starts at (89, 500). Windows 98 SE was at 1280 × 1024 and the crop starts
+at (170, 581). The `refresh-states.png` sheets concatenate five 112 × 28
+frames of the Refresh button in the same windows. The order is idle,
+pointer hover, focus after clicking, held Space, and released Space.
+Only the hover tile has a mouse cursor in the crop. The test excludes
+the rectangle containing it.
+
+The Windows 2000 and XP Classic Start menu files use
 the rectangles (2, 113, 206, 456) in `w2kstartmenu.png` and (2, 233, 193, 576) in `xpclassic.png`.
 The Windows 7 Start menu file contains the opaque search area at (8, 675, 260, 721) in
 `win7-sp1-aero-start.png`. These rectangles use exclusive right and bottom edges.
@@ -443,16 +465,43 @@ The Windows 2000 and both XP guests captured these Control Panel and Display
 views in RGB565. Their manifest entries apply the same conversion to the Qt
 render before comparing every RGB pixel.
 
+The Windows 7 manifest's `control_panel_icons` sample all eight category
+icons from the existing 144-DPI Category View. The VM and live Qt crops
+use the same physical coordinates.
+
 The Windows 95 OSR2 Control Panel was opened by running `control` at 120 DPI.
 The fresh initial client matched the existing 407×309 crop. For
 `themes/win95/control-panel/end.png`, End selected System and scrolled the
 same window to the final row. The crop retains the native scroll thumb,
 selection and status text.
+The Windows 95 manifest's `control_panel_icons` sample Accessibility Options,
+Display, Fonts, Internet, and Keyboard from the initial client at 120 DPI.
+Each 34×34 crop uses the same coordinates in the VM and live render.
 
 `themes/win98/control-panel/display-selected.png` is the Windows 98 SE
 Web View at 120 DPI after a single click on Display. Before capture, the
 pointer was moved outside the client. The crop uses the same 792×707 bounds
 as the initial view and includes the updated sidebar and status text.
+
+`themes/win2k/control-panel/display-selected.png` records the same selected
+applet on Windows 2000 Professional at 120 DPI in RGB565. The pointer is
+outside the 800×690 client crop at (166, 189).
+
+The Windows 98 SE and Windows 2000 manifest entries for `control_panel_icons`
+select 34×34 physical-pixel crops from the original 120-DPI Web View clients.
+Tests sample the same coordinates in the live Control Panel, including the
+white backdrop and each icon's position on the applet grid.
+
+Both Windows XP SP3 looks have `control-panel/category.png` and
+`control-panel/end.png` in their theme folders. Category View was captured
+first. Then the sidebar switched to Classic View and End selected Wireless
+Network Setup Wizard. Both guests ran at 1280×1024, 120 DPI, in RGB565, with
+the pointer outside the crop. XP Classic uses the 792×569 client at
+(193, 217). XP Luna uses the 792×560 client at (201, 281).
+The `control_panel_icons` rectangles select the Date and Time, Display,
+Mouse, Power Options, and Printers and Faxes icons in each guest's existing
+Classic View client. Tests compare the same 36×37 physical-pixel rectangles
+in the live Qt render, including each icon's position and white backdrop.
 
 `themes/win7/display-properties/resolution-picker.png` stacks three unscaled
 202×312 crops at (227, 287) from Windows 7 SP1 Basic at 800×600 and 96 DPI.
