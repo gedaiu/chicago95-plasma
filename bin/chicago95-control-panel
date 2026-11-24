@@ -2635,17 +2635,21 @@ class LoadingPreview(QmlPreview):
     @staticmethod
     def settings_js(values):
         company_logo = values.get("COMPANY_LOGO", "text")
+        style = boot_style(values)
+        brand = values.get("BANNER_TEXT", "Chicago95")
+        stock_xp = style == "luna" and not brand
+        footer = "Copyright © Microsoft Corporation" if stock_xp else "Chicago95 for KDE Plasma"
         entries = {
-            "style": boot_style(values),
+            "style": style,
             "postXp": post_xp_boot.options(values),
-            "brandText": values.get("BANNER_TEXT", "Chicago95"),
+            "brandText": brand,
             "brandLogo": str(picture_file(values.get("LOGIN_LOGO", "start"), repo_of(values))),
-            "edition": values.get("EDITION", "Professional"),
+            "edition": values.get("EDITION", "" if stock_xp else "Professional"),
             "tagline": values.get("TAGLINE", "Built on Linux Technology"),
             "company": values.get("COMPANY", "KDE"),
             "companyLogo": "" if company_logo in ("text", "") else company_logo,
             "loadingText": values.get("LOADING_TEXT", "Starting up..."),
-            "footer": values.get("LOADING_FOOTER", "Chicago95 for KDE Plasma").replace("%h", socket.gethostname()),
+            "footer": values.get("LOADING_FOOTER", footer).replace("%h", socket.gethostname()),
             "picture": str(picture_file(values.get("SPLASH_IMAGE", "classic"), repo_of(values))),
             "logonStyle": values.get("LOGIN_STYLE", "classic"),
             "desktopColor": desktop_color(values),

@@ -304,7 +304,7 @@ sudo plymouth-set-default-theme -R Chicago95-2000
 
 ```
 build=$(mktemp -d)
-python3 setup/make_98_boot.py ../Chicago95/Plymouth/Chicago95 \
+python3 setup/make_9x_boot.py ../Chicago95/Plymouth/Chicago95 \
   splash/chicago95.splashscreen/contents/splash/images/windows98.png "$build"
 sudo cp -r "$build" /usr/share/plymouth/themes/Chicago95-98
 sudo plymouth-set-default-theme -R Chicago95-98

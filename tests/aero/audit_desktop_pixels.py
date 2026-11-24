@@ -205,16 +205,14 @@ def test_advanced_system_properties_actions(menu_renders):
 
 
 def test_run_button_placement(menu_renders):
-    with Image.open(REPO / "tests/references/win7-run-guide.jpg") as original:
-        # Exclude the compositor frame and measure horizontally within the client.
-        reference_row = original.crop((10, 183, 417, 214))
-        expected = button_outlines(reference_row)
+    native = screenshot("themes/win7/run")
+    expected = button_outlines(native.crop((0, 214, native.width, 265)))
     with Image.open(menu_renders / "run.png") as actual:
         observed = button_outlines(actual.crop((0, actual.height - 50, actual.width, actual.height - 5)))
     assert len(observed) == len(expected) == 3
-    # Normalize for the printed figure's scale. Allow two source pixels for its softened edges.
+    # Compare the 96-DPI render against the native 144-DPI positions.
     assert [a / actual.width for a, _ in observed] == pytest.approx(
-        [a / reference_row.width for a, _ in expected], abs=2 / reference_row.width
+        [a / native.width for a, _ in expected], abs=2 / native.width
     )
 
 
@@ -253,3 +251,48 @@ AeroLogin {
         return rows.mean() / image.height
 
     assert input_center_y(actual) == pytest.approx(input_center_y(original), abs=2 / original.height)
+
+
+@pytest.fixture(scope="module")
+def native_login_view(qt_app, greeter):  # noqa: F811
+    from PySide6.QtCore import QUrl
+    from PySide6.QtQuick import QQuickView
+    from PySide6.QtTest import QTest
+    from reference import qimage_to_pil
+
+    folder, _ = greeter
+    scene = folder / "native-login.qml"
+    scene.write_text("""import QtQuick
+AeroLogin {
+    width: 800; height: 600; users: ["Reference"]; lastUser: "Reference"; sessions: []; lastSession: 0
+    brandText: "Windows 7 Professional"
+    greeter: QtObject {
+        signal loginFailed()
+        property bool canPowerOff: true
+        property bool canReboot: true
+    }
+}""")
+    view = QQuickView()
+    view.setSource(QUrl.fromLocalFile(str(scene)))
+    assert not view.errors()
+    view.show()
+    try:
+        QTest.qWait(100)
+        actual = qimage_to_pil(view.grabWindow())
+    finally:
+        view.close()
+    return screenshot("themes/win7/sign-in"), actual
+
+
+def test_login_compares_to_the_800_by_600_vm(native_login_view, tmp_path):
+    expected, actual = native_login_view
+    mask = np.ones((expected.height, expected.width), dtype=bool)
+    # The login account's picture is personal. The rest of the frame, controls and captions stays in the test.
+    mask[212:338, 336:462] = False
+    compare(expected, actual, tmp_path / "login-comparison.png", mask)
+
+
+def test_login_password_fill_matches_the_vm(native_login_view, tmp_path):
+    expected, actual = native_login_view
+    empty_field = (390, 414, 503, 430)
+    compare(expected.crop(empty_field), actual.crop(empty_field), tmp_path / "password-comparison.png")

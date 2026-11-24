@@ -1,5 +1,6 @@
 {
   "look": "1995",
+  "boot_step": 0,
   "caption_scale": 1.25,
   "aliases": {
     "win95-osr2-run.png": "run.png",

@@ -55,6 +55,11 @@ def reference():
 
 
 @pytest.fixture(scope="module")
+def sp3_reference():
+    return screenshot("themes/winxp/boot")
+
+
+@pytest.fixture(scope="module")
 def ours(qt_app):
     return render_luna_splash(qt_app)
 
@@ -63,8 +68,8 @@ def test_screen_is_640_by_480_black_at_the_corners(reference, ours):
     assert (ours.size, ours.getpixel((2, 2)), ours.getpixel((637, 2))) == (reference.size, (0, 0, 0), (0, 0, 0))
 
 
-def test_logo_centre_is_within_2_pixels_of_the_reference(reference, ours):
-    expected, actual = (centre(bounding_box(image, is_lit, *LOGO_AREA)) for image in (reference, ours))
+def test_logo_centre_is_within_2_pixels_of_the_reference(sp3_reference, ours):
+    expected, actual = (centre(bounding_box(image, is_lit, *LOGO_AREA)) for image in (sp3_reference, ours))
     assert (abs(actual[0] - expected[0]) <= 2, abs(actual[1] - expected[1]) <= 2) == (True, True), (actual, expected)
 
 
@@ -95,11 +100,14 @@ def test_trough_profile_down_its_left_part_matches_the_reference_within_12(refer
 
 
 @pytest.mark.parametrize("step", range(18))
-def test_each_step_matches_the_english_sp3_vm_capture(qt_app, step):
+def test_each_step_matches_the_english_sp3_vm_capture(qt_app, sp3_reference, step):
     frame = render_luna_splash(qt_app, properties={"phase": (step + 0.5) / 18})
     with Image.open(Path(__file__).parents[1] / "references/xp-sp3-boot-bar.png") as strip:
         expected = strip.crop((0, step * 15, 126, (step + 1) * 15)).convert("RGB")
-    assert frame.crop((255, 351, 381, 366)).tobytes() == expected.tobytes()
+    expected_frame = sp3_reference.copy()
+    expected_frame.paste(expected, (255, 351))
+    assert frame.size == expected_frame.size
+    assert frame.tobytes() == expected_frame.tobytes()
 
 
 def test_blocks_are_clipped_inside_the_trough_at_the_start_of_the_sweep(qt_app):
@@ -107,8 +115,8 @@ def test_blocks_are_clipped_inside_the_trough_at_the_start_of_the_sweep(qt_app):
     assert bounding_box(image, is_block_blue, *BLOCK_AREA) is None
 
 
-def test_footer_starts_at_the_reference_column_and_stays_grey(reference, ours):
-    expected, actual = (bounding_box(image, is_footer_ink, *FOOTER_AREA) for image in (reference, ours))
+def test_footer_starts_at_the_reference_column_and_stays_grey(sp3_reference, ours):
+    expected, actual = (bounding_box(image, is_footer_ink, *FOOTER_AREA) for image in (sp3_reference, ours))
     assert abs(actual[0] - expected[0]) <= 2 and abs(actual[1] - expected[1]) <= 3, (actual, expected)
 
 

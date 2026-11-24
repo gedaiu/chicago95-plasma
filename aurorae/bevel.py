@@ -15,10 +15,11 @@ def rect(x, y, w, h, fill, extra=""):
     return f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{fill}" shape-rendering="crispEdges"{extra}/>'
 
 
-def svg(width, height, body):
+def svg(width, height, body, *, view_size=None):
+    view_width, view_height = view_size or (width, height)
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
-        f'viewBox="0 0 {width} {height}">\n{body}\n</svg>\n'
+        f'viewBox="0 0 {view_width} {view_height}">\n{body}\n</svg>\n'
     )
 
 

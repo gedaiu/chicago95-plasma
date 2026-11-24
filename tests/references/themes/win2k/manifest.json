@@ -1,5 +1,6 @@
 {
   "look": "2000",
+  "boot_step": 2,
   "caption_scale": 1.25,
   "aliases": {
     "win2000-pro-run.png": "run.png",

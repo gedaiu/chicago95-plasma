@@ -27,6 +27,7 @@ def greeter(tmp_path_factory):
     for name in ("AeroLogin", "AeroLockScreen"):
         shutil.copy(REPO / f"sddm/Chicago95Plasma/{name}.qml", folder)
     shutil.copy(REPO / "sddm/Chicago95Plasma/AeroPortraitFrame.svg", folder)
+    shutil.copy(REPO / "sddm/Chicago95Plasma/AeroBackground4x3.jpg", folder)
     for icon in src.glob("*.png"):
         if icon.name == "user.png":
             shutil.copy(icon, art)
@@ -57,14 +58,14 @@ def test_portrait_credentials_power_and_failure_render_in_place(qt_app, greeter,
     try:
         QTest.qWait(80)
         actual = qimage_to_pil(view.grabWindow())
-        background = ImageOps.fit(Image.open(src / "background").convert("RGB"), actual.size)
+        background = ImageOps.fit(Image.open(folder / "AeroBackground4x3.jpg").convert("RGB"), actual.size)
         expected = background.convert("RGBA")
 
         def paste(name, xy, size):
             img = Image.open(src / f"{name}.png").convert("RGBA").resize(size, Image.Resampling.LANCZOS)
             expected.alpha_composite(img, xy)
 
-        portrait_top = 149 if locked else 166
+        portrait_top = 149 if locked else 182
         paste("user", (337, portrait_top + 32), (126, 126))
         paste("12223", (305, portrait_top), (190, 190))
         paste("access-button", (34, 538), (38, 28))

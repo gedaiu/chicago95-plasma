@@ -16,7 +16,7 @@ from conftest import REPO, load_script
 from original_pixels import compare
 from PIL import Image, ImageColor, ImageFilter
 from plasma_session import HOME_AFTER_SETUP, install, missing_programs, run_session, show, work_folder
-from reference import REFERENCES, qimage_to_pil, render_start_menu, rgb565, theme_references
+from reference import REFERENCES, bounding_box, qimage_to_pil, render_start_menu, rgb565, theme_references
 from showcase import start_menus, themed
 from test_caption_states_reference import (
     BUTTONS,
@@ -38,7 +38,7 @@ CAPTION_STATES = STATES[:-1]
 GTK_STATES = dict(zip(CAPTION_STATES, ("normal", "hovered", "pressed", "disabled", "restore"), strict=True))
 CAPTION_RENDERERS = {
     "svg": STATES,
-    "kwin": CAPTION_STATES,
+    "kwin": STATES,
     "gtk3": CAPTION_STATES,
     "gtk4": CAPTION_STATES,
 }
@@ -61,6 +61,7 @@ COMPONENTS = (
 )
 WINDOW = (160, 150, 559, 449)
 PRESS_WINDOWS = (WINDOW, (160, 470, 559, 699), (610, 470, 1009, 699))
+PRESS_TITLES = ("Caption parity", "Caption parity maximize press", "Caption parity close press")
 DISABLED_WINDOW = (610, 150, 1009, 449)
 DISABLED_TITLE = "Caption parity disabled"
 DISABLED_APP = "org.chicago95.test.caption-disabled"
@@ -167,9 +168,12 @@ def live_kwin(installed, visual_output):
                     "press:left",
                     "wait:0.2",
                     f"snapshot:caption-pressed-{index}",
-                    f"move:{x + 45},{y + 12}",
+                    f"move:{x + 45},{y + 55}",
+                    "wait:0.2",
+                    f"snapshot:caption-held-outside-{index}",
                     "release:left",
-                    "wait:0.3",
+                    "wait:0.6",
+                    f"snapshot:caption-cancelled-{index}",
                 ]
             )
         rules_path = session.work / HOME_AFTER_SETUP / ".config/kwinrulesrc"
@@ -191,9 +195,7 @@ def live_kwin(installed, visual_output):
         screen = show(
             session,
             windows=[
-                ("Caption parity", "qt", WINDOW),
-                ("Caption parity maximize press", "qt", PRESS_WINDOWS[1]),
-                ("Caption parity close press", "qt", PRESS_WINDOWS[2]),
+                *((title, "qt", bounds) for title, bounds in zip(PRESS_TITLES, PRESS_WINDOWS, strict=True)),
                 (DISABLED_TITLE, "qt-fixed", DISABLED_WINDOW, DISABLED_APP),
             ],
             scale=scale,
@@ -209,6 +211,13 @@ def live_kwin(installed, visual_output):
         assert disabled is not None, f"KWin did not report the fixed-size caption fixture: {records}"
         assert disabled["closeable"] is False and disabled["maximizable"] is False, disabled
         assert tuple(disabled["bounds"][:2]) == DISABLED_WINDOW[:2], disabled
+        (session.work / "caption-window-state.json").write_text(json.dumps(records))
+        output = visual_output / theme / "caption" / "kwin" / "cancelled"
+        output.mkdir(parents=True, exist_ok=True)
+        for index, button in enumerate(BUTTONS):
+            for state in ("held-outside", "cancelled"):
+                snapshot = session.work / f"caption-{state}-{index}.png"
+                shutil.copyfile(snapshot, output / f"{button}-{state}.png")
         output = visual_output / theme / "caption" / "kwin" / "disabled"
         output.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(session.work / "caption-disabled.png", output / "screen.png")
@@ -274,7 +283,7 @@ def kwin_maximized_window(theme, look, width, height, aero_scale=1):
 
 def kwin_face(capture, theme, look, scale, state, index):
     directory, disabled = capture
-    suffix = f"-{index}" if state in ("hover", "pressed") or state.startswith("disabled-") else ""
+    suffix = f"-{index}" if state in ("hover", "pressed", "cancelled") or state.startswith("disabled-") else ""
     path = directory / f"caption-{state}{suffix}.png"
     assert path.is_file(), f"Missing nested KWin capture {path.name}"
     with Image.open(path) as frame:
@@ -290,7 +299,7 @@ def kwin_face(capture, theme, look, scale, state, index):
         left, top, right, bottom = disabled
         model = kwin_window(theme, look, round(right - left), round(bottom - top), aero_scale)
     else:
-        left, top, right, bottom = PRESS_WINDOWS[index] if state == "pressed" else WINDOW
+        left, top, right, bottom = PRESS_WINDOWS[index] if state in ("pressed", "cancelled") else WINDOW
         model = kwin_window(theme, look, right - left + 1, bottom - top + 1, aero_scale)
     rect = model.button_rects()["IAX"[index]]
     if state == "restore" and decoration == "org.chicago95.aero":
@@ -395,6 +404,21 @@ def test_caption_matches_windows_pixels(theme, renderer, state, index, svg_theme
             actual = rgb565(actual)
     directory = visual_output / theme / "caption" / renderer / state / button
     exact(expected, actual, directory, visible_pixels(look, state, expected.size))
+
+
+@pytest.mark.parametrize("theme", THEMES)
+def test_kwin_releasing_outside_the_caption_button_cancels_the_action(theme, svg_themes, live_kwin):
+    _, metadata = THEMES[theme]
+    session, _ = live_kwin(theme, svg_themes[metadata["look"]])
+    records = json.loads((session / "caption-window-state.json").read_text())
+    final_windows = {record["title"]: record for record in records}
+    for title, (left, top, right, bottom) in zip(PRESS_TITLES, PRESS_WINDOWS, strict=True):
+        assert title in final_windows, f"{title} closed after releasing the caption button outside"
+        record = final_windows[title]
+        assert record["minimized"] is False, record
+        assert record["bounds"] == pytest.approx(
+            (left, top, right + 1, bottom + 1), abs=1 / metadata["caption_scale"]
+        ), record
 
 
 @pytest.mark.parametrize("state", ("rest", "hover", "pressed", "disabled"))
@@ -1296,6 +1320,126 @@ def test_theme_inventory():
     assert set(THEMES) == EXPECTED_THEMES
 
 
+@pytest.fixture(scope="module")
+def boot_frames(qt_app, tmp_path_factory):
+    @cache
+    def capture(theme):
+        folder, metadata = THEMES[theme]
+        look = metadata["look"]
+        with Image.open(folder / "boot.png") as reference:
+            expected = reference.convert("RGB")
+        if look in ("1995", "1998", "2000"):
+            from test_loading_screen_reference import SPLASH, render_splash
+
+            if look == "2000":
+                actual = render_splash(
+                    qt_app, tmp_path_factory.mktemp("win2k-boot"),
+                    stage=metadata["boot_step"], brandText="Windows 2000", company="Microsoft",
+                    tagline="Built on NT Technology",
+                )
+            else:
+                # QEMU exposes the DOS boot bitmap before the VGA display stretches it to 4:3.
+                expected = expected.resize((640, 480), Image.Resampling.NEAREST)
+                name = "background.png" if look == "1995" else "windows98.png"
+                actual = render_splash(
+                    qt_app, tmp_path_factory.mktemp(f"{theme}-boot"), style="classic",
+                    picture=str(SPLASH / "images" / name), strip_step=metadata.get("boot_step", -1),
+                )
+        elif look == "aero":
+            from test_post_xp_boot import boot_view, image_at
+
+            with boot_view(size=expected.size) as (view, root):
+                actual = image_at(view, root, (metadata["boot_step"] + 0.5) * 1000 / 15)
+        else:
+            from luna.luna_qml import render_luna_splash
+
+            phase = (metadata["boot_step"] + 0.5) / 18
+            actual = render_luna_splash(qt_app, size=expected.size, properties={"phase": phase})
+        return expected, actual.convert("RGB")
+
+    return capture
+
+
+@pytest.mark.parametrize("theme", THEMES)
+def test_boot_frame(theme, boot_frames, visual_output):
+    expected, actual = boot_frames(theme)
+    exact(expected, actual, visual_output / theme / "boot" / "qt" / "frame")
+
+
+@pytest.mark.parametrize(
+    ("region", "box"), [("edition-area", (210, 272, 430, 310)), ("loading-bar", (255, 351, 381, 366))]
+)
+@pytest.mark.parametrize("theme", [theme for theme, (_, data) in THEMES.items() if data["look"] in ("2001", "luna")])
+def test_boot_xp_regions(theme, boot_frames, region, box, visual_output):
+    expected, actual = boot_frames(theme)
+    assert expected.size == actual.size
+    exact(expected.crop(box), actual.crop(box), visual_output / theme / "boot" / "qt" / region)
+
+
+def test_boot_win98_static_art(boot_frames, visual_output):
+    expected, actual = boot_frames("win98")
+    assert expected.size == actual.size
+    box = (0, 0, 640, 472)
+    exact(expected.crop(box), actual.crop(box), visual_output / "win98" / "boot" / "qt" / "static-art")
+
+
+@pytest.fixture(scope="module")
+def win95_boot_phase_frames(qt_app, tmp_path_factory):
+    from PySide6.QtTest import QTest
+    from test_loading_screen_reference import splash_view
+
+    output = tmp_path_factory.mktemp("win95-boot-phases")
+    phases = {}
+    with splash_view(qt_app, output, style="classic", picture="images/background.png", strip_step=0) as view:
+        for capture in sorted((THEMES["win95"][0] / "boot").glob("phase-*.png")):
+            phase = int(capture.stem.removeprefix("phase-"))
+            view.rootObject().setProperty("bootStripStep", phase)
+            QTest.qWait(25)
+            phases[phase] = qimage_to_pil(view.grabWindow())
+    return phases
+
+
+@pytest.mark.parametrize("capture", sorted((THEMES["win95"][0] / "boot").glob("phase-*.png")), ids=lambda p: p.stem)
+def test_boot_win95_palette_phase(capture, win95_boot_phase_frames, visual_output):
+    phase = int(capture.stem.removeprefix("phase-"))
+    with Image.open(capture) as image:
+        expected = image.convert("RGB").resize((640, 480), Image.Resampling.NEAREST)
+    exact(expected, win95_boot_phase_frames[phase], visual_output / "win95" / "boot" / "qt" / capture.stem)
+
+
+@pytest.mark.parametrize(
+    ("region", "box"), [("paper", (0, 370, 640, 416)), ("footer-background", (0, 426, 180, 480))]
+)
+def test_boot_win2k_solid_regions(boot_frames, region, box, visual_output):
+    expected, actual = boot_frames("win2k")
+    assert expected.size == actual.size
+    exact(expected.crop(box), actual.crop(box), visual_output / "win2k" / "boot" / "qt" / region)
+
+
+def test_boot_win2k_initial_frame(qt_app, tmp_path, visual_output):
+    from test_loading_screen_reference import render_splash
+
+    with Image.open(THEMES["win2k"][0] / "boot" / "phase-00.png") as image:
+        expected = image.convert("RGB")
+    actual = render_splash(
+        qt_app, tmp_path / "win2k-boot", stage=0,
+        brandText="Windows 2000", company="Microsoft", tagline="Built on NT Technology",
+    )
+    exact(expected, actual, visual_output / "win2k" / "boot" / "qt" / "phase-00")
+
+
+@pytest.mark.parametrize(("top", "bottom"), [(490, 570), (630, 767)])
+def test_boot_win7_caption_positions_at_four_by_three(boot_frames, top, bottom):
+    expected, actual = boot_frames("win7")
+
+    def bounds(image):
+        return bounding_box(image, lambda rgb: max(rgb) > 35, y_range=(top, bottom))
+
+    native, rendered = bounds(expected), bounds(actual)
+    assert native is not None and rendered is not None
+    assert all(abs(a - b) <= 1 for a, b in zip(native, rendered, strict=True)), (native, rendered)
+
+
 @pytest.mark.parametrize("theme", THEMES)
 def test_coverage(theme):
     folder, metadata = THEMES[theme]
@@ -1312,9 +1456,17 @@ def test_coverage(theme):
             "device-manager",
             "control-panel",
             "display-properties",
+            "boot",
+            "sign-in",
             "shutdown",
         }
     ]
+    if not (folder / "boot.png").is_file():
+        gaps.append("boot: full-frame native reference and renderer")
+    gaps.append("boot: complete graphical and text transitions and live Plymouth playback")
+    if not (folder / "sign-in.png").is_file():
+        gaps.append("sign-in: native frame for the strict comparison")
+    gaps.append("sign-in: account chooser, entry, focus, and rejected authentication states")
     if not (folder / "taskbar-band.png").is_file():
         gaps.append("taskbar / Plasma: empty-band reference")
     gaps.append("taskbar / Plasma: interactive and populated states")

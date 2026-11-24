@@ -6,10 +6,10 @@ The four reference guests booted from the owner's installation media. Windows 95
 
 | Theme | What the fresh reference verifies | Remaining difference or limit |
 | --- | --- | --- |
-| Windows 95 OSR2 | Device Manager action buttons measure 84, 84, 84 and 83 pixels across, with six-pixel gaps. The classic layout now keeps the row aligned with the tree when widened. The 12×12 selected and unselected Display Properties radio buttons match after mapping the render to the guest's four neutral VGA colours. | The native Device Manager is a System Properties tab. The Linux tool opens separately and disables unavailable hardware actions. The OSR2 boot screen adds a Microsoft Internet Explorer line under the Windows 95 wordmark. The theme shows the earlier wordmark. The captured single-user shutdown dialog also has fewer choices than the project's multi-user dialog. |
+| Windows 95 OSR2 | Device Manager action buttons measure 84, 84, 84 and 83 pixels across, with six-pixel gaps. The classic layout now keeps the row aligned with the tree when widened. The 12×12 selected and unselected Display Properties radio buttons match after mapping the render to the guest's four neutral VGA colours. The boot artwork includes the OSR2 Microsoft Internet Explorer line. | The native Device Manager is a System Properties tab. The Linux tool opens separately and disables unavailable hardware actions. The captured single-user shutdown dialog also has fewer choices than the project's multi-user dialog. |
 | Windows 98 SE | The installed Windows shutdown artwork, LOGOW.SYS, shows Windows 98 over clouds with a blue caption. Plymouth previously inherited the Windows 95 shutdown image. The replacement uses the 98 boot artwork and a scalable caption. A 160×120 composition test checks the full image and the caption location. | The cloud reconstruction and caption lettering are approximate. The selected and unselected radio indicators in the captured shutdown dialog match the rendered black-pixel masks. |
 | Windows 2000 Professional | The 640×480 boot recording shows a 165×10 bar at (273, 436). At half fill its 8×8 navy blocks, grey gaps and bevel now match all 1,650 pixels. | The installed desktop was captured at 1280×1024 with its Cirrus Logic driver. The two shutdown trials below measure the installed desktop. Other interactive transitions still need measurements. The captured graphical boot occurred during an installation restart. |
-| Windows XP Professional SP3 | The 126×15 loading bar has 15 slots and 18 animation states. It advances eight pixels per step and repeats in about 1.69 seconds. The Qt preview matches every native bar frame and has a timed playback test. Plymouth uses the same SVG artwork and step sequence. Native Device Manager has five toolbar commands and a status bar. The Luna layout now follows that structure and uses SVGs for the five toolbar icons. | The Console Tree and Action Pane button faces are compared at their native positions. The Help and pane glyphs have separate RGB comparisons. Icon antialiasing and background gradients still differ. The unbranded theme depicts an earlier XP boot with an edition line. The SP3 capture omits it. Plymouth's on-screen cadence still needs an independent display recording. |
+| Windows XP Professional SP3 | The 126×15 loading bar has 15 slots and 18 animation states. It advances eight pixels per step and repeats in about 1.69 seconds. The Qt preview matches every native bar frame and has a timed playback test. Plymouth uses the same SVG artwork and step sequence. Native Device Manager has five toolbar commands and a status bar. The Luna layout now follows that structure and uses SVGs for the five toolbar icons. | The Console Tree and Action Pane button faces are compared at their native positions. The Help and pane glyphs have separate RGB comparisons. Icon antialiasing and background gradients still differ. The unbranded boot screen now follows SP3 by omitting the edition line. Plymouth's on-screen cadence still needs an independent display recording. |
 
 The XP Luna and XP Classic Device Manager captures place the command glyphs one pixel lower than the earlier Qt render. The corrected Console Tree and Action Pane SVGs use a single triangular arrow and three list lines. The tests compare the entire 14×12 face of each button at its guest position, with a limit of three levels of mean absolute RGB error out of 255. Redrawing the yellow Help mark and its paper background reduced error over the 14×15 capture from 18.38 to 9.01 in Luna and from 16.82 to 8.30 in XP Classic. The disabled Back and Forward arrows average 1.10 and 1.22 in Luna, down from 16.40 and 16.18. In XP Classic they average 2.91 and 2.96, down from 9.92 and 9.86. The unobstructed 420×23 Luna toolbar background averages 0.79 after restoring its horizontal tint and lower bevel. [VM and rendered command glyphs](compare/xp-device-manager-commands.png)
 
@@ -128,6 +128,42 @@ around the arrow inside the icon. Its mean RGB error is 0.38/255.
 [Compare the Windows 98 Appearance preview and monitor at native size.](compare/win98-se-display.png)
 
 The Windows 98 cold boot advances the bottom colour band to the right by 32 pixels per observed step. Sixteen captured strips compare within three mean RGB levels after adjusting the 640×400 VGA pixel aspect ratio. The recording includes missed display updates and irregular startup pauses. A warm restart on this emulated machine stalled at the logo. Timing measurements use the successful cold boot.
+
+The shared suite has a strict full-frame Qt boot comparison for each theme.
+Mean absolute RGB errors out of 255 at the captured phases follow.
+
+| Theme | Previous | Updated |
+| --- | ---: | ---: |
+| Windows 95 OSR2 | 66.99 | 0.00 |
+| Windows 98 SE | 0.429 | 0.004 |
+| Windows 2000 Professional | 8.22 | 0.11 |
+| Windows XP SP3 Classic and Luna | 3.49 | 0.00 |
+| Windows 7 SP1 | 1.13 | 0.08 |
+
+Windows 95 matches all pixels in the main frame and eleven additional
+captured phases. The render uses the indexed stock artwork and rotates
+the same 20 palette entries as the guest. All 302,080 pixels above the Windows 98 animation strip match.
+The strip advances in 20 steps in Qt and Plymouth. The captured phase still
+differs in 92 dither pixels. The Windows 2000 initial frame is exact.
+The active frame differs in 770 pixels in the blue strip. At 1024×768
+the Windows 7 caption and copyright bounds
+match within one pixel after correcting the canvas scale.
+At 640×480 the XP stock boot preview matches the tested full frame in
+both themes. Larger Qt previews retain the scalable wordmark.
+Full playback through Plymouth still needs a display
+capture. [Native boot captures](../tests/references/SOURCES.md#native-boot-frames)
+
+The Windows 7 Run client at 150% now has the native height of 291
+pixels. The render is 569 pixels wide and the guest is 568. The revised
+two-tone client, SVG icon and button positions reduced mean RGB error
+in the common rectangle from 25.07/255 to 9.27/255. The visual test
+types a command so the default button is enabled.
+
+The Windows 7 single-account sign-in comparison at 800×600 uses
+the guest's 4:3 background and aligns the account group 16 pixels lower.
+The mean RGB error outside the portrait interior fell from 9.12/255 to
+2.11/255. The password field's blank interior matches exactly. Manual
+sign-in remains available through the Ease of Access menu.
 
 ## Desktop motion and power
 

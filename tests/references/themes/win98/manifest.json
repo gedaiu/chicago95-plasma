@@ -1,5 +1,6 @@
 {
   "look": "1998",
+  "boot_step": 18,
   "caption_scale": 1.25,
   "aliases": {
     "win98-se-run.png": "run.png",

@@ -54,7 +54,8 @@ Rectangle {
     }
     Image {
         anchors.fill: parent
-        source: page.art("background")
+        source: Math.abs(width * 3 - height * 4) < 1
+            ? Qt.resolvedUrl("AeroBackground4x3.jpg") : page.art("background")
         fillMode: Image.PreserveAspectCrop
     }
     component GlassButton: Button {
@@ -90,7 +91,7 @@ Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             // Center the locked account group above its footer, measured at 600px and 768px.
             readonly property int preferredY: page.unlockOnly
-                ? Math.round(parent.height * 0.525) - 166 : Math.round(parent.height / 2) - 134
+                ? Math.round(parent.height * 0.525) - 166 : Math.round(parent.height / 2) - 118
             y: page.unlockOnly && page.canSwitchUser
                 ? Math.max(-15, Math.min(preferredY, parent.height - 432))
                 : preferredY
@@ -149,22 +150,16 @@ Rectangle {
             font.family: page.uiFamily
             font.pixelSize: page.largeText ? 18 : 13
             selectByMouse: true
-            background: Item {
+            background: Rectangle {
+                anchors.fill: parent
+                radius: 2
+                color: "#80ffffff"
                 Rectangle {
                     anchors.fill: parent
-                    visible: page.unlockOnly
-                    color: "#80ffffff"
-                    Rectangle {
-                        anchors.fill: parent
-                        anchors.margins: 1
-                        color: "white"
-                        border.color: "#666666"
-                    }
-                }
-                Image {
-                    anchors.fill: parent
-                    visible: !page.unlockOnly
-                    source: page.art(field.activeFocus ? "input-focus.svg" : "input.svg")
+                    anchors.margins: 1
+                    radius: 1
+                    color: "white"
+                    border.color: "#666666"
                 }
             }
         }
@@ -216,7 +211,7 @@ Rectangle {
             width: Math.max(108, contentItem.implicitWidth + 20)
             height: page.largeText ? 34 : 28
             objectName: "aeroSwitchUser"
-            visible: !page.unlockOnly || page.canSwitchUser
+            visible: page.unlockOnly ? page.canSwitchUser : page.users.length > 1 || page.manual
             text: qsTr("Switch User")
             onClicked: {
                 password.clear();
@@ -348,6 +343,12 @@ Rectangle {
                 checkable: true
                 checked: page.reveal
                 onTriggered: page.reveal = checked
+            }
+            MenuItem {
+                objectName: "aeroManualSignIn"
+                text: qsTr("Sign in as another user")
+                visible: !page.unlockOnly && page.users.length <= 1 && !page.manual
+                onTriggered: page.selectUser("")
             }
         }
     }

@@ -40,8 +40,8 @@ def reference():
 
 
 @contextmanager
-def splash_view(qt_app, folder, booting=True, **settings):
-    """Our loading screen at stage 3 of 6, 640x480, with the given settings.js values, shown 300ms: the boot
+def splash_view(qt_app, folder, booting=True, *, stage=3, strip_step=-1, **settings):
+    """Our loading screen at 640x480 with the given settings.js values, shown 300ms: the boot
     page while booting, else the screen KSplash shows after log on."""
     from PySide6.QtCore import QTimer, QUrl
     from PySide6.QtQuick import QQuickView
@@ -65,7 +65,8 @@ def splash_view(qt_app, folder, booting=True, **settings):
     view.resize(640, 480)
     view.setSource(QUrl.fromLocalFile(str(folder / "Splash.qml")))
     assert [error.toString() for error in view.errors()] == []
-    view.rootObject().setProperty("stage", 3)
+    view.rootObject().setProperty("stage", stage)
+    view.rootObject().setProperty("bootStripStep", strip_step)
     view.rootObject().setProperty("booting", booting)
     view.show()
     QTimer.singleShot(300, qt_app.quit)

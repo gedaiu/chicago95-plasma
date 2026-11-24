@@ -1882,6 +1882,16 @@ write_post_xp_options() { # a JS object; values are quoted data, never evaluated
 
 write_splash_settings() { # <dir>  settings.js: the loading screen's style, texts and pictures
   local dir="$1" logo image
+  local style brand edition footer
+  style=$(boot_style)
+  brand=${SETUP_BANNER_TEXT:-Chicago95}
+  edition=${SETUP_EDITION:-Professional}
+  footer=${SETUP_LOADING_FOOTER:-Chicago95 for KDE Plasma}
+  if [ "$style" = luna ] && [ -z "${SETUP_BANNER_TEXT-Chicago95}" ]; then
+    brand=""
+    edition=${SETUP_EDITION-}
+    footer=${SETUP_LOADING_FOOTER-Copyright © Microsoft Corporation}
+  fi
   ensure_waving_flag
   put_company_logo
   logo=$(login_logo)
@@ -1889,16 +1899,16 @@ write_splash_settings() { # <dir>  settings.js: the loading screen's style, text
   if [ "${SETUP_DRY_RUN:-0}" = 1 ]; then run tee "$dir/settings.js"; else
     {
       echo ".pragma library"
-      echo "var style = $(js_string "$(boot_style)")"
+      echo "var style = $(js_string "$style")"
       write_post_xp_options
-      echo "var brandText = $(js_string "${SETUP_BANNER_TEXT:-Chicago95}")"
+      echo "var brandText = $(js_string "$brand")"
       echo "var brandLogo = $(js_string "$logo")"
-      echo "var edition = $(js_string "${SETUP_EDITION:-Professional}")"
+      echo "var edition = $(js_string "$edition")"
       echo "var tagline = $(js_string "${SETUP_TAGLINE:-Built on Linux Technology}")"
       echo "var company = $(js_string "${SETUP_COMPANY:-KDE}")"
       echo "var companyLogo = $(js_string "$(company_logo_file)")"
       echo "var loadingText = $(js_string "${SETUP_LOADING_TEXT:-Starting up...}")"
-      echo "var footer = $(js_string "$(printf '%s' "${SETUP_LOADING_FOOTER:-Chicago95 for KDE Plasma}" | sed "s/%h/$(hostname)/g")")"
+      echo "var footer = $(js_string "$(printf '%s' "$footer" | sed "s/%h/$(hostname)/g")")"
       echo "var picture = $(js_string "$image")"
       echo "var logonStyle = $(js_string "${SETUP_LOGIN_STYLE:-classic}")"
       echo "var desktopColor = $(js_string "$(background_color)")"
@@ -2163,11 +2173,16 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
         --logo "$(login_logo)"
       theme_src="$build"
     fi
-  elif [ "$(boot_style)" = classic ] && [ "${SETUP_LOOK:-}" = 1998 ]; then
-    name=Chicago95-98
+  elif [ "$(boot_style)" = classic ] && [[ "${SETUP_LOOK:-}" == 199[58] ]]; then
+    local images="$REPO/splash/chicago95.splashscreen/contents/splash/images" artwork
+    if [ "$SETUP_LOOK" = 1998 ]; then
+      name=Chicago95-98
+      artwork="$images/windows98.png"
+    else
+      artwork="$images/windows95-boot.gif"
+    fi
     build="${TMPDIR:-/tmp}/chicago95-plymouth-$$"
-    run python3 "$REPO/setup/make_98_boot.py" "$theme_src" \
-      "$REPO/splash/chicago95.splashscreen/contents/splash/images/windows98.png" "$build"
+    run python3 "$REPO/setup/make_9x_boot.py" "$theme_src" "$artwork" "$build" --look "${SETUP_LOOK:2}" || return 1
     theme_src="$build"
   elif [ "$(boot_style)" = 2000 ]; then
     # The 2000 start-up screen: our loading screen, rendered at the monitor's size, under the Plymouth

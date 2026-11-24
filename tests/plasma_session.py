@@ -247,6 +247,7 @@ for (const window of workspace.windowList()) {{
         const box = window.frameGeometry;
         console.warn("c95-window " + JSON.stringify({{
             title: window.caption, closeable: window.closeable, maximizable: window.maximizable,
+            minimized: window.minimized,
             bounds: [box.x, box.y, box.x + box.width, box.y + box.height]
         }}));
     }}

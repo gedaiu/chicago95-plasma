@@ -1400,8 +1400,10 @@ def test_the_look_paints_gtk_drawn_title_bars_in_its_active_and_inactive_colours
     gtk3 = (tmp_path / ".config/gtk-3.0/gtk.css").read_text()
     gtk4 = (tmp_path / ".config/gtk-4.0/gtk.css").read_text()
     caption = tmp_path / "gtk-classic-caption/close-disabled.svg"
-    assert caption.is_file() and all(caption.as_uri() in sheet for sheet in (gtk3, gtk4))
-    assert f'viewBox="0 0 {round(16 * dpi / 96)} {svg_height}"' in caption.read_text()
+    caption4 = caption.with_name("close-disabled-gtk4.svg") if dpi == 120 else caption
+    for asset, sheet in ((caption, gtk3), (caption4, gtk4)):
+        assert asset.is_file() and asset.as_uri() in sheet
+        assert f'viewBox="0 0 {round(16 * dpi / 96)} {svg_height}"' in asset.read_text()
     assert all(f"background-size: 16px {image_height}px;" in sheet for sheet in (gtk3, gtk4))
 
     assert (
@@ -2103,7 +2105,7 @@ def test_windows_98_boot_has_its_own_artwork_and_retains_password_prompts(tmp_pa
 
     from PIL import Image, ImageChops, ImageStat
 
-    spec = importlib.util.spec_from_file_location("boot98", REPO / "setup/make_98_boot.py")
+    spec = importlib.util.spec_from_file_location("boot98", REPO / "setup/make_9x_boot.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     source = tmp_path / "source"
@@ -2148,6 +2150,34 @@ def test_windows_98_boot_has_its_own_artwork_and_retains_password_prompts(tmp_pa
             assert (left, top, right, bottom) == (10, 4, 63, 8)
 
 
+def test_windows_95_plymouth_exports_all_twenty_palette_phases(tmp_path):
+    from PIL import Image
+
+    source = tmp_path / "source"
+    source.mkdir()
+    script = source / "Chicago95.script"
+    script.write_text("Plymouth.SetRefreshRate(10);\nPlymouth.SetDisplayPasswordFunction(password_prompt);\n")
+    art = REPO / "splash/chicago95.splashscreen/contents/splash/images"
+    target = tmp_path / "plymouth"
+    subprocess.run(
+        [sys.executable, str(REPO / "setup/make_9x_boot.py"), str(source), str(art / "windows95-boot.gif"),
+         str(target), "--look", "95"],
+        check=True,
+        timeout=30,
+    )
+    with Image.open(art / "background.png") as indexed:
+        palette = indexed.getpalette()
+        for phase in range(20):
+            start = phase * 3
+            cycling = palette[236 * 3:]
+            expected = indexed.copy()
+            expected.putpalette(palette[:236 * 3] + cycling[start:] + cycling[:start])
+            with Image.open(target / f"win95_boot_{phase}.png") as frame:
+                assert frame.convert("RGB").tobytes() == expected.convert("RGB").tobytes()
+    assert "Plymouth.SetRefreshRate(18)" in (target / script.name).read_text()
+    assert "SetDisplayPasswordFunction" in (target / script.name).read_text()
+
+
 def test_the_users_picture_is_their_face_file_when_they_have_one(tmp_path):
     assert run_bash_with_steps(tmp_path, "touch ~/.face; user_picture; echo") == [str(tmp_path / ".face")]
 
@@ -2170,6 +2200,20 @@ def test_the_loading_screen_settings_carry_the_login_style_desktop_colour_and_us
         'var desktopColor = "#004E98"',
         'var userName = "ada"',
         f'var userPicture = "{tmp_path}/.face"',
+    ]
+
+
+def test_stock_xp_boot_settings_keep_the_empty_brand_and_use_sp3_defaults(tmp_path):
+    script = (
+        "ensure_waving_flag() { :; }; put_company_logo() { :; }; mkdir -p ~/splash; "
+        "SETUP_BOOT_STYLE=luna; SETUP_BANNER_TEXT=''; unset SETUP_EDITION SETUP_LOADING_FOOTER; "
+        "write_splash_settings ~/splash >/dev/null; "
+        "sed -n -E '/^var (brandText|edition|footer) /p' ~/splash/settings.js"
+    )
+    assert run_bash_with_steps(tmp_path, script) == [
+        'var brandText = ""',
+        'var edition = ""',
+        r'var footer = "Copyright \u00a9 Microsoft Corporation"',
     ]
 
 

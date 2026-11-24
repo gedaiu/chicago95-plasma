@@ -55,6 +55,26 @@ def test_a_window_button_paints_one_16_by_14_face_centred_in_the_bar(css):
     assert ("background-size: 16px 14px;" in body, "background-position: center;" in body) == (True, True)
 
 
+def test_120_dpi_caption_assets_keep_the_same_geometry_in_both_toolkits(tmp_path):
+    colours = ("#C0C0C0", "#DFDFDF", "#808080", "#000000")
+    gtk3 = gtk_header.caption_css(*colours, tmp_path, dpi=120, gtk4=False)
+    gtk4 = gtk_header.caption_css(*colours, tmp_path, dpi=120, gtk4=True)
+    for state in ("normal", "pressed", "disabled"):
+        filename = f"close-{state}"
+        asset3 = tmp_path / f"{filename}@2x.svg"
+        asset4 = tmp_path / f"{filename}-gtk4.svg"
+        svg3 = asset3.read_text()
+        svg4 = asset4.read_text()
+        assert 'width="40" height="36"' in svg3
+        assert 'width="16" height="14.4"' in svg4
+        assert 'viewBox="0 0 20 18"' in svg3 and 'viewBox="0 0 20 18"' in svg4
+        assert svg3.split("\n", 1)[1] == svg4.split("\n", 1)[1]
+        assert asset3.as_uri() in gtk3
+        assert asset4.as_uri() in gtk4
+    assert "-gtk-scaled(" in gtk3
+    assert "background-position: left top;" in gtk4
+
+
 def test_the_close_button_draws_the_decorations_x_on_the_face(qt_app, css):
     assert glyph_pixels(face_image(css, "headerbar windowcontrols.end > button.close")) == CLOSE_GLYPH
 

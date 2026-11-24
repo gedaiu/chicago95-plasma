@@ -141,7 +141,7 @@ def test_aero_power_arrow_opens_the_menu_without_requesting_shutdown(qt_app, tmp
 
 
 def test_aero_ease_of_access_enlarges_the_credentials_without_submitting(qt_app, tmp_path):
-    with login_view(qt_app, tmp_path, size=(1024, 768), loginStyle="aero") as view:
+    with login_view(qt_app, tmp_path, size=(1024, 768), loginStyle="aero", users=("user", "Guest")) as view:
         password = child(view, "aeroPassword")
         from PySide6.QtGui import QFontDatabase
 
@@ -159,6 +159,19 @@ def test_aero_ease_of_access_enlarges_the_credentials_without_submitting(qt_app,
         large_switch = view.grabWindow().copy(switch.mapRectToScene(switch.boundingRect()).toRect())
         assert large_switch.height() > normal_switch.height()
         assert large_switch.scaled(normal_switch.size()) != normal_switch
+
+
+def test_aero_single_account_sign_in_keeps_manual_sign_in_available(qt_app, tmp_path):
+    with login_view(qt_app, tmp_path, size=(800, 600), loginStyle="aero") as view:
+        assert not child(view, "aeroSwitchUser").isVisible()
+        options = child(view, "aeroAccessibility")
+        QTest.mouseClick(view, Qt.LeftButton, pos=options.mapToScene(QPointF(10, 14)).toPoint())
+        QTest.qWait(60)
+        manual = child(view, "aeroManualSignIn")
+        assert manual.isVisible()
+        QTest.mouseClick(view, Qt.LeftButton, pos=manual.mapRectToScene(manual.boundingRect()).center().toPoint())
+        QTest.qWait(100)
+        assert child(view, "aeroSwitchUser").isVisible()
 
 
 def test_aero_switch_user_keeps_long_account_names_inside_their_tiles(qt_app, tmp_path):

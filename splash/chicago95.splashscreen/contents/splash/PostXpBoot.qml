@@ -16,7 +16,8 @@ Rectangle {
     property bool animationVisible: true
     readonly property bool vista: style === "vista"
     readonly property bool seven: style === "7"
-    readonly property real unit: Math.min(width / 1920, height / 1080)
+    // Seven centres the artwork in a 4:3 area at a given screen height.
+    readonly property real unit: Math.min(width / (seven ? 1440 : 1920), height / 1080)
     readonly property real offsetX: (width - 1920 * unit) / 2
     readonly property real offsetY: (height - 1080 * unit) / 2
     readonly property color ink: option("foreground", "#ffffff")

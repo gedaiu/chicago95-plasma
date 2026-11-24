@@ -1,21 +1,31 @@
-"""Build Windows 98 boot and shutdown artwork for the upstream Plymouth theme."""
+"""Build Windows 95 and 98 boot artwork for the upstream Plymouth theme."""
 
 import argparse
 import shutil
 from pathlib import Path
 
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageSequence
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtSvg import QSvgRenderer
 
 
-def build(source, artwork, target):
+def build(source, artwork, target, *, look="98"):
     shutil.copytree(source, target, dirs_exist_ok=True)
+    script = target / "Chicago95.script"
+    # The observed native palette steps are approximately 56 ms apart.
+    text = script.read_text().replace("Plymouth.SetRefreshRate(10)", "Plymouth.SetRefreshRate(18)")
+    script.write_text(text)
+    if look == "95":
+        with Image.open(artwork) as animation:
+            for phase, frame in enumerate(ImageSequence.Iterator(animation)):
+                frame.convert("RGB").save(target / f"win95_boot_{phase}.png")
+        return
+
     theme = target / "Chicago95.plymouth"
     text = theme.read_text().replace("Chicago95", "Chicago95-98").replace("Windows 95", "Windows 98")
     theme.unlink()
     (target / "Chicago95-98.plymouth").write_text(text)
-    (target / "Chicago95.script").rename(target / "Chicago95-98.script")
+    script.rename(target / "Chicago95-98.script")
     image = Image.open(artwork).convert("RGB")
     # The captured DOS screen is 640x400 with non-square pixels; the shipped
     # artwork is already corrected to 640x480. Only its bottom colour strip moves.
@@ -47,5 +57,6 @@ if __name__ == "__main__":
     parser.add_argument("source", type=Path)
     parser.add_argument("artwork", type=Path)
     parser.add_argument("target", type=Path)
+    parser.add_argument("--look", choices=("95", "98"), default="98")
     args = parser.parse_args()
-    build(args.source, args.artwork, args.target)
+    build(args.source, args.artwork, args.target, look=args.look)

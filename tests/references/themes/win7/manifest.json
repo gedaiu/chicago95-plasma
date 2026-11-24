@@ -1,5 +1,6 @@
 {
   "look": "aero",
+  "boot_step": 82,
   "caption_scale": 1.5,
   "aliases": {
     "caption-states-aero.png": "caption-states.png",

@@ -22,6 +22,7 @@ Rectangle {
     property int textBootDuration: 2500
     property int bitmapDuration: 3000
     property real textBootProgress: 0
+    property int bootStripStep: -1
     property string textBootName: Settings.brandText || "Windows 95"
     property url statusBanner: "brand-banner.png"
     // KSplash stage is supplied by the session, not a timer or a fabricated service list.
@@ -71,9 +72,14 @@ Rectangle {
     }
 
     readonly property bool modern: booting && Settings.style === "2000"
+    readonly property bool stock2000: modern && Settings.brandText === "Windows 2000"
+        && Settings.company === "Microsoft" && !Settings.companyLogo
+        && (!Settings.brandLogo || /(?:waving-flag|logo-flag-16)\.png$/.test(Settings.brandLogo))
     readonly property bool luna: booting && Settings.style === "luna"
     readonly property bool postXp: booting && ["vista", "7", "8", "8.1", "10", "11"].indexOf(Settings.style) !== -1
     readonly property bool classic: booting && !modern && !luna && !postXp
+    readonly property bool win95Picture: Settings.picture === "images/background.png"
+        || Settings.picture.endsWith("/chicago95.splashscreen/contents/splash/images/background.png")
     readonly property bool welcome: !booting && Settings.logonStyle === "luna"
     readonly property real unit: height / 480
     readonly property real layoutX: (width - 640 * unit) / 2  // the 640-wide layout, centred ("left" is taken by Item)
@@ -83,7 +89,7 @@ Rectangle {
         return Math.round(value * unit);
     }
 
-    color: booting ? "#f7f7f7" : Settings.desktopColor || "#008080"
+    color: booting ? (stock2000 ? "#ffffff" : "#f7f7f7") : Settings.desktopColor || "#008080"
 
     Loader {
         anchors.fill: parent
@@ -96,10 +102,53 @@ Rectangle {
     }
 
     Image {
-        visible: root.classic
+        id: bootPicture
+        visible: root.classic && !root.win95Picture
         anchors.fill: parent
         source: Settings.picture.startsWith("/") ? "file://" + Settings.picture : Settings.picture
         fillMode: Image.PreserveAspectCrop
+    }
+
+    AnimatedImage {
+        visible: root.classic && root.win95Picture
+        anchors.fill: parent
+        source: visible ? "images/windows95-boot.gif" : ""
+        fillMode: Image.PreserveAspectCrop
+        smooth: false
+        playing: visible && root.bootStripStep < 0
+        currentFrame: root.bootStripStep >= 0 ? root.bootStripStep % 20 : 0
+    }
+
+    Item {
+        id: win98BootStrip
+        visible: root.classic && Settings.picture.endsWith("/windows98.png")
+        x: (root.width - width) / 2
+        y: (root.height - bootPicture.paintedHeight) / 2 + bootPicture.paintedHeight * (472 / 480)
+        width: visible ? bootPicture.paintedWidth : 0
+        height: visible ? bootPicture.paintedHeight * (8 / 480) : 0
+        clip: true
+        property real phase: 0
+        readonly property int step: root.bootStripStep >= 0 ? root.bootStripStep % 20 : Math.min(19, Math.floor(phase * 20))
+
+        NumberAnimation on phase {
+            running: win98BootStrip.visible && root.bootStripStep < 0
+            from: 0
+            to: 1
+            duration: 1111
+            loops: Animation.Infinite
+        }
+        Repeater {
+            model: win98BootStrip.visible ? 2 : 0
+            Image {
+                required property int index
+                x: (index - 1 + win98BootStrip.step / 20) * width
+                width: win98BootStrip.width
+                height: win98BootStrip.height
+                source: bootPicture.source
+                sourceClipRect: Qt.rect(0, 472, 640, 8)
+                smooth: false
+            }
+        }
     }
 
     Loader {
@@ -239,6 +288,7 @@ Rectangle {
 
         // The strip: a pale line, ten rows of bright blue shading to navy then slate, a light line.
         Rectangle {
+            visible: !root.stock2000
             x: 0
             y: root.px(415)
             width: parent.width
@@ -264,32 +314,33 @@ Rectangle {
                 orientation: Gradient.Horizontal
                 GradientStop {
                     position: 0.00
-                    color: "#0071d8"
+                    color: root.stock2000 ? "#00289f" : "#0071d8"
                 }
                 GradientStop {
-                    position: 0.23
-                    color: "#0071d8"
+                    position: root.stock2000 ? 0.202 : 0.23
+                    color: root.stock2000 ? "#00289f" : "#0071d8"
                 }
                 GradientStop {
-                    position: 0.39
-                    color: "#0025a0"
+                    position: root.stock2000 ? 0.375 : 0.39
+                    color: root.stock2000 ? "#0070df" : "#0025a0"
                 }
                 GradientStop {
-                    position: 0.723
-                    color: "#0025a0"
+                    position: root.stock2000 ? 0.64 : 0.723
+                    color: root.stock2000 ? "#0070df" : "#0025a0"
                 }
                 GradientStop {
-                    position: 0.725
-                    color: "#133777"
+                    position: root.stock2000 ? 0.836 : 0.725
+                    color: root.stock2000 ? "#00289f" : "#133777"
                 }
                 GradientStop {
                     position: 1.00
-                    color: "#133777"
+                    color: root.stock2000 ? "#00289f" : "#133777"
                 }
             }
         }
         // The strip's left end is capped by darker corner pixels on its first and last coloured rows.
         Rectangle {
+            visible: !root.stock2000
             x: 0
             y: root.px(416)
             width: root.px(1)
@@ -297,6 +348,7 @@ Rectangle {
             color: "#4d6596"
         }
         Rectangle {
+            visible: !root.stock2000
             x: 0
             y: root.px(425)
             width: root.px(1)
@@ -304,6 +356,7 @@ Rectangle {
             color: "#4d6596"
         }
         Rectangle {
+            visible: !root.stock2000
             x: 0
             y: root.px(426)
             width: parent.width
@@ -323,13 +376,33 @@ Rectangle {
 
         Rectangle {
             x: 0
-            y: root.px(427)
+            y: root.px(root.stock2000 ? 426 : 427)
             width: parent.width
             height: parent.height - y
-            color: "#c1bfc3"
+            color: root.stock2000 ? "#c0c0c0" : "#c1bfc3"
+        }
+
+        Image {
+            visible: root.stock2000
+            x: root.layoutX
+            width: 640 * root.unit
+            height: 480 * root.unit
+            source: visible ? "images/windows2000-boot.png" : ""
+            smooth: false
+        }
+
+        Rectangle {
+            visible: root.stock2000 && loadingLabel.visible
+            x: root.layoutX + root.px(200)
+            y: root.px(436)
+            width: root.px(71)
+            height: root.px(12)
+            color: "#c0c0c0"
         }
 
         Text {
+            id: loadingLabel
+            visible: !root.stock2000 || root.loadingText !== "Starting up..."
             x: root.layoutX + root.px(200)
             y: root.px(437)
             font.family: "MS W98 UI"
@@ -371,7 +444,18 @@ Rectangle {
             }
         }
 
+        Rectangle {
+            visible: root.stock2000 && copyrightLabel.visible
+            x: root.layoutX + root.px(194)
+            y: root.px(457)
+            width: root.px(252)
+            height: root.px(13)
+            color: "#c0c0c0"
+        }
+
         Text {
+            id: copyrightLabel
+            visible: !root.stock2000 || Settings.footer !== "Copyright © 1985-1999 Microsoft Corporation"
             anchors.horizontalCenter: parent.horizontalCenter
             y: root.px(458)
             font.family: "MS W98 UI"
@@ -380,18 +464,6 @@ Rectangle {
             color: "#000000"
             text: Settings.footer
         }
-    }
-    // Static original wordmark/frame artwork. Progress remains a live component;
-    // renamed products and custom logos retain the configurable drawn banner.
-    Image {
-        visible: root.modern && Settings.brandText === "Windows 2000" && Settings.company === "Microsoft"
-            && (!Settings.brandLogo || /(?:waving-flag|logo-flag-16)\.png$/.test(Settings.brandLogo))
-        x: root.layoutX + root.px(100)
-        y: 0
-        width: 540 * root.unit
-        height: 365 * root.unit
-        source: "images/windows2000-brand.png"
-        smooth: false
     }
 
     MouseArea {

@@ -64,18 +64,31 @@ TOOLS = f"{STRIP} button.image-button, {STRIP} splitbutton > button"
 SPLIT_ARROW = f"{STRIP} splitbutton > menubutton > button"
 
 
-def face_url(kind, colours, pressed, disabled, assets, high_dpi):
+def face_url(kind, colours, pressed, disabled, assets, high_dpi, gtk4):
     shift = 1 if pressed else 0
     if high_dpi:
-        artwork = svg(CAPTION_W_120, CAPTION_H_120, caption_button_120(kind, colours, pressed, disabled))
+        view_size = CAPTION_W_120, CAPTION_H_120
+        body = caption_button_120(kind, colours, pressed, disabled)
+        display_size = (CAPTION_W, CAPTION_H_120 / 1.25) if gtk4 else view_size
+        artwork = svg(*display_size, body, view_size=view_size)
     else:
-        glyph = disabled_caption_glyph(kind, colours[2], 0, 0) if disabled else caption_glyph(kind, "#000000", shift, shift)
+        glyph = (
+            disabled_caption_glyph(kind, colours[2], 0, 0)
+            if disabled else caption_glyph(kind, "#000000", shift, shift)
+        )
         artwork = svg(CAPTION_W, CAPTION_H, caption_face(0, 0, colours, pressed) + glyph)
     if assets is not None:
         state = "disabled" if disabled else "pressed" if pressed else "normal"
-        path = assets / f"{kind}-{state}.svg"
+        suffix = "-gtk4" if gtk4 and high_dpi else ""
+        path = assets / f"{kind}-{state}{suffix}.svg"
         path.write_text(artwork)
-        return f'url("{path.resolve().as_uri()}")'
+        image = f'url("{path.resolve().as_uri()}")'
+        if high_dpi and not gtk4:
+            # GTK 3 selects assets for its integer-scale backing buffer.
+            doubled = path.with_name(f"{path.stem}@2x.svg")
+            doubled.write_text(svg(CAPTION_W_120 * 2, CAPTION_H_120 * 2, body, view_size=view_size))
+            return f'-gtk-scaled({image}, url("{doubled.resolve().as_uri()}"))'
+        return image
     data = base64.b64encode(artwork.encode()).decode()
     return f'url("data:image/svg+xml;base64,{data}")'
 
@@ -97,7 +110,7 @@ def rule(selector, **properties):
     return f"{selector} {{\n{body}}}\n"
 
 
-def caption_css(face, light, shadow, dark, assets=None, dpi=96):
+def caption_css(face, light, shadow, dark, assets=None, dpi=96, *, gtk4=True):
     colours = (face, light, shadow, dark)
     high_dpi = dpi == 120
     face_height = CAPTION_H_120 * 96 / dpi if high_dpi else CAPTION_H
@@ -116,7 +129,7 @@ def caption_css(face, light, shadow, dark, assets=None, dpi=96):
             outline="none",
             background_color="transparent",
             background_repeat="no-repeat",
-            background_position="center",
+            background_position="left top" if high_dpi and gtk4 else "center",
             background_size=f"{CAPTION_W}px {face_height:g}px",
         ),
         rule(buttons(".close"), margin_left=f"{CLOSE_GAP}px"),
@@ -142,7 +155,7 @@ def caption_css(face, light, shadow, dark, assets=None, dpi=96):
                     border="none",
                     box_shadow="none",
                     background_color="transparent",
-                    background_image=face_url(kind, colours, pressed, disabled, assets, high_dpi),
+                    background_image=face_url(kind, colours, pressed, disabled, assets, high_dpi, gtk4),
                 )
             )
     return "".join(rules)
@@ -399,7 +412,9 @@ def main():
     parser.add_argument("--caption-assets", type=Path, help="write standalone SVG faces for GTK to load from disk")
     args = parser.parse_args()
     sheet = (
-        caption_css(args.face, args.light, args.shadow, args.dark, args.caption_assets, args.dpi)
+        caption_css(
+            args.face, args.light, args.shadow, args.dark, args.caption_assets, args.dpi, gtk4=args.gtk == "4.0"
+        )
         + header_css(args.active, args.inactive, args.inactive_text, args.face)
         + path_bar_css(args.light, args.shadow, args.dark)
         + list_view_css()

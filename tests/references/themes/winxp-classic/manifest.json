@@ -1,5 +1,6 @@
 {
   "look": "2001",
+  "boot_step": 9,
   "caption_scale": 1.25,
   "aliases": {
     "xp-sp3-classic-run.png": "run.png",

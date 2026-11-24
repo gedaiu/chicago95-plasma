@@ -45,7 +45,7 @@ RunLayout = namedtuple(
 # 3px frame and 29px title) is 341x154 with the icon at 11,19, the text from 54,20, "Open:" at 11,66, the field at 54,60
 # and the buttons 114 rows down.
 LAYOUTS = {
-    "aero": RunLayout((383, 160), (12, 17), (58, 18), (12, 67), (58, 62), 312, 23, 119, (102, 190, 280), 0, 40),
+    "aero": RunLayout((379, 194), (12, 23), (60, 22), (12, 82), (60, 77), 305, 22, 147, (104, 194, 284), 0, 35),
     "classic": RunLayout((341, 139), (11, 19), (56, 17), (11, 66), (54, 61), 275, 21, 103, (93, 174, 255), 1, 30),
     "nt-classic": RunLayout((341, 155), (11, 19), (54, 20), (11, 66), (54, 61), 275, 21, 115, (93, 174, 255), 1, 40),
     "luna": RunLayout((341, 154), (11, 19), (54, 20), (11, 66), (54, 60), 275, 21, 114, (93, 174, 255), 0, 40),
@@ -221,6 +221,8 @@ class RunBehaviour:
         self.layout = LAYOUTS[layout_key(look)]
         self.style = prompt_key(look)
         super().__init__("Run", self.style, self.layout.body, help_button=True)
+        self.button_size = (82, 28) if self.style == "aero" else chicago95ui.DIALOG_BUTTON_SIZE
+        self.aero_content = None
         self.applications = applications
         self.path_dirs = path_dirs
         self.history = history
@@ -229,14 +231,24 @@ class RunBehaviour:
 
     def build(self):
         body, layout = self.body, self.layout
+        if self.style == "aero":
+            font = chicago95ui.ui_font(12)
+            font.setFamilies(["Segoe UI", "Selawik", "Noto Sans", "DejaVu Sans"])
+            self.setFont(font)
+            body.setObjectName("aeroRunBody")
+            body.setStyleSheet("QWidget#aeroRunBody { background: #f0f0f0; }")
+            self.aero_content = QWidget(body)
+            self.aero_content.setStyleSheet("background: white;")
+            self.aero_content.setGeometry(0, 0, layout.body[0], 127)
         icon = QLabel(body)
-        graphic = QIcon.fromTheme("system-run")
-        if self.style in ("1995", "1998", "2000", "2001", "luna"):
-            filename = "classic-run.svg" if self.style in ("1995", "1998", "2000") else "xp-run.svg"
-            asset = Path(__file__).resolve().parents[1] / "data/run" / filename
-            if not asset.is_file():
-                asset = Path.home() / ".local/share/chicago95/run" / filename
-            graphic = QIcon(str(asset))
+        filenames = {"aero": "aero-run.svg", "2001": "xp-run.svg", "luna": "xp-run.svg"}
+        filename = filenames.get(self.style, "classic-run.svg")
+        asset = Path(__file__).resolve().parents[1] / "data/run" / filename
+        if not asset.is_file():
+            asset = Path.home() / ".local/share/chicago95/run" / filename
+        graphic = QIcon(str(asset))
+        if graphic.isNull():
+            graphic = QIcon.fromTheme("system-run")
         icon.setPixmap(graphic.pixmap(QSize(32, 32), self.devicePixelRatioF()))
         icon.setFixedSize(32, 32)
         icon.move(*layout.icon_at)
@@ -253,6 +265,12 @@ class RunBehaviour:
         self.field.setInsertPolicy(QComboBox.NoInsert)
         self.field.addItems(self.history)
         self.field.setGeometry(*layout.field_at, layout.field_width, layout.field_height)
+        if self.aero_content is not None:
+            self.field.setStyleSheet("""
+                QComboBox { background: #ffffff; border: 1px solid #b5cfe7;
+                            border-top-color: #3d7db7; padding-left: 3px; }
+                QComboBox::drop-down { border: none; width: 19px; }
+            """)
         self.field.setEditText("")
         self.field.lineEdit().textEdited.connect(self.search)
         self.field.lineEdit().installEventFilter(self)
@@ -267,12 +285,12 @@ class RunBehaviour:
         # The original's default button: a 1px black outline around a whole 75x23 button; Qt would draw the
         # outline a pixel inside, so OK sits in an outline of its own and Enter is handled by the dialog.
         self.outline = DefaultOutline(body)
-        self.outline.setGeometry(layout.button_lefts[0], layout.button_top, *chicago95ui.DIALOG_BUTTON_SIZE)
+        self.outline.setGeometry(layout.button_lefts[0], layout.button_top, *self.button_size)
         self.outline.setVisible(layout.ok_inset > 0)
         for left, label in zip(layout.button_lefts, ("OK", "Cancel", "&Browse..."), strict=False):
             button = QPushButton(label, body)
             button.setAutoDefault(False)
-            button.setGeometry(left, layout.button_top, *chicago95ui.DIALOG_BUTTON_SIZE)
+            button.setGeometry(left, layout.button_top, *self.button_size)
             self.buttons[label] = button
         self.place_ok_button(0)
         self.buttons["OK"].setDefault(layout.ok_inset == 0)
@@ -308,7 +326,7 @@ class RunBehaviour:
         self.show_results(len(found))
 
     def place_ok_button(self, extra):
-        inset, (width, height) = self.layout.ok_inset, chicago95ui.DIALOG_BUTTON_SIZE
+        inset, (width, height) = self.layout.ok_inset, self.button_size
         self.buttons["OK"].setGeometry(
             self.layout.button_lefts[0] + inset,
             self.layout.button_top + inset + extra,
@@ -326,6 +344,8 @@ class RunBehaviour:
         )
         self.results.setVisible(count > 0)
         self.resize_body(layout.body[0], layout.body[1] + extra)
+        if self.aero_content is not None:
+            self.aero_content.resize(layout.body[0], 127 + extra)
         for button in (self.buttons["Cancel"], self.buttons["&Browse..."]):
             button.move(button.x(), layout.button_top + extra)
         self.outline.move(self.outline.x(), layout.button_top + extra)

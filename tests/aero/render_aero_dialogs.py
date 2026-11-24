@@ -31,8 +31,9 @@ def render(out, scale, *, run_only=False):
     )
     # Use a fixed family even on machines with Microsoft's optional fonts installed.
     fonts = Path(subprocess.check_output(["fc-match", "-f", "%{file}", "DejaVu Sans"], text=True)).parent
+    run_fonts = f"<dir>{REPO / 'sddm/Chicago95Plasma/fonts/selawik'}</dir>" if run_only else ""
     (config / "fonts.conf").write_text(
-        f"<fontconfig><dir>{fonts}</dir><cachedir>{config}/font-cache</cachedir></fontconfig>"
+        f"<fontconfig><dir>{fonts}</dir>{run_fonts}<cachedir>{config}/font-cache</cachedir></fontconfig>"
     )
     os.environ["FONTCONFIG_FILE"] = str(config / "fonts.conf")
     app = QApplication([])
@@ -64,8 +65,10 @@ def render(out, scale, *, run_only=False):
         assert picture.devicePixelRatio() == scale
         assert picture.save(str(out / f"{name}.png"))
 
-    run = load_script("chicago95-run").RunDialog(applications=[], path_dirs=[], history=[])
-    run.field.setEditText("regedit")
+    run = load_script("chicago95-run").RunDialog({"osName": "Windows"}, applications=[], path_dirs=[], history=[])
+    run.show()
+    app.processEvents()
+    QTest.keyClicks(run.field.lineEdit(), "regedit")
     capture(run, "run")
     run.close()
     if run_only:

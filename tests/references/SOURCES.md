@@ -162,6 +162,39 @@ boot artwork corrected from 640×400 to 640×480 with nearest-neighbour sampling
 The Plymouth strip animation is reconstructed; the source establishes one frame,
 not its timing or every animated palette state.
 
+### Native boot frames
+
+Each directory under `themes/` has a `boot.png` captured from the guest's
+QEMU framebuffer. Windows 95 OSR2 and Windows 98 SE were both captured
+at 640×400. The tests stretch those references to the VGA display aspect
+of 640×480 with nearest-neighbour sampling. The refreshed 98 artwork keeps
+the original cloud and wordmark shapes and maps its colours to the guest
+palette. Its moving strip is compared at phase 18 of the theme's 20 phases.
+
+Windows 2000 Professional was captured at 640×480 with six of eighteen
+progress blocks filled. XP SP3 was captured at 640×480 at phase 9, established
+by an exact match with the XP boot-bar strip listed above. Both XP desktop
+themes use this frame. The native-size stock preview uses the installed
+XP SP3 `WINDOWS/System32/ntoskrnl.exe` bitmap resource 1 and the measured
+VGA palette. The loading bar is drawn from the animated SVG parts.
+The scalable wordmark remains in use for larger previews and custom
+branding. Windows 7 SP1 was captured at 1024×768 with the logo
+fully visible. Frame 82 of the theme's loop is the closest match to the
+captured animation phase at the corrected 4:3 scale.
+
+The Windows 95 artwork comes from the installed guest's indexed `logo.sys`
+bitmap. The bundled PNG retains those indices and uses the VM palette
+from the first full-frame reference. The GIF cycles entries 236–255.
+Eleven additional `themes/win95/boot/phase-*.png` framebuffer captures
+verify that this palette cycle reproduces the native movement, including
+the changes above the bottom strip. The boot GIF alternates 50 ms and
+60 ms frame intervals to express the measured cadence in GIF units.
+
+`themes/win7/sign-in.png` is the 800×600 QEMU framebuffer on Windows 7
+SP1 before credential entry. The strict test excludes the account-picture
+interior, including the cursor there. The 4:3 background in the theme
+is IMAGE resource 5032 in the installed guest's `Windows/System32/imageres.dll`.
+
 | File | Source |
 | --- | --- |
 | `xpclassiclogin.png` | https://1.bp.blogspot.com/-gGn3zA_2-pI/T-FDJMwAATI/AAAAAAAAAFs/YWVIkH_q6Iw/s1600/user_account_24b.png (published at https://mann4world.blogspot.com/2012/12/how-to-disableenable-windows-xp-welcome.html; classic logon form with Luna window decoration) |
@@ -170,10 +203,11 @@ not its timing or every animated palette state.
 It validates the XP banner, not the Classic window frame or the Linux session controls.
 
 `data/2000-logon-banner.png` isolates the original 411×93 banner at (114, 96)
-in `w2klogon.png`. `images/windows2000-brand.png` in the splash theme isolates
-(100, 0)–(640, 365) of `w2kboot.png`, containing the static logo and wordmarks.
-The boot progress and login fields remain live components; these assets apply
-only to the original product branding, with custom logos retaining the drawn layout.
+in `w2klogon.png`. The stock Windows 2000 boot image is bitmap resource 1 in
+`WINNT/System32/ntoskrnl.exe` from the installed professional guest.
+Its sixteen palette entries are rendered as measured on the QEMU VGA display.
+`themes/win2k/boot/phase-00.png` records the first frame with an empty
+loading bar. Progress and custom labels remain live.
 
 Luna shutdown/logoff button state strips in `luna/lib/images/xp-turn-off-buttons.bmp`
 and `xp-log-off-buttons.bmp` are unchanged copies of `src/res/to_buttons.bmp` and

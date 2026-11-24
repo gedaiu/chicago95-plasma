@@ -1,5 +1,6 @@
 {
   "look": "luna",
+  "boot_step": 9,
   "caption_scale": 1.25,
   "run_crop": [
     3,

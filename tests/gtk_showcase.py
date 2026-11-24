@@ -476,8 +476,11 @@ def gtk_caption_regions(header, root, label, scale, origin):
             else:
                 image_width = CAPTION_W
                 image_height = CAPTION_H_120 / scale if scale == 1.25 else CAPTION_H
-            left = (x + (width - image_width) / 2) * scale
-            vertical_inset = GTK4_CAPTION_TOP if V4 and AERO_CAPTION_CROPS else (height - image_height) / 2
+            top_left = V4 and CLASSIC_CAPTION_CROPS and scale == 1.25
+            left = (x if top_left else x + (width - image_width) / 2) * scale
+            vertical_inset = 0 if top_left else (height - image_height) / 2
+            if V4 and AERO_CAPTION_CROPS:
+                vertical_inset = GTK4_CAPTION_TOP
             top = (y + vertical_inset) * scale
             # Include edge pixels with even fractional coverage. The exact
             # comparison will flag pixel alignment and clipping separately.

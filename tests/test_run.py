@@ -137,6 +137,24 @@ def test_enter_runs_the_picked_match_and_remembers_the_typed_text(run, qt_app, t
     )
 
 
+def test_aero_run_uses_native_geometry_and_keeps_the_action_area_below_matches(run, qt_app):
+    dialog = run.RunDialog({"style": "aero", "widgetStyle": "aero"}, APPLICATIONS, [], history=[])
+    dialog.show()
+    try:
+        assert dialog.size().toTuple() == (379, 194)
+        assert dialog.field.geometry().getRect() == (60, 77, 305, 22)
+        assert dialog.buttons["OK"].geometry().getRect() == (104, 147, 82, 28)
+        top = dialog.aero_content.height()
+        dialog.field.lineEdit().setText("cal")
+        dialog.field.lineEdit().textEdited.emit("cal")
+        assert dialog.buttons["OK"].isEnabled()
+        assert dialog.results.isVisible()
+        assert dialog.aero_content.height() - top == dialog.height() - 194
+        assert dialog.results.geometry().bottom() < dialog.aero_content.height()
+    finally:
+        dialog.close()
+
+
 def test_the_start_menu_opens_our_run_dialog_when_installed_and_krunner_otherwise(startmenu):
     assert (startmenu.run_command(lambda _path: True), startmenu.run_command(lambda _path: False)) == (
         [os.path.expanduser("~/.local/bin/chicago95-run")],

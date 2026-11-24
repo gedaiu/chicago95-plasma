@@ -91,6 +91,24 @@ def test_status_banner_is_visible_and_not_stretched(qt_app, tmp_path):
         assert_image(image.crop((3, 21, 414, 98)), expected, tmp_path, "banner")
 
 
+def test_windows_98_animation_moves_only_the_boot_strip_and_wraps(qt_app, tmp_path):
+    picture = SPLASH / "images" / "windows98.png"
+    with splash_view(qt_app, tmp_path / "theme", style="classic", picture=str(picture), strip_step=0) as view:
+        root = view.rootObject()
+        original = grab(view, tmp_path / "phase-0.png")
+        root.setProperty("bootStripStep", 1)
+        QTest.qWait(50)
+        next_frame = grab(view, tmp_path / "phase-1.png")
+        assert ImageChops.difference(original, next_frame).getbbox() == (0, 472, 640, 480)
+        assert next_frame.crop((32, 472, 640, 480)).tobytes() == original.crop((0, 472, 608, 480)).tobytes()
+        root.setProperty("bootStripStep", 20)
+        QTest.qWait(50)
+        assert_image(grab(view, tmp_path / "phase-20.png"), original, tmp_path, "wrapped")
+        root.setProperty("bootStripStep", -1)
+        QTest.qWait(180)
+        assert grab(view, tmp_path / "live.png").tobytes() != original.tobytes()
+
+
 def test_live_status_update_changes_only_the_message(qt_app, tmp_path):
     banner = QUrl.fromLocalFile(str(REPO / "data/2000-logon-banner.png"))
     with rendered(
@@ -105,6 +123,17 @@ def test_live_status_update_changes_only_the_message(qt_app, tmp_path):
         box = diff.getbbox()
         assert box is not None, "Status update was not painted"
         assert box[0] >= 14 and box[1] >= 113 and box[2] < 414 and box[3] < 141
+
+
+def test_stock_windows_2000_preserves_custom_loading_text(qt_app, tmp_path):
+    with splash_view(qt_app, tmp_path / "theme", brandText="Windows 2000", company="Microsoft") as view:
+        before = grab(view, tmp_path / "standard.png")
+        view.rootObject().setProperty("loadingText", "Preparing network")
+        QTest.qWait(50)
+        after = grab(view, tmp_path / "custom.png")
+        difference = ImageChops.difference(before, after).getbbox()
+        assert difference is not None
+        assert difference[1] >= 436 and difference[3] <= 449
 
 
 def test_text_overlay_disappears_before_graphical_boot(qt_app, tmp_path):
