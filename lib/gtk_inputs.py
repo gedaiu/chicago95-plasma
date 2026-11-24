@@ -1,6 +1,55 @@
-"""Equivalent native GTK3/GTK4 dropdown and spin-box styling."""
+"""Equivalent native GTK3 and GTK4 input styling."""
 
 from pathlib import Path
+
+
+def classic_radio_css(assets, look):
+    """Give the Classic radio artwork its measured physical size at 120 DPI."""
+    if look == "2001":
+        size = 14
+        outline = "M4 0H10V1H11V2H12V3H13V4H14V10H13V11H12V12H11V13H10V14H4V13H3V12H2V11H1V10H0V4H1V3H2V2H3V1H4Z"
+        shadow = (
+            "M4 0H10V1H11V2H12V3H10V2H9V1H5V2H3V3H2V5H1V9H2V10H1V9H0V4H1V3H2V2H3V1H4Z"
+            " M0 9H1V10H2V11H1V10H0Z M2 11H3V12H2Z"
+        )
+        dark = "M5 1H9V2H11V3H9V2H5V3H3V5H2V9H3V11H2V9H1V5H2V3H3V2H5Z"
+        inset = "M11 3H12V5H13V9H12V11H11V9H12V5H11Z M3 11H5V12H9V11H11V12H9V13H5V12H3Z"
+        dot = "M5 4H9V5H10V9H9V10H5V9H4V5H5Z"
+    else:
+        size = 12
+        outline = "M4 0H8V1H10V2H11V4H12V8H11V10H10V11H8V12H4V11H2V10H1V8H0V4H1V2H2V1H4Z"
+        shadow = "M4 0H8V1H10V2H8V1H4V2H2V4H1V8H2V10H1V8H0V4H1V2H2V1H4Z"
+        dark = "M4 1H8V2H10V3H8V2H4V3H3V4H2V8H3V9H2V8H1V4H2V2H4Z"
+        inset = "M9 3H10V4H11V8H10V10H8V9H9V8H10V4H9Z M2 9H4V10H2Z M4 10H8V11H4Z"
+        dot = "M5 4H7V5H8V7H7V8H5V7H4V5H5Z"
+    face, shade, border = (
+        ("#c0c0c0", "#808080", "#000000") if look == "1998" else ("#d4d0c8", "#808080", "#404040")
+    )
+    assets.mkdir(parents=True, exist_ok=True)
+    paths = ((outline, "white"), (shadow, shade), (dark, border), (inset, face))
+    styles = []
+    for disabled, selected in ((False, False), (False, True), (True, False), (True, True)):
+        state = ("-disabled" if disabled else "") + ("-checked" if selected else "")
+        path = assets / f"radio{state}.svg"
+        rings = ((outline, face), (shadow, shade), (dark, border), (inset, face)) if disabled else paths
+        art = (*rings, (dot, shade if disabled else "#000000")) if selected else rings
+        shapes = "\n".join(f'  <path d="{shape}" fill="{colour}"/>' for shape, colour in art)
+        path.write_text(
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}">\n'
+            f'{shapes}\n</svg>\n'
+        )
+        selector = (":disabled" if disabled else ":not(:disabled)") + (":checked" if selected else ":not(:checked)")
+        selector += ":not(:indeterminate)"
+        selectors = f"checkbutton > radio{selector}, radiobutton > radio{selector}"
+        styles.append(f'{selectors} {{ background-image: url("{path.resolve().as_uri()}"); -gtk-icon-source: none; }}')
+    logical = f"{size * 96 / 120:g}px"
+    return (
+        "checkbutton > radio, radiobutton > radio { background-color: transparent;\n"
+        f"  background-size: {logical} {logical}; "
+        "  background-repeat: no-repeat; background-position: left top; box-shadow: none; }\n"
+        + "\n".join(styles)
+        + "\n"
+    )
 
 
 def input_css(theme, version, luna=False):

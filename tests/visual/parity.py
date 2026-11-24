@@ -1537,6 +1537,29 @@ def test_theme_inventory():
     assert set(THEMES) == EXPECTED_THEMES
 
 
+@pytest.mark.parametrize("theme", ("win98", "win2k", "winxp-classic"))
+@pytest.mark.parametrize("state", ("normal", "checked"))
+def test_classic_radio_svg_matches_windows(theme, state, qt_app, tmp_path, visual_output):
+    from gtk_inputs import classic_radio_css
+    from PySide6.QtGui import QColor, QImage, QPainter
+    from PySide6.QtSvg import QSvgRenderer
+
+    folder, metadata = THEMES[theme]
+    classic_radio_css(tmp_path, metadata["look"])
+    with Image.open(folder / "widget-controls" / f"radio-{state}.png") as native:
+        expected = native.convert("RGB")
+    frame = QImage(*expected.size, QImage.Format_RGB32)
+    frame.fill(QColor(*expected.getpixel((0, 0))))
+    source = tmp_path / ("radio-checked.svg" if state == "checked" else "radio.svg")
+    painter = QPainter(frame)
+    QSvgRenderer(str(source)).render(painter)
+    painter.end()
+    actual = qimage_to_pil(frame)
+    if metadata.get("radio_rgb565"):
+        actual = rgb565(actual)
+    exact(expected, actual, visual_output / theme / "widget-controls" / "svg" / state)
+
+
 @pytest.mark.parametrize("theme", [name for name, (_, meta) in THEMES.items() if "radio_scale" in meta])
 @pytest.mark.parametrize("version", ("3.0", "4.0"), ids=("gtk3", "gtk4"))
 @pytest.mark.parametrize("state", ("normal", "checked"))
@@ -1562,7 +1585,10 @@ def test_radio_indicator(theme, version, state, live_gtk, visual_output):
         face = gtk.crop((columns.min(), rows.min(), columns.max() + 1, rows.max() + 1))
         backdrop = Image.new("RGBA", face.size, expected.getpixel((0, 0)))
         backdrop.alpha_composite(face)
-    exact(expected, backdrop.convert("RGB"), visual_output / theme / "widget-controls" / f"gtk{version[0]}" / state)
+    actual = backdrop.convert("RGB")
+    if metadata.get("radio_rgb565"):
+        actual = rgb565(actual)
+    exact(expected, actual, visual_output / theme / "widget-controls" / f"gtk{version[0]}" / state)
 
 
 @pytest.mark.parametrize("theme", [name for name, (_, meta) in THEMES.items() if "file_manager_scale" in meta])
@@ -1769,26 +1795,28 @@ def plymouth_boot_strip_frames(tmp_path_factory):
     def render(theme):
         work = tmp_path_factory.mktemp(f"{theme}-plymouth-strip")
         output = work / "theme"
-        if theme == "win98":
+        if theme in ("win95", "win98"):
             source = work / "source"
             source.mkdir()
             (source / "Chicago95.plymouth").write_text("[Plymouth Theme]\nName=Chicago95\n")
             (source / "Chicago95.script").write_text("Plymouth.SetRefreshRate(10);\n")
+            artwork = "windows95-boot.gif" if theme == "win95" else "windows98.png"
             command = [
                 str(REPO / "setup/make_9x_boot.py"),
                 str(source),
-                str(SPLASH / "images/windows98.png"),
+                str(SPLASH / "images" / artwork),
                 str(output),
+                "--look", theme[-2:],
             ]
         else:
             shutil.copytree(SPLASH, work / "splash")
             (work / "splash/settings.js").write_text(
                 '.pragma library\nvar style = "2000"\nvar brandText = "Windows 2000"\n'
                 'var company = "Microsoft"\nvar loadingText = "Starting up..."\n'
+                'var footer = "Copyright © 1985-1999 Microsoft Corporation"\n'
             )
-            output.mkdir()
+            shutil.copytree(REPO / "plymouth/Chicago95-2000", output)
             script = output / "Chicago95-2000.script"
-            shutil.copyfile(REPO / "plymouth/Chicago95-2000" / script.name, script)
             command = [
                 str(REPO / "bin/chicago95-splash-image"),
                 "--splash", str(work / "splash"),
@@ -1877,11 +1905,74 @@ def win95_boot_phase_frames(qt_app, tmp_path_factory):
 
 
 @pytest.mark.parametrize("capture", sorted((THEMES["win95"][0] / "boot").glob("phase-*.png")), ids=lambda p: p.stem)
-def test_boot_win95_palette_phase(capture, win95_boot_phase_frames, visual_output):
+@pytest.mark.parametrize("renderer", ("qt", "plymouth"))
+def test_boot_win95_palette_phase(capture, renderer, request, plymouth_boot_strip_frames, visual_output):
     phase = int(capture.stem.removeprefix("phase-"))
     with Image.open(capture) as image:
         expected = image.convert("RGB").resize((640, 480), Image.Resampling.NEAREST)
-    exact(expected, win95_boot_phase_frames[phase], visual_output / "win95" / "boot" / "qt" / capture.stem)
+    if renderer == "qt":
+        actual = request.getfixturevalue("win95_boot_phase_frames")[phase]
+    else:
+        output = plymouth_boot_strip_frames("win95")
+        with Image.open(output / f"win95_boot_{phase}.png") as frame:
+            actual = frame.convert("RGB")
+    exact(expected, actual, visual_output / "win95" / "boot" / renderer / capture.stem)
+
+
+@pytest.mark.parametrize("theme", ("win95", "win98"))
+def test_boot_9x_plymouth_full_frame(theme, plymouth_boot_strip_frames, visual_output):
+    folder, metadata = THEMES[theme]
+    output = plymouth_boot_strip_frames(theme)
+    with Image.open(folder / "boot.png") as reference:
+        expected = reference.convert("RGB").resize((640, 480), Image.Resampling.NEAREST)
+    with Image.open(output / f"win95_boot_{metadata.get('boot_step', 0)}.png") as frame:
+        actual = frame.convert("RGB")
+    exact(expected, actual, visual_output / theme / "boot" / "plymouth" / "frame")
+
+
+def test_boot_win2k_plymouth_full_frame(plymouth_boot_strip_frames, visual_output):
+    folder, metadata = THEMES["win2k"]
+    output = plymouth_boot_strip_frames("win2k")
+    with Image.open(folder / "boot.png") as reference, Image.open(output / "screen.png") as background:
+        expected, actual = reference.convert("RGB"), background.convert("RGB")
+    with Image.open(output / f"strip-{metadata['boot_strip_step']}.png") as strip:
+        actual.paste(strip, (0, 416))
+    with Image.open(output / "block.png") as block:
+        tile = block.resize((8, 8)).convert("RGB")
+    # The guest reference has six of the eighteen blocks filled.
+    for index in range(6):
+        actual.paste(tile, (274 + index * 9, 437))
+    exact(expected, actual, visual_output / "win2k" / "boot" / "plymouth" / "frame")
+
+
+@pytest.fixture(scope="module")
+def xp_plymouth_assets(tmp_path_factory):
+    from conftest import run_bash_with_steps
+
+    home = tmp_path_factory.mktemp("xp-plymouth")
+    run_bash_with_steps(home, 'SETUP_BANNER_TEXT=""; stage_luna_plymouth "$HOME/theme"')
+    return home / "theme"
+
+
+@pytest.mark.parametrize("theme", ("winxp-classic", "winxp"))
+def test_boot_xp_plymouth_full_frame(theme, xp_plymouth_assets, visual_output):
+    folder, metadata = THEMES[theme]
+    with Image.open(folder / "boot.png") as reference:
+        expected = reference.convert("RGB")
+    script = (xp_plymouth_assets / "Chicago95-XP.script").read_text()
+    assert 'native_background = "boot-stock-640.png";' in script
+    with Image.open(xp_plymouth_assets / "boot-stock-640.png") as background:
+        actual = background.convert("RGB")
+    with Image.open(xp_plymouth_assets / "trough.png") as trough:
+        actual.paste(trough, (255, 351), trough)
+    step = metadata["boot_step"]
+    with Image.open(xp_plymouth_assets / "block.png") as blocks:
+        for index in range(3):
+            slot = step - 3 + index
+            if 0 <= slot < 15:
+                tile = blocks.crop((index * 8, 0, index * 8 + 6, 9))
+                actual.paste(tile, (259 + slot * 8, 354), tile)
+    exact(expected, actual, visual_output / theme / "boot" / "plymouth" / "frame")
 
 
 @pytest.mark.parametrize(
@@ -1930,15 +2021,50 @@ def win7_boot_animation_frames(qt_app):
         }
 
 
+@pytest.fixture(scope="module")
+def win7_plymouth_animation_frames(qt_app, tmp_path_factory):
+    from test_post_xp_boot import SPLASH
+
+    root = tmp_path_factory.mktemp("win7-plymouth")
+    source, output = root / "splash", root / "theme"
+    shutil.copytree(SPLASH, source)
+    panel = load_script("chicago95-control-panel")
+    (source / "settings.js").write_text(panel.LoadingPreview.settings_js({"BOOT_STYLE": "7"}))
+    load_script("chicago95-post-xp-boot").build(
+        source, output, (1024, 768), REPO / "setup/post_xp_boot.script.in",
+    )
+    metadata = json.loads((output / "animation.json").read_text())
+    assert (metadata["AX"], metadata["AY"]) == (412, 284)
+    assert (metadata["WIDTH"], metadata["HEIGHT"]) == (1024, 768)
+    return output
+
+
+def test_boot_win7_plymouth_full_frame(win7_plymouth_animation_frames, visual_output):
+    folder, metadata = THEMES["win7"]
+    output = win7_plymouth_animation_frames
+    animation = json.loads((output / "animation.json").read_text())
+    with Image.open(folder / "boot.png") as reference, Image.open(output / "background.png") as background:
+        expected, actual = reference.convert("RGB"), background.convert("RGB")
+    with Image.open(output / f"frame-{metadata['boot_step']}.png") as frame:
+        actual.paste(frame, (animation["AX"], animation["AY"]))
+    exact(expected, actual, visual_output / "win7" / "boot" / "plymouth" / "frame")
+
+
+@pytest.mark.parametrize("renderer", ("qt", "plymouth"))
 @pytest.mark.parametrize("phase", range(3, 48))
-def test_boot_win7_native_animation_phase(phase, win7_boot_animation_frames, visual_output):
+def test_boot_win7_native_animation_phase(phase, renderer, request, visual_output):
     folder, _metadata = THEMES["win7"]
     index = phase - 3
     x, y = (index % 8) * 200, (index // 8) * 200
     with Image.open(folder / "boot" / "animation-frames.png") as capture:
         expected = capture.crop((x, y, x + 200, y + 200))
-    actual = win7_boot_animation_frames[phase]
-    exact(expected, actual, visual_output / "win7" / "boot" / "qt" / f"animation-{phase:03}")
+    if renderer == "qt":
+        actual = request.getfixturevalue("win7_boot_animation_frames")[phase]
+    else:
+        output = request.getfixturevalue("win7_plymouth_animation_frames")
+        with Image.open(output / f"frame-{phase}.png") as frame:
+            actual = frame.convert("RGB").crop((0, 0, 200, 200))
+    exact(expected, actual, visual_output / "win7" / "boot" / renderer / f"animation-{phase:03}")
 
 
 @pytest.mark.parametrize("theme", THEMES)

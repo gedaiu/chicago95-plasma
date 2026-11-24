@@ -365,20 +365,26 @@ grab_hand_for_moves() { # KWin draws its move pointer while it drags a window (C
 }
 
 import_gtk_progress() {
-  local version target
+  local version target radio_assets=""
   [ "${SETUP_DRY_RUN:-0}" = 1 ] && return 0
+  if [ "$1" = Chicago95 ] && [ "${SETUP_DPI:-96}" = 120 ] && [[ "${SETUP_LOOK:-}" =~ ^(1998|2000|2001)$ ]]; then
+    radio_assets="$STATE_DIR/gtk-classic-radio"
+    backup "$radio_assets"
+    record "$radio_assets"
+  fi
   for version in 3.0 4.0; do
     target=~/.config/gtk-$version/gtk.css
     backup "$target"
     mkdir -p "$(dirname "$target")"
-    python3 - "$target" "$REPO/config/gtk-progress-classic.css" "$1" "$version" <<'PYPROGRESS'
+    python3 - "$target" "$REPO/config/gtk-progress-classic.css" "$1" "$version" \
+      "$radio_assets" "${SETUP_LOOK:-}" <<'PYPROGRESS'
 import re
 import sys
 from pathlib import Path
 
 target, source = map(Path, sys.argv[1:3])
 sys.path.insert(0, str(source.parent.parent / "lib"))
-from gtk_inputs import input_css
+from gtk_inputs import classic_radio_css, input_css
 from gtk_sliders import slider_css
 from gtk_header import without_gtk4_properties
 begin, end = "/* Chicago95 progress BEGIN */", "/* Chicago95 progress END */"
@@ -390,6 +396,8 @@ if sys.argv[3] == "Chicago95Aero":
 if sys.argv[3] == "Chicago95":
     block = (source.read_text() + source.with_name("gtk-frames-classic.css").read_text()
              + input_css(Path.home() / ".themes/Chicago95", sys.argv[4]) + slider_css(sys.argv[4]))
+    if sys.argv[5]:
+        block += classic_radio_css(Path(sys.argv[5]), sys.argv[6])
     if sys.argv[4] == "3.0":  # GTK 3 warns on every start about properties only GTK 4 knows
         block = without_gtk4_properties(block)
     text = text.rstrip() + "\n" + begin + "\n" + block + end + "\n"
@@ -2180,6 +2188,19 @@ step_sddm() { # login screen; system files, so it asks for the administrator pas
   show_copy "(Setup)" "$SDDM_OVERRIDE"
 }
 
+stage_luna_plymouth() {
+  local build="$1"
+  run cp -r "$REPO/luna/plymouth/Chicago95-XP" "$build" || return 1
+  if [ -n "${SETUP_BANNER_TEXT-Chicago95}" ]; then
+    run env QT_QPA_PLATFORM=offscreen python3 "$REPO/luna/plymouth/branded_logo.py" --out "$build" \
+      --name "${SETUP_BANNER_TEXT-Chicago95}" --company "${SETUP_COMPANY:-KDE}" --edition "${SETUP_EDITION:-Professional}" \
+      --logo "$(login_logo)"
+  else
+    run cp "$REPO/luna/splash/boot-stock-640.png" "$build/boot-stock-640.png" || return 1
+    run sed -i 's/native_background = "";/native_background = "boot-stock-640.png";/' "$build/Chicago95-XP.script"
+  fi
+}
+
 step_plymouth() { # boot screen; system files and a rebuilt boot image, so it asks for the administrator password
   local theme_src="${SETUP_CHICAGO95_SRC:-$HOME/src/Chicago95}/Plymouth/Chicago95" name=Chicago95 current build=""
   command -v plymouth-set-default-theme >/dev/null 2>&1 || {
@@ -2201,16 +2222,10 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
     theme_src="$build"
   elif [ "$(boot_style)" = luna ]; then
     name=Chicago95-XP
-    theme_src="$REPO/luna/plymouth/Chicago95-XP"
-    if [ -n "${SETUP_BANNER_TEXT-Chicago95}" ]; then # the user's branding in place of the XP wordmark
-      build="${TMPDIR:-/tmp}/chicago95-plymouth-$$"
-      run rm -rf "$build"
-      run cp -r "$theme_src" "$build"
-      run env QT_QPA_PLATFORM=offscreen python3 "$REPO/luna/plymouth/branded_logo.py" --out "$build" \
-        --name "${SETUP_BANNER_TEXT-Chicago95}" --company "${SETUP_COMPANY:-KDE}" --edition "${SETUP_EDITION:-Professional}" \
-        --logo "$(login_logo)"
-      theme_src="$build"
-    fi
+    build="${TMPDIR:-/tmp}/chicago95-plymouth-$$"
+    run rm -rf "$build"
+    stage_luna_plymouth "$build" || return 1
+    theme_src="$build"
   elif [ "$(boot_style)" = classic ] && [[ "${SETUP_LOOK:-}" == 199[58] ]]; then
     local images="$REPO/splash/chicago95.splashscreen/contents/splash/images" artwork
     if [ "$SETUP_LOOK" = 1998 ]; then

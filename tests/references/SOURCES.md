@@ -159,8 +159,8 @@ The shipped `sddm/Chicago95Plasma/key-9x.png` is the isolated 45×48 key icon at
 (115, 122) in `themes/win95/sign-in.png`, with the face colour made transparent.
 `splash/chicago95.splashscreen/contents/splash/images/windows98.png` is the Windows 98
 boot artwork corrected from 640×400 to 640×480 with nearest-neighbour sampling.
-The Plymouth strip animation is reconstructed; the source establishes one frame,
-not its timing or every animated palette state.
+The Plymouth build draws the moving strip from the same SVG palette fields as Qt.
+Fresh native reference captures cover every palette state.
 
 ### Native boot frames
 
@@ -176,11 +176,32 @@ progress blocks filled. XP SP3 was captured at 640×480 at phase 9, established
 by an exact match with the XP boot-bar strip listed above. Both XP desktop
 themes use this frame. The native-size stock preview uses the installed
 XP SP3 `WINDOWS/System32/ntoskrnl.exe` bitmap resource 1 and the measured
-VGA palette. The loading bar is drawn from the animated SVG parts.
+VGA palette. The stock Plymouth installer copies that same backdrop.
+The loading bar is drawn from the animated SVG parts.
 The scalable wordmark remains in use for larger previews and custom
 branding. Windows 7 SP1 was captured at 1024×768 with the logo
-fully visible. Frame 82 of the theme's loop is the closest match to the
-captured animation phase at the corrected 4:3 scale.
+fully visible at phase 82. The full-frame comparison uses the layout
+and lettering for that resolution.
+
+The fresh Windows 98 SE guest provided all twenty phases in
+`themes/win98/boot/strip-phases.png`. Each entry is a 640×7 crop from
+(0, 393). The test stretches from the original 640×400 framebuffer
+before cropping the rendered 640×480 bounds. The vector strip uses
+twenty palette fields and two repeating dither patterns. The colors
+rotate through the fields while the edge patterns stay in place.
+
+The fresh Windows 2000 Professional guest provided phases 1, 2, 3, 8,
+79, and 159 in `themes/win2k/boot/strip-phases.png`. Each entry is a
+640×10 crop from (0, 416). The timestamp file records a complete cycle,
+including the initial 391 ms hold and the wrap back to phase zero.
+The moving strip advances four device pixels per phase.
+
+The Windows 7 SP1 guest supplied consecutive boot phases 3 through 47
+at 1024×768. `themes/win7/boot/animation-frames.png` packs the 200×200
+crops from (412, 284) in rows of eight. The timestamp file records
+host time from the first capture of phase 3. The median observed
+interval is 71 ms. The desktop session followed phase 47 on this run.
+The two native lettering crops use the same guest at phase 20.
 
 The Windows 95 artwork comes from the installed guest's indexed `logo.sys`
 bitmap. The bundled PNG retains those indices and uses the VM palette
@@ -204,10 +225,22 @@ The XP Classic guest uses the Ctrl+Alt+Delete alternate logon dialog.
 The XP Luna guest shows its single local account on the Welcome screen.
 The comparisons exclude the software cursor and Luna's account picture.
 
-The per-theme `widget-controls/radio-*.png` files isolate the idle and selected
-radio indicators from Display Properties. Windows 95 uses `win95-osr2-display-radios.png`
-at 96 DPI. Windows 7 uses `win7-sp1-144dpi-radio-normal.png` and
-`win7-sp1-144dpi-radio-checked.png` at 144 DPI.
+### Radio controls
+
+The per-theme `widget-controls/radio-*.png` files isolate idle and selected
+radio indicators. Windows 95 uses `win95-osr2-display-radios.png` at 96 DPI.
+Windows 7 uses `win7-sp1-144dpi-radio-normal.png` and
+`win7-sp1-144dpi-radio-checked.png` at 144 DPI. The other four
+references are 1280×1024 QEMU framebuffer captures at 120 DPI.
+
+| Theme | Native dialog | Idle bounds | Selected bounds |
+| --- | --- | --- | --- |
+| Windows 98 SE | Shut Down Windows | (506, 449, 518, 461) | (506, 425, 518, 437) |
+| Windows 2000 Professional | Location Information | (374, 340, 386, 352) | (238, 340, 250, 352) |
+| XP Classic | Folder Options, Tasks | (287, 309, 301, 323) | (287, 287, 301, 301) |
+| XP Luna | Folder Options, Browse folders | (124, 252, 140, 268) | (124, 230, 140, 246) |
+
+The Windows 2000 and XP tests quantize the renders to the RGB565 guest palette.
 
 | File | Source |
 | --- | --- |

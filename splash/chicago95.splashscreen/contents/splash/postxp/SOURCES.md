@@ -20,6 +20,11 @@
   supplied by the user. At 1920×1080: 338.5s, rectangles (800,720,320,80) and
   (800,1000,320,48); 296s, rectangle (800,864,320,48). They preserve stock
   typography without installing Microsoft's fonts; all customized text is live.
+- `seven-text-native.png` and `seven-footer-native.png` come from the installed
+  Windows 7 SP1 guest's 1024×768 framebuffer. The full frame was captured
+  during boot phase 20. The 186×24 text begins at (419, 525), and the
+  162×15 footer begins at (431, 720). The theme uses these sources for
+  displays at or below their native resolution.
 - Windows 8–11 logo geometry and gradients are independently drawn in QML using
   the supplied reference's measured bounds. They are not AI-generated pictures.
 

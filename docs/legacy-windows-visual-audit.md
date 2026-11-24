@@ -389,3 +389,38 @@ standard fixture. In a Windows 95 follow-up using four adjacent window
 widths, the same PNG faces gained or lost a column as their origins
 moved between fractional and whole device pixels. Changing the Close
 margin shifted which widths lined up.
+
+## Boot animation frames
+
+The sampled full boot frame now matches on each of the six looks in
+Qt and from the installed or generated Plymouth artwork. The Windows
+95 tests also compare eleven additional full palette frames. For both
+XP themes, Setup copies the same native 640×480 backdrop used in Qt
+when the stock branding is selected. Larger surfaces and customized
+branding use the scalable artwork.
+The Windows 98 strip is drawn from a twenty-field palette and two
+repeated dither paths. All twenty native phases match in Qt and
+in the artwork generated for Plymouth. The Windows 2000 boot strip
+advances four pixels each phase. Qt's initial hold and subsequent
+cadence are checked against the guest recording. The Qt renderer and
+the Plymouth artwork exporter match all six sampled native strips.
+
+At 1024×768 the Windows 7 renderer places the native lettering crops
+at their original coordinates and uses nearest-neighbor sampling for
+the 200×200 animation frames at their original size. The Windows 7
+checks compare all 45 recorded early phases in Qt and in the artwork
+generated for Plymouth. The guest reached sign-in before the later
+animation loop. Live Plymouth refresh timing remains unmeasured.
+[Native capture details](../tests/references/SOURCES.md#native-boot-frames)
+
+## GTK radio controls
+
+The shared suite compares idle and selected radio indicators from all
+six Windows looks against live GTK 3 and GTK 4. At 120 DPI the Windows
+98 and Windows 2000 faces are 12 pixels wide, and XP Classic uses a
+14-pixel face. Setup generates the three looks' assets from layered SVG
+paths at those sizes. All six direct SVG comparisons and their six GTK
+4 equivalents match the guest pixels. GTK 3 reaches the same widths
+with softer edges. At 144 DPI, Aero uses a circular outline and a
+graduated selection dot. Its GTK comparisons still differ at the edges
+and in the selected face. [Native capture details](../tests/references/SOURCES.md#radio-controls)

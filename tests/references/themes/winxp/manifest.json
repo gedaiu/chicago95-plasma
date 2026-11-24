@@ -1,4 +1,6 @@
 {
+  "radio_scale": 1.25,
+  "radio_rgb565": true,
   "start_menu_interaction": {"scale": 1.25, "rgb565": true},
   "look": "luna",
   "desktop_samples": {"screen": [1280, 1024], "scale": 1.25, "launchers": [], "cursor": [640, 512, 662, 536]},

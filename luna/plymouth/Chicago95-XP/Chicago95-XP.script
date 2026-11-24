@@ -24,9 +24,18 @@ else
     block_image = Image("block.png");
   }
 
-logo = Sprite(logo_image.Scale(Math.Int(logo_image.GetWidth() * fit), Math.Int(logo_image.GetHeight() * fit)));
-# Centred on the XP wordmark's centre: the 244 pixel wordmark lands at x 209; a branded logo, wider, around it.
-logo.SetPosition(Math.Int(layout_x + 331 * unit - logo_image.GetWidth() * fit / 2), Math.Int(layout_y + 123 * unit), 1);
+native_background = "";
+if (unit == 1 && native_background != "")
+  {
+    backdrop = Sprite(Image(native_background));
+    backdrop.SetPosition(Math.Int(layout_x), Math.Int(layout_y), 0);
+  }
+else
+  {
+    logo = Sprite(logo_image.Scale(Math.Int(logo_image.GetWidth() * fit), Math.Int(logo_image.GetHeight() * fit)));
+    # The original 244-pixel wordmark lands at x 209. Wider branded artwork shares its centre.
+    logo.SetPosition(Math.Int(layout_x + 331 * unit - logo_image.GetWidth() * fit / 2), Math.Int(layout_y + 123 * unit), 1);
+  }
 
 trough = Sprite(trough_image.Scale(Math.Int(trough_image.GetWidth() * fit), Math.Int(trough_image.GetHeight() * fit)));
 trough.SetPosition(Math.Int(layout_x + 255 * unit), Math.Int(layout_y + 351 * unit), 1);
