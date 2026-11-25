@@ -63,7 +63,8 @@ def run_length_rows(x0, y0, w, h, color_at):
 
 
 def nine_slice(
-    prefix, x0, y0, size, border, rings, interior, margin, tile_center=False, interior_size=None, center_fill=None
+    prefix, x0, y0, size, border, rings, interior, margin, tile_center=False, interior_size=None, center_fill=None,
+    *, edge_fills=None,
 ):
     """Emit FrameSvg pieces for a square `size` frame with `border` px edges.
 
@@ -76,6 +77,8 @@ def nine_slice(
         return ring_color(px, py, size, rings, interior)
 
     def piece(name, fx, fy, w, h):
+        if edge_fills and name in edge_fills:
+            return rect(x0 + fx, y0 + fy, w, h, edge_fills[name], f' id="{prefix}{name}"')
         body = run_length_rows(x0 + fx, y0 + fy, w, h, lambda cx, cy: color(fx + cx, fy + cy))
         return f'<g id="{prefix}{name}">{body}</g>'
 

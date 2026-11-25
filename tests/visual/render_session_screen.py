@@ -10,8 +10,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from conftest import REPO, load_script  # noqa: E402
 from login_theme import login_view, render_aero_lock, render_classic_lock, render_login  # noqa: E402
 from PIL import Image  # noqa: E402
-from PySide6.QtCore import QObject, QPointF, Qt  # noqa: E402
-from PySide6.QtTest import QTest  # noqa: E402
+from PySide6.QtCore import QObject, QPointF, Qt, QUrl  # noqa: E402
+from PySide6.QtQuick import QQuickView  # noqa: E402
+from PySide6.QtTest import QSignalSpy, QTest  # noqa: E402
 from reference import qimage_to_pil  # noqa: E402
 
 
@@ -55,6 +56,59 @@ def render_aero_entry(app, folder, size, account, brand, state):
         return qimage_to_pil(view.grabWindow())
 
 
+def render_aero_submit(app, folder, size, account, brand, state):
+    with login_view(
+        app, folder, size=size, user=account, users=(account,), loginStyle="aero", brandText=brand,
+    ) as view:
+        go = view.rootObject().findChild(QObject, "aeroSubmit")
+        greeter = view.rootContext().contextProperty("sddm")
+        attempts = QSignalSpy(greeter.loginAttempted)
+        inside = go.mapToScene(QPointF(go.width() / 2, go.height() / 2)).toPoint()
+        outside = go.mapToScene(QPointF(go.width() + 40, 0)).toPoint()
+        QTest.mouseMove(view, outside)
+        if state != "idle":
+            QTest.mouseMove(view, inside)
+            assert go.property("hovered")
+        if state in ("held", "held-outside", "released-outside"):
+            QTest.mousePress(view, Qt.LeftButton, pos=inside)
+            assert go.property("down")
+        if state in ("held-outside", "released-outside"):
+            QTest.mouseMove(view, outside)
+        if state == "released-outside":
+            QTest.mouseRelease(view, Qt.LeftButton, pos=outside)
+            assert not go.property("down")
+        QTest.qWait(200)
+        assert attempts.count() == 0
+        return qimage_to_pil(view.grabWindow())
+
+
+def render_luna_lock(folder, size, portrait):
+    from chicago95lunapreviews import copy_screen_trees
+
+    theme = folder / "luna"
+    copy_screen_trees(REPO / "luna", theme, "sddm", "lockscreen")
+    scene = theme / "lock-preview.qml"
+    scene.write_text("""import QtQuick
+import "lockscreen"
+
+LunaLockScreen {
+    authenticator: QtObject { signal failed(int kind) }
+}
+""")
+    view = QQuickView()
+    view.setResizeMode(QQuickView.SizeRootObjectToView)
+    view.setInitialProperties({"userName": "ref", "userPicture": QUrl.fromLocalFile(str(portrait))})
+    view.resize(*size)
+    view.setSource(QUrl.fromLocalFile(str(scene)))
+    assert not view.errors(), [error.toString() for error in view.errors()]
+    view.show()
+    try:
+        QTest.qWait(300)
+        return qimage_to_pil(view.grabWindow())
+    finally:
+        view.close()
+
+
 def render(manifest, component, state, destination):
     from chicago95ui import look_settings, make_app
 
@@ -79,20 +133,29 @@ def render(manifest, component, state, destination):
             actual = render_aero_lock(app, output.parent, size, account, brand, edition=edition, logo=logo)
         elif "menu_down" in capture:
             actual = render_aero_power_menu(app, output.parent, size, capture["menu_down"], account, brand)
+        elif "submit" in capture:
+            actual = render_aero_submit(app, output.parent, size, account, brand, capture["submit"])
         elif "entry" in capture:
             actual = render_aero_entry(app, output.parent, size, account, brand, capture["entry"])
         else:
             actual = render_login(
                 app, output.parent, size=size, user=account, users=(account,),
-                loginStyle="aero", brandText=brand, edition=edition, brandLogo=logo, failed=capture.get("failed", False),
+                loginStyle="aero", brandText=brand, edition=edition, brandLogo=logo,
+                failed=capture.get("failed", False),
             )
     elif look == "luna":
         from chicago95lunapreviews import copy_screen_trees
 
-        copy_screen_trees(REPO / "luna", output.parent / "theme/luna", "sddm")
-        portrait = REPO / "luna/images/account-pictures/flower.png"
-        account = {"name": "ref", "icon": portrait.as_uri()}
-        actual = render_login(app, output.parent, size=size, user="ref", users=(account,), loginStyle="luna")
+        if component == "lock-screen":
+            portrait = output.parent / "portrait.png"
+            with Image.open(manifest.parent / capture["frame"]) as native:
+                native.crop(capture["portrait_crop"]).save(portrait)
+            actual = render_luna_lock(output.parent, size, portrait)
+        else:
+            copy_screen_trees(REPO / "luna", output.parent / "theme/luna", "sddm")
+            portrait = REPO / "luna/images/account-pictures/flower.png"
+            account = {"name": "ref", "icon": portrait.as_uri()}
+            actual = render_login(app, output.parent, size=size, user="ref", users=(account,), loginStyle="luna")
     elif look in ("1995", "1998"):
         actual = render_login(
             app, output.parent, size=size, user="Jim Midnite", users=(), loginStyle="classic",
@@ -101,6 +164,11 @@ def render(manifest, component, state, destination):
         )
     else:
         name = "Windows 2000" if look == "2000" else "Windows XP"
+        logo = (
+            REPO / "sddm/Chicago95Plasma/Windows2000Flag.svg"
+            if look == "2000"
+            else REPO / "luna/images/windows-xp-flag.svg"
+        )
         banner = output.parent / "brand-banner.png"
         shutdown = load_script("chicago95-shutdown")
         branding = {
@@ -108,7 +176,7 @@ def render(manifest, component, state, destination):
             "style": look,
             "osName": name,
             "osCompany": "Microsoft",
-            "osLogo": str(REPO / "plasmoids/org.chicago95.start/contents/images/logo-flag.png"),
+            "osLogo": str(logo),
         }
         assert shutdown.render_login_banner(
             branding if component == "post-login" else {"style": look, "osName": name, "osCompany": "Microsoft"},
@@ -131,7 +199,8 @@ def render(manifest, component, state, destination):
 
             with themed(app, look):
                 actual = render_classic_lock(
-                    output.parent, size, banner, typed=capture.get("entry") == "typed", rejected=capture.get("failed", False)
+                    output.parent, size, banner, typed=capture.get("entry") == "typed",
+                    rejected=capture.get("failed", False), xp_classic=look == "2001",
                 )
         else:
             actual = render_login(

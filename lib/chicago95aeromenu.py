@@ -23,7 +23,17 @@ from PySide6.QtCore import (
     QVariantAnimation,
 )
 from PySide6.QtDBus import QDBusConnection, QDBusMessage, QDBusPendingCallWatcher, QDBusVariant
-from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPainterPath, QPen, QPixmap, QRegion
+from PySide6.QtGui import (
+    QColor,
+    QGuiApplication,
+    QIcon,
+    QLinearGradient,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPixmap,
+    QRegion,
+)
 from PySide6.QtWidgets import (
     QFrame,
     QGraphicsOpacityEffect,
@@ -161,6 +171,27 @@ class ProgramsToggle(QPushButton):
         painter.drawPath(arrow)
 
 
+class MenuGlass(QFrame):
+    def __init__(self, parent, programs):
+        super().__init__(parent)
+        self.programs = programs
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(Qt.NoPen)
+        opening = QRectF(self.programs.geometry())
+        # The bevel belongs on the glass, outside the program pane's hit area.
+        rim = QLinearGradient(0, opening.top() - 1, 0, opening.bottom())
+        rim.setColorAt(0, QColor(166, 195, 212, 88))
+        rim.setColorAt(.013, QColor(48, 58, 70, 147))
+        rim.setColorAt(.82, QColor(48, 58, 70, 110))
+        rim.setColorAt(.88, QColor(48, 58, 70, 0))
+        painter.setBrush(rim)
+        painter.drawRoundedRect(opening.adjusted(-1, -1, 1, 1), 5, 5)
+
+
 class AeroMenu(QWidget):
     def __init__(
         self,
@@ -215,18 +246,18 @@ class AeroMenu(QWidget):
         self.motion = "none"
         self.launch = launch
         self.all_programs = False
-        frame = QFrame(self.surface)
+        left = QFrame()
+        left.setObjectName("programs")
+        left.setFixedWidth(250)
+        frame = MenuGlass(self.surface, left)
         frame.setObjectName("glass")
         frame.setGeometry(0, 23, 411, 475)
         outline = QPainterPath()
         outline.addRoundedRect(QRectF(frame.geometry()), 6, 6)
         self.glass_region = QRegion(outline.toFillPolygon().toPolygon())
         columns = QHBoxLayout(frame)
-        columns.setContentsMargins(8, 7, 6, 7)
+        columns.setContentsMargins(8, 7, 6, 8)
         columns.setSpacing(5)
-        left = QFrame()
-        left.setObjectName("programs")
-        left.setFixedWidth(250)
         columns.addWidget(left)
         programs = QVBoxLayout(left)
         programs.setContentsMargins(0, 0, 0, 0)
@@ -357,7 +388,7 @@ class AeroMenu(QWidget):
             portrait = icon("user-identity")
         avatar.setPixmap(portrait.pixmap(48, 48))
         self.setStyleSheet("""
-            * { font-family: "Segoe UI", "Noto Sans"; font-size: 12px; color: #172838; }
+            * { font-family: "Segoe UI", "Selawik", "Noto Sans"; font-size: 12px; color: #172838; }
             #glass { border: 1px solid #263b50; border-radius: 6px;
                 background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
                 stop:0 rgba(81,116,145,185), stop:.11 rgba(48,72,94,185), stop:.25 rgba(22,38,52,185),
@@ -388,9 +419,10 @@ class AeroMenu(QWidget):
                     stop:.954 #d7e8fd, stop:1 #d7e8fd);
             }
             #programs QPushButton:pressed { background: #a5c9f3; }
-            #searchWell { border-top: 1px solid #ccd9ea; background: qlineargradient(
-                x1:0,y1:0,x2:0,y2:1,stop:0 #d9e3f0,stop:.12 #f1f5fb,stop:1 #f1f5fb); }
-            QLineEdit { background: white; border: 1px solid #adadad; border-top-color: #646464; padding: 0 5px; }
+            #searchWell { border-top: 1px solid #d9e3f0; background: qlineargradient(
+                x1:0,y1:0,x2:0,y2:1,stop:0 #e8eef7,stop:.04 #edf2f9,stop:.09 #f1f5fb,stop:1 #f1f5fb); }
+            QLineEdit { background: white; border: 1px solid #adadaf; border-top-color: #3f4040;
+                placeholder-text-color: #747474; padding: 0 5px; }
         """)
         self.populate()
         self.search.setFocus()

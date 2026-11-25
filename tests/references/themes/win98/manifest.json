@@ -1,6 +1,7 @@
 {
   "radio_scale": 1.25,
   "start_menu_interaction": {"scale": 1.25},
+  "start_menu_user": "Ref",
   "look": "1998",
   "motion": {"title_strip": "motion/title-strip.json"},
   "desktop_samples": {"screen": [1280, 1024], "scale": 1.25, "launchers": ["user-desktop", "web-browser", "mail-client"], "cursor": [640, 512, 662, 536]},
@@ -22,6 +23,8 @@
     "win98-se-start.png": "start-menu.png"
   },
   "taskbar_x": 535,
+  "taskbar_band_screen": [640, 480],
+  "taskbar_band_indexed_grey": true,
   "taskbar_truecolor": {"scale": 1.25, "screen": [640, 480], "x": 400},
   "start_button": {"scale": 1.25, "screen": [640, 480], "bounds": [1, 451, 67, 478]},
   "device_manager_scale": 1,

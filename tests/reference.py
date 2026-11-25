@@ -85,7 +85,14 @@ def differing_pixels(reference, ours, masks, diff_path, threshold=0.1):
 
 
 def render_start_menu(
-    startmenu, app, settings_dir, chicago95rc, kdeglobals="", without=("&Log Off...",), active=None, extra_top=()
+    startmenu,
+    app,
+    settings_dir,
+    chicago95rc,
+    kdeglobals="",
+    without=("&Log Off...", "S&uspend"),
+    active=None,
+    extra_top=(),
 ):
     """Our root Start menu at 1x with the given settings files, as a PIL image.
 
@@ -153,11 +160,18 @@ class installed_look:
         self.app.setPalette(chicago95ui.retro_palette(chicago95ui.read_scheme()))
 
 
+RGB5_LEVELS = [(value & 248) | (value >> 5) for value in range(256)]
+
+
+def rgb555(image):
+    """Quantize an RGB capture to the archived 15-bit display palette."""
+    return image.convert("RGB").point(RGB5_LEVELS * 3)
+
+
 def rgb565(image):
     """Quantize an RGB capture to the Cirrus guest's 5:6:5 display modes."""
     from PIL import Image
 
     r, g, b = image.convert("RGB").split()
-    five = [(v & 248) | (v >> 5) for v in range(256)]
     six = [(v & 252) | (v >> 6) for v in range(256)]
-    return Image.merge("RGB", (r.point(five), g.point(six), b.point(five)))
+    return Image.merge("RGB", (r.point(RGB5_LEVELS), g.point(six), b.point(RGB5_LEVELS)))

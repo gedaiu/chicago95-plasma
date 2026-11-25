@@ -229,15 +229,17 @@ def test_setup_draws_and_installs_the_windows_2000_lock_banner(tmp_path):
     assert "lockscreen/classic/brand-banner.png" in log
 
 
-def test_setup_writes_the_look_and_desktop_colour_into_the_lock_screen_settings(tmp_path):
+@pytest.mark.parametrize(("style", "xp_classic"), (("2000", "false"), ("2001", "true")))
+def test_setup_writes_the_look_and_desktop_colour_into_the_lock_screen_settings(tmp_path, style, xp_classic):
     run_bash_with_steps(
         tmp_path,
-        "SETUP_DRY_RUN=0 SETUP_LOGIN_STYLE=2000 SETUP_START_MENU_STYLE=2000 SETUP_BACKGROUND_COLOR=#3A6EA5; "
+        f"SETUP_DRY_RUN=0 SETUP_LOGIN_STYLE=2000 SETUP_START_MENU_STYLE={style} SETUP_BACKGROUND_COLOR=#3A6EA5; "
         f"write_lockscreen_settings {tmp_path}",
     )
-    assert (
-        tmp_path / "settings.js"
-    ).read_text() == '.pragma library\nvar look = "2000";\nvar desktopColor = "#3A6EA5";\n'
+    settings = (tmp_path / "settings.js").read_text()
+    assert settings.startswith('.pragma library\nvar look = "2000";\nvar desktopColor = "#3A6EA5";\n')
+    assert f"var xpClassic = {xp_classic};" in settings
+    assert ('var hostName = "";' in settings) is (xp_classic == "false")
 
 
 def test_aero_unlock_forwards_return_and_clears_a_rejected_password(qt_app, tmp_path):

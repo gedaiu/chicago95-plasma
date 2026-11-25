@@ -10,10 +10,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from aurorae_model import build_theme  # noqa: E402
 from conftest import REPO, load_script  # noqa: E402
 from PIL import Image  # noqa: E402
-from PySide6.QtCore import QElapsedTimer, QPoint, QRect, QSize, Qt  # noqa: E402
+from PySide6.QtCore import QElapsedTimer, QPoint, QRect, QSize, Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QIcon  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
-from PySide6.QtWidgets import QFrame, QLabel, QPushButton, QTabWidget, QToolButton  # noqa: E402
+from PySide6.QtWidgets import QFrame, QLabel, QMessageBox, QPushButton, QTabWidget, QToolButton  # noqa: E402
 from reference import installed_look, qimage_to_pil  # noqa: E402
 from showcase import themed  # noqa: E402
 
@@ -137,7 +137,8 @@ def capture_xp_category_link(window, output):
     strip.save(output)
 
 
-def capture_shutdown_buttons(dialog, crops, output, hover_settle_ms):
+def capture_shutdown_buttons(dialog, crops, output, hover_settle_ms, *, buttons=None):
+    buttons = dialog.buttons if buttons is None else buttons
     left, top, right, bottom = next(iter(crops.values()))
     width, height = right - left, bottom - top
     sheet = Image.new("RGB", (3 * width, len(crops) * height))
@@ -150,7 +151,7 @@ def capture_shutdown_buttons(dialog, crops, output, hover_settle_ms):
         sheet.paste(tile, (column * width, row * height))
 
     for row, (name, box) in enumerate(crops.items()):
-        button = dialog.buttons[name]
+        button = buttons[name]
         centre = button.rect().center()
         QTest.mouseMove(dialog.windowHandle(), outside)
         idle_focus.setFocus()
@@ -168,6 +169,20 @@ def capture_shutdown_buttons(dialog, crops, output, hover_settle_ms):
         QTest.mouseRelease(button, Qt.LeftButton, pos=QPoint(-4, -4))
         assert dialog.isVisible() and not button.isDown()
     sheet.save(output)
+
+
+def capture_luna_shutdown_focus(dialog, metadata, name, output):
+    buttons = {**dialog.buttons, "cancel": dialog.cancel_button}
+    names = (*dialog.buttons, "cancel")
+    QTest.mouseMove(dialog.windowHandle(), QPoint(8, 8))
+    for candidate in names:
+        button = buttons[candidate]
+        assert dialog.focusWidget() is button, f"Expected keyboard focus on {candidate}"
+        if candidate == name:
+            box = metadata["shutdown_cancel_crop"] if name == "cancel" else metadata["shutdown_button_crops"][name]
+            qimage_to_pil(dialog.grab().toImage()).crop(tuple(box)).save(output)
+            return
+        QTest.keyClick(button, Qt.Key_Tab)
 
 
 def capture_shutdown_button_hover(dialog, position, output):
@@ -259,7 +274,12 @@ def capture_shutdown(app, metadata, component, output, scale):
     combo = metadata.get("shutdown_combo_states", {})
     if "user" in combo:
         os.environ["LOGNAME"] = combo["user"]
-    flag = REPO / "luna/images/windows-xp-flag.svg" if look in ("2001", "luna", "aero") else ""
+    flag = {
+        "2000": REPO / "sddm/Chicago95Plasma/Windows2000Flag.svg",
+        "2001": REPO / "luna/images/windows-xp-flag.svg",
+        "luna": REPO / "luna/images/windows-xp-flag.svg",
+        "aero": REPO / "luna/images/windows-xp-flag.svg",
+    }.get(look, "")
     with Path(chicago95ui.CHICAGO95RC).open("a") as config:
         config.write(f"\n[Branding]\nosCompany=Microsoft\nosName={branding}\nosEdition=Professional\nosLogo={flag}\n")
     shutdown = load_script("chicago95-shutdown")
@@ -275,6 +295,16 @@ def capture_shutdown(app, metadata, component, output, scale):
             capture_shutdown_buttons(
                 dialog, metadata["shutdown_button_crops"], output, metadata.get("shutdown_button_hover_settle_ms", 0)
             )
+            return
+        if component == "shutdown-cancel-states":
+            capture_shutdown_buttons(
+                dialog, {"cancel": metadata["shutdown_cancel_crop"]}, output, 0,
+                buttons={"cancel": dialog.cancel_button},
+            )
+            return
+        if component.startswith("shutdown-keyboard-focus-"):
+            name = component.removeprefix("shutdown-keyboard-focus-").replace("-", "_")
+            capture_luna_shutdown_focus(dialog, metadata, name, output)
             return
         if component == "shutdown-button-hover":
             capture_shutdown_button_hover(dialog, metadata["shutdown_hover_sample"], output)
@@ -335,12 +365,14 @@ def render(manifest, component, output, width, height, scale_override=None):
                 dialog.close()
             return
         if component.startswith("run-"):
-            chicago95ui.DECORATION = build_theme(Path(output).with_name("aurorae"), look)
+            if look in ("1995", "1998", "2000", "2001"):
+                chicago95ui.DECORATION = build_theme(Path(output).with_name("aurorae"), look)
             run_states = metadata["run_states"]
             if run_states.get("flat_title"):
                 with Path(chicago95ui.KDEGLOBALS).open("a") as scheme:
                     scheme.write("\n[WM]\nactiveBlend=0,0,128\n")
-            text = run_states["text"][component.removeprefix("run-")]
+            state = component.removeprefix("run-")
+            text = run_states["text"][state]
             dialog = load_script("chicago95-run").RunDialog({"style": look, "osName": "Windows"}, [], [], [])
             try:
                 dialog.show()
@@ -348,7 +380,18 @@ def render(manifest, component, output, width, height, scale_override=None):
                 if text:
                     QTest.keyClicks(dialog.field.lineEdit(), text)
                 assert dialog.buttons["OK"].isEnabled() == bool(text)
-                assert dialog.grab().save(output)
+                for focus in run_states.get("tab_focus", {}).get(state, ()):
+                    QTest.keyClick(app.focusWidget(), Qt.Key_Tab)
+                    assert dialog.buttons[focus].hasFocus() and dialog.buttons[focus].isDefault()
+                if held := run_states.get("space_held", {}).get(state):
+                    button = dialog.buttons[held]
+                    QTest.keyPress(button, Qt.Key_Space)
+                    assert button.isDown() and dialog.isVisible()
+                    assert dialog.grab().save(output)
+                    QTest.keyRelease(button, Qt.Key_Space)
+                    assert not dialog.isVisible()
+                else:
+                    assert dialog.grab().save(output)
             finally:
                 dialog.close()
             return
@@ -364,16 +407,29 @@ def render(manifest, component, output, width, height, scale_override=None):
             else "Default Monitor on Cirrus Logic 5446 Compatible Graphics Adapter"
         )
         screen = panel.Screen(monitor, resolution, sizes, dict(zip(sizes, range(len(sizes)), strict=True)))
+        saver_settings = component == "display-properties-screen-saver-settings"
+        blank_saver = saver_settings or component == "display-properties-screen-saver-blank"
+        savers = [("deepstars", "Flying Through Space"), ("blank", "Blank")] if blank_saver else []
         actions = panel.Actions(
             current_screen=lambda: screen,
-            list_screensavers=lambda: [],
+            list_screensavers=lambda: savers,
+            lock_timeout_minutes=lambda: 60 if blank_saver else panel.lock_timeout_minutes(),
             wallpapers=lambda: [],
             display_depth=lambda _output: 16 if metadata.get("properties_rgb565") else 32,
         )
         settings = Path(output).with_name("look.conf")
-        panel.write_settings(settings, {**panel.LOOK_PRESETS[look], "LOOK": look})
+        choices = {**panel.LOOK_PRESETS[look], "LOOK": look}
+        if blank_saver:
+            choices.update(SAVER="deepstars", IDLE_MIN="10")
+        panel.write_settings(settings, choices)
         window = panel.ControlPanel(settings_path=settings, actions=actions)
         try:
+            if component == "taskbar-properties":
+                window.open_applet("Taskbar")
+                dialog = window.applet_windows["Taskbar"]
+                app.processEvents()
+                assert dialog.grab().save(output)
+                return
             if hover:
                 capture_hover(window, output)
                 return
@@ -445,12 +501,27 @@ def render(manifest, component, output, width, height, scale_override=None):
                 window.open_applet("Display")
                 target = window.applet_windows["Display"]
                 tabs = target.page.tabs
-                tabs.setCurrentIndex(target.page.tab_names().index(metadata["display_page"]))
+                page = metadata.get("display_pages", {}).get(
+                    component.removeprefix("display-properties-"), metadata["display_page"]
+                )
+                tabs.setCurrentIndex(target.page.tab_index(page))
+                if blank_saver:
+                    saver_tab = target.page.settings_tabs[tabs.currentIndex()]
+                    saver = saver_tab.saver_combo
+                    target.activateWindow()
+                    saver.setFocus(Qt.TabFocusReason)
+                    app.processEvents()
+                    assert saver.hasFocus()
+                    QTest.keyClick(saver, Qt.Key_Down)
+                    assert saver.currentData() == "blank" and target.page.apply_button.isEnabled()
+                    if saver_settings:
+                        capture_saver_settings(saver_tab, app, output)
+                        return
             app.processEvents()
             shot = target.grab()
             assert shot.devicePixelRatio() == scale
             assert shot.save(output)
-            if component == "display-properties" and look != "aero":
+            if component.startswith("display-properties") and look != "aero":
                 selected = tabs.currentIndex()
                 area = tabs.widget(selected)
                 assert area.horizontalScrollBar().maximum() == area.verticalScrollBar().maximum() == 0
@@ -463,6 +534,25 @@ def render(manifest, component, output, width, height, scale_override=None):
             for sheet in window.applet_windows.values():
                 sheet.close()
             window.close()
+
+
+def capture_saver_settings(tab, app, output):
+    captured = False
+
+    def capture():
+        nonlocal captured
+        dialog = app.activeModalWidget()
+        if dialog is not None:
+            captured = (
+                isinstance(dialog, QMessageBox)
+                and dialog.windowTitle() == "Blank Screen Saver"
+                and dialog.grab().save(output)
+            )
+            dialog.close()
+
+    QTimer.singleShot(0, capture)
+    tab.saver_settings.click()
+    assert captured
 
 
 if __name__ == "__main__":

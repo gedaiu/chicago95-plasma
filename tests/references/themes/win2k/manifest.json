@@ -2,6 +2,7 @@
   "radio_scale": 1.25,
   "radio_rgb565": true,
   "start_menu_interaction": {"scale": 1.25, "rgb565": true},
+  "start_menu_rgb555": true,
   "look": "2000",
   "motion": {"title_strip": "motion/title-strip.json"},
   "desktop_samples": {"screen": [1280, 1024], "scale": 1.25, "launchers": ["user-desktop", "web-browser", "mail-client"], "cursor": [640, 512, 662, 536]},
@@ -32,6 +33,7 @@
     "win2000-pro-shutdown-dialog.png": "shutdown.png"
   },
   "taskbar_x": 535,
+  "taskbar_band_screen": [1280, 1024],
   "start_button": {"scale": 1.25, "screen": [1280, 1024], "bounds": [2, 995, 68, 1022], "rgb565": true},
   "taskbar_band_rgb565": true,
   "device_manager_scale": 1.25,

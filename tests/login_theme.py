@@ -110,7 +110,7 @@ AeroLockScreen {
         view.close()
 
 
-def render_classic_lock(folder, size, banner, *, typed=False, rejected=False):
+def render_classic_lock(folder, size, banner, *, typed=False, rejected=False, xp_classic=False):
     from reference import qimage_to_pil
 
     theme = prepare_login_theme(THEME, folder, banner=banner).parent
@@ -125,6 +125,7 @@ ClassicLockScreen {
 }""")
     view = QQuickView()
     view.setResizeMode(QQuickView.SizeRootObjectToView)
+    view.setInitialProperties({"xpClassic": xp_classic, "hostName": "XP-REFERENCE"})
     view.resize(*size)
     view.setSource(QUrl.fromLocalFile(str(scene)))
     assert not view.errors()

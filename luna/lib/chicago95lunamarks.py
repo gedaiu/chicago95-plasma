@@ -4,7 +4,7 @@ RADIO_RADIUS = {13: 2.125, 16: 4, 25: 6.5}
 # Light position, radius and the three colours of the gloss in each native size.
 RADIO_GLOSS = {
     13: (0.23, 0.23, 0.7, ("#59d955", "#3cbc39", "#139211")),
-    16: (0.23, 0.21, 0.64, ("#69e364", "#54d150", "#34ab30")),
+    16: (0.23, 0.21, 0.64, ("#60f062", "#4dd34a", "#29a621")),
     25: (0.43, 0.35, 1.0, ("#6aea66", "#169413", "#0a8c08")),
 }
 RADIO_DISABLED = "#c0bfb5"

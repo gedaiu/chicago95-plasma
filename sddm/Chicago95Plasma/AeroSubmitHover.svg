@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="30" height="30" viewBox="0 0 30 30">
+  <defs>
+    <linearGradient id="rim" x2="0%" y2="100%">
+      <stop stop-color="#488fb4"/>
+      <stop offset="1" stop-color="#112b48"/>
+    </linearGradient>
+    <linearGradient id="glass" x2="0%" y2="100%">
+      <stop stop-color="#f2f5fc"/>
+      <stop offset=".43" stop-color="#89c9ef"/>
+      <stop offset=".52" stop-color="#286bb7"/>
+      <stop offset=".77" stop-color="#42bcf5"/>
+      <stop offset="1" stop-color="#b7ffff"/>
+    </linearGradient>
+    <linearGradient id="glint" x2="0%" y2="100%">
+      <stop stop-color="#fff" stop-opacity=".45"/>
+      <stop offset=".55" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#c6f4ff" stop-opacity=".65"/>
+    </linearGradient>
+    <linearGradient id="glyph" x2="0%" y2="100%">
+      <stop offset=".55" stop-color="#f4fcff"/>
+      <stop offset="1" stop-color="#aebfc6"/>
+    </linearGradient>
+    <radialGradient id="sheen" gradientUnits="userSpaceOnUse" cx="29.6" cy="10.5" r="7.1">
+      <stop stop-color="#e2f7ff" stop-opacity="0.64"/>
+      <stop offset="1" stop-color="#e2f7ff" stop-opacity="0"/>
+    </radialGradient>
+    <path id="arrow" transform="matrix(1.02 0 0 1 -.55 0)" d="M8.1 13H15.9L14 10.5C13.1 9.5 13.1 8.3 14 7.5
+      C14.9 6.7 16.1 6.8 17 7.7L23.6 13.9Q24.7 15 23.6 16.1L17 22
+      C16.1 22.9 14.8 23 13.9 22.1C13 21.2 13.1 20 14 19.1L16 17.1H8.1
+      A2.1 2.1 0 0 1 8.1 13Z"/>
+  </defs>
+  <ellipse cx="15.14" cy="15.11" rx="14.86" ry="14.89" fill="url(#rim)"/>
+  <ellipse cx="15.11" cy="14.91" rx="13.92" ry="13.61" fill="url(#glass)" stroke="url(#glint)" stroke-width="0.87"/>
+  <ellipse cx="15.11" cy="14.91" rx="13.92" ry="13.61" fill="url(#sheen)"/>
+  <use xlink:href="#arrow" transform="translate(0.15 1.27)" fill="#244253" opacity="0.42"/>
+  <use xlink:href="#arrow" fill="url(#glyph)"/>
+</svg>

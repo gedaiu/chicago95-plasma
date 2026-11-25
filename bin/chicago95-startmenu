@@ -77,7 +77,19 @@ sys.path[:0] = [
 import chicago95animations
 import chicago95ui  # after the environment above, so its defaults do not override it
 from chicago95recent import recent_documents
-from PySide6.QtCore import QEasingCurve, QEvent, QObject, QPoint, QPropertyAnimation, QRect, QStandardPaths, Qt, QTimer
+from PySide6.QtCore import (
+    QEasingCurve,
+    QEvent,
+    QObject,
+    QPoint,
+    QPropertyAnimation,
+    QRect,
+    QRectF,
+    QStandardPaths,
+    Qt,
+    QTimer,
+)
+from PySide6.QtDBus import QDBusConnection, QDBusMessage
 from PySide6.QtGui import (
     QAction,
     QColor,
@@ -121,6 +133,7 @@ STYLES = {
         row=32,
         text_gap=4,
         text_drop=2,
+        extra_width=16,
         icon_x=30,
         banner_font=18,
         banner_stretch=100,
@@ -303,13 +316,19 @@ class RetroMenuStyle(chicago95ui.ClassicStyle):
 
     def sizeFromContents(self, kind, option, size, widget=None):
         result = super().sizeFromContents(kind, option, size, widget)
+        if (
+            kind == QStyle.CT_MenuItem and isinstance(widget, RetroMenu) and widget.banner
+            and self.look == "1998" and widget.devicePixelRatioF() == 1
+            and option.menuItemType == QStyleOptionMenuItem.MenuItemType.Separator
+        ):
+            result.setHeight(result.height() - 1)
         if kind == QStyle.CT_MenuItem and isinstance(widget, RetroMenu) and size.height() > 2:
             if widget.banner:
                 # The native Classic row is 32 device pixels at both 96 and 120 DPI.
                 # Give the scaled icon room at higher densities.
                 height = round(style_of(widget)["row"] * UI_SCALE / widget.devicePixelRatioF())
                 result.setHeight(max(ROOT_ICON + 2, height))
-                result.setWidth(result.width() + round(20 * UI_SCALE))
+                result.setWidth(result.width() + round(style_of(widget).get("extra_width", 20) * UI_SCALE))
             else:
                 result.setWidth(result.width() + round(16 * UI_SCALE))
                 if self.look in ("1995", "1998") and widget.devicePixelRatioF() == 1.25:
@@ -328,10 +347,13 @@ class RetroMenuStyle(chicago95ui.ClassicStyle):
             # from the banner's edge to 4px short of the frame.
             left, right = BANNER_WIDTH + 3, widget.width() - 3
             y = option.rect.top() + style_of(widget).get("separator_offset", 2)
+            if self.look == "1998" and widget.devicePixelRatioF() == 1:
+                y += 1
             painter.fillRect(left, y, right - left, 1, option.palette.color(QPalette.Mid))
             painter.fillRect(left, y + 1, right - left, 1, option.palette.color(QPalette.Light))
             return
         root_icon = None
+        clipped = False
         # The arrow (drawn in drawPrimitive) is not told the row is selected; remember it from here.
         self.drawing_selected_row = (
             bool(option.state & QStyle.State_Selected) if element == QStyle.CE_MenuItem else False
@@ -342,6 +364,16 @@ class RetroMenuStyle(chicago95ui.ClassicStyle):
             and option.menuItemType != QStyleOptionMenuItem.MenuItemType.Separator
         ):
             if option.state & QStyle.State_Selected and option.state & QStyle.State_Enabled:
+                if widget.banner and widget.devicePixelRatioF() == 1.25:
+                    # Classic Start keeps a 32-device-pixel highlight at 120 DPI.
+                    # Qt lays out whole logical rows, which can paint a 33rd pixel.
+                    scale = widget.devicePixelRatioF()
+                    clip = QRectF(option.rect)
+                    clip.moveTop(int(clip.top() * scale + 0.5) / scale)
+                    clip.setHeight(style_of(widget)["row"] / scale)
+                    painter.save()
+                    painter.setClipRect(clip, Qt.IntersectClip)
+                    clipped = True
                 painter.fillRect(option.rect, option.palette.highlight())
             if widget.banner:
                 # The root icon goes where the original puts it, drawn after Qt (which fills the row
@@ -357,6 +389,8 @@ class RetroMenuStyle(chicago95ui.ClassicStyle):
             else:
                 option.rect = option.rect.adjusted(ITEM_LEFT_PAD, 0, 0, 0)
         super().drawControl(element, option, painter, widget)
+        if clipped:
+            painter.restore()
         if root_icon:
             painter.drawPixmap(round(style_of(widget)["icon_x"] * UI_SCALE), root_icon[1], root_icon[0])
 
@@ -579,10 +613,13 @@ ROOT_ICONS = {
         "help": ("system-help", "help-browser"),
         "run": ("system-run", "gtk-execute"),
         "log_off": ("system-log-out",),
+        "suspend": ("system-suspend", "system-shutdown"),
         "shut_down": ("system-shutdown",),
     },
     "1998": {
+        "update": ("system-software-update", "web-browser"),
         "programs": ("applications-all", "folder-open"),
+        "favorites": ("folder-favorites", "folder-bookmark", "folder"),
         "documents": ("folder-home", "folder-documents"),
         "settings": ("open-menu", "preferences-desktop"),
         "find": ("edit-find", "system-search"),
@@ -681,9 +718,14 @@ CLASSIC_ROOT_LABELS = {
     "shut_down": "Sh&ut Down...",
 }
 ROOT_LABELS = {
-    "1995": CLASSIC_ROOT_LABELS,
-    "1998": CLASSIC_ROOT_LABELS,
-    "2000": CLASSIC_ROOT_LABELS,
+    "1995": {**CLASSIC_ROOT_LABELS, "suspend": "S&uspend"},
+    "1998": {
+        **CLASSIC_ROOT_LABELS,
+        "update": "Windows Update",
+        "favorites": "F&avorites",
+        "log_off": "&Log Off {user}...",
+    },
+    "2000": {**CLASSIC_ROOT_LABELS, "find": "S&earch"},
     "2001": {
         **CLASSIC_ROOT_LABELS,
         "catalog": "Windows Catalog",
@@ -694,8 +736,9 @@ ROOT_LABELS = {
         "shut_down": "Turn O&ff Computer...",
     },
 }
-TOP_ROOT_ITEMS = {"2001": ("catalog", "update")}
+TOP_ROOT_ITEMS = {"1998": ("update",), "2001": ("catalog", "update")}
 SOFTWARE_CENTRE_COMMANDS = {"catalog": ["plasma-discover"], "update": ["plasma-discover", "--mode", "update"]}
+PROJECT_URL = "https://github.com/gedaiu/chicago95-plasma"
 
 
 def root_label(item, style, user):
@@ -796,6 +839,18 @@ def fill_documents_menu(documents):
         )
 
 
+@functools.cache
+def suspend_available():
+    bus = QDBusConnection.systemBus()
+    if not bus.isConnected():
+        return False
+    request = QDBusMessage.createMethodCall(
+        "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "CanSuspend"
+    )
+    reply = bus.call(request, timeout=150)
+    return reply.type() == QDBusMessage.ReplyMessage and reply.arguments() in (["yes"], ["challenge"])
+
+
 def build_root_menu():
     root = RetroMenu(banner=True)
     style = banner_settings()["style"]
@@ -806,13 +861,24 @@ def build_root_menu():
 
     top_items = TOP_ROOT_ITEMS.get(style, ())
     for item in top_items:
-        add_entry(root, label(item), root_icon(item, style), lambda item=item: launch(SOFTWARE_CENTRE_COMMANDS[item]))
+        command = ["xdg-open", f"{PROJECT_URL}/releases"] if style == "1998" else SOFTWARE_CENTRE_COMMANDS[item]
+        add_entry(root, label(item), root_icon(item, style), lambda command=command: launch(command))
     if top_items:
         root.addSeparator()
     programs = RetroMenu(label("programs"), root)
     programs.setIcon(root_icon("programs", style))
     programs.aboutToShow.connect(lambda: fill_programs_menu(programs))
     root.addMenu(programs)
+    if style == "1998":
+        favorites = RetroMenu(label("favorites"), root)
+        favorites.setIcon(root_icon("favorites", style))
+        for text, icon, target in (
+            ("Home", "folder-home", Path.home()),
+            ("Documents", "folder-documents", Path.home() / "Documents"),
+            ("Chicago95 Repository", "web-browser", PROJECT_URL),
+        ):
+            add_entry(favorites, text, icon, lambda target=target: launch(["xdg-open", str(target)]))
+        root.addMenu(favorites)
     documents = RetroMenu(label("documents"), root)
     documents.setIcon(root_icon("documents", style))
     documents.aboutToShow.connect(lambda: fill_documents_menu(documents))
@@ -833,6 +899,8 @@ def build_root_menu():
     add_entry(root, label("help"), root_icon("help", style), lambda: launch(["khelpcenter"]))
     add_entry(root, label("run"), root_icon("run", style), lambda: launch(run_command()))
     root.addSeparator()
+    if style == "1995" and suspend_available():
+        add_entry(root, label("suspend"), root_icon("suspend", style), lambda: launch(["systemctl", "suspend"]))
     add_entry(root, label("log_off"), root_icon("log_off", style), lambda: launch(LOG_OFF_COMMAND))
     add_entry(root, label("shut_down"), root_icon("shut_down", style), lambda: launch(SHUT_DOWN_COMMAND))
     return root

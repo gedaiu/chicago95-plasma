@@ -73,6 +73,7 @@ def test_120_dpi_caption_assets_keep_the_same_geometry_in_both_toolkits(tmp_path
         assert asset3.as_uri() in gtk3
         assert asset4.as_uri() in gtk4
     assert "-gtk-scaled(" in gtk3
+    assert "background-position: left top;" in gtk3
     assert "background-position: left top;" in gtk4
     assert "transform: translateX(0.4px);" in gtk4
     assert "translateX" not in gtk3

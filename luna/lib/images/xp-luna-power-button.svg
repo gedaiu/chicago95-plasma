@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="rim" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="32">
+      <stop stop-color="#ffffff"/>
+      <stop offset=".18" stop-color="#ffffff"/>
+      <stop offset=".83" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+    <linearGradient id="bevel" gradientUnits="userSpaceOnUse" x1="0" y1="1" x2="18" y2="27">
+      <stop stop-color="#ffa91f"/>
+      <stop offset=".5" stop-color="#ffa921"/>
+      <stop offset="1" stop-color="#ac6906"/>
+    </linearGradient>
+    <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="3" y1="2" x2="24" y2="30">
+      <stop stop-color="#ff9f12"/>
+      <stop offset=".46" stop-color="#ffa921"/>
+      <stop offset="1" stop-color="#ff9f12"/>
+    </linearGradient>
+    <radialGradient id="gleam" gradientUnits="userSpaceOnUse" cx="26" cy="26.5" r="12">
+      <stop stop-color="#ffd918"/>
+      <stop offset=".48" stop-color="#ffd918"/>
+      <stop offset="1" stop-color="#ffd918" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="gloss" gradientUnits="userSpaceOnUse" cx="6.8" cy="5.5" r="15">
+      <stop stop-color="#ffffff" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x=".35" y=".05" width="31.7" height="31.95" rx="4" fill="url(#rim)"/>
+  <rect x="1.5" y=".85" width="30.5" height="30.35" rx="3.4" fill="url(#bevel)"/>
+  <rect x="3.1" y="2.4" width="27.5" height="27" rx="2.4" fill="url(#face)"/>
+  <rect id="gleam-layer" x="3.1" y="2.4" width="27.5" height="27" rx="2.4" fill="url(#gleam)"/>
+  <rect id="gloss-layer" x="3.1" y="2.4" width="27.5" height="27" rx="2.4" fill="url(#gloss)"/>
+  <g id="stand_by" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round">
+    <path d="M11.15 10.24A8.3 7.5 0 1 0 22.05 10.24M16.7 6v9"/>
+  </g>
+  <g id="turn_off" fill="none" stroke="#ffffff" stroke-linecap="round" display="none">
+    <circle cx="16.6" cy="15.8" r="9" stroke-width="2.3"/>
+    <path d="M16.7 11.7V20" stroke-width="1.6"/>
+  </g>
+  <g id="restart" fill="none" stroke="#ffffff" transform="translate(16.7 15.8)" display="none">
+    <path d="M0-11v6m0 10v6M-11 0h6m10 0h6" stroke-width="1.8"/>
+    <path d="M0-11v6m0 10v6M-11 0h6m10 0h6" stroke-width="3.2" transform="rotate(45)"/>
+  </g>
+</svg>

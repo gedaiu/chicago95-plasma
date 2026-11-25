@@ -217,6 +217,18 @@ def test_enter_presses_focused_button(turn_off, calls):
     assert calls == ["restart"]
 
 
+def test_turn_off_tab_order_and_cancel_with_enter(turn_off, calls):
+    turn_off.activateWindow()
+    luna_dialogs.QApplication.processEvents()
+    for name in ("stand_by", "turn_off", "restart"):
+        button = turn_off.buttons[name]
+        assert turn_off.focusWidget() is button
+        QTest.keyClick(button, Qt.Key_Tab)
+    assert turn_off.focusWidget() is turn_off.cancel_button
+    QTest.keyClick(turn_off.cancel_button, Qt.Key_Return)
+    assert calls == ["cancel"]
+
+
 def test_stand_by_falls_back_to_hibernate(qt_app, calls):
     dialog = luna_dialogs.TurnOffDialog(
         {"hibernate": lambda: calls.append("hibernate"), "turn_off": None, "restart": None, "cancel": None}

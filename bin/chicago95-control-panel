@@ -73,6 +73,7 @@ from PySide6.QtWidgets import (
     QColorDialog,
     QComboBox,
     QDialog,
+    QDialogButtonBox,
     QFileDialog,
     QFormLayout,
     QFrame,
@@ -233,6 +234,7 @@ BRANDING_PICTURES = {
     "START_LOGO": [("Classic flag", "flag"), ("Windows XP flag", "xp"), ("Penguin", "penguin")],
     "LOGIN_LOGO": [
         ("Same as the Start button", "start"),
+        ("Windows 2000 flag", "win2k-flag"),
         ("Waving flag", "waving-flag"),
         ("Classic flag", "flag"),
         ("Windows XP flag", "xp"),
@@ -361,6 +363,7 @@ APPLETS = (
 
 
 APPLET_BY_NAME = {applet.name: applet for applet in APPLETS}
+POWER_SETTINGS = ("kcmshell6", "kcm_powerdevilprofilesconfig")
 
 WIN95_APPLETS = (
     Applet(
@@ -415,7 +418,7 @@ WIN95_APPLETS = (
         "Power",
         ("preferences-system-power-management", "battery"),
         "Changes power management settings.",
-        command=("kcmshell6", "kcm_powerdevilprofilesconfig"),
+        command=POWER_SETTINGS,
     ),
     Applet(
         "Printers",
@@ -691,9 +694,8 @@ PAGE_SLUGS = {
 }
 
 
-def page_location(applet_name, tab_index):
+def page_location(applet_name, tab_index, tab_name):
     """The first tab is the applet's page itself; the others add their name, as in the address bar."""
-    tab_name = PAGE_TABS[applet_name][tab_index]
     return HOME_PAGE + (applet_name,) + ((tab_name,) if tab_index > 0 else ())
 
 
@@ -1290,7 +1292,23 @@ def choose_color_dialog(parent, current):
 
 
 def show_message(parent, title, text):
-    QMessageBox.warning(parent, title, text)
+    if not chicago95ui.luna_widgets():
+        QMessageBox.warning(parent, title, text)
+        return
+    box = QMessageBox(QMessageBox.Warning, title, text, QMessageBox.Ok, parent)
+    box.setFont(parent.font())
+    box.findChild(QDialogButtonBox).setCenterButtons(True)
+    warning = box.style().standardIcon(QStyle.SP_MessageBoxWarning)
+    box.setIconPixmap(warning.pixmap(QSize(24, 24), box.devicePixelRatioF()))
+    label = box.findChild(QLabel, "qt_msgbox_label")
+    if label is not None:
+        label.setMinimumHeight(31)
+        label.setAlignment(Qt.AlignLeading | Qt.AlignVCenter)
+    box.layout().setContentsMargins(11, 11, 11, 12)
+    button = box.button(QMessageBox.Ok)
+    button.setStyle(chicago95ui.classic_style())
+    button.setFixedSize(80, 24)
+    box.exec()
 
 
 def ask_to_apply_changes(parent):
@@ -2156,6 +2174,7 @@ def picture_file(choice, repo=REPO_DIR):
     named = {
         "flag": flag,
         "xp": repo / "plasmoids/org.chicago95.start/contents/images/logo-xp-16.png",
+        "win2k-flag": repo / "sddm/Chicago95Plasma/Windows2000Flag.svg",
         "aero-flag": repo / "sddm/Chicago95Plasma/AeroBrandFlag.svg",
         "penguin": repo / "plasmoids/org.chicago95.start/contents/images/logo-penguin.svg",
         "waving-flag": CHICAGO95_DATA / "waving-flag.png",
@@ -2768,8 +2787,8 @@ class AfterLogOnPreview(LoadingPreview):
             add_luna_screen(values, folder, screen, values.get("LOGIN_STYLE", "classic"))
 
 
-def swatch_icon(colour):
-    pixmap = QPixmap(26, 13)
+def swatch_icon(colour, size=(26, 13)):
+    pixmap = QPixmap(*size)
     pixmap.fill(QColor(colour))
     painter = QPainter(pixmap)
     painter.setPen(QColor("#000000"))
@@ -2866,7 +2885,7 @@ class ScreenAreaField(QWidget):
 
     changed = Signal()
 
-    def __init__(self, sizes):
+    def __init__(self, sizes, *, luna=False):
         super().__init__()
         self.sizes = sizes or [""]
         self.slider = QSlider(Qt.Horizontal)
@@ -2875,9 +2894,17 @@ class ScreenAreaField(QWidget):
         self.label = QLabel()
         self.label.setAlignment(Qt.AlignHCenter)
         row = QHBoxLayout()
-        row.addWidget(QLabel("Less"))
+        left, right = QLabel("Less"), QLabel("More")
+        row.addWidget(left)
         row.addWidget(self.slider, 1)
-        row.addWidget(QLabel("More"))
+        row.addWidget(right)
+        if luna:
+            row.setSpacing(8)
+            row.setAlignment(left, Qt.AlignTop)
+            row.setAlignment(right, Qt.AlignTop)
+            self.slider.setMaximumWidth(94)
+            self.slider.setProperty("showTrackbarFocus", True)
+            row.addStretch()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addLayout(row)
@@ -3218,13 +3245,13 @@ class CurrentPageStack(QStackedWidget):
 class AppearanceSwitch(QStackedWidget):
     """The Appearance sample in the widget style chosen: the classic mock, or the Windows XP one, swapped live."""
 
-    def __init__(self, classic_sheet=False):
+    def __init__(self, classic_sheet=False, *, luna_sheet=False):
         super().__init__()
         import chicago95lunacontrolpanel
 
         self.mocks = {
             "classic": AppearancePreview(classic_sheet),
-            "luna": chicago95lunacontrolpanel.LunaAppearancePreview(),
+            "luna": chicago95lunacontrolpanel.LunaAppearancePreview(property_sheet=luna_sheet),
         }
         for mock in self.mocks.values():
             self.addWidget(mock)
@@ -3669,6 +3696,16 @@ class PropertiesPage(QWidget):
         self.settings_tabs = [tab for _name, tab in tabs]
         self.classic_display = title == "Display" and bool(tabs) and is_classic_display(self.settings_tabs[0].saved)
         self.luna_display = title == "Display" and chicago95ui.luna_widgets()
+        aero_taskbar = title == "Taskbar" and chicago95ui.widget_style() == "aero"
+        if self.luna_display:
+            font = chicago95ui.ui_font()
+            font.setFamilies(["Tahoma", "Liberation Sans", "Noto Sans"])
+            font.setStyleStrategy(QFont.NoAntialias)
+            self.setFont(font)
+        elif aero_taskbar:
+            font = chicago95ui.ui_font()
+            font.setFamilies(["Segoe UI", "Selawik", "Noto Sans"])
+            self.setFont(font)
         for name, tab in tabs:
             area = tab if title == "Themes" else scrolling(tab)
             if title == "Display":
@@ -3676,6 +3713,15 @@ class PropertiesPage(QWidget):
                 area.setMinimumSize(tab.minimumSizeHint().expandedTo(tab.minimumSize()))
             self.tabs.addTab(area, name)
             tab.changed.connect(self.refresh_apply_button)
+            if self.luna_display and name == "Settings":
+                def queue_slider_focus(_index, slider=tab.screen_area.slider):
+                    def focus_slider():
+                        if slider.isVisible():
+                            slider.setFocus(Qt.TabFocusReason)
+
+                    QTimer.singleShot(0, slider, focus_slider)
+
+                self.tabs.currentChanged.connect(queue_slider_focus)
         self.baseline = self.collect_values()
         self.preview_timer = QTimer(self)
         self.preview_timer.setSingleShot(True)
@@ -3683,7 +3729,7 @@ class PropertiesPage(QWidget):
         self.preview_timer.timeout.connect(self.refresh_previews)
         self.refresh_previews()
         self.ok_button = chicago95ui.dialog_button("OK")
-        if self.luna_display:
+        if self.luna_display or aero_taskbar:
             self.ok_button.setDefault(True)
         self.cancel_button = chicago95ui.dialog_button("Cancel")
         self.apply_button = chicago95ui.dialog_button("&Apply", enabled=False)
@@ -3697,15 +3743,23 @@ class PropertiesPage(QWidget):
                 button.setFixedSize(80, 22)
             elif self.luna_display:
                 button.setFixedSize(79, 21)
+            elif aero_taskbar:
+                button.setFixedSize(73, 21)
             buttons.addWidget(button)
         layout = QVBoxLayout(self)
         margins = (6, 6, 6, 7) if self.classic_display or self.luna_display else SHEET_MARGINS
+        if aero_taskbar:
+            margins = (6, 6, 7, 9)
+            buttons.setSpacing(8)
         layout.setContentsMargins(*margins)
         layout.addWidget(self.tabs, 1)
         layout.addLayout(buttons)
 
     def tab_names(self):
         return [self.tabs.tabText(index) for index in range(self.tabs.count())]
+
+    def tab_index(self, name):
+        return self.tab_names().index("Desktop" if self.luna_display and name == "Background" else name)
 
     def collect_values(self):
         return {key: value for tab in self.settings_tabs for key, value in tab.values().items()}
@@ -4146,6 +4200,9 @@ def taskbar_options_tab(settings, actions):
         default="auto",
     )
     if aero:
+        tab.group("Notification area")
+        tab.flag("CLOCK_SHOW", "Show clock", default="yes")
+        add_clock_format(tab)
         tab.group("Window previews")
     else:
         tab.flag("TASKBAR_AUTOHIDE", "Auto hide", default="no")
@@ -4156,15 +4213,20 @@ def taskbar_options_tab(settings, actions):
         [("Off", "off"), ("Small (160 pixels)", "160"), ("Medium (240 pixels)", "240"), ("Large (320 pixels)", "320")],
         default="off",
     )
-    tab.group("Notification area" if aero else "Clock")
-    tab.flag("CLOCK_SHOW", "Show clock", default="yes")
+    if not aero:
+        tab.group("Clock")
+        tab.flag("CLOCK_SHOW", "Show clock", default="yes")
+        add_clock_format(tab)
+    return tab
+
+
+def add_clock_format(tab):
     tab.choice(
         "CLOCK_HOURS",
         "Clock shows:",
         [("Hours as my language does", "locale"), ("12 hours", "12"), ("24 hours", "24")],
         default="locale",
     )
-    return tab
 
 
 @tab_builder("Taskbar", "Quick Launch")
@@ -4532,7 +4594,7 @@ def classic_desktop_controls(colour, second_colour):
 
 
 @tab_builder("Display", "Appearance")
-def appearance_tab(settings, actions):
+def appearance_tab(settings, actions, *, luna_sheet=False):
     """Windows 98's Appearance tab (the tech2u Display Properties picture): the sample windows in the scheme's
     colours, Scheme with Save As and Delete, and Item with the chosen part's settings."""
     tab = SettingsTab(settings, actions)
@@ -4542,7 +4604,7 @@ def appearance_tab(settings, actions):
         tab.outer.setSpacing(9)
         tab.form.setVerticalSpacing(5)
     start = LOOK_PRESETS["1995"]
-    tab.preview = AppearanceSwitch(classic_sheet)
+    tab.preview = AppearanceSwitch(classic_sheet, luna_sheet=luna_sheet)
     tab.previews.append(tab.preview)
     tab.outer.insertWidget(0, tab.preview)
     tab.scheme = chicago95ui.classic_combo(QComboBox())
@@ -4712,8 +4774,68 @@ def appearance_tab(settings, actions):
         field.changed.connect(colour_edited)
     for combo in component_combos.values():
         combo.currentIndexChanged.connect(lambda *_: colour_edited())
+    if luna_sheet:
+        arrange_luna_appearance(tab, component_combos["WIDGET_STYLE"])
     refresh_preview()
     return tab
+
+
+def arrange_luna_appearance(tab, controls):
+    """Show XP's everyday choices and keep the component editors under Advanced."""
+    advanced = QDialog(tab)
+    advanced.setWindowTitle("Advanced Appearance")
+    tab.outer.removeItem(tab.form)
+    advanced.setLayout(tab.form)
+    buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+    buttons.accepted.connect(advanced.accept)
+    buttons.rejected.connect(advanced.reject)
+    tab.form.addRow(buttons)
+
+    def edit_advanced():
+        before = tab.values()
+        if advanced.exec() != QDialog.Accepted:
+            tab.load(before)
+        tab.notify()
+
+    tab.outer.setContentsMargins(14, 8, 13, 13)
+    tab.outer.setSpacing(12)
+    tab.windows_style = chicago95ui.classic_combo(QComboBox())
+    for label, value in (("Windows Classic style", "classic"), ("Windows XP style", "luna"), ("Windows 7 style", "aero")):
+        tab.windows_style.addItem(label, value)
+    tab.windows_style.setCurrentIndex(controls.currentIndex())
+    controls.currentIndexChanged.connect(tab.windows_style.setCurrentIndex)
+    tab.windows_style.currentIndexChanged.connect(controls.setCurrentIndex)
+
+    colours = chicago95ui.classic_combo(QComboBox())
+    colours.addItem("Default (blue)")
+    tab.windows_style.currentIndexChanged.connect(
+        lambda: colours.setItemText(0, "Default (blue)" if tab.windows_style.currentData() == "luna" else "Default")
+    )
+    if tab.windows_style.currentData() != "luna":
+        colours.setItemText(0, "Default")
+    sizes = chicago95ui.classic_combo(QComboBox())
+    sizes.addItem("Normal")
+
+    choices = QVBoxLayout()
+    choices.setSpacing(11)
+    for caption, combo in (("&Windows and buttons:", tab.windows_style), ("&Color scheme:", colours), ("&Font size:", sizes)):
+        combo.setFixedHeight(19)
+        choices.addLayout(appearance_column(caption, combo, 210))
+    buttons = QVBoxLayout()
+    buttons.setSpacing(8)
+    buttons.addStretch(1)
+    tab.effects_button = chicago95ui.dialog_button("&Effects...")
+    tab.advanced_button = chicago95ui.dialog_button("Ad&vanced")
+    tab.advanced_button.clicked.connect(edit_advanced)
+    for button in (tab.effects_button, tab.advanced_button):
+        button.setFixedSize(87, 21)
+        buttons.addWidget(button)
+    row = QHBoxLayout()
+    row.addLayout(choices)
+    row.addStretch(1)
+    row.addLayout(buttons)
+    tab.outer.insertLayout(1, row)
+    tab.setFocusProxy(tab.windows_style)
 
 
 MONITOR_SCREEN = (152, 112)  # the Screen Saver tab's monitor (tests/references/win98screensaver.png)
@@ -4732,15 +4854,16 @@ class MonitorPreview(QWidget):
     """The monitor drawn at the top of the Screen Saver tab: its screen shows the chosen screensaver's picture,
     or the desktop colour."""
 
-    def __init__(self, desktop_colour):
+    def __init__(self, desktop_colour, *, luna=False):
         super().__init__()
         self.desktop_colour = QColor(desktop_colour)
-        self.art = control_panel_art("display-monitor.svg")
+        self.luna = luna
+        self.art = control_panel_art("luna-preview-monitor.svg" if luna else "display-monitor.svg")
         self.case = QSvgRenderer(self)
         self.case_shadow = None
         self.picture = QPixmap()
         self.pattern, self.wallpaper, self.fill = None, QPixmap(), "center"
-        self.setFixedSize(184, 169)
+        self.setFixedSize(*(141, 127) if luna else (184, 169))
 
     def show_desktop(self, colour, pattern, wallpaper, fill):
         """The desktop as the Background tab sets it: its colour, an 8 by 8 pattern over it, or a wallpaper."""
@@ -4787,6 +4910,8 @@ class MonitorPreview(QWidget):
         self.update()
 
     def screen_rect(self):
+        if self.luna:
+            return QRect(9, 12, 121, 90)
         return QRect(16, 17, *MONITOR_SCREEN)
 
     def paintEvent(self, _event):
@@ -4795,7 +4920,8 @@ class MonitorPreview(QWidget):
         if shadow != self.case_shadow:
             self.case.load(self.art.replace(b"#808080", shadow.encode("ascii")))
             self.case_shadow = shadow
-        painter.fillRect(self.rect(), self.palette().window())
+        if not self.luna:
+            painter.fillRect(self.rect(), self.palette().window())
         self.case.render(painter)
         painter.fillRect(self.screen_rect(), self.desktop_colour)
         self.paint_desktop(painter)
@@ -4854,12 +4980,12 @@ def display_settings_tab(settings, actions):
         spectrum = QSvgWidget(str(control_panel_asset("xp-display-colour.svg")))
         spectrum.setFixedHeight(14 if luna else 15)
         if luna:
-            colour_combo.setFixedHeight(22)
+            colour_combo.setFixedHeight(19)
         colour_layout.setContentsMargins(9, 2, 9, 9)
         colour_layout.addWidget(spectrum)
     else:
         tab.form.addRow("Display:", tab.display_name)
-    tab.screen_area = ScreenAreaField(screen.sizes if screen else [])
+    tab.screen_area = ScreenAreaField(screen.sizes if screen else [], luna=luna)
     tab.screen_area.setEnabled(screen is not None)
     area_layout = QVBoxLayout(area)
     area_layout.addWidget(tab.screen_area)
@@ -4868,7 +4994,7 @@ def display_settings_tab(settings, actions):
     row.addWidget(colours if xp else area, 1)
     if xp:
         tab.outer.insertSpacing(tab.outer.count() - 1, 6 if luna else 11)
-        area_layout.setContentsMargins(9, 2, 9, 9)
+        area_layout.setContentsMargins(7 if luna else 9, 2, 9, 9)
         tab.screen_area.slider.setTickPosition(QSlider.TicksBelow)
     tab.outer.insertLayout(tab.outer.count() - 1, row)
     if screen is not None:
@@ -4904,17 +5030,33 @@ def display_settings_tab(settings, actions):
 @tab_builder("Display", "Screen Saver")
 def screen_saver_tab(settings, actions):
     tab = SettingsTab(settings, actions)
-    tab.monitor = MonitorPreview(desktop_colour(settings))
+    luna = chicago95ui.luna_widgets()
+    tab.monitor = MonitorPreview(desktop_colour(settings), luna=luna)
     tab.outer.insertWidget(0, tab.monitor, 0, Qt.AlignHCenter)
-    tab.group("Screen Saver")
+    if luna:
+        tab.outer.setContentsMargins(14, 31, 14, 6)
+        tab.outer.setSpacing(2)
+        tab.outer.insertSpacing(1, 10)
+    tab.group("Screen saver" if luna else "Screen Saver")
     savers = actions.list_screensavers()
     preview = chicago95ui.dialog_button("Preview", enabled=bool(savers))
+    controls = preview
+    if luna:
+        controls = QWidget()
+        buttons = QHBoxLayout(controls)
+        buttons.setContentsMargins(0, 0, 0, 0)
+        tab.saver_settings = chicago95ui.dialog_button("&Settings", enabled=bool(savers))
+        for button in (tab.saver_settings, preview):
+            button.setFixedSize(78, 21)
+            buttons.addWidget(button)
+        tab.form.setContentsMargins(6, 8, 13, 8)
+        tab.form.setVerticalSpacing(7)
     tab.saver_combo = saver = tab.choice(
         "SAVER",
         "",
         [(label, name) for name, label in savers] or [("Deep Stars", "deepstars")],
         default="deepstars",
-        beside=preview,
+        beside=controls,
     )
     pictures = actions.screensaver_pictures()
 
@@ -4924,18 +5066,46 @@ def screen_saver_tab(settings, actions):
     saver.currentIndexChanged.connect(show_picture)
     show_picture()
     wait = tab.number("IDLE_MIN", "Wait:", 1, 60, default=5, suffix=" minutes")
+    if luna:
+        saver.setFixedHeight(20)
+        saver.setProperty("lunaSelectionOnFocus", True)
+        wait.setFixedSize(53, 19)
+        wait.setAlignment(Qt.AlignRight)
+        tab.saver_settings.clicked.connect(
+            lambda: actions.show_message(
+                tab,
+                "Blank Screen Saver" if saver.currentData() == "blank" else "Screen Saver Settings",
+                "This screen saver has no options that you can set.",
+            )
+        )
     preview.clicked.connect(
         lambda: actions.start_process(tool_path("chicago95-screensaver"), ["--hack", saver.currentData()])
     )
-    tab.lock_warning = QLabel(
-        f"Your screen locks after {actions.lock_timeout_minutes()} minutes, "
-        "before the screen saver starts, so you will not see it."
-    )
+    lock_minutes = actions.lock_timeout_minutes()
+    tab.lock_warning = QLabel(f"Your screen locks after {lock_minutes} minutes, before the screen saver starts.")
     tab.lock_warning.setWordWrap(True)
-    tab.form.addRow("", tab.lock_warning)
+    if luna:
+        tab.group("Monitor power")
+        tab.form.setContentsMargins(9, 3, 13, 6)
+        description = QLabel("To adjust monitor power settings and save energy, click Power.")
+        description.setContentsMargins(91, 0, 0, 0)
+        description.setWordWrap(True)
+        tab.form.addRow(description)
+        tab.form.addRow(tab.lock_warning)
+        power = chicago95ui.dialog_button("Po&wer...")
+        power.setFixedSize(78, 21)
+        tab.form.addRow(power)
+        tab.form.setAlignment(power, Qt.AlignRight)
+        program, *arguments = POWER_SETTINGS
+        power.clicked.connect(lambda: actions.start_process(program, arguments))
+    else:
+        tab.form.addRow("", tab.lock_warning)
 
     def show_warning():
-        tab.lock_warning.setVisible(screensaver_hidden_by_lock(wait.value(), actions.lock_timeout_minutes()))
+        warning = screensaver_hidden_by_lock(wait.value(), lock_minutes)
+        tab.lock_warning.setVisible(warning)
+        if luna:
+            description.setVisible(not warning)
 
     wait.valueChanged.connect(show_warning)
     show_warning()
@@ -5036,6 +5206,35 @@ class DesktopThemePreview(QWidget):
         target.moveCenter(self.rect().center())
         scaled = image.scaled(size * self.devicePixelRatioF(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
         painter.drawPixmap(target, scaled, scaled.rect())
+
+
+class LunaDisplayThemePreview(DesktopThemePreview):
+    def __init__(self, selector, settings):
+        super().__init__(selector, settings)
+        import chicago95lunacontrolpanel
+
+        self.wallpaper = QPixmap(resolved_look("luna", settings)["BACKGROUND_IMAGE"])
+        self.sample = chicago95lunacontrolpanel.LunaAppearancePreview(property_sheet=True)
+
+    def paintEvent(self, event):
+        if self.look != "luna" or self.wallpaper.isNull():
+            super().paintEvent(event)
+            return
+        from chicago95lunacontrolpanel import PALETTE
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform)
+        painter.setRenderHint(QPainter.Antialiasing)
+        frame = self.rect().adjusted(2, 0, -2, 0)
+        bounds = frame.adjusted(1, 1, -1, -1)
+        painter.drawPixmap(bounds, self.wallpaper, self.wallpaper.rect())
+        painter.setPen(QColor("#aca896"))
+        painter.drawRect(frame.adjusted(0, 0, -1, -1))
+
+        window = QRect(26, 26, round(bounds.width() * .71), round(bounds.height() * .65))
+        self.sample.window(painter, window, "Active Window", PALETTE["title_active"], 3, True)
+        self.sample.sheet_window_text(painter, window)
+        themed_icon(("user-trash",)).paint(painter, QRect(bounds.right() - 41, bounds.bottom() - 32, 24, 24))
 
 
 @tab_builder("Themes", "Desktop Theme")
@@ -5168,6 +5367,76 @@ def effects_tab(settings, actions):
     return tab
 
 
+def luna_display_tabs(settings, actions):
+    """The XP Display sheet places Themes first and opens Effects from Appearance."""
+    appearance = appearance_tab(settings, actions, luna_sheet=True)
+    themes = SettingsTab(settings, actions)
+    selector = chicago95ui.classic_combo(QComboBox())
+    for index in range(appearance.scheme.count()):
+        selector.addItem(appearance.scheme.itemText(index), appearance.scheme.itemData(index))
+    selector.setCurrentIndex(appearance.scheme.currentIndex())
+    selector.currentIndexChanged.connect(appearance.scheme.setCurrentIndex)
+    appearance.scheme.currentIndexChanged.connect(selector.setCurrentIndex)
+    themes.selector = selector
+    themes.outer.setContentsMargins(13, 6, 14, 16)
+    help_text = QLabel(
+        "A theme is a background plus a set of sounds, icons, and other elements to help you personalize "
+        "your computer with one click."
+    )
+    help_text.setWordWrap(True)
+    help_text.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+    help_text.setMinimumHeight(33)
+    themes.form.addRow(help_text)
+    selector_row = QHBoxLayout()
+    selector_row.addWidget(selector, 1)
+    for text in ("Save As...", "Delete"):
+        button = chicago95ui.dialog_button(text, enabled=False)
+        button.setFixedSize(78, 20)
+        selector_row.addWidget(button)
+    themes.form.addRow(buddy_label("&Theme:", selector))
+    themes.form.addRow(selector_row)
+    themes.outer.takeAt(themes.outer.count() - 1)
+    themes.outer.addWidget(QLabel("Sample:"))
+    themes.theme_preview = LunaDisplayThemePreview(selector, settings)
+    selector.setIconSize(QSize(0, 0))
+    for index in range(selector.count()):
+        selector.setItemIcon(index, QIcon())
+    themes.outer.addWidget(themes.theme_preview, 1)
+
+    effects = effects_tab(settings, actions)
+    appearance.fields.update(effects.fields)
+
+    dialog = QDialog(appearance)
+    dialog.setWindowTitle("Effects")
+    layout = QVBoxLayout(dialog)
+    layout.addWidget(effects)
+    buttons = QHBoxLayout()
+    buttons.addStretch(1)
+    accept = chicago95ui.dialog_button("OK")
+    cancel = chicago95ui.dialog_button("Cancel")
+    accept.clicked.connect(dialog.accept)
+    cancel.clicked.connect(dialog.reject)
+    buttons.addWidget(accept)
+    buttons.addWidget(cancel)
+    layout.addLayout(buttons)
+
+    def edit_effects():
+        before = effects.values()
+        if dialog.exec() == QDialog.Accepted:
+            appearance.notify()
+        else:
+            effects.load(before)
+
+    appearance.effects_button.clicked.connect(edit_effects)
+    return [
+        ("Themes", themes),
+        ("Desktop", background_tab(settings, actions, colour_field=appearance.color_edits["BACKGROUND_COLOR"])),
+        ("Screen Saver", screen_saver_tab(settings, actions)),
+        ("Appearance", appearance),
+        ("Settings", display_settings_tab(settings, actions)),
+    ]
+
+
 def animation_field(tab, table, installed, event, current, *, compact_luna=False):
     """One event's control under its caption: the speed slider, the wobbly check box, or a list with a button
     that opens the chosen effect's KDE settings."""
@@ -5235,16 +5504,20 @@ def animation_field(tab, table, installed, event, current, *, compact_luna=False
 
 
 @tab_builder("Display", "Background")
-def background_tab(settings, actions):
+def background_tab(settings, actions, *, colour_field=None):
     """Windows 98's Background tab (the tech2u Display Properties picture): the monitor showing the desktop, the
     Wallpaper list with (None) first, Browse..., Pattern... and Display. The desktop colour is Appearance's."""
     tab = SettingsTab(settings, actions)
-    if chicago95ui.luna_widgets():
-        tab.outer.setContentsMargins(PAGE_INSETS[0], 8, PAGE_INSETS[2], 8)
+    luna = chicago95ui.luna_widgets()
+    if luna:
+        tab.outer.setContentsMargins(14, 31, 14, 8)
+        tab.outer.insertSpacing(0, 16)
+        tab.form.setVerticalSpacing(4)
     patterns = background_patterns(settings)
-    tab.monitor = MonitorPreview(desktop_colour(settings))
+    tab.monitor = MonitorPreview(desktop_colour(settings), luna=luna)
     tab.outer.insertWidget(0, tab.monitor, 0, Qt.AlignHCenter)
-    tab.group("Wallpaper")
+    if not luna:
+        tab.group("Wallpaper")
     tab.wallpapers = QListWidget()
     tab.wallpapers.addItem(QListWidgetItem(QIcon.fromTheme("dialog-cancel"), "(None)"))
     for label, path in actions.wallpapers():
@@ -5255,16 +5528,36 @@ def background_tab(settings, actions):
     for label, value in (("Center", "center"), ("Tile", "tile"), ("Stretch", "stretch"), ("Cover", "cover")):
         tab.display.addItem(label, value)
     side = QVBoxLayout()
-    for widget in (browse, tab.pattern_button):
-        side.addWidget(widget)
-    side.addStretch(1)
-    side.addWidget(buddy_label("&Display:", tab.display))
-    side.addWidget(tab.display)
+    side.addWidget(browse)
+    if luna:
+        tab.wallpapers.setIconSize(QSize(16, 16))
+        tab.wallpapers.setFixedHeight(112)
+        browse.setFixedSize(78, 21)
+        tab.pattern_button.setFixedHeight(21)
+        tab.display.setFixedSize(79, 20)
+        side.addSpacing(7)
+        side.addWidget(buddy_label("&Position:", tab.display))
+        side.addWidget(tab.display)
+        if colour_field is not None:
+            tab.colour_button = QPushButton()
+            tab.colour_button.setIconSize(QSize(63, 13))
+            tab.colour_button.setFixedSize(78, 20)
+            tab.colour_button.clicked.connect(lambda: colour_field.pick(0))
+            side.addWidget(buddy_label("Co&lor:", tab.colour_button))
+            side.addWidget(tab.colour_button)
+        side.addStretch(1)
+    else:
+        side.addWidget(tab.pattern_button)
+        side.addStretch(1)
+        side.addWidget(buddy_label("&Display:", tab.display))
+        side.addWidget(tab.display)
     row = QHBoxLayout()
     row.addWidget(tab.wallpapers, 1)
     row.addLayout(side)
-    tab.form.addRow(buddy_label("&Select a picture:", tab.wallpapers))
+    tab.form.addRow(buddy_label("&Background:" if luna else "&Select a picture:", tab.wallpapers))
     tab.form.addRow(row)
+    if luna:
+        tab.form.addRow(tab.pattern_button)
     pattern = {"name": "none"}
 
     def wallpaper():
@@ -5288,9 +5581,11 @@ def background_tab(settings, actions):
     def refresh():
         tab.display.setEnabled(bool(wallpaper()))
         tab.pattern_button.setEnabled(not wallpaper())
-        tab.monitor.show_desktop(
-            desktop_colour(settings), patterns.get(pattern["name"]), wallpaper(), tab.display.currentData()
-        )
+        colour = colour_field.value() if colour_field is not None else desktop_colour(settings)
+        if colour_field is not None:
+            tab.colour_button.setIcon(swatch_icon(colour, (63, 13)))
+            tab.colour_button.setToolTip(colour)
+        tab.monitor.show_desktop(colour, patterns.get(pattern["name"]), wallpaper(), tab.display.currentData())
 
     def choose_pattern():
         chosen = actions.choose_pattern(tab, pattern["name"], patterns)
@@ -5324,6 +5619,8 @@ def background_tab(settings, actions):
     tab.display.currentIndexChanged.connect(refresh)
     tab.pattern_button.clicked.connect(choose_pattern)
     browse.clicked.connect(browse_picture)
+    if colour_field is not None:
+        colour_field.changed.connect(refresh)
     refresh()
     return tab
 
@@ -6391,7 +6688,7 @@ class ControlPanel(QMainWindow):
                 return
         if tab:
             sheet = self.applet_sheet(name)
-            sheet.tabs.setCurrentIndex(sheet.tab_names().index(tab))
+            sheet.tabs.setCurrentIndex(sheet.tab_index(tab))
 
     def fill_navigation_history(self, menu):
         menu.clear()
@@ -6809,9 +7106,13 @@ class ControlPanel(QMainWindow):
 
     def build_sheet(self, applet_name):
         settings = read_settings(self.settings_path)
-        tabs = [
-            (tab_name, build_tab(applet_name, tab_name, settings, self.actions)) for tab_name in PAGE_TABS[applet_name]
-        ]
+        if applet_name == "Display" and chicago95ui.luna_widgets():
+            tabs = luna_display_tabs(settings, self.actions)
+        else:
+            tabs = [
+                (tab_name, build_tab(applet_name, tab_name, settings, self.actions))
+                for tab_name in PAGE_TABS[applet_name]
+            ]
         return PropertiesPage(applet_name, tabs, self.apply_changes)
 
     def navigate(self, page):
@@ -6892,7 +7193,7 @@ class ControlPanel(QMainWindow):
             self.resize(self.size().expandedTo(size.boundedTo(self.screen().availableGeometry().size())))
         else:
             applet_page = self.page_for(page[1])
-            applet_page.tabs.setCurrentIndex(applet_page.tab_names().index(page[2]) if len(page) > 2 else 0)
+            applet_page.tabs.setCurrentIndex(applet_page.tab_index(page[2]) if len(page) > 2 else 0)
             self.pages.setCurrentWidget(applet_page)
             self.resize(self.size().expandedTo(self.minimumSizeHint()))
             self.status_message.clear()
@@ -6946,7 +7247,8 @@ class ControlPanel(QMainWindow):
     def tab_changed(self, applet_name, index):
         if self.showing_page:
             return
-        self.history.visit(page_location(applet_name, index))
+        page = self.applet_pages[applet_name]
+        self.history.visit(page_location(applet_name, index, page.tabs.tabText(index)))
         self.refresh_navigation()
 
     def refresh_navigation(self):

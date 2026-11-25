@@ -1,0 +1,48 @@
+radio, checkbutton > radio, radiobutton > radio {
+  min-width: 13px;
+  min-height: 13px;
+  padding: 0;
+  margin: 0 3px 0 0;
+  border: 0;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
+  box-shadow: none;
+}
+
+radio {
+  background-size: 12.8px 12.8px;
+  background-position: left top;
+}
+
+radio {
+  background-image: url("radio-120dpi/face-normal.svg");
+}
+
+radio:hover {
+  background-image: url("radio-120dpi/face-hover.svg");
+}
+
+radio:active {
+  background-image: url("radio-120dpi/face-pressed.svg");
+}
+
+radio:disabled {
+  background-image: url("radio-120dpi/face-disabled.svg");
+}
+
+radio:checked {
+  background-image: url("radio-120dpi/mark-normal.svg"), url("radio-120dpi/face-normal.svg");
+}
+
+radio:checked:hover {
+  background-image: url("radio-120dpi/mark-normal.svg"), url("radio-120dpi/face-hover.svg");
+}
+
+radio:checked:active {
+  background-image: url("radio-120dpi/mark-normal.svg"), url("radio-120dpi/face-pressed.svg");
+}
+
+radio:checked:disabled {
+  background-image: url("radio-120dpi/mark-disabled.svg"), url("radio-120dpi/face-disabled.svg");
+}

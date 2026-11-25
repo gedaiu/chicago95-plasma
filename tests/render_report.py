@@ -32,9 +32,7 @@ from reference import LOOK_2000_KDEGLOBALS, close, installed_look, qimage_to_pil
 
 BACKGROUND, INK, DIFFERENT, GAP = (255, 255, 255), (0, 0, 0), (255, 0, 0), 12
 ROW_HEIGHT, COLUMN_WIDTH, MAX_ZOOM = 168, 560, 8
-DEFAULT_LOGO = REPO / "plasmoids/org.chicago95.start/contents/images/logo-flag-16.png"  # what a default install shows
-# The 2000 look's default; Setup downloads it (setup/fetch-waving-flag.py), so the report uses it when present.
-WAVING_FLAG = Path.home() / ".local/share/chicago95/waving-flag.png"
+WIN2000_LOGO = REPO / "sddm/Chicago95Plasma/Windows2000Flag.svg"
 MENU_SETTINGS = {
     "1995": ("[StartMenu]\nbannerText=Windows95\n", ""),
     "1998": (
@@ -392,7 +390,7 @@ SYSPROPS_APPLY_LOOKS = ("2000", "2001")
 def shut_down_details(shutdown, app, look, scratch):
     from test_shutdown_reference import BANNER_LINES, BANNER_MARK
 
-    logo = WAVING_FLAG if look in SHUT_DOWN_REFERENCE_LOOKS and WAVING_FLAG.exists() else DEFAULT_LOGO
+    logo = WIN2000_LOGO if look == "2000" else REPO / "luna/images/windows-xp-flag.svg"
     settings = {
         "style": look,
         "bannerText": SHUT_DOWN_BANNERS[look],
@@ -529,7 +527,7 @@ def loading_details(app, scratch):
     )
 
     splash = scratch / "splash"
-    logo = WAVING_FLAG if WAVING_FLAG.exists() else DEFAULT_LOGO
+    logo = WIN2000_LOGO
     shutil.copytree(REPO / "splash/chicago95.splashscreen/contents/splash", splash, dirs_exist_ok=True)
     (splash / "settings.js").write_text(
         f'.pragma library\nvar style = "2000"\nvar brandText = "Windows 2000"\nvar brandLogo = "{logo}"\n'
@@ -566,7 +564,7 @@ def login_details(shutdown, app, scratch):
     from login_theme import render_login
     from test_login_reference import BANNER_LINES, DIALOG
 
-    logo = WAVING_FLAG if WAVING_FLAG.exists() else DEFAULT_LOGO
+    logo = WIN2000_LOGO
     look = {
         "style": "2000",
         "bannerText": "Windows 2000",

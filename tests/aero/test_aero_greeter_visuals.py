@@ -4,6 +4,7 @@ import os
 import shutil
 from pathlib import Path
 
+import numpy as np
 import pytest
 from conftest import REPO
 from login_theme import render_aero_lock
@@ -13,6 +14,7 @@ from PySide6.QtQuick import QQuickView
 from PySide6.QtTest import QTest
 from reference import qimage_to_pil
 from test_aero_imported_art import CACHE, vector_art
+from visual.render_session_screen import render_aero_submit
 
 
 @pytest.fixture(scope="module")
@@ -27,9 +29,10 @@ def greeter(tmp_path_factory):
     shutil.copy(src / "background", art)
     for name in ("AeroLogin", "AeroLockScreen"):
         shutil.copy(REPO / f"sddm/Chicago95Plasma/{name}.qml", folder)
-    for name in ("AeroPortraitFrame", "AeroCredentialError", "AeroCredentialConfirm"):
-        shutil.copy(REPO / f"sddm/Chicago95Plasma/{name}.svg", folder)
-    shutil.copy(REPO / "sddm/Chicago95Plasma/AeroBackground4x3.jpg", folder)
+    for artwork in (REPO / "sddm/Chicago95Plasma").glob("Aero*.svg"):
+        shutil.copy(artwork, folder)
+    for wallpaper in ("AeroBackground4x3.jpg", "AeroBackground1024x768.jpg"):
+        shutil.copy(REPO / "sddm/Chicago95Plasma" / wallpaper, folder)
     for icon in src.glob("*.png"):
         if icon.name == "user.png":
             shutil.copy(icon, art)
@@ -37,6 +40,22 @@ def greeter(tmp_path_factory):
         with Image.open(icon) as original:
             (art / icon.with_suffix(".svg").name).write_bytes(vector_art.bitmap_svg(original))
     return folder, src
+
+
+@pytest.mark.parametrize("state", ("idle", "hover", "held", "held-outside", "released-outside"))
+def test_submit_arrow_matches_the_windows_7_sign_in_states(qt_app, tmp_path, state):
+    reference = REPO / "tests/references/themes/win7/sign-in/submit" / f"{state}.png"
+    with Image.open(reference) as image:
+        expected = np.asarray(image.convert("RGB"), dtype=np.int16)
+    frame = render_aero_submit(qt_app, tmp_path, (800, 600), "Reference", "Windows 7", state)
+    actual = np.asarray(frame.crop((516, 407, 547, 438)), dtype=np.int16)
+    delta = np.abs(actual - expected)
+    if state in ("hover", "held"):
+        # The VM paints its pointer over the lower-left edge of the circle.
+        mask = np.ones(delta.shape[:2], dtype=bool)
+        mask[22:, 7:27] = False
+        delta = delta[mask]
+    assert delta.mean() < 7
 
 
 @pytest.mark.parametrize("locked", [False, True], ids=["login", "unlock"])
@@ -243,6 +262,14 @@ def test_lock_password_bounds_match_sp1(qt_app, tmp_path, width, height, referen
         return xs.min(), ys.min(), xs.max(), ys.max()
 
     native = screenshot(reference)
+    if (width, height) == (1024, 768):
+        # Compare the uninterrupted wallpaper above the credential group.
+        sky = (0, 0, width, 240)
+        delta = np.abs(
+            np.asarray(native.convert("RGB").crop(sky), dtype=np.int16)
+            - np.asarray(actual.convert("RGB").crop(sky), dtype=np.int16)
+        )
+        assert delta.mean() < 0.03
     left, top, right, _ = bounds(native)
     assert bounds(actual) == pytest.approx(bounds(native), abs=2)
     # Fixed top edge excludes prompt text and the blinking caret.

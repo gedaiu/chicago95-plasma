@@ -19,8 +19,8 @@ from pathlib import Path
 
 import chicago95ui  # noqa: E401,E702
 from chicago95aerobutton import AeroDialogButton, aero_button_artwork
-from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPalette, QPixmap
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPalette, QPen, QPixmap, QPolygonF
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -56,6 +56,7 @@ LAYOUTS = {
     "win98-hidpi": RunLayout((362, 136), (10, 16), (57, 17), (11, 65), (57, 60), 293, 19, 101, (99, 185, 271), 1, 30),
     "nt-classic": RunLayout((341, 155), (11, 19), (54, 18), (11, 66), (54, 61), 275, 21, 115, (93, 174, 255), 1, 30),
     "luna": RunLayout((341, 154), (11, 19), (54, 18), (11, 66), (54, 60), 275, 21, 114, (93, 174, 255), 0, 30),
+    "luna-hidpi": RunLayout((318, 152), (9, 17), (49, 16), (8, 63), (50, 59), 256, 19, 112, (88, 163, 239), 0, 30),
 }
 NT_PROMPT = "Type the name of a program, folder, document, or\nInternet resource, and {os} will open it for you."
 PROMPTS = {
@@ -228,6 +229,32 @@ class AeroRunContent(QWidget):
         painter.fillRect(pane.adjusted(pixel, pixel, -pixel, -pixel), Qt.white)
 
 
+class LunaRunButton(QPushButton):
+    def paintEvent(self, event):  # noqa: N802
+        super().paintEvent(event)
+        if not self.hasFocus():
+            return
+        painter = QPainter(self)
+        transform = painter.deviceTransform()
+        inverse, _ = transform.inverted()
+        frame = transform.mapRect(QRectF(self.rect())).toRect().adjusted(2, 3, -2, -3)
+        x, y, right, bottom = frame.getCoords()
+        # XP uses the dialog face as an XOR mask for its one-pixel focus dots.
+        painter.setCompositionMode(QPainter.RasterOp_SourceXorDestination)
+        painter.setPen(QPen(self.palette().window().color(), 0))
+        dots = [
+            QPointF(column + .5, row + .5)
+            for row in (y, bottom)
+            for column in range(x + (x + row) % 2, right + 1, 2)
+        ]
+        dots.extend(
+            QPointF(column + .5, row + .5)
+            for column in (x, right)
+            for row in range(y + 1 + (y + 1 + column) % 2, bottom, 2)
+        )
+        painter.drawPoints(inverse.map(QPolygonF(dots)))
+
+
 class RunHistoryField(QComboBox):
     opening = Signal()
 
@@ -293,7 +320,9 @@ class RunHistoryRows(chicago95ui.ListRowDelegate):
     def paint(self, painter, option, index):
         transform = painter.deviceTransform()
         if transform.m22() == 1.25:
-            face = chicago95ui.popup_item_bounds(painter, self.parent(), index, option.rect, chicago95ui.LIST_ROW_HEIGHT)
+            face = chicago95ui.popup_item_bounds(
+                painter, self.parent(), index, option.rect, chicago95ui.LIST_ROW_HEIGHT
+            )
         else:
             face = transform.mapRect(QRectF(option.rect))
         inverse, _ = transform.inverted()
@@ -322,11 +351,16 @@ class RunBehaviour:
         self.layout_scale = chicago95ui.window_scale(self)
         self.button_size = (82, 28) if self.style == "aero" else chicago95ui.DIALOG_BUTTON_SIZE
         self.win98_hidpi = self.style == "1998" and self.layout_scale == 1.25
+        self.luna_hidpi = self.style == "luna" and self.layout_scale == 1.25
         if self.win98_hidpi:
             self.layout = LAYOUTS["win98-hidpi"]
             self.button_size = (80, 23)
             self.resize_body(*self.layout.body)
-        if self.layout_scale == 1.25 and self.style in ("2000", "2001", "luna"):
+        if self.luna_hidpi:
+            self.layout = LAYOUTS["luna-hidpi"]
+            self.button_size = (69, 22)
+            self.resize_body(*self.layout.body)
+        elif self.layout_scale == 1.25 and self.style in ("2000", "2001"):
             self.layout = self.layout._replace(field_width=256)
         self.aero_content = None
         self.applications = applications
@@ -349,6 +383,8 @@ class RunBehaviour:
             font = self.font()
             font.setFamilies(["Tahoma", "Liberation Sans", "Selawik", "Noto Sans"])
             font.setPixelSize(11)
+            if self.luna_hidpi:
+                font.setStyleStrategy(QFont.NoAntialias)
             body.setFont(font)
         icon = QLabel(body)
         filenames = {"aero": "aero-run.svg", "2001": "xp-run.svg", "luna": "xp-run.svg"}
@@ -432,11 +468,13 @@ class RunBehaviour:
         self.outline.setVisible(layout.ok_inset > 0)
         artwork = aero_button_artwork() if self.style == "aero" else None
         for label in ("OK", "Cancel", "&Browse..."):
-            button = (
-                AeroDialogButton(label, artwork, body, default_face="run-default", normal_face="run-normal")
-                if artwork else QPushButton(label, body)
-            )
-            button.setAutoDefault(False)
+            if artwork:
+                button = AeroDialogButton(label, artwork, body, default_face="run-default", normal_face="run-normal")
+            elif self.luna_hidpi:
+                button = LunaRunButton(label, body)
+            else:
+                button = QPushButton(label, body)
+            button.setAutoDefault(self.luna_hidpi)
             self.buttons[label] = button
         self.place_buttons(0)
         self.buttons["OK"].setDefault(layout.ok_inset == 0)

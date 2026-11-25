@@ -25,8 +25,9 @@
    the same allocation, including when the file pane also hosts a tab strip. */
 .nautilus-window toolbarview > .top-bar .collapse-spacing { padding-top: 0; padding-bottom: 0; }
 .nautilus-window .top-bar headerbar {
-  min-height: 42px;
-  background: #61aee7;
+  min-height: 32px;
+  background: linear-gradient(to bottom, #7cbced 1px, #61aee7 55%, #5aa6e1);
+  box-shadow: none;
   border-radius: 0;
   margin: 0;
 }
@@ -34,23 +35,26 @@
   padding: 0 6px;
 }
 .nautilus-window .sidebar-pane headerbar button:not(.minimize):not(.maximize):not(.close) {
-  margin-top: 3px;
-  margin-bottom: 3px;
+  min-height: 26px;
+  margin-top: 2px;
+  margin-bottom: 2px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 /* The header's 6px end padding supplies the Aero caption group's outer inset. */
-.nautilus-window headerbar windowcontrols.end { margin-top: 11px; margin-bottom: 11px; }
+.nautilus-window headerbar windowcontrols.end { margin-top: 6px; margin-bottom: 6px; }
 /* Nautilus puts Back and Forward in the history stack on the start side of
    the header. Use the same navigation artwork as the installed GTK 3 theme. */
 .nautilus-window headerbar box.start > stack > widget > box > button.image-button {
-  min-width: 28px;
-  min-height: 28px;
+  min-width: 26px;
+  min-height: 26px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   box-shadow: none;
   background-color: transparent;
   background-position: center;
-  background-size: 28px 28px;
+  background-size: 26px 26px;
   background-repeat: no-repeat;
   transition: filter 90ms linear;
 }
@@ -71,8 +75,13 @@
   filter: brightness(.82);
   transition-duration: 0ms;
 }
-.nautilus-window headerbar box.start > stack > widget > box > button.image-button:disabled {
-  filter: saturate(.55) opacity(.55);
+.nautilus-window headerbar box.start > stack > widget > box > button.image-button:first-child:disabled {
+  background-image: url("../gtk-3.0/navigation-back-disabled.svg");
+  filter: none;
+}
+.nautilus-window headerbar box.start > stack > widget > box > button.image-button:last-child:disabled {
+  background-image: url("../gtk-3.0/navigation-forward-disabled.svg");
+  filter: none;
 }
 .nautilus-window .nautilus-pathbar {
   padding: 0;

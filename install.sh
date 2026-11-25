@@ -196,7 +196,8 @@ choose_branding() {
       "keys|Keys" "padlock|Padlock")
   else
     SETUP_LOGIN_LOGO=$(choose_image "Login and loading logo" "Which logo should the login and loading screens show?" "$SETUP_LOGIN_LOGO" \
-      "start|Same as the Start button" "waving-flag|Waving flag (downloaded from Wikimedia Commons)" \
+      "start|Same as the Start button" "win2k-flag|Windows 2000 flag" \
+      "waving-flag|Waving flag (downloaded from Wikimedia Commons)" \
       "flag|Classic flag" "xp|Windows XP flag" "penguin|Penguin")
     SETUP_EDITION=$(choose_text "Edition" "Which edition should follow the name?" "$SETUP_EDITION" \
       "Professional" "Home Edition" "Workstation")

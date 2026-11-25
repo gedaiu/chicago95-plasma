@@ -18,6 +18,7 @@ AUDIT = "--consistency" in sys.argv[4:]
 CAPTION_CROPS = "--caption-crops" in sys.argv[4:]
 COMPOSITOR_CAPTIONS = "--compositor-captions" in sys.argv[4:]
 COMPOSITOR_RADIOS = "--compositor-radios" in sys.argv[4:]
+RADIO_BACKDROP = sys.argv[sys.argv.index("--radio-backdrop") + 1] if "--radio-backdrop" in sys.argv[4:] else None
 CAPTION_MARKER_RGB = (225, 12, 207)
 gi.require_version("Gtk", VERSION)
 from gi.repository import GLib, Gtk  # noqa: E402
@@ -64,7 +65,7 @@ def frame_has_caption_marker(path, marker):
     return np.any(np.all(pixels == marker, axis=-1))
 
 
-def radio_capture_layout(radio):
+def radio_capture_layout(radio, colour):
     canvas = Gtk.Fixed()
     canvas.set_size_request(64, 48)
     canvas.put(radio, 12, 12)
@@ -73,11 +74,12 @@ def radio_capture_layout(radio):
     if V4:
         marker.add_css_class("capture-marker")
         provider = Gtk.CssProvider()
-        provider.load_from_data(b".capture-marker { background: #e10ccf; }")
+        css = ".capture-marker { background: #%02x%02x%02x; }" % colour
+        provider.load_from_data(css.encode())
         marker.get_style_context().add_provider(provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
     else:
         def draw_marker(_widget, painter):
-            painter.set_source_rgb(225 / 255, 12 / 255, 207 / 255)
+            painter.set_source_rgb(*(channel / 255 for channel in colour))
             painter.paint()
             return True
 
@@ -522,11 +524,11 @@ def gtk_caption_regions(header, root, label, scale, origin):
             else:
                 image_width = CAPTION_W
                 image_height = CAPTION_H_120 / scale if scale == 1.25 else CAPTION_H
-            top_left = V4 and CLASSIC_CAPTION_CROPS and scale == 1.25
+            top_left = CLASSIC_CAPTION_CROPS and scale == 1.25
             left = (x if top_left else x + (width - image_width) / 2) * scale
             if V4 and AERO_CAPTION_CROPS and label == "caption restore" and kind == "maximize":
                 left = (x + width) * scale - image_width * scale
-            if top_left and kind == "close":
+            if V4 and top_left and kind == "close":
                 # The CSS offset snaps the opaque face to the output grid.
                 # GTK's reported allocation still includes the fractional margin.
                 left = math.floor(left + CLOSE_OFFSET_120 * scale + 1e-8)
@@ -593,7 +595,7 @@ def main():
             return False
         group, label, children = catalogue[position]
         if COMPOSITOR_RADIOS:
-            box = radio_capture_layout(children[0])
+            box = radio_capture_layout(children[0], caption_marker(position))
         else:
             box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
             for child in children:
@@ -615,6 +617,12 @@ def main():
             box.get_style_context().add_provider(provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
         # A real window, never Gtk.OffscreenWindow: only a real one follows the screen's scale.
         window = Gtk.Window()
+        if COMPOSITOR_RADIOS and RADIO_BACKDROP:
+            context = window.get_style_context()
+            context.add_class("radio-capture")
+            background = Gtk.CssProvider()
+            background.load_from_data(f".radio-capture {{ background: {RADIO_BACKDROP}; }}".encode())
+            context.add_provider(background, Gtk.STYLE_PROVIDER_PRIORITY_USER)
         if CAPTION_CROPS and label == "caption restore":
             window.get_style_context().add_class("maximized")
             if V4 and AERO_CAPTION_CROPS:
@@ -795,6 +803,11 @@ def main():
             except (OSError, subprocess.SubprocessError):
                 loop.quit()
                 raise
+            if not frame_has_caption_marker(path, caption_marker(position)):
+                if time.monotonic() < caption_deadline:
+                    return True
+                loop.quit()
+                raise RuntimeError(f"The GTK window did not paint its capture marker for {label}")
         elif V4:
             root = window if native_caption else window.get_child()
             # Snapshot the real widget tree, including the native theme's state styling.

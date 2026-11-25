@@ -15,6 +15,7 @@
  */
 pragma ComponentBehavior: Bound
 import QtQuick 2.15
+import QtQuick.Window
 import Qt.labs.folderlistmodel 2.15
 import QtQuick.Shapes 1.15
 import "../qml"
@@ -44,9 +45,15 @@ Item {
     property string family: "Trebuchet MS"
 
     readonly property real unit: 1
-    readonly property real topBandHeight: 78 * unit
-    readonly property real bottomBandTop: height - 96 * unit
-    readonly property real middleCenterY: (80 * unit + bottomBandTop) / 2
+    readonly property real displayScale: Screen.devicePixelRatio
+    readonly property bool layoutAt120Dpi: displayScale === 1.25
+    readonly property real firstRuleHeight: Math.floor(unit * displayScale) / displayScale
+    readonly property real secondRuleHeight: Math.round(2 * unit * displayScale) / displayScale - firstRuleHeight
+    readonly property real topBandHeight: Math.floor(78 * unit * displayScale) / displayScale
+    readonly property real middleBandTop: topBandHeight + firstRuleHeight + secondRuleHeight
+    // The SP3 120-DPI footer, including its three device-pixel accent, occupies 122 device rows.
+    readonly property real bottomBandTop: height - (layoutAt120Dpi ? 122 / displayScale : 96 * unit)
+    readonly property real middleCenterY: (middleBandTop + bottomBandTop) / 2
     readonly property real dividerX: width / 2 - 2 * unit
     readonly property color skyBlue: "#5a7edc"
     readonly property color bandBlue: "#00309c"
@@ -130,7 +137,7 @@ Item {
 
     Item {
         id: middleBand
-        y: 80 * root.unit
+        y: root.middleBandTop
         width: parent.width
         height: root.bottomBandTop - y
         clip: true
@@ -176,7 +183,7 @@ Item {
         id: divider
         visible: !root.shuttingDown
         x: root.dividerX
-        y: 80 * root.unit
+        y: root.middleBandTop
         width: Math.max(1, root.unit)
         height: root.bottomBandTop - y
         gradient: Gradient {
@@ -195,56 +202,62 @@ Item {
         }
     }
 
-    Rectangle {
+    Item {
         width: parent.width
-        height: root.topBandHeight
-        color: root.bandBlue
-    }
-    Rectangle {
-        y: root.topBandHeight
-        width: parent.width
-        height: Math.max(1, root.unit)
-        gradient: Gradient {
-            orientation: Gradient.Horizontal
-            GradientStop {
-                position: 0
-                color: "#4b72d0"
-            }
-            GradientStop {
-                position: 0.219
-                color: "#c2dafd"
-            }
-            GradientStop {
-                position: 0.37
-                color: "#c2d8fd"
-            }
-            GradientStop {
-                position: 1
-                color: "#4a72d0"
+        height: root.middleBandTop
+        clip: true
+
+        Rectangle {
+            width: parent.width
+            height: root.topBandHeight
+            color: root.bandBlue
+        }
+        Rectangle {
+            y: root.topBandHeight
+            width: parent.width
+            height: root.firstRuleHeight
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop {
+                    position: 0
+                    color: "#4b72d0"
+                }
+                GradientStop {
+                    position: 0.219
+                    color: "#c2dafd"
+                }
+                GradientStop {
+                    position: 0.37
+                    color: "#c2d8fd"
+                }
+                GradientStop {
+                    position: 1
+                    color: "#4a72d0"
+                }
             }
         }
-    }
-    Rectangle {
-        y: root.topBandHeight + Math.max(1, root.unit)
-        width: parent.width
-        height: Math.max(1, root.unit)
-        gradient: Gradient {
-            orientation: Gradient.Horizontal
-            GradientStop {
-                position: 0
-                color: "#5a7edc"
-            }
-            GradientStop {
-                position: 0.223
-                color: "#c5dbfe"
-            }
-            GradientStop {
-                position: 0.334
-                color: "#c5dbfe"
-            }
-            GradientStop {
-                position: 1
-                color: "#5a7edc"
+        Rectangle {
+            y: root.topBandHeight + root.firstRuleHeight
+            width: parent.width
+            height: root.secondRuleHeight
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop {
+                    position: 0
+                    color: "#5a7edc"
+                }
+                GradientStop {
+                    position: 0.223
+                    color: "#c5dbfe"
+                }
+                GradientStop {
+                    position: 0.334
+                    color: "#c5dbfe"
+                }
+                GradientStop {
+                    position: 1
+                    color: "#5a7edc"
+                }
             }
         }
     }
@@ -258,18 +271,18 @@ Item {
             orientation: Gradient.Horizontal
             GradientStop {
                 position: 0
-                color: "#3834ac"
+                color: root.layoutAt120Dpi ? "#3c34b0" : "#3834ac"
             }
             GradientStop {
                 position: 1
-                color: "#00309c"
+                color: root.layoutAt120Dpi ? "#03339f" : "#00309c"
             }
         }
     }
     Rectangle {
         y: root.bottomBandTop
         width: parent.width
-        height: Math.max(1, root.unit)
+        height: root.firstRuleHeight
         gradient: Gradient {
             orientation: Gradient.Horizontal
             GradientStop {
@@ -299,9 +312,9 @@ Item {
         }
     }
     Rectangle {
-        y: root.bottomBandTop + Math.max(1, root.unit)
+        y: root.bottomBandTop + root.firstRuleHeight
         width: parent.width
-        height: Math.max(1, root.unit)
+        height: root.secondRuleHeight
         gradient: Gradient {
             orientation: Gradient.Horizontal
             GradientStop {
@@ -400,7 +413,7 @@ Item {
                 required property int index
                 picture: root.pictureFor(model.icon, index)
                 selected: model.name === root.selectedName
-                loggedIn: !!root.loggedOnUsers[model.name] || (!!root.theme.previewMode && !!model.loggedIn)
+                loggedIn: root.locked || !!root.loggedOnUsers[model.name] || (!!root.theme.previewMode && !!model.loggedIn)
                 visible: !root.loggingOn || selected
                 enabled: !root.loggingOn
                 status: root.loadingStatus

@@ -830,18 +830,10 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
                 font.setFamilies(["Tahoma", "Liberation Sans", "Noto Sans"])
                 font.setStyleStrategy(QFont.NoAntialias)
             body.setFont(font)
-        if xp:
-            banner = XPShutdownBanner(self.look, body)
-            banner.setGeometry(0, 1, body.width(), 62 if large_fonts else 77)
-            size = QSize(23, 26) if large_fonts else QSize(27, 32)
-            icon = classic_shutdown_icon(body, size)
-        elif large_fonts:
-            BrandBanner(self.look, body).setGeometry(0, 1, body.width(), 62)
-            icon = classic_shutdown_icon(body, QSize(23, 26))
-        else:
-            BrandBanner(self.look, body).setGeometry(0, 1, body.width(), 77)
-            icon = dialog_icon("system-shutdown")
-            icon.setParent(body)
+        banner_type = XPShutdownBanner if xp else BrandBanner
+        banner = banner_type(self.look, body)
+        banner.setGeometry(0, 1, body.width(), 62 if large_fonts else 77)
+        icon = classic_shutdown_icon(body, QSize(23, 26) if large_fonts else QSize(27, 32))
         icon.move(*((19, 73) if large_fonts else (22, 89)))
         if xp and large_fonts:
             question_pos = (61, 74)
@@ -851,7 +843,7 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         elif large_fonts:
             question_pos = (60, 75)
             combo_rect = (60, 94, 242, 19)
-            description_rect = (60, 123, 256, 35)
+            description_rect = (60, 127, 256, 35)
             x_positions, y, width, height = (151, 226, 302), 193, 70, 23
         elif xp:
             question_pos = (66, 89)
@@ -861,7 +853,7 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         else:
             question_pos = (65, 91)
             combo_rect = (65, 111, 260, 21)
-            description_rect = (65, 135, 280, 34)
+            description_rect = (65, 145, 256, 34)
             x_positions, y, width, height = (163, 244, 325), 211, 75, 24
         question = QLabel(QUESTIONS[self.style], body)
         question.move(*question_pos)
@@ -888,7 +880,7 @@ class ShutDownDialog(chicago95ui.ClassicDialog):
         self.combo.setCurrentIndex([choice for choice, _ in self.choices].index(SHUT_DOWN))
         self.description = QLabel(body)
         self.description.setWordWrap(True)
-        if xp and large_fonts:
+        if large_fonts or not xp:
             self.description.setAlignment(Qt.AlignTop)
         self.description.setGeometry(*description_rect)
         self.combo.currentIndexChanged.connect(self.describe)
@@ -1385,7 +1377,7 @@ def render_login_banner(look, path, scale=4, *, status=False):
     original = {"2000": ("Windows 2000", "2000-logon-banner.png"), "2001": ("Windows XP", "xp-logon-banner.png")}.get(
         look.get("style")
     )
-    default_logos = ("", "waving-flag.png", "logo-flag-16.png", "logo-xp-16.png")
+    default_logos = ("", "Windows2000Flag.svg", "waving-flag.png", "logo-flag-16.png", "logo-xp-16.png")
     if (
         not status
         and original

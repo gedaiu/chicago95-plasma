@@ -342,7 +342,7 @@ import_gtk_progress() {
     backup "$target"
     mkdir -p "$(dirname "$target")"
     python3 - "$target" "$REPO/config/gtk-progress-classic.css" "$1" "$version" \
-      "$radio_assets" "${SETUP_LOOK:-}" <<'PYPROGRESS'
+      "$radio_assets" "${SETUP_LOOK:-}" "${SETUP_DPI:-96}" <<'PYPROGRESS'
 import re
 import sys
 from pathlib import Path
@@ -355,6 +355,7 @@ from gtk_header import without_gtk4_properties
 begin, end = "/* Chicago95 progress BEGIN */", "/* Chicago95 progress END */"
 text = target.read_text() if target.exists() else ""
 text = re.sub(re.escape(begin) + r".*?" + re.escape(end) + r"\n?", "", text, flags=re.S)
+block = ""
 if sys.argv[3] == "Chicago95Aero":
     toolbar = "gtk-toolbar-icons-gtk3.css" if sys.argv[4] == "3.0" else "gtk-toolbar-icons.css"
     text = text.replace(source.with_name(toolbar).read_text(), "")
@@ -365,6 +366,11 @@ if sys.argv[3] == "Chicago95":
         block += classic_radio_css(Path(sys.argv[5]), sys.argv[6])
     if sys.argv[4] == "3.0":  # GTK 3 warns on every start about properties only GTK 4 knows
         block = without_gtk4_properties(block)
+elif sys.argv[3] == "Chicago95Luna" and sys.argv[7] == "120":
+    theme = Path.home() / ".themes/Chicago95Luna"
+    rules = source.parent.parent / "luna/gtk/Chicago95Luna/radio-120dpi.css"
+    block = rules.read_text().replace('url("radio-120dpi/', f'url("{theme.as_uri()}/radio-120dpi/')
+if block:
     text = text.rstrip() + "\n" + begin + "\n" + block + end + "\n"
 target.write_text(text)
 PYPROGRESS
@@ -1518,7 +1524,7 @@ step_explorer() {
 
 lockscreen_style() { printf '%s' "$SETUP_LOGIN_STYLE"; }
 
-write_lockscreen_settings() { python_applier lockscreen_settings; }
+write_lockscreen_settings() { python_applier "--into=${1:-}" lockscreen_settings; }
 
 step_lockscreen() {
   [ -n "$SETUP_SHELL_SRC" ] || {
@@ -1587,6 +1593,8 @@ install_seven_session_art() {
     run mv "$art/spinner.tmp" "$art/spinner.png" || return 1
   fi
   put_file "$art/background" "$target/background"
+  put_file "$REPO/sddm/Chicago95Plasma/AeroBackground4x3.jpg" "$target/background-4x3.jpg"
+  put_file "$REPO/sddm/Chicago95Plasma/AeroBackground1024x768.jpg" "$target/background-1024x768.jpg"
   put_file "$art/spinner.png" "$target/spinner.png" # Plymouth consumes raster frames.
   run python3 "$REPO/aero/vector_art.py" bitmap "$art/spinner.png" "$art/spinner.svg" || return 1
   put_file "$art/spinner.svg" "$target/spinner.svg"
@@ -1640,6 +1648,7 @@ image_source() {
   case "$1" in
   start) start_logo_source ;;
   flag) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-flag.png" ;;
+  win2k-flag) printf '%s' "$SDDM_THEME_SRC/Windows2000Flag.svg" ;;
   aero-flag) printf '%s' "$SDDM_THEME_SRC/AeroBrandFlag.svg" ;;
   penguin) printf '%s' "$REPO/plasmoids/org.chicago95.start/contents/images/logo-penguin.svg" ;;
   waving-flag) printf '%s' "$WAVING_FLAG" ;;

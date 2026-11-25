@@ -9,6 +9,11 @@
   "session_screens": {
     "sign-in": {
       "1280x1024": {"frame": "sign-in.png", "exclude": [639, 512, 661, 537], "scale": 1.25}
+    },
+    "lock-screen": {
+      "1280x1024": {"frame": "lock-screen/1280x1024.png", "exclude": [0, 0, 24, 24], "scale": 1.25},
+      "password-typed": {"frame": "lock-screen/password-typed.png", "exclude": [0, 0, 24, 24], "scale": 1.25, "entry": "typed"},
+      "rejected": {"frame": "lock-screen/rejected.png", "exclude": [0, 0, 24, 24], "scale": 1.25, "failed": true}
     }
   },
   "boot_step": 9,
@@ -21,6 +26,7 @@
     "xp-sp3-classic-device-manager-bands.png": "device-manager.png"
   },
   "taskbar_x": 535,
+  "taskbar_band_screen": [800, 600],
   "start_button": {"scale": 1.25, "screen": [1280, 1024], "bounds": [2, 996, 64, 1022], "rgb565": true},
   "device_manager_scale": 1,
   "device_manager_console_states": {

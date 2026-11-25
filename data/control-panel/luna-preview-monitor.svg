@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="141" height="127" viewBox="0 0 141 127">
+  <defs>
+    <linearGradient id="case" x1="0%" y1="15%" x2="100%" y2="85%">
+      <stop stop-color="#fcfcfc"/>
+      <stop offset=".52" stop-color="#f4f4f3"/>
+      <stop offset="1" stop-color="#b1b6bf"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0%" y1="0%" x2="72%" y2="100%">
+      <stop stop-color="#d0d0d0"/>
+      <stop offset=".6" stop-color="#a0a4aa"/>
+      <stop offset="1" stop-color="#434955"/>
+    </linearGradient>
+    <linearGradient id="stand">
+      <stop stop-color="#373834"/>
+      <stop offset=".21" stop-color="#bebfb9"/>
+      <stop offset=".51" stop-color="#e9e8e4"/>
+      <stop offset=".78" stop-color="#a0a4ae"/>
+      <stop offset="1" stop-color="#273047"/>
+    </linearGradient>
+  </defs>
+  <path d="M31 114h75l6 6v3q-13 4-41 4t-42-4v-3z" fill="url(#stand)"/>
+  <path d="M30 119q42 5 81 0l-4-4H35z" fill="#353638" opacity=".53"/>
+  <rect x=".5" y=".5" width="140" height="116" rx="4" fill="url(#case)" stroke="url(#edge)"/>
+  <path d="M4 4h130l-3 7H8z M8 101h123l5 5H4z" fill="#e3e4e5"/>
+  <rect x="8.5" y="11.5" width="122" height="91" fill="#fdfdfd" stroke="#a5a9ae"/>
+  <path d="M37 115v-4q0-3 3-3h61q3 0 3 3v4" fill="none" stroke="#b3b7bc"/>
+  <circle cx="111.2" cy="109.5" r=".9" fill="#55b756"/>
+  <circle cx="119.5" cy="109" r="2.8" fill="#c4c9d1" stroke="#88909d"/>
+</svg>

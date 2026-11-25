@@ -258,6 +258,7 @@ def image_source(setup, choice):
         return start_logo_source(setup)
     bundled = {
         "flag": images / "logo-flag.png",
+        "win2k-flag": sddm / "Windows2000Flag.svg",
         "aero-flag": sddm / "AeroBrandFlag.svg",
         "penguin": images / "logo-penguin.svg",
         "waving-flag": home_path(setup, WAVING_FLAG),
@@ -915,10 +916,14 @@ POST_XP_OPTIONS = (
 
 def lockscreen_settings(setup):
     """settings.js of the installed lock screen: the look it is drawn in, on the desktop colour."""
-    choices, directory = setup.choices, home_path(setup, LOCKSCREEN_DIR)
+    choices = setup.choices
+    directory = Path(setup.environment.get("APPLY_INTO") or home_path(setup, LOCKSCREEN_DIR))
     if not installed(setup, directory):
         return
     text = f".pragma library\nvar look = {js_string(choices['LOGIN_STYLE'])};\nvar desktopColor = {js_string(background_color(choices))};\n"
+    xp_classic = choices["LOGIN_STYLE"] == "2000" and choices["START_MENU_STYLE"] == "2001"
+    text += f"var xpClassic = {'true' if xp_classic else 'false'};\n"
+    text += f"var hostName = {js_string(os.uname().nodename if xp_classic else '')};\n"
     if choices["LOGIN_STYLE"] == "aero":
         logo = f"classic/brand-logo.{extension(login_logo(setup))}"
         text += f"var brandText = {js_string(choices['BANNER_TEXT'])};\nvar brandEdition = {js_string(choices['EDITION'])};\nvar brandLogo = {js_string(logo)};\n"

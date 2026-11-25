@@ -81,7 +81,7 @@ def test_reinstall_keeps_the_original_file_as_the_only_backup_and_lists_it_once(
     )
 
 
-def test_dry_run_of_the_2000_look_downloads_the_waving_flag_for_the_loading_screen(tmp_path):
+def test_dry_run_of_the_2000_look_uses_the_vector_flag_for_the_loading_screen(tmp_path):
     subprocess.run(
         [str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", "--look=2000", "--components=splash"],
         capture_output=True,
@@ -93,7 +93,8 @@ def test_dry_run_of_the_2000_look_downloads_the_waving_flag_for_the_loading_scre
     )
     log = next(tmp_path.glob("chicago95-setup-*.log")).read_text()
 
-    assert f"would: python3 {REPO}/setup/fetch-waving-flag.py {tmp_path}/.local/share/chicago95/waving-flag.png" in log
+    assert f"{REPO}/sddm/Chicago95Plasma/Windows2000Flag.svg" in log
+    assert "fetch-waving-flag.py" not in log
 
 
 def test_login_theme_settings_carry_title_message_and_picture_without_banner_texts(tmp_path):
@@ -2142,6 +2143,20 @@ def test_progress_override_is_shared_idempotent_and_removed_for_luna(tmp_path):
         assert "progressbar" not in (tmp_path / f".config/gtk-{version}/gtk.css").read_text()
         assert "frame > label" not in (tmp_path / f".config/gtk-{version}/gtk.css").read_text()
         assert "spinbutton" not in (tmp_path / f".config/gtk-{version}/gtk.css").read_text()
+
+
+def test_luna_radio_uses_120dpi_assets_in_both_gtk_versions(tmp_path):
+    run_bash_with_steps(tmp_path, "SETUP_DPI=120; import_gtk_progress Chicago95Luna; import_gtk_progress Chicago95Luna")
+    art = (tmp_path / ".themes/Chicago95Luna/radio-120dpi/face-normal.svg").as_uri()
+    sheets = [tmp_path / f".config/gtk-{version}/gtk.css" for version in ("3.0", "4.0")]
+    for sheet in sheets:
+        css = sheet.read_text()
+        assert css.count("/* Chicago95 progress BEGIN */") == 1
+        assert f'url("{art}")' in css
+        assert "background-size: 12.8px 12.8px" in css
+
+    run_bash_with_steps(tmp_path, "SETUP_DPI=96; import_gtk_progress Chicago95Luna")
+    assert all("radio-120dpi" not in sheet.read_text() for sheet in sheets)
 
 
 def test_xp_classic_uses_xp_boot_and_icons_with_classic_logon(tmp_path):

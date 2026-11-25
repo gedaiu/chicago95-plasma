@@ -976,7 +976,7 @@ class DeviceManagerWindow(QWidget):
             menus.setStyleSheet("""
                 QMenuBar { color: black; padding-left: 2px; border-bottom: 1px solid #b4b4b4;
                     background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #ffffff,
-                    stop:.39 #e4eaf5,stop:.405 #d3daed,stop:1 #d3daed); }
+                    stop:.071 #fcfdfe,stop:.377 #e4e9f5,stop:.402 #d3daed,stop:1 #d3daed); }
                 QMenuBar::item { color: black; background: transparent; padding: 3px 6px; }
                 QMenuBar::item:selected { background: #c4dcf0; }
             """)

@@ -154,7 +154,7 @@ def caption_css(face, light, shadow, dark, assets=None, dpi=96, *, gtk4=True, co
             outline="none",
             background_color="transparent",
             background_repeat="no-repeat",
-            background_position="left top" if high_dpi and gtk4 else "center",
+            background_position="left top" if high_dpi else "center",
             background_size=f"{CAPTION_W}px {face_height:g}px",
         ),
         # libadwaita pads the glyph 4px a side, which would widen each button to 24px around the 16px face.

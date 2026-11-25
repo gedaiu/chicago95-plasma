@@ -5,18 +5,19 @@ import re
 import subprocess
 
 import pytest
-from conftest import REPO, load_script, run_bash_with_steps
+from chicago95appliers import DESKTOP_SCRIPT, desktop_icons_chosen
+from chicago95setup import Choices, apply_look
+from conftest import REPO, load_script
 from test_install import dry_run_log
 
 ICON_THEME = REPO.parent / "Chicago95/Icons/Chicago95"
 
 
-def desktop_script(tmp_path, assignments=""):
-    return " ".join(" ".join(run_bash_with_steps(tmp_path, f"{assignments} desktop_script")).split())
-
-
-def chosen(tmp_path, assignments=""):
-    return run_bash_with_steps(tmp_path, f"apply_look 1995; {assignments} desktop_icons_chosen")
+def chosen(**overrides):
+    choices = Choices()
+    apply_look(choices, REPO, "1995")
+    choices.values.update(overrides)
+    return desktop_icons_chosen(choices)
 
 
 def link(name):
@@ -25,8 +26,8 @@ def link(name):
     return dict(parser["Desktop Entry"])
 
 
-def test_desktop_script_asks_folder_view_for_32px_icons_with_narrow_two_line_labels_in_left_columns(tmp_path):
-    assert desktop_script(tmp_path) == (
+def test_desktop_script_asks_folder_view_for_32px_icons_with_narrow_two_line_labels_in_left_columns():
+    assert " ".join(DESKTOP_SCRIPT.split()) == (
         "desktops().forEach(desktop => { "
         'if (desktop.type !== "org.kde.plasma.folder") { print("desktop " + desktop.id + " is " + desktop.type + '
         '", not a Folder View: no desktop icons"); return; } '
@@ -36,17 +37,17 @@ def test_desktop_script_asks_folder_view_for_32px_icons_with_narrow_two_line_lab
     )
 
 
-def test_desktop_script_parses_as_javascript(qt_app, tmp_path):
+def test_desktop_script_parses_as_javascript(qt_app):
     from PySide6.QtQml import QJSEngine, QJSValue
 
-    assert QJSEngine().evaluate(desktop_script(tmp_path)).errorType() == QJSValue.ErrorType.ReferenceError
+    assert QJSEngine().evaluate(DESKTOP_SCRIPT).errorType() == QJSValue.ErrorType.ReferenceError
 
 
-def test_1995_shows_my_computer_network_neighborhood_and_the_recycle_bin_and_later_looks_add_my_documents(tmp_path):
+def test_1995_shows_my_computer_network_neighborhood_and_the_recycle_bin_and_later_looks_add_my_documents():
     assert (
-        chosen(tmp_path),
-        chosen(tmp_path, "SETUP_START_MENU_STYLE=1998"),
-        chosen(tmp_path, "SETUP_START_MENU_STYLE=2000"),
+        chosen(),
+        chosen(START_MENU_STYLE="1998"),
+        chosen(START_MENU_STYLE="2000"),
     ) == (
         ["computer", "network", "recycle"],
         ["computer", "documents", "network", "recycle"],
@@ -54,19 +55,17 @@ def test_1995_shows_my_computer_network_neighborhood_and_the_recycle_bin_and_lat
     )
 
 
-def test_a_saved_choice_picks_the_icons_and_an_empty_choice_or_an_unknown_name_gives_none(tmp_path):
+def test_a_saved_choice_picks_the_icons_and_an_empty_choice_or_an_unknown_name_gives_none():
     assert (
-        chosen(tmp_path, "SETUP_DESKTOP_ICONS=recycle,computer"),
-        chosen(tmp_path, "SETUP_DESKTOP_ICONS="),
-        chosen(tmp_path, "SETUP_DESKTOP_ICONS='evil;rm -rf'"),
+        chosen(DESKTOP_ICONS="recycle,computer"),
+        chosen(DESKTOP_ICONS=""),
+        chosen(DESKTOP_ICONS="evil;rm -rf"),
     ) == (["recycle", "computer"], [], [])
 
 
-def test_luna_defaults_to_the_recycle_bin_and_preserves_chosen_icons(tmp_path):
-    assert chosen(tmp_path, "SETUP_START_MENU_STYLE=luna") == ["recycle"]
-    assert chosen(
-        tmp_path, "SETUP_START_MENU_STYLE=luna SETUP_DESKTOP_ICONS=computer,documents"
-    ) == ["computer", "documents"]
+def test_luna_defaults_to_the_recycle_bin_and_preserves_chosen_icons():
+    assert chosen(START_MENU_STYLE="luna") == ["recycle"]
+    assert chosen(START_MENU_STYLE="luna", DESKTOP_ICONS="computer,documents") == ["computer", "documents"]
 
 
 def test_dry_run_of_the_desktop_component_copies_the_links_under_their_names_into_the_desktop_folder(tmp_path):
@@ -153,8 +152,8 @@ def test_each_link_names_its_place_and_a_chicago95_icon(name, expected):
     ) == (expected, [])
 
 
-def test_an_auto_choice_takes_the_looks_own_icons(tmp_path):
-    assert chosen(tmp_path, "SETUP_DESKTOP_ICONS=auto SETUP_START_MENU_STYLE=1998") == [
+def test_an_auto_choice_takes_the_looks_own_icons():
+    assert chosen(DESKTOP_ICONS="auto", START_MENU_STYLE="1998") == [
         "computer",
         "documents",
         "network",
@@ -162,11 +161,11 @@ def test_an_auto_choice_takes_the_looks_own_icons(tmp_path):
     ]
 
 
-def test_every_control_panel_choice_is_one_setup_understands(tmp_path):
+def test_every_control_panel_choice_is_one_setup_understands():
     control_panel = load_script("chicago95-control-panel")
 
     assert [
-        chosen(tmp_path, f"SETUP_DESKTOP_ICONS='{value}'") for _label, value in control_panel.DESKTOP_ICON_CHOICES
+        chosen(DESKTOP_ICONS=value) for _label, value in control_panel.DESKTOP_ICON_CHOICES
     ] == [
         ["computer", "network", "recycle"],
         [],

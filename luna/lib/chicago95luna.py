@@ -462,12 +462,13 @@ def radio_face_renderer(size, state):
 def paint_radio_button(painter, option):
     from chicago95lunamarks import RADIO_DISABLED, RADIO_GLOSS, RADIO_RADIUS, native_size
 
-    box = indicator_box(option.rect)
-    scale = painter.device().devicePixelRatioF()
+    painter.save()
+    # Round the painted face to the display grid before the SVG draws its
+    # border. At 120 DPI a 13-unit allocation contains a 16-pixel radio.
+    box, scale = device_pixels(painter, indicator_box(option.rect))
     source = native_size(scale)
     state = indicator_state(option)
     checked = bool(option.state & QStyle.State_On)
-    painter.save()
     radio_face_renderer(source, "checked" if checked and state == "normal" else state).render(painter, QRectF(box))
     if checked:
         radius = RADIO_RADIUS[source] * box.width() / source
@@ -927,6 +928,7 @@ class LunaStyle(QProxyStyle):
             paint_progress_label(painter, option)
             return
         handlers = {
+            QStyle.CE_ComboBoxLabel: self.draw_combo_label,
             QStyle.CE_TabBarTabShape: self.draw_tab_shape,
             QStyle.CE_TabBarTabLabel: self.draw_tab_label,
             QStyle.CE_ShapedFrame: self.draw_shaped_frame,
@@ -938,6 +940,18 @@ class LunaStyle(QProxyStyle):
         if painter_for is None:
             return super().drawControl(element, option, painter, widget)
         painter_for(painter, option)
+
+    def draw_combo_label(self, element, option, painter, widget):
+        if widget is not None and widget.property("lunaSelectionOnFocus") and option.state & QStyle.State_HasFocus:
+            option = type(option)(option)
+            area = self.subControlRect(QStyle.CC_ComboBox, option, QStyle.SC_ComboBoxEditField, widget)
+            painter.fillRect(area, option.palette.highlight())
+            painter.save()
+            painter.setPen(QPen(option.palette.highlightedText().color(), 0, Qt.DotLine))
+            painter.drawRect(area.adjusted(0, 0, -1, -1))
+            painter.restore()
+            option.palette.setColor(QPalette.ButtonText, option.palette.highlightedText().color())
+        super().drawControl(element, option, painter, widget)
 
     def draw_tab_shape(self, element, option, painter, widget):
         if option.shape not in NORTH_TAB_SHAPES:

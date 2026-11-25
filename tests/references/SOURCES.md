@@ -218,7 +218,8 @@ the changes above the bottom strip. The boot GIF alternates 50 ms and
 `themes/win7/sign-in.png` is the 800×600 QEMU framebuffer on Windows 7
 SP1 before credential entry. The strict test excludes the account-picture
 interior, including the cursor there. The 4:3 background in the theme
-is IMAGE resource 5032 in the installed guest's `Windows/System32/imageres.dll`.
+at 1280×960 is IMAGE resource 5032 in the installed guest's `Windows/System32/imageres.dll`.
+The 1024×768 lock-screen reference uses IMAGE resource 5033 from the same file.
 The same guest at 800×600 produced `themes/win7/sign-in/rejected-800x600.png`
 after one incorrect password submission. The comparison masks the software cursor.
 Return dismisses the confirmation and restores the credential form.
@@ -251,6 +252,9 @@ references are 1280×1024 QEMU framebuffer captures at 120 DPI.
 | XP Luna | Folder Options, Browse folders | (124, 252, 140, 268) | (124, 230, 140, 246) |
 
 The Windows 2000 and XP tests quantize the renders to the RGB565 guest palette.
+XP Luna also captures hover and held press on both Browse folders choices.
+These four crops use the same bounds at 120 DPI. The pointer was over the
+adjacent label and releases occurred outside the control to preserve selection.
 
 | File | Source |
 | --- | --- |
@@ -332,6 +336,13 @@ reference guests. No command was executed during capture. The crop
 (80, 198, 446, 344) for 120-DPI Windows 98, (71, 892, 391, 1006) for
 Windows 2000, (71, 643, 391, 869) for XP Classic, and (69, 657, 389, 867)
 for XP Luna. The last three guests were at 120 DPI with 16-bit color.
+
+The XP Luna `run/120dpi-*.png` states came from the local SP3 guest at
+1280×1024 and 120 DPI in RGB565. Win+R opened Run, and the capture records
+the cleared field, `notepad` entered without submitting it, and Tab focus on
+OK and Cancel. The held frame captures Cancel while Space is down. Releasing
+Space dismisses the dialog. Each file uses the same client crop
+(6, 793)–(403, 983), outside the caption and borders.
 
 The four Classic `file-manager/caption-seam.png` crops use the same 120-DPI
 Explorer captures. Each 8×8 sample is from a clear part of the active title
@@ -440,6 +451,18 @@ characters entered and the result of submitting them. The pointer is at the
 top-left corner, outside every dialog. The strict frame comparison masks that
 pointer area, and a separate check measures the window bounds.
 
+The Windows XP SP3 Classic `themes/winxp-classic/lock-screen/` frames came from
+`chicago95-winxp-classic-audit` at 1280 × 1024, 120 DPI and RGB565. The User
+Accounts control panel was set to classic logon. Win+L opened Unlock Computer.
+The next frames show three sample characters entered and the modal rejection
+after submitting them. The pointer was moved to the top-left before capture.
+
+The Luna `themes/winxp/lock-screen/1280x1024.png` frame came from the local
+SP3 guest at 120 DPI in RGB565. Win+L opened the Welcome screen with the
+signed-in `ref` account. That guest account has no password, so the frame
+shows the account tile before unlocking. The comparison supplies its
+portrait to the production lock-screen renderer as account data.
+
 The Windows 2000 `themes/win2k/post-login/1280x1024.png` frame follows automatic
 logon in the same guest. It shows “Loading your personal settings...” before the
 desktop appears. The status dialog occupies (363, 288)–(917, 447).
@@ -449,6 +472,12 @@ strip, taken at (366, 387) before logon while the same status window says
 moves 175 framebuffer pixels while the window and strip geometry stay fixed.
 
 The Windows 7 shutdown measurements used the same offline SP1 WDDM guest.
+`themes/win7/shutdown/status-800x600.png` is an unscaled full frame from the
+Windows 7 Professional SP1 reference VM at 800×600 and 96 DPI. The capture was
+taken about 0.9 seconds after an ACPI power-off request on the sign-in screen.
+The Plymouth comparison excludes the spinner area because its phase varies
+between runs.
+
 `win7-sp1-shutdown-1024.png` and `win7-sp1-shutdown-800.png` are unscaled
 240 × 68 crops of “Shutting down...” from 1024 × 768 and 800 × 600 displays.
 Their upper-left corners are (392, 304) and (280, 220), respectively.
@@ -510,6 +539,17 @@ The columns are idle, hovered and held down. Each active state was captured
 twice with the pointer in different positions. The sheet joins the unobstructed
 regions at their original coordinates and uses no resampling. The Stand By
 hover sample equals idle. Each held press was released outside its button.
+
+`themes/winxp/shutdown/cancel-states.png` uses an 84 × 29 crop at desktop
+(754, 465) from the same chooser. The columns show the idle, hovered and held
+Cancel button. For hover and hold, two pointer locations supply unobstructed
+parts of the tile. The press was released outside the button.
+
+`themes/winxp/shutdown/keyboard-focus-*.png` records the initial Stand By focus
+and the next three Tab stops on the same XP SP3 guest at 1280×1024, 120 DPI and
+RGB565. The three power icon crops are 44×42 at (504, 358), (618, 358) and
+(732, 358). Cancel uses the same crop as the pointer-state comparison. The
+pointer stayed outside the chooser and no power action was invoked.
 
 `themes/win95/shutdown/button-states.png` uses 80×25 crops from the 96-DPI
 Windows 95 guest. Rows show Yes, No and Help. Columns show idle, hover and held
@@ -609,7 +649,9 @@ band is the unoccupied 8 × 40 region at (535, 728) in `win7screenres.png`.
 The manifests also keep aliases for the previously captured `device-manager.png` and
 `start-menu.png` fixtures. The Windows 7 Device Manager file is a 782 × 46 crop from (80, 72)
 of `win7-sp1-aero-device-manager.png`. The test uses its first 778 columns,
-which end before the glass frame. `win7/device-manager/tree-frame.png` uses
+which end before the glass frame. The empty toolbar band at (175, 23)
+extends to (776, 46), past the last command and inside the right border.
+`win7/device-manager/tree-frame.png` uses
 the 778 × 518 client at the same origin. Tests sample the gutter, sunken
 tree edges, unobstructed viewport, and the expanded and collapsed branch
 glyphs at their native positions. `tree-branch-hover.png` contains three
@@ -680,6 +722,8 @@ columns 240 through 619 and the two columns along each outer edge.
 
 The Windows 2000 and XP Classic Start menu files use
 the rectangles (2, 113, 206, 456) in `w2kstartmenu.png` and (2, 233, 193, 576) in `xpclassic.png`.
+Every channel in the archived Windows 2000 crop uses five-bit levels (RGB555).
+The 120-DPI interaction frames below use the guest's separate RGB565 mode.
 The Windows 7 Start menu file contains the opaque search area at (8, 675, 260, 721) in
 `win7-sp1-aero-start.png`. These rectangles use exclusive right and bottom edges.
 
@@ -731,6 +775,18 @@ the Windows Standard scheme, and solid preview title bars.
 The Windows 2000 and both XP guests captured these Control Panel and Display
 views in RGB565. Their manifest entries apply the same conversion to the Qt
 render before comparing every RGB pixel.
+
+The XP SP3 Luna `themes/winxp/display-properties/` images were captured from
+the local reference VM at 1280×1024 and 120 DPI. Running `desk.cpl` opened
+Themes, then Ctrl+Tab selected Desktop, Screen Saver, Appearance, and Settings.
+All four additional files use the same 528×517 client crop at (165, 245).
+The new Settings capture at that origin matched the archived Settings crop.
+For `screen-saver-blank.png`, the same guest opened the Screen Saver tab,
+then keyboard selection changed the saver to Blank with the 10-minute wait
+unchanged. Apply remained enabled and the change was discarded after capture.
+Pressing Settings while Blank was pending opened the “Blank Screen Saver”
+warning. `screen-saver-settings.png` crops its native client at
+(449, 490)–(836, 603) after moving the cursor away.
 
 The Windows 7 manifest's `control_panel_icons` sample all eight category
 icons from the existing 144-DPI Category View. The VM and live Qt crops

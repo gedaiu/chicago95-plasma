@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Window
 import org.kde.plasma.workspace.keyboardlayout as Keyboards
 import QtQuick.Controls.Basic
 
@@ -62,14 +63,19 @@ Rectangle {
     }
     Image {
         anchors.fill: parent
-        source: Math.abs(width * 3 - height * 4) < 1
-            ? Qt.resolvedUrl("AeroBackground4x3.jpg") : page.art("background")
+        readonly property int screenPixelsWide: Math.round(width * Screen.devicePixelRatio)
+        readonly property int screenPixelsHigh: Math.round(height * Screen.devicePixelRatio)
+        source: screenPixelsWide === 1024 && screenPixelsHigh === 768
+            ? Qt.resolvedUrl("AeroBackground1024x768.jpg")
+            : Math.abs(width * 3 - height * 4) < 1
+                ? Qt.resolvedUrl("AeroBackground4x3.jpg") : page.art("background")
         fillMode: Image.PreserveAspectCrop
     }
     component GlassButton: Button {
         id: control
         property string sprite: "switch-user-button"
         property string glyph
+        property int labelSize: page.largeText ? 16 : 12
         hoverEnabled: true
         background: Image {
             source: page.art(control.sprite + (control.down && control.sprite !== "access-button" ? "-active" : control.hovered || control.activeFocus ? "-hover" : "") + ".svg")
@@ -86,7 +92,7 @@ Rectangle {
                 text: control.text
                 color: "white"
                 font.family: page.uiFamily
-                font.pixelSize: page.largeText ? 16 : 12
+                font.pixelSize: control.labelSize
             }
         }
     }
@@ -114,10 +120,15 @@ Rectangle {
                 anchors.fill: parent
                 anchors.margins: 1
                 radius: 1
-                border.color: "#50ffffff"
                 gradient: Gradient {
                     GradientStop { position: 0; color: "#66f6fcff" }
                     GradientStop { position: 1; color: "#66d5e8ff" }
+                }
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 1
+                    color: "transparent"
+                    border.color: "#50ffffff"
                 }
             }
         }
@@ -137,31 +148,38 @@ Rectangle {
                 : preferredY
             width: 190
             height: 190
-            Image {
-                anchors.centerIn: parent
-                width: 126
-                height: 126
-                source: page.art("user.png")
+            Item {
+                // The artwork sits slightly above and left of the account's layout center.
+                x: -1
+                y: -2
+                width: parent.width
+                height: parent.height
+                Image {
+                    anchors.centerIn: parent
+                    width: 126
+                    height: 126
+                    source: page.art("user.png")
+                }
+                Image {
+                    anchors.centerIn: parent
+                    width: 126
+                    height: 126
+                    source: page.userPicture.toString() ? page.userPicture : !page.unlockOnly && !page.manual && page.account ? "file:///var/lib/AccountsService/icons/" + encodeURIComponent(page.account) : ""
+                    fillMode: Image.PreserveAspectCrop
+                }
+                Image { anchors.fill: parent; source: Qt.resolvedUrl("AeroPortraitFrame.svg") }
             }
-            Image {
-                anchors.centerIn: parent
-                width: 126
-                height: 126
-                source: page.userPicture.toString() ? page.userPicture : !page.unlockOnly && !page.manual && page.account ? "file:///var/lib/AccountsService/icons/" + encodeURIComponent(page.account) : ""
-                fillMode: Image.PreserveAspectCrop
-            }
-            Image { anchors.fill: parent; source: Qt.resolvedUrl("AeroPortraitFrame.svg") }
         }
         Text {
             id: nameLabel
             anchors.top: portrait.bottom
-            anchors.topMargin: 0
+            anchors.topMargin: page.unlockOnly ? -1 : 0
             anchors.horizontalCenter: parent.horizontalCenter
             color: "white"
             style: Text.Raised
             styleColor: "#344853"
             font.family: page.uiFamily
-            font.pixelSize: page.largeText ? 30 : 23
+            font.pixelSize: page.largeText ? 30 : page.unlockOnly ? 24 : 23
             width: Math.min(implicitWidth, parent.width - 32)
             elide: Text.ElideRight
             text: page.manual ? qsTr("Other user") : page.account
@@ -227,24 +245,32 @@ Rectangle {
                 onAccepted: page.submit()
                 Button {
                     id: go
+                    objectName: "aeroSubmit"
                     anchors.left: parent.right
                     anchors.leftMargin: 4
                     anchors.verticalCenter: parent.verticalCenter
+                    anchors.verticalCenterOffset: page.unlockOnly ? 0 : -1
                     width: 30
                     height: 30
                     hoverEnabled: true
                     Accessible.name: page.unlockOnly ? qsTr("Unlock") : qsTr("Log on")
-                    background: Image { source: page.art(go.down ? "gopressed.svg" : go.hovered || go.activeFocus ? "gohover.svg" : "go.svg") }
+                    background: Image {
+                        sourceSize: Qt.size(Math.round(go.width * Screen.devicePixelRatio),
+                            Math.round(go.height * Screen.devicePixelRatio))
+                        source: Qt.resolvedUrl(go.down ? "AeroSubmitHeld.svg" :
+                            go.hovered || go.activeFocus ? "AeroSubmitHover.svg" : "AeroSubmitRest.svg")
+                    }
                     onClicked: page.submit()
                 }
             }
         }
         GlassButton {
             anchors.top: page.unlockOnly ? portrait.bottom : fields.bottom
-            anchors.topMargin: page.unlockOnly ? 138 : 48
+            anchors.topMargin: page.unlockOnly ? 137 : 48
             anchors.horizontalCenter: parent.horizontalCenter
             width: Math.max(108, contentItem.implicitWidth + 20)
             height: page.largeText ? 34 : 28
+            labelSize: page.largeText ? 16 : 14
             objectName: "aeroSwitchUser"
             visible: page.unlockOnly ? page.canSwitchUser : page.users.length > 1 || page.manual
             text: qsTr("Switch User")

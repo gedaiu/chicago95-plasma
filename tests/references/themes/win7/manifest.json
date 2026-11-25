@@ -45,6 +45,11 @@
       "password-typed": {"frame": "sign-in/password-typed.png", "screen_size": [800, 600], "bounds": [280, 402, 551, 445], "entry": "typed"},
       "password-selected": {"frame": "sign-in/password-selected.png", "screen_size": [800, 600], "bounds": [280, 402, 551, 445], "entry": "selected"},
       "password-cleared": {"frame": "sign-in/password-cleared.png", "screen_size": [800, 600], "bounds": [280, 402, 551, 445], "entry": "cleared"},
+      "submit-idle": {"frame": "sign-in/submit/idle.png", "screen_size": [800, 600], "bounds": [516, 407, 547, 438], "submit": "idle"},
+      "submit-hover": {"frame": "sign-in/submit/hover.png", "screen_size": [800, 600], "bounds": [516, 407, 547, 438], "submit": "hover", "exclude": [7, 22, 27, 31]},
+      "submit-held": {"frame": "sign-in/submit/held.png", "screen_size": [800, 600], "bounds": [516, 407, 547, 438], "submit": "held", "exclude": [7, 22, 27, 31]},
+      "submit-held-outside": {"frame": "sign-in/submit/held-outside.png", "screen_size": [800, 600], "bounds": [516, 407, 547, 438], "submit": "held-outside"},
+      "submit-released-outside": {"frame": "sign-in/submit/released-outside.png", "screen_size": [800, 600], "bounds": [516, 407, 547, 438], "submit": "released-outside"},
       "power-menu-open": {"frame": "sign-in/power-menu-open.png", "screen_size": [800, 600], "menu_down": 0},
       "power-menu-restart": {"frame": "sign-in/power-menu-restart.png", "screen_size": [800, 600], "menu_down": 1},
       "power-menu-hibernate": {"frame": "sign-in/power-menu-hibernate.png", "screen_size": [800, 600], "menu_down": 2},
@@ -56,9 +61,11 @@
     }
   },
   "taskbar_x": 535,
+  "taskbar_band_screen": [1024, 768],
   "run_scale": 1.5,
   "device_manager_scale": 1,
   "device_manager_crop": [0, 0, 778, 46],
+  "device_manager_blank_band": [175, 23, 776, 46],
   "device_manager_console_states": {
     "scale": 1,
     "client_size": [778, 518],

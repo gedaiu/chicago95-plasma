@@ -11,8 +11,12 @@ def measurements(directory):
     for path in sorted(directory.rglob("comparison.metrics.json")):
         for parent in path.parents:
             if parent.name == "visual":
-                theme, component, *_ = path.relative_to(parent).parts
-                yield theme, component, path.relative_to(parent), json.loads(path.read_text())
+                key = path.relative_to(parent)
+                if len(key.parts) == 5 and key.parts[0].endswith("dpi") and key.parts[0][:-3].isdecimal():
+                    dpi, theme, component, renderer, filename = key.parts
+                    key = Path(theme, component, renderer, dpi, filename)
+                theme, component, *_ = key.parts
+                yield theme, component, key, json.loads(path.read_text())
                 break
 
 

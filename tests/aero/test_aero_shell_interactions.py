@@ -127,12 +127,19 @@ def test_start_power_menu_dispatches_only_offered_actions(qt_app):
 
 
 def test_desktop_defaults_and_independent_login_selection(tmp_path):
+    from chicago95appliers import background_color, desktop_icons_chosen
+    from chicago95setup import Choices, apply_look
+
+    choices = Choices()
+    apply_look(choices, REPO, "aero")
+    assert desktop_icons_chosen(choices) == ["recycle"]
+    assert background_color(choices) == "#1D5C9C"
     assert run_bash_with_steps(
         tmp_path,
-        "apply_look aero; desktop_icons_chosen; background_color; echo; "
+        "apply_look aero; "
         "SETUP_LOGIN_STYLE=luna; lockscreen_style; echo; SETUP_START_MENU_STYLE=1995; "
         "SETUP_LOGIN_STYLE=aero; lockscreen_style",
-    ) == ["recycle", "#1D5C9C", "luna", "aero"]
+    ) == ["luna", "aero"]
 
 
 def test_jump_list_uses_desktop_actions_and_only_that_apps_documents(tmp_path, monkeypatch):

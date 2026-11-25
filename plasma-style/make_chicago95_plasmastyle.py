@@ -100,8 +100,17 @@ def panel_svg():
     size = 24
     bar_rings = [(LIGHT, FACE), (HILIGHT, FACE)]
     black = [("#000000", "#000000"), ("#000000", "#000000")]
+    # One opaque edge keeps the wallpaper from showing between the two
+    # bevel colours when Plasma renders the panel at fractional scale.
+    top_bevel = (
+        '<defs><linearGradient id="panel-bevel" x1="0" y1="0" x2="0" y2="1">'
+        f'<stop offset="0" stop-color="{LIGHT}"/><stop offset=".5" stop-color="{LIGHT}"/>'
+        f'<stop offset=".5" stop-color="{HILIGHT}"/><stop offset="1" stop-color="{HILIGHT}"/>'
+        '</linearGradient></defs>'
+    )
     parts = [
-        nine_slice("", 0, 0, size, 2, bar_rings, flat, 2),
+        top_bevel,
+        nine_slice("", 0, 0, size, 2, bar_rings, flat, 2, edge_fills={"top": "url(#panel-bevel)"}),
         nine_slice("mask-", size + 16, 0, size, 2, black, lambda px, py: "#000000", 2),
     ]
     return svg(2 * size + 32, size + 12, "\n".join(parts))

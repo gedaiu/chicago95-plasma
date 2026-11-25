@@ -267,6 +267,11 @@ Item {
                     return;
                 }
                 item.modern = Settings.look === "2000";
+                item.xpClassic = Settings.xpClassic === true;
+                if (item.xpClassic) {
+                    item.hostName = Settings.hostName || "";
+                    item.userName = kscreenlocker_userName;
+                }
                 if (item.modern)
                     item.bannerSource = Qt.resolvedUrl("classic/brand-banner.png");
                 item.desktopColor = Settings.desktopColor;

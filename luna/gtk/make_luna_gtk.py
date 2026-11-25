@@ -594,7 +594,8 @@ def indicator_icon(kind, colour):
     return f'url("assets/{name}.svg")'
 
 
-def radio_rules():
+def radio_rules(assets=None):
+    native_120dpi = assets is not None
     yield block(
         "radio, checkbutton > radio, radiobutton > radio",
         min_width="13px",
@@ -607,6 +608,10 @@ def radio_rules():
         background_position="center",
         box_shadow="none",
     )
+    if native_120dpi:
+        # The XP face is 16 physical pixels at 120 DPI. The indicator node
+        # still needs a whole logical pixel allocation for GTK's layout.
+        yield block("radio", background_size="12.8px 12.8px", background_position="left top")
     for checked in ("", ":checked"):
         for pseudo, state in (
             ("", "checked" if checked else "normal"),
@@ -614,10 +619,17 @@ def radio_rules():
             (":active", "pressed"),
             (":disabled", "disabled"),
         ):
-            layers = [density_pair("radio-face-" + state)]
-            if checked:
-                colour = stops.CHECK_MARK_DISABLED if state == "disabled" else stops.CHECK_MARK
-                layers.insert(0, indicator_icon("dot", colour))
+            if native_120dpi:
+                face = "normal" if state == "checked" else state
+                layers = [f'url("{assets}/face-{face}.svg")']
+                if checked:
+                    mark = "disabled" if state == "disabled" else "normal"
+                    layers.insert(0, f'url("{assets}/mark-{mark}.svg")')
+            else:
+                layers = [density_pair("radio-face-" + state)]
+                if checked:
+                    colour = stops.CHECK_MARK_DISABLED if state == "disabled" else stops.CHECK_MARK
+                    layers.insert(0, indicator_icon("dot", colour))
             yield block("radio" + checked + pseudo, background_image=", ".join(layers))
 
 
@@ -1257,6 +1269,19 @@ def write_theme(out):
     captions = out / "caption"
     write_caption_faces(captions, False)
     write_caption_faces(captions / "large", True)
+    radio_assets = out / "radio-120dpi"
+    radio_assets.mkdir(parents=True, exist_ok=True)
+    marks = kvantum.marks
+    for state in ("normal", "hover", "pressed", "disabled"):
+        (radio_assets / f"face-{state}.svg").write_text(marks.radio_face_svg(16, state, 16))
+    for state in ("normal", "disabled"):
+        gradient = marks.radio_gradient(16) if state == "normal" else ""
+        fill = "url(#radioMark)" if gradient else marks.RADIO_DISABLED
+        (radio_assets / f"mark-{state}.svg").write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">'
+            f'<defs>{gradient}</defs><circle cx="8" cy="8" r="{marks.RADIO_RADIUS[16]:g}" fill="{fill}"/></svg>\n'
+        )
+    (out / "radio-120dpi.css").write_text("\n".join(radio_rules("radio-120dpi")))
     for version in VERSIONS:
         assets = out / f"gtk-{version}" / "assets"
         assets.mkdir(parents=True, exist_ok=True)

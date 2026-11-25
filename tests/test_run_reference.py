@@ -5,7 +5,7 @@ with the original's 3D light (#DFDFDF, the second line of a button's bevel) read
 """
 
 import pytest
-from conftest import needs_ui_font, run_bash_with_steps
+from conftest import REPO, needs_ui_font
 from reference import differing_pixels, qimage_to_pil, rgb565, screenshot
 from test_install import dry_run_log, kwriteconfig
 
@@ -91,13 +91,18 @@ def test_setup_installs_run_with_its_place_above_the_taskbar_and_the_originals_k
     ) == (True, True, True, True, True, True, True)
 
 
-def test_setup_positions_the_windows_98_run_dialog_using_its_120dpi_height(tmp_path):
-    heights = run_bash_with_steps(
-        tmp_path,
-        "SETUP_WIDGET_STYLE=classic; SETUP_START_MENU_STYLE=1998; "
-        "SETUP_SCALE=1 run_window_height; SETUP_SCALE=1.25 run_window_height",
+@pytest.mark.parametrize(("scale", "height"), [("1", 163), ("1.25", 160)])
+def test_setup_measures_the_windows_98_run_dialog_at_the_selected_scale(tmp_path, scale, height):
+    from chicago95appliers import run_window_height
+    from chicago95setup import Setup
+
+    setup = Setup(
+        {"WIDGET_STYLE": "classic", "START_MENU_STYLE": "1998", "SCALE": scale},
+        repo=REPO,
+        home=tmp_path,
+        environment={},
     )
-    assert heights == ["163", "160"]
+    assert run_window_height(setup) == height
 
 
 @pytest.mark.parametrize("edition", ["win95-osr2-run", "win98-se-run"])

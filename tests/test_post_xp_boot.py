@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
-from conftest import REPO, load_script, run_bash_with_steps
+from conftest import REPO, load_script, run_bash_with_steps, run_bash_with_steps_result
 from PIL import Image, ImageChops, ImageStat
 from post_xp_boot import FIELDS, STYLES
 from PySide6.QtCore import QObject, QUrl
@@ -150,8 +150,12 @@ def test_preview_options_and_setup_options_are_identical_and_quoted(qt_app, tmp_
     values = {key: 'a "quoted" value' for key in FIELDS}
     preview = panel.LoadingPreview.settings_js(values)
     assignments = "; ".join(f"SETUP_{key}='a \"quoted\" value'" for key in FIELDS)
-    emitted = "\n".join(run_bash_with_steps(tmp_path, assignments + "; write_post_xp_options"))
-    shell_options = json.loads(emitted.removeprefix("var postXp = ").replace(",}", "}"))
+    (tmp_path / "splash").mkdir()
+    install = run_bash_with_steps_result(tmp_path, "apply_look aero; " + assignments + '; write_splash_settings "$HOME/splash"')
+    assert install.returncode == 0, install.stderr
+    emitted = (tmp_path / "splash/settings.js").read_text()
+    shell_line = next(line for line in emitted.splitlines() if line.startswith("var postXp = "))
+    shell_options = json.loads(shell_line.removeprefix("var postXp = ").replace(",}", "}"))
     preview_line = next(line for line in preview.splitlines() if line.startswith("var postXp = "))
     assert shell_options == json.loads(preview_line.removeprefix("var postXp = "))
     assert set(shell_options) == set(FIELDS.values())

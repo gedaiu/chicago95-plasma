@@ -190,6 +190,8 @@ plasmashell --no-respawn >"$WORK/plasma-setup.log" 2>&1 &
 wait_for_plasma
 TMPDIR="$WORK" ./install.sh --plain --yes --components=base,look,taskbar,fonts{components} """
     """--look={look} --screen={screen}@{setup_scale}{taskbar_style}{settings} >"$WORK/install.log" 2>&1 </dev/null
+status=$?
+if [ "$status" -ne 0 ]; then exit "$status"; fi
 # The test's launchers; the tray with the given applets only (none: the test's icons only).
 evaluate 'panels().forEach(panel => {{
     panel.widgets("org.chicago95.tasks").forEach(widget => {{
@@ -347,9 +349,9 @@ def enforce_screenshot(path, session):
     """A session KWin's time limit cut off, or one that crashed, must not pass as a half-built desktop."""
     if not path.exists():
         message = f"{session} session took no screenshot ({path.name}); see the logs in {path.parent}"
-        pointer_log = path.parent / "pointer.log"
-        if pointer_log.is_file():
-            message += "\n" + pointer_log.read_text(errors="replace")
+        log = path.parent / ("install.log" if path.name == "setup-screen.png" else "pointer.log")
+        if log.is_file():
+            message += "\n" + "\n".join(log.read_text(errors="replace").splitlines()[-30:])
         raise RuntimeError(message)
 
 

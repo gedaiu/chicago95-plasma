@@ -1,6 +1,7 @@
 {
   "radio_scale": 1.25,
   "radio_rgb565": true,
+  "radio_extra_states": ["hovered", "pressed", "checked-hovered", "checked-pressed"],
   "start_menu_interaction": {"scale": 1.25, "rgb565": true},
   "look": "luna",
   "motion": {"title_strip": "motion/title-strip.json"},
@@ -9,6 +10,14 @@
   "session_screens": {
     "sign-in": {
       "1280x1024": {"frame": "sign-in.png", "exclude": [635, 462, 704, 537], "scale": 1.25}
+    },
+    "lock-screen": {
+      "1280x1024": {
+        "frame": "lock-screen/1280x1024.png",
+        "exclude": [0, 0, 24, 24],
+        "portrait_crop": [638, 467, 698, 527],
+        "scale": 1.25
+      }
     }
   },
   "boot_step": 9,
@@ -19,6 +28,18 @@
     344,
     183
   ],
+  "run_states": {
+    "scale": 1.25,
+    "rgb565": true,
+    "text": {
+      "empty": "", "typed": "notepad", "ok-focus": "notepad",
+      "cancel-focus": "notepad", "cancel-held": "notepad"
+    },
+    "tab_focus": {
+      "ok-focus": ["OK"], "cancel-focus": ["OK", "Cancel"], "cancel-held": ["OK", "Cancel"]
+    },
+    "space_held": {"cancel-held": "Cancel"}
+  },
   "aliases": {
     "xprun.png": "run.png",
     "xp-sp3-taskbar-band.png": "taskbar-band.png",
@@ -27,8 +48,10 @@
     "xp-sp3-start-menu.png": "start-menu.png"
   },
   "taskbar_x": 398,
+  "taskbar_band_screen": [800, 600],
   "start_button": {"scale": 1.25, "screen": [1280, 1024], "bounds": [0, 990, 113, 1024], "rgb565": true},
   "device_manager_scale": 1,
+  "device_manager_blank_band": [200, 0, 620, 46],
   "device_manager_console_states": {
     "scale": 1.25,
     "client_size": [632, 411],
@@ -65,11 +88,20 @@
   "control_panel_end": "Wireless Network Setup Wizard",
   "properties_rgb565": true,
   "display_page": "Settings",
+  "display_pages": {
+    "themes": "Themes",
+    "desktop": "Desktop",
+    "screen-saver": "Screen Saver",
+    "screen-saver-blank": "Screen Saver",
+    "screen-saver-settings": "Screen Saver",
+    "appearance": "Appearance"
+  },
   "display_resolution": "1280x1024",
   "shutdown_scale": 1.25,
   "shutdown_os_name": "Windows XP",
   "shutdown_rgb565": true,
   "shutdown_standard_dpi": "shutdown-96dpi.png",
+  "shutdown_cancel_crop": [322, 205, 406, 234],
   "shutdown_button_crops": {
     "stand_by": [
       72,

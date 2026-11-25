@@ -146,16 +146,19 @@ def title_gradient(rows, top, height):
 class LunaAppearancePreview(QWidget):
     SIZE = QSize(358, 178)
     INACTIVE, ACTIVE, MESSAGE = QRect(10, 9, 302, 112), QRect(16, 29, 300, 126), QRect(22, 90, 212, 80)
+    SHEET_SIZE = QSize(376, 188)
+    SHEET_WINDOWS = QRect(8, 8, 347, 146), QRect(16, 26, 352, 144), QRect(128, 66, 120, 80)
 
-    def __init__(self):
+    def __init__(self, *, property_sheet=False):
         super().__init__()
+        self.property_sheet = property_sheet
         self.desktop = "#004E98"
         self.active_title = QRect()
         self.button_renderers = [
             QSvgRenderer(str(first_existing([theme / name for theme in BUTTON_THEMES])))
             for name, _element in PREVIEW_BUTTON_FILES
         ]
-        self.setFixedSize(self.SIZE)
+        self.setFixedSize(self.SHEET_SIZE if property_sheet else self.SIZE)
 
     def show_colors(self, active, inactive, desktop, look):
         self.desktop = desktop.split(",")[0]
@@ -165,11 +168,18 @@ class LunaAppearancePreview(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.fillRect(self.rect(), QColor(self.desktop))
-        self.window(painter, self.INACTIVE, "Inactive Window", PALETTE["title_inactive"], 3, False)
-        self.active_title = self.window(painter, self.ACTIVE, "Active Window", PALETTE["title_active"], 3, True)
-        self.menu_and_text(painter, self.ACTIVE)
-        self.window(painter, self.MESSAGE, "Message Box", PALETTE["title_active"], 1, True)
-        self.message(painter, self.MESSAGE)
+        if self.property_sheet:
+            painter.setPen(QColor("#b4b3a4"))
+            painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
+        inactive, active, message = self.SHEET_WINDOWS if self.property_sheet else (self.INACTIVE, self.ACTIVE, self.MESSAGE)
+        self.window(painter, inactive, "Inactive Window", PALETTE["title_inactive"], 3, False)
+        self.active_title = self.window(painter, active, "Active Window", PALETTE["title_active"], 3, True)
+        if self.property_sheet:
+            self.sheet_window_text(painter, active)
+        else:
+            self.menu_and_text(painter, active)
+        self.window(painter, message, "Message Box", PALETTE["title_active"], 1, True)
+        self.message(painter, message)
 
     def window(self, painter, rect, caption, title_rows, buttons, active):
         frame = QPainterPath()
@@ -178,14 +188,17 @@ class LunaAppearancePreview(QWidget):
         painter.setClipPath(frame)
         painter.fillRect(rect, QColor(PALETTE["border_left"][1]))
         painter.fillRect(rect.left(), rect.bottom() - 2, rect.width(), 3, QColor(PALETTE["border_bottom"][1]))
-        title = QRect(rect.left(), rect.top(), rect.width(), PREVIEW_TITLE_HEIGHT)
+        title_height = 27 if self.property_sheet else PREVIEW_TITLE_HEIGHT
+        title = QRect(rect.left(), rect.top(), rect.width(), title_height)
         painter.fillRect(title, title_gradient(title_rows, title.top(), title.height()))
-        body = rect.adjusted(PREVIEW_BORDER, PREVIEW_TITLE_HEIGHT, -PREVIEW_BORDER, -PREVIEW_BORDER)
+        body = rect.adjusted(PREVIEW_BORDER, title_height, -PREVIEW_BORDER, -PREVIEW_BORDER)
         painter.fillRect(body, QColor(PALETTE["face"]))
         painter.restore()
         painter.setPen(QColor("#FFFFFF"))
         font = QFont("Trebuchet MS")
-        font.setPixelSize(13)
+        if self.property_sheet:
+            font.setFamilies(["Trebuchet MS", "Liberation Sans", "Noto Sans"])
+        font.setPixelSize(11 if self.property_sheet else 13)
         font.setBold(True)
         painter.setFont(font)
         painter.drawText(title.adjusted(8, 0, 0, 0), Qt.AlignVCenter, caption)
@@ -193,12 +206,15 @@ class LunaAppearancePreview(QWidget):
         return title
 
     def paint_buttons(self, painter, title, count, active=True):
+        size = 21 if self.property_sheet else PREVIEW_BUTTON_SIZE
+        inset = 2 if self.property_sheet else 4
+        top = title.top() + (4 if self.property_sheet else 2)
         for index, renderer in enumerate(self.button_renderers[-count:][::-1]):
-            left = title.right() - 4 - PREVIEW_BUTTON_SIZE * (index + 1) - 2 * index
+            left = title.right() - inset - size * (index + 1) - 2 * index
             renderer.render(
                 painter,
                 "active-center" if active else "inactive-center",
-                QRectF(left, title.top() + 2, PREVIEW_BUTTON_SIZE, PREVIEW_BUTTON_SIZE),
+                QRectF(left, top, size, size),
             )
 
     def menu_and_text(self, painter, rect):
@@ -222,12 +238,29 @@ class LunaAppearancePreview(QWidget):
         painter.setPen(QColor("#000000"))
         painter.drawText(text.adjusted(4, 2, -20, 0), Qt.AlignTop | Qt.AlignLeft, "Window Text")
 
+    def sheet_window_text(self, painter, rect):
+        from chicago95lunascroll import paint_scroll_slider, paint_stepper, paint_trough
+
+        body = rect.adjusted(PREVIEW_BORDER, PREVIEW_TITLE_HEIGHT + 5, -PREVIEW_BORDER, -PREVIEW_BORDER)
+        painter.fillRect(body, Qt.white)
+        painter.setFont(QFont("Tahoma", 8))
+        painter.setPen(Qt.black)
+        painter.drawText(body.adjusted(1, 0, -16, 0), Qt.AlignLeft | Qt.AlignTop, "Window Text")
+        track = QRect(body.right() - 15, body.top(), 16, body.height())
+        paint_trough(painter, track, False)
+        for y, direction in ((track.top(), "up"), (track.bottom() - 15, "down")):
+            paint_stepper(painter, QRect(track.left(), y, 16, 16), direction, "normal")
+        paint_scroll_slider(painter, QRect(track.left(), track.top() + 16, 16, 17), False, "normal")
+
     def message(self, painter, rect):
         painter.setFont(QFont("Tahoma", 8))
         painter.setPen(QColor("#000000"))
-        painter.drawText(rect.adjusted(10, PREVIEW_TITLE_HEIGHT + 6, 0, 0), Qt.AlignTop | Qt.AlignLeft, "Message Text")
         option = QStyleOptionButton()
-        option.rect = QRect(rect.center().x() - 37, rect.bottom() - 30, 75, 23)
+        if self.property_sheet:
+            option.rect = QRect(rect.left() + 29, rect.top() + 42, 62, 22)
+        else:
+            painter.drawText(rect.adjusted(10, PREVIEW_TITLE_HEIGHT + 6, 0, 0), Qt.AlignTop | Qt.AlignLeft, "Message Text")
+            option.rect = QRect(rect.center().x() - 37, rect.bottom() - 30, 75, 23)
         option.state = QStyle.State_Enabled
         option.features = QStyleOptionButton.DefaultButton
         painter.save()

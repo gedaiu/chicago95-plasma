@@ -17,7 +17,7 @@ Measured from the B00merang Windows XP Luna theme's bitmaps (averaged, not copie
 from chicago95luna import blend_rows, fill_rows, rounded_path, stroke_rounded
 from chicago95lunaslider import GROOVE_ROWS, thumb_pixels
 from PySide6.QtCore import QPointF, QRect, Qt
-from PySide6.QtGui import QColor, QImage, QPainter, QPolygonF
+from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPolygonF
 from PySide6.QtWidgets import QSlider, QStyle
 
 SCROLL_EXTENT = 17
@@ -180,6 +180,9 @@ def paint_slider(painter, option, style, widget):
     groove.adjust(5 if horizontal else 0, 0 if horizontal else 5, -5 if horizontal else 0, 0 if horizontal else -5)
     paint_slider_groove(painter, groove, horizontal)
     state = part_state(option, QStyle.SC_SliderHandle)
+    focused = widget is not None and widget.property("showTrackbarFocus") and option.state & QStyle.State_HasFocus
+    if state == "normal" and focused:
+        state = "hover"
     point = {QSlider.TicksAbove: "before", QSlider.TicksBelow: "after"}.get(option.tickPosition)
     paint_thumb(painter, handle, horizontal, state, point)
     if option.subControls & QStyle.SC_SliderTickmarks and option.tickPosition != QSlider.NoTicks:
@@ -204,3 +207,9 @@ def paint_slider(painter, option, style, widget):
                     )
                     tick = QRect(centre, edge, 1, 3) if horizontal else QRect(edge, centre, 3, 1)
                     painter.fillRect(tick, QColor("#ACA899"))
+    if focused:
+        painter.save()
+        painter.setPen(QPen(QColor("#333333"), 0, Qt.DotLine))
+        painter.setBrush(Qt.NoBrush)
+        painter.drawRect(option.rect.adjusted(0, 0, -1, -1))
+        painter.restore()

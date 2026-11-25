@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 from functools import cache
+from pathlib import Path
 from shlex import quote
 
 import numpy as np
@@ -26,7 +27,7 @@ from plasma_session import (
     show,
     work_folder,
 )
-from reference import REFERENCES, bounding_box, qimage_to_pil, render_start_menu, rgb565, theme_references
+from reference import REFERENCES, bounding_box, qimage_to_pil, render_start_menu, rgb555, rgb565, theme_references
 from showcase import start_menus, themed
 from test_caption_states_reference import (
     BUTTONS,
@@ -46,6 +47,7 @@ THEMES = {folder.name: (folder, metadata) for folder, metadata in theme_referenc
 EXPECTED_THEMES = {"win95", "win98", "win2k", "winxp-classic", "winxp", "win7"}
 CAPTION_STATES = STATES[:-1]
 GTK_STATES = dict(zip(CAPTION_STATES, ("normal", "hovered", "pressed", "disabled", "restore"), strict=True))
+RADIO_BACKDROPS = {"luna": "#fffbf7", "aero": "#ffffff"}
 CAPTION_RENDERERS = {
     "svg": STATES,
     "kwin": STATES,
@@ -243,6 +245,10 @@ def live_kwin(installed, visual_output):
     return capture
 
 
+def compositor_radio(look, scale):
+    return look == "aero" or look in (*CLASSIC, "luna") and scale == 1.25
+
+
 @pytest.fixture(scope="module")
 def live_gtk(installed, visual_output):
     @cache
@@ -262,8 +268,10 @@ def live_gtk(installed, visual_output):
             )
             if component == "caption":
                 command += " --caption-crops --compositor-captions"
-            elif component == "radio" and look in CLASSIC and scale == 1.25:
+            elif component == "radio" and compositor_radio(look, scale):
                 command += " --compositor-radios"
+                if look in RADIO_BACKDROPS:
+                    command += f" --radio-backdrop {quote(RADIO_BACKDROPS[look])}"
             commands.append(command)
         script.write_text("\n".join(commands) + "\n")
         env = {
@@ -750,6 +758,10 @@ def test_run_dialog(theme, qt_app, svg_themes, request, visual_output, monkeypat
         expected = reference.crop(metadata["run_crop"]) if "run_crop" in metadata else reference.convert("RGB")
     monkeypatch.setattr(chicago95ui, "DECORATION", svg_themes[look])
     with themed(qt_app, look):
+        if metadata.get("run_states", {}).get("flat_title"):
+            # Both Windows 98 captures use the guest's solid active caption.
+            with Path(chicago95ui.KDEGLOBALS).open("a") as settings:
+                settings.write("\n[WM]\nactiveBlend=0,0,128\n")
         dialog = load_script("chicago95-run").RunDialog({"style": look, "osName": "Windows"}, [], [], history=[])
         try:
             dialog.show()
@@ -816,7 +828,8 @@ def native_run_states(tmp_path_factory):
         frame = tmp_path_factory.mktemp("run-state") / "run.png"
         render_properties(folder, f"run-{state}", frame, expected.size, scale=scale)
         with Image.open(frame) as render:
-            return expected, render.convert("RGB"), name
+            actual = rgb565(render) if metadata["run_states"].get("rgb565") else render.convert("RGB")
+        return expected, actual, name
 
     return capture
 
@@ -825,6 +838,27 @@ def native_run_states(tmp_path_factory):
 def test_run_native_states(theme, state, native_run_states, visual_output):
     expected, actual, name = native_run_states(theme, state)
     exact(expected, actual, visual_output / theme / "run" / "qt" / name)
+
+
+def test_winxp_run_focus_dots_match_native(native_run_states, visual_output):
+    focused = native_run_states("winxp", "ok-focus")[:2]
+    typed = native_run_states("winxp", "typed")[:2]
+    bounds = (110, 140, 196, 167)
+    deltas = [
+        Image.fromarray(np.asarray(focus.crop(bounds)) ^ np.asarray(base.crop(bounds)))
+        for focus, base in zip(focused, typed, strict=True)
+    ]
+    exact(*deltas, visual_output / "winxp/run/qt/ok-focus-dots")
+
+
+def test_winxp_run_default_rim_follows_keyboard_focus(native_run_states, visual_output):
+    for state in ("typed", "cancel-focus"):
+        expected, actual, _ = native_run_states("winxp", state)
+        for button, left in (("ok", 118), ("cancel", 211)):
+            for edge, top, bottom in (("top", 141, 143), ("bottom", 164, 167)):
+                bounds = (left, top, left + 10, bottom)
+                output = visual_output / "winxp/run/qt/default-rim" / state / button / edge
+                exact(expected.crop(bounds), actual.crop(bounds), output)
 
 
 @pytest.mark.parametrize(
@@ -969,11 +1003,18 @@ def test_taskbar_band(theme, installed, visual_output):
     folder, metadata = THEMES[theme]
     with Image.open(folder / "taskbar-band.png") as reference:
         expected = reference.convert("RGB")
-    screen = show(installed(metadata["look"]), windows=[])
+    size = tuple(metadata["taskbar_band_screen"])
+    screen = show(installed(metadata["look"], screen=size), windows=[], tray_icons=0)
+    assert screen.size == size
     x = metadata["taskbar_x"]
     actual = screen.crop((x, screen.height - expected.height, x + expected.width, screen.height))
     if metadata.get("taskbar_band_rgb565"):
         actual = rgb565(actual)
+    elif metadata.get("taskbar_band_indexed_grey"):
+        # The guest maps the light bevel to silver in its 256-colour mode.
+        pixels = np.array(actual)
+        pixels[np.all(pixels == 223, axis=2)] = 192
+        actual = Image.fromarray(pixels)
     exact(expected, actual, visual_output / theme / "taskbar" / "plasma" / "empty-band")
 
 
@@ -983,7 +1024,7 @@ def test_truecolor_taskbar_band(theme, installed, visual_output):
     spec = metadata["taskbar_truecolor"]
     scale = spec["scale"]
     size = tuple(round(value / scale) for value in spec["screen"])
-    frame = show(installed(metadata["look"], scale, screen=size), windows=[], scale=scale)
+    frame = show(installed(metadata["look"], scale, screen=size), windows=[], tray_icons=0, scale=scale)
     assert frame.size == tuple(spec["screen"])
     with Image.open(folder / "taskbar/truecolor-band.png") as reference:
         expected = reference.convert("RGB")
@@ -1656,30 +1697,42 @@ def test_device_manager_tree_branch_hover(device_manager_aero_branches, state, l
     exact(expected.crop(box), actual.crop(box), visual_output / "win7" / "device-manager" / "qt" / f"{state}-hover")
 
 
+@pytest.fixture(scope="module")
+def aero_start_search_strip(tmp_path_factory):
+    output = tmp_path_factory.mktemp("aero-start-search")
+    subprocess.run(
+        [sys.executable, str(REPO / "tests/aero/render_aero_dialogs.py"), str(output), "1"],
+        check=True,
+        timeout=45,
+    )
+    folder, _ = THEMES["win7"]
+    with Image.open(folder / "start-menu.png") as reference, Image.open(output / "start.png") as capture:
+        # Search and All Programs sit in the opaque pane. Anchor the crop
+        # to the menu's bottom edge as in the SP1 taskbar capture.
+        actual = capture.crop((8, capture.height - 53, 260, capture.height - 7)).convert("RGB")
+        return reference.convert("RGB"), actual
+
+
 @pytest.mark.parametrize("theme", THEMES)
-def test_start_menu(theme, qt_app, tmp_path, visual_output, monkeypatch):
+def test_start_menu(theme, qt_app, tmp_path, visual_output, monkeypatch, request):
     from render_report import MENU_EXTRA_TOP, MENU_SETTINGS
 
     folder, metadata = THEMES[theme]
     look = metadata["look"]
+    directory = visual_output / theme / "start-menu" / "qt"
+    if look == "aero":
+        exact(*request.getfixturevalue("aero_start_search_strip"), directory)
+        return
     with Image.open(folder / "start-menu.png") as reference:
         expected = reference.convert("RGB")
-    if look == "aero":
-        subprocess.run(
-            [sys.executable, str(REPO / "tests/aero/render_aero_dialogs.py"), str(tmp_path), "1"],
-            check=True,
-            timeout=45,
-        )
-        with Image.open(tmp_path / "start.png") as capture:
-            # Search and All Programs sit in the opaque pane. Anchor the crop
-            # to the menu's bottom edge as in the SP1 taskbar capture.
-            actual = capture.crop((8, capture.height - 53, 260, capture.height - 7))
-    elif look == "luna":
+    if look == "luna":
         with themed(qt_app, look):
             _label, _reference, actual = start_menus(qt_app, look, tmp_path)[0]
     else:
         settings, colours = MENU_SETTINGS[look]
         startmenu = load_script("chicago95-startmenu")
+        suspend = metadata.get("start_menu_suspend", False)
+        monkeypatch.setattr(startmenu, "suspend_available", lambda: suspend)
         if user := metadata.get("start_menu_user"):
             monkeypatch.setattr(startmenu.getpass, "getuser", lambda: user)
         actual = render_start_menu(
@@ -1688,10 +1741,22 @@ def test_start_menu(theme, qt_app, tmp_path, visual_output, monkeypatch):
             tmp_path,
             settings,
             colours,
+            without=("&Log Off...",),
             active=metadata.get("start_menu_active"),
             extra_top=MENU_EXTRA_TOP.get(look, ()),
         )
-    exact(expected, actual, visual_output / theme / "start-menu" / "qt")
+        if metadata.get("start_menu_rgb555"):
+            assert rgb555(expected).tobytes() == expected.tobytes()
+            actual = rgb555(actual)
+    exact(expected, actual, directory)
+
+
+def test_win7_start_menu_search_horizontal_borders(aero_start_search_strip, visual_output):
+    expected, actual = aero_start_search_strip
+    output = visual_output / "win7/start-menu/qt/search-frame"
+    for edge, row in (("top", 11), ("bottom", 32)):
+        bounds = (16, row, 232, row + 1)
+        exact(expected.crop(bounds), actual.crop(bounds), output / edge)
 
 
 @pytest.fixture(scope="module")
@@ -1755,6 +1820,50 @@ def test_properties(theme, component, tmp_path, visual_output):
     with Image.open(output) as frame:
         actual = rgb565(frame) if metadata.get("properties_rgb565") else frame.convert("RGB")
     exact(expected, actual, visual_output / theme / component / "qt")
+
+
+@pytest.mark.parametrize(
+    ("theme", "page"),
+    [(theme, page) for theme, (_, data) in THEMES.items() for page in data.get("display_pages", {})],
+)
+def test_display_properties_tabs(theme, page, tmp_path, visual_output):
+    expected, actual = display_page_images(theme, page, tmp_path)
+    exact(expected, actual, visual_output / theme / "display-properties" / "qt" / page)
+
+
+def test_win7_taskbar_properties(tmp_path, visual_output):
+    folder, _ = THEMES["win7"]
+    with Image.open(REFERENCES / "win7-sp1-aero-taskbar-properties.png") as native:
+        expected = native.convert("RGB")
+    output = tmp_path / "taskbar-properties.png"
+    render_properties(folder, "taskbar-properties", output, expected.size, scale=1)
+    with Image.open(output) as frame:
+        actual = frame.convert("RGB")
+    exact(expected, actual, visual_output / "win7/taskbar/qt/properties")
+
+
+def display_page_images(theme, page, tmp_path):
+    folder, metadata = THEMES[theme]
+    with Image.open(folder / "display-properties" / f"{page}.png") as frame:
+        expected = frame.convert("RGB")
+    output = tmp_path / f"{page}.png"
+    render_properties(folder, f"display-properties-{page}", output, expected.size)
+    with Image.open(output) as frame:
+        actual = rgb565(frame) if metadata.get("properties_rgb565") else frame.convert("RGB")
+    return expected, actual
+
+
+def test_winxp_blank_saver_preview_and_keyboard_selection(tmp_path, visual_output):
+    images = display_page_images("winxp", "screen-saver-blank", tmp_path)
+    output = visual_output / "winxp/display-properties/qt/screen-saver-blank"
+    bounds = (164, 70, 358, 222)
+    masks = [
+        Image.fromarray(np.uint8(np.all(np.asarray(image.crop(bounds)) == 0, axis=2)) * 255).convert("RGB")
+        for image in images
+    ]
+    exact(*masks, output / "screen-opening")
+    selection = (100, 288, 200, 296)
+    exact(*(image.crop(selection) for image in images), output / "selection-fill")
 
 
 @pytest.fixture(scope="module")
@@ -1884,7 +1993,7 @@ def test_display_resolution_picker(theme, state, tmp_path, visual_output):
         exact(expected, actual, visual_output / theme / "display-properties" / "qt" / "resolution-picker" / state)
 
 
-def check_shutdown_chooser(theme, tmp_path, visual_output, *, source="shutdown.png", scale=None):
+def shutdown_chooser_images(theme, tmp_path, source, scale):
     folder, metadata = THEMES[theme]
     with Image.open(folder / source) as frame:
         expected = frame.convert("RGB")
@@ -1892,13 +2001,21 @@ def check_shutdown_chooser(theme, tmp_path, visual_output, *, source="shutdown.p
     render_properties(folder, "shutdown", output, expected.size, scale=scale)
     with Image.open(output) as frame:
         actual = rgb565(frame) if metadata.get("shutdown_rgb565") else frame.convert("RGB")
+    return expected, actual
+
+
+def check_shutdown_chooser(theme, tmp_path, visual_output, *, source="shutdown.png", scale=None):
+    expected, actual = shutdown_chooser_images(theme, tmp_path, source, scale)
     mask = None
-    cursor = metadata.get("shutdown_cursor") if source == "shutdown.png" else None
+    cursor = THEMES[theme][1].get("shutdown_cursor") if source == "shutdown.png" else None
     if cursor:
         left, top, right, bottom = cursor
         mask = np.ones((expected.height, expected.width), dtype=bool)
         mask[top:bottom, left:right] = False
-    exact(expected, actual, visual_output / theme / "shutdown" / "qt", mask)
+    directory = visual_output / theme / "shutdown" / "qt"
+    if scale is not None:
+        directory /= f"{round(scale * 96)}dpi"
+    exact(expected, actual, directory, mask)
 
 
 @pytest.mark.parametrize("theme", THEMES)
@@ -1916,15 +2033,23 @@ def test_shutdown_chooser(theme, tmp_path, visual_output):
     ],
 )
 def test_shutdown_chooser_additional_dpi(theme, dpi, source, tmp_path, visual_output):
-    check_shutdown_chooser(theme, tmp_path, visual_output / f"{dpi}dpi", source=source, scale=dpi / 96)
+    check_shutdown_chooser(theme, tmp_path, visual_output, source=source, scale=dpi / 96)
 
 
-def shutdown_button_state_images(theme, tmp_path):
+@pytest.mark.parametrize(("dpi", "source"), ((96, "shutdown-96dpi.png"), (120, "shutdown.png")))
+def test_winxp_shutdown_frame_matches_native_at_both_dpis(dpi, source, tmp_path, visual_output):
+    expected, actual = shutdown_chooser_images("winxp", tmp_path, source, dpi / 96)
+    mask = np.ones((expected.height, expected.width), dtype=bool)
+    mask[1:-1, 1:-1] = False
+    exact(expected, actual, visual_output / f"winxp/shutdown/qt/{dpi}dpi/frame", mask)
+
+
+def shutdown_button_state_images(theme, tmp_path, name="button-states"):
     folder, metadata = THEMES[theme]
-    with Image.open(folder / "shutdown/button-states.png") as frame:
+    with Image.open(folder / "shutdown" / f"{name}.png") as frame:
         expected = frame.convert("RGB")
-    output = tmp_path / "button-states.png"
-    render_properties(folder, "shutdown-button-states", output, expected.size, scale=metadata.get("shutdown_button_scale"))
+    output = tmp_path / f"{name}.png"
+    render_properties(folder, f"shutdown-{name}", output, expected.size, scale=metadata.get("shutdown_button_scale"))
     with Image.open(output) as frame:
         actual = rgb565(frame) if metadata.get("shutdown_rgb565") else frame.convert("RGB")
     return expected, actual
@@ -1934,6 +2059,18 @@ def shutdown_button_state_images(theme, tmp_path):
 def test_shutdown_button_states(theme, tmp_path, visual_output):
     expected, actual = shutdown_button_state_images(theme, tmp_path)
     exact(expected, actual, visual_output / theme / "shutdown" / "qt" / "button-states")
+
+
+def test_winxp_shutdown_cancel_states(tmp_path, visual_output):
+    expected, actual = shutdown_button_state_images("winxp", tmp_path, "cancel-states")
+    exact(expected, actual, visual_output / "winxp/shutdown/qt/cancel-states")
+
+
+@pytest.mark.parametrize("name", ["stand-by", "turn-off", "restart", "cancel"])
+def test_winxp_shutdown_keyboard_focus(name, tmp_path, visual_output):
+    component = f"keyboard-focus-{name}"
+    expected, actual = shutdown_button_state_images("winxp", tmp_path, component)
+    exact(expected, actual, visual_output / "winxp/shutdown/qt" / component)
 
 
 def hover_settled_ms(samples):
@@ -2253,9 +2390,16 @@ def test_classic_radio_svg_matches_windows(theme, state, qt_app, tmp_path, visua
     exact(expected, actual, visual_output / theme / "widget-controls" / "svg" / state)
 
 
-@pytest.mark.parametrize("theme", [name for name, (_, meta) in THEMES.items() if "radio_scale" in meta])
-@pytest.mark.parametrize("version", ("3.0", "4.0"), ids=("gtk3", "gtk4"))
-@pytest.mark.parametrize("state", ("normal", "checked"))
+@pytest.mark.parametrize(
+    ("state", "version", "theme"),
+    [
+        pytest.param(state, version, theme, id=f"{state}-gtk{version[0]}-{theme}")
+        for theme, (_, metadata) in THEMES.items()
+        if "radio_scale" in metadata
+        for state in ("normal", "checked", *metadata.get("radio_extra_states", ()))
+        for version in ("3.0", "4.0")
+    ],
+)
 def test_radio_indicator(theme, version, state, live_gtk, visual_output):
     folder, metadata = THEMES[theme]
     directory = live_gtk(metadata["look"], metadata["radio_scale"], "radio") / f"radio-gtk-{version}"
@@ -2265,9 +2409,10 @@ def test_radio_indicator(theme, version, state, live_gtk, visual_output):
         expected = native.convert("RGB")
     with Image.open(directory / name) as rendered:
         gtk = rendered.convert("RGBA")
-        if metadata["look"] in CLASSIC and metadata["radio_scale"] == 1.25:
+        if compositor_radio(metadata["look"], metadata["radio_scale"]):
             pixels = np.asarray(gtk)
-            rows, columns = np.where(np.all(pixels == (225, 12, 207, 255), axis=2))
+            position = int(name.removesuffix(".png"))
+            rows, columns = np.where(np.all(pixels == (225, 12, (207 + position) % 256, 255), axis=2))
             assert len(rows), f"Missing GTK radio capture marker in {rendered.filename}"
             # The marker starts at (12, 36) and the indicator at (12, 12).
             scale = metadata["radio_scale"]
@@ -2290,6 +2435,39 @@ def test_radio_indicator(theme, version, state, live_gtk, visual_output):
     if metadata.get("radio_rgb565"):
         actual = rgb565(actual)
     exact(expected, actual, visual_output / theme / "widget-controls" / f"gtk{version[0]}" / state)
+
+
+@pytest.mark.parametrize("state", ("normal", "checked", *THEMES["winxp"][1]["radio_extra_states"]))
+def test_winxp_luna_radio_indicator_qt(state, qt_app, visual_output):
+    from chicago95luna import INDICATOR_SIZE
+    from PySide6.QtCore import QRect
+    from PySide6.QtGui import QColor, QImage, QPainter
+    from PySide6.QtWidgets import QStyle, QStyleOptionButton
+
+    folder, metadata = THEMES["winxp"]
+    with Image.open(folder / "widget-controls" / f"radio-{state}.png") as native:
+        expected = native.convert("RGB")
+    option = QStyleOptionButton()
+    option.rect = QRect(4, 4, INDICATOR_SIZE, INDICATOR_SIZE)
+    option.state = QStyle.State_Enabled
+    if state.startswith("checked"):
+        option.state |= QStyle.State_On
+    if state.endswith("hovered"):
+        option.state |= QStyle.State_MouseOver
+    if state.endswith("pressed"):
+        option.state |= QStyle.State_Sunken
+    frame = QImage(32, 32, QImage.Format_RGB32)
+    frame.setDevicePixelRatio(metadata["radio_scale"])
+    background = expected.getpixel((0, 0))
+    frame.fill(QColor(*background))
+    with themed(qt_app, "luna"):
+        painter = QPainter(frame)
+        qt_app.style().drawPrimitive(QStyle.PE_IndicatorRadioButton, option, painter)
+        painter.end()
+    actual = rgb565(qimage_to_pil(frame))
+    bounds = ImageChops.difference(actual, Image.new("RGB", actual.size, background)).getbbox()
+    assert bounds is not None
+    exact(expected, actual.crop(bounds), visual_output / "winxp/widget-controls/qt" / state)
 
 
 @pytest.mark.parametrize("theme", [name for name, (_, meta) in THEMES.items() if "file_manager_scale" in meta])
@@ -2315,21 +2493,27 @@ def test_file_manager_navigation(theme, installed, visual_output):
     destination = "/usr/share/icons" if look == "aero" else "/"
     script.write_text(
         '#!/bin/sh\nset -eu\n'
-        f'thunar {destination} >"$WORK/thunar.log" 2>&1 &\n'
-        'gdbus wait --session --timeout 15 org.xfce.Thunar\n'
-        'for attempt in 1 2 3 4 5 6; do\n'
-        '    sleep 1\n'
+        'capture_toolbar() {\n'
+        '  for attempt in 1 2 3 4 5 6; do\n'
         '    spectacle -b -n -f -o "$WORK/file-manager.png"\n'
         "    python3 -c 'from PIL import Image; import sys; "
-        'sys.exit(not Image.open("file-manager.png").convert("RGB").getbbox())\' && break\n'
-        'done\n'
+        'toolbar = Image.open("file-manager.png").convert("RGB").crop((0, 0, 170, 24)); '
+        'sys.exit(toolbar.getbbox() != (0, 0, *toolbar.size) or toolbar.getcolors(8) is not None)\' && return\n'
+        '    sleep 0.5\n'
+        '  done\n'
+        '  rm -f "$WORK/file-manager.png"\n'
+        '  return 1\n'
+        '}\n'
+        f'thunar {destination} >"$WORK/thunar.log" 2>&1 &\n'
+        'gdbus wait --session --timeout 15 org.xfce.Thunar\n'
+        'capture_toolbar\n'
     )
     if look == "aero":
         # The Explorer reference has Back enabled. Visit a parent breadcrumb to build that history.
         with script.open("a") as stream:
             stream.write(
                 'python3 "$WORK/eis_pointer.py" move:211,15 click:left move:980,670 wait:0.6\n'
-                'spectacle -b -n -f -o "$WORK/file-manager.png"\n'
+                'capture_toolbar\n'
             )
     environment = {
         **session.environment,
@@ -2359,7 +2543,9 @@ def test_file_manager_navigation(theme, installed, visual_output):
     if look == "aero":
         for left, right, enabled in ((3, 30, True), (34, 62, False)):
             icon = np.asarray(actual.crop((left, 0, right, 28)))
-            assert (icon.min(axis=2).max() > 224) == enabled, f"Unexpected Thunar history state. See {output}"
+            # Enabled arrows have a white core. The disabled native lens still
+            # reaches 245, so its highlight alone cannot identify the state.
+            assert (icon.min(axis=2).max() > 248) == enabled, f"Unexpected Thunar history state. See {output}"
     if look in ("2000", "2001", "luna"):
         actual = rgb565(actual)
     exact(expected, actual, output)
@@ -2454,10 +2640,18 @@ def test_win7_gtk4_file_manager_address_surface(gtk4_file_manager):
     screen, output = gtk4_file_manager("win7")
     with Image.open(THEMES["win7"][0] / "file-manager/navigation.png") as reference:
         expected = reference.convert("RGB").crop((460, 4, 476, 26))
-    # The CSD toolbar is taller to fit the caption controls. The address field still uses its native height.
-    actual = screen.crop((700, 10, 716, 32))
+    # The GTK shell centres its 22px address field below the client-side title controls.
+    actual = screen.crop((700, 8, 716, 30))
     error = np.abs(np.asarray(actual, dtype=int) - np.asarray(expected, dtype=int)).mean()
     assert error < 8, (error, output)
+
+
+def test_win7_gtk4_file_manager_toolbar_leading_edge(gtk4_file_manager, visual_output):
+    screen, _output = gtk4_file_manager("win7")
+    bounds = (0, 0, 6, 1)
+    with Image.open(THEMES["win7"][0] / "file-manager/navigation.png") as reference:
+        expected = reference.convert("RGB").crop(bounds)
+    exact(expected, screen.crop(bounds), visual_output / "win7/file-manager/gtk4/toolbar-leading-edge")
 
 
 def test_win7_gtk4_file_manager_navigation_orbs(gtk4_file_manager):
@@ -2563,6 +2757,42 @@ def test_win2k_unlock_window_bounds(tmp_path):
         return ImageChops.difference(client, background).getbbox()
 
     assert window_bounds(actual) == pytest.approx(window_bounds(expected), abs=1)
+
+
+@pytest.mark.parametrize("component", ("sign-in", "lock-screen"))
+def test_winxp_welcome_band_placement(component, tmp_path):
+    expected, actual, _ = session_screen_images("winxp", component, "1280x1024", tmp_path)
+
+    def edges(image):
+        # The centre of each band is outside the account, logo, and footer text.
+        pixels = np.asarray(image)
+        header = pixels[:220, 1080:1160]
+        footer = pixels[850:, 440:520]
+        header_accent = np.flatnonzero(np.any(header != header[25], axis=(1, 2)))[0]
+        header_end = header_accent + np.flatnonzero(
+            np.all(header[header_accent:] == header[-1], axis=(1, 2))
+        )[0]
+        return (
+            header_accent,
+            header_end,
+            850 + np.flatnonzero(np.any(footer != footer[0], axis=(1, 2)))[0],
+        )
+
+    assert edges(actual) == edges(expected)
+
+
+def test_winxp_classic_rejected_unlock_window_bounds(tmp_path):
+    expected, actual, _ = session_screen_images("winxp-classic", "lock-screen", "rejected", tmp_path)
+
+    def window_bounds(image):
+        pixels = np.asarray(image)
+        foreground = np.any(pixels != pixels[100, 0], axis=2)
+        # At this resolution only the modal message spans over half the screen.
+        rows = np.flatnonzero(foreground.sum(axis=1) > image.width / 2)
+        columns = np.flatnonzero(foreground[rows].any(axis=0))
+        return columns[0], rows[0], columns[-1] + 1, rows[-1] + 1
+
+    assert window_bounds(actual) == window_bounds(expected)
 
 
 def test_win2k_post_login_window_bounds(tmp_path):
@@ -2922,6 +3152,33 @@ def test_shutdown_win98_plymouth_background(shutdown_9x_plymouth_frames, visual_
         exact(expected.crop(bounds), actual.crop(bounds), visual_output / "win98/shutdown/plymouth" / name)
 
 
+def test_shutdown_win7_plymouth_status(qt_app, tmp_path, visual_output, monkeypatch):
+    from test_post_xp_boot import SPLASH
+
+    folder, _ = THEMES["win7"]
+    session = tmp_path / "data/chicago95/session"
+    session.mkdir(parents=True)
+    art = REPO / "sddm/Chicago95Plasma"
+    shutil.copyfile(art / "AeroBackground4x3.jpg", session / "background-4x3.jpg")
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    source, output = tmp_path / "splash", tmp_path / "theme"
+    shutil.copytree(SPLASH, source)
+    panel = load_script("chicago95-control-panel")
+    (source / "settings.js").write_text(panel.LoadingPreview.settings_js({
+        "BOOT_STYLE": "7", "BOOT_FRAMES": "1", "BANNER_TEXT": "Windows 7",
+        "EDITION": "Professional", "LOGIN_LOGO": "aero-flag",
+    }))
+    load_script("chicago95-post-xp-boot").build(
+        source, output, (800, 600), REPO / "setup/post_xp_boot.script.in",
+    )
+    with Image.open(folder / "shutdown/status-800x600.png") as native, Image.open(output / "shutdown.png") as frame:
+        expected, actual = native.convert("RGB"), frame.convert("RGB")
+    # The single native frame captures an arbitrary point in the spinner cycle.
+    mask = np.ones((expected.height, expected.width), dtype=bool)
+    mask[237:263, 288:326] = False
+    exact(expected, actual, visual_output / "win7/shutdown/plymouth/status-800x600", mask)
+
+
 def test_boot_win2k_plymouth_full_frame(plymouth_boot_strip_frames, visual_output):
     folder, metadata = THEMES["win2k"]
     output = plymouth_boot_strip_frames("win2k")
@@ -3232,14 +3489,15 @@ def test_coverage(theme):
             "start-menu / Qt: remaining hover targets, cascade contents and opening motion",
             "device-manager / Qt: remaining chrome, tree and device properties",
             "control-panel / Qt: navigation and category or icon-view variants",
-            "display-properties / Qt: remaining tabs and control states",
+            "display-properties / Qt: additional control states" if "display_pages" in metadata
+            else "display-properties / Qt: remaining tabs and control states",
             "shutdown / Qt: additional choices",
             "shutdown: desktop transition and session-ending sequence",
         )
     )
     if "shutdown_button_crops" in metadata:
         if theme == "winxp":
-            remaining = "Cancel, focus, disabled and tooltips"
+            remaining = "keyboard activation, disabled states and tooltips"
         elif "shutdown_combo_states" in metadata:
             remaining = "dropdown item hover, button focus, Help window and tooltips"
             if "shutdown_hover_sample" in metadata:

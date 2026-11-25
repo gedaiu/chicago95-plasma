@@ -54,6 +54,103 @@ def test_display_properties_has_the_originals_tabs(window, qt_app):
     ]
 
 
+def test_luna_display_themes_and_effects_share_the_parent_apply(control_panel, qt_app, tmp_path, monkeypatch):
+    from PySide6.QtCore import QTimer
+
+    monkeypatch.setattr(control_panel.chicago95ui, "widget_style", lambda: "luna")
+    settings = tmp_path / "setup.conf"
+    control_panel.write_settings(settings, {**control_panel.LOOK_PRESETS["luna"], "LOOK": "luna"})
+    screen = control_panel.Screen("Monitor", "800x600", ["800x600"], {})
+    actions = control_panel.Actions(
+        current_screen=lambda: screen,
+        list_screensavers=lambda: [],
+        wallpapers=lambda: [],
+        choose_color=lambda parent, current: "#123456",
+    )
+    panel = control_panel.ControlPanel(settings_path=settings, actions=actions)
+    try:
+        panel.open_applet("Display")
+        page = panel.applet_windows["Display"].page
+        assert page.tab_names() == ["Themes", "Desktop", "Screen Saver", "Appearance", "Settings"]
+        themes, desktop, _, appearance, display = page.settings_tabs
+        themes.selector.setCurrentIndex(themes.selector.findData("2000"))
+        assert appearance.scheme.currentData() == "2000"
+        assert themes.theme_preview.look == "2000"
+        assert page.changed_values()["LOOK"] == "2000"
+        page.discard_changes()
+        assert themes.selector.currentData() == "luna"
+        desktop.colour_button.click()
+        assert appearance.color_edits["BACKGROUND_COLOR"].value() == "#123456"
+        assert desktop.monitor.desktop_colour.name() == "#123456"
+        assert page.changed_values()["BACKGROUND_COLOR"] == "#123456"
+        page.discard_changes()
+
+        def change_icons(accept):
+            dialog = qt_app.activeModalWidget()
+            effects = dialog.findChild(control_panel.SettingsTab)
+            effects.load({"DESKTOP_ICONS": "computer,network,recycle"}, ["DESKTOP_ICONS"])
+            dialog.done(int(accept))
+
+        page.tabs.setCurrentIndex(page.tab_names().index("Appearance"))
+        QTimer.singleShot(0, lambda: change_icons(False))
+        appearance.effects_button.click()
+        assert "DESKTOP_ICONS" not in page.changed_values()
+        QTimer.singleShot(0, lambda: change_icons(True))
+        appearance.effects_button.click()
+        assert page.changed_values()["DESKTOP_ICONS"] == "computer,network,recycle"
+        page.discard_changes()
+        assert "DESKTOP_ICONS" not in page.changed_values()
+        appearance.windows_style.setCurrentIndex(appearance.windows_style.findData("classic"))
+        assert page.changed_values()["WIDGET_STYLE"] == "classic"
+        page.discard_changes()
+        assert appearance.windows_style.currentData() == "luna"
+
+        def change_advanced(accept):
+            dialog = qt_app.activeModalWidget()
+            assert dialog.isAncestorOf(appearance.items)
+            appearance.color_edits["BACKGROUND_COLOR"].set_value("#654321")
+            dialog.done(int(accept))
+
+        QTimer.singleShot(0, lambda: change_advanced(False))
+        appearance.advanced_button.click()
+        assert "BACKGROUND_COLOR" not in page.changed_values()
+        QTimer.singleShot(0, lambda: change_advanced(True))
+        appearance.advanced_button.click()
+        assert page.changed_values()["BACKGROUND_COLOR"] == "#654321"
+        page.discard_changes()
+        page.tabs.setCurrentIndex(page.tab_index("Settings"))
+        qt_app.processEvents()
+        assert page.window().focusWidget() is display.screen_area.slider
+    finally:
+        for sheet in panel.applet_windows.values():
+            sheet.close()
+        panel.close()
+
+
+def test_luna_screen_saver_tab_opens_monitor_power_settings(control_panel, qt_app, monkeypatch):
+    from PySide6.QtWidgets import QPushButton
+
+    monkeypatch.setattr(control_panel.chicago95ui, "widget_style", lambda: "luna")
+    started = []
+    messages = []
+    actions = control_panel.Actions(
+        list_screensavers=lambda: [("blank", "Blank Screen")],
+        lock_timeout_minutes=lambda: 60,
+        start_process=lambda program, arguments: started.append((program, arguments)),
+        show_message=lambda parent, title, text: messages.append((title, text)),
+    )
+    tab = control_panel.screen_saver_tab({"SAVER": "blank"}, actions)
+    controls = {button.text(): button for button in tab.findChildren(QPushButton)}
+    controls["Preview"].click()
+    controls["Po&wer..."].click()
+    controls["&Settings"].click()
+    assert messages == [("Blank Screen Saver", "This screen saver has no options that you can set.")]
+    assert started == [
+        (control_panel.tool_path("chicago95-screensaver"), ["--hack", "blank"]),
+        ("kcmshell6", ["kcm_powerdevilprofilesconfig"]),
+    ]
+
+
 def test_display_properties_title_bar_has_only_help_and_close_and_the_window_keeps_its_size(window, qt_app):
     window.open_applet("Display")
     sheet = window.applet_windows["Display"]
@@ -356,7 +453,10 @@ assert app.devicePixelRatio() == float(sys.argv[2])
 settings = {**panel.LOOK_PRESETS[look], "LOOK": look}
 names = ("Background", "Screen Saver", "Appearance", "Effects", "Settings")
 actions = panel.Actions(list_screensavers=lambda: [], lock_timeout_minutes=lambda: 60)
-entries = [(name, panel.build_tab("Display", name, settings, actions)) for name in names]
+entries = (
+    panel.luna_display_tabs(settings, actions) if look == "luna"
+    else [(name, panel.build_tab("Display", name, settings, actions)) for name in names]
+)
 page = panel.PropertiesPage("Display", entries, lambda _: True)
 window = panel.PropertySheetWindow(page, None)
 window.show()

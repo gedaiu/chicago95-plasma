@@ -40,10 +40,15 @@ def render(manifest, output):
         actual = qimage_to_pil(frame.toImage())
         return rgb565(actual) if capture.get("rgb565") else actual
 
-    def selected(widget, rect, x, name):
+    def selected(widget, rect, x, name, *, pixel_height=None):
         left = round(x * scale)
         top = round(rect.top() * scale)
         bottom = round((rect.bottom() + 1) * scale)
+        if pixel_height is not None:
+            # QPainter snaps half pixels up. The native Classic crop is
+            # 32 pixels of highlight with two pixels of context on each side.
+            top = int(rect.top() * scale + 0.5)
+            bottom = top + pixel_height
         image(widget).crop((left, top - 2, left + 3, bottom + 2)).save(output / f"{name}-selection.png")
 
     def popup(widget, name):
@@ -105,8 +110,8 @@ def render(manifest, output):
         programs = next(action for action in menu.actions() if action.text().replace("&", "") == "Programs")
         # Match the number of preceding actions when comparing a strip that
         # includes the two pixels above the selected row.
-        if look in ("1998", "2000"):
-            titles = ("Windows Update",) if look == "1998" else ("Set Program Access and Defaults", "Windows Update")
+        if look == "2000":
+            titles = ("Set Program Access and Defaults", "Windows Update")
             for title in titles:
                 menu.insertAction(programs, startmenu.QAction(title, menu))
             menu.insertSeparator(programs)
@@ -117,7 +122,7 @@ def render(manifest, output):
         menu.show()
         menu.setActiveAction(programs)
         row = menu.actionGeometry(programs)
-        selected(menu, row, row.right() - 30, "programs")
+        selected(menu, row, row.right() - 30, "programs", pixel_height=32)
         QTest.keyClick(menu, Qt.Key_Right)
         submenu = programs.menu()
         assert submenu.isVisible()

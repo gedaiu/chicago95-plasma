@@ -17,8 +17,11 @@ checkbutton:disabled > check:indeterminate { -gtk-icon-source: url("mixed-disabl
 .thunar toolbar {
   padding: 2px 3px;
   min-height: 26px;
-  background: linear-gradient(to right, #7bbbec, #59a9e6 18%, #5baae7 65%, #87bfeb);
-  border-bottom: 1px solid #a3b8ca;
+  background: linear-gradient(to bottom, transparent 65%, rgba(14, 57, 103, .055)),
+              linear-gradient(to right, #7cbced, #58a7e4 18%, #52a3e2 38%, #5baae7 65%, #87bfeb);
+  background-origin: border-box;
+  background-clip: border-box;
+  border-bottom: 1px solid transparent;
 }
 .thunar toolbar button {
   min-width: 20px;
@@ -29,10 +32,19 @@ checkbutton:disabled > check:indeterminate { -gtk-icon-source: url("mixed-disabl
 /* Explorer draws both navigation orbs at the same size on the address
  * field's centreline. Thunar supplies a 24px image for each action. */
 .thunar toolbar > toolbutton:first-child button image {
-  -gtk-icon-transform: translate(-3px, 0);
+  -gtk-icon-transform: translate(-2.5px, 1px);
 }
 .thunar toolbar > toolbutton:nth-child(2) button image {
-  -gtk-icon-transform: translate(-6px, 0);
+  -gtk-icon-transform: translate(-6px, 1px);
+}
+.thunar toolbar > toolbutton:first-child button:disabled {
+  background: url("navigation-back-disabled.svg") calc(50% - 2.5px) calc(50% + 1px) / 24px 24px no-repeat;
+}
+.thunar toolbar > toolbutton:nth-child(2) button:disabled {
+  background: url("navigation-forward-disabled.svg") calc(50% - 6px) calc(50% + 1px) / 24px 24px no-repeat;
+}
+.thunar toolbar > toolbutton:nth-child(-n+2) button:disabled image {
+  opacity: 0;
 }
 .thunar toolbar .path-bar {
   background: linear-gradient(#cfe6f9, #d2e8f9 20%, #d2e8f9 80%, #cee6f8);
