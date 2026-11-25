@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visual tolerance editor</title>
+<style>
+:root{color-scheme:dark;--page:#101821;--surface:#17232f;--line:#3e5265;--text:#eef4fb;--muted:#b0c2d4;--accent:#83d9ff;--accept:#6be2bc;--fail:#ff6394}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--text);font:1rem/1.5 system-ui,sans-serif}
+main{max-width:94rem;margin:auto;padding:clamp(1rem,3vw,2.5rem)}
+h1,h2,p,figure{margin:0}h1{font-size:clamp(1.8rem,4vw,2.75rem);line-height:1.15}header p{margin-top:.5rem}
+button,input,select{font:inherit;color:inherit;background:var(--page);border:1px solid var(--line);border-radius:.35rem;padding:.42rem .6rem}
+button{cursor:pointer}button:disabled{opacity:.5;cursor:default}
+button.primary,button[aria-pressed=true]{background:var(--accent);color:#101821;border-color:var(--accent);font-weight:650}
+input:focus-visible,button:focus-visible,select:focus-visible,textarea:focus-visible,canvas:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label{display:grid;gap:.25rem}input,select{min-width:0}figcaption{font-weight:650;margin-bottom:.3rem}
+.layout{display:grid;grid-template-columns:minmax(15rem,19rem) minmax(0,1fr);gap:1rem;margin-top:1rem;align-items:start}
+.captures{position:sticky;top:0;max-height:76vh;display:grid;grid-template-rows:auto minmax(0,1fr);background:var(--surface);border:1px solid var(--line);border-radius:.65rem;padding:.7rem}
+#capture-list{min-height:0;overflow:auto;margin-top:.55rem;padding-right:.35rem}
+#capture-list details details{margin-left:.65rem;border-left:1px solid var(--line);padding-left:.45rem}
+#capture-list summary{cursor:pointer;padding:.23rem .1rem;font-weight:600;overflow-wrap:anywhere}
+.case{margin:.12rem 0;width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.35rem;text-align:left;align-items:center;font-size:.86rem;overflow-wrap:anywhere}
+.case[aria-current=true]{outline:1px solid var(--accent);background:#23394b}
+.case-count{font-variant-numeric:tabular-nums;color:var(--muted)}
+.case-count[data-clear=true],#save-status[data-saved=true]{color:var(--accept)}
+.case-count[data-pending=true]{font-style:italic}
+.case-review{grid-column:1/-1;font-size:.8rem;color:var(--muted)}
+.case-review[data-review=approved]{color:var(--accept)}
+.case-review[data-review=rejected]{color:var(--fail)}
+#active-capture{font-size:1rem;overflow-wrap:anywhere;margin:0 0 .5rem}
+#retry{padding:.12rem .35rem;font-size:.85rem}
+[hidden]{display:none!important}
+.tools{position:sticky;top:0;z-index:1;padding:.8rem 1rem;background:var(--surface);border:1px solid var(--line);border-radius:.65rem}
+.row{display:flex;align-items:end;gap:.55rem;flex-wrap:wrap}.tool-buttons{display:flex;gap:.35rem;flex-wrap:wrap}
+#limit{width:6rem}
+.muted{color:var(--muted)}.stats{font-weight:650;font-variant-numeric:tabular-nums;margin-top:.45rem}.stats[data-clear=true]{color:var(--accept)}
+.gallery{margin-top:1rem;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.9rem}
+.gallery figure:last-child{grid-column:1/-1}
+.canvas-wrap{background:#0b131b;border:1px solid var(--line);border-radius:.4rem;padding:.55rem;overflow:auto;max-height:55vh}
+canvas{image-rendering:pixelated;max-width:100%;margin:auto;touch-action:none;cursor:crosshair;display:block}
+figcaption .legend{font-weight:400;font-size:.88rem;margin-left:.7rem}.remaining{color:var(--fail)}.allowed{color:var(--accept)}
+#pixel{font-family:monospace;font-size:.88rem;min-height:1.4rem}
+#error{color:#ffb8ba;min-height:1.45rem;margin-top:.65rem}
+.review{border:1px solid var(--line);border-radius:.65rem;background:var(--surface);padding:1rem;margin:.7rem 0;scroll-margin-top:17rem}
+.review-link{align-self:center;color:var(--accent);margin-left:auto}
+.review h2{font-size:1.15rem;margin-bottom:.25rem}
+.review fieldset{border:0;margin:.65rem 0;padding:0}
+.review legend{font-weight:600;margin-bottom:.3rem}
+.review label.inline{display:flex;align-items:center;gap:.3rem}
+.review textarea{width:100%;min-height:5.5rem;resize:vertical;font:inherit;color:inherit;background:var(--page);border:1px solid var(--line);border-radius:.35rem;padding:.55rem}
+.review .row:last-child{align-items:center;margin-top:.65rem}
+.annotation-list{list-style:none;padding:0;margin:.55rem 0 0}
+.annotation-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.5rem;margin:.3rem 0}
+.annotation-list button{text-align:left;white-space:pre-wrap;overflow-wrap:anywhere}
+.annotation-list button[aria-pressed=true]{outline:2px solid var(--accent)}
+@media(max-width:57rem){.layout{grid-template-columns:1fr}.captures{position:static;max-height:19rem}}
+@media(max-width:42rem){.gallery{grid-template-columns:1fr}.tools{position:static}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>Visual tolerance editor</h1>
+<p class="muted">Paint over differences with the pencil. The eraser restores exact matching.</p>
+</header>
+<div class="layout">
+<nav class="captures" aria-label="Capture list">
+<label>Find a capture<input id="search" type="search" placeholder="Theme, surface, or backdrop"></label>
+<div id="capture-list"></div>
+</nav>
+<div>
+<section class="tools" aria-label="Drawing tools">
+<h2 id="active-capture"></h2>
+<div class="row">
+<div class="tool-buttons" role="group" aria-label="Drawing tool">
+<button id="pencil" type="button" aria-pressed="true">Pencil</button>
+<button id="eraser" type="button" aria-pressed="false">Eraser</button>
+<button id="rectangle" type="button" aria-pressed="false">Rectangle</button>
+<button id="annotate" type="button" aria-pressed="false">Annotate</button>
+<button id="undo" type="button" disabled>Undo stroke</button>
+</div>
+<label>Brush size<select id="brush"><option value="1">1 px</option><option value="3">3 px</option><option value="5">5 px</option><option value="9">9 px</option></select></label>
+<label>RGB limit<input id="limit" type="number" min="1" max="255" step="1" value="255" aria-describedby="limit-help"></label>
+<label>Zoom<select id="zoom"><option value="fit">Fit</option><option value="1">100%</option><option value="2">200%</option><option value="4">400%</option><option value="8">800%</option></select></label>
+<a class="review-link" href="#review-form">Review capture</a>
+</div>
+<p id="limit-help" class="muted">The pencil marks only differing pixels. Use 255 to ignore them or set a lower RGB limit.</p>
+<p id="stats" class="stats" aria-live="polite"></p>
+<p id="pixel" class="muted">Point at a pixel for its RGB values.</p>
+<p class="muted"><span id="save-status" role="status"></span> <button id="retry" type="button" hidden>Retry save</button></p>
+</section>
+<div class="gallery" aria-label="Capture images">
+<figure><figcaption>Windows reference</figcaption><div class="canvas-wrap"><canvas id="reference" tabindex="0" aria-label="Windows reference" aria-describedby="canvas-help"></canvas></div></figure>
+<figure><figcaption>Current render</figcaption><div class="canvas-wrap"><canvas id="rendered" tabindex="0" aria-label="Current render" aria-describedby="canvas-help"></canvas></div></figure>
+<figure><figcaption>Difference <span class="legend remaining">Pink remains</span><span class="legend allowed">Green allowed</span></figcaption><div class="canvas-wrap"><canvas id="difference" tabindex="0" aria-label="Difference" aria-describedby="canvas-help"></canvas></div></figure>
+</div>
+<p id="canvas-help" class="muted" style="margin:.7rem 0">Drag Rectangle to set a tolerance. With Annotate, click a pixel or drag a rectangle to attach a note.</p>
+<section id="annotations" class="review" aria-labelledby="annotation-title">
+<h2 id="annotation-title">Pixel annotations</h2>
+<form id="annotation-form" hidden>
+<label id="annotation-label" for="annotation-text"></label>
+<textarea id="annotation-text" required maxlength="10000" placeholder="What should change here?"></textarea>
+<div class="row"><button class="primary" type="submit">Save annotation</button>
+<button id="cancel-annotation" type="button">Cancel</button></div>
+</form>
+<ol id="annotation-list" class="annotation-list"></ol>
+<p id="no-annotations" class="muted">No notes on this capture yet.</p>
+</section>
+<form id="review-form" class="review" aria-labelledby="review-title">
+<h2 id="review-title">Whole-image review</h2>
+<p class="muted">Record whether this capture looks right and what needs fixing. The review is separate from the pixel comparison.</p>
+<fieldset>
+<legend>Decision</legend>
+<div class="row">
+<label class="inline"><input type="radio" name="review-status" value="pending" checked>Pending</label>
+<label class="inline"><input type="radio" name="review-status" value="approved">Approve</label>
+<label class="inline"><input type="radio" name="review-status" value="rejected">Reject</label>
+</div>
+</fieldset>
+<label>Feedback<textarea id="review-comment" maxlength="10000" placeholder="What looks wrong, and what should it look like?"></textarea></label>
+<div class="row"><button id="save-review" class="primary" type="submit" disabled>Save review</button>
+<span id="review-note" class="muted" role="status"></span></div>
+</form>
+<div class="row">
+<button id="export" class="primary" type="button">Export tolerance JSON</button>
+<button id="import" type="button">Import tolerance JSON</button>
+<input id="file" type="file" accept="application/json,.json" hidden>
+</div>
+<p id="error" role="status"></p>
+</div>
+</div>
+</main>
+<script>
+const captures = /* CAPTURES */;
+const server = /* SERVER */;
+const elements = Object.fromEntries([...document.querySelectorAll("[id]")].map(el => [el.id, el]));
+const canvases = [elements.reference, elements.rendered, elements.difference];
+const viewports = canvases.map(canvas => canvas.parentElement);
+const differenceContext = elements.difference.getContext("2d");
+const drafts = "chicago95-visual-tolerance-v1";
+const captionKey = "win7/caption/kwin/mattes/blue/buttons";
+const number = new Intl.NumberFormat();
+let key, picture, stroke, cursor, frameRequest;
+let boxDrag, annotationBox, selectedNote;
+let loadSequence = 0;
+let tool = "pencil";
+let policy = {version:1, cases:{}};
+const caseRows = new Map(), counts = new Map(), expanded = new Set(), pending = new Map();
+const reviewDrafts = new Map();
+const themes = {win95:"Windows 95", win98:"Windows 98", win2k:"Windows 2000",
+    "winxp-classic":"Windows XP Classic", winxp:"Windows XP Luna", win7:"Windows 7 Aero"};
+const themeOrder = Object.keys(themes);
+const ids = Object.keys(captures).sort((left, right) =>
+    themeOrder.indexOf(left.split("/")[0]) - themeOrder.indexOf(right.split("/")[0]) || left.localeCompare(right));
+let savedCases = {}, saving = false;
+const notice = message => { elements.error.textContent = message; };
+function saveStatus(message, saved = false) {
+    const status = elements["save-status"];
+    status.textContent = message;
+    status.dataset.saved = saved;
+}
+async function flushSaves() {
+    if (saving) return;
+    saving = true;
+    elements.retry.hidden = true;
+    saveStatus("Saving…");
+    try {
+        for (const [id, entry] of pending) {
+            const response = await fetch("/api/policy", {
+                method:"PUT", headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({case:id, previous:savedCases[id] ?? null, entry}),
+            });
+            const result = await response.json();
+            if (!response.ok) throw Error(result.error || "Could not save policy");
+            savedCases[id] = entry;
+            if (pending.get(id) === entry) pending.delete(id);
+            else {
+                // A newer stroke on this capture arrived during the request.
+                const newer = pending.get(id);
+                pending.delete(id);
+                pending.set(id, newer);
+            }
+        }
+        saveStatus("Saved to the repo", true);
+    } catch (error) {
+        saveStatus(error.message);
+        elements.retry.hidden = false;
+    } finally {
+        saving = false;
+    }
+}
+function save(id) {
+    if (!server) {
+        try { localStorage.setItem(drafts, JSON.stringify(policy)); } catch {}
+        return;
+    }
+    const entry = policy.cases[id] ?? null;
+    pending.set(id, structuredClone(entry));
+    void flushSaves();
+}
+function title(value) {
+    const abbreviations = {kwin:"KWin", gtk3:"GTK 3", gtk4:"GTK 4", qt:"Qt", svg:"SVG", mattes:"Backdrops"};
+    return abbreviations[value] ?? value.replace(/-/g," ").replace(/^\w/, char => char.toUpperCase());
+}
+function captureLabels(id) {
+    const [theme, topic, ...leaf] = id.split("/");
+    return [themes[theme] ?? theme, title(topic ?? theme), leaf.map(title).join(" / ") || title(topic ?? theme)];
+}
+function announceCount(id, count) {
+    if (count !== undefined) counts.set(id, count);
+    const row = caseRows.get(id);
+    if (!row) return;
+    const remaining = counts.get(id);
+    const pendingCount = remaining === undefined && policy.cases[id]?.regions.length > 0;
+    const value = remaining ?? captures[id].changed;
+    row.count.textContent = number.format(value);
+    row.count.title = pendingCount ? "Exact differences before applying saved edits" : "Differences left";
+    row.count.dataset.clear = value === 0;
+    row.count.dataset.pending = pendingCount;
+    const entry = policy.cases[id];
+    const review = entry?.review;
+    const decision = review?.status ?? "pending";
+    const reviewLabel = decision === "pending" ? (review?.comment ? "Feedback" : "") : title(decision);
+    const countNotes = entry?.annotations?.length ?? 0;
+    const noteLabel = countNotes ? number.format(countNotes) + (countNotes === 1 ? " note" : " notes") : "";
+    const feedback = [reviewLabel, noteLabel].filter(Boolean).join(" · ");
+    row.review.textContent = feedback;
+    row.review.dataset.review = decision;
+    row.review.hidden = !feedback;
+    row.button.setAttribute("aria-label", row.label + " · " + number.format(value) + " differences" +
+        (feedback ? " · " + feedback : ""));
+}
+function choose(id) {
+    if (annotationBox && elements["annotation-text"].value.trim()) {
+        elements["annotation-text"].focus();
+        notice("Save or cancel the annotation before switching captures.");
+        return;
+    }
+    for (const [name, row] of caseRows) row.button.setAttribute("aria-current", name === id);
+    const row = caseRows.get(id);
+    if (row) {
+        row.theme.open = row.topic.open = true;
+        row.button.scrollIntoView({block:"nearest", container:"nearest"});
+    }
+    const url = new URL(location.href);
+    url.searchParams.set("case", id);
+    try { history.replaceState(null, "", url); } catch {}
+    openCapture(id).catch(error => notice(error.message));
+}
+function group(parent, name, id, open) {
+    const details = document.createElement("details");
+    details.open = open;
+    details.dataset.group = id;
+    const summary = document.createElement("summary");
+    summary.textContent = name;
+    details.append(summary);
+    parent.append(details);
+    return details;
+}
+function fillChoices(query = "") {
+    if (!query) {
+        for (const node of elements["capture-list"].querySelectorAll("details[open]")) expanded.add(node.dataset.group);
+    }
+    const terms = query.toLowerCase().trim().split(/\s+/);
+    const groups = new Map();
+    const sidebar = elements["capture-list"];
+    sidebar.replaceChildren();
+    caseRows.clear();
+    const activeTopic = key.split("/").slice(0,2).join("/") + "/";
+    const ordered = ids.filter(id => id !== key);
+    const first = ordered.findIndex(id => id.startsWith(activeTopic));
+    ordered.splice(first < 0 ? ids.indexOf(key) : first, 0, key);
+    for (const id of ordered) {
+        const [theme, topic, label] = captureLabels(id);
+        const entry = policy.cases[id];
+        const review = entry?.review;
+        const searchable = [theme, topic, label, id, review?.status, review?.comment,
+            ...((entry?.annotations ?? []).map(note => note.text))].join(" ").toLowerCase();
+        if (!terms.every(term => searchable.includes(term))) continue;
+        const themeId = id.split("/")[0];
+        const topicId = id.split("/").slice(0,2).join("/");
+        if (!groups.has(themeId)) {
+            groups.set(themeId, group(sidebar, theme, themeId, !!query || expanded.has(themeId) || key.startsWith(themeId + "/")));
+        }
+        const themeGroup = groups.get(themeId);
+        if (!groups.has(topicId)) {
+            groups.set(topicId, group(themeGroup, topic, topicId, !!query || expanded.has(topicId) || key.startsWith(topicId + "/")));
+        }
+        const topicGroup = groups.get(topicId);
+        const button = document.createElement("button");
+        button.className = "case";
+        button.type = "button";
+        button.setAttribute("aria-current", id === key);
+        button.onclick = () => choose(id);
+        const name = document.createElement("span");
+        name.textContent = label;
+        const count = document.createElement("span");
+        count.className = "case-count";
+        const reviewBadge = document.createElement("span");
+        reviewBadge.className = "case-review";
+        button.append(name, count, reviewBadge);
+        topicGroup.append(button);
+        caseRows.set(id, {button, count, label, review:reviewBadge, theme:themeGroup, topic:topicGroup});
+        announceCount(id);
+    }
+    if (!caseRows.size) sidebar.textContent = "No matching captures.";
+}
+function updateStats() {
+    const {remaining, exact, painted, undo} = picture;
+    elements.stats.textContent = number.format(remaining) + " differences left · " +
+        number.format(exact - remaining) + " allowed · " + number.format(painted) + " pixels painted";
+    elements.stats.dataset.clear = remaining === 0;
+    elements.undo.disabled = !undo.length || !!stroke;
+    announceCount(key, remaining);
+}
+function drawDifference() {
+    frameRequest = undefined;
+    if (!picture) return;
+    const {maxima, tolerance, frame, width} = picture;
+    for (let i = 0; i < maxima.length; i++) {
+        const fails = maxima[i] > tolerance[i];
+        const accepted = !fails && maxima[i] > 0;
+        const p = i * 4;
+        frame.data[p] = fails ? Math.min(255, 75 + 8 * maxima[i]) : accepted ? 52 : 18;
+        frame.data[p+1] = fails ? 44 : accepted ? 181 : 29;
+        frame.data[p+2] = fails ? 83 : accepted ? 150 : 41;
+        frame.data[p+3] = 255;
+    }
+    differenceContext.putImageData(frame, 0, 0);
+    drawMarks(differenceContext);
+    if (cursor?.keyboard) {
+        differenceContext.strokeStyle = "#83d9ff";
+        differenceContext.lineWidth = .18;
+        differenceContext.strokeRect(cursor.x + .1, cursor.y + .1, .8, .8);
+    }
+}
+function annotations() {
+    return policy.cases[key]?.annotations ?? [];
+}
+function discardEmptyEntry() {
+    const entry = policy.cases[key];
+    if (!entry.regions.length && !entry.review && !entry.annotations?.length) delete policy.cases[key];
+}
+function rectangleBetween(a, b) {
+    return {x:Math.min(a.x,b.x), y:Math.min(a.y,b.y), width:Math.abs(a.x-b.x)+1, height:Math.abs(a.y-b.y)+1};
+}
+function drawMarks(context) {
+    const outline = (box, color, width) => {
+        context.strokeStyle = color;
+        context.lineWidth = width;
+        if (box.width === 1 && box.height === 1) {
+            context.save();
+            context.globalAlpha = .65;
+            context.fillStyle = color;
+            context.fillRect(box.x, box.y, 1, 1);
+            context.restore();
+        }
+        context.strokeRect(box.x + .12, box.y + .12, box.width - .24, box.height - .24);
+    };
+    for (const note of annotations()) outline(note, note === selectedNote ? "#fff" : "#83d9ff", .23);
+    const draft = boxDrag ? rectangleBetween(boxDrag.start, boxDrag.last) : annotationBox;
+    if (draft) outline(draft, "#ffd46b", .26);
+}
+function drawSourceMarks() {
+    if (!picture) return;
+    for (const name of ["reference", "rendered"]) {
+        const context = elements[name].getContext("2d");
+        context.putImageData(picture[name], 0, 0);
+        drawMarks(context);
+    }
+}
+function refreshMarks() {
+    drawSourceMarks();
+    refresh();
+}
+function renderAnnotations() {
+    elements["annotation-list"].replaceChildren(...annotations().map((note, index) => {
+        const row = document.createElement("li");
+        const select = document.createElement("button");
+        select.type = "button";
+        select.textContent = (index+1) + ". " + locationLabel(note) + " · " + note.text;
+        select.setAttribute("aria-pressed", note === selectedNote);
+        select.onclick = () => {
+            selectedNote = note === selectedNote ? null : note;
+            for (const button of elements["annotation-list"].querySelectorAll("[aria-pressed]")) {
+                button.setAttribute("aria-pressed", button === select && !!selectedNote);
+            }
+            refreshMarks();
+        };
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "Delete";
+        remove.setAttribute("aria-label", "Delete annotation " + (index+1));
+        remove.onclick = () => {
+            annotations().splice(index,1);
+            if (note === selectedNote) selectedNote = null;
+            discardEmptyEntry();
+            renderAnnotations();
+            refreshMarks();
+            save(key);
+        };
+        row.append(select, remove);
+        return row;
+    }));
+    elements["no-annotations"].hidden = annotations().length > 0 || !!annotationBox;
+}
+function locationLabel(box) {
+    return "(" + box.x + ", " + box.y + ")" +
+        (box.width === 1 && box.height === 1 ? "" : " · " + box.width + "×" + box.height);
+}
+function openAnnotation(box) {
+    annotationBox = box;
+    elements["annotation-form"].hidden = !box;
+    elements["annotation-text"].value = "";
+    if (box) {
+        elements["annotation-label"].textContent = "Note for " + locationLabel(box);
+        elements["annotation-text"].focus();
+    }
+    renderAnnotations();
+    if (picture) refreshMarks();
+}
+elements["cancel-annotation"].onclick = () => openAnnotation(null);
+elements["annotation-form"].onsubmit = event => {
+    event.preventDefault();
+    const text = elements["annotation-text"].value.trim();
+    if (!picture || !annotationBox || !text) return;
+    const entry = policy.cases[key] ??= {size:[picture.width,picture.height], regions:[]};
+    const note = {...annotationBox, text};
+    (entry.annotations ??= []).push(note);
+    selectedNote = note;
+    openAnnotation(null);
+    save(key);
+};
+function refresh() {
+    updateStats();
+    frameRequest ??= requestAnimationFrame(drawDifference);
+}
+function applyMask(id, image, tolerance) {
+    const {width:w, height:h} = image;
+    const entry = policy.cases[id];
+    tolerance.fill(0);
+    if (entry && (String(entry.size) !== String([w,h]) || !entry.regions.every(rule => validSpan(rule,w,h)))) {
+        throw Error("The saved mask does not match this capture.");
+    }
+    for (const rule of entry?.regions ?? []) {
+        for (let y = rule.y; y < rule.y + rule.height; y++) {
+            tolerance.fill(rule.max_channel_delta, y * w + rule.x, y * w + rule.x + rule.width);
+        }
+    }
+}
+function loadMask() {
+    const {tolerance, maxima} = picture;
+    applyMask(key, picture, tolerance);
+    picture.remaining = 0;
+    picture.painted = 0;
+    for (let i = 0; i < tolerance.length; i++) {
+        picture.remaining += maxima[i] > tolerance[i];
+        picture.painted += tolerance[i] > 0;
+    }
+    picture.undo = [];
+    refresh();
+}
+const reviewForm = elements["review-form"];
+const reviewStatus = reviewForm.elements.namedItem("review-status");
+const emptyReview = {status:"pending", comment:""};
+function loadReview() {
+    const review = reviewDrafts.get(key) ?? policy.cases[key]?.review ?? emptyReview;
+    reviewStatus.value = review.status;
+    elements["review-comment"].value = review.comment;
+    updateReviewNote();
+}
+function updateReviewNote() {
+    const dirty = reviewDrafts.has(key);
+    elements["save-review"].disabled = !picture || !dirty;
+    elements["review-note"].textContent = dirty ? "Unsaved review" : "";
+}
+reviewForm.oninput = () => {
+    if (!picture) return;
+    const review = {status:reviewStatus.value, comment:elements["review-comment"].value.trim()};
+    const saved = policy.cases[key]?.review ?? emptyReview;
+    if (review.status === saved.status && review.comment === saved.comment) reviewDrafts.delete(key);
+    else reviewDrafts.set(key, review);
+    updateReviewNote();
+};
+reviewForm.onsubmit = event => {
+    event.preventDefault();
+    const review = reviewDrafts.get(key);
+    if (!picture || !review) return;
+    finishStroke();
+    const {width:w, height:h} = picture;
+    const entry = policy.cases[key] ??= {size:[w,h], regions:[]};
+    if (review.status === "pending" && !review.comment) delete entry.review;
+    else entry.review = review;
+    discardEmptyEntry();
+    reviewDrafts.delete(key);
+    announceCount(key);
+    updateReviewNote();
+    if (!server) elements["review-note"].textContent = "Review saved in this browser";
+    save(key);
+};
+function resizeView() {
+    if (!picture) return;
+    const {width:w, height:h} = picture;
+    const zoom = elements.zoom.value;
+    const fittedWidth = Math.min(900, ...viewports.map(viewport => viewport.clientWidth - 18),
+        Math.max(w, w * Math.min(8, 480 / h)));
+    for (const canvas of canvases) {
+        canvas.style.maxWidth = zoom === "fit" ? "100%" : "none";
+        canvas.style.width = (w === 1 ? 48 : zoom === "fit" ? fittedWidth : w * Number(zoom)) + "px";
+        canvas.style.height = zoom === "fit" ? (w === 1 ? Math.min(600, h * 5) + "px" : "auto") : h * Number(zoom) + "px";
+    }
+}
+async function decodeCapture(id) {
+    const image = new Image();
+    image.src = "data:image/png;base64," + captures[id].png;
+    await image.decode();
+    const [w, h] = captures[id].size;
+    if (image.naturalWidth !== 3 * w || image.naturalHeight !== h) throw Error("Unexpected comparison image size");
+    const unpack = document.createElement("canvas");
+    unpack.width = 3 * w;
+    unpack.height = h;
+    const reader = unpack.getContext("2d");
+    reader.drawImage(image, 0, 0);
+    const reference = reader.getImageData(0, 0, w, h);
+    const rendered = reader.getImageData(w, 0, w, h);
+    const compared = reader.getImageData(2*w, 0, w, h).data;
+    const maxima = new Uint8Array(w*h);
+    let exact = 0;
+    for (let i = 0; i < maxima.length; i++) {
+        const p = i * 4;
+        if (compared[p] || compared[p+1] || compared[p+2]) {
+            maxima[i] = Math.max(
+                Math.abs(reference.data[p] - rendered.data[p]),
+                Math.abs(reference.data[p+1] - rendered.data[p+1]),
+                Math.abs(reference.data[p+2] - rendered.data[p+2]),
+            );
+            exact += maxima[i] > 0;
+        }
+    }
+    if (exact !== captures[id].changed) throw Error("Comparison image does not match its pixel metrics");
+    return {width:w, height:h, reference, rendered, maxima, exact};
+}
+async function openCapture(next) {
+    if (!captures[next]) return;
+    finishStroke();
+    const sequence = ++loadSequence;
+    key = next;
+    picture = null;
+    boxDrag = selectedNote = null;
+    openAnnotation(null);
+    cursor = null;
+    elements["active-capture"].textContent = captureLabels(key).join(" · ");
+    elements.undo.disabled = true;
+    elements["save-review"].disabled = true;
+    elements.stats.textContent = "Loading capture…";
+    elements.pixel.textContent = "Point at a pixel for its RGB values.";
+    const decoded = await decodeCapture(next);
+    if (sequence !== loadSequence) return;
+    const {width:w, height:h, reference, rendered} = decoded;
+    for (const canvas of canvases) {
+        canvas.width = w;
+        canvas.height = h;
+    }
+    elements.reference.getContext("2d").putImageData(reference, 0, 0);
+    elements.rendered.getContext("2d").putImageData(rendered, 0, 0);
+    picture = {...decoded, tolerance:new Uint8Array(w*h), frame:differenceContext.createImageData(w,h)};
+    resizeView();
+    loadMask();
+    loadReview();
+    refreshMarks();
+    notice("");
+}
+async function refreshSavedCounts() {
+    for (const id of Object.keys(policy.cases)) {
+        if (!captures[id] || id === key || !policy.cases[id].regions.length) continue;
+        const decoded = await decodeCapture(id);
+        if (id === key) continue;
+        const tolerance = new Uint8Array(decoded.maxima.length);
+        applyMask(id, decoded, tolerance);
+        let remaining = 0;
+        for (let i = 0; i < tolerance.length; i++) remaining += decoded.maxima[i] > tolerance[i];
+        announceCount(id, remaining);
+    }
+}
+function position(event, canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const {width:w, height:h} = picture;
+    return {
+        x:Math.max(0, Math.min(w-1, Math.floor((event.clientX - rect.left) / rect.width * w))),
+        y:Math.max(0, Math.min(h-1, Math.floor((event.clientY - rect.top) / rect.height * h))),
+    };
+}
+function inspect(point) {
+    const {x, y} = point;
+    const i = y * picture.width + x;
+    const rgb = image => [...image.data.subarray(4*i, 4*i+3)].join(", ");
+    elements.pixel.textContent = [x + ", " + y, "Windows (" + rgb(picture.reference) + ")",
+        "Render (" + rgb(picture.rendered) + ")", "Δ " + picture.maxima[i], "Limit " + picture.tolerance[i]].join(" · ");
+}
+function setPixel(i, limit) {
+    const old = picture.tolerance[i];
+    if (old === limit) return;
+    const delta = picture.maxima[i];
+    picture.remaining += Number(delta > limit) - Number(delta > old);
+    picture.painted += Number(limit > 0) - Number(old > 0);
+    picture.tolerance[i] = limit;
+}
+function markPixel(i) {
+    const {maxima, tolerance} = picture;
+    const {limit, previous} = stroke;
+    if (tolerance[i] === limit || (limit > 0 && !maxima[i])) return;
+    if (!previous.has(i)) previous.set(i, tolerance[i]);
+    setPixel(i, limit);
+}
+function stamp(x, y) {
+    const {width:w, height:h} = picture;
+    const {radius} = stroke;
+    for (let row = Math.max(0, y-radius); row <= Math.min(h-1, y+radius); row++) {
+        for (let col = Math.max(0, x-radius); col <= Math.min(w-1, x+radius); col++) {
+            markPixel(row * w + col);
+        }
+    }
+}
+function follow(point) {
+    // Connect pointer samples so fast strokes leave no gaps.
+    let {x, y} = stroke.last;
+    const dx = Math.abs(point.x-x), dy = -Math.abs(point.y-y);
+    const sx = x < point.x ? 1 : -1, sy = y < point.y ? 1 : -1;
+    let error = dx + dy;
+    for (;;) {
+        stamp(x, y);
+        if (x === point.x && y === point.y) break;
+        const step = 2 * error;
+        if (step >= dy) { error += dy; x += sx; }
+        if (step <= dx) { error += dx; y += sy; }
+    }
+    stroke.last = point;
+    inspect(point);
+    refresh();
+}
+function beginStroke(point, pointerId) {
+    const limit = tool === "eraser" ? 0 : elements.limit.valueAsNumber;
+    if (tool !== "eraser" && (!Number.isInteger(limit) || limit < 1 || limit > 255)) {
+        notice("Enter an RGB limit from 1 to 255.");
+        return false;
+    }
+    notice("");
+    stroke = {last:point, pointerId, limit, radius:(Number(elements.brush.value)-1)/2, previous:new Map()};
+    return true;
+}
+function startStroke(point, pointerId) {
+    if (beginStroke(point, pointerId)) follow(point);
+}
+function paintRectangle(box) {
+    if (!beginStroke(box)) return;
+    for (let row = box.y; row < box.y+box.height; row++) {
+        for (let col = box.x; col < box.x+box.width; col++) markPixel(row * picture.width + col);
+    }
+    finishStroke();
+}
+function finishBox(box, purpose) {
+    if (purpose === "annotate") openAnnotation(box);
+    else {
+        paintRectangle(box);
+        refreshMarks();
+    }
+}
+function finishStroke() {
+    if (!stroke) return;
+    const {previous, limit} = stroke;
+    stroke = null;
+    if (previous.size) {
+        const {width:w, height:h} = picture;
+        const entry = policy.cases[key] ??= {size:[w,h], regions:[]};
+        const start = entry.regions.length;
+        let last;
+        // Export a stroke as horizontal spans using the existing region format.
+        for (const i of [...previous.keys()].sort((a,b) => a-b)) {
+            const x = i % w, y = Math.floor(i / w);
+            if (last?.y === y && last.x + last.width === x) last.width++;
+            else {
+                last = {x, y, width:1, height:1, max_channel_delta:limit};
+                entry.regions.push(last);
+            }
+        }
+        picture.undo.push({previous, start});
+        save(key);
+    }
+    refresh();
+}
+elements.undo.onclick = () => {
+    const {previous, start} = picture.undo.pop();
+    for (const [i, limit] of previous) setPixel(i, limit);
+    const entry = policy.cases[key];
+    entry.regions.splice(start);
+    discardEmptyEntry();
+    if (cursor) inspect(cursor);
+    save(key);
+    refresh();
+};
+for (const canvas of canvases) {
+    canvas.onpointerdown = event => {
+        if (!picture || stroke || boxDrag || event.button !== 0) return;
+        if (annotationBox && tool === "annotate" && elements["annotation-text"].value.trim()) {
+            elements["annotation-text"].focus();
+            return;
+        }
+        canvas.focus({preventScroll:true});
+        cursor = position(event, canvas);
+        if (tool === "rectangle" || tool === "annotate") {
+            boxDrag = {start:cursor, last:cursor, pointerId:event.pointerId, purpose:tool};
+            refreshMarks();
+        } else startStroke(cursor, event.pointerId);
+        if (stroke || boxDrag) canvas.setPointerCapture(event.pointerId);
+    };
+    canvas.onpointermove = event => {
+        if (!picture) return;
+        cursor = position(event, canvas);
+        if (boxDrag?.pointerId === event.pointerId) {
+            boxDrag.last = cursor;
+            inspect(cursor);
+            refreshMarks();
+        } else if (stroke?.pointerId === event.pointerId) follow(cursor);
+        else inspect(cursor);
+    };
+    canvas.onpointerup = event => {
+        if (boxDrag?.pointerId === event.pointerId) {
+            const {start, purpose} = boxDrag;
+            boxDrag = null;
+            finishBox(rectangleBetween(start, position(event, canvas)), purpose);
+            return;
+        }
+        if (stroke?.pointerId !== event.pointerId) return;
+        cursor = position(event, canvas);
+        follow(cursor);
+        finishStroke();
+    };
+    canvas.onpointercancel = canvas.onlostpointercapture = event => {
+        if (boxDrag?.pointerId === event.pointerId) {
+            boxDrag = null;
+            refreshMarks();
+        }
+        if (stroke?.pointerId === event.pointerId) finishStroke();
+    };
+    canvas.onkeydown = event => {
+        const moves = {ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1]};
+        if (!picture || stroke || boxDrag || (!moves[event.key] && event.key !== " ")) return;
+        event.preventDefault();
+        const [dx,dy] = moves[event.key] ?? [0,0];
+        cursor = {x:Math.max(0,Math.min(picture.width-1,(cursor?.x ?? 0)+dx)),
+            y:Math.max(0,Math.min(picture.height-1,(cursor?.y ?? 0)+dy)), keyboard:true};
+        if (event.key === " " && (tool === "rectangle" || tool === "annotate")) {
+            if (!annotationBox || tool === "rectangle" || !elements["annotation-text"].value.trim()) {
+                finishBox(rectangleBetween(cursor, cursor), tool);
+            }
+        } else if (event.key === " ") { startStroke(cursor); finishStroke(); }
+        else { inspect(cursor); refresh(); }
+    };
+}
+const syncedPositions = new WeakMap();
+for (const viewport of viewports) {
+    viewport.onscroll = () => {
+        const synced = syncedPositions.get(viewport);
+        syncedPositions.delete(viewport);
+        if (synced?.left === viewport.scrollLeft && synced?.top === viewport.scrollTop) return;
+        for (const peer of viewports) {
+            if (peer === viewport) continue;
+            if (peer.scrollLeft !== viewport.scrollLeft) peer.scrollLeft = viewport.scrollLeft;
+            if (peer.scrollTop !== viewport.scrollTop) peer.scrollTop = viewport.scrollTop;
+            syncedPositions.set(peer, {left:peer.scrollLeft, top:peer.scrollTop});
+        }
+    };
+}
+const tools = ["pencil", "eraser", "rectangle", "annotate"];
+for (const name of tools) {
+    elements[name].onclick = () => {
+        tool = name;
+        for (const choice of tools) elements[choice].setAttribute("aria-pressed", choice === name);
+        elements.limit.disabled = name === "eraser" || name === "annotate";
+        elements.brush.disabled = name === "rectangle" || name === "annotate";
+    };
+}
+elements.search.oninput = () => fillChoices(elements.search.value);
+elements.retry.onclick = flushSaves;
+elements.zoom.onchange = resizeView;
+window.addEventListener("resize", resizeView);
+elements.export.onclick = () => {
+    finishStroke();
+    const url = URL.createObjectURL(new Blob([JSON.stringify(policy, null, 2) + "\n"], {type:"application/json"}));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "visual-tolerances.json";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+elements.import.onclick = () => elements.file.click();
+elements.file.onchange = async () => {
+    try {
+        const candidate = JSON.parse(await elements.file.files[0].text());
+        if (candidate.version !== 1 || !candidate.cases || Array.isArray(candidate.cases) ||
+            typeof candidate.cases !== "object") throw Error("Expected a version 1 tolerance JSON file.");
+        for (const [id, entry] of Object.entries(candidate.cases)) {
+            if (!Array.isArray(entry.size) || entry.size.length !== 2 ||
+                !entry.size.every(n => Number.isInteger(n) && n > 0) ||
+                (captures[id] && String(entry.size) !== String(captures[id].size)) ||
+                !Array.isArray(entry.regions) || !entry.regions.every(r => validSpan(r, ...entry.size)) ||
+                ("review" in entry && !validReview(entry.review)) ||
+                ("annotations" in entry && (!Array.isArray(entry.annotations) ||
+                    !entry.annotations.every(note => validBox(note, ...entry.size) &&
+                       typeof note.text === "string" && note.text.trim().length > 0 && note.text.length <= 10000)))) {
+                throw Error("Invalid region or dimensions for " + id);
+            }
+        }
+        finishStroke();
+        if (server) {
+            for (const [id, entry] of Object.entries(candidate.cases)) {
+                if (!captures[id]) continue;
+                if (!entry.review && policy.cases[id]?.review) entry.review = policy.cases[id].review;
+                if (!entry.annotations && policy.cases[id]?.annotations) entry.annotations = policy.cases[id].annotations;
+                policy.cases[id] = entry;
+                counts.delete(id);
+                announceCount(id);
+                save(id);
+            }
+        } else {
+            policy = candidate;
+            counts.clear();
+            for (const id of caseRows.keys()) announceCount(id);
+            save();
+        }
+        if (picture) {
+            loadMask();
+            loadReview();
+            selectedNote = null;
+            renderAnnotations();
+            refreshMarks();
+        }
+        void refreshSavedCounts().catch(error => notice(error.message));
+        notice("Tolerance JSON imported.");
+    } catch (error) {
+        notice(error.message);
+    } finally {
+        elements.file.value = "";
+    }
+};
+function validSpan(r, w, h) {
+    return validBox(r,w,h) && Number.isInteger(r.max_channel_delta) && r.max_channel_delta >= 0 && r.max_channel_delta <= 255;
+}
+function validBox(r,w,h) {
+    return r && [r.x,r.y,r.width,r.height].every(Number.isInteger) &&
+        r.x >= 0 && r.y >= 0 && r.width >= 1 && r.height >= 1 && r.x + r.width <= w && r.y + r.height <= h;
+}
+function validReview(review) {
+    return review && ["pending", "approved", "rejected"].includes(review.status) &&
+        typeof review.comment === "string" && review.comment.length <= 10000;
+}
+const requested = new URLSearchParams(location.search).get("case");
+key = captures[requested] ? requested : captures[captionKey] ? captionKey : ids[0];
+async function initialize() {
+    if (server) {
+        elements.export.hidden = true;
+        const response = await fetch("/api/policy");
+        if (!response.ok) throw Error("Could not load the repo policy. Reload to try again.");
+        policy = await response.json();
+        savedCases = structuredClone(policy.cases);
+        saveStatus("Repo policy loaded", true);
+    } else {
+        try { const saved = localStorage.getItem(drafts); if (saved) policy = JSON.parse(saved); } catch {}
+    }
+    addEventListener("beforeunload", event => {
+        if (!pending.size && !stroke && !reviewDrafts.size && !elements["annotation-text"].value.trim()) return;
+        event.preventDefault();
+        event.returnValue = "";
+    });
+    fillChoices();
+    choose(key);
+    await refreshSavedCounts();
+}
+initialize().catch(error => notice(error.message));
+</script>
+</body>
+</html>

@@ -370,6 +370,8 @@ def window_commands(work, applications, windows):
         if toolkit == "x11":
             desktop_file(applications, name, title, icon, "StartupWMClass=Xmessage\n")
             program = f"xmessage -title {quote(title)} -geometry 200x100 {quote(title)}"
+        elif toolkit == "run":
+            program = '"$HOME/.local/bin/chicago95-run" --dry-run'
         else:
             desktop_file(applications, name, title, icon)
             if toolkit == "qt-fixed":
@@ -538,13 +540,17 @@ HOME_AFTER_SETUP = "home-after-setup"
 DESKTOP_LEAVINGS = ("screen.png", "screen-shot-*.png", "effects.txt", "pointer.log")
 
 
-def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_steps=(), scale=1, window_state=False):
+def show(
+    installed, windows=None, windows_first=False, tray_icons=None, pointer_steps=(), scale=1, window_state=False,
+    active_window=None,
+):
     """Runs the desktop's session, as after logging in again, from the home Setup left; returns the screenshot.
     windows replaces the look's own windows (an empty list: none, for the desktop behind them); windows_first
     opens them before Plasma starts, as a login that restores the last session does; tray_icons is the number of
     the test's icons in the tray, beside the original's; pointer_steps (see eis_pointer.py) drive the pointer
     before the screenshot, to open a context menu (see MENU_OPENERS) and hover one of its rows.
     window_state records frame bounds and caption capabilities before and after the pointer steps.
+    active_window overrides the default foreground title; "" leaves the desktop focused.
     The screenshot's info holds KWin's loaded effects, its log, and Setup's own session's screenshot
     ("setup_screen": the taskbar right after Setup restarted Plasma, before anyone touched it)."""
     look, work, screen_size, environment = installed
@@ -570,7 +576,7 @@ def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_
             windows_before_plasma=window_script if windows_first else "",
             windows_after_plasma="" if windows_first else window_script,
             places=json.dumps(places),
-            active=json.dumps(content["active"]),
+            active=json.dumps(content["active"] if active_window is None else active_window),
             window_state_before=WINDOW_STATE.format(places=json.dumps(places), phase="before") if window_state else "",
             window_state_after=WINDOW_STATE.format(places=json.dumps(places), phase="after") if window_state else "",
             pointer_command=(

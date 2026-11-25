@@ -3,6 +3,7 @@
 import configparser
 import json
 import math
+import os
 import shutil
 import subprocess
 import sys
@@ -42,6 +43,7 @@ from test_caption_states_reference import (
     state_buttons,
     visible_pixels,
 )
+from visual_tolerances import tolerance_for
 
 THEMES = {folder.name: (folder, metadata) for folder, metadata in theme_references(REFERENCES)}
 EXPECTED_THEMES = {"win95", "win98", "win2k", "winxp-classic", "winxp", "win7"}
@@ -490,7 +492,10 @@ def visual_output(tmp_path_factory):
 def exact(expected, actual, directory, mask=None):
     directory.mkdir(parents=True, exist_ok=True)
     actual.save(directory / "rendered.png")
-    compare(expected, actual, directory / "comparison.png", mask, record_metrics=True)
+    compare(
+        expected, actual, directory / "comparison.png", mask, record_metrics=True,
+        tolerance=tolerance_for(directory, expected.size),
+    )
 
 
 @pytest.fixture(scope="module")
@@ -743,17 +748,14 @@ def aero_run_capture(tmp_path_factory):
         return reference.convert("RGB"), render.convert("RGB")
 
 
-@pytest.mark.parametrize("theme", THEMES)
-def test_run_dialog(theme, qt_app, svg_themes, request, visual_output, monkeypatch):
+@pytest.fixture
+def run_dialog_images(theme, qt_app, svg_themes, request, monkeypatch):
     import chicago95ui
 
     folder, metadata = THEMES[theme]
-    directory = visual_output / theme / "run" / "qt"
     look = metadata["look"]
     if look == "aero":
-        expected, actual = request.getfixturevalue("aero_run_capture")
-        exact(expected, actual, directory)
-        return
+        return request.getfixturevalue("aero_run_capture")
     with Image.open(folder / "run.png") as reference:
         expected = reference.crop(metadata["run_crop"]) if "run_crop" in metadata else reference.convert("RGB")
     monkeypatch.setattr(chicago95ui, "DECORATION", svg_themes[look])
@@ -771,7 +773,94 @@ def test_run_dialog(theme, qt_app, svg_themes, request, visual_output, monkeypat
             dialog.close()
     if look == "2000":
         actual = rgb565(actual)
-    exact(expected, actual, directory)
+    return expected, actual
+
+
+@pytest.mark.parametrize("theme", THEMES)
+def test_run_dialog(theme, run_dialog_images, visual_output):
+    exact(*run_dialog_images, visual_output / theme / "run" / "qt")
+
+
+@pytest.mark.parametrize("theme", ("win95", "win98"))
+def test_run_9x_dialog_frame_and_caption_buttons_match_native(theme, run_dialog_images):
+    expected, actual = run_dialog_images
+    w, h = expected.size
+    for name, bounds in {
+        "top frame": (0, 0, w, 3),
+        "left frame": (0, 3, 3, h),
+        "right frame": (w - 3, 3, w, h),
+        "bottom frame": (0, h - 3, w, h),
+        "Help and Close": (w - 39, 5, w - 5, 19),
+    }.items():
+        assert np.array_equal(expected.crop(bounds), actual.crop(bounds)), name
+
+
+@pytest.mark.parametrize("theme", ("win95", "win98"))
+def test_run_9x_history_button_and_field_bevel_match_native(theme, run_dialog_images):
+    expected, actual = run_dialog_images
+    # Leave the blinking insertion caret outside the bevel comparison.
+    bounds = (64, 82, 332, 103)
+    assert np.array_equal(expected.crop(bounds), actual.crop(bounds))
+
+
+@pytest.mark.parametrize("theme", ("win95", "win98"))
+def test_run_9x_imported_font_matches_native_labels(theme, run_dialog_images):
+    from PySide6.QtGui import QFontDatabase
+
+    if f"Chicago95 Windows {theme[-2:]}" not in QFontDatabase.families():
+        pytest.skip("Import the fonts from the reference VM with setup/import-win9x-fonts.py")
+    expected, actual = run_dialog_images
+    for bounds in ((4, 4, 35, 19), (55, 38, 333, 69), (10, 85, 49, 101), (109, 127, 331, 143)):
+        np.testing.assert_array_equal(np.asarray(actual.crop(bounds)), np.asarray(expected.crop(bounds)))
+
+
+@pytest.mark.parametrize("theme", ("win2k", "winxp-classic", "winxp"))
+def test_run_tahoma_prompt_matches_native_pixels(theme, run_dialog_images):
+    from PySide6.QtGui import QFontDatabase
+
+    family = "Chicago95 Windows 2000 Tahoma" if theme == "win2k" else "Tahoma"
+    if not QFontDatabase.hasFamily(family):
+        pytest.skip("Import the VM fonts with setup/import-windows-nt-fonts.py")
+    expected, actual = run_dialog_images
+    bounds = (55, 19, 330, 48) if theme == "winxp" else (55, 38, 337, 69)
+    np.testing.assert_array_equal(np.asarray(actual.crop(bounds)), np.asarray(expected.crop(bounds)))
+
+
+@pytest.mark.parametrize("theme", ("win2k", "winxp-classic"))
+def test_run_classic_browse_mnemonic_matches_native_pixels(theme, run_dialog_images):
+    from PySide6.QtGui import QFontDatabase
+
+    family = "Chicago95 Windows 2000 Tahoma" if theme == "win2k" else "Tahoma"
+    if not QFontDatabase.hasFamily(family):
+        pytest.skip("Import the VM fonts with setup/import-windows-nt-fonts.py")
+    expected, actual = run_dialog_images
+    bounds = (266, 142, 327, 154)
+    np.testing.assert_array_equal(np.asarray(actual.crop(bounds)), np.asarray(expected.crop(bounds)))
+
+
+def test_run_win7_browse_mnemonic_matches_native_underline(aero_run_capture):
+    # The background gradient has its own comparison. Compare the dark
+    # underline including the surrounding empty rows and columns.
+    bounds = (449, 248, 469, 254)
+    masks = [np.asarray(image.crop(bounds)).max(axis=2) < 96 for image in aero_run_capture]
+    np.testing.assert_array_equal(*masks)
+
+
+@pytest.mark.parametrize(
+    ("bounds", "max_error"),
+    [((187, 231, 246, 253), 6.8), ((310, 231, 392, 253), 10.6)],
+    ids=("ok", "cancel"),
+)
+def test_run_win7_caption_pixels_align_with_native(aero_run_capture, bounds, max_error):
+    data_home = Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local/share"))
+    if not (data_home / "fonts/Chicago95/Windows7/segoeui.ttf").is_file():
+        pytest.skip("Import the Windows 7 fonts with setup/import-windows-nt-fonts.py")
+    expected, actual = (np.asarray(image.crop(bounds), dtype=np.int16) for image in aero_run_capture)
+    # Sample the face left of each label so the separate gradient difference
+    # does not dominate the glyph alignment measurement.
+    expected_ink = np.maximum(np.median(expected[:, :3], axis=1, keepdims=True) - expected, 0)
+    actual_ink = np.maximum(np.median(actual[:, :3], axis=1, keepdims=True) - actual, 0)
+    assert np.abs(expected_ink - actual_ink).mean() < max_error
 
 
 def test_run_win7_history_arrow_matches_native_geometry(aero_run_capture, visual_output):
@@ -840,6 +929,45 @@ def test_run_native_states(theme, state, native_run_states, visual_output):
     exact(expected, actual, visual_output / theme / "run" / "qt" / name)
 
 
+def test_run_luna_browse_mnemonic_matches_native_glyphs_at_120dpi(qt_app, native_run_states):
+    from PySide6.QtGui import QFontDatabase
+
+    if not QFontDatabase.hasFamily("Tahoma"):
+        pytest.skip("Import the VM fonts with setup/import-windows-nt-fonts.py")
+    expected, actual, _ = native_run_states("winxp", "empty")
+    bounds = (308, 148, 373, 163)
+    masks = [np.asarray(image.crop(bounds)).max(axis=2) < 96 for image in (actual, expected)]
+    np.testing.assert_array_equal(*masks)
+
+
+def test_run_win98_high_dpi_frame_keeps_native_pixel_width(native_run_states):
+    expected, actual, _ = native_run_states("win98", "empty")
+    w, h = expected.size
+    for bounds in ((0, 0, w, 3), (0, 3, 4, h - 3), (w - 4, 3, w, h - 3), (0, h - 3, w, h)):
+        np.testing.assert_array_equal(np.asarray(expected.crop(bounds)), np.asarray(actual.crop(bounds)))
+
+
+def test_run_win98_high_dpi_caption_matches_native_font(qt_app, native_run_states):
+    from PySide6.QtGui import QFontDatabase
+
+    if "Chicago95 Windows 98 120 DPI" not in QFontDatabase.families():
+        pytest.skip("Import the fonts from the reference VM with setup/import-win9x-fonts.py")
+    expected, actual, _ = native_run_states("win98", "empty")
+    bounds = (4, 4, 50, 25)
+    np.testing.assert_array_equal(np.asarray(actual.crop(bounds)), np.asarray(expected.crop(bounds)))
+
+
+@pytest.mark.parametrize("state", ("empty", "typed"))
+def test_run_win98_high_dpi_button_labels_match_native(qt_app, native_run_states, state):
+    from PySide6.QtGui import QFontDatabase
+
+    if not QFontDatabase.hasFamily("Chicago95 Windows 98 120 DPI"):
+        pytest.skip("Import the fonts from the reference VM with setup/import-win9x-fonts.py")
+    expected, actual, _ = native_run_states("win98", state)
+    for bounds in ((142, 158, 200, 176), (247, 158, 310, 177), (351, 158, 424, 181)):
+        np.testing.assert_array_equal(np.asarray(actual.crop(bounds)), np.asarray(expected.crop(bounds)))
+
+
 def test_winxp_run_focus_dots_match_native(native_run_states, visual_output):
     focused = native_run_states("winxp", "ok-focus")[:2]
     typed = native_run_states("winxp", "typed")[:2]
@@ -898,6 +1026,18 @@ def run_history_popup(tmp_path_factory):
 def test_run_history_popup(theme, state, run_history_popup, visual_output):
     expected, actual = run_history_popup(theme, state)
     exact(expected, actual, visual_output / theme / "run/qt" / f"history-{state}")
+
+
+@pytest.mark.parametrize(("theme", "font_suffix", "text_edge"), (("win95", "", 258), ("win98", " 120 DPI", 345)))
+def test_run_history_matches_native_text_with_imported_font(theme, font_suffix, text_edge, qt_app, run_history_popup):
+    from PySide6.QtGui import QFontDatabase
+
+    if f"Chicago95 Windows {theme[-2:]}{font_suffix}" not in QFontDatabase.families():
+        pytest.skip("Import the fonts from the reference VM with setup/import-win9x-fonts.py")
+    for state in ("open", "down"):
+        expected, actual = run_history_popup(theme, state)
+        bounds = (0, 0, text_edge, expected.height)
+        np.testing.assert_array_equal(np.asarray(actual.crop(bounds)), np.asarray(expected.crop(bounds)))
 
 
 @pytest.mark.parametrize("theme", RUN_HISTORY_THEMES)
@@ -1134,9 +1274,10 @@ def desktop_scenes(installed, visual_output):
         look, scale = metadata["look"], spec["scale"]
         width, height = (round(value / scale) for value in spec["screen"])
         backdrop = "#4395D1" if look == "aero" and scene != "wallpaper" else None
+        components = ("background", "desktop", "startmenu") if scene == "run" else ("background", "desktop")
         session = installed(
             look, scale, aero_background=backdrop, screen=(width, height),
-            components=("background", "desktop"), launchers=tuple(spec["launchers"]),
+            components=components, launchers=tuple(spec["launchers"]),
         )
         output = visual_output / theme / "desktop" / "plasma"
         if samples != "desktop_samples":
@@ -1165,7 +1306,23 @@ def desktop_scenes(installed, visual_output):
             left, top, right, bottom = changed
             bounds = (left + region[0], top, right + region[0], bottom)
             return idle, menu.crop(bounds), bounds
-        if scene == "wallpaper":
+        if scene == "run":
+            history = session.work / HOME_AFTER_SETUP / ".config/chicago95/run-history"
+            history.parent.mkdir(parents=True, exist_ok=True)
+            history.write_text(spec["run"]["text"] + "\n")
+            left, top, right, bottom = (round(value / scale) for value in spec["run"]["bounds"])
+            result = show(
+                session, windows=[("Run", "run", (left, top, right - 1, bottom - 1))], scale=scale,
+                active_window="", window_state=True,
+            )
+            windows = [
+                json.loads(line.split("c95-window ", 1)[1])
+                for line in result.info["kwin_log"].splitlines() if "c95-window " in line
+            ]
+            assert any(window["phase"] == "after" and window["title"] == "Run" for window in windows), (
+                "The native reference contains Run, but the live scene did not open it."
+            )
+        elif scene == "wallpaper":
             result = show(session, windows=[], scale=scale)
         else:
             title = "Screen Resolution" if look == "aero" else "Untitled - Notepad"
@@ -1193,7 +1350,10 @@ def test_desktop_surface(theme, state, desktop_scenes, visual_output):
     else:
         if state == "idle":
             reference = folder / "desktop.png"
-            screen = desktop_scenes(theme, "wallpaper") if theme == "win7" else desktop_scenes(theme, "menu")[0]
+            if "run" in spec:
+                screen = desktop_scenes(theme, "run")
+            else:
+                screen = desktop_scenes(theme, "wallpaper") if theme == "win7" else desktop_scenes(theme, "menu")[0]
             with Image.open(reference) as image:
                 actual = screen.crop((0, 0, *image.size))
             cursor = spec.get("cursor")

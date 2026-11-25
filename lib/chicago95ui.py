@@ -341,6 +341,7 @@ FACE, NAVY = SCHEME["face"], SCHEME["selection"]
 LIGHT, SHADOW = bevel_shades(FACE)
 TEAL = QColor("#008080")
 UI_FONT_FAMILY = "MS W98 UI"
+NT_CLASSIC_FONT_FAMILIES = {"2000": "Chicago95 Windows 2000 Tahoma", "2001": "Tahoma"}
 ICON_SEARCH_PATHS = [
     os.path.expanduser("~/.local/share/icons"),
     os.path.expanduser("~/.icons"),
@@ -541,7 +542,7 @@ def window_scale(widget):
     return widget.devicePixelRatioF()
 
 
-def ui_font(pixel_size=11, bold=False):
+def ui_font(pixel_size=11, bold=False, *, look=None):
     """The UI font at the originals' size: MS Sans Serif 8 points, 11px. The pixel font is drawn on an
     11px grid; at any other size its letters land on fractional pixels and space unevenly. On a whole
     scale (1x, 2x) the grid lands on screen pixels and it is drawn unsmoothed, with hard edges; on 1.5x
@@ -551,6 +552,17 @@ def ui_font(pixel_size=11, bold=False):
         font.setPixelSize(pixel_size)
         font.setBold(bold)
         font.setStyleStrategy(QFont.PreferAntialias)
+        return font
+    if look is None:
+        look = look_settings()["style"]
+    native = NT_CLASSIC_FONT_FAMILIES.get(look)
+    if native and QFontDatabase.hasFamily(native):
+        font = QFont(native)
+        font.setPixelSize(pixel_size)
+        font.setBold(bold)
+        font.setStyleStrategy(QFont.NoAntialias)
+        font.setHintingPreference(QFont.PreferFullHinting)
+        font.setKerning(False)
         return font
     family = UI_FONT_FAMILY if UI_FONT_FAMILY in QFontDatabase.families() else "Noto Sans"
     font = QFont(family)
@@ -788,18 +800,16 @@ SIZE_GRIP = (
 
 
 @functools.lru_cache(maxsize=512)
-def caption_ink_width(text, font_key):
+def caption_ink_width(text, font):
     """How wide a caption's ink is, drawn once: the UI font keeps its glyphs' spacing on their right, so its advance
     widths overstate the ink and centring on them pulls captions left of where the originals put them."""
-    font = QFont()
-    font.fromString(font_key)
     metrics = QFontMetrics(font)
     image = QImage(metrics.horizontalAdvance(text) + 4, metrics.height() + 4, QImage.Format_RGB32)
     image.fill(QColor("#FFFFFF"))
     painter = QPainter(image)
     painter.setFont(font)
     painter.setPen(QColor("#000000"))
-    painter.drawText(image.rect(), Qt.AlignLeft | Qt.AlignTop | Qt.TextHideMnemonic, text)
+    painter.drawText(image.rect(), Qt.AlignLeft | Qt.AlignTop, text)
     painter.end()
     inked = [x for x in range(image.width()) if any(image.pixelColor(x, y).red() < 128 for y in range(image.height()))]
     return inked[-1] - inked[0] + 1 if inked else 0
@@ -967,7 +977,7 @@ class ClassicStyle(QProxyStyle):
             # (tests/test_control_panel_components_reference.py).
             font = widget.font() if widget else painter.font()
             ink = caption_ink_width(
-                option.text.replace("&&", "\0").replace("&", "").replace("\0", "&"), font.toString()
+                option.text.replace("&&", "\0").replace("&", "").replace("\0", "&"), font,
             )
             left = option.rect.left() + (option.rect.width() - ink + 1) // 2
             label = QRect(left, option.rect.top(), option.rect.right() - left + 1, option.rect.height())
@@ -976,6 +986,11 @@ class ClassicStyle(QProxyStyle):
                     self.pixelMetric(QStyle.PM_ButtonShiftHorizontal, option, widget),
                     self.pixelMetric(QStyle.PM_ButtonShiftVertical, option, widget),
                 )
+            device_offset = widget.property("classicLabelDeviceOffset") if widget is not None else None
+            if device_offset is not None:
+                painter.save()
+                transform = painter.deviceTransform()
+                painter.translate(device_offset.x() / transform.m11(), device_offset.y() / transform.m22())
             self.drawItemText(
                 painter,
                 label,
@@ -985,6 +1000,8 @@ class ClassicStyle(QProxyStyle):
                 option.text,
                 QPalette.ButtonText,
             )
+            if device_offset is not None:
+                painter.restore()
             return
         if element in (QStyle.CE_TabBarTabShape, QStyle.CE_TabBarTabLabel) and option.shape == QTabBar.RoundedNorth:
             shape, caption = tab_rects(option)
@@ -1447,18 +1464,31 @@ class ClassicDialog(QDialog):
         """The help button's face, 2px left of the close button's."""
         return self.close_rect().translated(-18, 0)
 
+    def caption_font(self):
+        return ui_font(bold=True, look=self.style)
+
+    def caption_baseline(self, title):
+        return QPointF(title.left() + 2, title.top() + 13)
+
     def paintEvent(self, _event):
         scheme = read_scheme()
         face, bevel = scheme["face"], bevel_colors(scheme["face"], bevel_for_style(self.style))
+        is_9x = self.style in ("1995", "1998")
         painter = QPainter(self)
         painter.fillRect(self.rect(), face)
-        rings = [(bevel["light"], bevel["dark"]), (QColor("#ffffff"), bevel["shadow"]), (face, face)]
-        w, h = self.width(), self.height()
+        outer_light = face if is_9x else bevel["light"]
+        rings = [(outer_light, bevel["dark"]), (QColor("#ffffff"), bevel["shadow"]), (face, face)]
+        # At 120 DPI Windows 9x enlarges the caption and keeps each dialog frame ring one pixel wide.
+        scale = 1.25 if is_9x and self.devicePixelRatioF() == 1.25 else 1
+        painter.save()
+        painter.scale(1 / scale, 1 / scale)
+        w, h = round(self.width() * scale), round(self.height() * scale)
         for depth, (top_left, bottom_right) in enumerate(rings):
             painter.fillRect(depth, depth, w - 2 * depth - 1, 1, top_left)
             painter.fillRect(depth, depth, 1, h - 2 * depth - 1, top_left)
             painter.fillRect(depth, h - 1 - depth, w - 2 * depth, 1, bottom_right)
             painter.fillRect(w - 1 - depth, depth, 1, h - 2 * depth, bottom_right)
+        painter.restore()
         title, close = self.title_rect(), self.close_rect()
         gradient = QLinearGradient(title.left(), 0, close.left() - 2, 0)
         state = (
@@ -1466,10 +1496,14 @@ class ClassicDialog(QDialog):
         )  # only the active window's title is in the active colours
         gradient.setColorAt(0, scheme[f"title_{state}"])
         gradient.setColorAt(1, scheme[f"title_{state}_blend"])
-        painter.fillRect(title, gradient)
-        painter.setFont(ui_font(bold=True))
+        caption_height = floor(DIALOG_TITLE * scale + 0.5)
+        painter.fillRect(
+            QRectF(DIALOG_FRAME / scale, DIALOG_FRAME / scale, (w - 2 * DIALOG_FRAME) / scale, caption_height / scale),
+            gradient,
+        )
+        painter.setFont(self.caption_font())
         painter.setPen(scheme[f"title_{state}_text"])
-        painter.drawText(title.left() + 2, title.top() + 13, self.windowTitle())
+        painter.drawText(self.caption_baseline(title), self.windowTitle())
         from PySide6.QtSvg import QSvgRenderer
 
         # Each element covers its button's cell, the face a row down: the close cell is 18 wide with the
@@ -1477,7 +1511,7 @@ class ClassicDialog(QDialog):
         buttons = [("close.svg", close, 2, "pressed" if self.held else state)] + (
             [("help.svg", self.help_rect(), 0, state)] if self.help_button else []
         )
-        for file, face, lead, button_state in buttons:
+        for file, button_rect, lead, button_state in buttons:
             button = QSvgRenderer(os.path.join(DECORATION, file))
             element = {"active": "active-center", "inactive": "inactive-center", "pressed": "pressed-center"}[
                 button_state
@@ -1486,8 +1520,13 @@ class ClassicDialog(QDialog):
                 button.render(
                     painter,
                     element if button.elementExists(element) else "active-center",
-                    QRectF(face.left() - lead, face.top() - 1, 16 + lead, 16),
+                    QRectF(button_rect.left() - lead, button_rect.top() - 1, 16 + lead, 16),
                 )
+                if is_9x and button_state != "pressed":
+                    # The native dialog's inner top and left bevels use the face colour.
+                    x, y = button_rect.left() + 1, button_rect.top() + 1
+                    painter.fillRect(x, y, button_rect.width() - 3, 1, face)
+                    painter.fillRect(x, y + 1, 1, button_rect.height() - 4, face)
         painter.end()
 
     def changeEvent(self, event):

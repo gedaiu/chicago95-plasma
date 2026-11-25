@@ -4,7 +4,13 @@
   "start_menu_user": "Ref",
   "look": "1998",
   "motion": {"title_strip": "motion/title-strip.json"},
-  "desktop_samples": {"screen": [1280, 1024], "scale": 1.25, "launchers": ["user-desktop", "web-browser", "mail-client"], "cursor": [640, 512, 662, 536]},
+  "desktop_samples": {
+    "screen": [1280, 1024],
+    "scale": 1.25,
+    "launchers": ["user-desktop", "web-browser", "mail-client"],
+    "cursor": [640, 512, 662, 536],
+    "run": {"bounds": [5, 787, 465, 987], "text": "esk.cpl"}
+  },
   "file_manager_scale": 1.25,
   "session_screens": {
     "sign-in": {

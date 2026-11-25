@@ -101,7 +101,10 @@ from PySide6.QtGui import (
     QLinearGradient,
     QPainter,
     QPalette,
+    QPixmap,
+    QRegion,
 )
+from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QApplication, QMenu, QStyle, QStyleOptionMenuItem, QWidget
 
 RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
@@ -685,8 +688,46 @@ def original_xp_icon(name):
     return None
 
 
+def win95_suspend_icon():
+    installed = QStandardPaths.locate(QStandardPaths.GenericDataLocation, "chicago95/start-menu/suspend.svg")
+    asset = Path(__file__).resolve().parent.parent / "data/start-menu/suspend.svg"
+    if not installed and not asset.is_file():
+        return QIcon()
+    renderer = QSvgRenderer(installed or str(asset))
+    if not renderer.isValid():
+        return QIcon()
+    monitors = (base / "Chicago95/actions/24/system-shutdown.png" for base in ICON_SET_DIRS)
+    monitor = next((path for path in monitors if path.is_file()), None)
+    # Sample the SVG near the centre of each output pixel to preserve the sharp
+    # edges of the native icon. When available, reuse the matched monitor art.
+    size = ROOT_ICON * 5
+    layer = QPixmap(size, size)
+    layer.fill(Qt.transparent)
+    painter = QPainter(layer)
+    if monitor:
+        painter.scale(size / 24, size / 24)
+        renderer.render(painter, "suspend-screen", renderer.boundsOnElement("suspend-screen"))
+    else:
+        renderer.render(painter)
+    painter.end()
+    layer = layer.scaled(ROOT_ICON, ROOT_ICON, Qt.IgnoreAspectRatio, Qt.FastTransformation)
+    if monitor is None:
+        return QIcon(layer)
+    picture = chicago95ui.crisp_icon(QIcon(str(monitor))).pixmap(ROOT_ICON, ROOT_ICON)
+    painter = QPainter(picture)
+    painter.setClipRegion(QRegion(layer.mask()))
+    painter.setCompositionMode(QPainter.CompositionMode_Source)
+    painter.drawPixmap(0, 0, layer)
+    painter.end()
+    return QIcon(picture)
+
+
 def root_icon(item, style):
     """The item's icon from the style's matched icon set, or from the desktop's icon theme."""
+    if style == "1995" and item == "suspend":
+        icon = win95_suspend_icon()
+        if not icon.isNull():
+            return icon
     names = ROOT_ICONS.get(style, ROOT_ICONS["1995"])[item]
     if style == "2001":
         for name in names:

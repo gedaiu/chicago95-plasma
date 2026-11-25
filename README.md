@@ -126,6 +126,21 @@ The MS W98 UI font can't be redistributed. Drop the OTF into
 `~/.local/share/fonts` before running Setup, or pick another family with
 `--font=`.
 
+Windows 95 and 98 can also use MS Sans Serif from your own VM. Copy
+`SSERIFE.FON` and `SSERIFF.FON` from the guest's `WINDOWS\FONTS` directory
+into a local folder. With Python FontTools installed, run
+`python3 setup/import-win9x-fonts.py 95 /path/to/fonts` for Windows 95 or
+`python3 setup/import-win9x-fonts.py 98 /path/to/fonts` for Windows 98.
+The importer creates local TrueType fonts for 96 and 120 DPI. Run uses
+them on the matching look, and Setup selects them for KDE and GTK when
+the default font is selected at those scales.
+
+For Windows 2000, XP Classic, XP Luna and Windows 7, use
+`python3 setup/import-windows-nt-fonts.py <2000|xp|7> /path/to/fonts`
+with the source VM's Fonts folder. Import Tahoma for Windows 2000,
+Tahoma and Trebuchet MS for XP, and Segoe UI for Windows 7. Setup uses
+the installed fonts when you apply the corresponding look.
+
 ## Install
 
 ```

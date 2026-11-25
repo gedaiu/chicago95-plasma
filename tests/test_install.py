@@ -10,6 +10,28 @@ import pytest
 from conftest import REPO, run_bash_with_steps
 
 
+@pytest.mark.parametrize(
+    ("look", "dpi", "family"),
+    [
+        ("1995", 96, "Chicago95 Windows 95"),
+        ("1998", 120, "Chicago95 Windows 98 120 DPI"),
+        ("2000", 120, "Chicago95 Windows 2000 Tahoma"),
+        ("2001", 96, "Tahoma"),
+    ],
+)
+def test_setup_selects_the_locally_imported_windows_classic_fonts(tmp_path, look, dpi, family):
+    output = run_bash_with_steps(
+        tmp_path,
+        f'SETUP_WIDGET_STYLE=classic; SETUP_START_MENU_STYLE={look}; SETUP_DPI={dpi}; '
+        f'fc-list() {{ echo "{family}"; }}; '
+        'kconf() { echo "$*"; }; set_gtk_font() { echo "GTK $*"; }; '
+        'install_pixel_font_rule() { :; }; step_fonts',
+    )
+    assert f"kdeglobals General font {family},8.25,-1,5,50,0,0,0,0,0" in output
+    assert f"kdeglobals WM activeFont {family},8.25,-1,5,75,0,0,0,0,0" in output
+    assert f"GTK {family} 8.25" in output
+
+
 def test_dry_run_of_sddm_component_writes_the_zz_override_without_asking_for_a_password(tmp_path):
     result = subprocess.run(
         [str(REPO / "install.sh"), "--plain", "--yes", "--dry-run", "--components=sddm"],

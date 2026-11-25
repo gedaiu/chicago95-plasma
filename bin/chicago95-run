@@ -18,9 +18,21 @@ from math import ceil, floor
 from pathlib import Path
 
 import chicago95ui  # noqa: E401,E702
-from chicago95aerobutton import AeroDialogButton, aero_button_artwork
+from chicago95aerobutton import AeroDialogButton, aero_button_artwork, mnemonic_caption, paint_mnemonic_underline
 from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPalette, QPen, QPixmap, QPolygonF
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QFontDatabase,
+    QIcon,
+    QImage,
+    QKeySequence,
+    QPainter,
+    QPalette,
+    QPen,
+    QPixmap,
+    QPolygonF,
+)
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -32,7 +44,9 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollBar,
     QStyle,
+    QStyleOptionButton,
     QStyleOptionSlider,
+    QStylePainter,
     QWidget,
 )
 
@@ -229,9 +243,27 @@ class AeroRunContent(QWidget):
         painter.fillRect(pane.adjusted(pixel, pixel, -pixel, -pixel), Qt.white)
 
 
+class AeroRunButton(AeroDialogButton):
+    def paint_caption(self, painter, option):
+        scale = self.devicePixelRatioF()
+        offset = {"OK": -0.25, "Cancel": 0.375, "&Browse...": -0.125}.get(option.text)
+        if offset is None or scale != 1.5 or not QFontDatabase.hasFamily("Segoe UI"):
+            super().paint_caption(painter, option)
+            return
+        # Preserve the 150% guest's fractional origin when Qt rasterizes Segoe UI.
+        painter.save()
+        painter.translate(offset / scale, 0)
+        super().paint_caption(painter, option)
+        painter.restore()
+
+
 class LunaRunButton(QPushButton):
     def paintEvent(self, event):  # noqa: N802
-        super().paintEvent(event)
+        caption = mnemonic_caption(self.text())
+        if caption and self.devicePixelRatioF() == 1.25 and QFontDatabase.hasFamily("Tahoma"):
+            self.paint_native_caption(caption)
+        else:
+            super().paintEvent(event)
         if not self.hasFocus():
             return
         painter = QPainter(self)
@@ -253,6 +285,36 @@ class LunaRunButton(QPushButton):
             for row in range(y + 1 + (y + 1 + column) % 2, bottom, 2)
         )
         painter.drawPoints(inverse.map(QPolygonF(dots)))
+
+    def paint_native_caption(self, caption):
+        painter = QStylePainter(self)
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        option.text = ""
+        painter.drawControl(QStyle.CE_PushButton, option)
+
+        # Shape the mnemonic at its native physical ppem so the underline
+        # and the adjacent glyph advances snap to the same pixel grid.
+        scale = self.devicePixelRatioF()
+        size = QSize(round(self.width() * scale), round(self.height() * scale))
+        image = QImage(size, QImage.Format_ARGB32_Premultiplied)
+        image.fill(Qt.transparent)
+        font = self.font()
+        font.setPixelSize(13)
+        font.setHintingPreference(QFont.PreferFullHinting)
+        font.setKerning(False)
+        style = self.style()
+        show_mnemonic = style.styleHint(QStyle.SH_UnderlineShortcut, option, self)
+        with QPainter(image) as text:
+            text.setFont(font)
+            style.drawItemText(
+                text, image.rect(), Qt.AlignCenter, option.palette,
+                self.isEnabled(), caption[0], QPalette.ButtonText,
+            )
+            if show_mnemonic:
+                paint_mnemonic_underline(text, caption, image.rect(), option.palette.buttonText())
+        image.setDevicePixelRatio(scale)
+        painter.drawImage(QPoint(0, 0), image)
 
 
 class RunHistoryField(QComboBox):
@@ -296,11 +358,13 @@ class RunHistoryScrollBar(QScrollBar):
 
 
 class RunHistoryRows(chicago95ui.ListRowDelegate):
-    def __init__(self, view, style, scale):
+    def __init__(self, view, style, scale, native_96dpi=False):
         super().__init__(view)
         self.label_offset = (3, 1) if style in ("1995", "1998") else (0, 0)
         if style == "1998" and scale == 1.25:
             self.label_offset = (3, 0)
+        if native_96dpi:
+            self.label_offset = (2, 0)
         self.scale = scale
 
     def sizeHint(self, option, index):  # noqa: N802
@@ -349,6 +413,7 @@ class RunBehaviour:
         self.style = prompt_key(look)
         super().__init__("Run", self.style, self.layout.body, help_button=True)
         self.layout_scale = chicago95ui.window_scale(self)
+        self.native_font = self.original_font()
         self.button_size = (82, 28) if self.style == "aero" else chicago95ui.DIALOG_BUTTON_SIZE
         self.win98_hidpi = self.style == "1998" and self.layout_scale == 1.25
         self.luna_hidpi = self.style == "luna" and self.layout_scale == 1.25
@@ -369,8 +434,37 @@ class RunBehaviour:
         self.command = None
         self.build()
 
+    def original_font(self):
+        if self.style not in ("1995", "1998") or self.layout_scale not in (1, 1.25):
+            return None
+        family = f"Chicago95 Windows {self.style[-2:]}"
+        if self.layout_scale == 1.25:
+            family += " 120 DPI"
+        if family not in QFontDatabase.families():
+            return None
+        font = QFont(family)
+        font.setPixelSize(11)
+        font.setStyleStrategy(QFont.NoAntialias)
+        font.setHintingPreference(QFont.PreferNoHinting)
+        return font
+
+    def caption_font(self):
+        if self.native_font is None:
+            return super().caption_font()
+        font = QFont(self.native_font)
+        font.setBold(True)
+        return font
+
+    def caption_baseline(self, title):
+        baseline = super().caption_baseline(title)
+        if self.native_font is not None and self.layout_scale == 1.25:
+            baseline -= QPointF(0.8, 0.8)
+        return baseline
+
     def build(self):
         body, layout = self.body, self.layout
+        native_96dpi = self.native_font is not None and self.layout_scale == 1
+        native_tahoma = False
         if self.style == "aero":
             font = chicago95ui.ui_font(12)
             font.setFamilies(["Segoe UI", "Selawik", "Noto Sans", "DejaVu Sans"])
@@ -380,12 +474,21 @@ class RunBehaviour:
             self.aero_content = AeroRunContent(body)
             self.aero_content.setGeometry(0, 0, layout.body[0], 127)
         elif self.style in ("2000", "2001", "luna"):
-            font = self.font()
-            font.setFamilies(["Tahoma", "Liberation Sans", "Selawik", "Noto Sans"])
+            family = chicago95ui.NT_CLASSIC_FONT_FAMILIES.get(self.style, "Tahoma")
+            font = QFont(family)
+            font.setFamilies(list(dict.fromkeys((family, "Tahoma", "Liberation Sans", "Noto Sans"))))
             font.setPixelSize(11)
-            if self.luna_hidpi:
+            native_tahoma = QFontDatabase.hasFamily(family)
+            if native_tahoma or self.luna_hidpi:
                 font.setStyleStrategy(QFont.NoAntialias)
+            if native_tahoma and self.layout_scale == 1:
+                font.setHintingPreference(QFont.PreferFullHinting)
+                font.setKerning(False)
+            elif native_tahoma and self.luna_hidpi:
+                font.setPixelSize(10)
             body.setFont(font)
+        elif self.native_font is not None:
+            body.setFont(self.native_font)
         icon = QLabel(body)
         filenames = {"aero": "aero-run.svg", "2001": "xp-run.svg", "luna": "xp-run.svg"}
         filename = filenames.get(self.style, "classic-run.svg")
@@ -415,18 +518,39 @@ class RunBehaviour:
         )
         open_label = QLabel("&Open:", body)
         open_label.move(*layout.label_at)
+        if native_96dpi:
+            prompt.move(prompt.pos() - QPoint(1, 1))
+            open_label.move(open_label.pos() - QPoint(0, 2))
+        elif self.native_font is not None:
+            prompt.move(prompt.pos() + QPoint(1, -1))
+            open_label.move(open_label.pos() - QPoint(0, 2))
+        elif native_tahoma and self.layout_scale == 1:
+            rise = 2 if self.style == "luna" else 1
+            prompt.move(prompt.pos() - QPoint(0, rise))
+            open_label.move(open_label.pos() - QPoint(0, rise + 1))
+        elif native_tahoma and self.luna_hidpi:
+            prompt.move(prompt.pos() + QPoint(2, -1))
+            open_label.move(open_label.pos() + QPoint(1, -1))
+        elif self.style == "aero" and QFontDatabase.hasFamily("Segoe UI"):
+            prompt.move(prompt.pos() + QPoint(-1, 1))
         self.field = chicago95ui.classic_combo(RunHistoryField(body))
         open_label.setBuddy(self.field)
         self.field.setEditable(True)
         self.field.setInsertPolicy(QComboBox.NoInsert)
         self.field.addItems(self.history)
         self.field.setGeometry(*layout.field_at, layout.field_width, layout.field_height)
+        if self.style in ("1995", "1998"):
+            # The editable Run field and its menu button use the face colour for these bevels.
+            palette = self.field.palette()
+            for group in (QPalette.Active, QPalette.Inactive, QPalette.Disabled):
+                palette.setColor(group, QPalette.Midlight, palette.color(group, QPalette.Button))
+            self.field.setPalette(palette)
         if self.style != "aero":
             self.field.setMaxVisibleItems(9 if self.style in ("1995", "1998") else HISTORY_LENGTH)
             view = self.field.view()
             if self.style in ("1995", "1998"):
                 view.setVerticalScrollBar(RunHistoryScrollBar(Qt.Vertical, view))
-            view.setItemDelegate(RunHistoryRows(view, self.style, scale))
+            view.setItemDelegate(RunHistoryRows(view, self.style, scale, native_96dpi))
             if self.win98_hidpi or self.style == "luna":
                 font = view.font()
                 font.setFamilies(["Tahoma", "Liberation Sans", "Selawik", "Noto Sans"])
@@ -448,6 +572,7 @@ class RunBehaviour:
                             border-top-color: #3d7db7; padding-left: 3px; }
                 QComboBox::drop-down { border: none; width: 15px; }
             """ + f'QComboBox::down-arrow {{ image: url("{arrow}"); width: 8px; height: 6px; }}')
+            self.field.lineEdit().setFont(body.font())
         self.field.lineEdit().textEdited.connect(self.search)
         self.field.lineEdit().installEventFilter(self)
         self.field.view().installEventFilter(self)
@@ -467,13 +592,22 @@ class RunBehaviour:
         self.outline.setGeometry(layout.button_lefts[0], layout.button_top, *self.button_size)
         self.outline.setVisible(layout.ok_inset > 0)
         artwork = aero_button_artwork() if self.style == "aero" else None
+        # The 120-DPI guest aligns each caption to the physical pixel grid.
+        win98_caption_offsets = {"OK": -2, "Cancel": -0.5, "&Browse...": -1.25}
         for label in ("OK", "Cancel", "&Browse..."):
             if artwork:
-                button = AeroDialogButton(label, artwork, body, default_face="run-default", normal_face="run-normal")
+                button = AeroRunButton(label, artwork, body, default_face="run-default", normal_face="run-normal")
             elif self.luna_hidpi:
                 button = LunaRunButton(label, body)
             else:
                 button = QPushButton(label, body)
+                mnemonic = not QKeySequence.mnemonic(label).isEmpty()
+                if native_96dpi:
+                    button.setProperty("classicLabelDeviceOffset", QPoint(-2 if mnemonic else -1, -1))
+                elif self.win98_hidpi and self.native_font is not None:
+                    button.setProperty("classicLabelDeviceOffset", QPointF(win98_caption_offsets[label], -1))
+                elif native_tahoma and self.layout_scale == 1 and self.style in ("2000", "2001"):
+                    button.setProperty("classicLabelDeviceOffset", QPoint(-1, -1))
             button.setAutoDefault(self.luna_hidpi)
             self.buttons[label] = button
         self.place_buttons(0)

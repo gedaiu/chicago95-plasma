@@ -3,8 +3,8 @@
 from math import ceil, floor
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QRectF, QSignalBlocker, QStandardPaths, Qt, QTimer, QVariantAnimation
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtCore import QEvent, QPointF, QRectF, QSignalBlocker, QStandardPaths, Qt, QTimer, QVariantAnimation
+from PySide6.QtGui import QColor, QPainter, QPen, QTextLayout
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QPushButton, QStyle, QStyleOptionButton, QStylePainter
 
@@ -14,6 +14,33 @@ def aero_button_artwork():
     if not path.is_file():
         path = QStandardPaths.locate(QStandardPaths.GenericDataLocation, "chicago95/aero-shutdown-button.svg")
     return QSvgRenderer(str(path))
+
+
+def mnemonic_caption(text):
+    prefix, marker, suffix = text.partition("&")
+    if marker and suffix and "&" not in suffix:
+        return prefix + suffix, len(prefix.encode("utf-16-le")) // 2
+    return None
+
+
+def paint_mnemonic_underline(painter, caption, contents, color):
+    text, position = caption
+    layout = QTextLayout(text, painter.font(), painter.device())
+    layout.beginLayout()
+    line = layout.createLine()
+    layout.endLayout()
+    start = line.cursorToX(position)[0]
+    end = line.cursorToX(layout.nextCursorPosition(position))[0]
+    x = contents.x() + (contents.width() - line.naturalTextWidth()) / 2
+    baseline = contents.y() + (contents.height() - line.height()) / 2 + line.ascent()
+    transform = painter.deviceTransform()
+    left = round(transform.map(QPointF(x + min(start, end), baseline)).x())
+    right = floor(transform.map(QPointF(x + max(start, end), baseline)).x())
+    row = floor(transform.map(QPointF(x, baseline)).y()) + 1
+    inverse, invertible = transform.inverted()
+    if invertible:
+        underline = QRectF(left, row, max(1, right - left), 1)
+        painter.fillRect(inverse.mapRect(underline), color)
 
 
 class AeroDialogButton(QPushButton):
@@ -77,6 +104,26 @@ class AeroDialogButton(QPushButton):
             self.set_aligned_geometry(*self.aligned_geometry)
         return result
 
+    def paint_caption(self, painter, option):
+        # Qt's scaled underline becomes two device pixels tall. Aero's is one
+        # pixel, with the same label advances whether the underline is shown or hidden.
+        caption = mnemonic_caption(option.text)
+        if caption is None or not option.icon.isNull():
+            painter.drawControl(QStyle.CE_PushButtonLabel, option)
+            return
+        option.text = caption[0]
+        painter.drawControl(QStyle.CE_PushButtonLabel, option)
+        style = self.style()
+        if not style.styleHint(QStyle.SH_UnderlineShortcut, option, self):
+            return
+        content = style.subElementRect(QStyle.SE_PushButtonContents, option, self)
+        if option.state & (QStyle.State_Sunken | QStyle.State_On):
+            content.translate(
+                style.pixelMetric(QStyle.PM_ButtonShiftHorizontal, option, self),
+                style.pixelMetric(QStyle.PM_ButtonShiftVertical, option, self),
+            )
+        paint_mnemonic_underline(painter, caption, content, option.palette.buttonText())
+
     def paintEvent(self, event):
         if not self.artwork.isValid() or not self.isEnabled():
             super().paintEvent(event)
@@ -106,4 +153,4 @@ class AeroDialogButton(QPushButton):
             painter.restore()
         option = QStyleOptionButton()
         self.initStyleOption(option)
-        painter.drawControl(QStyle.CE_PushButtonLabel, option)
+        self.paint_caption(painter, option)

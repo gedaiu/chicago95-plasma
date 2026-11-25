@@ -1230,6 +1230,7 @@ write_start_menu_rc() { python_applier start_menu; }
 step_startmenu() {
   step_tools_common
   put_file "$REPO/bin/chicago95-startmenu" ~/.local/bin/chicago95-startmenu
+  put_file "$REPO/data/start-menu/suspend.svg" ~/.local/share/chicago95/start-menu/suspend.svg
   run chmod +x ~/.local/bin/chicago95-startmenu
   put_file "$REPO/bin/chicago95-shutdown" ~/.local/bin/chicago95-shutdown
   put_tree "$REPO/kwin-effects/chicago95shutdown" ~/.local/share/kwin/effects/chicago95shutdown
@@ -2064,7 +2065,7 @@ step_fonts() { # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bar
     step_luna_fonts
     return
   }
-  local family="${SETUP_FONT:-MS W98 UI}" key
+  local family="${SETUP_FONT:-MS W98 UI}" key app_size=9 caption_size=8 native
   if [ "$SETUP_WIDGET_STYLE" = aero ]; then
     if [ "${SETUP_FONT_SCOPE:-everywhere}" != none ]; then
       put_tree "$SDDM_THEME_SRC/fonts/selawik" "$HOME/.local/share/fonts/Chicago95/Selawik"
@@ -2083,17 +2084,35 @@ step_fonts() { # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bar
     [ "${SETUP_FONT_SCOPE:-everywhere}" = none ] || kconf kdeglobals WM activeFont "$family,9,-1,5,50,0,0,0,0,0"
     return 0
   fi
+  if [[ "$SETUP_WIDGET_STYLE" == classic && "$family" == "MS W98 UI" && -z "${OPT_FONT:-}" ]]; then
+    case "${SETUP_START_MENU_STYLE:-}" in
+      1995|1998)
+        case "${SETUP_DPI:-96}" in
+          96) native="Chicago95 Windows ${SETUP_START_MENU_STYLE:2}" ;;
+          120) native="Chicago95 Windows ${SETUP_START_MENU_STYLE:2} 120 DPI" ;;
+        esac
+        ;;
+      2000) native="Chicago95 Windows 2000 Tahoma" ;;
+      2001) native="Tahoma" ;;
+    esac
+    if [ -n "${native:-}" ] && fc-list -f '%{family[0]}\n' "$native" | grep -Fx "$native" >/dev/null; then
+      family="$native"
+      # The 8-point GDI raster font used an 11px logical em at 96 DPI.
+      app_size=8.25
+      caption_size="$app_size"
+    fi
+  fi
   if ! fc-list : family | grep -i "$family" >/dev/null; then
     ui_status "Font '$family' not installed; UI text keeps your current font until it is in ~/.local/share/fonts"
     return
   fi
   case "${SETUP_FONT_SCOPE:-everywhere}" in
   everywhere)
-    kconf kdeglobals General font "$family,9,-1,5,50,0,0,0,0,0"
-    kconf kdeglobals General menuFont "$family,9,-1,5,50,0,0,0,0,0"
-    kconf kdeglobals General toolBarFont "$family,9,-1,5,50,0,0,0,0,0"
+    kconf kdeglobals General font "$family,$app_size,-1,5,50,0,0,0,0,0"
+    kconf kdeglobals General menuFont "$family,$app_size,-1,5,50,0,0,0,0,0"
+    kconf kdeglobals General toolBarFont "$family,$app_size,-1,5,50,0,0,0,0,0"
     kconf kdeglobals General smallestReadableFont "$family,8,-1,5,50,0,0,0,0,0"
-    set_gtk_font "$family 9"
+    set_gtk_font "$family $app_size"
     ;;
   *) # A reinstall with a narrower scope takes back what an earlier "everywhere" set.
     for key in "${APP_FONT_KEYS[@]}"; do
@@ -2103,7 +2122,7 @@ step_fonts() { # SETUP_FONT_SCOPE: everywhere (all programs), desktop (title bar
   esac
   case "${SETUP_FONT_SCOPE:-everywhere}" in
   none) installed_by_setup "kconf:kdeglobals:WM:activeFont" && run kwriteconfig6 --file kdeglobals --group WM --key activeFont --delete ;;
-  *) kconf kdeglobals WM activeFont "$family,8,-1,5,75,0,0,0,0,0" ;; # 8 points: the originals' 11px titles
+  *) kconf kdeglobals WM activeFont "$family,$caption_size,-1,5,75,0,0,0,0,0" ;;
   esac
   [ "${SETUP_FONT_SCOPE:-everywhere}" = none ] || install_pixel_font_rule
   return 0

@@ -7,7 +7,7 @@ import pytest
 from PIL import Image
 
 
-def compare(original, actual, output, mask=None, *, record_metrics=False):
+def compare(original, actual, output, mask=None, *, record_metrics=False, tolerance=None):
     reference_size, rendered_size = original.size, actual.size
     metrics_path = output.with_suffix(".metrics.json")
     geometry = ""
@@ -20,6 +20,8 @@ def compare(original, actual, output, mask=None, *, record_metrics=False):
         actual = actual.crop((0, 0, width, height))
         if mask is not None:
             mask = mask[:height, :width]
+        if tolerance is not None:
+            tolerance = tolerance[:height, :width]
         output = output.with_name(output.stem + "-overlap.png")
     expected = np.asarray(original.convert("RGB"), dtype=np.int16)
     observed = np.asarray(actual.convert("RGB"), dtype=np.int16)
@@ -29,6 +31,10 @@ def compare(original, actual, output, mask=None, *, record_metrics=False):
     total = samples.size // 3
     assert total > 0
     mean_error = float(samples.mean())
+    remaining = changed
+    if tolerance is not None:
+        limits = tolerance if mask is None else tolerance[mask]
+        remaining = int((samples.max(axis=-1) > limits).sum())
     if record_metrics:
         metrics_path.write_text(json.dumps({
             "reference_size": reference_size,
@@ -36,6 +42,7 @@ def compare(original, actual, output, mask=None, *, record_metrics=False):
             "changed_pixels": changed,
             "compared_pixels": total,
             "mean_rgb_error": mean_error,
+            **({"pixels_over_tolerance": remaining} if tolerance is not None else {}),
         }) + "\n")
     if changed or geometry:
         if mask is not None:
@@ -46,8 +53,13 @@ def compare(original, actual, output, mask=None, *, record_metrics=False):
         panel.paste(actual.convert("RGB"), (actual.width, 0))
         panel.paste(Image.fromarray(np.minimum(255, 4 * delta).astype("uint8")), (2 * actual.width, 0))
         panel.save(output)
+    if remaining or geometry:
         region = " in the top-left overlap" if geometry else ""
+        result = (
+            f"{changed}/{total} pixels differ" if tolerance is None
+            else f"{remaining}/{total} pixels exceed tolerance ({changed} differ)"
+        )
         pytest.fail(
-            f"{geometry}{changed}/{total} pixels differ{region}, mean RGB error {mean_error:.2f}/255; {output}",
+            f"{geometry}{result}{region}, mean RGB error {mean_error:.2f}/255; {output}",
             pytrace=False,
         )

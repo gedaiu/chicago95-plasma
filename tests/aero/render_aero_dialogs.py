@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from conftest import REPO, load_script
 from PySide6.QtCore import QPoint, Qt, QUrl
-from PySide6.QtGui import QFont, QIcon
+from PySide6.QtGui import QFont, QFontDatabase, QIcon
 from PySide6.QtQuick import QQuickView
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QMenu, QTabWidget
@@ -37,6 +37,12 @@ def render(out, scale, *, run_only=False):
     )
     os.environ["FONTCONFIG_FILE"] = str(config / "fonts.conf")
     app = QApplication([])
+    if run_only:
+        data_home = Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local/share"))
+        for name in ("segoeui.ttf", "segoeuib.ttf"):
+            path = data_home / "fonts/Chicago95/Windows7" / name
+            if path.is_file():
+                assert QFontDatabase.addApplicationFont(str(path)) >= 0
     app.setStyle("Fusion")
     app.setPalette(app.style().standardPalette())
     font = QFont("DejaVu Sans")

@@ -6,7 +6,8 @@ icon set our icons match the originals nearly pixel for pixel (the screenshot's 
 
 import numpy as np
 import pytest
-from conftest import needs_chicago95_icons
+from conftest import REPO, needs_chicago95_icons
+from icon_geometry import circular_arcs, overlap
 from reference import render_start_menu, screenshot
 
 ROOT_MENU = (2, 217, 166, 456)
@@ -65,3 +66,39 @@ def test_icon_looks_like_the_original(menus, item):
         for dy in (-1, 0, 1)
     )
     assert difference <= MEAN_DIFFERENCE, f"{item}: mean difference {difference:.1f}"
+
+
+def test_win95_suspend_svg_fallback_matches_the_native_monitor(startmenu, qt_app, monkeypatch):
+    from PIL import Image
+    from PySide6.QtGui import QColor, QImage, QPainter
+    from reference import REFERENCES, qimage_to_pil
+
+    monkeypatch.setattr(startmenu, "ICON_SET_DIRS", ())
+    monkeypatch.setattr(startmenu, "ROOT_ICON", 24)
+    icon = startmenu.root_icon("suspend", "1995").pixmap(24, 24)
+    canvas = QImage(24, 24, QImage.Format_RGB32)
+    canvas.fill(QColor("#C0C0C0"))
+    painter = QPainter(canvas)
+    painter.drawPixmap(0, 0, icon)
+    painter.end()
+    with Image.open(REFERENCES / "themes/win95/start-menu.png") as reference:
+        expected = reference.crop((34, 208, 58, 232)).convert("RGB")
+    expected, actual = (np.asarray(image, dtype=np.int16) for image in (expected, qimage_to_pil(canvas)))
+    assert np.abs(expected - actual).mean() < 14
+    yellow = [(image[:, :, :2].min(2) > 200) & (image[:, :, 2] < 50) for image in (expected, actual)]
+    assert (yellow[0] & yellow[1]).sum() >= 7
+
+
+def test_win95_suspend_has_separate_fills_and_a_circular_crescent():
+    artwork = (REPO / "data/start-menu/suspend.svg").read_bytes()
+    assert not overlap(artwork)
+    assert len(circular_arcs(artwork, "moon")) == 2
+
+
+def test_geometry_check_reports_intersection_but_allows_shared_edges():
+    artwork = b"""<svg xmlns="http://www.w3.org/2000/svg" width="3" height="2">
+      <rect id="left" width="2" height="2"/>
+      <rect id="middle" x="1" width="1" height="2"/>
+      <rect id="right" x="2" width="1" height="2"/>
+    </svg>"""
+    assert overlap(artwork) == [{"shapes": ["left", "middle"], "source_pixels_squared": 2}]

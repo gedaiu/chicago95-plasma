@@ -22,6 +22,25 @@ def run():
     return load_script("chicago95-run")
 
 
+@pytest.mark.parametrize("widget_style", ("classic", "luna", "aero"))
+def test_alt_b_activates_browse(run, qt_app, monkeypatch, widget_style):
+    calls = []
+
+    def browse(dialog):
+        calls.append(dialog)
+
+    monkeypatch.setattr(run.RunBehaviour, "browse", browse)
+    dialog = run.RunDialog({"widgetStyle": widget_style}, [], [], history=[])
+    dialog.show()
+    try:
+        qt_app.processEvents()
+        QTest.keyClick(dialog.field.lineEdit(), Qt.Key_B, Qt.AltModifier)
+        QTest.qWait(150)
+        assert calls == [dialog]
+    finally:
+        dialog.close()
+
+
 @pytest.fixture
 def bin_dir(tmp_path):
     folder = tmp_path / "bin"
