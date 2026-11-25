@@ -90,8 +90,15 @@ def mouse(setup):
     for vendor, product, name in devices:
         groups = ("--group", "Libinput", "--group", vendor, "--group", product, "--group", name)
         setup.run("kwriteconfig6", "--file", "kcminputrc", *groups, "--key", "LeftHanded", left_handed)
-        setup.run("kwriteconfig6", "--file", "kcminputrc", *groups, "--key", "PointerAcceleration",
-                  choices.get("POINTER_SPEED", "0.0"))  # fmt: skip
+        setup.run(
+            "kwriteconfig6",
+            "--file",
+            "kcminputrc",
+            *groups,
+            "--key",
+            "PointerAcceleration",
+            choices.get("POINTER_SPEED", "0.0"),
+        )
         setup.record("kconf:kcminputrc:Libinput:LeftHanded")
 
 
@@ -116,12 +123,28 @@ def pointer(setup):
     setup.kconf("kcminputrc", "Mouse", "cursorTheme", theme)
     setup.kconf("kcminputrc", "Mouse", "cursorSize", size)
     for version in ("3.0", "4.0"):
-        setup.run("kwriteconfig6", "--file", gtk_settings(setup, version), "--group", "Settings", "--key",
-                  "gtk-cursor-theme-name", theme)  # fmt: skip
+        setup.run(
+            "kwriteconfig6",
+            "--file",
+            gtk_settings(setup, version),
+            "--group",
+            "Settings",
+            "--key",
+            "gtk-cursor-theme-name",
+            theme,
+        )
     if aero:
         for version in ("3.0", "4.0"):
-            setup.run("kwriteconfig6", "--file", gtk_settings(setup, version), "--group", "Settings", "--key",
-                      "gtk-cursor-theme-size", size)  # fmt: skip
+            setup.run(
+                "kwriteconfig6",
+                "--file",
+                gtk_settings(setup, version),
+                "--group",
+                "Settings",
+                "--key",
+                "gtk-cursor-theme-size",
+                size,
+            )
         set_gtk_interface(setup, "cursor-size", size)
         edit_xsettings(setup, "Gtk/CursorThemeSize", size)
     set_gtk_interface(setup, "cursor-theme", theme)
@@ -138,8 +161,16 @@ def sound_theme(setup):
     setup.kconf("kdeglobals", "Sounds", "Theme", theme)
     for version in ("3.0", "4.0"):
         if gtk_settings(setup, version).exists():
-            setup.run("kwriteconfig6", "--file", gtk_settings(setup, version), "--group", "Settings", "--key",
-                      "gtk-sound-theme-name", theme)  # fmt: skip
+            setup.run(
+                "kwriteconfig6",
+                "--file",
+                gtk_settings(setup, version),
+                "--group",
+                "Settings",
+                "--key",
+                "gtk-sound-theme-name",
+                theme,
+            )
     if shutil.which("gsettings"):
         setup.run("gsettings", "set", "org.gnome.desktop.sound", "theme-name", theme)
     xsettings = home_path(setup, ".config/xsettingsd/xsettingsd.conf")
@@ -335,12 +366,28 @@ def place_start_menu(setup):
     gap = 0 if choices["START_MENU_STYLE"] in ("luna", "aero") else 1
     top = int(choices["HEIGHT"]) - panel_height(setup) - height - gap
     setup.kwin_rule(
-        "chicago95-startmenu", "Description=Chicago95 Start menu", "wmclass=chicago95-startmenu", "wmclassmatch=1",
-        "title=chicago95-startmenu-root", "titlematch=1", f"position=0,{top}", "positionrule=2",
-        "placement=Zero", "placementrule=2", "above=true", "aboverule=2", "skiptaskbar=true", "skiptaskbarrule=2",
-        "skippager=true", "skippagerrule=2", "skipswitcher=true", "skipswitcherrule=2", "noborder=true",
-        "noborderrule=2", "types=1",
-    )  # fmt: skip
+        "chicago95-startmenu",
+        "Description=Chicago95 Start menu",
+        "wmclass=chicago95-startmenu",
+        "wmclassmatch=1",
+        "title=chicago95-startmenu-root",
+        "titlematch=1",
+        f"position=0,{top}",
+        "positionrule=2",
+        "placement=Zero",
+        "placementrule=2",
+        "above=true",
+        "aboverule=2",
+        "skiptaskbar=true",
+        "skiptaskbarrule=2",
+        "skippager=true",
+        "skippagerrule=2",
+        "skipswitcher=true",
+        "skipswitcherrule=2",
+        "noborder=true",
+        "noborderrule=2",
+        "types=1",
+    )
 
 
 def decoration_frame_height(setup):
@@ -359,9 +406,13 @@ def run_window_height(setup):
     the title and bottom border KWin's decoration adds around it."""
     choices = setup.choices
     dialog = measured(
-        setup, setup.repo / "bin/chicago95-run", "--height", f"--widget-style={choices['WIDGET_STYLE']}",
-        f"--menu-style={choices['START_MENU_STYLE']}", fallback=RUN_HEIGHT,
-    )  # fmt: skip
+        setup,
+        setup.repo / "bin/chicago95-run",
+        "--height",
+        f"--widget-style={choices['WIDGET_STYLE']}",
+        f"--menu-style={choices['START_MENU_STYLE']}",
+        fallback=RUN_HEIGHT,
+    )
     return dialog if choices["WIDGET_STYLE"] == "classic" else dialog + decoration_frame_height(setup)
 
 
@@ -369,33 +420,70 @@ def place_run_dialog(setup):
     """Placed on the taskbar as it opens (positionrule 3), then free to be dragged; 2 would pin it for good."""
     top = int(setup.choices["HEIGHT"]) - panel_height(setup) - run_window_height(setup)
     setup.kwin_rule(
-        "chicago95-run", "Description=Chicago95 Run dialog", "wmclass=chicago95-run", "wmclassmatch=1",
-        f"position=0,{top}", "positionrule=3", "placement=Zero", "placementrule=2", "types=1",
-    )  # fmt: skip
+        "chicago95-run",
+        "Description=Chicago95 Run dialog",
+        "wmclass=chicago95-run",
+        "wmclassmatch=1",
+        f"position=0,{top}",
+        "positionrule=3",
+        "placement=Zero",
+        "placementrule=2",
+        "types=1",
+    )
 
 
 def place_notifications(setup):
     width, height = int(setup.choices["WIDTH"]), int(setup.choices["HEIGHT"])
     host_height = height * 3 // 4 + 20
     setup.kwin_rule(
-        "chicago95-notifyd", "Description=Chicago95 notification column", "wmclass=chicago95-notifyd",
-        "wmclassmatch=1", "title=chicago95-notifyd-host", "titlematch=1",
-        f"position={width - NOTIFY_W},{height - panel_height(setup) - host_height}", "positionrule=2",
-        "placement=Zero", "placementrule=2", "acceptfocus=false", "acceptfocusrule=2", "skiptaskbar=true",
-        "skiptaskbarrule=2", "skippager=true", "skippagerrule=2", "skipswitcher=true", "skipswitcherrule=2",
-        "noborder=true", "noborderrule=2", "above=true", "aboverule=2", "types=1",
-    )  # fmt: skip
+        "chicago95-notifyd",
+        "Description=Chicago95 notification column",
+        "wmclass=chicago95-notifyd",
+        "wmclassmatch=1",
+        "title=chicago95-notifyd-host",
+        "titlematch=1",
+        f"position={width - NOTIFY_W},{height - panel_height(setup) - host_height}",
+        "positionrule=2",
+        "placement=Zero",
+        "placementrule=2",
+        "acceptfocus=false",
+        "acceptfocusrule=2",
+        "skiptaskbar=true",
+        "skiptaskbarrule=2",
+        "skippager=true",
+        "skippagerrule=2",
+        "skipswitcher=true",
+        "skipswitcherrule=2",
+        "noborder=true",
+        "noborderrule=2",
+        "above=true",
+        "aboverule=2",
+        "types=1",
+    )
 
 
 def place_clippy(setup):
     width, height = int(setup.choices["WIDTH"]), int(setup.choices["HEIGHT"])
     left, top = width - CLIPPY_W - CLIPPY_MARGIN, height - panel_height(setup) - CLIPPY_H - CLIPPY_MARGIN
     setup.kwin_rule(
-        "chicago95-clippy", "Description=Chicago95 Office Assistant", "wmclass=chicago95-clippy", "wmclassmatch=1",
-        f"position={left},{top}", "positionrule=3", "placement=Zero", "placementrule=3", "skiptaskbar=true",
-        "skiptaskbarrule=2", "skippager=true", "skippagerrule=2", "noborder=true", "noborderrule=2", "above=true",
-        "aboverule=2", "types=1",
-    )  # fmt: skip
+        "chicago95-clippy",
+        "Description=Chicago95 Office Assistant",
+        "wmclass=chicago95-clippy",
+        "wmclassmatch=1",
+        f"position={left},{top}",
+        "positionrule=3",
+        "placement=Zero",
+        "placementrule=3",
+        "skiptaskbar=true",
+        "skiptaskbarrule=2",
+        "skippager=true",
+        "skippagerrule=2",
+        "noborder=true",
+        "noborderrule=2",
+        "above=true",
+        "aboverule=2",
+        "types=1",
+    )
 
 
 def window_rules(setup):
@@ -413,8 +501,18 @@ def explorer_desktop_file(choices):
 
 
 def service_shortcut(setup, desktop_file, keys):
-    setup.run("kwriteconfig6", "--file", "kglobalshortcutsrc", "--group", "services", "--group", desktop_file,
-              "--key", "_launch", keys)  # fmt: skip
+    setup.run(
+        "kwriteconfig6",
+        "--file",
+        "kglobalshortcutsrc",
+        "--group",
+        "services",
+        "--group",
+        desktop_file,
+        "--key",
+        "_launch",
+        keys,
+    )
     setup.record(f"shortcut:{desktop_file}")
 
 
@@ -426,8 +524,12 @@ def shortcuts(setup):
     service_shortcut(setup, "chicago95-showdesktop.desktop", "Meta+D\tMeta+M")
     service_shortcut(setup, "org.kde.kfind.desktop", "Meta+F")
     service_shortcut(setup, explorer_desktop_file(setup.choices), "Meta+E")
-    setup.kconf("kwinrc", "ModifierOnlyShortcuts", "Meta",
-                "org.kde.kglobalaccel,/component/chicago95_startmenu_desktop,org.kde.kglobalaccel.Component,invokeShortcut,_launch")  # fmt: skip
+    setup.kconf(
+        "kwinrc",
+        "ModifierOnlyShortcuts",
+        "Meta",
+        "org.kde.kglobalaccel,/component/chicago95_startmenu_desktop,org.kde.kglobalaccel.Component,invokeShortcut,_launch",
+    )
     setup.kwin_reconfigure()
 
 
@@ -621,8 +723,18 @@ def taskbar(setup):
     if setup.choices["IN_PLASMA"] != "1" or setup.dry_run:
         return
     for _ in range(20):
-        if setup.succeeds("gdbus", "call", "--session", "--dest", "org.kde.plasmashell", "--object-path",
-                          "/PlasmaShell", "--method", "org.kde.PlasmaShell.evaluateScript", 'print("ready")'):  # fmt: skip
+        if setup.succeeds(
+            "gdbus",
+            "call",
+            "--session",
+            "--dest",
+            "org.kde.plasmashell",
+            "--object-path",
+            "/PlasmaShell",
+            "--method",
+            "org.kde.PlasmaShell.evaluateScript",
+            'print("ready")',
+        ):
             break
         time.sleep(0.5)
     setup.plasma_script(taskbar_script(setup))
@@ -879,8 +991,14 @@ def splash_settings(setup):
     splash_file(setup)
     if setup.choices["LOGIN_STYLE"] == "2000":
         branding(setup)
-        setup.run("env", "QT_QPA_PLATFORM=offscreen", "python3", setup.repo / "bin/chicago95-shutdown",
-                  "--status-banner", directory / "brand-banner.png")  # fmt: skip
+        setup.run(
+            "env",
+            "QT_QPA_PLATFORM=offscreen",
+            "python3",
+            setup.repo / "bin/chicago95-shutdown",
+            "--status-banner",
+            directory / "brand-banner.png",
+        )
 
 
 # --- the look's colours, in every toolkit that draws them ---
@@ -963,8 +1081,10 @@ def shell_menu(setup):
     setup.put_file(
         setup.repo / "luna/images/menu-arrow.svg", home_path(setup, ".local/share/chicago95/images/menu-arrow.svg")
     )
-    setup.put_file(setup.repo / "luna/images/menu-arrow-selected.svg",
-                   home_path(setup, ".local/share/chicago95/images/menu-arrow-selected.svg"))  # fmt: skip
+    setup.put_file(
+        setup.repo / "luna/images/menu-arrow-selected.svg",
+        home_path(setup, ".local/share/chicago95/images/menu-arrow-selected.svg"),
+    )
     setup.put_file(setup.repo / "config/systemd/plasma-plasmashell.service.d-chicago95-menus.conf", drop_in)
 
 
@@ -1211,8 +1331,19 @@ def animations(setup):
     if zoom_enabled == "true":  # a running scripted effect keeps the schema and code it was loaded with
         setup.kwin_reconfigure()
         for method in ("unloadEffect", "loadEffect"):
-            setup.run("gdbus", "call", "--session", "--dest", "org.kde.KWin", "--object-path", "/Effects", "--method",
-                      f"org.kde.kwin.Effects.{method}", CHICAGO95_ZOOM, quiet=True)  # fmt: skip
+            setup.run(
+                "gdbus",
+                "call",
+                "--session",
+                "--dest",
+                "org.kde.KWin",
+                "--object-path",
+                "/Effects",
+                "--method",
+                f"org.kde.kwin.Effects.{method}",
+                CHICAGO95_ZOOM,
+                quiet=True,
+            )
 
 
 # --- what the session needs once the appliers are done ---
@@ -1236,14 +1367,35 @@ def frame_glass(setup):
 
 
 def effects_call(setup, method, effect):
-    return setup.output_of("gdbus", "call", "--session", "--dest", "org.kde.KWin", "--object-path", "/Effects",
-                           "--method", f"org.kde.kwin.Effects.{method}", effect).strip()  # fmt: skip
+    return setup.output_of(
+        "gdbus",
+        "call",
+        "--session",
+        "--dest",
+        "org.kde.KWin",
+        "--object-path",
+        "/Effects",
+        "--method",
+        f"org.kde.kwin.Effects.{method}",
+        effect,
+    ).strip()
 
 
 def refresh_glass_effect(setup):
     """KWin loads the glass the settings chose and drops the other; the plain frame returns when it cannot."""
-    native = setup.succeeds("kreadconfig6", "--file", "kwinrc", "--group", "Plugins", "--key", "aeroglassblurEnabled",
-                            "--type", "bool", "--default", "false")  # fmt: skip
+    native = setup.succeeds(
+        "kreadconfig6",
+        "--file",
+        "kwinrc",
+        "--group",
+        "Plugins",
+        "--key",
+        "aeroglassblurEnabled",
+        "--type",
+        "bool",
+        "--default",
+        "false",
+    )
     target, previous = ("aeroglassblur", "blur") if native else ("blur", "aeroglassblur")
     effects_call(setup, "unloadEffect", previous)
     if effects_call(setup, "isEffectLoaded", target) == "(true,)":

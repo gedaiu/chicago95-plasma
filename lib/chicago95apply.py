@@ -244,7 +244,7 @@ def apply_in_bash(setup, settings_path, appliers):
         for key, value in read_key_values(report.name).items():
             if key.startswith("SETUP_"):
                 setup.choices[key.removeprefix("SETUP_")] = value
-            elif key not in ("COPIED", "STATUS"):
+            elif key not in ("COPIED", "STATUS") and value != "0":
                 setup.flag(key, value)
 
 
@@ -282,6 +282,10 @@ def apply_for_setup(appliers, report):
         {key.removeprefix("SETUP_"): value for key, value in environment.items() if key.startswith("SETUP_")}
     )
     setup = Setup(choices, repo=REPO, home=Path(environment["HOME"]), environment=environment, report=report)
+    unknown = [applier for applier in appliers if applier not in APPLIERS]
+    if unknown:
+        print(f"Unknown appliers: {', '.join(unknown)}", file=sys.stderr)
+        return 2
     failed = [applier for applier in appliers if APPLIERS[applier](setup) is False]
     setup.write_report()
     return 1 if failed else 0

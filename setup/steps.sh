@@ -82,7 +82,7 @@ installed_differs() {
 }
 
 # Set by the steps that change what plasmashell loads; finish_session restarts it only then.
-SHELL_CHANGED=0
+SHELL_CHANGED=${SHELL_CHANGED:-0}
 
 substitute_home() { [ "${SETUP_DRY_RUN:-0}" = 1 ] || { grep -rlIZ '@HOME@' "$@" 2>/dev/null || true; } | xargs -0 -r sed -i "s|@HOME@|$HOME|g"; }
 
@@ -2116,7 +2116,10 @@ apply_choices() {
     if declare -F "applier_$applier" >/dev/null; then
       "applier_$applier"
     else
-      python_applier "$applier" || setup_abort "Apply does not know \"$applier\", or could not set it."
+      python_applier "$applier" || {
+        [ $? != 2 ] || setup_abort "Apply does not know \"$applier\"."
+        setup_abort "Could not apply \"$applier\"; the log has the details: $SETUP_LOG"
+      }
     fi
   done
   if [ -n "${APPLY_REPORT:-}" ]; then

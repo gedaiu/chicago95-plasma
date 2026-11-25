@@ -17,6 +17,9 @@ quote-style = "double"
 # These programs extend sys.path (or set Qt's environment) before importing chicago95ui and Qt.
 "bin/*" = ["E402"]
 "lib/chicago95ui.py" = ["E402"]
+# The Plasma scripts and settings files it writes are one-line JavaScript strings.
+"lib/chicago95appliers.py" = ["E501"]
+"lib/chicago95apply.py" = ["E402"]
 
 [tool.coverage.run]
 branch = true

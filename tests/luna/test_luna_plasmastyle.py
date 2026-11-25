@@ -521,7 +521,7 @@ SIZE_BUDGETS = {
     "widgets/viewitem.svg": (70, 5200, 0),
     "widgets/background.svg": (46, 3400, 0),
     "dialogs/background.svg": (42, 3100, 0),
-    "widgets/panel-background.svg": (12, 1600, 1),
+    "widgets/panel-background.svg": (12, 1800, 1),  # fifteen stops fit the native blue ramp and bevel
     "widgets/scrollbar.svg": (101, 16850, 28),
     "widgets/slider.svg": (33, 3100, 2),
     "widgets/tabbar.svg": (34, 4150, 2),
@@ -551,5 +551,9 @@ def test_panel_band_matches_installed_sp3_guest(theme):
     native = screenshot("xp-sp3-taskbar-band")
     panel = qimage_to_pil(rendered(theme, "widgets/panel-background.svg", "", 800, 30))
     assert panel.height == native.height
+    errors = []
     for y in range(native.height):
-        assert close(panel.getpixel((400, y)), native.getpixel((4, y))), y
+        actual, expected = panel.getpixel((400, y)), native.getpixel((4, y))
+        assert close(actual, expected), y
+        errors.extend(abs(a - b) for a, b in zip(actual, expected, strict=True))
+    assert sum(errors) / len(errors) <= 0.25

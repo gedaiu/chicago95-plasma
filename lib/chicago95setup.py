@@ -65,9 +65,8 @@ def apply_look(choices, repo, look):
     """setup/steps.sh's apply_look: every KEY=value of looks/<look>.conf; its repository paths made absolute."""
     choices["LOOK"] = look
     for key, value in read_key_values(repo / f"looks/{look}.conf").items():
-        if key in ("SPLASH_IMAGE", "BACKGROUND_IMAGE") and "/" in value:
-            value = str(repo / value)
-        choices[key] = value
+        is_repository_path = key in ("SPLASH_IMAGE", "BACKGROUND_IMAGE") and "/" in value
+        choices[key] = str(repo / value) if is_repository_path else value
 
 
 def load_settings(choices, repo, path):
@@ -289,15 +288,34 @@ class Setup:
         self.record(f"kconf:{file}:{group}:{key}")
 
     def kwin_reconfigure(self):
-        self.run("gdbus", "call", "--session", "--dest", "org.kde.KWin", "--object-path", "/KWin", "--method",
-                 "org.kde.KWin.reconfigure", quiet=True)  # fmt: skip
+        self.run(
+            "gdbus",
+            "call",
+            "--session",
+            "--dest",
+            "org.kde.KWin",
+            "--object-path",
+            "/KWin",
+            "--method",
+            "org.kde.KWin.reconfigure",
+            quiet=True,
+        )
 
     def plasma_script(self, script):
         """Plasma's scripting interface; what it prints goes to the Setup log."""
         return self.execute(
-            "gdbus", "call", "--session", "--dest", "org.kde.plasmashell", "--object-path", "/PlasmaShell",
-            "--method", "org.kde.PlasmaShell.evaluateScript", script, to_log=True,
-        )  # fmt: skip
+            "gdbus",
+            "call",
+            "--session",
+            "--dest",
+            "org.kde.plasmashell",
+            "--object-path",
+            "/PlasmaShell",
+            "--method",
+            "org.kde.PlasmaShell.evaluateScript",
+            script,
+            to_log=True,
+        )
 
     # --- files ---
 
@@ -405,14 +423,14 @@ class Setup:
 
 
 def merged_kwin_rule(text, group, lines):
-    block = "[%s]\n%s\n" % (group, "\n".join(lines))
-    pattern = re.compile(r"^\[%s\]\n(?:(?!\[).*\n?)*" % re.escape(group), re.M)
+    block = "[{}]\n{}\n".format(group, "\n".join(lines))
+    pattern = re.compile(rf"^\[{re.escape(group)}\]\n(?:(?!\[).*\n?)*", re.M)
     text = pattern.sub("", text).rstrip("\n") + "\n\n" + block
     if "[General]" not in text:
-        return "[General]\nOrder=%s\n\n" % group + text
+        return f"[General]\nOrder={group}\n\n" + text
     order = re.search(r"^Order=(.*)$", text, re.M)
     if not order:
-        return text.replace("[General]\n", "[General]\nOrder=%s\n" % group, 1)
+        return text.replace("[General]\n", f"[General]\nOrder={group}\n", 1)
     names = [name for name in order.group(1).split(",") if name]
     if group not in names:
         names.append(group)

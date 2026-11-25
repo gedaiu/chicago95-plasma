@@ -1,5 +1,6 @@
 import subprocess
 
+import chicago95appliers
 import chicago95apply
 import pytest
 from conftest import REPO, load_script
@@ -15,8 +16,8 @@ def test_changed_start_text_needs_the_panel_applier_only():
     assert chicago95apply.appliers_for(["START_TEXT"], {}) == ["panel"]
 
 
-def test_changed_title_colour_needs_the_title_colors_applier_only():
-    assert chicago95apply.appliers_for(["TITLE_ACTIVE"], {}) == ["title_colors"]
+def test_changed_title_colour_needs_the_look_s_files_then_the_title_colours_of_kde_and_gtk():
+    assert chicago95apply.appliers_for(["TITLE_ACTIVE"], {}) == ["look", "title_colors", "gtk_title_bars"]
 
 
 def test_changed_sound_theme_and_saver_need_sounds_then_screensaver():
@@ -70,21 +71,29 @@ def test_changed_login_style_leaves_a_boot_style_chosen_on_its_own_alone():
     ) == (True, False)
 
 
-def test_every_saved_key_is_known_to_the_appliers_map_and_every_applier_is_a_function_of_setup():
+def test_every_saved_key_is_known_to_the_appliers_map_and_every_applier_is_python_s_or_one_of_setup_s():
     setup_keys = subprocess.run(
         ["bash", "-c", f"REPO={REPO}; source {REPO}/setup/steps.sh; echo $SETTINGS_KEYS; declare -F"],
         capture_output=True,
         text=True,
         check=True,
     ).stdout.splitlines()
-    functions = {line.split()[-1] for line in setup_keys[1:]}
+    bash_appliers = {line.split()[-1].removeprefix("applier_") for line in setup_keys[1:] if " applier_" in line}
     named = {applier for appliers in chicago95apply.APPLIERS_BY_KEY.values() for applier in appliers}
 
     assert (
         sorted(chicago95apply.APPLIERS_BY_KEY),
         named - set(chicago95apply.APPLY_ORDER),
-        {applier for applier in chicago95apply.APPLY_ORDER if f"applier_{applier}" not in functions},
-    ) == (sorted(setup_keys[0].split()), set(), set())
+        set(chicago95apply.APPLY_ORDER) - set(chicago95appliers.APPLIERS) - bash_appliers,
+        bash_appliers == set(chicago95apply.BASH_APPLIERS),
+    ) == (sorted(setup_keys[0].split()), set(), set(), True)
+
+
+@pytest.mark.parametrize("key, value", [("START_TEXT", "Go"), ("CURSOR", "48"), ("DOUBLE_CLICK_MS", "400")])
+def test_applying_a_value_python_sets_runs_no_install_sh(tmp_path, key, value):
+    _, log = apply_for_real(tmp_path, {key: value})
+
+    assert "Components:" not in log
 
 
 def test_setup_command_runs_install_sh_plain_yes_with_the_settings_and_the_appliers():
