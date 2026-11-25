@@ -1,5 +1,4 @@
-"""The title bar zoom (kwin-effects/chicago95zoom): Windows 95/98's minimize, restore and maximize motion, where the
-window folds into its title bar and that bar flies to its taskbar button or its new place.
+"""The KWin zoom effect for title-bar motion to the taskbar and window resizing on maximize.
 
 The effect's geometry is pure functions; its wiring is checked against stub KWin globals that record animate()."""
 
@@ -70,20 +69,10 @@ def test_the_folded_bar_keeps_the_windows_top_edge(zoom):
     assert fold["to"]["translation"] == {"value1": 0, "value2": -(300 - title_bar) / 2}
 
 
-def test_maximizing_folds_flies_and_unfolds_in_three_equal_steps(zoom):
-    new_frame = {"x": 0, "y": 0, "width": 640, "height": 452}
-    steps = call(zoom, "segments", call(zoom, "maximizeKeyframes", FRAME, new_frame), new_frame, 270)
-
-    assert ([step["duration"] for step in steps], steps[-1]["to"]["size"]) == (
-        [90, 90, 90],
-        {"value1": 640, "value2": 452},
-    )
-
-
-def test_xp_instant_maximize_bypasses_a_saved_fold_animation(zoom):
+def maximize_window(zoom, *, instant=False):
     evaluate(
         zoom,
-        f"""config = {{ Maximize: true, InstantMaximize: true }};
+        f"""config = {{ Maximize: true, InstantMaximize: {json.dumps(instant)} }};
         handlers.configChanged();
         var window = {{
             visible: true, geometry: {json.dumps(FRAME)}, minimizedChanged: signal("minimizedChanged"),
@@ -95,7 +84,22 @@ def test_xp_instant_maximize_bypasses_a_saved_fold_animation(zoom):
         window.geometry = {{x: 0, y: 0, width: 640, height: 452}};
         handlers.maximized(window);""",
     )
-    assert evaluate(zoom, "started.length") == 0
+    return evaluate(zoom, "started.map(({duration, keepAlive, animations}) => ({duration, keepAlive, animations}))")
+
+
+def test_maximize_uses_one_continuous_transform(zoom):
+    assert maximize_window(zoom) == [{
+        "duration": 260,
+        "keepAlive": False,
+        "animations": [
+            {"type": "Size", "from": {"value1": 400, "value2": 300}, "to": {"value1": 640, "value2": 452}},
+            {"type": "Translation", "from": {"value1": -20, "value2": -26}, "to": {"value1": 0, "value2": 0}},
+        ],
+    }]
+
+
+def test_xp_instant_maximize_bypasses_a_saved_zoom_animation(zoom):
+    assert maximize_window(zoom, instant=True) == []
 
 
 def minimize_window(zoom, icon):

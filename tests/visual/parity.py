@@ -3409,6 +3409,32 @@ def test_legacy_maximize_motion(theme, desktops, visual_output):
     (output / "maximize-restore.json").write_text(json.dumps(measured, indent=2) + "\n")
 
 
+@pytest.mark.parametrize(("theme", "scale"), (("win95", 1), ("win95", 1.25), ("win2k", 1)))
+def test_zoom_maximize_keeps_the_full_client_painted(theme, scale, desktops, visual_output):
+    from legacy_motion import maximize_client_coverage, maximize_trace
+    from motion import TOOLS
+
+    missing = [*missing_programs(), *(tool for tool in TOOLS if not shutil.which(tool))]
+    assert not missing, f"Missing live motion dependencies: {', '.join(missing)}"
+    output = visual_output / theme / "motion" / "kwin" / f"maximize-{scale:g}x"
+    output.mkdir(parents=True, exist_ok=True)
+    frames, timestamps, states = maximize_trace(desktops, output / "maximize.webm", THEMES[theme][1]["look"], scale)
+    coverage = maximize_client_coverage(frames)
+    before, after = (next(record for record in states if record["phase"] == phase) for phase in ("before", "after"))
+    onset = np.flatnonzero(np.max(abs(coverage - coverage[0]), axis=1) > .08)
+    (output / "trace.json").write_text(json.dumps({
+        "windows": states,
+        "sample_ms": timestamps.tolist(),
+        "client_quarter_coverage": coverage.tolist(),
+    }, indent=2) + "\n")
+    assert before["bounds"] == pytest.approx([160, 150, 760, 490], abs=1 / scale)
+    assert after["bounds"][:3] == [0, 0, 1024] and after["bounds"][3] > 700
+    assert onset.size, "the recording never shows the maximize action"
+    settled = coverage[timestamps >= timestamps[onset[0]] + 500]
+    assert len(settled) >= 3, "the recording must include multiple frames after maximize settles"
+    assert settled.min() > .98, f"part of the maximized client failed to repaint. See {output}"
+
+
 @pytest.mark.parametrize("theme", THEMES)
 def test_coverage(theme):
     folder, metadata = THEMES[theme]

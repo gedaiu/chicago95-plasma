@@ -58,7 +58,9 @@ class ZoomEffect {
 
   zoomBetweenFrames(window) {
     if (!this.zoomsMaximize || !window.visible || !window.zoomFrom) return;
-    this.play(window, maximizeKeyframes(window.zoomFrom, window.geometry, this.titleBarHeight), QEasingCurve.OutCubic);
+    // Keep one size and translation pair for the resize. Replacing the pair
+    // mid-maximize can leave stale parts of the old frame on screen.
+    this.play(window, [window.zoomFrom, window.geometry], QEasingCurve.OutCubic);
   }
 
   playTitleStrip(window, minimizing) {
@@ -139,7 +141,6 @@ class ZoomEffect {
 
     if (!window.zoomSteps?.length) {
       delete window.zoomAnimation;
-
       return;
     }
 
@@ -205,10 +206,6 @@ function minimizeKeyframes(frame, button, titleBarHeight = METRICS.titleBarHeigh
 
 function restoreKeyframes(frame, button, titleBarHeight = METRICS.titleBarHeight) {
   return [button, titleBar(frame, titleBarHeight), frame];
-}
-
-function maximizeKeyframes(oldFrame, newFrame, titleBarHeight = METRICS.titleBarHeight) {
-  return [oldFrame, titleBar(oldFrame, titleBarHeight), titleBar(newFrame, titleBarHeight), newFrame];
 }
 
 // Equal steps between keyframes, each as the Size and Translation KWin draws the window's frame with.

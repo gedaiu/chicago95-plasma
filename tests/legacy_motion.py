@@ -212,3 +212,44 @@ def check_maximize_and_restore(desktops, video, look, maximize_button, restore_b
     assert changing <= 2, "parts of the desktop flashed through the maximized window"
     assert coverage > 0.95, "maximizing or restoring exposed the desktop inside the client"
     return {"frames_with_intermediate_bounds": int(changing), "minimum_visible_client_fraction": float(coverage)}
+
+
+def maximize_trace(desktops, video, look, scale):
+    screen = desktops(
+        look,
+        screen=(1024, 768),
+        scale=scale,
+        setup_scale=scale,
+        launchers=0,
+        components=["background"],
+        settings=[*CHOSEN, ("BACKGROUND_MODE", "color"), ("BACKGROUND_COLOR", "#008080")],
+        windows=[("Maximize rendering", "qt", (160, 150, 759, 489))],
+        pointer_steps=[
+            f"record:{video}", "select-window:480,320", "wait:0.8",
+            "move:728,163", "wait:0.2", "click:left",
+            "wait:0.6", "move:480,320", "wait:0.4", "move:520,360",
+            "wait:0.4", "move:480,320", "wait:0.4",
+        ],
+        window_state=True,
+    )
+    screen.save(video.with_name("maximized.png"))
+    assert "chicago95zoom" in loaded(screen.info)
+    frames = recorded_frames(video)
+    timestamps = recorded_timestamps(video)
+    assert len(frames) == len(timestamps)
+    states = [
+        json.loads(line.split("c95-window ", 1)[1])
+        for line in screen.info["kwin_log"].splitlines()
+        if "c95-window " in line
+    ]
+    return frames, timestamps, states
+
+
+def maximize_client_coverage(frames):
+    # Measure all four quarters so a missing strip of client area cannot hide in a whole-window average.
+    client = frames[..., 0] > 185
+    return np.stack(
+        [client[:, top:bottom, left:right].mean(axis=(1, 2))
+         for top, bottom in ((16, 46), (46, 86)) for left, right in ((3, 64), (64, 125))],
+        axis=1,
+    )
