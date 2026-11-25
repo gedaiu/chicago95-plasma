@@ -482,7 +482,7 @@ def visual_output(tmp_path_factory):
 def exact(expected, actual, directory, mask=None):
     directory.mkdir(parents=True, exist_ok=True)
     actual.save(directory / "rendered.png")
-    compare(expected, actual, directory / "comparison.png", mask)
+    compare(expected, actual, directory / "comparison.png", mask, record_metrics=True)
 
 
 @pytest.fixture(scope="module")

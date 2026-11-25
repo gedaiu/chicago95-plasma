@@ -32,7 +32,7 @@ SETUP_DRY_RUN=0
 UI_MODE=screen
 WANTED=""
 APPLY=""
-SETUP_LOG="${TMPDIR:-/tmp}/chicago95-setup-$(date +%Y%m%d-%H%M%S).log"
+SETUP_LOG="${SETUP_LOG:-${TMPDIR:-/tmp}/chicago95-setup-$(date +%Y%m%d-%H%M%S).log}" # the Control Panel's Apply shares its own
 
 for arg in "$@"; do
   case "$arg" in
@@ -440,7 +440,7 @@ else
       "$([ "${install_failed:-0}" = 1 ] && echo "The install command failed; components still missing prerequisites are skipped.")"
   fi
 fi
-detect_summary >"$SETUP_LOG"
+detect_summary >>"$SETUP_LOG"
 ui_step_done 0
 
 # ---- 2. components ----------------------------------------------------------

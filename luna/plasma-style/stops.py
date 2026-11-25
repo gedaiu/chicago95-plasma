@@ -6,7 +6,7 @@ the piecewise-linear fit (dynamic programming, fewest stops that keep each chann
 measured row) of a profile averaged over text-free columns, so compression noise and dithering are smoothed out.
 
   TASKBAR      XP SP3 VM at 96 DPI (tests/references/themes/winxp/taskbar-band.png), 8 unoccupied columns,
-               tolerance 2. The tray box is fitted separately from the text-free columns 2988..2998 of
+               tolerance 1. The tray box is fitted separately from the text-free columns 2988..2998 of
                xptaskbar-1x.png.
   TASK_NORMAL  xprunning.png, the "Control Panel" button x 106..265, rows 3..27 (the pill's rows 0..24); body profile
                averaged over x 236..257, tolerance 5; ring colours: left column x=106, right column x=265 (rows 8..21),
@@ -32,9 +32,14 @@ TASKBAR = [
     (1, "#3888E9"),
     (2, "#4993E6"),
     (3, "#307BE5"),
+    (4, "#286ADD"),
     (5, "#245DD7"),
     (7, "#2257D5"),
+    (9, "#2257D6"),
+    (12, "#225AD9"),
+    (20, "#2660DD"),
     (25, "#2663E0"),
+    (26, "#2561DE"),
     (27, "#235BD9"),
     (28, "#1E50C4"),
     (29, "#1941A5"),

@@ -1,11 +1,15 @@
 """Optional zero-tolerance checks alongside the normal Windows reference regression budgets."""
 
+import json
+
 import numpy as np
 import pytest
 from PIL import Image
 
 
-def compare(original, actual, output, mask=None):
+def compare(original, actual, output, mask=None, *, record_metrics=False):
+    reference_size, rendered_size = original.size, actual.size
+    metrics_path = output.with_suffix(".metrics.json")
     geometry = ""
     if original.size != actual.size:
         geometry = f"Reference size {original.size} differs from rendered size {actual.size}. "
@@ -24,6 +28,15 @@ def compare(original, actual, output, mask=None):
     changed = int(np.any(samples, axis=-1).sum())
     total = samples.size // 3
     assert total > 0
+    mean_error = float(samples.mean())
+    if record_metrics:
+        metrics_path.write_text(json.dumps({
+            "reference_size": reference_size,
+            "rendered_size": rendered_size,
+            "changed_pixels": changed,
+            "compared_pixels": total,
+            "mean_rgb_error": mean_error,
+        }) + "\n")
     if changed or geometry:
         if mask is not None:
             delta[~mask] = 0
@@ -35,6 +48,6 @@ def compare(original, actual, output, mask=None):
         panel.save(output)
         region = " in the top-left overlap" if geometry else ""
         pytest.fail(
-            f"{geometry}{changed}/{total} pixels differ{region}, mean RGB error {samples.mean():.2f}/255; {output}",
+            f"{geometry}{changed}/{total} pixels differ{region}, mean RGB error {mean_error:.2f}/255; {output}",
             pytrace=False,
         )
