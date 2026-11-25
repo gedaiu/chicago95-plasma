@@ -555,6 +555,13 @@ LARGE_ACTIVE_JOINED_EDGES = {
     },
 }
 
+# The dark red divider is straight where Close meets Maximize.
+LARGE_CLOSE_DIVIDER = (
+    (0, "#946A61", 247), (1, "#94675E", 250), (6, "#8B4F44", 249), (12, "#89473C", 248),
+    (15, "#791907", 245), (21, "#781807", 245), (26, "#7E3023", 246), (27, "#883729", 246),
+    (28, "#5F2216", 248), (29, "#FEFEFE", 190),
+)
+
 # The red bevel inside the outer grey rim turns into the dark lower lip.
 LARGE_CLOSE_INNER_BEVEL = (
     (0, "#5B4743", 255), (1, "#58433E", 253), (12, "#492D27", 251),
@@ -566,7 +573,7 @@ LARGE_CLOSE_INNER_HIGHLIGHTS = (
     (
         (0, "#FCFCFC", 255), (1, "#F3D8D3", 221), (6, "#EAC4BF", 221),
         (12, "#E7BFB9", 220), (15, "#D59A92", 220), (21, "#D79992", 219),
-        (26, "#E1B9B2", 218), (29, "#FDFDFD", 192),
+        (26, "#E1B9B2", 218), (27, "#F0DAD5", 218), (28, "#4D1F16", 248), (29, "#FDFDFD", 192),
     ),
     (
         (0, "#FCFCFC", 255), (1, "#F1CFC9", 223), (6, "#E4B7B0", 224),
@@ -833,8 +840,9 @@ def caption_surface(
         return large_minimize_surface(width, prefix)
     height = palette.BUTTON_HEIGHT
     large_close = kind == "close" and bool(optical_face)
-    # Disabled Close shares a square lower-left join with Maximize.
-    left_radius = 2 if kind in ("minimize", "close") and not disabled_close else 0
+    active_large_close = large_close and not disabled_close
+    # The 144-DPI Close button meets Maximize along a square join.
+    left_radius = 2 if kind in ("minimize", "close") and not large_close else 0
     right_radius = 2 if large_close else 3 if kind == "close" else 0
     stroke = 2 / 3 if large else 1
     half = stroke / 2
@@ -846,8 +854,8 @@ def caption_surface(
         # starts with one translucent light pixel at both densities.
         joined = {"left": LARGE_ACTIVE_JOINED_EDGES["maximize"]["left"]}
     edge = caption_rim(
-        half, half, right, bottom, left_radius, right_radius,
-        left_edge="left" not in joined and not disabled_close, right_edge="right" not in joined,
+        stroke + half if active_large_close else half, half, right, bottom, left_radius, right_radius,
+        left_edge="left" not in joined and not large_close, right_edge="right" not in joined,
     )
     # Keep the body inside the stroke. The two translucent paints should not
     # stack on straight edges and make the lower highlight opaque.
@@ -868,7 +876,6 @@ def caption_surface(
     else:
         definitions = vertical_gradient(body, rows, positions, height=height)
     directional_sheen = large and face_kind == "maximize" and bool(optical_face)
-    active_large_close = large_close and not disabled_close
     if not interaction and not directional_sheen:
         if active_large_close:
             strength, shade_colour, inner_stop, outer_stop = 0.19, ' stop-color="#702D30"', ".22", ".78"
@@ -893,10 +900,10 @@ def caption_surface(
         _, light, alpha = LARGE_DISABLED_CLOSE_FACE[-1]
     rim_paint = f'stroke="{light}" stroke-opacity="{alpha / 255:.3f}"'
     if active_large_close:
-        # The lower reflection is brighter than the two sides. Keep the
-        # tint neutral all the way around the same continuous curved stroke.
+        # Fit the vertical rim independently of the bottom reflection.
+        # The same neutral stroke continues through the rounded corners.
         rim = f"{prefix}Rim"
-        definitions += caption_gradient(rim, ((0, light, alpha), (28, light, alpha), optical_face[-1]), height)
+        definitions += caption_gradient(rim, ((0, "#FDFDFD", 201), (28, "#FDFDFD", 201), optical_face[-1]), height)
         rim_paint = f'stroke="url(#{rim})"'
     left_column = face["left"][-1 if kind == "minimize" else 0]
     left_seam = f"{prefix}Left"
@@ -905,6 +912,9 @@ def caption_surface(
         definitions += caption_gradient(left_seam, LARGE_DISABLED_CLOSE_DIVIDER, height)
         divider = f"M0 0h{stroke:g}v{height - 2 * stroke:g}q0 {stroke:g} -{stroke:g} {stroke:g}Z"
         bevels.append(f'<path d="{divider}" fill="url(#{left_seam})"/>')
+    elif active_large_close:
+        definitions += caption_gradient(left_seam, LARGE_CLOSE_DIVIDER, height, keep_anchors=True)
+        bevels.append(f'<path d="{rect(0, 0, stroke, height)}" fill="url(#{left_seam})"/>')
     elif "left" not in joined:
         definitions += vertical_gradient(left_seam, left_column, positions, height=height)
         bevels.append(
@@ -935,7 +945,7 @@ def caption_surface(
         for index, (x, profile) in enumerate(zip((stroke, width - 3 * stroke), highlights, strict=True)):
             highlight = f"{prefix}InnerHighlight{index}"
             definitions += caption_gradient(highlight, profile, height)
-            path = rect(x, 0, stroke, height - 4 * stroke)
+            path = rect(x, 0, stroke, height - (stroke if active_large_close and index == 0 else 4 * stroke))
             surface += path
             bevels.append(f'<path d="{path}" fill="url(#{highlight})"/>')
     fill_rule = ' fill-rule="evenodd"' if large_close else ""
@@ -944,7 +954,7 @@ def caption_surface(
         # Keep the side tint below the solid top highlight. The bevels paint
         # the two narrow cutouts over the tint.
         shaded_surface = caption_rim(
-            stroke, stroke, width - stroke, height - stroke, left_radius - half, right_radius - half,
+            stroke, stroke, width - stroke, height - stroke, 0, right_radius - half,
         ) + "Z"
     if interaction:
         shading, shaded_face = large_interaction_shading(

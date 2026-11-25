@@ -854,6 +854,7 @@ select_aero_blur() {
     kconf kwinrc Effect-aeroglassblur BasicColorization false
     kconf kwinrc Effect-aeroglassblur ReflectionIntensity 75
     kconf kwinrc Effect-aeroglassblur EnableCornerGlow false
+    kconf kwinrc Effect-aeroglassblur CalibratedCaptionTint true
     # Fit the active glass against the Windows 7 VM's dark, light and blue mattes.
     kconf kwinrc Effect-aeroglassblur AeroIntensity 101
     kconf kwinrc Effect-aeroglassblur AeroHue 210

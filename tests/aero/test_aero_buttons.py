@@ -241,7 +241,9 @@ def test_144dpi_resting_caption_over_native_glass(qt_app, exact_original, kind, 
     if kind == "close":
         # The inset highlights and red bevel are visible above the rounded corners.
         assert not np.any(difference[0, 5:-5])
+        assert difference[:, 0].max() <= 5
         assert np.all(difference[:25, [1, -3, -2]].mean(axis=(0, 2)) < 7)
+        assert difference[2:25, -1].max() <= 2
         assert difference[-1, 6:-7].mean() < 5
         assert difference[[5, 22], 27:47].mean() < 4
 
@@ -258,6 +260,9 @@ def test_close_bevel_retains_glass_transparency_in_each_state(qt_app, large):
         lower_rim = button.getpixel((width // 2, height - 1))
         if large and state == "deactivated":
             assert left == lower_rim
+        elif large and state == "active":
+            # The square join has a translucent lower highlight in the VM mattes.
+            assert 188 <= left[3] <= 192
         else:
             assert left[3] == 0
         top = button.getpixel((width // 2, 0))

@@ -5,11 +5,15 @@ repo=$(cd "$(dirname "$0")/.." && pwd)
 work="$repo/build/aero-native"
 mkdir -p "$work"
 install_built() {
-  local plugins
+  local plugins effect="$work/effects-calibrated/bin/aeroglassblur.so"
+  if [ ! -f "$effect" ]; then
+    echo "Build the updated Aero Glass Blur effect before using --install-built." >&2
+    return 1
+  fi
   plugins=$(qtpaths6 --plugin-dir)
   sudo install -Dm644 "$work/decoration/theme/theme.rcc" /usr/share/smod/decorations/Aero.smod.rcc
   sudo install -Dm755 "$work/decoration/bin/org.smod.smod.so" "$plugins/org.kde.kdecoration3/org.smod.smod.so"
-  sudo install -Dm755 "$work/effects/bin/aeroglassblur.so" "$plugins/kwin/effects/plugins/aeroglassblur.so"
+  sudo install -Dm755 "$effect" "$plugins/kwin/effects/plugins/aeroglassblur.so"
 }
 
 case "${1:-}" in
@@ -88,7 +92,11 @@ fetch_source smod "$frame" 6bd9ff041868f25268097f7f2344f7db1255003de6ef8c7a6b0ce
 fetch_source aeroshell-kwin-components "$glass" e4366cef6db34dbb7efd9868d1244c54f0382c143ec88e83b96504d96e67044f
 cmake -S "$work/smod-$frame" -B "$work/decoration" -G Ninja -DBUILD_EFFECT=OFF -DCMAKE_INSTALL_PREFIX=/usr
 cmake --build "$work/decoration" --target theme smoddecoration
-cmake -S "$work/aeroshell-kwin-components-$glass" -B "$work/effects" -G Ninja -DKWIN_INSTALL_MISC=OFF -DCMAKE_INSTALL_PREFIX=/usr
-cmake --build "$work/effects" --target aeroglassblur
+glass_source="$work/aeroshell-kwin-components-$glass-chicago95"
+mkdir -p "$glass_source"
+cp -a "$work/aeroshell-kwin-components-$glass/." "$glass_source"
+patch --batch --forward -d "$glass_source" -p1 < "$repo/aero/caption-glass.patch"
+cmake -S "$glass_source" -B "$work/effects-calibrated" -G Ninja -DKWIN_INSTALL_MISC=OFF -DCMAKE_INSTALL_PREFIX=/usr
+cmake --build "$work/effects-calibrated" --target aeroglassblur
 kwin_wayland --version >"$work/kwin-version"
 if [ "${1:-}" = --install ]; then install_built; fi

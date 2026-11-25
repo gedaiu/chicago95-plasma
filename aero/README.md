@@ -13,7 +13,7 @@ when Kvantum is installed. Setup uses Fusion otherwise.
 Setup selects the bundled SVG Aurorae decoration for window frames and caption buttons. The optional
 [Aero Glass Blur effect](https://github.com/aeroshell-desktop/aeroshell-kwin-components) supplies screen-relative
 reflections and brightness-dependent afterglow. Build against the KWin version installed on the target machine.
-The build needs CMake, Ninja, a C++ compiler, ECM, and the Qt 6, KDE Frameworks 6, KDecoration3, KWin, Wayland,
+The build needs CMake, Ninja, `patch`, a C++ compiler, ECM, and the Qt 6, KDE Frameworks 6, KDecoration3, KWin, Wayland,
 epoxy and Vulkan development packages. On Fedora install the `kvantum` package for the Qt widget theme.
 
 ```sh

@@ -1,0 +1,106 @@
+--- a/effects_cpp/kde-effects-aeroglassblur/src/blur.kcfg
++++ b/effects_cpp/kde-effects-aeroglassblur/src/blur.kcfg
+@@ -64,6 +64,9 @@
+     <entry name="MaximizeColorization" type="Bool">
+         <default>false</default>
+     </entry>
++    <entry name="CalibratedCaptionTint" type="Bool">
++        <default>false</default>
++    </entry>
+     <entry name="EnableCornerGlow" type="Bool">
+         <default>true</default>
+     </entry>
+--- a/effects_cpp/kde-effects-aeroglassblur/src/blur.h
++++ b/effects_cpp/kde-effects-aeroglassblur/src/blur.h
+@@ -166,6 +166,7 @@
+         int aeroColorBalanceLocation;
+         int aeroAfterglowBalanceLocation;
+         int aeroBlurBalanceLocation;
++        int captionGeometryLocation;
+     };
+     enum AeroPasses { AERO = 0, BASIC, OPAQUE };
+     AeroShader m_aeroPasses[3];
+--- a/effects_cpp/kde-effects-aeroglassblur/src/blur.cpp
++++ b/effects_cpp/kde-effects-aeroglassblur/src/blur.cpp
+@@ -142,6 +142,7 @@
+             m_aeroPasses[i].aeroColorBalanceLocation     = m_aeroPasses[i].shader->uniformLocation("aeroColorBalance");
+             m_aeroPasses[i].aeroAfterglowBalanceLocation = m_aeroPasses[i].shader->uniformLocation("aeroAfterglowBalance");
+             m_aeroPasses[i].aeroBlurBalanceLocation      = m_aeroPasses[i].shader->uniformLocation("aeroBlurBalance");
++            m_aeroPasses[i].captionGeometryLocation = m_aeroPasses[i].shader->uniformLocation("captionGeometry");
+         }
+ 
+     }
+@@ -1184,6 +1185,20 @@
+         m_aeroPasses[selectedPass].shader->setUniform(m_aeroPasses[selectedPass].aeroAfterglowBalanceLocation, sb / 100.0f);
+         m_aeroPasses[selectedPass].shader->setUniform(m_aeroPasses[selectedPass].aeroBlurBalanceLocation,      bb / 100.0f);
+ 
++        if (selectedPass == AeroPasses::AERO) {
++            QVector2D captionGeometry;
++            if (BlurConfig::calibratedCaptionTint() && treatAsActive(w) && w->decoration()
++                && w->contentsRect().top() > 0 && !opaqueMaximize && winData.isNull()
++                && !(mask & Effect::PAINT_WINDOW_TRANSFORMED) && !w->screen()->backendOutput()->highDynamicRange()) {
++                // The shader UV covers the blur region, which may start inside the frame.
++                captionGeometry = QVector2D(scaledBackgroundRect.height() / viewport.scale(),
++                                            (scaledBackgroundRect.top() - w->frameGeometry().top() * viewport.scale())
++                                                / viewport.scale());
++            }
++            m_aeroPasses[AeroPasses::AERO].shader->setUniform(m_aeroPasses[AeroPasses::AERO].captionGeometryLocation,
++                                                          captionGeometry);
++        }
++
+         read->colorAttachment()->bind();
+ 
+         if (modulation < 1.0) {
+--- a/effects_cpp/kde-effects-aeroglassblur/src/shaders/aero/advanced.frag
++++ b/effects_cpp/kde-effects-aeroglassblur/src/shaders/aero/advanced.frag
+@@ -14,12 +14,36 @@
+ uniform float aeroColorBalance;
+ uniform float aeroAfterglowBalance;
+ uniform float aeroBlurBalance;
++uniform vec2 captionGeometry;
+ 
+ uniform mat4 colorMatrix;
+ 
+ in vec2 uv;
+ 
+ out vec4 fragColor;
++
++// The upper reflection and the blue afterglow have different strengths
++// on dark and light glass. Fit broad ramps from the two neutral VM mattes.
++vec3 captionTint(float backdropLuma)
++{
++    if (captionGeometry.x <= 0.0)
++        return vec3(0.0);
++
++    float y = (1.0 - uv.y) * captionGeometry.x + captionGeometry.y;
++    float upper = clamp((y - 2.5) / 4.67, 0.0, 1.0);
++    float middle = clamp((y - 7.17) / 8.0, 0.0, 1.0);
++    float lower = clamp((y - 15.17) / 6.0, 0.0, 1.0);
++    vec3 dark = vec3(3.0, 6.0, 7.0)
++        - upper * vec3(3.0, 3.0, 3.0)
++        - middle * vec3(4.0, 4.0, 4.0)
++        - lower * vec3(2.0, 3.0, 3.0);
++    vec3 light = vec3(10.0, 11.0, 13.0)
++        - upper * vec3(2.0, 2.0, 2.0)
++        - middle * vec3(3.0, 2.0, 2.0)
++        - lower * vec3(1.0, 1.0, 1.0);
++    float brightness = clamp((backdropLuma * 255.0 - 24.0) / 208.0, 0.0, 1.0);
++    return mix(dark, light, brightness) * (1.0 - smoothstep(21.17, 28.0, y)) / 255.0;
++}
+ 
+ void main(void)
+ {
+@@ -38,10 +62,11 @@
+     vec3 primaryColor   = color.rgb;
+     vec3 secondaryColor = color.rgb;
+     vec3 primaryLayer   = primaryColor * aeroColorBalance; //pow(aeroColorBalance, 1.1);
+-    vec3 secondaryLayer = (secondaryColor * dot(sum.xyz, vec3(0.299, 0.587, 0.114))) * aeroAfterglowBalance;
++    float backdropLuma = dot(sum.xyz, vec3(0.299, 0.587, 0.114));
++    vec3 secondaryLayer = (secondaryColor * backdropLuma) * aeroAfterglowBalance;
+     vec3 blurLayer      = sum.xyz * aeroBlurBalance;
+ 
+-    vec4 result = vec4(primaryLayer + secondaryLayer + blurLayer, 1.0);
++    vec4 result = vec4(primaryLayer + secondaryLayer + blurLayer + captionTint(backdropLuma), 1.0);
+     fragColor = adjustBrightness(result);
+ 
+ }

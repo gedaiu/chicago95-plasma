@@ -2826,6 +2826,7 @@ def test_installed_native_glass_uses_the_vector_decoration_and_aero_blur(tmp_pat
             "blurEnabled false",
             "AeroIntensity 101",
             "EnableCornerGlow false",
+            "CalibratedCaptionTint true",
             "aero/aurorae/theme/decoration-native.svg",
         )
     )
