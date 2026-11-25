@@ -74,12 +74,14 @@ assert pair.getpixel((350, 130)) == (255, 0, 0)
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_taskbar_assets_overflow_states_and_window_icons(tmp_path):
+def test_taskbar_assets_overflow_states_and_window_icons(tmp_path, monkeypatch):
     import pytest
 
     qml_roots = ("/usr/lib64/qt6/qml", "/usr/lib/qt6/qml", "/usr/lib/x86_64-linux-gnu/qt6/qml")
     if not any((Path(root) / "org/kde/ksvg").exists() for root in qml_roots):
         pytest.skip("taskbar rendering needs KDE KSvg")
+    # Every scene uses a new QML file in a disposable folder.
+    monkeypatch.setenv("QML_DISABLE_DISK_CACHE", "1")
     program = r"""
 import sys
 from pathlib import Path

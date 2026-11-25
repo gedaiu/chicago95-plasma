@@ -299,7 +299,7 @@ def test_tray_icons_start_at_win7peeks_866_890_and_914(hidden_tray_icons):
 
 @pytest.fixture(scope="module")
 def hidden_icons_open(desktops):
-    steps = ["move:850,749", "click:left", "wait:1", "move:500,300", "wait:1"]
+    steps = ["move:850,749", "wait:0.4", "click:left", "wait:1", "move:500,300", "wait:1"]
     return desktops("luna", **reference_session(**HIDDEN_ICONS, pointer_steps=steps))
 
 

@@ -27,6 +27,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 import chicago95animations
+import chicago95apply
 import chicago95distro
 import chicago95ui  # noqa: E401,E702
 import chicago95update  # noqa: E402
@@ -867,6 +868,16 @@ def setup_command(repo, settings_path, components):
         "--yes",
         f"--settings={settings_path}",
         f"--components={','.join(components)}",
+    ]
+
+
+def apply_command(repo, settings_path, changed_keys):
+    """Sets the changed choices alone: the checkout's lib/chicago95apply.py knows what each one needs."""
+    return OWN_SCOPE + [
+        "python3",
+        f"{repo}/lib/chicago95apply.py",
+        f"--settings={settings_path}",
+        f"--changed={','.join(changed_keys)}",
     ]
 
 
@@ -6896,6 +6907,8 @@ class ControlPanel(QMainWindow):
         if not changes:
             return True
         settings = read_settings(self.settings_path)
+        # A page that applies a whole look sends every value it shows: only the ones that differ are set again.
+        changes = {key: value for key, value in changes.items() if settings.get(key) != value}
         settings.update(changes)
         write_settings(self.settings_path, settings)
         # The same names are on several pages (Distro Setup and the pages they come from): each open one shows them.
@@ -6909,14 +6922,8 @@ class ControlPanel(QMainWindow):
                 "The Chicago95 Plasma folder is not known. Run install.sh once from it, then try again.",
             )
             return False
-        components = components_for(changes)
-        page = self.current_applet_page()
-        if page and page.title == "Themes" and "LOOK" in changes:
-            installed = set(settings.get("COMPONENTS", "").split())
-            refresh = installed.intersection({"switcher", "explorer", "notifications"})
-            components = [component for component in INSTALL_ORDER if component in components or component in refresh]
-        if components:
-            self.actions.run_setup(self, setup_command(repo, self.settings_path, components))
+        if chicago95apply.appliers_for(changes, settings):
+            self.actions.run_setup(self, apply_command(repo, self.settings_path, list(changes)))
         return True
 
     def change_screen_area(self, area):

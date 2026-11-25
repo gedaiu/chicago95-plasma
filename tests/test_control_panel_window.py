@@ -1,6 +1,7 @@
 import subprocess
 import sys
 
+import chicago95apply
 import pytest
 from conftest import REPO, load_script
 from PySide6.QtCore import QSize, Qt
@@ -504,7 +505,7 @@ def change_the_pointer_size(window, index=2):
     return window.pages.currentWidget()
 
 
-def test_applying_writes_the_changes_over_the_saved_settings_and_runs_setup_for_their_components(
+def test_applying_pointer_size_48_writes_it_over_the_saved_settings_and_applies_the_cursor_key_alone(
     window, control_panel, tmp_path
 ):
     repo = saved_settings_with_a_setup_checkout(window, tmp_path, SAVER="maze")
@@ -512,8 +513,16 @@ def test_applying_writes_the_changes_over_the_saved_settings_and_runs_setup_for_
 
     assert (control_panel.read_settings(window.settings_path), window.ran) == (
         {"REPO": str(repo), "SAVER": "maze", "CURSOR": "48"},
-        [control_panel.setup_command(repo, window.settings_path, ["base"])],
+        [control_panel.apply_command(repo, window.settings_path, ["CURSOR"])],
     )
+
+
+def test_applying_saver_maze_over_a_saved_maze_runs_nothing(window, tmp_path):
+    saved_settings_with_a_setup_checkout(window, tmp_path, SAVER="maze", IDLE_MIN="5")
+
+    window.apply_changes({"SAVER": "maze", "IDLE_MIN": "10"})
+
+    assert [command[-1] for command in window.ran] == ["--changed=IDLE_MIN"]
 
 
 def test_applying_without_the_setup_folder_saves_the_settings_and_says_what_to_do(window, control_panel):
@@ -696,9 +705,11 @@ def test_themes_applies_xp_with_an_independent_control_panel_style(window, contr
             "PANEL": "30",
         }.items()
     )
-    assert {"look", "sounds", "startmenu", "taskbar", "sddm", "plymouth", "switcher", "explorer"} <= set(
-        window.ran[-1][-1].split("=")[1].split(",")
+    changed = window.ran[-1][-1].split("=")[1].split(",")
+    assert {"widgets", "sounds", "start_menu", "panel", "sddm", "plymouth", "switcher", "explorer_style"} <= set(
+        chicago95apply.appliers_for(changed, saved)
     )
+    assert ("REPO" in changed, "COMPONENTS" in changed) == (False, False)
     assert not page.changed_values()
 
 

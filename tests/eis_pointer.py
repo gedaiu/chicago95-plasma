@@ -12,7 +12,8 @@ import os
 import subprocess
 import sys
 import time
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
+from select import select
 
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
@@ -110,21 +111,38 @@ def wait_for_recording(capture):
                 continue
             info = entry["info"]
             props = info["props"]
-            if info["state"] == "running" and props.get("media.class") == "Stream/Input/Video":
-                if props.get("node.name") == "spectacle":
-                    return
+            if (
+                info["state"] == "running"
+                and props.get("media.class") == "Stream/Input/Video"
+                and props.get("node.name") == "spectacle"
+            ):
+                return
         time.sleep(0.1)
     raise RuntimeError("Spectacle did not start receiving video from the isolated PipeWire server")
 
 
-def record(steps, output):
-    """Record the nested KWin output with its own PipeWire server and Spectacle."""
+def wait_for_bus_message(stream, member):
+    deadline = time.monotonic() + 30
+    data = b""
+    while (remaining := deadline - time.monotonic()) > 0 and select([stream], [], [], remaining)[0]:
+        chunk = os.read(stream.fileno(), 4096)
+        if not chunk:
+            break
+        data += chunk
+        if f"member={member}".encode() in data:
+            return
+    raise RuntimeError(f"timed out waiting for {member} on the isolated session bus")
 
-    def stop(process):
-        if process.poll() is None:
-            process.terminate()
-            process.wait(timeout=10)
 
+def stop(process):
+    if process.poll() is None:
+        process.terminate()
+        process.wait(timeout=10)
+
+
+@contextmanager
+def isolated_pipewire():
+    """Start PipeWire before KWin and its portals try to connect."""
     with ExitStack() as processes:
         processes.callback(stop, subprocess.Popen(["pipewire"]))
         deadline = time.monotonic() + 10
@@ -133,9 +151,31 @@ def record(steps, output):
                 raise RuntimeError("the isolated PipeWire server did not start")
             time.sleep(0.05)
         processes.callback(stop, subprocess.Popen(["wireplumber"]))
-        time.sleep(1.5)
+        yield
+
+
+def record(steps, output):
+    """Record the nested KWin output using the session's PipeWire server."""
+    target, *steps = steps
+    if not target.startswith("select-window:"):
+        raise ValueError("screen recording requires a point in the window used to select the output")
+    rule = "type='method_call',interface='org.kde.KWin',member='queryWindowInfo'"
+    with ExitStack() as processes:
+        bus = dbus.SessionBus()
+        service = "org.freedesktop.Notifications"
+        if bus.name_has_owner(service):
+            notifications = dbus.Interface(bus.get_object(service, "/org/freedesktop/Notifications"), service)
+            cookie = notifications.Inhibit("org.kde.spectacle", "Visual test capture", dbus.Dictionary(signature="sv"))
+            processes.callback(notifications.UnInhibit, cookie)
+        monitor = subprocess.Popen(["dbus-monitor", "--session", rule], stdout=subprocess.PIPE)
+        processes.callback(monitor.stdout.close)
+        processes.callback(stop, monitor)
+        wait_for_bus_message(monitor.stdout, "NameLost")
         capture = subprocess.Popen(["spectacle", "-R", "s", "-b", "-n", "-o", output])
         processes.callback(stop, capture)
+        # Spectacle asks KWin to pick a window on the output before starting the stream.
+        wait_for_bus_message(monitor.stdout, "queryWindowInfo")
+        main([target.replace("select-window:", "move:", 1), "wait:0.2", "click:left"])
         wait_for_recording(capture)
         main(steps)
         subprocess.run(["spectacle", "-R", "s", "-b", "-n"], check=True, timeout=15)
@@ -155,4 +195,8 @@ def main(steps):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    if sys.argv[1:2] == ["--with-pipewire"]:
+        with isolated_pipewire():
+            sys.exit(subprocess.run(sys.argv[2:], check=False).returncode)
+    else:
+        main(sys.argv[1:])

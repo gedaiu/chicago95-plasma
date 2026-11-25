@@ -62,6 +62,7 @@ def measure_title_strip(desktops, video, look, scale, minimize_button, *, classi
         windows=[("Caption motion", "qt", (160, 150, 759, 489))],
         pointer_steps=[
             f"record:{video}",
+            "select-window:480,320",
             "wait:1",
             f"move:{minimize_button}",
             "wait:0.2",
@@ -175,6 +176,7 @@ def check_maximize_and_restore(desktops, video, look, maximize_button, restore_b
         windows=[("Maximize motion", "qt", (160, 150, 759, 489))],
         pointer_steps=[
             f"record:{video}",
+            "select-window:480,320",
             "wait:1",
             f"move:{x},{y}", "wait:0.4", "click:left", "wait:1",
             f"move:{x - 7},{y + 1}", "wait:0.4", "click:left",

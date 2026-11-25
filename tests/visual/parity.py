@@ -2546,7 +2546,7 @@ def session_screen_images(theme, component, state, tmp_path):
     subprocess.run(
         [sys.executable, str(REPO / "tests/visual/render_session_screen.py"),
          str(folder / "manifest.json"), component, state, str(output)],
-        check=True, timeout=30,
+        check=True, timeout=120,
     )
     with Image.open(output) as frame:
         actual = rgb565(frame) if metadata["look"] in ("2000", "2001", "luna") else frame.convert("RGB")

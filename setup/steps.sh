@@ -481,13 +481,22 @@ rgb() { printf '%d,%d,%d' "0x${1:1:2}" "0x${1:3:2}" "0x${1:5:2}"; }
 
 # The colour scheme holds the title colours; System Settings > Colors can change them later, and
 # chicago95-colors.path redraws the decoration whenever it does.
-apply_title_colors() {
+set_title_colors() {
   local active="${SETUP_TITLE_ACTIVE:-#000080}" inactive="${SETUP_TITLE_INACTIVE:-#808080}"
   kconf kdeglobals WM activeBackground "$(rgb "${active%%,*}")"
   kconf kdeglobals WM activeBlend "$(rgb "${active##*,}")"
   kconf kdeglobals WM inactiveBackground "$(rgb "${inactive%%,*}")"
   kconf kdeglobals WM inactiveBlend "$(rgb "${inactive##*,}")"
   write_gtk_titlebar_css "$active" "$inactive" "$([ -n "$SETUP_FACE" ] && echo "rgb($SETUP_FACE)" || echo "#C0C0C0")"
+}
+
+redraw_title_bars() {
+  run python3 ~/.local/bin/chicago95-sync-colors --force >>"$SETUP_LOG"
+  show_copy "(title bars: active ${SETUP_TITLE_ACTIVE:-#000080}, inactive ${SETUP_TITLE_INACTIVE:-#808080})" ~/.local/share/aurorae/themes/Chicago95/decoration.svg
+}
+
+apply_title_colors() {
+  set_title_colors
   step_tools_common
   put_file "$REPO/bin/chicago95-sync-colors" ~/.local/bin/chicago95-sync-colors
   run chmod +x ~/.local/bin/chicago95-sync-colors
@@ -495,8 +504,7 @@ apply_title_colors() {
   put_file "$REPO/config/systemd/chicago95-colors.service" ~/.config/systemd/user/chicago95-colors.service
   run systemctl --user daemon-reload
   run systemctl --user enable --now chicago95-colors.path >>"$SETUP_LOG" 2>&1
-  run python3 ~/.local/bin/chicago95-sync-colors --force >>"$SETUP_LOG"
-  show_copy "(title bars: active $active, inactive $inactive)" ~/.local/share/aurorae/themes/Chicago95/decoration.svg
+  redraw_title_bars
 }
 
 # Icon set per look: 1995 Chicago95 (installed by the base step), 1998 SE98, 2000 ClassicOS-2000.
@@ -544,6 +552,7 @@ install_icon_pack() { # install_icon_pack se98|classicos2000|windowsxp   -> 0 wh
   if [ "$1" = classicos2000 ] && [ ! -d "$built" ]; then
     run bash -c "cd '$source' && ICON_THEME_NAME=ClassicOS-2000 MAKEFREEDESKTOP=TRUE MAKEPNG=FALSE ./build-icons.sh" >>"$SETUP_LOG" 2>&1
   fi
+  [ "${KEEP_INSTALLED:-0}" = 1 ] && [ -f "$HOME/.local/share/icons/$theme/index.theme" ] && return 0
   if [ -d "$built" ]; then put_tree "$built" "$HOME/.local/share/icons/$theme"; else show_copy "$built" "$HOME/.local/share/icons/$theme"; fi
 }
 
@@ -634,7 +643,9 @@ apply_icon_set() {
     run cp "$icons/filesystems/user-desktop.png" "$icons/apps/user-desktop.png"
     run sed -i 's/^Inherits=Gnome,hicolor$/Inherits=gnome,breeze,hicolor/' "$icons/index.theme"
     local vectors="$HOME/.local/share/icons/Windows-7-SVG"
-    run python3 "$REPO/aero/vector_art.py" icons "$icons" "$vectors" || return 1
+    if [ "${KEEP_INSTALLED:-0}" != 1 ] || [ ! -f "$vectors/index.theme" ]; then
+      run python3 "$REPO/aero/vector_art.py" icons "$icons" "$vectors" || return 1
+    fi
     record "$vectors"
     select_desktop_icons Windows-7-SVG
     for group in MainToolbarIcons ToolbarIcons; do
@@ -746,6 +757,20 @@ configure_zoom_titlebar() {
 step_animations() { # the saved animation choices into KWin, KDE's speed and our own tools; unset events stay as they are
   put_tree "$REPO/kwin-effects/chicago95zoom" ~/.local/share/kwin/effects/chicago95zoom
   put_tree "$REPO/kwin-effects/chicago95aerominimize" ~/.local/share/kwin/effects/chicago95aerominimize
+  apply_animations
+}
+
+ensure_live_blur() { # the wobble with live blur is a KWin effect of its own, built here when it is not installed
+  [ "${SETUP_ANIM_WOBBLY:-}" = blurred ] && ! live_blur_available || return 0
+  ui_status "Building and installing Better Wobbly Windows"
+  run "$REPO/aero/build-native.sh" --install-wobbly || setup_abort \
+    "Could not install Better Wobbly Windows. Check the build output and the KWin development requirements in aero/README.md."
+  if [ "$SETUP_DRY_RUN" = 0 ] && ! live_blur_available; then
+    setup_abort "KWin cannot load Better Wobbly Windows. Check that the running KWin version matches the installed build and the compositor supports the effect."
+  fi
+}
+
+apply_animations() {
   [[ " ${COMPONENTS:-} " == *" look "* ]] || configure_zoom_titlebar
   local key value token effect
   local -A managed=() chosen=()
@@ -1104,6 +1129,35 @@ apply_widget_themes() { # Qt applications (Kvantum, or Fusion without it) and GT
   apply_luna_gtk_theme
 }
 
+AERO_PLASMA_STYLE=~/.local/share/plasma/desktoptheme/Chicago95Aero
+
+apply_plasma_style() { run plasma-apply-desktoptheme "$(plasma_style_theme)" >>"$SETUP_LOG" 2>&1 || true; }
+
+apply_color_scheme() { run plasma-apply-colorscheme "$(gtk_theme_name)" >>"$SETUP_LOG" 2>&1 || true; }
+
+apply_face_colors() { # the 2000 look: warm grey face and its selection colour
+  [ -n "${SETUP_FACE:-}" ] || return 0
+  local group
+  for group in Colors:Window Colors:Button Colors:Header Colors:Complementary; do kconf kdeglobals "$group" BackgroundNormal "$SETUP_FACE"; done
+  kconf kdeglobals Colors:Selection BackgroundNormal "$SETUP_SELECTION"
+  [ "$SETUP_WIDGET_STYLE" = aero ] || kconf kdeglobals WM inactiveForeground "$SETUP_FACE" # 2000's inactive title text is the face colour
+}
+
+write_look_rc() { # chicago95-sync-colors draws the bevels with the look's colours, and reads the look from here
+  run kwriteconfig6 --file chicago95rc --group Look --key decoration "$SETUP_DECORATION"
+  run kwriteconfig6 --file chicago95rc --group Look --key captionDpi "${SETUP_DPI:-96}"
+  run kwriteconfig6 --file chicago95rc --group Look --key controlPanelStyle "$SETUP_CONTROL_PANEL_STYLE"
+  run kwriteconfig6 --file chicago95rc --group Look --key widgetStyle "$SETUP_WIDGET_STYLE"
+  run kwriteconfig6 --file chicago95rc --group Look --key bevel "${SETUP_BEVEL:-1995}"
+  run kwriteconfig6 --file chicago95rc --group Look --key taskbarStyle "$SETUP_TASKBAR_STYLE"
+  run kwriteconfig6 --file chicago95rc --group StartMenu --key style "$SETUP_START_MENU_STYLE"
+}
+
+sync_gtk_palette() {
+  [ "$SETUP_WIDGET_STYLE" = classic ] && [ -d ~/.themes/Chicago95 ] || return 0
+  run python3 "$REPO/lib/gtk_palette.py"
+}
+
 step_look() { # decoration, Plasma style, colours, widget style, DPI
   SHELL_CHANGED=1
   apply_shell_menu
@@ -1115,42 +1169,25 @@ step_look() { # decoration, Plasma style, colours, widget style, DPI
   apply_widget_themes
   kconf kdeglobals General AccentColor --delete
   if wants_luna; then install_luna_theme_files || return 1; fi
-  if [ "$SETUP_TASKBAR_STYLE" = aero ]; then
-    local style="$HOME/.local/share/plasma/desktoptheme/Chicago95Aero"
-    put_tree "$REPO/aero/plasma-style/theme" "$style"
-  fi
+  [ "$SETUP_TASKBAR_STYLE" != aero ] || put_tree "$REPO/aero/plasma-style/theme" "$AERO_PLASMA_STYLE"
   apply_decoration
   kconf kwinrc org.kde.kdecoration2 BorderSize Normal
-  run plasma-apply-colorscheme "$(gtk_theme_name)" >>"$SETUP_LOG" 2>&1 || true
+  apply_color_scheme
   apply_icon_set || setup_abort "Could not apply the selected icon theme."
   if [ "$SETUP_WIDGET_STYLE" = aero ] || [ "$(kreadconfig6 --file kcminputrc --group Mouse --key cursorTheme 2>/dev/null)" = Windows-7-Aero-Cursors_Default ]; then
     apply_pointer_theme || return 1
   fi
-  if [ -n "${SETUP_FACE:-}" ]; then # the 2000 look: warm grey face and its selection colour
-    local group
-    for group in Colors:Window Colors:Button Colors:Header Colors:Complementary; do kconf kdeglobals "$group" BackgroundNormal "$SETUP_FACE"; done
-    kconf kdeglobals Colors:Selection BackgroundNormal "$SETUP_SELECTION"
-    [ "$SETUP_WIDGET_STYLE" = aero ] || kconf kdeglobals WM inactiveForeground "$SETUP_FACE" # 2000's inactive title text is the face colour
-  fi
+  apply_face_colors
   # The originals' title bar: the window icon on the left; minimize, maximize and close on the right.
   kconf kwinrc org.kde.kdecoration2 ButtonsOnLeft M
   kconf kwinrc org.kde.kdecoration2 ButtonsOnRight IAX
   set_gtk_caption_layout
-  # chicago95-sync-colors draws the bevels with the look's colours, and reads the look from here.
-  run kwriteconfig6 --file chicago95rc --group Look --key decoration "$SETUP_DECORATION"
-  run kwriteconfig6 --file chicago95rc --group Look --key captionDpi "${SETUP_DPI:-96}"
-  run kwriteconfig6 --file chicago95rc --group Look --key controlPanelStyle "$SETUP_CONTROL_PANEL_STYLE"
-  run kwriteconfig6 --file chicago95rc --group Look --key widgetStyle "$SETUP_WIDGET_STYLE"
-  run kwriteconfig6 --file chicago95rc --group Look --key bevel "${SETUP_BEVEL:-1995}"
-  run kwriteconfig6 --file chicago95rc --group Look --key taskbarStyle "$SETUP_TASKBAR_STYLE"
-  run kwriteconfig6 --file chicago95rc --group StartMenu --key style "$SETUP_START_MENU_STYLE"
-  if [ "$SETUP_WIDGET_STYLE" = classic ] && [ -d ~/.themes/Chicago95 ]; then
-    run python3 "$REPO/lib/gtk_palette.py"
-  fi
+  write_look_rc
+  sync_gtk_palette
   apply_title_colors
   [ "$SETUP_WIDGET_STYLE" != classic ] || theme_wine
   theme_firefox
-  run plasma-apply-desktoptheme "$(plasma_style_theme)" >>"$SETUP_LOG" 2>&1 || true
+  apply_plasma_style
   if [ "$SETUP_SCALE" != 1 ]; then
     backup ~/.Xresources
     if [ "${SETUP_DRY_RUN:-0}" != 1 ]; then
@@ -1238,11 +1275,17 @@ panel_start_logo() {
   printf '%s' "$logo"
 }
 
+AERO_ORB_LOGO=~/.local/share/chicago95/icons/fedora-orb-logo.svg
+
+draw_aero_orb_logo() { # the distribution's logo as the superbar's orb draws it
+  local fedora=/usr/share/icons/hicolor/256x256/apps/fedora-logo-icon.png
+  [ -f "$fedora" ] && [ "$SETUP_TASKBAR_STYLE" = aero ] || return 0
+  run python3 "$REPO/aero/vector_art.py" bitmap "$fedora" "$AERO_ORB_LOGO" && record "$AERO_ORB_LOGO"
+}
+
 install_aero_plasmoid_files() { # the superbar's parts, beside each plasmoid's own (styleParts.js picks them)
-  local part fedora=/usr/share/icons/hicolor/256x256/apps/fedora-logo-icon.png
-  if [ -f "$fedora" ] && [ "$SETUP_TASKBAR_STYLE" = aero ]; then
-    run python3 "$REPO/aero/vector_art.py" bitmap "$fedora" "$HOME/.local/share/chicago95/icons/fedora-orb-logo.svg" && record "$HOME/.local/share/chicago95/icons/fedora-orb-logo.svg"
-  fi
+  local part
+  draw_aero_orb_logo
   for part in "$REPO"/aero/plasmoids/org.chicago95.*/contents/ui/aero; do
     put_tree "$part" ~/.local/share/plasma/plasmoids/"${part#"$REPO"/aero/plasmoids/}"
   done
@@ -1408,6 +1451,20 @@ step_controlpanel() { # one window for every choice Setup asked; it saves them a
   substitute_home ~/.local/share/applications
 }
 
+put_start_logo() { # whatever logo was picked lands in one known file, so it can be swapped later without Setup
+  local logo_file
+  logo_file=$(start_logo_file)
+  put_file "$(start_logo_source)" "$logo_file"
+  SETUP_START_LOGO=$logo_file
+}
+
+write_start_menu_rc() {
+  run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerText "$SETUP_BANNER_TEXT"
+  run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerBackground "${SETUP_BANNER_BG:-#808080}"
+  run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerTextColor "${SETUP_BANNER_FG:-#C0C0C0}"
+  run kwriteconfig6 --file chicago95rc --group StartMenu --key style "$SETUP_START_MENU_STYLE"
+}
+
 step_startmenu() {
   step_tools_common
   put_file "$REPO/bin/chicago95-startmenu" ~/.local/bin/chicago95-startmenu
@@ -1432,18 +1489,9 @@ step_startmenu() {
   for entry in chicago95-startmenu chicago95-shutdown chicago95-run; do put_file "$REPO/config/applications/$entry.desktop" ~/.local/share/applications/$entry.desktop; done
   put_file "$REPO/config/autostart/chicago95-startmenu.desktop" ~/.config/autostart/chicago95-startmenu.desktop
   substitute_home ~/.local/share/applications ~/.config/autostart
-  # Whatever logo was picked lands in one known file, so it can be swapped later without Setup.
-  local logo_file
-  logo_file=$(start_logo_file)
-  put_file "$(start_logo_source)" "$logo_file"
-  SETUP_START_LOGO=$logo_file
-  run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerText "$SETUP_BANNER_TEXT"
-  run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerBackground "${SETUP_BANNER_BG:-#808080}"
-  run kwriteconfig6 --file chicago95rc --group StartMenu --key bannerTextColor "${SETUP_BANNER_FG:-#C0C0C0}"
-  run kwriteconfig6 --file chicago95rc --group StartMenu --key style "$SETUP_START_MENU_STYLE"
-  if [ "$SETUP_WIDGET_STYLE" = classic ] && [ -d ~/.themes/Chicago95 ]; then
-    run python3 "$REPO/lib/gtk_palette.py"
-  fi
+  put_start_logo
+  write_start_menu_rc
+  sync_gtk_palette
   write_branding
   show_copy "(Start menu banner: $SETUP_BANNER_TEXT, ${SETUP_BANNER_BG:-#808080} / ${SETUP_BANNER_FG:-#C0C0C0})" ~/.config/chicago95rc
   place_start_menu
@@ -1527,14 +1575,18 @@ step_notifications() {
   put_file "$REPO/config/systemd/chicago95-notifyd.service" ~/.config/systemd/user/chicago95-notifyd.service
   put_tree "$REPO/kwin-effects/chicago95notifications" ~/.local/share/kwin/effects/chicago95notifications
   substitute_home ~/.local/share/applications
+  place_notifications
+  [ "${SETUP_ANIM_NOTIFICATIONS:-}" = none ] || kconf kwinrc Plugins chicago95notificationsEnabled true # the Effects tab can turn their motion off
+  run systemctl --user daemon-reload
+  run systemctl --user enable chicago95-notifyd.service >>"$SETUP_LOG" 2>&1
+}
+
+place_notifications() {
   local host_h=$((SETUP_HEIGHT * 3 / 4 + 20))
   kwin_rule chicago95-notifyd "Description=Chicago95 notification column" "wmclass=chicago95-notifyd" "wmclassmatch=1" \
     "title=chicago95-notifyd-host" "titlematch=1" "position=$((SETUP_WIDTH - NOTIFY_W)),$((SETUP_HEIGHT - PANEL_HEIGHT - host_h))" "positionrule=2" \
     "placement=Zero" "placementrule=2" "acceptfocus=false" "acceptfocusrule=2" "skiptaskbar=true" "skiptaskbarrule=2" \
     "skippager=true" "skippagerrule=2" "skipswitcher=true" "skipswitcherrule=2" "noborder=true" "noborderrule=2" "above=true" "aboverule=2" "types=1"
-  [ "${SETUP_ANIM_NOTIFICATIONS:-}" = none ] || kconf kwinrc Plugins chicago95notificationsEnabled true # the Effects tab can turn their motion off
-  run systemctl --user daemon-reload
-  run systemctl --user enable chicago95-notifyd.service >>"$SETUP_LOG" 2>&1
 }
 
 step_clippy() {
@@ -1550,13 +1602,28 @@ step_clippy() {
     put_tree "$REPO/data/clippy/hd-animations" ~/.local/share/chicago95/clippy/hd-animations
   fi
   put_file "$REPO/config/applications/chicago95-clippy.desktop" ~/.local/share/applications/chicago95-clippy.desktop
-  case "${SETUP_CLIPPY_AUTOSTART:-yes}" in y* | Y*) put_file "$REPO/config/autostart/chicago95-clippy.desktop" ~/.config/autostart/chicago95-clippy.desktop ;; esac
-  substitute_home ~/.local/share/applications ~/.config/autostart
+  set_clippy_autostart
+  substitute_home ~/.local/share/applications
+  place_clippy
+  restart_clippy
+}
+
+set_clippy_autostart() { # at log on, or only when started by hand
+  local entry=~/.config/autostart/chicago95-clippy.desktop
+  case "${SETUP_CLIPPY_AUTOSTART:-yes}" in
+  y* | Y*)
+    put_file "$REPO/config/autostart/chicago95-clippy.desktop" "$entry"
+    substitute_home "$entry"
+    ;;
+  *) ! installed_by_setup "$entry" || run rm -f "$entry" ;;
+  esac
+}
+
+place_clippy() {
   kwin_rule chicago95-clippy "Description=Chicago95 Office Assistant" "wmclass=chicago95-clippy" "wmclassmatch=1" \
     "position=$((SETUP_WIDTH - CLIPPY_W - CLIPPY_MARGIN)),$((SETUP_HEIGHT - PANEL_HEIGHT - CLIPPY_H - CLIPPY_MARGIN))" "positionrule=3" \
     "placement=Zero" "placementrule=3" "skiptaskbar=true" "skiptaskbarrule=2" "skippager=true" "skippagerrule=2" "noborder=true" "noborderrule=2" \
     "above=true" "aboverule=2" "types=1"
-  restart_clippy
 }
 
 restart_clippy() { # a Clippy already on screen keeps the balloon it started with: the new one takes the look
@@ -1599,6 +1666,10 @@ step_sounds() { # install the bundled sound themes and select the scheme for des
   if [ "$SETUP_SOUND_THEME" = Windows7 ]; then
     install_aero_asset_pack sounds "$HOME/.local/share/sounds/Windows7" || return 1
   fi
+  select_sound_theme
+}
+
+select_sound_theme() {
   kconf kdeglobals Sounds Theme "$SETUP_SOUND_THEME"
   local version
   for version in 3.0 4.0; do
@@ -1628,7 +1699,10 @@ step_screensaver() {
     run systemctl --user stop 'app-chicago95\x2dscreensaver@autostart.service'
     run rm -f ~/.config/autostart/chicago95-screensaver.desktop
   fi
-  # Plasma's power management watches idle time on Wayland and runs this command when it is reached.
+  set_screensaver
+}
+
+set_screensaver() { # Plasma's power management watches idle time on Wayland and runs this command when it is reached
   local command="$HOME/.local/bin/chicago95-screensaver --hack ${SETUP_SAVER:-deepstars}" profile
   backup ~/.config/powerdevilrc
   for profile in AC Battery LowBattery; do
@@ -1957,8 +2031,10 @@ install_seven_session_art() {
   put_file "$art/spinner.svg" "$target/spinner.svg"
 }
 
+draw_status_banner() { run env QT_QPA_PLATFORM=offscreen python3 "$REPO/bin/chicago95-shutdown" --status-banner "$1/brand-banner.png"; }
+
 step_splash() { # the loading screen: KSplash shows it after log on, in the login style; its texts and pictures go into settings.js
-  local dir=~/.local/share/plasma/look-and-feel/chicago95.splashscreen/contents/splash
+  local dir=$SPLASH_DIR
   put_tree "$REPO/splash/chicago95.splashscreen" ~/.local/share/plasma/look-and-feel/chicago95.splashscreen
   if [ "$(boot_style)" = luna ] || xp_login; then
     put_tree "$REPO/luna/qml" "$dir/luna/qml"
@@ -1970,7 +2046,7 @@ step_splash() { # the loading screen: KSplash shows it after log on, in the logi
   write_splash_settings "$dir"
   if [ "$SETUP_LOGIN_STYLE" = 2000 ]; then
     write_branding
-    run env QT_QPA_PLATFORM=offscreen python3 "$REPO/bin/chicago95-shutdown" --status-banner "$dir/brand-banner.png"
+    draw_status_banner "$dir"
   fi
   kconf ksplashrc KSplash Theme chicago95.splashscreen
   kconf ksplashrc KSplash Engine KSplashQML
@@ -2177,6 +2253,11 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
     ui_status "Plymouth is not installed; skipping the boot screen"
     return
   }
+  # The classic boot screens are Chicago95's own theme, the 9x ones drawn over it: the others are drawn here.
+  if [[ " vista 7 8 8.1 10 11 luna 2000 " != *" $(boot_style) "* ]] && [ ! -d "$theme_src" ]; then
+    ui_status "Chicago95 Plymouth theme not found in $theme_src; skipping the boot screen"
+    return
+  fi
   if [[ " vista 7 8 8.1 10 11 " == *" $(boot_style) "* ]]; then
     if [ "$(boot_style)" = 7 ]; then install_seven_session_art || return 1; fi
     name="Chicago95-$(boot_style)"
@@ -2226,11 +2307,6 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
       --size "${SETUP_WIDTH:-1920}x${SETUP_HEIGHT:-1080}" --scale "${SETUP_SCALE:-1}" --text-loader --out "$build/loader.png"
     run rm -rf "$build/splash"
     theme_src="$build"
-  else
-    [ -d "$theme_src" ] || {
-      ui_status "Chicago95 Plymouth theme not found in $theme_src; skipping the boot screen"
-      return
-    }
   fi
   current=$(plymouth-set-default-theme 2>/dev/null || true)
   [ "$current" = "$name" ] && [ "$name" = Chicago95 ] && {
@@ -2250,7 +2326,7 @@ step_plymouth() { # boot screen; system files and a rebuilt boot image, so it as
   ui_status "Rebuilding the boot image; this takes a minute or two..."
   run sudo plymouth-set-default-theme -R "$name" >>"$SETUP_LOG" 2>&1
   retain_boot_screen
-  [ "$current" = "$name" ] || record "plymouth:$current"
+  [[ "$current" == Chicago95* ]] || record "plymouth:$current" # uninstall returns to the theme that was there before Setup's
   [ -z "$build" ] || run rm -rf "$build"
 }
 
@@ -2553,7 +2629,11 @@ step_switcher() { # Alt+Tab: our KWin switcher layout, chosen in kwinrc
   local dir=~/.local/share/kwin/tabbox/chicago95
   put_tree "$REPO/kwin-tabbox/chicago95" "$dir"
   [ "$SETUP_START_MENU_STYLE" = luna ] && put_tree "$REPO/luna/kwin-tabbox" "$dir/contents/ui/luna"
-  write_switcher_settings "$dir/contents/ui"
+  select_switcher "$dir"
+}
+
+select_switcher() { # select_switcher <installed switcher>
+  write_switcher_settings "$1/contents/ui"
   kconf kwinrc TabBox LayoutName chicago95
   kconf kwinrc TabBox ShowTabBox true
   if [ "$SETUP_START_MENU_STYLE" = aero ]; then
@@ -2784,4 +2864,207 @@ finish_session() { # KWin always rereads its settings; plasmashell restarts only
   # Last, and one queued job: Setup may run inside plasmashell's service (started from the Control
   # Panel, opened from the taskbar), and stopping it stops Setup too; systemd finishes the job anyway.
   systemctl --user restart --no-block plasma-plasmashell.service 2>/dev/null || true
+}
+
+# --- appliers: what one changed choice needs (lib/chicago95apply.py maps the choices to them). An applier sets values
+# and reloads what shows them. The components' files are their steps' to copy: an applier copies only the files of a
+# variant chosen for the first time, and leaves a component that was never installed alone.
+
+LOCKSCREEN_DIR=~/.local/share/plasma/shells/org.kde.plasma.desktop/contents/lockscreen
+SPLASH_DIR=~/.local/share/plasma/look-and-feel/chicago95.splashscreen/contents/splash
+SWITCHER_DIR=~/.local/share/kwin/tabbox/chicago95
+
+# installed <path>   a dry run lists what Apply would do to an installed component
+installed() { [ "${SETUP_DRY_RUN:-0}" = 1 ] || [ -e "$1" ]; }
+
+apply_choices() { # apply_choices <applier>...
+  local applier
+  COPIED=0
+  TO_COPY=0
+  for applier in "$@"; do
+    declare -F "applier_$applier" >/dev/null || setup_abort "Apply does not know \"$applier\"."
+    "applier_$applier"
+  done
+  finish_session
+  # After the shell is back: the applets take their options from the one that is running.
+  [ "${TASKBAR_CHANGED:-0}" = 0 ] || apply_taskbar
+  [ "${START_MENU_CHANGED:-0}" = 0 ] || restart_start_menu
+}
+
+# The look's appliers stand on its files. Where the look was never installed, its step installs and sets all of it, once.
+look_applied_whole() {
+  ! installed ~/.local/share/aurorae/themes/Chicago95 || return 1
+  [ "${LOOK_STEP_DONE:-0}" = 1 ] || step_look
+  LOOK_STEP_DONE=1
+}
+
+applier_widgets() {
+  ! look_applied_whole || return 0
+  apply_shell_menu
+  apply_widget_themes
+  kconf kdeglobals General AccentColor --delete
+  if [ "$SETUP_WIDGET_STYLE" = aero ] || [ "$(kreadconfig6 --file kcminputrc --group Mouse --key cursorTheme 2>/dev/null)" = Windows-7-Aero-Cursors_Default ]; then
+    apply_pointer_theme
+  fi
+}
+
+applier_colors() { # the look's face and selection, in every toolkit that draws them
+  ! look_applied_whole || return 0
+  apply_color_scheme
+  apply_face_colors
+  sync_gtk_palette
+  apply_shell_menu
+  [ "$SETUP_WIDGET_STYLE" != classic ] || theme_wine
+  theme_firefox
+  restart_clippy
+  START_MENU_CHANGED=1
+}
+
+applier_decoration() {
+  ! look_applied_whole || return 0
+  [ "$SETUP_DECORATION" != luna ] || [ -d ~/.local/share/aurorae/themes/Chicago95Luna ] || install_luna_theme_files
+  apply_decoration
+  kconf kwinrc org.kde.kdecoration2 BorderSize Normal
+}
+
+applier_plasma_style() {
+  ! look_applied_whole || return 0
+  case "$SETUP_TASKBAR_STYLE" in
+  luna) [ -d ~/.local/share/plasma/desktoptheme/Chicago95Luna ] || install_luna_theme_files ;;
+  aero)
+    [ -d "$AERO_PLASMA_STYLE" ] || put_tree "$REPO/aero/plasma-style/theme" "$AERO_PLASMA_STYLE"
+    [ -s "$AERO_ORB_LOGO" ] || draw_aero_orb_logo
+    ;;
+  esac
+  apply_plasma_style
+}
+
+applier_icons() {
+  local KEEP_INSTALLED=1
+  apply_icon_set || setup_abort "Could not apply the selected icon theme."
+}
+
+plasma_style_drawing() { # a checksum of the Plasma styles' artwork: plasmashell keeps what it has loaded
+  local styles=~/.local/share/plasma/desktoptheme
+  if [ -d "$styles" ]; then
+    find "$styles" -path '*/Chicago95*' -name '*.svg' -exec cksum {} + | sort
+  fi | cksum
+}
+
+applier_title_colors() {
+  ! look_applied_whole || return 0
+  set_title_colors
+  configure_zoom_titlebar
+  installed ~/.local/bin/chicago95-sync-colors || return 0
+  local drawn
+  drawn=$(plasma_style_drawing)
+  redraw_title_bars
+  [ "$drawn" = "$(plasma_style_drawing)" ] || SHELL_CHANGED=1
+}
+
+applier_fonts() {
+  fix_font_spaces
+  step_fonts
+}
+
+applier_look_rc() {
+  write_look_rc
+  START_MENU_CHANGED=1
+}
+
+applier_animations() {
+  local COMPONENTS=animations # the wobble chosen now, not the one KWin runs, decides the glass
+  ensure_live_blur
+  apply_animations
+}
+
+applier_pointer() { apply_pointer_theme; }
+
+applier_mouse() { step_mouse; }
+
+applier_start_logo() { put_start_logo; }
+
+applier_start_menu() {
+  write_start_menu_rc
+  START_MENU_CHANGED=1
+}
+
+applier_branding() { write_branding; }
+
+applier_window_rules() { # the windows that sit on the taskbar follow its height, and their own
+  place_start_menu
+  place_run_dialog
+  ! installed_by_setup kwinrule:chicago95-notifyd || place_notifications
+  ! installed_by_setup kwinrule:chicago95-clippy || place_clippy
+}
+
+applier_shortcuts() { step_shortcuts; }
+
+applier_switcher() {
+  installed "$SWITCHER_DIR" || return 0
+  [ "$SETUP_START_MENU_STYLE" != luna ] || [ -d "$SWITCHER_DIR/contents/ui/luna" ] || put_tree "$REPO/luna/kwin-tabbox" "$SWITCHER_DIR/contents/ui/luna"
+  select_switcher "$SWITCHER_DIR"
+}
+
+applier_explorer() { step_explorer; }
+
+applier_explorer_style() { # the file manager's address bar and navigation in the widgets' style, where Setup configured one
+  ! installed_by_setup ~/.local/share/kxmlgui6/dolphin/dolphinui.rc || step_explorer
+}
+
+applier_sounds() {
+  local theme=~/.local/share/sounds/"$SETUP_SOUND_THEME" bundled="$REPO/data/sound-themes/$SETUP_SOUND_THEME"
+  if [ ! -d "$theme" ]; then
+    [ ! -d "$bundled" ] || put_tree "$bundled" "$theme"
+    [ "$SETUP_SOUND_THEME" != Windows7 ] || install_aero_asset_pack sounds "$theme"
+  fi
+  select_sound_theme
+}
+
+applier_screensaver() { set_screensaver; }
+
+applier_clippy_autostart() { set_clippy_autostart; }
+
+applier_background() { step_background; }
+
+applier_desktop_icons() { step_desktop; }
+
+applier_lockscreen() { step_lockscreen; }
+
+applier_lockscreen_settings() {
+  installed "$LOCKSCREEN_DIR" || return 0
+  write_lockscreen_settings "$LOCKSCREEN_DIR"
+}
+
+applier_splash() { step_splash; }
+
+applier_splash_settings() {
+  installed "$SPLASH_DIR" || return 0
+  write_splash_settings "$SPLASH_DIR"
+  [ "$SETUP_LOGIN_STYLE" != 2000 ] || draw_status_banner "$SPLASH_DIR"
+}
+
+applier_panel() { # the Start button shows Setup's copy of its logo once there is one
+  [ ! -f "$(start_logo_file)" ] || SETUP_START_LOGO=$(start_logo_file)
+  TASKBAR_CHANGED=1
+}
+
+applier_plymouth() { step_plymouth; }
+
+applier_plymouth_look() { # the classic boot screen is the look's own: Windows 98's, or Chicago95's
+  [ "$(boot_style)" = classic ] || return 0
+  local wanted=Chicago95 current
+  [ "${SETUP_LOOK:-}" != 1998 ] || wanted=Chicago95-98
+  current=$(plymouth-set-default-theme 2>/dev/null || true)
+  [[ "$current" == Chicago95* ]] && [ "$current" != "$wanted" ] || return 0
+  step_plymouth
+}
+
+applier_sddm() { step_sddm; }
+
+applier_sddm_look() { # only the 2001 look paints the login screen's desktop black
+  local wanted=""
+  [ -f "$SDDM_THEME_DIR/theme.conf" ] || return 0
+  [ "${SETUP_LOOK:-}" != 2001 ] || wanted='#000000'
+  [ "$(sed -n 's/^desktopColor=//p' "$SDDM_THEME_DIR/theme.conf")" = "$wanted" ] || step_sddm
 }

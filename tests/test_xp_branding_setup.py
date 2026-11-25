@@ -35,7 +35,8 @@ def test_the_other_login_styles_carry_no_xp_branding(tmp_path, style):
 def test_the_xp_login_copies_the_logo_next_to_the_theme(tmp_path):
     lines = run_bash_with_steps(
         tmp_path,
-        f"apply_look 1995; SETUP_DRY_RUN=1; SETUP_LOG=$HOME/log; SETUP_LOGIN_STYLE=luna; {BRANDING.replace(' ', '; ')}; "
+        "apply_look 1995; SETUP_DRY_RUN=1; SETUP_LOG=$HOME/log; SETUP_LOGIN_STYLE=luna; "
+        f"{BRANDING.replace(' ', '; ')}; "
         "ui_sudo() { printf '%s\\n' \"${@:2}\"; return 1; }; ui_message() { :; }; step_sddm",
     )
 

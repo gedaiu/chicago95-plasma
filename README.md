@@ -209,6 +209,11 @@ starts, the loading screen follows the login instead, as the originals did: the
 desktop's colour under the hourglass pointer for 9x and 2000 logins, XP's Welcome
 screen with "Loading your personal settings..." for the Welcome login. KWin's
 log on fade (Effects, "Log on and log off") then fades it into the desktop.
+Apply sets only what changed: a clock or
+Start button option goes straight into the running taskbar, a colour or pointer
+size into its own settings, without copying the theme again or restarting the
+shell. The login and boot screens still ask for the administrator password, and
+only when a choice they show changed.
 Distro Setup holds every name, text and logo the screens show (the Start button
 and menu, the log on, boot and loading screens, the Shut Down dialog) on one page,
 with a preview of each screen; the pages they come from keep their own fields, and

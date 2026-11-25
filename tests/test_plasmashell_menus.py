@@ -73,9 +73,11 @@ def test_compact_classic_menu_keeps_icons_and_checks(qt_app, tmp_path, look, sca
     from PySide6.QtGui import QColor, QIcon, QPixmap
     from PySide6.QtWidgets import QMenu
 
-    sheet = "\n".join(run_bash_with_steps(
-        tmp_path, f'SETUP_SCALE={scale} SETUP_LOOK={look} render_menus_qss "$REPO/data/plasmashell-menus.qss"'
-    ))
+    sheet = "\n".join(
+        run_bash_with_steps(
+            tmp_path, f'apply_look {look}; SETUP_SCALE={scale} render_menus_qss "$REPO/data/plasmashell-menus.qss"'
+        )
+    )
     menu = QMenu()
     menu.setStyleSheet(sheet)
     icon = QPixmap(16, 16)

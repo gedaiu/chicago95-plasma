@@ -17,6 +17,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from collections import namedtuple
 from pathlib import Path
@@ -345,7 +346,11 @@ def link_user_assets(home):
 def enforce_screenshot(path, session):
     """A session KWin's time limit cut off, or one that crashed, must not pass as a half-built desktop."""
     if not path.exists():
-        raise RuntimeError(f"{session} session took no screenshot ({path.name}); see the logs in {path.parent}")
+        message = f"{session} session took no screenshot ({path.name}); see the logs in {path.parent}"
+        pointer_log = path.parent / "pointer.log"
+        if pointer_log.is_file():
+            message += "\n" + pointer_log.read_text(errors="replace")
+        raise RuntimeError(message)
 
 
 def stub(folder, *programs):
@@ -373,7 +378,7 @@ def window_commands(work, applications, windows):
     return "\n".join(commands)
 
 
-def run_session(work, script, environment, screen, xwayland=False, scale=1):
+def run_session(work, script, environment, screen, xwayland=False, scale=1, recording=False):
     """Run script in a nested KWin whose logical screen is screen, at scale device pixels per logical pixel."""
     (work / script.name).chmod(0o755)
     if scale != 1:
@@ -386,6 +391,7 @@ def run_session(work, script, environment, screen, xwayland=False, scale=1):
         "timeout",
         "240",
         "dbus-run-session",
+        *([sys.executable, str(REPO / "tests/eis_pointer.py"), "--with-pipewire"] if recording else []),
         "kwin_wayland",
         "--virtual",
         "--width",
@@ -459,7 +465,8 @@ def install(
         systemd_run = work / "stubs/systemd-run"
         systemd_run.write_text(
             '#!/bin/sh\n'
-            'if [ "$1 $2 $3" = "--user --quiet --collect" ] && [ "$4" = "$HOME/.local/bin/chicago95-startmenu" ]; then\n'
+            'if [ "$1 $2 $3" = "--user --quiet --collect" ] && '
+            '[ "$4" = "$HOME/.local/bin/chicago95-startmenu" ]; then\n'
             '    exec "$4"\n'
             'fi\n'
             'exit 1\n'
@@ -526,7 +533,7 @@ def install(
 
 
 HOME_AFTER_SETUP = "home-after-setup"
-DESKTOP_LEAVINGS = ("screen.png", "screen-shot-*.png", "effects.txt")
+DESKTOP_LEAVINGS = ("screen.png", "screen-shot-*.png", "effects.txt", "pointer.log")
 
 
 def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_steps=(), scale=1, window_state=False):
@@ -541,16 +548,9 @@ def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_
     look, work, screen_size, environment = installed
     home = work / "home"
     shutil.rmtree(home)
-    shutil.copytree(work / HOME_AFTER_SETUP, home, symlinks=True)
-    if pointer_steps and pointer_steps[0].startswith("record:"):
-        # The recording notification overlaps a maximized window's caption controls.
-        subprocess.run(
-            [
-                "kwriteconfig6", "--file", str(home / ".config/plasmanotifyrc"),
-                "--group", "Applications", "--group", "org.kde.spectacle", "--key", "ShowPopups", "false",
-            ],
-            check=True,
-        )
+    # A helper exiting from the preceding session can recreate a cache directory.
+    shutil.copytree(work / HOME_AFTER_SETUP, home, symlinks=True, dirs_exist_ok=True)
+    recording = bool(pointer_steps and pointer_steps[0].startswith("record:"))
     for leaving in DESKTOP_LEAVINGS:  # an earlier desktop's in this folder: a session that dies must show nothing
         for path in work.glob(leaving):
             path.unlink()
@@ -573,14 +573,14 @@ def show(installed, windows=None, windows_first=False, tray_icons=None, pointer_
             window_state_after=WINDOW_STATE.format(places=json.dumps(places), phase="after") if window_state else "",
             pointer_command=(
                 f'python3 "$WORK/eis_pointer.py" {" ".join(quote(step) for step in pointer_steps)} '
-                '>"$WORK/pointer.log" 2>&1; sleep 1'
+                '>"$WORK/pointer.log" 2>&1 || exit $?; sleep 1'
                 if pointer_steps
                 else ""
             ),
         )
     )
     (work / "drag.png").unlink(missing_ok=True)
-    run_session(work, work / "desktop.sh", environment, screen_size, xwayland=True, scale=scale)
+    run_session(work, work / "desktop.sh", environment, screen_size, xwayland=True, scale=scale, recording=recording)
     enforce_screenshot(work / "screen.png", "the desktop's")
     image = Image.open(work / "screen.png").convert("RGB")
     effects, kwin_log = work / "effects.txt", work / ("kwin-desktop.log" if scale == 1 else "kwin-scaled-desktop.log")

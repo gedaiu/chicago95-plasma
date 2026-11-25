@@ -99,6 +99,13 @@ first; if it crashes, run it again).
 - **Settings**: every key in `SETTINGS_KEYS` (`setup/steps.sh`) needs a Control Panel field and an entry in
   `COMPONENTS_BY_KEY`; a test enforces both. New components go into `INSTALL_ORDER`, the picker in
   `install.sh`, and the dispatch `case` there.
+- **Apply**: the Control Panel's Apply does not rerun a component. It runs
+  `lib/chicago95apply.py --changed=KEY,…`, whose `APPLIERS_BY_KEY` names the `applier_<name>` functions of
+  `setup/steps.sh` a key needs, and `install.sh --apply=…` runs them. An applier sets values and reloads what
+  shows them; it copies only a variant chosen for the first time. A component's step calls the same
+  value-setting function its applier does, so the two cannot drift. A new key goes into `APPLIERS_BY_KEY`
+  with every applier that reads it (a test compares the map with `SETTINGS_KEYS`); set `SHELL_CHANGED=1`
+  only when a file plasmashell loads from disk changed. `COMPONENTS_BY_KEY` now serves Updates alone.
 - **Pictures**: leave the canvas transparent on standalone illustrations. Keep the original fills inside the object so its colours survive a change of window palette.
 - **GTK**: GTK 3 does not know `-gtk-icon-filter` or `window.background …` descendant selectors on its
   default title bar; verify GTK CSS with a `Gtk.StyleContext` + `Gtk.WidgetPath` probe (no window needed)

@@ -53,6 +53,16 @@ def test_applying_closes_the_window_by_itself_when_setup_finishes(qt_app, tmp_pa
     assert closed_by_itself is True
 
 
+def test_applying_a_changed_cursor_closes_the_window_by_itself_when_it_is_set(qt_app, tmp_path):
+    settings_path = tmp_path / "setup.conf"
+    CONTROL_PANEL.write_settings(settings_path, {"REPO": str(REPO), "CURSOR": "48"})
+    command = without_the_systemd_scope(CONTROL_PANEL.apply_command(REPO, settings_path, ["CURSOR"]))
+
+    closed_by_itself = run_window_until_it_closes_or_the_watchdog_fires(qt_app, ["setsid", "-w", *command, "--dry-run"])
+
+    assert closed_by_itself is True
+
+
 def test_installing_an_update_closes_the_window_by_itself_when_setup_finishes(qt_app, tmp_path):
     checkout = a_checkout_whose_install_sh_exits_with(tmp_path, 0)
     command = without_the_systemd_scope(CONTROL_PANEL.update_command(str(checkout), tmp_path / "setup.conf", ["look"]))

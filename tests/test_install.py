@@ -531,7 +531,8 @@ def test_hiding_the_clock_removes_it_from_the_taskbar(tmp_path):
 
 
 def test_showing_the_clock_adds_one_to_a_taskbar_without_it(tmp_path):
-    written = squeezed(taskbar_script_written(tmp_path, "SETUP_CLOCK_SHOW=yes SETUP_START_MENU_STYLE=2000 SETUP_TASKBAR_STYLE=classic"))
+    clock_on_a_2000_taskbar = "SETUP_CLOCK_SHOW=yes SETUP_START_MENU_STYLE=2000 SETUP_TASKBAR_STYLE=classic"
+    written = squeezed(taskbar_script_written(tmp_path, clock_on_a_2000_taskbar))
 
     assert (
         "if (panel.widgets('org.chicago95.tasks').length > 0 && panel.widgets('org.chicago95.clock').length === 0) { "
@@ -1419,7 +1420,9 @@ def test_a_dry_run_of_any_tool_installs_the_session_environment(tmp_path):
 
 
 @pytest.mark.parametrize(("dpi", "image_height", "svg_height"), [(96, "14", 14), (120, "14.4", 18)])
-def test_the_look_paints_gtk_drawn_title_bars_in_its_active_and_inactive_colours(tmp_path, dpi, image_height, svg_height):
+def test_the_look_paints_gtk_drawn_title_bars_in_its_active_and_inactive_colours(
+    tmp_path, dpi, image_height, svg_height
+):
     (tmp_path / ".config/gtk-3.0").mkdir(parents=True)
     (tmp_path / ".config/gtk-3.0/gtk.css").write_text("@import 'colors.css';\n")
     for _ in range(2):
@@ -2070,9 +2073,9 @@ def test_luna_decoration_writes_the_vertical_title_gradient_into_the_gtk_css(tmp
     ) == (True, True, True, False)
     assets = tmp_path / ".local/share/chicago95/gtk-luna-caption"
     restore = assets / caption_folder / "restore-active.svg"
-    assert restore.read_bytes() == (
-        REPO / "luna/gtk/Chicago95Luna/caption" / caption_folder / restore.name
-    ).read_bytes()
+    assert (
+        restore.read_bytes() == (REPO / "luna/gtk/Chicago95Luna/caption" / caption_folder / restore.name).read_bytes()
+    )
     for version in ("3.0", "4.0"):
         css = (tmp_path / f".config/gtk-{version}/gtk.css").read_text()
         assert f'url("{restore.as_uri()}")' in css
@@ -2159,7 +2162,11 @@ def test_nested_setup_keeps_mutable_icon_themes_inside_its_test_home(tmp_path, m
     test_home = tmp_path / "test-home"
     monkeypatch.setenv("HOME", str(user))
     icons = (
-        "Chicago95-Toolbar", "Windows-7", "Windows-7-SVG", "Windows-XP", "Windows-XP-Originals",
+        "Chicago95-Toolbar",
+        "Windows-7",
+        "Windows-7-SVG",
+        "Windows-XP",
+        "Windows-XP-Originals",
     )
     for theme in icons:
         index = user / ".local/share/icons" / theme / "index.theme"
@@ -2244,8 +2251,15 @@ def test_windows_95_plymouth_exports_all_twenty_palette_phases(tmp_path):
     art = REPO / "splash/chicago95.splashscreen/contents/splash/images"
     target = tmp_path / "plymouth"
     subprocess.run(
-        [sys.executable, str(REPO / "setup/make_9x_boot.py"), str(source), str(art / "windows95-boot.gif"),
-         str(target), "--look", "95"],
+        [
+            sys.executable,
+            str(REPO / "setup/make_9x_boot.py"),
+            str(source),
+            str(art / "windows95-boot.gif"),
+            str(target),
+            "--look",
+            "95",
+        ],
         check=True,
         timeout=30,
     )
@@ -2253,9 +2267,9 @@ def test_windows_95_plymouth_exports_all_twenty_palette_phases(tmp_path):
         palette = indexed.getpalette()
         for phase in range(20):
             start = phase * 3
-            cycling = palette[236 * 3:]
+            cycling = palette[236 * 3 :]
             expected = indexed.copy()
-            expected.putpalette(palette[:236 * 3] + cycling[start:] + cycling[:start])
+            expected.putpalette(palette[: 236 * 3] + cycling[start:] + cycling[:start])
             with Image.open(target / f"win95_boot_{phase}.png") as frame:
                 assert frame.convert("RGB").tobytes() == expected.convert("RGB").tobytes()
     assert "Plymouth.SetRefreshRate(18)" in (target / script.name).read_text()
@@ -2842,6 +2856,7 @@ def test_aero_restores_the_tinted_frame_when_kwin_cannot_load_native_blur(tmp_pa
         """,
     )
     assert commands == ["false"]
+
 
 @pytest.mark.parametrize("available", [True, False])
 def test_live_blur_choice_installs_missing_effect_and_enables_it(tmp_path, available):

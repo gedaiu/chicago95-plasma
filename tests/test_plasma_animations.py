@@ -13,6 +13,7 @@ from legacy_motion import (
     loaded,
     measure_title_strip,
 )
+from motion import TOOLS
 from plasma_session import missing_programs
 from reference import REFERENCES, theme_references
 
@@ -26,6 +27,10 @@ TITLE_STRIPS = {
     for folder, metadata in theme_references(REFERENCES)
     if (path := metadata.get("motion", {}).get("title_strip"))
 }
+needs_capture_tools = pytest.mark.skipif(
+    any(not shutil.which(command) for command in TOOLS),
+    reason="requires PipeWire tools, WirePlumber and FFmpeg",
+)
 
 
 @pytest.fixture(scope="module")
@@ -41,24 +46,20 @@ def test_the_title_bar_zoom_runs_without_a_script_error(session):
     assert [line for line in session["kwin_log"].splitlines() if "chicago95zoom" in line] == []
 
 
-@pytest.mark.skipif(
-    any(not shutil.which(command) for command in ("pipewire", "wireplumber", "ffmpeg", "ffprobe")),
-    reason="requires PipeWire, WirePlumber and FFmpeg",
-)
+@needs_capture_tools
 @pytest.mark.parametrize(
     ("look", "scale", "minimize_button"),
     [(look, scale, spec["minimize_button"]) for look, spec in TITLE_STRIPS.items() for scale in spec["render_scales"]],
 )
-def test_window_zoom_moves_the_title_strip_independently_of_the_client(desktops, tmp_path, look, scale, minimize_button):
+def test_window_zoom_moves_the_title_strip_independently_of_the_client(
+    desktops, tmp_path, look, scale, minimize_button
+):
     video = tmp_path / f"{look}-window-motion.webm"
     measured = measure_title_strip(desktops, video, look, scale, minimize_button, classic=look != "luna")
     check_title_strip_speed(measured, TITLE_STRIPS[look])
 
 
-@pytest.mark.skipif(
-    any(not shutil.which(command) for command in ("pipewire", "wireplumber", "ffmpeg", "ffprobe")),
-    reason="requires PipeWire, WirePlumber, FFmpeg and FFprobe",
-)
+@needs_capture_tools
 @pytest.mark.parametrize(
     ("look", "maximize_button", "restore_button"),
     [

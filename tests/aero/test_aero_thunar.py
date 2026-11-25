@@ -58,8 +58,8 @@ def thunar_window(tmp_path, aero_icons, request):
         """python3 -c 'from PIL import Image; import sys; """
         """sys.exit(Image.open("window.png").convert("RGB").getbbox() is None)' && break\ndone\n"""
         # Go up two breadcrumbs and then back once so both arrows are enabled.
-        "python3 eis_pointer.py wait:0.5 move:211,15 click:left wait:0.5 move:153,15 click:left "
-        "wait:0.5 move:15,15 click:left move:520,75 wait:0.5\n"
+        "python3 eis_pointer.py move:211,15 wait:0.3 click:left wait:1 move:153,15 wait:0.3 click:left "
+        "wait:1 move:15,15 wait:0.3 click:left wait:1 move:520,75 wait:0.5\n"
         'spectacle -b -n -f -o "$PWD/history.png"\n'
     )
     run_session(

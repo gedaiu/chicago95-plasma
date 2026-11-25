@@ -16,7 +16,7 @@ from PySide6.QtQuick import QQuickView
 from PySide6.QtTest import QTest
 
 THEME = Path(__file__).resolve().parents[1] / "aero/aurorae"
-TOOLS = ("ffmpeg", "ffprobe", "pipewire", "wireplumber")
+TOOLS = ("dbus-monitor", "ffmpeg", "ffprobe", "pipewire", "pw-dump", "wireplumber")
 
 
 def timing_result(action, duration, native, tolerance):
@@ -216,6 +216,7 @@ def compare_window_motion(desktops, output, look, stems):
         windows=[("Window motion", "qt", (100, 100, 867, 627))],
         pointer_steps=[
             f"record:{output}",
+            "select-window:480,320",
             "move:920,400",
             "click:left",
             "wait:0.5",

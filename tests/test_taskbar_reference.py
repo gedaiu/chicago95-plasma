@@ -108,6 +108,7 @@ def start_button(qt_app, look, folder, width=None):
     colours = LOOKS[look]
     properties = {key: colours[key] for key in ("face", "light", "shadow", "dark")}
     properties.update(
+        look=look,
         bevel=BEVELS[look],
         held=look in HELD_START_BUTTON,
         text="Start",

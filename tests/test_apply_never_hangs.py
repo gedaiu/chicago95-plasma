@@ -78,3 +78,21 @@ def test_answering_yes_keeps_the_remembered_own_logo_file(tmp_path):
 
 def test_answering_yes_falls_back_to_the_first_bundled_logo_when_the_remembered_file_is_gone(tmp_path):
     assert chosen_start_logo_when_answering_yes_to_everything(tmp_path, tmp_path / "deleted.png") == (0, "flag")
+
+
+def test_applying_a_changed_start_logo_finishes_when_the_file_is_gone(tmp_path):
+    settings_path = tmp_path / "setup.conf"
+    settings_path.write_text(f"REPO={REPO}\nSTART_LOGO={tmp_path / 'deleted-logo.png'}\n")
+
+    exit_status, _output = run_without_terminal(
+        [
+            "python3",
+            str(REPO / "lib/chicago95apply.py"),
+            f"--settings={settings_path}",
+            "--changed=START_LOGO",
+            "--dry-run",
+        ],
+        tmp_path,
+    )
+
+    assert exit_status == 0

@@ -8,6 +8,8 @@
 #   ./install.sh --yes --components=icons --icons=windows7
 #   ./install.sh --dry-run       show what would change, touch nothing
 #   ./install.sh --plain         no full-screen UI (logs, CI, screen readers)
+#   ./install.sh --yes --apply=pointer,panel   set changed choices without copying a component again
+#                                (the Control Panel's Apply, through lib/chicago95apply.py)
 #   Options (asked interactively, or given as flags):
 #     --screen=2560x1440@1.5  --panel=28  --explorer=thunar|dolphin  --saver=maze
 #     --idle=5  --cursor=48  --clippy=yes|no  --quick-launch=yes|no|auto  --task-grouping=always|full|never|auto  --font="MS W98 UI"  --font-scope=everywhere|desktop|none
@@ -29,6 +31,7 @@ SETUP_YES=0
 SETUP_DRY_RUN=0
 UI_MODE=screen
 WANTED=""
+APPLY=""
 SETUP_LOG="${TMPDIR:-/tmp}/chicago95-setup-$(date +%Y%m%d-%H%M%S).log"
 
 for arg in "$@"; do
@@ -38,6 +41,7 @@ for arg in "$@"; do
   --plain) UI_MODE=plain ;;
   --components=*) WANTED="${arg#*=}" ;;
   --components) ;; # value follows
+  --apply=*) APPLY="${arg#*=}" ;;
   --screen=*) OPT_SCREEN="${arg#*=}" ;;
   --panel=*) OPT_PANEL="${arg#*=}" ;;
   --explorer=*) OPT_EXPLORER="${arg#*=}" ;;
@@ -473,7 +477,9 @@ remembered() { # remembered <component> <default>   1 when an earlier run instal
   }
   [[ " $SETUP_COMPONENTS " == *" $1 "* ]] && echo 1 || echo 0
 }
-if [ -n "$WANTED" ]; then
+if [ -n "$APPLY" ]; then
+  COMPONENTS=""
+elif [ -n "$WANTED" ]; then
   COMPONENTS=$(printf '%s' "$WANTED" | tr ',' ' ')
 else
   COMPONENTS=$(ui_pick_components \
@@ -595,20 +601,22 @@ elif [[ " $COMPONENTS " == *" animations "* && "$SETUP_YES" = 0 && -z "${OPT_SET
   4) SETUP_ANIM_WOBBLY=blurred ;;
   esac
 fi
-if [[ " $COMPONENTS " == *" animations "* && "${SETUP_ANIM_WOBBLY:-}" = blurred ]] && ! live_blur_available; then
-  ui_status "Building and installing Better Wobbly Windows"
-  run "$REPO/aero/build-native.sh" --install-wobbly || setup_abort \
-    "Could not install Better Wobbly Windows. Check the build output and the KWin development requirements in aero/README.md."
-  if [ "$SETUP_DRY_RUN" = 0 ] && ! live_blur_available; then
-    setup_abort "KWin cannot load Better Wobbly Windows. Check that the running KWin version matches the installed build and the compositor supports the effect."
-  fi
-fi
+[[ " $COMPONENTS " != *" animations "* ]] || ensure_live_blur
 [ -n "${OPT_TASK_BUTTON_WIDTH:-}" ] && SETUP_TASK_BUTTON_WIDTH=$OPT_TASK_BUTTON_WIDTH
 SETUP_DPI=$(awk -v s="$SETUP_SCALE" 'BEGIN{printf "%d", 96*s + 0.5}')
 PANEL_HEIGHT=${SETUP_PANEL:-$(default_panel_height)}
 printf 'Options: screen=%sx%s@%s panel=%s explorer=%s saver=%s idle=%s cursor=%s clippy=%s quicklaunch=%s grouping=%s font=%s sounds=%s\n' \
   "$SETUP_WIDTH" "$SETUP_HEIGHT" "$SETUP_SCALE" "$PANEL_HEIGHT" "$SETUP_EXPLORER" "$SETUP_SAVER" "$SETUP_IDLE_MIN" "$SETUP_CURSOR" "$SETUP_CLIPPY_AUTOSTART" "${SETUP_QUICK_LAUNCH:-auto}" "${SETUP_TASK_GROUPING:-auto}" "$SETUP_FONT" "$SETUP_SOUND_THEME" >>"$SETUP_LOG"
 ui_step_done 1
+
+if [ -n "$APPLY" ]; then
+  ui_step_start 3
+  IFS=, read -ra appliers <<<"$APPLY"
+  apply_choices "${appliers[@]}"
+  ui_step_done 3
+  ui_restore
+  exit 0
+fi
 
 # ---- 3. copy ----------------------------------------------------------------
 ui_step_start 2

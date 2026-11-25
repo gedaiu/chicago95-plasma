@@ -1,5 +1,6 @@
 import subprocess
 
+import chicago95apply
 import pytest
 from conftest import REPO, load_script
 
@@ -114,10 +115,8 @@ def test_applying_only_where_the_names_came_from_runs_no_setup(tmp_path, qt_app)
     assert command_the_panel_runs_when_applying(tmp_path, qt_app, {"BRANDING": "distro"}) == []
 
 
-@pytest.mark.parametrize(
-    "key", sorted(key for key, components in CONTROL_PANEL.COMPONENTS_BY_KEY.items() if components)
-)
-def test_applying_a_changed_key_runs_setup_that_exits_0_without_a_terminal(key, tmp_path, qt_app):
+@pytest.mark.parametrize("key", sorted(key for key, appliers in chicago95apply.APPLIERS_BY_KEY.items() if appliers))
+def test_applying_a_changed_key_sets_it_and_exits_0_without_a_terminal(key, tmp_path, qt_app):
     [command] = command_the_panel_runs_when_applying(tmp_path, qt_app, {key: a_changed_value(key)})
     setup_command = [argument for argument in command if argument not in CONTROL_PANEL.OWN_SCOPE]
 
