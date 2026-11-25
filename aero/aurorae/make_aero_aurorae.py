@@ -60,7 +60,7 @@ def gradient_knots(samples, tolerance=4, positions=None):
     return kept
 
 
-def gradient_stops(values, attributes, offset=0, total=None, positions=None):
+def gradient_stops(values, attributes, offset=0, total=None, positions=None, *, keep_anchors=False):
     """Fit ramps through pixel centres, retaining abrupt bevels as hard stops."""
     samples = []
     for value in values:
@@ -71,7 +71,7 @@ def gradient_stops(values, attributes, offset=0, total=None, positions=None):
             rgb = bytes.fromhex(colour.lstrip("#"))
             samples.append(tuple(v * alpha / 255 for v in rgb) + (alpha,))
     positions = range(len(values)) if positions is None else positions
-    indices = gradient_knots(samples, positions=positions)
+    indices = range(len(samples)) if keep_anchors else gradient_knots(samples, positions=positions)
     stops = []
     for k, i in enumerate(indices):
         # A large adjacent jump is a painted edge between two surfaces.
@@ -107,12 +107,13 @@ def sprite_sheet(width, height, definitions, groups):
     )
 
 
-def vertical_gradient(gradient_id, column, positions=None, *, height=None):
+def vertical_gradient(gradient_id, column, positions=None, *, height=None, keep_anchors=False):
     """Fit the fill or border gradient along the vertical axis."""
     units = ' gradientUnits="userSpaceOnUse"' if height is not None else ""
     return (
         f'<linearGradient id="{gradient_id}" x1="0" y1="0" x2="0" y2="{height or 1}"{units}>'
-        f"{gradient_stops(column, lambda value: paint(*value), positions=positions)}</linearGradient>"
+        f"{gradient_stops(column, lambda value: paint(*value), positions=positions, keep_anchors=keep_anchors)}"
+        "</linearGradient>"
     )
 
 
@@ -508,20 +509,24 @@ def caption_rim(left, top, right, bottom, left_radius, right_radius, *, left_edg
 LARGE_ACTIVE_FACE = {
     "minimize": (
         (0, "#FCFCFC", 255), (1, "#F5F5F5", 158), (3, "#F5F5F5", 158),
-        (7, "#DEDFDE", 130), (12, "#D1D2D2", 122), (15, "#30302F", 56),
-        (19, "#161619", 51), (21, "#1C1C23", 53), (26, "#9098AE", 80),
-        (27, "#EAEBF1", 150), (28, "#010101", 154), (29, "#FDFDFD", 170),
+        (6, "#DEDEDE", 134), (9, "#D3D3D3", 125), (12, "#D1D2D2", 122),
+        (13, "#B0B0B0", 99), (14, "#7F7F7F", 77), (15, "#222224", 52),
+        (17, "#0A0A0C", 47), (21, "#111118", 47), (24, "#53576D", 66),
+        (26, "#8B92A8", 74), (27, "#E5E7EF", 146), (28, "#010101", 154),
+        (29, "#FDFDFD", 164),
     ),
     "maximize": (
         (0, "#FCFCFC", 255), (1, "#F6F6F6", 174), (3, "#F5F5F5", 174),
-        (7, "#E2E2E2", 153), (12, "#DADADA", 145), (15, "#7E7E7E", 89),
-        (21, "#6C6D70", 79), (26, "#A8ADBF", 99), (27, "#EDEEF2", 160),
+        (7, "#E2E2E2", 153), (12, "#DADADA", 145), (13, "#C7C7C7", 127),
+        (14, "#AAAAAA", 108), (15, "#7E7E7E", 89), (21, "#6C6D70", 79),
+        (23, "#737687", 85), (26, "#A8ADBF", 99), (27, "#EDEEF2", 160),
         (28, "#262627", 183), (29, "#FDFDFD", 177),
     ),
     "close": (
-        (0, "#FCFCFC", 255), (1, "#FDAEA1", 221), (7, "#EF8572", 221),
-        (12, "#EC7E6B", 221), (15, "#D43418", 221), (21, "#D3351A", 221),
-        (26, "#E17B5B", 220), (27, "#F3B7A5", 220), (28, "#582B23", 249),
+        (0, "#FCFCFC", 255), (1, "#FDAFA1", 222), (6, "#F08A77", 221),
+        (9, "#ED816E", 221), (12, "#EC7F6B", 221), (15, "#D53418", 221),
+        (17, "#D43217", 221), (21, "#D3361A", 221), (23, "#D44C2E", 221),
+        (26, "#E17C5C", 221), (27, "#F4B8A6", 221), (28, "#582C23", 249),
         (29, "#FEFEFE", 196),
     ),
 }
@@ -614,9 +619,11 @@ def large_disabled_close_glyph(x):
     )
 
 
-def caption_gradient(gradient_id, profile, height):
+def caption_gradient(gradient_id, profile, height, *, keep_anchors=False):
     anchors, colours, alphas = zip(*profile, strict=True)
-    return vertical_gradient(gradient_id, list(zip(colours, alphas, strict=True)), anchors, height=height)
+    return vertical_gradient(
+        gradient_id, list(zip(colours, alphas, strict=True)), anchors, height=height, keep_anchors=keep_anchors,
+    )
 
 
 # The outer highlight, dark lip and inner highlight on Minimize follow
@@ -652,7 +659,7 @@ def large_minimize_surface(width, prefix):
     definitions, shapes = [], []
     for index, (path, profile) in enumerate(zip(paths, profiles, strict=True)):
         gradient = f"{prefix}Bevel{index}"
-        definitions.append(caption_gradient(gradient, profile, height))
+        definitions.append(caption_gradient(gradient, profile, height, keep_anchors=index == len(borders) - 1))
         shapes.append(f'<path d="{path}" fill="url(#{gradient})" fill-rule="evenodd"/>')
     # The body brightens towards the shared seam, modulating the opacity as well
     # as the colour. The horizontal highlight sits inside the inner bevel.
@@ -855,12 +862,17 @@ def caption_surface(
     # central colour bands absorb the additional height of the optical master.
     positions = (0, 1, 2, 3, 4, 5, 6, 7, 12, 15, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29) if large else None
     if optical_face:
-        definitions = caption_gradient(body, optical_face, height)
+        # Qt interpolates the colour and opacity separately. Retain the
+        # authored stops where both change across the centre of the face.
+        definitions = caption_gradient(body, optical_face, height, keep_anchors=large and not disabled_close)
     else:
         definitions = vertical_gradient(body, rows, positions, height=height)
     directional_sheen = large and face_kind == "maximize" and bool(optical_face)
+    active_large_close = large_close and not disabled_close
     if not interaction and not directional_sheen:
-        if disabled_close:
+        if active_large_close:
+            strength, shade_colour, inner_stop, outer_stop = 0.19, ' stop-color="#702D30"', ".22", ".78"
+        elif disabled_close:
             strength, shade_colour, inner_stop, outer_stop = 0.105, ' stop-color="#53595b"', ".19", ".81"
         else:
             side_samples = [band["shade"][2] for band in face["bands"] if len(band["shade"]) > 2]
@@ -880,7 +892,7 @@ def caption_surface(
     if disabled_close:
         _, light, alpha = LARGE_DISABLED_CLOSE_FACE[-1]
     rim_paint = f'stroke="{light}" stroke-opacity="{alpha / 255:.3f}"'
-    if large_close and not disabled_close:
+    if active_large_close:
         # The lower reflection is brighter than the two sides. Keep the
         # tint neutral all the way around the same continuous curved stroke.
         rim = f"{prefix}Rim"
@@ -927,6 +939,13 @@ def caption_surface(
             surface += path
             bevels.append(f'<path d="{path}" fill="url(#{highlight})"/>')
     fill_rule = ' fill-rule="evenodd"' if large_close else ""
+    shaded_surface = surface
+    if active_large_close:
+        # Keep the side tint below the solid top highlight. The bevels paint
+        # the two narrow cutouts over the tint.
+        shaded_surface = caption_rim(
+            stroke, stroke, width - stroke, height - stroke, left_radius - half, right_radius - half,
+        ) + "Z"
     if interaction:
         shading, shaded_face = large_interaction_shading(
             kind, interaction, width, prefix, stroke, (max(0, left_radius - stroke), max(0, right_radius - stroke)),
@@ -940,7 +959,7 @@ def caption_surface(
         sheen, shaded_face = large_maximize_sheen(width, prefix)
         definitions += sheen
     else:
-        shaded_face = f'<path d="{surface}" fill="url(#{shade})"{fill_rule}/>'
+        shaded_face = f'<path d="{shaded_surface}" fill="url(#{shade})"{fill_rule}/>'
     return definitions, (
         f'<path d="{surface}" fill="url(#{body})"{fill_rule}/>'
         + shaded_face +

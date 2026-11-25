@@ -225,7 +225,10 @@ def test_144dpi_resting_caption_over_native_glass(qt_app, exact_original, kind, 
         # The outer highlight, dark divider and inner highlight are separate
         # optical bands. Measure their straight portions and the opposite join.
         assert np.all(difference[1:25, [0, 1, 2, -2]].mean(axis=(0, 2)) < 7)
+        assert difference[13:15, 5:15].mean() < 2
     if kind == "maximize":
+        # Compare the gloss transition in the face area clear of the glyph.
+        assert difference[13:15, 3:9].mean() < 2.5
         # The bright left and right stems are four whole pixels on the
         # 40-pixel cell. Compare their exact RGB without the glass.
         assert not np.any(difference[11:17, [11, 12, 13, 14, 25, 26, 27, 28]])
@@ -237,6 +240,7 @@ def test_144dpi_resting_caption_over_native_glass(qt_app, exact_original, kind, 
         assert not np.any(difference[5:23, 7:-7][ink])
     if kind == "close":
         # The inset highlights and red bevel are visible above the rounded corners.
+        assert not np.any(difference[0, 5:-5])
         assert np.all(difference[:25, [1, -3, -2]].mean(axis=(0, 2)) < 7)
         assert difference[-1, 6:-7].mean() < 5
         assert difference[[5, 22], 27:47].mean() < 4
