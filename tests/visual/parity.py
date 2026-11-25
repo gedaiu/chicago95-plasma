@@ -2051,6 +2051,14 @@ def test_control_panel_icons(control_panel_icons, icon, visual_output):
     exact(expected.crop(crop), actual.crop(crop), directory)
 
 
+@pytest.mark.parametrize("control_panel_icons", ("win95",), indirect=True)
+def test_win95_control_panel_keyboard_case_and_keys_match_native(control_panel_icons):
+    _theme, crops, expected, actual = control_panel_icons
+    left, top, right, _bottom = crops["keyboard"]
+    bounds = (left, top + 12, right, top + 29)
+    np.testing.assert_array_equal(np.asarray(actual.crop(bounds)), np.asarray(expected.crop(bounds)))
+
+
 @pytest.mark.parametrize("theme", [theme for theme, (_, data) in THEMES.items() if data.get("control_panel_end")])
 def test_control_panel_end(theme, tmp_path, visual_output):
     folder, metadata = THEMES[theme]

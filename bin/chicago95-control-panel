@@ -14,6 +14,7 @@ import functools
 import importlib.machinery
 import importlib.util
 import json
+import math
 import re
 import shutil
 import socket
@@ -37,6 +38,7 @@ from chicago95aerobutton import AeroDialogButton, aero_button_artwork
 from PySide6.QtCore import (
     QEvent,
     QPoint,
+    QPointF,
     QProcess,
     QProcessEnvironment,
     QRect,
@@ -441,35 +443,74 @@ WIN95_APPLETS = (
     ),
 )
 
-CLASSIC_APPLET_ART = {
-    "Add New Hardware": "win95-add-hardware.svg",
-    "Add/Remove Programs": "win95-add-programs.svg",
-    "Date/Time": "win95-date-time.svg",
-    "Mouse": "win95-mouse.svg",
-    "Multimedia": "win95-multimedia.svg",
-    "Network": "win95-network.svg",
-    "Power": "win95-power.svg",
-    "Add/Remove Hardware": "win95-add-hardware.svg",
-    "Printers": "classic-printers.svg",
-}
-EXPLORER_APPLET_ART = {
-    **CLASSIC_APPLET_ART,
-    "Display": "classic-display.svg",
-    "Internet Options": "classic-internet-options.svg",
-    "Power Management": "classic-power-options.svg",
-    "Power Options": "classic-power-options.svg",
-    "ODBC Data Sources (32bit)": "win98-odbc.svg",
-    "Telephony": "win98-telephony.svg",
-    "Administrative Tools": "win2000-administrative-tools.svg",
-    "Network and Dial-up Connections": "win2000-network-dialup.svg",
-    "Scheduled Tasks": "win2000-scheduled-tasks.svg",
-}
 WIN95_APPLET_ART = {
-    **CLASSIC_APPLET_ART,
-    "Accessibility Options": "win95-accessibility.svg",
-    "Fonts": "win95-fonts.svg",
-    "Internet": "win95-internet.svg",
-    "Keyboard": "win95-keyboard.svg",
+    "Accessibility Options": "native/win95/accessibility-options.png",
+    "Add New Hardware": "native/win95/add-hardware.png",
+    "Add/Remove Programs": "native/win95/add-programs.png",
+    "Date/Time": "native/win95/date-time.png",
+    "Display": "native/win95/display.png",
+    "Fonts": "native/win95/fonts.png",
+    "Internet": "native/win95/internet.png",
+    "Keyboard": "native/win95/keyboard.png",
+    "Modems": "native/win95/modems.png",
+    "Mouse": "native/win95/mouse.png",
+    "Multimedia": "native/win95/multimedia.png",
+    "Network": "native/win95/network.png",
+    "Passwords": "native/win95/passwords.png",
+    "Power": "native/win95/power.png",
+    "Printers": "native/win95/printers.png",
+    "Regional Settings": "native/win95/regional-settings.png",
+    "Sounds": "native/win95/sounds.png",
+    "System": "native/win95/system.png",
+}
+WIN98_APPLET_ART = {
+    "Accessibility Options": "native/win98/accessibility-options.png",
+    "Add New Hardware": "native/win98/add-hardware.png",
+    "Add/Remove Programs": "native/win98/add-programs.png",
+    "Date/Time": "native/win98/date-time.png",
+    "Display": "native/win98/display.png",
+    "Fonts": "native/win98/fonts.png",
+    "Game Controllers": "native/win98/game-controllers.png",
+    "Internet Options": "native/win98/internet-options.png",
+    "Keyboard": "native/win98/keyboard.png",
+    "Modems": "native/win98/modems.png",
+    "Mouse": "native/win98/mouse.png",
+    "Multimedia": "native/win98/multimedia.png",
+    "Network": "native/win98/network.png",
+    "ODBC Data Sources (32bit)": "native/win98/odbc.png",
+    "Passwords": "native/win98/passwords.png",
+    "Power Management": "native/win98/power-management.png",
+    "Printers": "native/win98/printers.png",
+    "Regional Settings": "native/win98/regional-settings.png",
+    "Sounds": "native/win98/sounds.png",
+    "System": "native/win98/system.png",
+    "Telephony": "native/win98/telephony.png",
+    "Users": "native/win98/users.png",
+}
+WIN2000_APPLET_ART = {
+    "Accessibility Options": "native/win2k/accessibility-options.png",
+    "Add/Remove Hardware": "native/win2k/add-hardware.png",
+    "Add/Remove Programs": "native/win2k/add-programs.png",
+    "Administrative Tools": "native/win2k/administrative-tools.png",
+    "Automatic Updates": "native/win2k/automatic-updates.png",
+    "Date/Time": "native/win2k/date-time.png",
+    "Display": "native/win2k/display.png",
+    "Folder Options": "native/win2k/folder-options.png",
+    "Fonts": "native/win2k/fonts.png",
+    "Game Controllers": "native/win2k/game-controllers.png",
+    "Internet Options": "native/win2k/internet-options.png",
+    "Keyboard": "native/win2k/keyboard.png",
+    "Mouse": "native/win2k/mouse.png",
+    "Network and Dial-up Connections": "native/win2k/network-and-dial-up.png",
+    "Phone and Modem Options": "native/win2k/modems.png",
+    "Power Options": "native/win2k/power-options.png",
+    "Printers": "native/win2k/printers.png",
+    "Regional Options": "native/win2k/regional-settings.png",
+    "Scanners and Cameras": "native/win2k/scanners.png",
+    "Scheduled Tasks": "native/win2k/scheduled-tasks.png",
+    "Sounds and Multimedia": "native/win2k/sounds.png",
+    "System": "native/win2k/system.png",
+    "Users and Passwords": "native/win2k/users.png",
 }
 
 _WIN95_BY_NAME = {applet.name: applet for applet in WIN95_APPLETS}
@@ -605,11 +646,35 @@ XP_APPLETS = (
     replace(_WIN95_BY_NAME["Network"], name="Wireless Network Setup Wizard"),
 )
 XP_APPLET_ART = {
-    "Date and Time": "xp-applet-date-time.svg",
-    "Display": "xp-applet-display.svg",
-    "Mouse": "xp-applet-mouse.svg",
-    "Power Options": "xp-applet-power.svg",
-    "Printers and Faxes": "xp-applet-printers.svg",
+    "Accessibility Options": "native/winxp/accessibility-options.png",
+    "Add Hardware": "native/winxp/add-hardware.png",
+    "Add or Remove Programs": "native/winxp/add-programs.png",
+    "Administrative Tools": "native/winxp/administrative-tools.png",
+    "Automatic Updates": "native/winxp/automatic-updates.png",
+    "Date and Time": "native/winxp/date-and-time.png",
+    "Display": "native/winxp/display.png",
+    "Folder Options": "native/winxp/folder-options.png",
+    "Fonts": "native/winxp/fonts.png",
+    "Game Controllers": "native/winxp/game-controllers.png",
+    "Internet Options": "native/winxp/internet-options.png",
+    "Keyboard": "native/winxp/keyboard.png",
+    "Mouse": "native/winxp/mouse.png",
+    "Network Connections": "native/winxp/network-connections.png",
+    "Network Setup Wizard": "native/winxp/network-setup.png",
+    "Phone and Modem Options": "native/winxp/modems.png",
+    "Power Options": "native/winxp/power-options.png",
+    "Printers and Faxes": "native/winxp/printers-and-faxes.png",
+    "Regional and Language Options": "native/winxp/regional-settings.png",
+    "Scanners and Cameras": "native/winxp/scanners.png",
+    "Scheduled Tasks": "native/winxp/scheduled-tasks.png",
+    "Security Center": "native/winxp/security-center.png",
+    "Sounds and Audio Devices": "native/winxp/sounds.png",
+    "Speech": "native/winxp/speech.png",
+    "System": "native/winxp/system.png",
+    "Taskbar and Start Menu": "native/winxp/taskbar.png",
+    "User Accounts": "native/winxp/users.png",
+    "Windows Firewall": "native/winxp/firewall.png",
+    "Wireless Network Setup Wizard": "native/winxp/wireless-network.png",
 }
 XP_ICON_CAPTIONS = {
     "Add or Remove Programs": "Add or\nRemov…",
@@ -647,16 +712,16 @@ XP_CATEGORIES = (
     ("Security Center", "Security Center", ("Automatic Updates", "Security Center", "Windows Firewall")),
 )
 XP_CATEGORY_ART = {
-    "Display": "xp-category-appearance.svg",
-    "Network Connections": "xp-category-network.svg",
-    "Add or Remove Programs": "xp-category-programs.svg",
-    "Sounds and Audio Devices": "xp-category-sound.svg",
-    "System": "xp-category-performance.svg",
-    "Printers and Faxes": "xp-category-hardware.svg",
-    "User Accounts": "xp-category-users.svg",
-    "Date and Time": "xp-category-regional.svg",
-    "Accessibility Options": "xp-category-accessibility.svg",
-    "Security Center": "xp-category-security.svg",
+    "Display": "native/winxp/categories/appearance-and-themes.png",
+    "Network Connections": "native/winxp/categories/network-and-internet.png",
+    "Add or Remove Programs": "native/winxp/categories/add-or-remove-programs.png",
+    "Sounds and Audio Devices": "native/winxp/categories/sounds-speech-and-audio.png",
+    "System": "native/winxp/categories/performance-and-maintenance.png",
+    "Printers and Faxes": "native/winxp/categories/printers-and-other-hardware.png",
+    "User Accounts": "native/winxp/categories/user-accounts.png",
+    "Date and Time": "native/winxp/categories/date-time-and-region.png",
+    "Accessibility Options": "native/winxp/categories/accessibility-options.png",
+    "Security Center": "native/winxp/categories/security-center.png",
 }
 XP_CLASSIC_TOOLBAR_HEIGHT = 23
 XP_LUNA_MENU_HEIGHT = 19
@@ -735,16 +800,16 @@ AERO_CATEGORY_HEIGHTS = (80, 80, 102, 0, 61, 83, 0, 0)
 # Windows 7 lists these categories down the left column, then down the right.
 AERO_CATEGORIES = {
     "System and Security": (
-        "aero-category-security.svg",
+        "native/win7/system-and-security.png",
         (
             ("View system information", "System", ""),
             ("Check for updates", "Updates", ""),
             ("Change the boot screen", "Booting Screen", ""),
         ),
     ),
-    "Network and Internet": ("aero-category-network.svg", (("Set up a dial-up connection", "Modems", ""),)),
+    "Network and Internet": ("native/win7/network-and-internet.png", (("Set up a dial-up connection", "Modems", ""),)),
     "Hardware and Sound": (
-        "aero-category-hardware.svg",
+        "native/win7/hardware-and-sound.png",
         (
             ("View devices", "Add New Hardware", ""),
             ("Change system sounds", "Sounds", ""),
@@ -752,15 +817,15 @@ AERO_CATEGORIES = {
         ),
     ),
     "Programs": (
-        "aero-category-programs.svg",
+        "native/win7/programs.png",
         (("Configure the file manager", "Explorer", ""), ("Configure the Office Assistant", "Office Assistant", "")),
     ),
     "User Accounts and Family Safety": (
-        "system-users",
+        "native/win7/user-accounts-and-family-safety.png",
         (("Change logon settings", "Passwords", ""), ("Change system branding", "Distro Setup", "")),
     ),
     "Appearance and Personalization": (
-        "aero-category-appearance.svg",
+        "native/win7/appearance-and-personalization.png",
         (
             ("Change the theme", "Themes", ""),
             ("Change desktop background", "Display", "Background"),
@@ -768,11 +833,11 @@ AERO_CATEGORIES = {
         ),
     ),
     "Clock, Language, and Region": (
-        "aero-category-clock.svg",
+        "native/win7/clock-language-and-region.png",
         (("Change taskbar clock settings", "Taskbar", "Taskbar"),),
     ),
     "Ease of Access": (
-        "aero-category-ease-of-access.svg",
+        "native/win7/ease-of-access.png",
         (("Change the screen font", "Fonts", ""), ("Change pointer size", "Mouse", "Pointers")),
     ),
 }
@@ -3557,12 +3622,13 @@ class AeroCategoryView(QWidget):
 
 
 class ClassicAppletDelegate(QStyledItemDelegate):
-    """Draw SVG applet art on the native icon grid at fractional desktop scales."""
+    """Draw applet art on the native icon grid at fractional desktop scales."""
 
-    def __init__(self, view, artwork, *, xp_classic=False):
+    def __init__(self, view, artwork, *, xp_classic=False, win9x=False):
         super().__init__(view)
         self.artwork = artwork
         self.xp_classic = xp_classic
+        self.win9x = win9x
 
     def paint(self, painter, option, index):
         art = self.artwork.get(index.data(Qt.UserRole).name)
@@ -3572,8 +3638,11 @@ class ClassicAppletDelegate(QStyledItemDelegate):
 
         item = QStyleOptionViewItem(option)
         self.initStyleOption(item, index)
+        # QIcon can report a smaller preferred size than the slot at fractional DPI.
+        item.decorationSize = option.decorationSize
         style = item.widget.style() if item.widget else QApplication.style()
         icon = style.subElementRect(QStyle.SE_ItemViewItemDecoration, item, item.widget)
+        artwork = QIcon(item.icon)
         item.icon = QIcon()
         style.drawControl(QStyle.CE_ItemViewItem, item, painter, item.widget)
 
@@ -3586,9 +3655,18 @@ class ClassicAppletDelegate(QStyledItemDelegate):
         if self.xp_classic and transform.m11() == 1.25:
             # XP Classic's 120-DPI icon grid is one device pixel to the left.
             left -= 1
+        view = self.parent()
+        if self.win9x and view.viewMode() == QListView.IconMode and not view.horizontalScrollBar().value():
+            # Explorer rounds the cell pitch in device pixels before advancing to the next column.
+            width = view.gridSize().width()
+            column = icon.center().x() // width
+            pitch = round(width * transform.m11())
+            first_center = transform.map(QPointF(width / 2, 0)).x()
+            left = math.floor(first_center - side / 2) + column * pitch
         square = QRectF(left, round(centre.y() - side / 2), side, side)
         inverse, _ = transform.inverted()
-        control_panel_picture(art).render(painter, inverse.mapRect(square))
+        bitmap = artwork.pixmap(QSize(side, side), 1.0)
+        painter.drawPixmap(inverse.mapRect(square), bitmap, QRectF(bitmap.rect()))
 
 
 class AeroAppletDelegate(QStyledItemDelegate):
@@ -3915,6 +3993,14 @@ def page_rect(rect):
 def control_panel_asset(name):
     checkout = REPO_DIR / "data/control-panel"
     return (checkout if checkout.is_dir() else CHICAGO95_DATA / "control-panel") / name
+
+
+def control_panel_bitmap_icon(name):
+    path = control_panel_asset(name)
+    icon = QIcon(str(path))
+    for variant in sorted(path.parent.glob(f"{path.stem}-*px.png")):
+        icon.addFile(str(variant))
+    return icon
 
 
 def control_panel_art(name):
@@ -6267,8 +6353,8 @@ class ControlPanel(QMainWindow):
             art_by_applet = XP_APPLET_ART
             view.setItemDelegate(ClassicAppletDelegate(view, art_by_applet, xp_classic=not self.xp_luna))
         elif self.win95 or self.uses_web_view:
-            art_by_applet = WIN95_APPLET_ART if self.win95 else EXPLORER_APPLET_ART
-            view.setItemDelegate(ClassicAppletDelegate(view, art_by_applet))
+            art_by_applet = WIN95_APPLET_ART if self.win95 else WIN98_APPLET_ART if self.win98 else WIN2000_APPLET_ART
+            view.setItemDelegate(ClassicAppletDelegate(view, art_by_applet, win9x=self.win95 or self.win98))
             view.setSelectionMode(QListView.ExtendedSelection)
         view.setMovement(QListView.Static)
         view.setSpacing(0)
@@ -6278,7 +6364,7 @@ class ControlPanel(QMainWindow):
         view.setLineWidth(2)
         for applet in self.applets:
             art = art_by_applet.get(applet.name)
-            icon = QIcon(str(control_panel_asset(art))) if art else themed_icon(applet.icon_names)
+            icon = control_panel_bitmap_icon(art) if art else themed_icon(applet.icon_names)
             item = QListWidgetItem(icon, applet.name)
             item.setData(Qt.UserRole, applet)
             view.addItem(item)
@@ -6538,11 +6624,7 @@ class ControlPanel(QMainWindow):
                 row.setSpacing(11)
                 picture = QToolButton()
                 picture.setAccessibleName(category)
-                picture.setIcon(
-                    QIcon(str(control_panel_asset(icon)))
-                    if icon.endswith(".svg")
-                    else themed_icon((icon, APPLET_BY_NAME[links[0][1]].icon_names[0]))
-                )
+                picture.setIcon(control_panel_bitmap_icon(icon))
                 picture.setIconSize(QSize(48, 48))
                 picture.setStyleSheet("background: transparent; border: none; padding: 0")
                 picture.setCursor(Qt.PointingHandCursor)
@@ -6927,7 +7009,11 @@ class ControlPanel(QMainWindow):
         scroll.setWidgetResizable(True)
         page = XPCategoryPage(luna=self.xp_luna)
         text = "#ffffff" if self.xp_luna else "#000000"
-        page.setStyleSheet("QToolButton { border: 0; background: transparent; padding: 0; }")
+        # The guest aligns each bitmap toward the top of its row.
+        icon_bottom_padding = 8 if self.xp_luna else 6
+        page.setStyleSheet(
+            f"QToolButton {{ border: 0; background: transparent; padding: 0 0 {icon_bottom_padding}px 0; }}"
+        )
         category_font = page.font()
         category_font.setFamilies(["Tahoma", "Wine Tahoma", "Liberation Sans", "DejaVu Sans"])
         category_font.setPixelSize(11 if self.xp_luna else 12)
@@ -6955,9 +7041,11 @@ class ControlPanel(QMainWindow):
             card = QHBoxLayout()
             card.setSpacing(3)
             glyph = QToolButton()
-            glyph.setIcon(QIcon(str(control_panel_asset(XP_CATEGORY_ART[primary]))))
+            glyph.setIcon(control_panel_bitmap_icon(XP_CATEGORY_ART[primary]))
             glyph.setIconSize(QSize(38, 38))
             glyph.setFixedSize(44, 52)
+            if not self.xp_luna and index < 5:
+                glyph.setStyleSheet("QToolButton { padding-right: 1px; }")
             glyph.setAccessibleName(title)
             glyph.setCursor(Qt.PointingHandCursor)
             glyph.clicked.connect(lambda _checked=False, names=members: self.open_xp_category(names))

@@ -70,7 +70,11 @@
           "height": 1,
           "max_channel_delta": 255
         }
-      ]
+      ],
+      "review": {
+        "status": "approved",
+        "comment": ""
+      }
     },
     "win95/desktop/plasma/idle": {
       "size": [
@@ -66903,6 +66907,83 @@
       "review": {
         "status": "rejected",
         "comment": "wrong font, can you get the os font from the vm?"
+      }
+    },
+    "win7/caption/gtk4/disabled/close": {
+      "size": [
+        75,
+        30
+      ],
+      "regions": [],
+      "review": {
+        "status": "rejected",
+        "comment": "different gradients"
+      }
+    },
+    "win7/caption/gtk4/hover/close": {
+      "size": [
+        75,
+        30
+      ],
+      "regions": [],
+      "review": {
+        "status": "rejected",
+        "comment": "the X and borders should be different"
+      }
+    },
+    "win7/caption/gtk4/hover/minimize": {
+      "size": [
+        45,
+        30
+      ],
+      "regions": [],
+      "review": {
+        "status": "rejected",
+        "comment": "the gradient and - are wrong"
+      }
+    },
+    "win7/caption/gtk4/pressed/close": {
+      "size": [
+        75,
+        30
+      ],
+      "regions": [],
+      "review": {
+        "status": "pending",
+        "comment": "x is a bit blurry and must be whiter"
+      }
+    },
+    "win7/caption/kwin/mattes/dark/glass": {
+      "size": [
+        1,
+        30
+      ],
+      "regions": [],
+      "review": {
+        "status": "approved",
+        "comment": ""
+      }
+    },
+    "win7/lock-screen/qt/800x600": {
+      "size": [
+        800,
+        600
+      ],
+      "regions": [],
+      "review": {
+        "status": "approved",
+        "comment": ""
+      }
+    },
+    "win7/lock-screen/qt/1024x768": {
+      "size": [
+        1024,
+        768
+      ],
+      "regions": [],
+      "review": {
+        "status": "approved",
+        "comment": ""
       }
     }
   }

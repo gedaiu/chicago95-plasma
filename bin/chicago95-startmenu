@@ -102,7 +102,6 @@ from PySide6.QtGui import (
     QPainter,
     QPalette,
     QPixmap,
-    QRegion,
 )
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QApplication, QMenu, QStyle, QStyleOptionMenuItem, QWidget
@@ -693,33 +692,21 @@ def win95_suspend_icon():
     asset = Path(__file__).resolve().parent.parent / "data/start-menu/suspend.svg"
     if not installed and not asset.is_file():
         return QIcon()
-    renderer = QSvgRenderer(installed or str(asset))
+    source = installed or str(asset)
+    if ROOT_ICON != 24:
+        return QIcon(source)
+    renderer = QSvgRenderer(source)
     if not renderer.isValid():
         return QIcon()
-    monitors = (base / "Chicago95/actions/24/system-shutdown.png" for base in ICON_SET_DIRS)
-    monitor = next((path for path in monitors if path.is_file()), None)
-    # Sample the SVG near the centre of each output pixel to preserve the sharp
-    # edges of the native icon. When available, reuse the matched monitor art.
-    size = ROOT_ICON * 5
+    # Sample the SVG at pixel centres to keep the native 24px rendering crisp.
+    size = ROOT_ICON * 25
     layer = QPixmap(size, size)
     layer.fill(Qt.transparent)
     painter = QPainter(layer)
-    if monitor:
-        painter.scale(size / 24, size / 24)
-        renderer.render(painter, "suspend-screen", renderer.boundsOnElement("suspend-screen"))
-    else:
-        renderer.render(painter)
+    renderer.render(painter)
     painter.end()
     layer = layer.scaled(ROOT_ICON, ROOT_ICON, Qt.IgnoreAspectRatio, Qt.FastTransformation)
-    if monitor is None:
-        return QIcon(layer)
-    picture = chicago95ui.crisp_icon(QIcon(str(monitor))).pixmap(ROOT_ICON, ROOT_ICON)
-    painter = QPainter(picture)
-    painter.setClipRegion(QRegion(layer.mask()))
-    painter.setCompositionMode(QPainter.CompositionMode_Source)
-    painter.drawPixmap(0, 0, layer)
-    painter.end()
-    return QIcon(picture)
+    return QIcon(layer)
 
 
 def root_icon(item, style):

@@ -68,7 +68,7 @@ def test_icon_looks_like_the_original(menus, item):
     assert difference <= MEAN_DIFFERENCE, f"{item}: mean difference {difference:.1f}"
 
 
-def test_win95_suspend_svg_fallback_matches_the_native_monitor(startmenu, qt_app, monkeypatch):
+def test_win95_suspend_svg_matches_the_native_monitor(startmenu, qt_app, monkeypatch):
     from PIL import Image
     from PySide6.QtGui import QColor, QImage, QPainter
     from reference import REFERENCES, qimage_to_pil
@@ -84,15 +84,33 @@ def test_win95_suspend_svg_fallback_matches_the_native_monitor(startmenu, qt_app
     with Image.open(REFERENCES / "themes/win95/start-menu.png") as reference:
         expected = reference.crop((34, 208, 58, 232)).convert("RGB")
     expected, actual = (np.asarray(image, dtype=np.int16) for image in (expected, qimage_to_pil(canvas)))
-    assert np.abs(expected - actual).mean() < 14
-    yellow = [(image[:, :, :2].min(2) > 200) & (image[:, :, 2] < 50) for image in (expected, actual)]
-    assert (yellow[0] & yellow[1]).sum() >= 7
+    # The bitmap has two grey pixels inside the otherwise continuous crescent.
+    assert np.count_nonzero(np.any(expected != actual, axis=2)) <= 2
+    crescent = np.all(expected == (255, 255, 0), axis=2) | np.all(expected == (128, 128, 0), axis=2)
+    assert crescent.sum() == 16
+    np.testing.assert_array_equal(actual[crescent], expected[crescent])
 
 
 def test_win95_suspend_has_separate_fills_and_a_circular_crescent():
     artwork = (REPO / "data/start-menu/suspend.svg").read_bytes()
     assert not overlap(artwork)
     assert len(circular_arcs(artwork, "moon")) == 2
+
+
+def test_win95_suspend_highlight_joins_the_housing_corner(qt_app):
+    from PySide6.QtGui import QImage, QPainter
+    from PySide6.QtSvg import QSvgRenderer
+
+    artwork = QSvgRenderer(str(REPO / "data/start-menu/suspend.svg"))
+    scale = 48
+    size = artwork.defaultSize() * scale
+    image = QImage(size, QImage.Format_ARGB32)
+    image.fill(0)
+    with QPainter(image) as painter:
+        artwork.render(painter)
+    for x, y in ((1.5, 3.6), (2.5, 3.25), (4.5, 3.25)):
+        assert image.pixelColor(int(x * scale), int(y * scale)).name() == "#ffffff"
+    assert image.pixelColor(int(2.13 * scale), int(2.82 * scale)).name() == "#808080"
 
 
 def test_geometry_check_reports_intersection_but_allows_shared_edges():

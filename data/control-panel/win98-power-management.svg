@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="1 1 32 32">
+  <defs>
+    <linearGradient id="battery-metal" gradientUnits="userSpaceOnUse" x1="12.4" x2="25.4">
+      <stop stop-color="#808080"/>
+      <stop offset=".08" stop-color="#fff"/>
+      <stop offset=".18" stop-color="#c0c0c0"/>
+      <stop offset=".43" stop-color="#808080"/>
+    </linearGradient>
+    <linearGradient id="battery-label" gradientUnits="userSpaceOnUse" x1="12" x2="25">
+      <stop stop-color="#eee"/>
+      <stop offset=".42" stop-color="#fff"/>
+      <stop offset=".64" stop-color="#ffffb0"/>
+      <stop offset="1" stop-color="#b4a800"/>
+    </linearGradient>
+    <linearGradient id="plug-top" gradientUnits="userSpaceOnUse" x1="10" y1="20" x2="23" y2="25">
+      <stop stop-color="#eee"/>
+      <stop offset="1" stop-color="#c0c0c0"/>
+    </linearGradient>
+    <linearGradient id="brass" x1=".58" y1=".28" x2=".48" y2=".62">
+      <stop stop-color="#ffff80"/>
+      <stop offset=".6" stop-color="#ffff00"/>
+      <stop offset="1" stop-color="#808000"/>
+    </linearGradient>
+  </defs>
+  <!-- The cord’s bright strip is inset into the dark casing. -->
+  <path fill="#555" fill-rule="evenodd" d="M1 4H3C6.5 4 7.9 7.6 7.9 11.3L7.3 15.4C7.1 18.4 8.1 19.2 11.2 20.1L8 21.4
+    C5.7 20.8 4.1 18.8 4.1 15.5L4.6 11.5C4.6 8.1 4.4 6.7 3 6.7H1Z M1 5H3C5.7 5 6.8 8 6.8 11.3L6.2 15.4
+    C6 18.4 7.1 20 9.7 20.7L8.5 21.1C6.2 20.4 5 18.5 5 15.5L5.5 11.5C5.5 8.2 5.1 5.8 3 5.8H1Z"/>
+  <path fill="#c0c0c0" fill-rule="evenodd" d="M1 5H3C5.7 5 6.8 8 6.8 11.3L6.2 15.4C6 18.4 7.1 20 9.7 20.7L8.5 21.1
+    C6.2 20.4 5 18.5 5 15.5L5.5 11.5C5.5 8.2 5.1 5.8 3 5.8H1Z"/>
+  <!-- The battery terminal, lid, and label share their edges. -->
+  <path fill="#ddd" fill-rule="evenodd" d="M12.4 5.5C12.4 4.55 14.5 3.55 17.4 3.1C17.4 4.7 20.6 4.7 20.6 3.1
+    C23.3 3.5 25.4 4.5 25.4 5.5C25.4 6.36 22.4 7.05 18.9 7.05C15.4 7.05 12.4 6.36 12.4 5.5Z"/>
+  <path fill="#c0c0c0" fill-rule="evenodd" d="M17.4 3.1C17.4 1.7 20.6 1.7 20.6 3.1C20.6 4.7 17.4 4.7 17.4 3.1Z"/>
+  <path fill="#808080" fill-rule="evenodd" d="M25.4 5.5C25.4 6.36 22.4 7.05 18.9 7.05C15.4 7.05 12.4 6.36 12.4 5.5
+    C12.4 6.72 15.4 7.65 18.9 7.65C22.4 7.65 25.4 6.72 25.4 5.5Z"/>
+  <path fill="url(#battery-label)" fill-rule="evenodd" d="M12.4 5.5C12.4 6.72 15.4 7.65 18.9 7.65
+    C22.4 7.65 25.4 6.72 25.4 5.5V10.7C25.4 11.2 22.4 12.3 18.9 12.3C15.4 12.3 12.4 11.2 12.4 10.7Z M19.2 7.8H20.2
+    V9.1H22.3V10.1H20.2V11.65H19.2V10.1H17.15V9.1H19.2Z"/>
+  <path fill="#f00" fill-rule="evenodd" d="M19.2 7.8H20.2V9.1H22.3V10.1H20.2V11.65H19.2V10.1H17.15V9.1H19.2Z"/>
+  <path fill="url(#battery-metal)" fill-rule="evenodd" d="M25.4 10.7C25.4 11.2 22.4 12.3 18.9 12.3
+    C15.4 12.3 12.4 11.2 12.4 10.7V17.4L14 17.85H25.4Z"/>
+  <path fill="#282828" fill-rule="evenodd" d="M12.4 17.4 14 17.85H25.4V18.8H14.5L12.4 18Z"/>
+  <path fill="#000" fill-rule="evenodd" d="M25.4 5.5 27 6.8V19.3L26.4 18.8H25.4Z"/>
+  <!-- Three planar faces form the plug body. -->
+  <path fill="url(#plug-top)" fill-rule="evenodd" d="M8,21.4 14.5,18.8 26.4,18.8 28,20.45 19.5,24.9Z"/>
+  <path fill="#686868" fill-rule="evenodd" d="M8,21.4 8,25 8.6,26.8 19.5,32.4 19.5,31.18 9,26.2 9,21.7Z"/>
+  <path fill="#c0c0c0" fill-rule="evenodd" d="M19.5,24.9 9,21.704 9,26.2 19.5,31.18 19.5,28.389 18.95,28.1 19.5,27.324Z"/>
+  <path fill="#303030" fill-rule="evenodd" d="
+    M28,23 28,20.45 19.5,24.9 19.5,27.324 20.65,25.7 24.03,27.39 25.029,26.285 22.7,25.1 24.4,22.8 27.004,24.102Z
+    M19.5,32.4 21.958,29.682 19.5,28.389Z"/>
+  <!-- Each brass prong has a rounded end and a separate outline. -->
+  <path fill="#000" fill-rule="evenodd" d="M24.4 22.8 31.9 26.55C33.25 27.22 33.15 29.1 31.15 29.4L22.7 25.1Z
+    M24.65 23.35 31.55 26.8C32.57 27.31 32.5 28.55 31.22 28.75L23.6 24.95Z"/>
+  <path fill="url(#brass)" fill-rule="evenodd" d="M24.65 23.35 31.55 26.8C32.57 27.31 32.5 28.55 31.22 28.75L23.6 24.95Z"/>
+  <path fill="#000" fill-rule="evenodd" d="M20.65 25.7 28.45 29.6C29.85 30.3 29.6 32.35 27.6 32.65L18.95 28.1Z
+    M20.9 26.25 28.1 29.85C29.08 30.33 28.9 31.78 27.67 32L19.85 28.1Z"/>
+  <path fill="url(#brass)" fill-rule="evenodd" d="M20.9 26.25 28.1 29.85C29.08 30.33 28.9 31.78 27.67 32L19.85 28.1Z"/>
+</svg>
