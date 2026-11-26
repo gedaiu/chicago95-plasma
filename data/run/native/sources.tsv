@@ -1,0 +1,10 @@
+icon	VM	module	group	language	resource	width	height	bit_depth
+native/2000/run-16px.png	win2k	WINNT/system32/shdocvw.dll	group-102	1033	5	16	16	4
+native/2000/run.png	win2k	WINNT/system32/shdocvw.dll	group-102	1033	4	32	32	4
+native/aero/run-16px.png	win7	Windows/System32/shell32.dll	group-160	1033	748	16	16	32
+native/aero/run-32px.png	win7	Windows/System32/shell32.dll	group-160	1033	747	32	32	32
+native/aero/run.png	win7	Windows/System32/shell32.dll	group-160	1033	746	48	48	32
+native/1995/run-16px.png	win95	WINDOWS/SYSTEM/SHDOCVW.DLL	group-258	1033	10	16	16	4
+native/1995/run.png	win95	WINDOWS/SYSTEM/SHDOCVW.DLL	group-258	1033	9	32	32	4
+native/1998/run-16px.png	win98	WINDOWS/SYSTEM/SHDOCVW.DLL	group-102	1033	5	16	16	4
+native/1998/run.png	win98	WINDOWS/SYSTEM/SHDOCVW.DLL	group-102	1033	4	32	32	4

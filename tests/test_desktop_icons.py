@@ -8,7 +8,7 @@ import pytest
 from chicago95appliers import DESKTOP_SCRIPT, desktop_icons_chosen
 from chicago95setup import Choices, apply_look
 from conftest import REPO, load_script
-from test_install import dry_run_log
+from test_install import dry_run_log, run_setup
 
 ICON_THEME = REPO.parent / "Chicago95/Icons/Chicago95"
 
@@ -89,6 +89,17 @@ def test_a_settings_file_limits_the_icons_to_the_saved_ones(tmp_path):
     log = dry_run_log(tmp_path, "--components=desktop", f"--settings={saved}")
 
     assert re.findall(r"would: cp \S+ \S+/Desktop/(.+)\.desktop", log) == ["Recycle Bin"]
+
+
+def test_setup_installs_both_native_recycle_bin_bitmaps(tmp_path):
+    result = run_setup(tmp_path, "--components=desktop", "--look=1998")
+    assert result.returncode == 0, result.stderr
+    section = configparser.ConfigParser(interpolation=None)
+    section.read(tmp_path / "Desktop/Recycle Bin.desktop")
+    for key, name in (("Icon", "recycle-full.png"), ("EmptyIcon", "recycle.png")):
+        installed = tmp_path / ".local/share/chicago95/desktop-icons/1998" / name
+        assert section["Desktop Entry"][key] == str(installed)
+        assert installed.read_bytes() == (REPO / "data/desktop-icons/native/1998" / name).read_bytes()
 
 
 def test_my_documents_link_points_into_the_home_folder_once_installed(tmp_path):

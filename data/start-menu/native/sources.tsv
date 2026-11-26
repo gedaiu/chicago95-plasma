@@ -1,0 +1,13 @@
+icon	VM	module	group	language	resource	width	height	bit_depth
+native/2001/help-16px.png	winxp	WINDOWS/pchealth/helpctr/binaries/HelpCtr.exe	group-200	1033	12	16	16	32
+native/2001/help.png	winxp	WINDOWS/pchealth/helpctr/binaries/HelpCtr.exe	group-200	1033	11	24	24	32
+native/2001/help-32px.png	winxp	WINDOWS/pchealth/helpctr/binaries/HelpCtr.exe	group-200	1033	10	32	32	32
+native/2001/help-48px.png	winxp	WINDOWS/pchealth/helpctr/binaries/HelpCtr.exe	group-200	1033	9	48	48	32
+native/2001/log_off-16px.png	winxp	WINDOWS/system32/shell32.dll	group-45	1033	341	16	16	32
+native/2001/log_off.png	winxp	WINDOWS/system32/shell32.dll	group-45	1033	340	24	24	32
+native/2001/log_off-32px.png	winxp	WINDOWS/system32/shell32.dll	group-45	1033	339	32	32	32
+native/2001/log_off-48px.png	winxp	WINDOWS/system32/shell32.dll	group-45	1033	338	48	48	32
+native/2001/shut_down-16px.png	winxp	WINDOWS/system32/shell32.dll	group-28	1033	244	16	16	32
+native/2001/shut_down.png	winxp	WINDOWS/system32/shell32.dll	group-28	1033	243	24	24	32
+native/2001/shut_down-32px.png	winxp	WINDOWS/system32/shell32.dll	group-28	1033	242	32	32	32
+native/2001/shut_down-48px.png	winxp	WINDOWS/system32/shell32.dll	group-28	1033	241	48	48	32

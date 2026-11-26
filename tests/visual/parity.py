@@ -846,6 +846,12 @@ def test_run_win7_browse_mnemonic_matches_native_underline(aero_run_capture):
     np.testing.assert_array_equal(*masks)
 
 
+def test_run_win7_bitmap_matches_native_pixels(aero_run_capture):
+    bounds = (12, 30, 76, 81)
+    expected, actual = (np.asarray(image.crop(bounds), dtype=np.int16) for image in aero_run_capture)
+    assert np.abs(expected - actual).mean() < 0.1
+
+
 @pytest.mark.parametrize(
     ("bounds", "max_error"),
     [((187, 231, 246, 253), 6.8), ((310, 231, 392, 253), 10.6)],

@@ -3996,11 +3996,7 @@ def control_panel_asset(name):
 
 
 def control_panel_bitmap_icon(name):
-    path = control_panel_asset(name)
-    icon = QIcon(str(path))
-    for variant in sorted(path.parent.glob(f"{path.stem}-*px.png")):
-        icon.addFile(str(variant))
-    return icon
+    return chicago95ui.bitmap_icon(control_panel_asset(name))
 
 
 def control_panel_art(name):

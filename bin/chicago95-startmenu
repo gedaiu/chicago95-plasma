@@ -671,6 +671,7 @@ XP_MENU_ORIGINALS = {
     "system-shutdown",
     "system-software-update",
 }
+LUNA_NATIVE_ITEMS = {"help-contents": "help", "system-log-out": "log_off", "system-shutdown": "shut_down"}
 
 
 def original_xp_icon(name):
@@ -709,8 +710,22 @@ def win95_suspend_icon():
     return QIcon(layer)
 
 
+def native_menu_icon(style, item):
+    if any(part in ("", ".", "..") or Path(part).name != part for part in (style, item)):
+        return QIcon()
+    filename = f"start-menu/native/{style}/{item}.png"
+    checkout = Path(__file__).resolve().parent.parent / "data" / filename
+    if checkout.is_file():
+        return chicago95ui.bitmap_icon(checkout)
+    installed = QStandardPaths.locate(QStandardPaths.GenericDataLocation, f"chicago95/{filename}")
+    return chicago95ui.bitmap_icon(Path(installed)) if installed else QIcon()
+
+
 def root_icon(item, style):
     """The item's icon from the style's matched icon set, or from the desktop's icon theme."""
+    native = native_menu_icon(style, item)
+    if not native.isNull():
+        return native
     if style == "1995" and item == "suspend":
         icon = win95_suspend_icon()
         if not icon.isNull():
@@ -964,6 +979,10 @@ def launch_luna_item(item):
 
 def luna_icon(item):
     name = item["icon"] if isinstance(item, dict) else item
+    if name in LUNA_NATIVE_ITEMS:
+        native = native_menu_icon("2001", LUNA_NATIVE_ITEMS[name])
+        if not native.isNull():
+            return native
     original = original_xp_icon(name)
     return original if original is not None else themed_icon(name)
 

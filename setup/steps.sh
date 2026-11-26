@@ -659,32 +659,50 @@ apply_icon_set() {
   [ "$theme" = Chicago95 ] && [ "${SETUP_ICONS:-chicago95}" != chicago95 ] && ui_status "That icon set is unavailable; keeping Chicago95"
   install_toolbar_icons "$theme"
   select_desktop_icons Chicago95-Toolbar
-  # Toolbar icons are grey until the pointer is over them, as Explorer's were: KIconLoader's effects, which
-  # the Plasma platform theme applies to every Qt program's themed icons.
+  # Classic Explorer's toolbar icons turn to colour on hover. XP draws them in colour at rest.
+  local effect=togray
+  case "${SETUP_START_MENU_STYLE:-}" in 2001|luna) effect=none ;; esac
   for group in MainToolbarIcons ToolbarIcons; do
-    kconf kdeglobals "$group" DefaultEffect togray
+    kconf kdeglobals "$group" DefaultEffect "$effect"
     kconf kdeglobals "$group" DefaultValue 1
     kconf kdeglobals "$group" ActiveEffect none
   done
 }
 
-# Explorer's toolbar buttons (Back, Up, Cut, Copy...) of Windows 95 or 2000 as a small theme over the icon set.
+# Explorer's toolbar buttons as a small theme over the selected icon set.
 install_toolbar_icons() { # install_toolbar_icons <icon set it inherits>
-  local dest=~/.local/share/icons/Chicago95-Toolbar buttons=1995
-  [ "${SETUP_BEVEL:-1995}" = 2000 ] && buttons=2000
-  put_tree "$REPO/data/toolbar-icons/$buttons" "$dest/actions/22"
-  run tee "$dest/index.theme" >/dev/null <<EOF
+  local dest=~/.local/share/icons/Chicago95-Toolbar buttons=1995 release=95 directory=actions/22
+  local size sizes=(22)
+  if [ "${SETUP_BEVEL:-1995}" = 2000 ]; then buttons=2000; release=2000; fi
+  case "${SETUP_START_MENU_STYLE:-}" in
+  2001|luna)
+    release=XP
+    directory=actions/16,actions/24
+    sizes=(16 24)
+    for size in "${sizes[@]}"; do
+      put_tree "$REPO/data/toolbar-icons/2001/$size" "$dest/actions/$size"
+    done
+    ;;
+  *) put_tree "$REPO/data/toolbar-icons/$buttons" "$dest/actions/22" ;;
+  esac
+  {
+    cat <<EOF
 [Icon Theme]
 Name=Chicago95 Toolbar
-Comment=Windows $([ "$buttons" = 2000 ] && echo 2000 || echo 95) Explorer toolbar buttons over $1
+Comment=Windows $release Explorer toolbar buttons over $1
 Inherits=$1,hicolor
-Directories=actions/22
+Directories=$directory
+EOF
+    for size in "${sizes[@]}"; do
+      cat <<EOF
 
-[actions/22]
-Size=22
+[actions/$size]
+Size=$size
 Context=Actions
 Type=Fixed
 EOF
+    done
+  } | run tee "$dest/index.theme" >/dev/null
   record "$dest"
 }
 
@@ -1230,7 +1248,7 @@ write_start_menu_rc() { python_applier start_menu; }
 step_startmenu() {
   step_tools_common
   put_file "$REPO/bin/chicago95-startmenu" ~/.local/bin/chicago95-startmenu
-  put_file "$REPO/data/start-menu/suspend.svg" ~/.local/share/chicago95/start-menu/suspend.svg
+  put_tree "$REPO/data/start-menu" ~/.local/share/chicago95/start-menu
   run chmod +x ~/.local/bin/chicago95-startmenu
   put_file "$REPO/bin/chicago95-shutdown" ~/.local/bin/chicago95-shutdown
   put_tree "$REPO/kwin-effects/chicago95shutdown" ~/.local/share/kwin/effects/chicago95shutdown

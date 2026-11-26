@@ -3,6 +3,7 @@ from conftest import REPO
 from PySide6.QtGui import QImage
 
 ICONS = sorted((REPO / "data/toolbar-icons").glob("*/*.png"))
+XP_ICONS = sorted((REPO / "data/toolbar-icons/2001").glob("*/*.png"))
 
 
 def test_toolbar_icons_cover_navigation_and_clipboard_for_both_sets():
@@ -14,8 +15,9 @@ def test_toolbar_icons_cover_navigation_and_clipboard_for_both_sets():
     ) == (True, True)
 
 
-@pytest.mark.parametrize("icon", ICONS, ids=lambda icon: f"{icon.parent.name}/{icon.stem}")
-def test_toolbar_icon_is_22_pixels_with_transparent_corners(icon):
+@pytest.mark.parametrize("icon", ICONS + XP_ICONS, ids=lambda icon: f"{icon.parent.name}/{icon.stem}")
+def test_toolbar_icon_keeps_its_native_size_and_transparent_corners(icon):
     image = QImage(str(icon))
+    size = int(icon.parent.name) if icon in XP_ICONS else 22
 
-    assert (image.width(), image.height(), image.pixelColor(0, 0).alpha()) == (22, 22, 0)
+    assert (image.width(), image.height(), image.pixelColor(0, 0).alpha()) == (size, size, 0)

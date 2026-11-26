@@ -307,6 +307,14 @@ def crisp_icon(icon):
     return QIcon(CrispIconEngine(icon))
 
 
+def bitmap_icon(path):
+    """Load a PNG and its sibling frames named with a size in pixels."""
+    icon = QIcon(str(path))
+    for variant in sorted(path.parent.glob(f"{path.stem}-*px.png")):
+        icon.addFile(str(variant))
+    return icon
+
+
 def sound_file(theme, event, roots):
     """The sound a sound theme plays for an event: its own, else Chicago95's. Disabled sounds are skipped."""
     for theme_name in dict.fromkeys([theme, "Chicago95"]):

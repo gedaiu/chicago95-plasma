@@ -492,23 +492,30 @@ class RunBehaviour:
         icon = QLabel(body)
         filenames = {"aero": "aero-run.svg", "2001": "xp-run.svg", "luna": "xp-run.svg"}
         filename = filenames.get(self.style, "classic-run.svg")
-        asset = Path(__file__).resolve().parents[1] / "data/run" / filename
-        if not asset.is_file():
-            asset = Path.home() / ".local/share/chicago95/run" / filename
-        graphic = QIcon(str(asset))
+        roots = (Path(__file__).resolve().parents[1] / "data/run", Path.home() / ".local/share/chicago95/run")
+        style = "2001" if self.style == "luna" else self.style
+        candidates = [root / name for name in (f"native/{style}/run.png", filename) for root in roots]
+        asset = next((path for path in candidates if path.is_file()), None)
+        graphic = chicago95ui.bitmap_icon(asset) if asset else QIcon()
         if graphic.isNull():
             graphic = QIcon.fromTheme("system-run")
         scale = self.layout_scale
         if self.win98_hidpi:
             # At 120 DPI the native hourglass keeps its 32 physical pixels.
-            pixmap = graphic.pixmap(QSize(32, 32))
+            pixmap = graphic.pixmap(QSize(32, 32), 1.0)
             pixmap.setDevicePixelRatio(scale)
             icon.setPixmap(pixmap)
             side = ceil(32 / scale)
             icon.setFixedSize(side, side)
             icon.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         else:
-            icon.setPixmap(graphic.pixmap(QSize(32, 32), scale))
+            pixmap = graphic.pixmap(QSize(32, 32), scale)
+            if self.style == "aero" and scale == 1.5 and asset and asset.suffix == ".png":
+                # At 144 DPI the native image starts one device pixel below the label's top.
+                image = pixmap.toImage()
+                pixmap = QPixmap.fromImage(image.copy(0, -1, image.width(), image.height()))
+                pixmap.setDevicePixelRatio(scale)
+            icon.setPixmap(pixmap)
             icon.setFixedSize(32, 32)
         icon.move(*layout.icon_at)
         prompt = QLabel(chicago95ui.fill_placeholders(PROMPTS[self.style], self.look), body)

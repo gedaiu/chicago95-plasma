@@ -853,6 +853,27 @@ def desktop_link_name(source):
     return re.search(r"^Name=(.*)$", Path(source).read_text(), re.M).group(1)
 
 
+def desktop_icon_images(setup, icon, style):
+    style = "2001" if style == "luna" else style
+    directory = setup.repo / "data/desktop-icons/native" / style
+    images = {"Icon": f"{icon}.png"}
+    if icon == "recycle":
+        images = {"Icon": "recycle-full.png", "EmptyIcon": "recycle.png"}
+    return {key: directory / name for key, name in images.items() if (directory / name).is_file()}
+
+
+def installed_desktop_icon(setup, image):
+    return home_path(setup, f".local/share/chicago95/desktop-icons/{image.parent.name}/{image.name}")
+
+
+def desktop_link_contents(setup, source, images):
+    contents = source.read_text().replace("@HOME@", str(setup.home))
+    for key, image in images.items():
+        path = installed_desktop_icon(setup, image)
+        contents = re.sub(rf"^{key}=.*$", lambda _match, line=f"{key}={path}": line, contents, flags=re.M)
+    return contents
+
+
 DESKTOP_SCRIPT = """desktops().forEach(desktop => {
     if (desktop.type !== "org.kde.plasma.folder") { print("desktop " + desktop.id + " is " + desktop.type + ", not a Folder View: no desktop icons"); return; }
     desktop.currentConfigGroup = ["General"];
@@ -870,18 +891,30 @@ def desktop_icons(setup):
     """Links in ~/Desktop, shown by Folder View at the originals' 32px with two label lines."""
     choices, style = setup.choices, setup.choices["START_MENU_STYLE"]
     if style == "aero" or (style == "luna" and choices.unset_or("DESKTOP_ICONS", "auto") == "auto"):
-        for name in ("my-computer", "my-documents", "my-network-places", "network-neighborhood"):
+        for name, icon in (("my-computer", "computer"), ("my-documents", "documents"),
+                           ("my-network-places", "network"), ("network-neighborhood", "network")):
             old = setup.repo / f"config/desktop/{name}.desktop"
             target = home_path(setup, f"Desktop/{desktop_link_name(old)}.desktop")
-            as_installed = old.read_text().replace("@HOME@", str(setup.home))
-            if setup.installed_by_setup(target) and target.is_file() and target.read_text() == as_installed:
+            if not setup.installed_by_setup(target) or not target.is_file():
+                continue
+            as_installed = {desktop_link_contents(setup, old, {})}
+            for prior in ("1995", "1998", "2000", "2001"):
+                images = desktop_icon_images(setup, icon, prior)
+                as_installed.add(desktop_link_contents(setup, old, images))
+            if target.read_text() in as_installed:
                 setup.backup(target)
                 setup.run("rm", "-f", target)
     for icon in desktop_icons_chosen(choices):
         source = desktop_icon_source(setup, icon)
         target = home_path(setup, f"Desktop/{desktop_link_name(source)}.desktop")
         setup.put_file(source, target)
-        setup.substitute_home(target)
+        images = desktop_icon_images(setup, icon, style)
+        if images:
+            for image in images.values():
+                setup.put_file(image, installed_desktop_icon(setup, image))
+            setup.write_file(target, desktop_link_contents(setup, source, images))
+        else:
+            setup.substitute_home(target)
         if icon == "computer" and style == "aero":
             if choices.get("EXPLORER", "thunar") == "dolphin" or choices.get("HAS_THUNAR", "0") != "1":
                 setup.run("sed", "-i", "s|^Exec=.*|Exec=dolphin computer:/|", target)
