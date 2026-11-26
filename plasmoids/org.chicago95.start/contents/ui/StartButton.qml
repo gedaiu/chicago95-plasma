@@ -27,6 +27,7 @@ Item {
     property color textColor: "#000000"
 
     readonly property real pixelScale: Window.window?.devicePixelRatio ?? Screen.devicePixelRatio
+    readonly property bool win95DeviceGrid: look === "1995" && pixelScale === 1.25
     readonly property bool usesWin98Inset: look === "1998" && pixelScale === 1.25
     readonly property string nativeStartFont: {
         if (pixelScale !== 1.25 || (look !== "1995" && look !== "1998"))
@@ -37,7 +38,7 @@ Item {
     // At 120 DPI the XP Classic button is 26 pixels tall, one shorter than the Windows 2000 bevel.
     readonly property real buttonHeight: isXpClassic && pixelScale === 1.25 ? 22 - 1 / pixelScale : 22
     // The native 120 DPI taskbar leaves two full pixels below these bevels.
-    readonly property real bottomCorrection: bevel === "2000"
+    readonly property real bottomCorrection: win95DeviceGrid ? 1 / pixelScale : bevel === "2000"
         ? (Math.round(2 * pixelScale) - Math.floor(2 * pixelScale)) / pixelScale
         : 0
     readonly property int logoSize: 16
@@ -46,13 +47,14 @@ Item {
     readonly property int trailingFace: bevel !== "2000" ? 0 : isXpClassic ? -2 : 1
     // The text's advance runs 3px past its last stroke: the original's face before the bevel.
     implicitWidth: contentX + content.implicitWidth + (label.visible ? 0 : 3) + 2 + trailingFace
-        + (nativeStartFont ? 2 : 0)
+        + (win95DeviceGrid ? -1 / pixelScale : nativeStartFont ? 2 : 0)
     implicitHeight: buttonHeight
 
     Item {
         id: buttonFace
         // At 120 DPI the Windows 98 bevel sits one pixel inside its slot and leaves two pixels at the other end.
-        x: button.usesWin98Inset ? 1 / button.pixelScale : 0
+        readonly property real line: button.win95DeviceGrid ? 1 / button.pixelScale : 1
+        x: button.usesWin98Inset || button.win95DeviceGrid ? 1 / button.pixelScale : 0
         y: button.height - height + button.bottomCorrection
         width: button.width - (button.usesWin98Inset ? 3 / button.pixelScale : 0)
         height: button.buttonHeight
@@ -66,57 +68,57 @@ Item {
         Rectangle {
             x: 0
             y: 0
-            width: parent.width - 1
-            height: 1
+            width: parent.width - buttonFace.line
+            height: buttonFace.line
             color: button.held ? button.dark : "#ffffff"
         }
         Rectangle {
             x: 0
             y: 0
-            width: 1
-            height: parent.height - 1
+            width: buttonFace.line
+            height: parent.height - buttonFace.line
             color: button.held ? button.dark : "#ffffff"
         }
         Rectangle {
             x: 0
-            y: parent.height - 1
+            y: parent.height - buttonFace.line
             width: parent.width
-            height: 1
+            height: buttonFace.line
             color: button.held ? "#ffffff" : button.dark
         }
         Rectangle {
-            x: parent.width - 1
+            x: parent.width - buttonFace.line
             y: 0
-            width: 1
+            width: buttonFace.line
             height: parent.height
             color: button.held ? "#ffffff" : button.dark
         }
         Rectangle {
-            x: 1
-            y: 1
-            width: parent.width - 3
-            height: 1
-            color: button.held ? button.shadow : button.light
+            x: buttonFace.line
+            y: buttonFace.line
+            width: parent.width - 3 * buttonFace.line
+            height: buttonFace.line
+            color: button.held ? button.shadow : button.win95DeviceGrid ? button.face : button.light
         }
         Rectangle {
-            x: 1
-            y: 1
-            width: 1
-            height: parent.height - 3
-            color: button.held ? button.shadow : button.light
+            x: buttonFace.line
+            y: buttonFace.line
+            width: buttonFace.line
+            height: parent.height - 3 * buttonFace.line
+            color: button.held ? button.shadow : button.win95DeviceGrid ? button.face : button.light
         }
         Rectangle {
-            x: 1
-            y: parent.height - 2
-            width: parent.width - 2
-            height: 1
+            x: buttonFace.line
+            y: parent.height - 2 * buttonFace.line
+            width: parent.width - 2 * buttonFace.line
+            height: buttonFace.line
             color: button.held ? button.light : button.shadow
         }
         Rectangle {
-            x: parent.width - 2
-            y: 1
-            width: 1
-            height: parent.height - 2
+            x: parent.width - 2 * buttonFace.line
+            y: buttonFace.line
+            width: buttonFace.line
+            height: parent.height - 2 * buttonFace.line
             color: button.held ? button.light : button.shadow
         }
 
@@ -147,7 +149,7 @@ Item {
             id: content
             spacing: button.isXpClassic ? 4 : 3
             // Whole pixels: a half-pixel offset would resample the pixel-art logo.
-            x: button.contentX + (button.held ? 1 : 0)
+            x: button.contentX - (button.win95DeviceGrid ? buttonFace.x : 0) + (button.held ? 1 : 0)
             y: Math.round((parent.height - height) / 2) + (button.held ? 1 : 0)
 
             Image {
@@ -171,6 +173,7 @@ Item {
                 font.bold: true
                 font.pixelSize: 11
                 font.letterSpacing: button.nativeStartFont ? 0 : 0.5
+                leftPadding: button.win95DeviceGrid && button.nativeStartFont ? 0.125 : 0
                 font.hintingPreference: button.nativeStartFont ? Font.PreferNoHinting : Font.PreferDefaultHinting
                 transform: Translate {
                     x: button.nativeStartFont ? -1 / button.pixelScale : 0

@@ -51,6 +51,7 @@ from PySide6.QtCore import (
     Signal,
 )
 from PySide6.QtGui import (
+    QBrush,
     QAction,
     QActionGroup,
     QColor,
@@ -3128,7 +3129,10 @@ class AppearancePreview(QWidget):
     def show_colors(self, active, inactive, desktop, look):
         self.active, self.inactive, self.desktop, self.look = active, inactive, desktop, look
         if self.classic_sheet and look in ("1995", "1998", "2000"):
-            self.setFixedSize(self.CLASSIC_SHEET_SIZE)
+            # At 120 DPI the Win95 border starts between two logical pixels.
+            # Reserve enough logical width to paint the whole left edge.
+            size = self.CLASSIC_SHEET_SIZE
+            self.setFixedSize(size + QSize(1, 0) if look == "1995" else size)
             self.sample_windows = self.CLASSIC_SHEET_WINDOWS
         elif look == "1998":
             # Native 96-DPI Display Properties, measured from the SE guest.
@@ -3169,6 +3173,9 @@ class AppearancePreview(QWidget):
 
     def paintEvent(self, _event):
         painter = QPainter(self)
+        if self.classic_sheet and self.look == "1995" and painter.deviceTransform().m11() == 1.25:
+            self.paint_win95_preview(painter)
+            return
         painter.fillRect(self.rect(), QColor(self.desktop.split(",")[0]))
         self.sunken(painter, self.rect())
         inactive, active, message = self.sample_windows
@@ -3177,6 +3184,110 @@ class AppearancePreview(QWidget):
         self.menu_and_text(painter, active)
         self.window(painter, message, "Message Box", self.active, buttons=1)
         self.message(painter, message)
+
+    def paint_win95_preview(self, painter):
+        """The Win95 property sheet draws its preview frame and controls in device pixels."""
+        preview = QRect(0, 0, 474, 238)
+        transform = painter.deviceTransform()
+        scale = transform.m11()
+        origin = transform.map(QPointF())
+        right = transform.map(QPointF(self.width(), 0)).x()
+        painter.translate((round(right) - preview.width() - origin.x()) / scale,
+                          (round(origin.y()) - origin.y()) / scale)
+        painter.scale(1 / scale, 1 / scale)
+        face, black, white, shadow = self.face(), QColor(Qt.black), QColor(Qt.white), QColor("#808080")
+
+        def bevel(rect, top, bottom):
+            painter.fillRect(rect, bottom)
+            painter.fillRect(rect.adjusted(0, 0, -1, -1), top)
+
+        def raised(rect, frame=False):
+            if frame:
+                bevel(rect, face, black)
+                rect = rect.adjusted(1, 1, -1, -1)
+                bevel(rect, white, shadow)
+                painter.fillRect(rect.adjusted(1, 1, -1, -1), face)
+            else:
+                bevel(rect, white, black)
+                painter.fillRect(rect.adjusted(1, 1, -1, -1), shadow)
+                painter.fillRect(rect.adjusted(1, 1, -2, -2), face)
+
+        def text(caption, x, baseline, colour, *, bold=False, system=False):
+            font = self.native_win95_font(system)
+            if font is None:
+                font = self.sample_font(13 if system else 11, bold=bold)
+                font.setPixelSize(round(font.pixelSize() * scale))
+                painter.setFont(font)
+                painter.setPen(colour)
+                painter.drawText(x, baseline, caption)
+                return
+            font.setBold(bold)
+            path, *_ = chicago95ui.win9x_bitmap_text(caption, font, scale)
+            painter.fillPath(path.translated(x, baseline), colour)
+
+        def title(rect, caption, colours, buttons, ink_x, baseline, ink):
+            self.fill_preview_title(painter, rect, colours)
+            text(caption, ink_x, baseline, ink, bold=True)
+            close_x = rect.right() - 22
+            controls = ((close_x, "close"),)
+            if buttons == 3:
+                controls = ((close_x - 44, "minimize"), (close_x - 23, "maximize"), *controls)
+            for x, kind in controls:
+                y = rect.top() + 2
+                # The button's inner shadow spans the right and bottom edges.
+                box = QRect(x, y, 21, 19)
+                raised(box)
+                if kind == "minimize":
+                    painter.fillRect(x + 5, y + 13, 8, 2, black)
+                elif kind == "maximize":
+                    painter.fillRect(x + 4, y + 4, 11, 11, black)
+                    painter.fillRect(x + 5, y + 6, 9, 8, face)
+                else:
+                    for i in range(9):
+                        distance = min(i, 8 - i)
+                        width = 2 if distance == 0 else 3
+                        left = 6 + max(0, distance - 1)
+                        for offset in (left, box.width() - left - width):
+                            painter.fillRect(x + offset, y + 5 + i, width, 1, black)
+
+        bevel(preview, shadow, white)
+        bevel(preview.adjusted(1, 1, -1, -1), black, face)
+        painter.fillRect(preview.adjusted(2, 2, -2, -2), QColor(self.desktop.split(",")[0]))
+        raised(QRect(10, 10, 431, 191), frame=True)
+        title(QRect(14, 14, 423, 23), "Inactive Window", self.inactive, 3, 16, 30, face)
+        raised(QRect(14, 38, 454, 168), frame=True)
+        active = QRect(18, 42, 446, 23)
+        self.active_title = QRect(round(active.x() / scale), round(active.y() / scale),
+                                  round(active.width() / scale), round(active.height() / scale))
+        title(active, "Active Window", self.active, 3, 20, 58, white)
+
+        chosen = self.palette().highlight()
+        painter.fillRect(QRect(149, 66, 70, 22), chosen)
+        text("Normal", 26, 81, black)
+        text("Disabled", 87, 82, white)
+        text("Disabled", 86, 81, shadow)
+        text("Selected", 157, 81, self.palette().highlightedText().color())
+
+        client = QRect(18, 89, 446, 113)
+        bevel(client, shadow, white)
+        bevel(client.adjusted(1, 1, -1, -1), black, face)
+        painter.fillRect(client.adjusted(2, 2, -2, -2), white)
+        track = QRect(442, 91, 20, 109)
+        painter.fillRect(track, face)
+        painter.fillRect(track, QBrush(white, Qt.Dense4Pattern))
+        for down, y in ((False, track.top()), (True, track.bottom() - 19)):
+            raised(QRect(track.left(), y, 20, 20), frame=True)
+            for row in range(5):
+                half_width = 4 - row if down else row
+                painter.fillRect(track.left() + 9 - half_width, y + (8 if down else 7) + row,
+                                 2 * half_width + 1, 1, black)
+        text("Window Text", 22, 109, black, system=True)
+
+        raised(QRect(22, 145, 288, 87), frame=True)
+        title(QRect(25, 148, 282, 23), "Message Box", self.active, 1, 27, 164, white)
+        text("Message Text", 28, 187, black)
+        raised(QRect(124, 198, 84, 28))
+        text("OK", 154, 218, black, system=True)
 
     def sunken(self, painter, rect):
         colours = chicago95ui.bevel_colors(self.face(), chicago95ui.bevel_for_style(self.look))
@@ -3205,11 +3316,7 @@ class AppearancePreview(QWidget):
         """A window's frame and title bar; the title bar's rectangle."""
         self.raised(painter, rect)
         title = QRect(rect.left() + 4, rect.top() + 4, rect.width() - 8, self.TITLE_HEIGHT)
-        stops = [QColor(stop.split("@")[0]) for stop in colours.split(",")]
-        gradient = QLinearGradient(title.left(), 0, title.right(), 0)
-        gradient.setColorAt(0, stops[0])
-        gradient.setColorAt(1, stops[-1])
-        painter.fillRect(title, gradient)
+        self.fill_preview_title(painter, title, colours)
         painter.setPen(QColor("#FFFFFF") if colours is self.active else QColor(LOOK_FACES.get(self.look, CLASSIC_FACE)))
         font = self.native_win95_font()
         if font is not None:
@@ -3226,6 +3333,13 @@ class AppearancePreview(QWidget):
             self.raised(painter, button)
             self.glyph(painter, button, glyph)
         return title
+
+    def fill_preview_title(self, painter, title, colours):
+        stops = [QColor(stop.split("@")[0]) for stop in colours.split(",")]
+        gradient = QLinearGradient(title.left(), 0, title.right(), 0)
+        gradient.setColorAt(0, stops[0])
+        gradient.setColorAt(1, stops[-1])
+        painter.fillRect(title, gradient)
 
     def glyph(self, painter, button, glyph):
         """The title buttons' black marks, drawn on their pixel grid: a bar, a box with a thick top, a cross."""
@@ -4747,12 +4861,12 @@ APPEARANCE_ITEMS = (
 )
 
 
-def appearance_column(caption, widget, width, *, indent=1):
+def appearance_column(caption, widget, width, *, indent=1, label_enabled=None):
     column = QVBoxLayout()
     column.setSpacing(3)
     label = buddy_label(caption, widget)
     label.setIndent(indent)
-    label.setEnabled(widget.isEnabled())
+    label.setEnabled(widget.isEnabled() if label_enabled is None else label_enabled)
     column.addWidget(label, 0, Qt.AlignLeft)
     widget.setFixedWidth(width)
     column.addWidget(widget)
@@ -4849,7 +4963,9 @@ def appearance_tab(settings, actions, *, luna_sheet=False):
         tab.items.setProperty("classicLabelDeviceOffset", QPoint(-2, 0))
         for button in (tab.save_as_button, tab.delete_button):
             button.setProperty("classicLabelDeviceOffset", QPoint(0, -2))
-    scheme_row.addWidget(tab.scheme, 1)
+    if win95:
+        tab.scheme.setFixedHeight(19)
+    scheme_row.addWidget(tab.scheme, 1, Qt.AlignTop if win95 else Qt.Alignment())
     if classic_sheet:
         scheme_row.addSpacing(7)
     scheme_row.addWidget(tab.save_as_button)
@@ -4879,9 +4995,14 @@ def appearance_tab(settings, actions, *, luna_sheet=False):
     if classic_sheet:
         font_row.setContentsMargins(0, 5 if win95 else 6, 0, 0)
         font_row.setSpacing(7)
-        font_row.addLayout(appearance_column("&Font:", font, 208, indent=0 if win95 else 1))
-        font_row.addLayout(appearance_column("Size:", disabled_appearance_combo(), 60))
-        font_row.addLayout(appearance_column("Color:", disabled_appearance_combo(), 44))
+        sizes, colours = disabled_appearance_combo(), disabled_appearance_combo()
+        if win95:
+            for combo in (font, sizes, colours):
+                combo.setFixedHeight(19)
+        font_row.addLayout(appearance_column("&Font:", font, 208, indent=0 if win95 else 1,
+                                              label_enabled=True if win95 else None))
+        font_row.addLayout(appearance_column("Size:", sizes, 60))
+        font_row.addLayout(appearance_column("Color:", colours, 44))
         style_row = QHBoxLayout()
         style_row.setSpacing(2)
         font_row.addLayout(style_row)
@@ -4894,6 +5015,10 @@ def appearance_tab(settings, actions, *, luna_sheet=False):
     for caption in ("B", "I"):
         style_button = QPushButton(caption)
         style_button.setFixedSize(20, 21)
+        if win95:
+            style_font = style_button.font()
+            style_font.setItalic(caption == "I")
+            style_button.setFont(style_font)
         style_button.setEnabled(False)
         style_row.addWidget(style_button)
     tab.form.addRow(font_row)

@@ -259,7 +259,12 @@ function group(parent, name, id, open) {
     return details;
 }
 function capturePassed(id) {
-    return captures[id].passed ?? captures[id].changed === 0;
+    if (counts.has(id)) return counts.get(id) === 0;
+    // In the server, a saved review may be newer than the test's metrics.
+    return server ? captures[id].changed === 0 : (captures[id].passed ?? captures[id].changed === 0);
+}
+function syncCaptureVisibility(id) {
+    if (caseRows.has(id) === capturePassed(id)) fillChoices(elements.search.value);
 }
 function fillChoices(query = "") {
     if (!query) {
@@ -630,15 +635,19 @@ async function openCapture(next) {
 async function refreshSavedCounts() {
     for (const id of Object.keys(policy.cases)) {
         const entry = policy.cases[id];
-        if (!captures[id] || capturePassed(id) || id === key || (!entry.regions.length && !entry.approved_pixels)) continue;
-        const decoded = await decodeCapture(id);
-        const approved = await approvedMask(entry, decoded);
-        if (id === key) continue;
-        const tolerance = new Uint8Array(decoded.maxima.length);
-        applyMask(id, decoded, tolerance);
-        let remaining = 0;
-        for (let i = 0; i < tolerance.length; i++) remaining += decoded.maxima[i] > tolerance[i] && !approved[i];
-        announceCount(id, remaining);
+        if (!captures[id]?.changed || id === key || (!entry.regions.length && !entry.approved_pixels)) continue;
+        try {
+            const decoded = await decodeCapture(id);
+            const approved = await approvedMask(entry, decoded);
+            if (id === key) continue;
+            const tolerance = new Uint8Array(decoded.maxima.length);
+            applyMask(id, decoded, tolerance);
+            let remaining = 0;
+            for (let i = 0; i < tolerance.length; i++) remaining += decoded.maxima[i] > tolerance[i] && !approved[i];
+            announceCount(id, remaining);
+        } catch (error) {
+            console.warn(id, error);
+        }
     }
 }
 function position(event, canvas) {
@@ -747,6 +756,7 @@ function finishStroke() {
         save(key);
     }
     refresh();
+    if (previous.size) syncCaptureVisibility(key);
 }
 elements.undo.onclick = () => {
     const {previous, start} = picture.undo.pop();
@@ -757,6 +767,7 @@ elements.undo.onclick = () => {
     if (cursor) inspect(cursor);
     save(key);
     refresh();
+    syncCaptureVisibility(key);
 };
 for (const canvas of canvases) {
     canvas.onpointerdown = event => {
@@ -897,8 +908,8 @@ elements.file.onchange = async () => {
         if (picture) {
             await openCapture(key);
         }
+        await refreshSavedCounts();
         fillChoices(elements.search.value);
-        void refreshSavedCounts().catch(error => notice(error.message));
         notice("Tolerance JSON imported.");
     } catch (error) {
         notice(error.message);
@@ -934,6 +945,7 @@ async function initialize() {
         event.preventDefault();
         event.returnValue = "";
     });
+    await refreshSavedCounts();
     key = captures[requested] ? requested : captures[captionKey] && !capturePassed(captionKey)
         ? captionKey : ids.find(id => !capturePassed(id)) ?? "";
     fillChoices();
@@ -942,7 +954,6 @@ async function initialize() {
         return;
     }
     choose(key);
-    await refreshSavedCounts();
 }
 initialize().catch(error => notice(error.message));
 </script>

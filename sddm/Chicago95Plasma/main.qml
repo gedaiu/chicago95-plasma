@@ -21,6 +21,7 @@ Rectangle {
     readonly property int screenPixels: config.scale > 0 ? config.scale : Math.max(1, Math.floor(Math.min(width * screenScale / 640, height * screenScale / 720)))
     readonly property real pixelScale: screenPixels / screenScale
     readonly property string uiFamily: uiFont.status === FontLoader.Ready ? uiFont.name : "sans-serif"
+    readonly property bool win95: !modern && uiFamily === "Chicago95 Windows 95"
     property int sessionIndex: Math.max(0, sessionModel.lastIndex)
     property bool showOptions: false
     readonly property bool classicOptions: !modern && (showOptions || sessionNames.length > 1)
@@ -76,11 +77,13 @@ Rectangle {
 
     component RetroButton: ClassicButton {
         family: root.uiFamily
+        captionOffset: root.win95 ? -1 : 0
     }
 
     // theme.conf can pin the title bar's colour, or start,end for a gradient, with titleActive.
     component TitleBar: ClassicTitleBar {
         family: root.uiFamily
+        captionInset: root.win95 ? 2 : 4
         modern: root.modern
         pinned: root.theme.titleActive ? String(root.theme.titleActive) : ""
     }
@@ -401,7 +404,7 @@ Rectangle {
         RetroLabel {
             visible: !root.modern
             x: dialog.labelX
-            y: 34
+            y: root.win95 ? 33 : 34
             text: root.theme.loginMessage || "Type a user name and password to log on."
         }
 
@@ -423,6 +426,7 @@ Rectangle {
         RetroLabel {
             x: dialog.labelX
             anchors.verticalCenter: userField.verticalCenter
+            anchors.verticalCenterOffset: root.win95 ? -2 : 0
             text: root.modern ? "User name:" : "<u>U</u>ser name:"
         }
         RetroField {
@@ -461,6 +465,7 @@ Rectangle {
         RetroLabel {
             x: dialog.labelX
             anchors.verticalCenter: passwordField.verticalCenter
+            anchors.verticalCenterOffset: root.win95 ? -1 : 0
             text: root.modern ? "Password:" : "<u>P</u>assword:"
         }
         RetroField {

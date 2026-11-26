@@ -6,6 +6,7 @@ Bevel {
     property alias label: caption.text
     property alias family: caption.font.family
     property alias glyph: captionGlyph.source
+    property real captionOffset: 0
     property bool held: mouse.pressed && mouse.containsMouse
     signal clicked
     width: 75
@@ -17,7 +18,7 @@ Bevel {
         visible: !captionGlyph.visible
         anchors.centerIn: parent
         anchors.horizontalCenterOffset: button.held ? 1 : 0
-        anchors.verticalCenterOffset: button.held ? 1 : 0
+        anchors.verticalCenterOffset: button.captionOffset + (button.held ? 1 : 0)
     }
     Image {
         id: captionGlyph

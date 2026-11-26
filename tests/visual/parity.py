@@ -1413,6 +1413,20 @@ def test_desktop_surface(theme, state, desktop_scenes, visual_output):
     exact(expected, actual, output, mask)
 
 
+def test_win95_populated_taskbar_captions(qt_app, desktop_scenes):
+    from PySide6.QtGui import QFontDatabase
+
+    if not QFontDatabase.hasFamily("Chicago95 Windows 95 120 DPI"):
+        pytest.skip("Import the VM fonts with setup/import-win9x-fonts.py")
+    folder, _ = THEMES["win95"]
+    rendered = desktop_scenes("win95", "populated")
+    with Image.open(folder / "taskbar/populated.png") as reference:
+        expected = reference.convert("RGB")
+    actual = rendered.crop((0, rendered.height - expected.height, expected.width, rendered.height))
+    for caption in ((27, 10, 62, 24), (97, 11, 225, 27)):
+        np.testing.assert_array_equal(np.asarray(actual.crop(caption)), np.asarray(expected.crop(caption)))
+
+
 def test_win95_desktop_computer_has_native_size_and_no_shadow(desktop_scenes, visual_output):
     folder, _ = THEMES["win95"]
     actual = desktop_scenes("win95", "focused-desktop")
@@ -2113,6 +2127,8 @@ def test_win95_display_properties_captions(qt_app, tmp_path):
         expected = reference.convert("RGB")
     with Image.open(output) as capture:
         actual = capture.convert("RGB")
+    preview = (27, 45, 501, 283)
+    np.testing.assert_array_equal(np.asarray(actual.crop(preview)), np.asarray(expected.crop(preview)))
     # Boxes cover complete glyphs while staying inside the surrounding controls.
     for caption, bounds in {
         "Background": (16, 15, 91, 30),

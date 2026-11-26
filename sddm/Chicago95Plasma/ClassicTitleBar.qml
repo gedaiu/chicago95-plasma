@@ -8,6 +8,7 @@ Rectangle {
     property alias family: titleText.font.family
     property bool modern: false
     property string pinned: ""
+    property real captionInset: 4
     readonly property var colors: pinned ? pinned.split(",") : [scheme.highlight]
     x: 3
     y: 3
@@ -37,7 +38,7 @@ Rectangle {
     }
     ClassicText {
         id: titleText
-        x: 4
+        x: titleBar.captionInset
         anchors.verticalCenter: parent.verticalCenter
         color: "#ffffff"
         font.bold: true

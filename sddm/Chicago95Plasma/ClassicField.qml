@@ -15,11 +15,18 @@ Bevel {
     TextInput {
         id: input
         anchors.fill: parent
-        anchors.leftMargin: 4
+        anchors.leftMargin: nativeWin95 ? 3 : 4
         anchors.rightMargin: 4 + field.arrowSpace
+        anchors.topMargin: nativeWin95 ? -2 : 0
+        anchors.bottomMargin: nativeWin95 ? 2 : 0
         verticalAlignment: TextInput.AlignVCenter
         font.family: field.family
         font.pixelSize: 11
+        readonly property bool nativeWin95: field.family === "Chicago95 Windows 95"
+        font.hintingPreference: nativeWin95 ? Font.PreferNoHinting : Font.PreferDefaultHinting
+        renderType: nativeWin95 ? TextInput.NativeRendering : TextInput.QtRendering
+        antialiasing: !nativeWin95
+        cursorDelegate: nativeWin95 ? win95Cursor : null
         color: "#000000"
         selectionColor: "#000080"
         selectedTextColor: "#ffffff"
@@ -28,5 +35,13 @@ Bevel {
         passwordCharacter: "*"
         Keys.onReturnPressed: field.accepted()
         Keys.onEnterPressed: field.accepted()
+    }
+    Component {
+        id: win95Cursor
+        Item {
+            width: 1
+            height: 13
+            Rectangle { y: -1; width: 1; height: 13; color: "#000000" }
+        }
     }
 }
