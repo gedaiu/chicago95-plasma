@@ -4,6 +4,7 @@ win2k/add-hardware.png	hdwwiz.cpl	100	8
 win2k/add-programs.png	appwiz.cpl	1500	8
 win2k/administrative-tools.png	main.cpl	500	8
 win2k/automatic-updates.png	wuaucpl.cpl	102	8
+win2k/control-panel.png	shell32.dll	137	8
 win2k/date-time.png	timedate.cpl	200	8
 win2k/display.png	desk.cpl	100	8
 win2k/folder-options.png	appwiz.cpl	1504	8

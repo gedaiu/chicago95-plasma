@@ -327,7 +327,7 @@ def link_children(source, target, copy=()):
 def link_user_assets(home):
     """Provide private copies of the icon themes Setup writes and link its read-only inputs."""
     real = Path.home()
-    link_children(real / ".local/share/fonts", home / ".local/share/fonts")
+    link_children(real / ".local/share/fonts", home / ".local/share/fonts", copy=("Chicago95",))
     editable = ("Chicago95-Toolbar", "Windows-7", "Windows-7-SVG", "Windows-XP", "Windows-XP-Originals")
     link_children(real / ".local/share/icons", home / ".local/share/icons", copy=editable)
     link_children(real / ".icons/Chicago95", home / ".icons/Chicago95", copy=("index.theme",))

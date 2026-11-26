@@ -17,6 +17,7 @@ const LUNA_METRICS = Object.assign({}, METRICS, {
   separatorLead: 4,
   separatorBody: 10,
 });
+const WIN98_METRICS_120 = Object.assign({}, METRICS, { cellWidth: 19 });
 // The Windows 7 superbar: 60-pixel buttons two pixels apart (win7screenres.png), pinned programs straight after Start
 // and before the running ones. A pinned slot is a whole pitch with its button one pixel in.
 const AERO_METRICS = Object.assign({}, METRICS, {
@@ -32,7 +33,10 @@ const AERO_METRICS = Object.assign({}, METRICS, {
 const STYLE_METRICS = { luna: LUNA_METRICS, aero: AERO_METRICS };
 const FIT = -1;
 
-function metrics(taskbarStyle) {
+function metrics(taskbarStyle, look, dpi) {
+  if (taskbarStyle === "classic" && look === "1998" && dpi === 120) {
+    return WIN98_METRICS_120;
+  }
   return STYLE_METRICS[taskbarStyle] ?? METRICS;
 }
 

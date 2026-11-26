@@ -995,13 +995,12 @@ class DeviceManagerWindow(QWidget):
         toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)
         if single_band:
             menus.setFixedWidth(80)
-            font = QFont("Tahoma")
-            font.setPixelSize(10)
+            font = chicago95ui.ui_font(10, look="2000")
             font.setHintingPreference(QFont.PreferFullHinting)
             if scale == 1.25:
                 font.setStyleStrategy(QFont.NoAntialias)
             menus.setFont(font)
-            menus.setStyleSheet(menus.styleSheet() + "QMenuBar::item { padding: 5px 6px 1px 6px; }")
+            menus.setStyleSheet(menus.styleSheet() + "QMenuBar::item { padding: 4px 7px 2px 6px; }")
             toolbar.setStyleSheet(
                 toolbar.styleSheet()
                 + "QToolBar { padding: 0; spacing: 0; }"
@@ -1194,9 +1193,11 @@ class DeviceManagerWindow(QWidget):
         self.by_type_radio.toggled.connect(self.rebuild_tree)
 
     def add_dialog_buttons(self, layout):
-        matched_dpi = self.devicePixelRatioF() == 1.25
-        action_font = None
-        if matched_dpi and self.font().family() == chicago95ui.UI_FONT_FAMILY:
+        scale = chicago95ui.window_scale(self)
+        matched_dpi = scale == 1.25
+        native_font = chicago95ui.win9x_ui_font(chicago95ui.look_settings()["style"], scale)
+        action_font = native_font
+        if native_font is None and matched_dpi and self.font().family() == chicago95ui.UI_FONT_FAMILY:
             # The 120-DPI strike has thinner strokes and nearly the same caption widths.
             action_font = self.font()
             action_font.setPixelSize(10)
@@ -1220,6 +1221,10 @@ class DeviceManagerWindow(QWidget):
             button.setFixedSize(width, 22 if matched_dpi else chicago95ui.DIALOG_BUTTON_SIZE[1])
             if action_font is not None:
                 button.setFont(action_font)
+            if native_font is not None:
+                # Align the imported strike to the guest's physical caption baseline.
+                left = -2 if matched_dpi and button.isEnabled() else -1
+                button.setProperty("classicLabelDeviceOffset", QPoint(left, -1))
             action_row.addWidget(button)
         action_row.addStretch()
         layout.addLayout(action_row)

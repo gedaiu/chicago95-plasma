@@ -38,7 +38,8 @@ def write_caption_faces(directory, gtk4=False):
             # ring. The narrow GTK 4 cell benefits from the aligned version.
             pixel_density = 2 if gtk4 or kind in ("minimize", "restore") else None
             large_defs, large_shapes = button_state(
-                kind, window, look, "face", large=True, cell_width=width, pixel_density=pixel_density
+                kind, window, look, "face", large=True, cell_width=width, pixel_density=pixel_density,
+                crisp_glyph=gtk4 and kind == "close" and look in ("hot", "pressed"),
             )
             write_face(
                 directory,

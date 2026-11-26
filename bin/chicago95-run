@@ -19,7 +19,7 @@ from pathlib import Path
 
 import chicago95ui  # noqa: E401,E702
 from chicago95aerobutton import AeroDialogButton, aero_button_artwork, mnemonic_caption, paint_mnemonic_underline
-from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -334,8 +334,9 @@ class RunHistoryScrollBar(QScrollBar):
         option = QStyleOptionSlider()
         self.initStyleOption(option)
         style = self.style()
-        top = style.subControlRect(QStyle.CC_ScrollBar, option, QStyle.SC_ScrollBarSubLine, self).bottom() + 1
-        bottom = style.subControlRect(QStyle.CC_ScrollBar, option, QStyle.SC_ScrollBarAddLine, self).top()
+        up = style.subControlRect(QStyle.CC_ScrollBar, option, QStyle.SC_ScrollBarSubLine, self)
+        down = style.subControlRect(QStyle.CC_ScrollBar, option, QStyle.SC_ScrollBarAddLine, self)
+        top, bottom = up.bottom() + 1, down.top()
         if bottom <= top:
             return
         track = QRectF(0, top, self.width(), bottom - top)
@@ -354,7 +355,30 @@ class RunHistoryScrollBar(QScrollBar):
         physical = transform.mapRect(track)
         inverse, _ = transform.inverted()
         painter.drawTiledPixmap(inverse.mapRect(QRectF(physical.toRect())), tile)
+        colours = option.palette
+        for stepper, points_down in ((up, False), (down, True)):
+            bounds = transform.mapRect(QRectF(stepper)).toRect()
+            self.paint_disabled_stepper(painter, inverse, bounds, colours, points_down)
         painter.end()
+
+    @staticmethod
+    def paint_disabled_stepper(painter, inverse, bounds, palette, points_down):
+        def fill(rect, colour):
+            painter.fillRect(inverse.mapRect(QRectF(rect)), colour)
+
+        x, y, width, height = bounds.getRect()
+        light, _ = chicago95ui.bevel_shades(palette.button().color())
+        fill(QRect(x, y, width - 1, 1), light)
+        fill(QRect(x, y + 1, 1, height - 2), light)
+        fill(bounds.adjusted(2, 2, -2, -2), palette.button())
+
+        rows = round(width / 4)
+        center = x + width // 2 - 1
+        top = y + (height - rows) // 2 + int(points_down and width > 16)
+        for offset, colour in ((1, palette.light()), (0, palette.dark())):
+            for row in range(rows):
+                half = rows - row - 1 if points_down else row
+                fill(QRect(center - half + offset, top + row + offset, half * 2 + 1, 1), colour)
 
 
 class RunHistoryRows(chicago95ui.ListRowDelegate):
@@ -435,18 +459,7 @@ class RunBehaviour:
         self.build()
 
     def original_font(self):
-        if self.style not in ("1995", "1998") or self.layout_scale not in (1, 1.25):
-            return None
-        family = f"Chicago95 Windows {self.style[-2:]}"
-        if self.layout_scale == 1.25:
-            family += " 120 DPI"
-        if family not in QFontDatabase.families():
-            return None
-        font = QFont(family)
-        font.setPixelSize(11)
-        font.setStyleStrategy(QFont.NoAntialias)
-        font.setHintingPreference(QFont.PreferNoHinting)
-        return font
+        return chicago95ui.win9x_ui_font(self.style, self.layout_scale)
 
     def caption_font(self):
         if self.native_font is None:
@@ -546,6 +559,9 @@ class RunBehaviour:
         self.field.setInsertPolicy(QComboBox.NoInsert)
         self.field.addItems(self.history)
         self.field.setGeometry(*layout.field_at, layout.field_width, layout.field_height)
+        if native_96dpi and self.style == "1995":
+            # The original edit control starts its insertion caret next to the inner bevel.
+            self.field.lineEdit().setTextMargins(-2, -1, 0, 1)
         if self.style in ("1995", "1998"):
             # The editable Run field and its menu button use the face colour for these bevels.
             palette = self.field.palette()

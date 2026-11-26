@@ -49,7 +49,8 @@ PlasmoidItem {
     readonly property int styledMaxButtonWidth: Sizing.styledButtonWidth(
         maxButtonWidth, Plasmoid.configuration.maxButtonWidth, Plasmoid.configuration.taskbarStyle,
         Plasmoid.configuration.referenceDpi)
-    readonly property var metrics: Band.metrics(Plasmoid.configuration.taskbarStyle)
+    readonly property var metrics: Band.metrics(
+        Plasmoid.configuration.taskbarStyle, Plasmoid.configuration.look, Plasmoid.configuration.referenceDpi)
     readonly property int gap: isLuna ? 0 : metrics.taskButtonGap
     readonly property int launcherCount: tasksModel.launcherCount
     readonly property int windowCount: tasksModel.count - launcherCount
@@ -490,6 +491,13 @@ PlasmoidItem {
                     }
                     Binding {
                         target: cell.item
+                        property: "iconSize"
+                        when: Plasmoid.configuration.taskbarStyle === "classic"
+                        value: Plasmoid.configuration.look === "1998" && Plasmoid.configuration.referenceDpi === 120
+                            ? 16 / 1.25 : 16
+                    }
+                    Binding {
+                        target: cell.item
                         property: "fileManager"
                         when: root.pagesButtons && cell.item?.fileManager !== undefined
                         value: entry.fileManager
@@ -598,6 +606,12 @@ PlasmoidItem {
                         property: "look"
                         when: !root.isLuna
                         value: Plasmoid.configuration.look
+                    }
+                    Binding {
+                        target: face.item
+                        property: "referenceDpi"
+                        when: Plasmoid.configuration.taskbarStyle === "classic"
+                        value: Plasmoid.configuration.referenceDpi
                     }
                     // The pointer resting on the button: the window's title in the classic flat tooltip and, with a
                     // preview size chosen in the Control Panel, a live picture of the window above it (TaskToolTip.qml).

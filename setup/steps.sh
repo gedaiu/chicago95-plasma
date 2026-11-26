@@ -1639,6 +1639,15 @@ SDDM_THEME_SRC="$REPO/sddm/Chicago95Plasma"
 SDDM_THEME_DIR=/usr/share/sddm/themes/Chicago95Plasma
 # The greeter runs as the sddm user, who cannot read fonts in a home folder, so the UI font goes next to the theme.
 SDDM_FONT="$HOME/.local/share/fonts/MSW98UI-Regular.otf"
+native_sddm_font() {
+  [ "$SETUP_LOGIN_STYLE" = classic ] && [ -z "${OPT_FONT:-}" ] || return 0
+  case "${SETUP_LOOK:-}" in
+    1995|1998)
+      local source="$HOME/.local/share/fonts/Chicago95/Windows${SETUP_LOOK:2}/MS-Sans-Serif-96-Regular.ttf"
+      [ ! -r "$source" ] || printf '%s' "$source"
+      ;;
+  esac
+}
 # sddm.conf.d is read in name order and the last file wins, so zz- beats leftovers such as
 # another theme's sddm.conf that would otherwise override Plasma's kde_settings.conf.
 SDDM_OVERRIDE=/etc/sddm.conf.d/zz-chicago95.conf
@@ -1694,6 +1703,7 @@ xp_login() { [ "$SETUP_LOGIN_STYLE" = luna ]; }
 
 sddm_theme_conf() {
   LOGIN_STYLE="$SETUP_LOGIN_STYLE" \
+    LOGIN_FONT="$([ -z "$(native_sddm_font)" ] || printf '%s' MS-Sans-Serif-96-Regular.ttf)" \
     LOGIN_TITLE="$SETUP_LOGIN_TITLE" LOGIN_MESSAGE="$SETUP_LOGIN_MESSAGE" \
     LOGIN_ICON="login-icon.$(extension "$(image_source "$SETUP_LOGIN_ICON")")" \
     TITLE_ACTIVE="$([ "$SETUP_LOGIN_STYLE" = 2000 ] && echo '#0A246A,#A6CAF0')" \
@@ -1705,6 +1715,7 @@ sddm_theme_conf() {
     SCALE="$(awk -v s="${SETUP_SCALE:-0}" 'BEGIN { print int(s + 0.5) }')" \
     awk -F= 'BEGIN {
             value["loginStyle"] = ENVIRON["LOGIN_STYLE"]; value["loginTitle"] = ENVIRON["LOGIN_TITLE"]
+            value["loginFont"] = ENVIRON["LOGIN_FONT"]
             value["loginMessage"] = ENVIRON["LOGIN_MESSAGE"]; value["loginIcon"] = ENVIRON["LOGIN_ICON"]
             value["titleActive"] = ENVIRON["TITLE_ACTIVE"]
             value["desktopColor"] = ENVIRON["LOGIN_DESKTOP_COLOR"]
@@ -1719,6 +1730,9 @@ sddm_theme_conf() {
 step_sddm() { # login screen; system files, so it asks for the administrator password first
   local commands=("sudo mkdir -p $SDDM_THEME_DIR" "sudo cp -r $SDDM_THEME_SRC/. $SDDM_THEME_DIR/")
   [ -f "$SDDM_FONT" ] && commands+=("sudo cp $SDDM_FONT $SDDM_THEME_DIR/")
+  local native_font
+  native_font=$(native_sddm_font)
+  [ -z "$native_font" ] || commands+=("sudo cp $native_font $SDDM_THEME_DIR/")
   local icon banner="$STATE_DIR/login-banner.png"
   icon=$(image_source "$SETUP_LOGIN_ICON")
   commands+=("sudo cp $icon $SDDM_THEME_DIR/login-icon.$(extension "$icon")")
@@ -1759,6 +1773,10 @@ step_sddm() { # login screen; system files, so it asks for the administrator pas
   if [ -f "$SDDM_FONT" ]; then
     run sudo cp "$SDDM_FONT" "$SDDM_THEME_DIR/"
     show_copy "$SDDM_FONT" "$SDDM_THEME_DIR/$(basename "$SDDM_FONT")"
+  fi
+  if [ -n "$native_font" ]; then
+    run sudo cp "$native_font" "$SDDM_THEME_DIR/" || return 1
+    show_copy "$native_font" "$SDDM_THEME_DIR/$(basename "$native_font")"
   fi
   run sudo cp "$icon" "$SDDM_THEME_DIR/login-icon.$(extension "$icon")"
   show_copy "$icon" "$SDDM_THEME_DIR/login-icon.$(extension "$icon")"

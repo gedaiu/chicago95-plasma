@@ -768,6 +768,12 @@ def run_dialog_images(theme, qt_app, svg_themes, request, monkeypatch):
         try:
             dialog.show()
             qt_app.processEvents()
+            if theme == "win98":
+                from PySide6.QtTest import QTest
+
+                # This reference was captured during the off phase of the
+                # focused edit field's blinking caret.
+                QTest.qWait(3 * qt_app.cursorFlashTime() // 4)
             actual = qimage_to_pil(dialog.grab().toImage())
         finally:
             dialog.close()
@@ -1571,6 +1577,18 @@ def test_device_manager(device_manager_command_band, visual_output):
     exact(expected, actual, visual_output / theme / "device-manager" / "qt")
 
 
+def test_win9x_device_manager_refresh_caption_matches_native(device_manager_command_band, qt_app):
+    from PySide6.QtGui import QFontDatabase
+
+    theme, expected, actual = device_manager_command_band
+    if theme not in ("win95", "win98"):
+        pytest.skip("This capture uses a different Device Manager layout")
+    if not QFontDatabase.hasFamily(f"Chicago95 Windows {theme[-2:]}"):
+        pytest.skip("Import the original font with setup/import-win9x-fonts.py")
+    bounds = (104, 5, 159, 18)
+    np.testing.assert_array_equal(np.asarray(actual.crop(bounds)), np.asarray(expected.crop(bounds)))
+
+
 def test_device_manager_blank_band(device_manager_command_band, visual_output):
     theme, expected, actual = device_manager_command_band
     bounds = THEMES[theme][1].get("device_manager_blank_band")
@@ -2057,6 +2075,16 @@ def test_control_panel_icons(control_panel_icons, icon, visual_output):
     exact(expected.crop(crop), actual.crop(crop), directory)
 
 
+@pytest.mark.parametrize("control_panel_icons", ("win2k",), indirect=True)
+@pytest.mark.parametrize("icon", THEMES["win2k"][1]["control_panel_icons"])
+def test_win2000_control_panel_icon_occupies_native_pixels(control_panel_icons, icon):
+    _theme, crops, expected, actual = control_panel_icons
+    # Compare the silhouette independently of palette conversion on the guest's RGB565 display.
+    bounds = crops[icon]
+    masks = [np.any(np.asarray(image.crop(bounds)) < 250, axis=2) for image in (expected, actual)]
+    np.testing.assert_array_equal(*masks)
+
+
 @pytest.mark.parametrize("control_panel_icons", ("win95",), indirect=True)
 def test_win95_control_panel_keyboard_case_and_keys_match_native(control_panel_icons):
     _theme, crops, expected, actual = control_panel_icons
@@ -2349,6 +2377,24 @@ def test_shutdown_9x_compact_indicators_match_native_pixels(theme, dpi, name, bo
     with Image.open(output) as frame:
         actual = frame.convert("RGB")
     exact(expected.crop(bounds), actual.crop(bounds), visual_output / theme / "shutdown/qt" / f"radios-{dpi}dpi")
+
+
+@pytest.mark.parametrize(
+    ("theme", "dpi", "source"),
+    [
+        ("win95", 96, "shutdown-96dpi.png"),
+        ("win95", 120, "shutdown.png"),
+        ("win98", 96, "shutdown.png"),
+        ("win98", 120, "shutdown-120dpi.png"),
+    ],
+)
+def test_shutdown_9x_icon_matches_native_pixels(theme, dpi, source, tmp_path, visual_output):
+    expected, actual = shutdown_chooser_images(theme, tmp_path, source, dpi / 96)
+    bounds = (12, 38, 50, 74) if dpi == 96 else (15, 46, 56, 84)
+    exact(
+        expected.crop(bounds), actual.crop(bounds),
+        visual_output / theme / "shutdown/qt" / f"computer-icon-{dpi}dpi",
+    )
 
 
 def shutdown_combo_state_images(theme, state, tmp_path):
@@ -2931,6 +2977,15 @@ def test_win2k_unlock_window_bounds(tmp_path):
         return ImageChops.difference(client, background).getbbox()
 
     assert window_bounds(actual) == pytest.approx(window_bounds(expected), abs=1)
+
+
+def test_win95_sign_in_caption_buttons_match_native_pixels(tmp_path, visual_output):
+    expected, actual, _ = session_screen_images("win95", "sign-in", "640x480", tmp_path)
+    bounds = (510, 94, 544, 108)
+    exact(
+        expected.crop(bounds), actual.crop(bounds),
+        visual_output / "win95/sign-in/qt/caption-buttons",
+    )
 
 
 @pytest.mark.parametrize("component", ("sign-in", "lock-screen"))

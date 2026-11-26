@@ -28,6 +28,12 @@ Item {
 
     readonly property real pixelScale: Window.window?.devicePixelRatio ?? Screen.devicePixelRatio
     readonly property bool usesWin98Inset: look === "1998" && pixelScale === 1.25
+    readonly property string nativeStartFont: {
+        if (pixelScale !== 1.25 || (look !== "1995" && look !== "1998"))
+            return "";
+        const family = "Chicago95 Windows " + look.slice(2) + " 120 DPI";
+        return Qt.fontFamilies().includes(family) ? family : "";
+    }
     // At 120 DPI the XP Classic button is 26 pixels tall, one shorter than the Windows 2000 bevel.
     readonly property real buttonHeight: isXpClassic && pixelScale === 1.25 ? 22 - 1 / pixelScale : 22
     // The native 120 DPI taskbar leaves two full pixels below these bevels.
@@ -40,6 +46,7 @@ Item {
     readonly property int trailingFace: bevel !== "2000" ? 0 : isXpClassic ? -2 : 1
     // The text's advance runs 3px past its last stroke: the original's face before the bevel.
     implicitWidth: contentX + content.implicitWidth + (label.visible ? 0 : 3) + 2 + trailingFace
+        + (nativeStartFont ? 2 : 0)
     implicitHeight: buttonHeight
 
     Item {
@@ -160,10 +167,15 @@ Item {
                 id: label
                 visible: button.text !== ""
                 text: button.text
-                font.family: "MS W98 UI"
+                font.family: button.nativeStartFont || "MS W98 UI"
                 font.bold: true
                 font.pixelSize: 11
-                font.letterSpacing: 0.5
+                font.letterSpacing: button.nativeStartFont ? 0 : 0.5
+                font.hintingPreference: button.nativeStartFont ? Font.PreferNoHinting : Font.PreferDefaultHinting
+                transform: Translate {
+                    x: button.nativeStartFont ? -1 / button.pixelScale : 0
+                    y: x
+                }
                 color: button.textColor
                 // A pixel font: drawn without smoothing, like the original's text.
                 renderType: Text.NativeRendering

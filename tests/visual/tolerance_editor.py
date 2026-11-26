@@ -4,31 +4,48 @@ import argparse
 import base64
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from io import BytesIO
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from threading import Lock
 from urllib.parse import urlsplit
 
+from PIL import Image
 
 DEFAULT_POLICY = Path(__file__).resolve().with_name("tolerance-policy.json")
 EMPTY_POLICY = {"version": 1, "cases": {}}
 
 
-def collect(directories):
+def collect(directories, reviewed=()):
     cases = {}
     for directory in directories:
         visual = directory / "visual"
         for metrics in sorted(visual.rglob("comparison.metrics.json")):
             key = metrics.parent.relative_to(visual).as_posix()
             data = json.loads(metrics.read_text())
-            if data["reference_size"] != data["rendered_size"] or not data["changed_pixels"]:
+            size = data["reference_size"]
+            if size != data["rendered_size"]:
                 cases.pop(key, None)
                 continue
-            panel = metrics.with_name("comparison.png")
+            if data["changed_pixels"]:
+                panel = metrics.with_name("comparison.png").read_bytes()
+            elif key in reviewed and data["compared_pixels"] == size[0] * size[1]:
+                # Keep the review available once all pixels match. The strict
+                # test only writes a comparison panel when it finds differences.
+                with Image.open(metrics.with_name("rendered.png")) as rendered:
+                    match = Image.new("RGB", (size[0] * 3, size[1]))
+                    match.paste(rendered, (0, 0))
+                    match.paste(rendered, (size[0], 0))
+                stream = BytesIO()
+                match.save(stream, format="PNG")
+                panel = stream.getvalue()
+            else:
+                cases.pop(key, None)
+                continue
             cases[key] = {
-                "size": data["reference_size"],
+                "size": size,
                 "changed": data["changed_pixels"],
-                "png": base64.b64encode(panel.read_bytes()).decode("ascii"),
+                "png": base64.b64encode(panel).decode("ascii"),
             }
     return cases
 
@@ -175,9 +192,9 @@ def main():
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--policy", type=Path, default=DEFAULT_POLICY, help="JSON file saved by the local server")
     args = parser.parse_args()
-    cases = collect(args.directories)
+    cases = collect(args.directories, load_policy(args.policy)["cases"])
     if not cases:
-        parser.error("no same-size mismatches found")
+        parser.error("no same-size mismatches or reviewed matches found")
     template = Path(__file__).with_suffix(".html").read_text()
     page = template.replace("/* CAPTURES */", json.dumps(cases).replace("<", "\\u003c"))
     page = page.replace("/* SERVER */", json.dumps(args.serve))

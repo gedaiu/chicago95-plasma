@@ -54,7 +54,7 @@ def dither(px, py):
     return HILIGHT if ((px // DITHER) + (py // DITHER)) % 2 == 0 else FACE
 
 
-def pressed_task(prefix, x0):
+def pressed_task(prefix, x0, solid=False):
     """The active window's button: sunken 2px, a white row along the top inside, then a white and face
     checkerboard (the centre tile, 2px square, tiled)."""
     size = BTN
@@ -63,7 +63,7 @@ def pressed_task(prefix, x0):
         depth = min(px, py, size - 1 - px, size - 1 - py)
         if depth < 2:
             return ring_color(px, py, size, SUNKEN_2, flat)
-        return HILIGHT if py == 2 else dither(px, py)
+        return HILIGHT if solid or py == 2 else dither(px, py)
 
     def piece(name, fx, fy, w, h):
         return (
@@ -71,6 +71,9 @@ def pressed_task(prefix, x0):
         )
 
     top, side = 3, 2
+    center = rect(x0 + side, top, 2, 2, HILIGHT) if solid else run_length_rows(
+        x0 + side, top, 2, 2, dither,
+    )
     parts = [
         piece("topleft", 0, 0, side, top),
         piece("top", side, 0, size - 2 * side, top),
@@ -80,8 +83,7 @@ def pressed_task(prefix, x0):
         piece("bottomleft", 0, size - side, side, side),
         piece("bottom", side, size - side, size - 2 * side, side),
         piece("bottomright", size - side, size - side, side, side),
-        f'<g id="{prefix}center">{rect(x0 + side, top, 1, 1, HILIGHT)}{rect(x0 + side + 1, top, 1, 1, FACE)}'
-        f"{rect(x0 + side, top + 1, 1, 1, FACE)}{rect(x0 + side + 1, top + 1, 1, 1, HILIGHT)}</g>",
+        f'<g id="{prefix}center">{center}</g>',
     ]
     for name in ("top", "bottom", "left", "right"):
         parts.append(hidden(f"{prefix}hint-{name}-margin", x0, size + 2, 2, 2))
@@ -93,7 +95,8 @@ def tasks_svg():
     raised = ["normal-", "hover-", "minimized-", "attention-", "progress-"]
     parts = [nine_slice(prefix, idx * (BTN + 16), 0, BTN, 2, RAISED_2, flat, 2) for idx, prefix in enumerate(raised)]
     parts.append(pressed_task("focus-", len(raised) * (BTN + 16)))
-    return svg((len(raised) + 1) * (BTN + 16), BTN + 24, "\n".join(parts))
+    parts.append(pressed_task("focus-solid-", (len(raised) + 1) * (BTN + 16), solid=True))
+    return svg((len(raised) + 2) * (BTN + 16), BTN + 24, "\n".join(parts))
 
 
 def panel_svg():

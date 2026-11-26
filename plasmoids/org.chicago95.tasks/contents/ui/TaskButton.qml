@@ -15,6 +15,8 @@ Item {
     property string bevel: "1995"
     property string look: "1995"
     property color textColor: Kirigami.Theme.textColor
+    property int referenceDpi: 96
+    readonly property bool win9x120: referenceDpi === 120 && (look === "1995" || look === "1998")
 
     readonly property int buttonHeight: 22
     readonly property int iconLeft: 4
@@ -26,7 +28,7 @@ Item {
 
     KSvg.FrameSvgItem {
         imagePath: "widgets/tasks"
-        prefix: task.pressed ? "focus" : "normal"
+        prefix: task.pressed ? (task.win9x120 ? "focus-solid" : "focus") : "normal"
         y: task.height - task.buttonHeight
         width: task.width
         height: task.buttonHeight

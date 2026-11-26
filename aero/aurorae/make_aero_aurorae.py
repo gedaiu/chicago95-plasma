@@ -436,9 +436,10 @@ DOUBLE_DENSITY_STRAIGHT_GLYPHS = {
 }
 # GTK rasterizes this glyph on a 2× grid before the compositor scales it.
 GTK_RESTORE_PATH = "M14,6h15v14h-2V8H14z " + rect(11, 9, 15, 13) + rect(15, 13, 7, 5)
+GTK_CLOSE_PATH = "M38 9h7l4.5 5L54 9h7l-9 10 9 9h-7l-4.5-5-4.5 5h-7l9-9Z"
 
 
-def large_caption_glyph(kind, colours, prefix, x0, pixel_density=None):
+def large_caption_glyph(kind, colours, prefix, x0, pixel_density=None, *, crisp=False):
     body = f"g{prefix}LargeGlyph"
     native_restore = kind == "restore" and pixel_density is None
     if colours["top"] == colours["bottom"]:
@@ -473,6 +474,9 @@ def large_caption_glyph(kind, colours, prefix, x0, pixel_density=None):
     # displayed. Keep axis-aligned glyph edges on that source pixel grid.
     double_density = pixel_density == 2 and kind in DOUBLE_DENSITY_STRAIGHT_GLYPHS
     path = DOUBLE_DENSITY_STRAIGHT_GLYPHS[kind] if double_density else LARGE_CAPTION_PATHS[kind]
+    if crisp and kind == "close":
+        path = GTK_CLOSE_PATH
+        double_density = True
     if kind == "restore" and not native_restore:
         path = GTK_RESTORE_PATH
     scale = ".5" if double_density else "0.66666667"
@@ -482,12 +486,13 @@ def large_caption_glyph(kind, colours, prefix, x0, pixel_density=None):
     if kind in ("maximize", "restore") and pixel_density is None:
         transform = f"scale({palette.BUTTON_WIDTHS['maximize'] / 40:g} {scale})"
     outline, alpha = colours["outline"]
+    rendering = ' shape-rendering="crispEdges"' if crisp else ""
     shape = (
         f'<g transform="translate({x0:g} 0) {transform}">'
         f'<path d="{path}" stroke="{outline}" stroke-opacity="{number(alpha / 255)}" '
         'stroke-width="2" '
         f'stroke-linejoin="{"round" if kind == "close" else "miter"}" fill="none"/>'
-        f'<path d="{path}" fill="url(#{body})" fill-rule="evenodd"/></g>'
+        f'<path d="{path}" fill="url(#{body})" fill-rule="evenodd"{rendering}/></g>'
     )
     return gradient, shape
 
@@ -979,7 +984,9 @@ def caption_surface(
     )
 
 
-def button_state(kind, window, look, prefix, x0=0, large=False, *, cell_width=None, pixel_density=None):
+def button_state(
+    kind, window, look, prefix, x0=0, large=False, *, cell_width=None, pixel_density=None, crisp_glyph=False,
+):
     face_name = BUTTON_FACES[kind]
     original_width = palette.BUTTON_WIDTHS["maximize" if kind == "restore" else kind]
     width = original_width if cell_width is None else cell_width
@@ -1011,7 +1018,7 @@ def button_state(kind, window, look, prefix, x0=0, large=False, *, cell_width=No
         return face_definitions, face_shapes + large_disabled_close_glyph(x0 + (width - original_width) / 2)
     if large:
         glyph_gradient, glyph_shapes = large_caption_glyph(
-            kind, stops.GLYPHS[kind][look], prefix, x0 + (width - original_width) / 2, pixel_density
+            kind, stops.GLYPHS[kind][look], prefix, x0 + (width - original_width) / 2, pixel_density, crisp=crisp_glyph,
         )
     else:
         glyph_gradient, glyph_shapes = glyph_markup(

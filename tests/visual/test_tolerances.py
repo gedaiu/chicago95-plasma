@@ -1,10 +1,29 @@
 import json
+from base64 import b64decode
+from io import BytesIO
 
 import numpy as np
 import pytest
 from original_pixels import compare
 from PIL import Image
+from tolerance_editor import collect
 from visual_tolerances import tolerance_for, tolerance_map
+
+
+def test_editor_keeps_a_review_visible_after_the_pixels_match(tmp_path):
+    case = "win95/run/qt"
+    directory = tmp_path / "visual" / case
+    directory.mkdir(parents=True)
+    captured = Image.new("RGB", (3, 1), "#c0c0c0")
+    captured.save(directory / "rendered.png")
+    compare(captured, captured, directory / "comparison.png", record_metrics=True)
+
+    assert collect([tmp_path]) == {}
+    result = collect([tmp_path], {case})[case]
+    assert result["changed"] == 0
+    with Image.open(BytesIO(b64decode(result["png"]))) as panel:
+        assert panel.size == (9, 1)
+        assert np.asarray(panel)[0].tolist() == [[192, 192, 192]] * 6 + [[0, 0, 0]] * 3
 
 
 def test_reviewed_region_allows_only_its_channel_limit(tmp_path, monkeypatch):

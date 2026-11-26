@@ -157,10 +157,12 @@ def render(manifest, component, state, destination):
             account = {"name": "ref", "icon": portrait.as_uri()}
             actual = render_login(app, output.parent, size=size, user="ref", users=(account,), loginStyle="luna")
     elif look in ("1995", "1998"):
+        native = Path.home() / ".local/share/fonts/Chicago95" / f"Windows{look[-2:]}" / "MS-Sans-Serif-96-Regular.ttf"
         actual = render_login(
             app, output.parent, size=size, user="Jim Midnite", users=(), loginStyle="classic",
             loginTitle="Welcome to Windows", loginMessage="Type a user name and password to log on to Windows.",
             titleActive="#000080" if look == "1995" else "#000080,#1084d0",
+            loginFont=native.as_uri() if native.is_file() else "",
         )
     else:
         name = "Windows 2000" if look == "2000" else "Windows XP"

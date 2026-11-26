@@ -550,6 +550,22 @@ def window_scale(widget):
     return widget.devicePixelRatioF()
 
 
+def win9x_ui_font(look, scale):
+    """Return the imported MS Sans Serif strike for the guest's original DPI."""
+    if look not in ("1995", "1998") or scale not in (1, 1.25):
+        return None
+    family = f"Chicago95 Windows {look[-2:]}"
+    if scale == 1.25:
+        family += " 120 DPI"
+    if not QFontDatabase.hasFamily(family):
+        return None
+    font = QFont(family)
+    font.setPixelSize(11)
+    font.setStyleStrategy(QFont.NoAntialias)
+    font.setHintingPreference(QFont.PreferNoHinting)
+    return font
+
+
 def ui_font(pixel_size=11, bold=False, *, look=None):
     """The UI font at the originals' size: MS Sans Serif 8 points, 11px. The pixel font is drawn on an
     11px grid; at any other size its letters land on fractional pixels and space unevenly. On a whole

@@ -5,6 +5,7 @@ Bevel {
     id: button
     property alias label: caption.text
     property alias family: caption.font.family
+    property alias glyph: captionGlyph.source
     property bool held: mouse.pressed && mouse.containsMouse
     signal clicked
     width: 75
@@ -13,9 +14,19 @@ Bevel {
     activeFocusOnTab: true
     ClassicText {
         id: caption
+        visible: !captionGlyph.visible
         anchors.centerIn: parent
         anchors.horizontalCenterOffset: button.held ? 1 : 0
         anchors.verticalCenterOffset: button.held ? 1 : 0
+    }
+    Image {
+        id: captionGlyph
+        visible: source.toString() !== ""
+        width: 16
+        height: 14
+        x: button.held ? 1 : 0
+        y: x
+        smooth: false
     }
     Rectangle {
         visible: button.activeFocus

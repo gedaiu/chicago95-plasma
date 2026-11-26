@@ -36,7 +36,7 @@ Rectangle {
 
     FontLoader {
         id: uiFont
-        source: "MSW98UI-Regular.otf"
+        source: root.theme.loginFont || "MSW98UI-Regular.otf"
     }
     TextConstants {
         id: textConstants
@@ -376,12 +376,14 @@ Rectangle {
                 width: 16
                 height: 14
                 label: "?"
+                glyph: "CaptionHelp.svg"
                 onClicked: root.showOptions = !root.showOptions
             }
             RetroButton {
                 width: 16
                 height: 14
                 label: "×"
+                glyph: "CaptionClose.svg"
                 onClicked: cancelButton.clicked()
             }
         }

@@ -10,6 +10,7 @@ Item {
     property var icon
     property bool hovered
     property bool held
+    property real iconSize: 16
     property color shadow: "#808080"
     property color white: "#ffffff"
 
@@ -27,9 +28,9 @@ Item {
 
         Kirigami.Icon {
             x: cell.iconInset + (cell.held ? 1 : 0)
-            y: cell.iconInset + (cell.held ? 1 : 0)
-            width: 16
-            height: 16
+            y: cell.iconInset + (16 - cell.iconSize) / 2 + (cell.held ? 1 : 0)
+            width: cell.iconSize
+            height: cell.iconSize
             source: cell.icon
             roundToIconSize: false
         }
