@@ -7,7 +7,7 @@ import pytest
 from PIL import Image
 
 
-def compare(original, actual, output, mask=None, *, record_metrics=False, tolerance=None):
+def compare(original, actual, output, mask=None, *, record_metrics=False, tolerance=None, approval=None):
     reference_size, rendered_size = original.size, actual.size
     metrics_path = output.with_suffix(".metrics.json")
     geometry = ""
@@ -22,6 +22,7 @@ def compare(original, actual, output, mask=None, *, record_metrics=False, tolera
             mask = mask[:height, :width]
         if tolerance is not None:
             tolerance = tolerance[:height, :width]
+        approval = None
         output = output.with_name(output.stem + "-overlap.png")
     expected = np.asarray(original.convert("RGB"), dtype=np.int16)
     observed = np.asarray(actual.convert("RGB"), dtype=np.int16)
@@ -31,19 +32,11 @@ def compare(original, actual, output, mask=None, *, record_metrics=False, tolera
     total = samples.size // 3
     assert total > 0
     mean_error = float(samples.mean())
-    remaining = changed
-    if tolerance is not None:
-        limits = tolerance if mask is None else tolerance[mask]
-        remaining = int((samples.max(axis=-1) > limits).sum())
-    if record_metrics:
-        metrics_path.write_text(json.dumps({
-            "reference_size": reference_size,
-            "rendered_size": rendered_size,
-            "changed_pixels": changed,
-            "compared_pixels": total,
-            "mean_rgb_error": mean_error,
-            **({"pixels_over_tolerance": remaining} if tolerance is not None else {}),
-        }) + "\n")
+    failures = delta.max(axis=-1) > (0 if tolerance is None else tolerance)
+    if approval is not None:
+        failures &= np.any(observed != approval, axis=-1)
+    remaining = int((failures if mask is None else failures[mask]).sum())
+    has_policy = tolerance is not None or approval is not None
     if changed or geometry:
         if mask is not None:
             delta[~mask] = 0
@@ -53,10 +46,21 @@ def compare(original, actual, output, mask=None, *, record_metrics=False, tolera
         panel.paste(actual.convert("RGB"), (actual.width, 0))
         panel.paste(Image.fromarray(np.minimum(255, 4 * delta).astype("uint8")), (2 * actual.width, 0))
         panel.save(output)
+    if record_metrics:
+        staging = metrics_path.with_suffix(".tmp")
+        staging.write_text(json.dumps({
+            "reference_size": reference_size,
+            "rendered_size": rendered_size,
+            "changed_pixels": changed,
+            "compared_pixels": total,
+            "mean_rgb_error": mean_error,
+            **({"pixels_over_tolerance": remaining} if has_policy else {}),
+        }) + "\n")
+        staging.replace(metrics_path)
     if remaining or geometry:
         region = " in the top-left overlap" if geometry else ""
         result = (
-            f"{changed}/{total} pixels differ" if tolerance is None
+            f"{changed}/{total} pixels differ" if not has_policy
             else f"{remaining}/{total} pixels exceed tolerance ({changed} differ)"
         )
         pytest.fail(

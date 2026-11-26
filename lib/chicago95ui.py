@@ -109,6 +109,7 @@ from PySide6.QtGui import (
     QPen,
     QPixmap,
     QRadialGradient,
+    QRawFont,
     QRegion,
 )
 from PySide6.QtWidgets import (
@@ -566,6 +567,39 @@ def win9x_ui_font(look, scale):
     return font
 
 
+@functools.lru_cache(maxsize=64)
+def win9x_bitmap_text(text, font, scale):
+    """Build the imported strike's glyphs and mnemonic on the device-pixel grid."""
+    label, _, mnemonic = text.partition("&")
+    raw = QRawFont.fromFont(font)
+    raw.setPixelSize(font.pixelSize() * scale)
+    glyphs = raw.glyphIndexesForString(label + mnemonic)
+    advances = raw.advancesForGlyphIndexes(glyphs)
+    path = QPainterPath()
+    x = 0
+    for index, (glyph, advance) in enumerate(zip(glyphs, advances, strict=True)):
+        width = round(advance.x())
+        path.addPath(raw.pathForGlyph(glyph).translated(x, 0))
+        if index == len(label):
+            path.addRect(QRectF(x, 1, width, 1))
+        x += width
+    return path, x, round(raw.ascent()), round(raw.descent())
+
+
+def paint_win9x_bitmap_text(painter, text, font, x, baseline):
+    """Draw the strike from a baseline snapped to a physical pixel."""
+    transform = painter.deviceTransform()
+    scale = transform.m11()
+    path, _, _, _ = win9x_bitmap_text(text, font, scale)
+    origin = transform.map(QPointF(x, baseline))
+    painter.save()
+    painter.translate(x + (floor(origin.x() + 0.5) - origin.x()) / scale,
+                      baseline + (floor(origin.y() + 0.5) - origin.y()) / scale)
+    painter.scale(1 / scale, 1 / scale)
+    painter.fillPath(path, painter.pen().brush())
+    painter.restore()
+
+
 def ui_font(pixel_size=11, bold=False, *, look=None):
     """The UI font at the originals' size: MS Sans Serif 8 points, 11px. The pixel font is drawn on an
     11px grid; at any other size its letters land on fractional pixels and space unevenly. On a whole
@@ -973,6 +1007,15 @@ class ClassicStyle(QProxyStyle):
         super().drawPrimitive(element, option, painter, widget)
 
     def drawControl(self, element, option, painter, widget=None):
+        if element == QStyle.CE_ComboBoxLabel and widget is not None and option.state & QStyle.State_Enabled:
+            offset = widget.property("classicLabelDeviceOffset")
+            if offset is not None:
+                transform = painter.deviceTransform()
+                painter.save()
+                painter.translate(offset.x() / transform.m11(), offset.y() / transform.m22())
+                super().drawControl(element, option, painter, widget)
+                painter.restore()
+                return
         if element == QStyle.CE_ComboBoxLabel and not option.state & QStyle.State_Enabled:
             # QWindowsStyle engraves disabled combo labels unless a helper-specific proxy
             # overrides it. Every combo must match, including unwrapped Qt controls.

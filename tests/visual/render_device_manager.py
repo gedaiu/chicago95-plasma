@@ -232,7 +232,16 @@ def render(look, scale, output, width=None, height=None, *,
             if root_context or scan_states:
                 window.tree.setCurrentItem(window.tree.topLevelItem(0))
                 app.processEvents()
+            if look == "1995":
+                # The native command-band reference shows all four actions enabled.
+                actions = window.findChildren(module.ClassicDeviceActionButton)
+                disabled = [button for button in actions if not button.isEnabled()]
+                for button in disabled:
+                    button.setEnabled(True)
             capture = window.grab()
+            if look == "1995":
+                for button in disabled:
+                    button.setEnabled(False)
             assert capture.devicePixelRatio() == float(scale)
             picture = qimage_to_pil(capture.toImage())
             if look in ("1995", "1998"):

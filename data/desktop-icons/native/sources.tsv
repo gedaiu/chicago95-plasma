@@ -7,6 +7,7 @@ native/2000/recycle-full.png	win2k	WINNT/system32/shell32.dll	group-33	1033	174	
 native/aero/recycle.png	win7	Windows/System32/imageres.dll	group-55	1033	641	48	48	32
 native/aero/recycle-full.png	win7	Windows/System32/imageres.dll	group-54	1033	628	48	48	32
 native/1995/computer.png	win95	WINDOWS/EXPLORER.EXE	group-100	1033	1	32	32	4
+native/1995/inbox.png	win95	Program Files/Windows Messaging/MLSET32.EXE	group-100	1033	1	32	32	4
 native/1995/network.png	win95	WINDOWS/SYSTEM/SHELL32.DLL	group-18	1033	40	32	32	4
 native/1995/recycle.png	win95	WINDOWS/SYSTEM/SHELL32.DLL	group-32	1033	67	32	32	4
 native/1995/recycle-full.png	win95	WINDOWS/SYSTEM/SHELL32.DLL	group-33	1033	69	32	32	4

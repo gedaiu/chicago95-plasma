@@ -498,6 +498,19 @@ class PropertiesDialog(QDialog):
 
 
 class ClassicDeviceActionButton(QPushButton):
+    native_caption = False
+
+    def paint_native_caption(self, painter, option, outer, pixel):
+        path, width, ascent, descent = chicago95ui.win9x_bitmap_text(option.text, self.font(), 1 / pixel)
+        x = (round(outer.width() / pixel) - width) // 2
+        y = (round(outer.height() / pixel) - ascent - descent) // 2 + ascent - 1
+        pressed = int(self.isDown())
+        painter.scale(pixel, pixel)
+        painter.translate(x + pressed, y + pressed)
+        if not self.isEnabled():
+            painter.fillPath(path.translated(1, 1), option.palette.light())
+        painter.fillPath(path, option.palette.buttonText())
+
     def paintEvent(self, event):
         option = QStyleOptionButton()
         self.initStyleOption(option)
@@ -522,7 +535,10 @@ class ClassicDeviceActionButton(QPushButton):
             focus = outer.adjusted(4 * pixel, 4 * pixel, -4 * pixel, -4 * pixel)
             painter.fillRect(focus, black)
             painter.fillRect(focus.adjusted(pixel, pixel, -pixel, -pixel), face)
-        self.style().drawControl(QStyle.CE_PushButtonLabel, option, painter, self)
+        if self.native_caption:
+            self.paint_native_caption(painter, option, outer, pixel)
+        else:
+            self.style().drawControl(QStyle.CE_PushButtonLabel, option, painter, self)
 
 
 class AeroDeviceTreeFrame(QFrame):
@@ -1195,7 +1211,8 @@ class DeviceManagerWindow(QWidget):
     def add_dialog_buttons(self, layout):
         scale = chicago95ui.window_scale(self)
         matched_dpi = scale == 1.25
-        native_font = chicago95ui.win9x_ui_font(chicago95ui.look_settings()["style"], scale)
+        look = chicago95ui.look_settings()["style"]
+        native_font = chicago95ui.win9x_ui_font(look, scale)
         action_font = native_font
         if native_font is None and matched_dpi and self.font().family() == chicago95ui.UI_FONT_FAMILY:
             # The 120-DPI strike has thinner strokes and nearly the same caption widths.
@@ -1221,7 +1238,8 @@ class DeviceManagerWindow(QWidget):
             button.setFixedSize(width, 22 if matched_dpi else chicago95ui.DIALOG_BUTTON_SIZE[1])
             if action_font is not None:
                 button.setFont(action_font)
-            if native_font is not None:
+            button.native_caption = native_font is not None and look == "1995"
+            if native_font is not None and not button.native_caption:
                 # Align the imported strike to the guest's physical caption baseline.
                 left = -2 if matched_dpi and button.isEnabled() else -1
                 button.setProperty("classicLabelDeviceOffset", QPoint(left, -1))

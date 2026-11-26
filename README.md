@@ -133,7 +133,10 @@ into a local folder. With Python FontTools installed, run
 `python3 setup/import-win9x-fonts.py 98 /path/to/fonts` for Windows 98.
 The importer creates local TrueType fonts for 96 and 120 DPI. Run uses
 them on the matching look, and Setup selects them for KDE and GTK when
-the default font is selected at those scales.
+the default font is selected at those scales. For Windows 95 it also
+imports the 10-point face used by desktop icon labels.
+Include `VGASYS.FON` and `8514SYS.FON` to import the System font used in
+the Windows 95 Appearance preview.
 
 For Windows 2000, XP Classic, XP Luna and Windows 7, use
 `python3 setup/import-windows-nt-fonts.py <2000|xp|7> /path/to/fonts`

@@ -43,7 +43,7 @@ from test_caption_states_reference import (
     state_buttons,
     visible_pixels,
 )
-from visual_tolerances import tolerance_for
+from visual_tolerances import approval_for, tolerance_for
 
 THEMES = {folder.name: (folder, metadata) for folder, metadata in theme_references(REFERENCES)}
 EXPECTED_THEMES = {"win95", "win98", "win2k", "winxp-classic", "winxp", "win7"}
@@ -100,20 +100,23 @@ def installed():
     folders = []
 
     @cache
-    def prepare(look, setup_scale=1, *, aero_background="#4395D1", screen=(1024, 768), components=(), launchers=0):
+    def prepare(
+        look, setup_scale=1, *, aero_background="#4395D1", screen=(1024, 768), components=(), launchers=0, settings=(),
+    ):
         missing = missing_programs()
         assert not missing, f"Missing live-render dependencies: {', '.join(missing)}"
         folder = work_folder(f"parity-{look}")
         folders.append(folder)
         background = (
-            {"settings": [("BACKGROUND_MODE", "color"), ("BACKGROUND_COLOR", aero_background)]}
+            (("BACKGROUND_MODE", "color"), ("BACKGROUND_COLOR", aero_background))
             if look == "aero" and aero_background
-            else {}
+            else ()
         )
         if background and "background" not in components:
             components = (*components, "background")
         return install(
-            look, folder, screen=screen, launchers=launchers, setup_scale=setup_scale, components=components, **background
+            look, folder, screen=screen, launchers=launchers, setup_scale=setup_scale, components=components,
+            settings=(*background, *settings),
         )
 
     yield prepare
@@ -495,6 +498,7 @@ def exact(expected, actual, directory, mask=None):
     compare(
         expected, actual, directory / "comparison.png", mask, record_metrics=True,
         tolerance=tolerance_for(directory, expected.size),
+        approval=approval_for(directory, expected),
     )
 
 
@@ -1287,14 +1291,22 @@ def desktop_scenes(installed, visual_output):
         width, height = (round(value / scale) for value in spec["screen"])
         backdrop = "#4395D1" if look == "aero" and scene != "wallpaper" else None
         components = ("background", "desktop", "startmenu") if scene == "run" else ("background", "desktop")
-        session = installed(
-            look, scale, aero_background=backdrop, screen=(width, height),
-            components=components, launchers=tuple(spec["launchers"]),
-        )
         output = visual_output / theme / "desktop" / "plasma"
         if samples != "desktop_samples":
             output /= samples
         output.mkdir(parents=True, exist_ok=True)
+        settings = ()
+        if scene == "focused-wallpaper":
+            backdrop_file = output / "focus-wallpaper.png"
+            image = Image.new("RGB", (width, height), "#305068")
+            image.paste("#007060", (width // 18, 0, width, height))
+            image.save(backdrop_file)
+            settings = (("BACKGROUND_MODE", "image"), ("BACKGROUND_IMAGE", str(backdrop_file)),
+                        ("BACKGROUND_FILL", "stretch"))
+        session = installed(
+            look, scale, aero_background=backdrop, screen=(width, height),
+            components=components, launchers=tuple(spec["launchers"]), settings=settings,
+        )
         if scene in ("menu", "hover"):
             x, y = width // 3, height // 3
             opening = right_click_at(x, y)
@@ -1334,6 +1346,18 @@ def desktop_scenes(installed, visual_output):
             assert any(window["phase"] == "after" and window["title"] == "Run" for window in windows), (
                 "The native reference contains Run, but the live scene did not open it."
             )
+        elif scene in ("focused-desktop", "focused-wallpaper"):
+            before_focus = ("move:400,300", "wait:0.5", "snapshot:before-focus") if scene == "focused-wallpaper" else ()
+            result = show(
+                session, windows=[], scale=scale,
+                pointer_steps=(*before_focus, "move:40,18", "click:left", "move:400,300", "wait:0.5"),
+            )
+            if scene == "focused-wallpaper":
+                with Image.open(session.work / "before-focus.png") as before:
+                    original = before.convert("RGB")
+                original.save(output / "wallpaper-before-focus.png")
+                result.save(output / "wallpaper-after-focus.png")
+                return original, result
         elif scene == "wallpaper":
             result = show(session, windows=[], scale=scale)
         else:
@@ -1364,6 +1388,8 @@ def test_desktop_surface(theme, state, desktop_scenes, visual_output):
             reference = folder / "desktop.png"
             if "run" in spec:
                 screen = desktop_scenes(theme, "run")
+            elif theme == "win95":
+                screen = desktop_scenes(theme, "focused-desktop")
             else:
                 screen = desktop_scenes(theme, "wallpaper") if theme == "win7" else desktop_scenes(theme, "menu")[0]
             with Image.open(reference) as image:
@@ -1385,6 +1411,74 @@ def test_desktop_surface(theme, state, desktop_scenes, visual_output):
     if metadata["look"] in ("2000", "2001", "luna"):
         actual = rgb565(actual)
     exact(expected, actual, output, mask)
+
+
+def test_win95_desktop_computer_has_native_size_and_no_shadow(desktop_scenes, visual_output):
+    folder, _ = THEMES["win95"]
+    actual = desktop_scenes("win95", "focused-desktop")
+    # The crop includes the teal around all four edges, where the icon shadow
+    # used to be visible.
+    bounds = (0, 0, 96, 36)
+    with Image.open(folder / "desktop.png") as expected:
+        exact(
+            expected.convert("RGB").crop(bounds), actual.crop(bounds),
+            visual_output / "win95/desktop/plasma/idle/my-computer-icon",
+        )
+
+
+def test_win95_desktop_computer_label_has_focus_without_a_shadow(desktop_scenes):
+    actual = np.asarray(desktop_scenes("win95", "focused-desktop"))
+    wallpaper = actual[0, 0]
+    label = actual[36:58, :96]
+    outline = np.all(label == 255 - wallpaper, axis=2)
+    rows, columns = np.where(outline)
+    assert len(rows), "The focused label has no inverted outline"
+    top, bottom = rows.min(), rows.max()
+    left, right = columns.min(), columns.max()
+    assert right - left > 75 and bottom - top > 12
+    assert outline[[top, bottom], left:right + 1].all()
+    assert outline[top:bottom + 1, [left, right]].all()
+    assert np.all(label[~outline] >= wallpaper)
+    np.testing.assert_array_equal(actual[58:90, :96], np.broadcast_to(wallpaper, (32, 96, 3)))
+
+
+def test_win95_desktop_focus_inverts_the_wallpaper_pixels_under_the_line(desktop_scenes):
+    before, after = (np.asarray(image)[36:58, :96] for image in desktop_scenes("win95", "focused-wallpaper"))
+    changed = np.any(before != after, axis=2)
+    assert changed.sum() > 150
+    assert len(np.unique(before[changed], axis=0)) > 1
+    np.testing.assert_array_equal(after[changed], 255 - before[changed])
+
+
+def test_win95_desktop_inbox_icon_is_in_the_second_slot(desktop_scenes, visual_output):
+    folder, _ = THEMES["win95"]
+    bounds = (0, 93, 96, 130)
+    actual = desktop_scenes("win95", "focused-desktop").crop(bounds)
+    with Image.open(folder / "desktop.png") as expected:
+        exact(
+            expected.convert("RGB").crop(bounds), actual,
+            visual_output / "win95/desktop/plasma/idle/inbox-icon",
+        )
+
+
+@pytest.mark.parametrize(("label", "top"), (("my-computer", 36), ("inbox", 131)))
+def test_win95_desktop_label_matches_vm(qt_app, desktop_scenes, visual_output, label, top):
+    from PySide6.QtGui import QFontDatabase
+
+    if not QFontDatabase.hasFamily("Chicago95 Windows 95 Desktop 120 DPI"):
+        pytest.skip("Import the fonts from the reference VM with setup/import-win9x-fonts.py")
+
+    def lettering(image):
+        pixels = np.asarray(image.convert("RGB").crop((0, top, 96, top + 22)))
+        return Image.fromarray(np.all(pixels == 255, axis=2)).convert("RGB")
+
+    folder, _ = THEMES["win95"]
+    actual = desktop_scenes("win95", "focused-desktop")
+    with Image.open(folder / "desktop.png") as expected:
+        exact(
+            lettering(expected), lettering(actual),
+            visual_output / f"win95/desktop/plasma/idle/{label}-label",
+        )
 
 
 @pytest.mark.parametrize("theme", ("win2k", "winxp-classic"))
@@ -2004,6 +2098,42 @@ def test_properties(theme, component, tmp_path, visual_output):
     with Image.open(output) as frame:
         actual = rgb565(frame) if metadata.get("properties_rgb565") else frame.convert("RGB")
     exact(expected, actual, visual_output / theme / component / "qt")
+
+
+def test_win95_display_properties_captions(qt_app, tmp_path):
+    from PySide6.QtGui import QFontDatabase
+
+    for family in ("Chicago95 Windows 95 120 DPI", "Chicago95 Windows 95 System 120 DPI"):
+        if not QFontDatabase.hasFamily(family):
+            pytest.skip("Import the VM fonts with setup/import-win9x-fonts.py")
+    folder, _ = THEMES["win95"]
+    output = tmp_path / "appearance.png"
+    with Image.open(folder / "display-properties.png") as reference:
+        render_properties(folder, "display-properties", output, reference.size)
+        expected = reference.convert("RGB")
+    with Image.open(output) as capture:
+        actual = capture.convert("RGB")
+    # Boxes cover complete glyphs while staying inside the surrounding controls.
+    for caption, bounds in {
+        "Background": (16, 15, 91, 30),
+        "Screen Saver": (99, 15, 184, 30),
+        "Appearance": (193, 13, 275, 29),
+        "Settings": (281, 15, 333, 30),
+        "Inactive Window": (43, 63, 164, 77),
+        "Active Window": (47, 92, 151, 105),
+        "Normal": (51, 113, 100, 130),
+        "Selected": (180, 114, 239, 127),
+        "Window Text": (49, 140, 152, 155),
+        "Message Box": (54, 198, 150, 214),
+        "Message Text": (54, 219, 143, 237),
+        "Scheme": (24, 296, 82, 311),
+        "Desktop": (29, 375, 130, 393),
+        "OK": (226, 486, 278, 505),
+        "Cancel": (328, 486, 389, 505),
+    }.items():
+        np.testing.assert_array_equal(
+            np.asarray(actual.crop(bounds)), np.asarray(expected.crop(bounds)), err_msg=caption,
+        )
 
 
 @pytest.mark.parametrize(

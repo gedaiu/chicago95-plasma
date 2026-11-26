@@ -207,12 +207,19 @@ Start the local tolerance editor from the same capture directories. Open the loc
 python3 tests/visual/tolerance_editor.py /tmp/chicago95-parity --serve
 ```
 
+Reload the editor after a rerun in one of its capture directories. Captures disappear from the list
+once their latest comparison passes, regardless of review status, and return if a later comparison
+fails. Their reviews and annotations stay in the policy file.
+
 Use the pencil to paint a tolerance on the Windows reference, current render, or difference image. The pencil
 marks only differing pixels. A limit of 255 ignores them. The eraser restores exact matching, and the sidebar
 shows the remaining differences.
 The server saves each stroke to `tests/visual/tolerance-policy.json` and shows when it is saved. Use `--policy`
-to edit a different file. Use **Whole-image review** to save an approval or rejection and feedback for the
-selected capture. A review does not change its pixel tolerances. Verify a fresh render using the saved policy.
+to edit a different file. In **Whole-image review**, select **Approve** and click **Approve current capture**
+to save the displayed colors for that comparison. A regular parity run accepts either the Windows RGB value
+or the approved RGB value at each reviewed pixel. A new RGB value or a size mismatch still fails. A changed
+Windows reference requires a fresh approval. Saving Pending or Reject removes the approved colors.
+Earlier approval labels need to be saved again to capture the approved colors.
 
 Use **Rectangle** to set a tolerance on differing pixels inside a box. Use **Annotate** to click a pixel or
 drag around an area and attach a note. Annotations save with the capture and leave its pixel comparison unchanged.
@@ -221,7 +228,7 @@ drag around an area and attach a note. Annotations save with the capture and lea
 CHICAGO95_VISUAL_TOLERANCES=tests/visual/tolerance-policy.json python3 -m pytest tests/visual/parity.py -q
 ```
 
-The regular parity run remains exact. The opt-in run still fails when the reference and render differ in size.
+The command above also applies the painted limits. Set `CHICAGO95_VISUAL_TOLERANCES=""` for a fully exact run.
 
 Check whether opaque vector fills overlap and whether the Suspend moon uses circular arcs.
 

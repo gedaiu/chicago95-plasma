@@ -16,8 +16,8 @@ def word(data, offset):
     return struct.unpack_from("<H", data, offset)[0]
 
 
-def ansi_strike(path, dpi):
-    """Read the 8-point CP1252 font resource from a Windows NE font library."""
+def ansi_strike(path, dpi, point_size=8, face=b"MS Sans Serif"):
+    """Read a CP1252 font strike from a Windows NE font library."""
     data = path.read_bytes()
     header = struct.unpack_from("<I", data, 0x3C)[0]
     if data[:2] != b"MZ" or data[header : header + 2] != b"NE":
@@ -36,13 +36,13 @@ def ansi_strike(path, dpi):
                 face_offset = struct.unpack_from("<I", strike, 105)[0]
                 if (
                     word(strike, 0) == 0x0200
-                    and struct.unpack_from("<4H", strike, 66) == (0, 8, dpi, dpi)
+                    and struct.unpack_from("<4H", strike, 66) == (0, point_size, dpi, dpi)
                     and strike[85] == 0
-                    and strike[face_offset:].startswith(b"MS Sans Serif\0")
+                    and strike[face_offset:].startswith(face + b"\0")
                 ):
                     return strike
         entry += count * 12
-    raise ValueError(f"{path.name} has no 8-point MS Sans Serif strike at {dpi} DPI")
+    raise ValueError(f"{path.name} has no {point_size}-point {face.decode()} strike at {dpi} DPI")
 
 
 def glyph_outline(strike, code, height, ascent, grid, bold):
@@ -70,11 +70,10 @@ def glyph_outline(strike, code, height, ascent, grid, bold):
     return pen.glyph(), ((width + int(bold)) * grid, bearing * grid)
 
 
-def write_font(strike, destination, family, dpi, bold):
-    # At 120 DPI Qt renders its logical 11px font at 13.75 device pixels.
+def write_font(strike, destination, family, dpi, bold, pixel_size=11):
     # Use integer font units for that em and for each pixel of the native strike.
     grid = 64
-    em = 11 * dpi * grid // 96
+    em = pixel_size * dpi * grid // 96
     ascent, height = word(strike, 74), word(strike, 88)
     top, bottom = ascent * grid, (ascent - height) * grid
     glyphs = {".notdef": TTGlyphPen(None).glyph()}
@@ -125,17 +124,32 @@ def main():
     args = parser.parse_args()
     try:
         sources = {file.name.lower(): file for file in args.fonts.iterdir()}
-        strikes = {dpi: ansi_strike(sources[name], dpi) for dpi, name in ((96, "sserife.fon"), (120, "sseriff.fon"))}
+        libraries = {96: sources["sserife.fon"], 120: sources["sseriff.fon"]}
         data_home = Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local/share"))
         destination = data_home / "fonts" / "Chicago95" / f"Windows{args.edition}"
         destination.mkdir(parents=True, exist_ok=True)
         with TemporaryDirectory(dir=destination) as scratch:
-            for dpi, strike in strikes.items():
-                family = f"Chicago95 Windows {args.edition}" + (" 120 DPI" if dpi == 120 else "")
+            for dpi, source in libraries.items():
+                suffix = " 120 DPI" if dpi == 120 else ""
+                strike = ansi_strike(source, dpi)
+                family = f"Chicago95 Windows {args.edition}{suffix}"
                 for bold in (False, True):
                     style = "Bold" if bold else "Regular"
                     file = Path(scratch) / f"MS-Sans-Serif-{dpi}-{style}.ttf"
                     write_font(strike, file, family, dpi, bold)
+            if args.edition == "95":
+                desktop = ansi_strike(libraries[96], 96, point_size=10)
+                # Keep the 96 DPI glyph grid when Qt renders at 125% scale.
+                for dpi, size, suffix in ((96, 13, ""), (120, 11, " 120 DPI")):
+                    family = f"Chicago95 Windows 95 Desktop{suffix}"
+                    file = Path(scratch) / f"MS-Sans-Serif-Desktop-{dpi}-Regular.ttf"
+                    write_font(desktop, file, family, dpi, bold=False, pixel_size=size)
+                for dpi, name, suffix in ((96, "vgasys.fon", ""), (120, "8514sys.fon", " 120 DPI")):
+                    if name in sources:
+                        system = ansi_strike(sources[name], dpi, point_size=10, face=b"System")
+                        family = f"Chicago95 Windows 95 System{suffix}"
+                        file = Path(scratch) / f"System-{dpi}-Regular.ttf"
+                        write_font(system, file, family, dpi, bold=False, pixel_size=13)
             for file in Path(scratch).iterdir():
                 file.replace(destination / file.name)
     except (KeyError, OSError, ValueError, struct.error) as error:

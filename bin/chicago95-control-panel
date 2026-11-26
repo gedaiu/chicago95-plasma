@@ -3151,6 +3151,22 @@ class AppearancePreview(QWidget):
                 return native
         return chicago95ui.ui_font(size, bold=bold)
 
+    def native_win95_font(self, system=False):
+        if not self.classic_sheet or self.look != "1995":
+            return None
+        scale = chicago95ui.window_scale(self)
+        if not system:
+            return chicago95ui.win9x_ui_font(self.look, scale)
+        if scale not in (1, 1.25):
+            return None
+        family = "Chicago95 Windows 95 System" + (" 120 DPI" if scale == 1.25 else "")
+        if not QFontDatabase.hasFamily(family):
+            return None
+        font = QFont(family)
+        font.setPixelSize(13)
+        font.setHintingPreference(QFont.PreferNoHinting)
+        return font
+
     def paintEvent(self, _event):
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor(self.desktop.split(",")[0]))
@@ -3195,8 +3211,15 @@ class AppearancePreview(QWidget):
         gradient.setColorAt(1, stops[-1])
         painter.fillRect(title, gradient)
         painter.setPen(QColor("#FFFFFF") if colours is self.active else QColor(LOOK_FACES.get(self.look, CLASSIC_FACE)))
-        painter.setFont(self.sample_font(bold=True))
-        painter.drawText(title.adjusted(3, 0, 0, 0), Qt.AlignVCenter, caption)
+        font = self.native_win95_font()
+        if font is not None:
+            font.setBold(True)
+            baseline = title.top() + 12 - (0.8 if buttons == 1 else 0)
+            text_left = title.left() + (0.8 if caption == "Active Window" else 0)
+            chicago95ui.paint_win9x_bitmap_text(painter, caption, font, text_left, baseline)
+        else:
+            painter.setFont(self.sample_font(bold=True))
+            painter.drawText(title.adjusted(3, 0, 0, 0), Qt.AlignVCenter, caption)
         right = title.right() - 2
         for index, glyph in enumerate(("minimize", "maximize", "close")[-buttons:][::-1]):
             button = QRect(right - 16 - index * 16 - (2 if index else 0), title.top() + 2, 16, 14)
@@ -3222,6 +3245,7 @@ class AppearancePreview(QWidget):
     def menu_and_text(self, painter, rect):
         menu = QRect(rect.left() + 4, rect.top() + 4 + self.TITLE_HEIGHT + 1, rect.width() - 8, 18)
         painter.setFont(self.sample_font())
+        caption_pixel = 1 / painter.deviceTransform().m22() if self.native_win95_font() else 0
         x = menu.left() + 6
         for word, kind in (("Normal", "normal"), ("Disabled", "disabled"), ("Selected", "selected")):
             width = painter.fontMetrics().horizontalAdvance(word) + 12
@@ -3238,11 +3262,17 @@ class AppearancePreview(QWidget):
             elif kind == "disabled":
                 if self.look == "1998" or self.classic_sheet:
                     painter.setPen(Qt.white)
+                    painter.save()
+                    painter.translate(0, -2 * caption_pixel)
                     painter.drawText(cell.translated(1, 1), Qt.AlignCenter, word)
+                    painter.restore()
                 painter.setPen(chicago95ui.bevel_colors(self.face(), chicago95ui.bevel_for_style(self.look))["shadow"])
             else:
                 painter.setPen(Qt.black)
+            painter.save()
+            painter.translate(2 * caption_pixel if kind == "selected" else 0, -2 * caption_pixel)
             painter.drawText(cell, Qt.AlignCenter, word)
+            painter.restore()
             x += width
         text = QRect(menu.left() + 2, menu.bottom() + 3, menu.width() - 4, rect.bottom() - menu.bottom() - 8)
         if self.look == "1998" or self.classic_sheet:
@@ -3261,13 +3291,20 @@ class AppearancePreview(QWidget):
                     arrow.center().x() - half_width, arrow.top() + 6 + row, 2 * half_width + 1, 1, Qt.black
                 )
         painter.setPen(QColor("#000000"))
-        painter.setFont(self.sample_font(13, bold=not self.classic_sheet))
-        painter.drawText(text.adjusted(4, 2, -20, 0), Qt.AlignTop | Qt.AlignLeft, "Window Text")
+        system = self.native_win95_font(system=True)
+        if system is not None:
+            chicago95ui.paint_win9x_bitmap_text(painter, "Window Text", system, text.left(), text.top() + 14)
+        else:
+            painter.setFont(self.sample_font(13, bold=not self.classic_sheet))
+            painter.drawText(text.adjusted(4, 2, -20, 0), Qt.AlignTop | Qt.AlignLeft, "Window Text")
 
     def message(self, painter, rect):
         painter.setFont(self.sample_font())
         painter.setPen(QColor("#000000"))
-        painter.drawText(rect.adjusted(8, 4 + self.TITLE_HEIGHT + 4, 0, 0), Qt.AlignTop | Qt.AlignLeft, "Message Text")
+        if font := self.native_win95_font():
+            chicago95ui.paint_win9x_bitmap_text(painter, "Message Text", font, rect.left() + 5, rect.top() + 33.5)
+        else:
+            painter.drawText(rect.adjusted(8, 4 + self.TITLE_HEIGHT + 4, 0, 0), Qt.AlignTop | Qt.AlignLeft, "Message Text")
         if self.look == "1998" or self.classic_sheet:
             button = QRect(rect.left() + 70, rect.bottom() - 29, 72, 24)
             if self.classic_sheet:
@@ -3362,6 +3399,7 @@ class TabRows(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.names, self.selected, self.rows = [], 0, []
+        self.native_win95_captions = False
 
     def add_tab(self, name):
         self.names.append(name)
@@ -3374,6 +3412,9 @@ class TabRows(QWidget):
     def relayout(self):
         metrics = QFontMetrics(self.font())
         widths = [tab_width(metrics, name) for name in self.names]
+        if self.native_win95_captions:
+            # Win95's Display tabs allow five logical pixels on either side.
+            widths = [width - 2 for width in widths]
         self.rows = rows_for_selected(tab_rows(widths, max(self.width() - 2 * TAB_INSET, 1)), self.selected)
         self.setFixedHeight(len(self.rows) * TAB_ROW_HEIGHT + TAB_RISE + TAB_SEAM)
         self.update()
@@ -3408,7 +3449,15 @@ class TabRows(QWidget):
             if index == self.selected:
                 rect = rect.adjusted(0, 0, 0, -TAB_SEAM)
             paint_tab(painter, rect, self.palette(), index == self.selected)
-            paint_tab_caption(painter, rect, self.palette(), self.names[index])
+            caption = self.names[index]
+            if self.native_win95_captions:
+                painter.setPen(self.palette().windowText().color())
+                scale = painter.deviceTransform().m11()
+                _, width, _, _ = chicago95ui.win9x_bitmap_text(caption, self.font(), scale)
+                x = rect.left() + (rect.width() - width / scale) / 2
+                chicago95ui.paint_win9x_bitmap_text(painter, caption, self.font(), x, rect.top() + 13.6)
+            else:
+                paint_tab_caption(painter, rect, self.palette(), caption)
 
     def mousePressEvent(self, event):
         for index, rect in self.tab_rects().items():
@@ -3807,6 +3856,8 @@ class PropertiesPage(QWidget):
         self.tabs = window_chrome().tab_control()
         self.settings_tabs = [tab for _name, tab in tabs]
         self.classic_display = title == "Display" and bool(tabs) and is_classic_display(self.settings_tabs[0].saved)
+        win95_display = self.classic_display and self.settings_tabs[0].saved.get("LOOK") == "1995"
+        native_font = None
         self.luna_display = title == "Display" and chicago95ui.luna_widgets()
         aero_taskbar = title == "Taskbar" and chicago95ui.widget_style() == "aero"
         if self.luna_display:
@@ -3818,6 +3869,14 @@ class PropertiesPage(QWidget):
             font = chicago95ui.ui_font()
             font.setFamilies(["Segoe UI", "Selawik", "Noto Sans"])
             self.setFont(font)
+        elif win95_display:
+            # The preview already uses the imported strike. Give the sheet's
+            # tabs and controls the same font and let them size to its metrics.
+            native_font = chicago95ui.win9x_ui_font("1995", chicago95ui.window_scale(self))
+            if native_font is not None:
+                self.setFont(native_font)
+                if isinstance(self.tabs, TabControl):
+                    self.tabs.bar.native_win95_captions = True
         for name, tab in tabs:
             area = tab if title == "Themes" else scrolling(tab)
             if title == "Display":
@@ -3825,6 +3884,14 @@ class PropertiesPage(QWidget):
                 area.setMinimumSize(tab.minimumSizeHint().expandedTo(tab.minimumSize()))
             self.tabs.addTab(area, name)
             tab.changed.connect(self.refresh_apply_button)
+            if name == "Appearance" and getattr(tab, "win95_appearance", False):
+                index = self.tabs.count() - 1
+
+                def focus_scheme(current, appearance=index, scheme=tab.scheme):
+                    if current == appearance:
+                        scheme.setFocus(Qt.TabFocusReason)
+
+                self.tabs.currentChanged.connect(focus_scheme)
             if self.luna_display and name == "Settings":
                 def queue_slider_focus(_index, slider=tab.screen_area.slider):
                     def focus_slider():
@@ -3845,6 +3912,9 @@ class PropertiesPage(QWidget):
             self.ok_button.setDefault(True)
         self.cancel_button = chicago95ui.dialog_button("Cancel")
         self.apply_button = chicago95ui.dialog_button("&Apply", enabled=False)
+        if native_font is not None:
+            for button, left in ((self.ok_button, -2), (self.cancel_button, -1), (self.apply_button, 0)):
+                button.setProperty("classicLabelDeviceOffset", QPoint(left, -1))
         self.ok_button.clicked.connect(self.ok)
         self.cancel_button.clicked.connect(self.cancel)
         self.apply_button.clicked.connect(self.apply)
@@ -4677,11 +4747,11 @@ APPEARANCE_ITEMS = (
 )
 
 
-def appearance_column(caption, widget, width):
+def appearance_column(caption, widget, width, *, indent=1):
     column = QVBoxLayout()
     column.setSpacing(3)
     label = buddy_label(caption, widget)
-    label.setIndent(1)
+    label.setIndent(indent)
     label.setEnabled(widget.isEnabled())
     column.addWidget(label, 0, Qt.AlignLeft)
     widget.setFixedWidth(width)
@@ -4716,17 +4786,18 @@ def appearance_tab(settings, actions, *, luna_sheet=False):
     colours, Scheme with Save As and Delete, and Item with the chosen part's settings."""
     tab = SettingsTab(settings, actions)
     classic_sheet = is_classic_display(settings) and settings.get("LOOK") != "2001"
-    tab.outer.setContentsMargins(*(14, 8, 13, 8) if classic_sheet else (12, PAGE_INSETS[1], 12, PAGE_INSETS[3]))
+    win95 = tab.win95_appearance = classic_sheet and settings.get("LOOK") == "1995"
+    tab.outer.setContentsMargins(*(13 if win95 else 14, 8, 13, 8) if classic_sheet else (12, PAGE_INSETS[1], 12, PAGE_INSETS[3]))
     if classic_sheet:
         tab.outer.setSpacing(9)
-        tab.form.setVerticalSpacing(5)
+        tab.form.setVerticalSpacing(4 if win95 else 5)
     start = LOOK_PRESETS["1995"]
     tab.preview = AppearanceSwitch(classic_sheet, luna_sheet=luna_sheet)
     tab.previews.append(tab.preview)
-    tab.outer.insertWidget(0, tab.preview)
+    tab.outer.insertWidget(0, tab.preview, alignment=Qt.AlignRight if win95 else Qt.Alignment())
     tab.scheme = chicago95ui.classic_combo(QComboBox())
     for label, value in [*START_MENU_STYLES, ("Custom", "custom")]:
-        tab.scheme.addItem(label, value)
+        tab.scheme.addItem("Windows Standard" if win95 and value == "1995" else label, value)
     tab.save_as_button = chicago95ui.dialog_button("Sa&ve As...", enabled=False)
     tab.delete_button = chicago95ui.dialog_button("&Delete", enabled=False)
     tab.items = chicago95ui.classic_combo(QComboBox())
@@ -4773,6 +4844,11 @@ def appearance_tab(settings, actions, *, luna_sheet=False):
         scheme_row.setSpacing(0)
         tab.save_as_button.setFixedSize(80, 22)
         tab.delete_button.setFixedSize(80, 22)
+    if win95 and chicago95ui.win9x_ui_font("1995", chicago95ui.window_scale(tab)) is not None:
+        tab.scheme.setProperty("classicLabelDeviceOffset", QPoint(-1, -1))
+        tab.items.setProperty("classicLabelDeviceOffset", QPoint(-2, 0))
+        for button in (tab.save_as_button, tab.delete_button):
+            button.setProperty("classicLabelDeviceOffset", QPoint(0, -2))
     scheme_row.addWidget(tab.scheme, 1)
     if classic_sheet:
         scheme_row.addSpacing(7)
@@ -4785,12 +4861,12 @@ def appearance_tab(settings, actions, *, luna_sheet=False):
         item_row.setSpacing(7)
     scheme_label = buddy_label("&Scheme:", tab.scheme)
     if classic_sheet:
-        scheme_label.setIndent(1)
+        scheme_label.setIndent(0 if win95 else 1)
     tab.form.addRow(scheme_label)
     tab.form.addRow(scheme_row)
     if classic_sheet:
-        item_row.setContentsMargins(0, 5, 0, 0)
-        item_row.addLayout(appearance_column("&Item:", tab.items, 208))
+        item_row.setContentsMargins(0, 3 if win95 else 5, 0, 0)
+        item_row.addLayout(appearance_column("&Item:", tab.items, 208, indent=0 if win95 else 1))
         item_row.addWidget(tab.item_editors, 1, Qt.AlignBottom)
     else:
         tab.form.addRow(buddy_label("&Item:", tab.items))
@@ -4801,9 +4877,9 @@ def appearance_tab(settings, actions, *, luna_sheet=False):
     font = chicago95ui.classic_combo(QComboBox())
     font.setEnabled(False)
     if classic_sheet:
-        font_row.setContentsMargins(0, 6, 0, 0)
+        font_row.setContentsMargins(0, 5 if win95 else 6, 0, 0)
         font_row.setSpacing(7)
-        font_row.addLayout(appearance_column("&Font:", font, 208))
+        font_row.addLayout(appearance_column("&Font:", font, 208, indent=0 if win95 else 1))
         font_row.addLayout(appearance_column("Size:", disabled_appearance_combo(), 60))
         font_row.addLayout(appearance_column("Color:", disabled_appearance_combo(), 44))
         style_row = QHBoxLayout()
@@ -5428,6 +5504,7 @@ def sounds_tab(settings, actions):
 DESKTOP_ICON_CHOICES = [
     ("The look's own", "auto"),
     ("None", ""),
+    ("My Computer, Inbox, Recycle Bin", "computer,inbox,recycle"),
     ("My Computer, Network Neighborhood, Recycle Bin", "computer,network,recycle"),
     ("Those and My Documents", "computer,documents,network,recycle"),
 ]
@@ -5450,9 +5527,11 @@ def effects_tab(settings, actions):
     icons = tab.choice("DESKTOP_ICONS", "Desktop icons:", DESKTOP_ICON_CHOICES, default="auto")
     icons.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
     icons.setMinimumContentsLength(12)
-    compact = luna_display or is_classic_display(settings)
+    classic_display = is_classic_display(settings)
+    compact = luna_display or classic_display
     if compact:
-        tab.outer.setContentsMargins(10, 6, 10, 6)
+        margin = 4 if classic_display and settings.get("LOOK") == "1995" else 6
+        tab.outer.setContentsMargins(10, margin, 10, margin)
         tab.outer.setSpacing(3)
     tab.classic_button = chicago95ui.dialog_button("&Classic")
     if luna_display:
@@ -7247,9 +7326,12 @@ class ControlPanel(QMainWindow):
         if applet_name == "Display" and chicago95ui.luna_widgets():
             tabs = luna_display_tabs(settings, self.actions)
         else:
+            names = PAGE_TABS[applet_name]
+            if applet_name == "Display" and settings.get("LOOK") == "1995" and is_classic_display(settings):
+                names = (*(name for name in names if name != "Effects"), "Effects")
             tabs = [
                 (tab_name, build_tab(applet_name, tab_name, settings, self.actions))
-                for tab_name in PAGE_TABS[applet_name]
+                for tab_name in names
             ]
         return PropertiesPage(applet_name, tabs, self.apply_changes)
 

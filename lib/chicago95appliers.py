@@ -827,25 +827,26 @@ def desktop_icon_defaults(choices):
     return {
         "aero": "recycle",
         "luna": "recycle",
-        "1995": "computer,network,recycle",
+        "1995": "computer,inbox,recycle",
         "2001": "documents,computer,network,recycle",
     }.get(choices["START_MENU_STYLE"], "computer,documents,network,recycle")
 
 
 def desktop_icons_chosen(choices):
-    """DESKTOP_ICONS lists them (computer, documents, network, recycle); unset or auto takes the look's own, empty none."""
+    """An unset or auto choice takes the look's defaults. An empty choice shows none."""
     chosen = choices.unset_or("DESKTOP_ICONS", "auto")
     chosen = desktop_icon_defaults(choices) if chosen == "auto" else chosen
-    return [icon for icon in chosen.split(",") if icon in ("computer", "documents", "network", "recycle")]
+    return [icon for icon in chosen.split(",") if icon in ("computer", "documents", "network", "inbox", "recycle")]
 
 
 def desktop_icon_source(setup, icon):
     """The link file in the repository; 2000 calls the network My Network Places."""
     desktop, style = setup.repo / "config/desktop", setup.choices["START_MENU_STYLE"]
-    if style == "aero" and icon != "recycle":
+    if style == "aero" and icon in ("computer", "documents", "network"):
         return desktop / f"aero/{icon}.desktop"
     network = "my-network-places" if style in ("2000", "2001") else "network-neighborhood"
-    names = {"computer": "my-computer", "documents": "my-documents", "network": network, "recycle": "trash"}
+    names = {"computer": "my-computer", "documents": "my-documents", "network": network,
+             "inbox": "inbox", "recycle": "trash"}
     return desktop / f"{names[icon]}.desktop"
 
 
@@ -887,24 +888,189 @@ DESKTOP_SCRIPT = """desktops().forEach(desktop => {
 """
 
 
+def install_win95_folder_view(setup):
+    """Apply the Win95 icon presentation through a user-local Plasma package."""
+    folders = ("org.kde.desktopcontainment", "org.kde.plasma.folder")
+    data_dirs = setup.environment.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":")
+    source = next(
+        (Path(root) / "plasma/plasmoids" for root in data_dirs
+         if all((Path(root) / "plasma/plasmoids" / name / "metadata.json").is_file() for name in folders)),
+        None,
+    )
+    data_home = Path(setup.environment.get("XDG_DATA_HOME") or setup.home / ".local/share")
+    targets = [data_home / "plasma/plasmoids" / name for name in folders]
+    if source is None or any((target.exists() or target.is_symlink()) and not setup.installed_by_setup(target)
+                             for target in targets):
+        setup.status("Win95 desktop icon styling requires the stock Plasma Folder View package")
+        return False
+
+    # Only the Win95 root Folder View uses these bindings. Keep the upstream
+    # package's interactions and settings for every other view.
+    classic = "Plasmoid.isContainment && Plasmoid.configuration.chicago95Win95Icons"
+    focus_outline = """Win95DesktopFocus {
+                    visible: main.win95Icons && main.selected && label.visible
+                    wallpaper: visible ? (Plasmoid.wallpaperGraphicsObject as Item) : null
+                    scaleFactor: Plasmoid.configuration.chicago95IconScale
+                    itemPosition: Qt.point(main.x, main.y)
+                    z: label.z
+                    x: snap(label.x + (label.width - width) / 2)
+                    y: snap(label.y + (label.height - height) / 2)
+                    width: snap(Math.min(label.contentWidth, label.width) + 4)
+                    height: snap(label.contentHeight + 2)
+                }
+
+                """
+    # Place the three Win95 shortcuts once when they occupy the leading slots.
+    arrange_inbox = """onCountChanged: Qt.callLater(placeWin95Inbox)
+                function placeWin95Inbox() {
+                    if (!Plasmoid.isContainment || !Plasmoid.configuration.chicago95Win95Icons
+                        || Plasmoid.configuration.chicago95InboxPositioned || !positioner.enabled
+                        || count < 3 || dir.status !== Folder.FolderModel.Ready) return;
+                    forceLayout();
+                    const desired = ["My Computer", "Inbox", "Recycle Bin"];
+                    const current = desired.map((_name, index) => itemAtIndex(index)?.display);
+                    if (!desired.every(name => current.includes(name))) return;
+                    const moves = [];
+                    desired.forEach((name, index) => {
+                        const from = current.indexOf(name);
+                        if (from !== index) moves.push(from, index);
+                    });
+                    Plasmoid.configuration.chicago95InboxPositioned = true;
+                    if (moves.length) positioner.move(moves);
+                }
+
+                """
+    edits = {
+        "config/main.xml": {
+            '<group name="General">': '<group name="General">\n'
+            '    <entry name="chicago95Win95Icons" type="Bool"><default>false</default></entry>\n'
+            '    <entry name="chicago95InboxPositioned" type="Bool"><default>false</default></entry>\n'
+            '    <entry name="chicago95NativeDesktopFont" type="Bool"><default>true</default></entry>\n'
+            '    <entry name="chicago95IconScale" type="Double"><default>1</default></entry>',
+        },
+        "ui/FolderView.qml": {
+            "signal pressed()": """readonly property string win95DesktopFont: {
+        if (!Plasmoid.isContainment || !Plasmoid.configuration.chicago95Win95Icons
+            || !Plasmoid.configuration.chicago95NativeDesktopFont) return "";
+        const family = "Chicago95 Windows 95 Desktop"
+            + (Plasmoid.configuration.chicago95IconScale === 1.25 ? " 120 DPI" : "");
+        return Qt.fontFamilies().includes(family) ? family : "";
+    }
+
+    signal pressed()""",
+            "readonly property int iconSize: root.useListViewMode":
+            "readonly property real iconSize: root.useListViewMode",
+            ": FolderTools.iconSizeFromTheme(Plasmoid.configuration.iconSize)":
+            f": ({classic} && isRootView\n"
+            "                    ? 32 / Plasmoid.configuration.chicago95IconScale\n"
+            "                    : FolderTools.iconSizeFromTheme(Plasmoid.configuration.iconSize))",
+            "const iconHeight = iconSize +":
+            f"if ({classic} && isRootView) return 75;\n                        const iconHeight = iconSize +",
+            "currentIndex: -1": arrange_inbox + "currentIndex: -1",
+            "onListingCompleted: {":
+            "onListingCompleted: {\n                Qt.callLater(gridView.placeWin95Inbox);",
+            "delegate: FolderItemDelegate {":
+            "delegate: FolderItemDelegate {\n                    win95DesktopFont: main.win95DesktopFont",
+        },
+        "ui/FolderItemDelegate.qml": {
+            "property bool isOnRootView: false":
+            "property bool isOnRootView: false\n    property string win95DesktopFont: \"\"\n"
+            f"    readonly property bool win95Icons: isOnRootView && {classic}",
+            "renderShadow: main.isOnRootView && !renaming":
+            "renderShadow: main.isOnRootView && !renaming && !main.win95Icons",
+            "x: root.useListViewMode ? 0 : Kirigami.Units.smallSpacing":
+            "x: root.useListViewMode ? 0 : Kirigami.Units.smallSpacing"
+            " + (main.win95Icons ? 1 / Plasmoid.configuration.chicago95IconScale : 0)",
+            "y: root.useListViewMode ? 0 : Kirigami.Units.smallSpacing":
+            "y: root.useListViewMode ? 0 : main.win95Icons ? 1 / Plasmoid.configuration.chicago95IconScale"
+            " : Kirigami.Units.smallSpacing",
+            "topMargin: Kirigami.Units.smallSpacing\n                        leftMargin:":
+            "topMargin: main.win95Icons ? 1 / Plasmoid.configuration.chicago95IconScale"
+            " : Kirigami.Units.smallSpacing\n                        leftMargin:",
+            "height: main.GridView.view.iconSize":
+            "height: main.GridView.view.iconSize\n"
+            "                    Binding on roundToIconSize { when: main.win95Icons; value: false }",
+            "label.width: label.parent.width - Kirigami.Units.smallSpacing":
+            "label.width: label.useWin95DesktopFont ? Math.max(84, label.parent.width)\n"
+            "                                    : label.parent.width + (main.win95Icons ? 4 : -Kirigami.Units.smallSpacing)",
+            "label.anchors.topMargin: Kirigami.Units.smallSpacing":
+            "label.anchors.topMargin: Kirigami.Units.smallSpacing - (label.useWin95DesktopFont\n"
+            "                                    ? 1 / label.Plasmoid.configuration.chicago95IconScale : 0)",
+            "font.italic: main.isLink":
+            """readonly property bool useWin95DesktopFont: main.win95Icons && main.win95DesktopFont !== ""
+                    // Keep the centered glyph advances from rounding down at 125% scale.
+                    leftPadding: useWin95DesktopFont && Plasmoid.configuration.chicago95IconScale === 1.25 ? 0.125 : 0
+                    Binding on font.italic { when: !label.useWin95DesktopFont; value: main.isLink }
+                    Binding on font {
+                        when: label.useWin95DesktopFont
+                        value: Qt.font({
+                            family: main.win95DesktopFont,
+                            pixelSize: Plasmoid.configuration.chicago95IconScale === 1.25 ? 11 : 13,
+                            italic: main.isLink,
+                            kerning: false,
+                            hintingPreference: Font.PreferNoHinting
+                        })
+                    }
+"""
+            "                    Binding on renderType { when: main.win95Icons; value: Text.NativeRendering }\n"
+            "                    Binding on antialiasing { when: main.win95Icons; value: false }",
+            "if (Plasmoid.isContainment && main.GridView.view.isRootView":
+            "if (!main.win95Icons && Plasmoid.isContainment && main.GridView.view.isRootView",
+            "visible: this === frameLoader.item":
+            "visible: this === frameLoader.item && !main.win95Icons",
+            "Component {\n                    id: frameComponent":
+            focus_outline + "Component {\n                    id: frameComponent",
+        },
+    }
+    with tempfile.TemporaryDirectory() as directory:
+        stage = Path(directory)
+        for name in folders:
+            shutil.copytree(source / name, stage / name)
+        for path, replacements in edits.items():
+            file = stage / folders[0] / "contents" / path
+            if not file.is_file():
+                setup.status("This version of Plasma Folder View uses a different package layout")
+                return False
+            text = file.read_text()
+            for old, new in replacements.items():
+                if text.count(old) != 1:
+                    setup.status("This version of Plasma Folder View uses different icon bindings")
+                    return False
+                text = text.replace(old, new)
+            file.write_text(text)
+        for name, target in zip(folders, targets, strict=True):
+            if name == folders[0]:
+                for asset in ("Win95DesktopFocus.qml", "win95-focus.frag.qsb"):
+                    shutil.copyfile(setup.repo / "data/desktop-icons" / asset, stage / name / "contents/ui" / asset)
+            setup.put_tree(stage / name, target)
+    return True
+
+
 def desktop_icons(setup):
     """Links in ~/Desktop, shown by Folder View at the originals' 32px with two label lines."""
     choices, style = setup.choices, setup.choices["START_MENU_STYLE"]
+    icons = desktop_icons_chosen(choices)
+    obsolete = []
+    if style == "1995" and choices.unset_or("DESKTOP_ICONS", "auto") == "auto":
+        obsolete.append(("network-neighborhood", "network"))
+    if "inbox" not in icons:
+        obsolete.append(("inbox", "inbox"))
     if style == "aero" or (style == "luna" and choices.unset_or("DESKTOP_ICONS", "auto") == "auto"):
-        for name, icon in (("my-computer", "computer"), ("my-documents", "documents"),
-                           ("my-network-places", "network"), ("network-neighborhood", "network")):
-            old = setup.repo / f"config/desktop/{name}.desktop"
-            target = home_path(setup, f"Desktop/{desktop_link_name(old)}.desktop")
-            if not setup.installed_by_setup(target) or not target.is_file():
-                continue
-            as_installed = {desktop_link_contents(setup, old, {})}
-            for prior in ("1995", "1998", "2000", "2001"):
-                images = desktop_icon_images(setup, icon, prior)
-                as_installed.add(desktop_link_contents(setup, old, images))
-            if target.read_text() in as_installed:
-                setup.backup(target)
-                setup.run("rm", "-f", target)
-    for icon in desktop_icons_chosen(choices):
+        obsolete.extend((("my-computer", "computer"), ("my-documents", "documents"),
+                         ("my-network-places", "network"), ("network-neighborhood", "network")))
+    for name, icon in obsolete:
+        old = setup.repo / f"config/desktop/{name}.desktop"
+        target = home_path(setup, f"Desktop/{desktop_link_name(old)}.desktop")
+        if not setup.installed_by_setup(target) or not target.is_file():
+            continue
+        as_installed = {desktop_link_contents(setup, old, {})}
+        for prior in ("1995", "1998", "2000", "2001"):
+            images = desktop_icon_images(setup, icon, prior)
+            as_installed.add(desktop_link_contents(setup, old, images))
+        if target.read_text() in as_installed:
+            setup.backup(target)
+            setup.run("rm", "-f", target)
+    for icon in icons:
         source = desktop_icon_source(setup, icon)
         target = home_path(setup, f"Desktop/{desktop_link_name(source)}.desktop")
         setup.put_file(source, target)
@@ -915,14 +1081,31 @@ def desktop_icons(setup):
             setup.write_file(target, desktop_link_contents(setup, source, images))
         else:
             setup.substitute_home(target)
+        if icon == "inbox":
+            setup.run("mkdir", "-p", home_path(setup, "Mail/Inbox"))
         if icon == "computer" and style == "aero":
             if choices.get("EXPLORER", "thunar") == "dolphin" or choices.get("HAS_THUNAR", "0") != "1":
                 setup.run("sed", "-i", "s|^Exec=.*|Exec=dolphin computer:/|", target)
             setup.run("chmod", "+x", target)
+    win95_icons = style == "1995" and install_win95_folder_view(setup)
     if not setup.dry_run and choices["IN_PLASMA"] != "1":
         setup.status("Plasma is not running; the desktop's icon layout is unchanged")
         return
-    run_plasma_script(setup, DESKTOP_SCRIPT)
+    native_font = choices.unset_or("FONT", "MS W98 UI") == "MS W98 UI" and choices["FONT_SCOPE"] == "everywhere"
+    script = DESKTOP_SCRIPT.replace(
+        '    desktop.reloadConfig();',
+        f'    desktop.writeConfig("chicago95Win95Icons", {json.dumps(win95_icons)});\n'
+        f'    desktop.writeConfig("chicago95NativeDesktopFont", {json.dumps(native_font)});\n'
+        f'    desktop.writeConfig("chicago95IconScale", {1.25 if choices.get("DPI") == "120" else 1});\n'
+        '    desktop.reloadConfig();',
+    )
+    if win95_icons and "inbox" in icons:
+        script = script.replace(
+            '    desktop.reloadConfig();',
+            '    if (Number(desktop.readConfig("sortMode", 0)) === 0) desktop.writeConfig("sortMode", -1);\n'
+            '    desktop.reloadConfig();',
+        )
+    run_plasma_script(setup, script)
 
 
 # --- the lock and loading screens' settings ---

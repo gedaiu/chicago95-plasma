@@ -3,6 +3,7 @@
 import argparse
 import base64
 import json
+import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
@@ -12,30 +13,41 @@ from urllib.parse import urlsplit
 
 from PIL import Image
 
-DEFAULT_POLICY = Path(__file__).resolve().with_name("tolerance-policy.json")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from visual_tolerances import DEFAULT_POLICY, approval_image  # noqa: E402
+
 EMPTY_POLICY = {"version": 1, "cases": {}}
 
 
-def collect(directories, reviewed=()):
-    cases = {}
+def collect(directories, reviewed=(), initial=None):
+    cases = dict(initial or {})
     for directory in directories:
         visual = directory / "visual"
         for metrics in sorted(visual.rglob("comparison.metrics.json")):
             key = metrics.parent.relative_to(visual).as_posix()
-            data = json.loads(metrics.read_text())
+            try:
+                data = json.loads(metrics.read_text())
+            except FileNotFoundError:
+                continue  # pytest may be resetting the capture directory
             size = data["reference_size"]
             if size != data["rendered_size"]:
                 cases.pop(key, None)
                 continue
             if data["changed_pixels"]:
-                panel = metrics.with_name("comparison.png").read_bytes()
+                try:
+                    panel = metrics.with_name("comparison.png").read_bytes()
+                except FileNotFoundError:
+                    continue
             elif key in reviewed and data["compared_pixels"] == size[0] * size[1]:
                 # Keep the review available once all pixels match. The strict
                 # test only writes a comparison panel when it finds differences.
-                with Image.open(metrics.with_name("rendered.png")) as rendered:
-                    match = Image.new("RGB", (size[0] * 3, size[1]))
-                    match.paste(rendered, (0, 0))
-                    match.paste(rendered, (size[0], 0))
+                try:
+                    with Image.open(metrics.with_name("rendered.png")) as rendered:
+                        match = Image.new("RGB", (size[0] * 3, size[1]))
+                        match.paste(rendered, (0, 0))
+                        match.paste(rendered, (size[0], 0))
+                except FileNotFoundError:
+                    continue
                 stream = BytesIO()
                 match.save(stream, format="PNG")
                 panel = stream.getvalue()
@@ -45,6 +57,7 @@ def collect(directories, reviewed=()):
             cases[key] = {
                 "size": size,
                 "changed": data["changed_pixels"],
+                "passed": data.get("pixels_over_tolerance", data["changed_pixels"]) == 0,
                 "png": base64.b64encode(panel).decode("ascii"),
             }
     return cases
@@ -83,6 +96,13 @@ def valid_entry(entry, size):
     for rule in entry["regions"]:
         if not valid_box(rule, size) or type(rule.get("max_channel_delta")) is not int or not 0 <= rule["max_channel_delta"] <= 255:
             return False
+    if "approved_pixels" in entry:
+        if entry.get("review", {}).get("status") != "approved" or not isinstance(entry["approved_pixels"], str):
+            return False
+        try:
+            approval_image(entry["approved_pixels"], size)
+        except ValueError:
+            return False
     annotations = entry.get("annotations", [])
     if not isinstance(annotations, list) or any(
         not valid_box(note, size) or not isinstance(note.get("text"), str)
@@ -105,12 +125,20 @@ def write_policy(path, policy):
             staging.unlink(missing_ok=True)
 
 
-def serve(page, captures, policy_path, port):
+def render_page(captures, *, server):
+    template = Path(__file__).with_suffix(".html").read_text()
+    page = template.replace("/* CAPTURES */", json.dumps(captures).replace("<", "\\u003c"))
+    return page.replace("/* SERVER */", json.dumps(server))
+
+
+def serve(captures, policy_path, port, *, directories=()):
     origin = f"http://127.0.0.1:{port}"
     if not policy_path.exists():
         write_policy(policy_path, EMPTY_POLICY)
     load_policy(policy_path)
     writes = Lock()
+    initial = captures
+    page = render_page(captures, server=True).encode()
 
     class EditorHandler(BaseHTTPRequestHandler):
         def respond(self, status, content_type, content):
@@ -125,10 +153,17 @@ def serve(page, captures, policy_path, port):
             self.respond(status, "application/json; charset=utf-8", json.dumps(value).encode())
 
         def do_GET(self):
+            nonlocal captures
             if self.headers.get("Host") != f"127.0.0.1:{port}":
                 self.send_error(403)
             elif urlsplit(self.path).path == "/":
-                self.respond(200, "text/html; charset=utf-8", page)
+                if directories:
+                    reviewed = load_policy(policy_path)["cases"]
+                    latest = collect(directories, reviewed, initial=initial)
+                    captures = latest
+                    self.respond(200, "text/html; charset=utf-8", render_page(latest, server=True).encode())
+                else:
+                    self.respond(200, "text/html; charset=utf-8", page)
             elif self.path == "/api/policy":
                 try:
                     policy = load_policy(policy_path)
@@ -195,13 +230,10 @@ def main():
     cases = collect(args.directories, load_policy(args.policy)["cases"])
     if not cases:
         parser.error("no same-size mismatches or reviewed matches found")
-    template = Path(__file__).with_suffix(".html").read_text()
-    page = template.replace("/* CAPTURES */", json.dumps(cases).replace("<", "\\u003c"))
-    page = page.replace("/* SERVER */", json.dumps(args.serve))
     if args.serve:
-        serve(page.encode(), cases, args.policy.resolve(), args.port)
+        serve(cases, args.policy.resolve(), args.port, directories=args.directories)
     else:
-        args.output.write_text(page)
+        args.output.write_text(render_page(cases, server=False))
         print(f"{args.output} · {len(cases)} captures")
 
 

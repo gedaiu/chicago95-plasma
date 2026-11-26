@@ -43,13 +43,13 @@ def test_desktop_script_parses_as_javascript(qt_app):
     assert QJSEngine().evaluate(DESKTOP_SCRIPT).errorType() == QJSValue.ErrorType.ReferenceError
 
 
-def test_1995_shows_my_computer_network_neighborhood_and_the_recycle_bin_and_later_looks_add_my_documents():
+def test_1995_shows_my_computer_inbox_and_the_recycle_bin_and_later_looks_add_my_documents():
     assert (
         chosen(),
         chosen(START_MENU_STYLE="1998"),
         chosen(START_MENU_STYLE="2000"),
     ) == (
-        ["computer", "network", "recycle"],
+        ["computer", "inbox", "recycle"],
         ["computer", "documents", "network", "recycle"],
         ["computer", "documents", "network", "recycle"],
     )
@@ -66,6 +66,16 @@ def test_a_saved_choice_picks_the_icons_and_an_empty_choice_or_an_unknown_name_g
 def test_luna_defaults_to_the_recycle_bin_and_preserves_chosen_icons():
     assert chosen(START_MENU_STYLE="luna") == ["recycle"]
     assert chosen(START_MENU_STYLE="luna", DESKTOP_ICONS="computer,documents") == ["computer", "documents"]
+
+
+def test_win95_installs_the_native_inbox_icon_and_a_local_inbox(tmp_path):
+    result = run_setup(tmp_path, "--components=desktop", "--look=1995")
+    assert result.returncode == 0, result.stderr
+    icon = tmp_path / ".local/share/chicago95/desktop-icons/1995/inbox.png"
+    assert icon.read_bytes() == (REPO / "data/desktop-icons/native/1995/inbox.png").read_bytes()
+    inbox = tmp_path / "Mail/Inbox"
+    assert inbox.is_dir()
+    assert f"URL=file://{inbox}" in (tmp_path / "Desktop/Inbox.desktop").read_text()
 
 
 def test_dry_run_of_the_desktop_component_copies_the_links_under_their_names_into_the_desktop_folder(tmp_path):
@@ -178,8 +188,9 @@ def test_every_control_panel_choice_is_one_setup_understands():
     assert [
         chosen(DESKTOP_ICONS=value) for _label, value in control_panel.DESKTOP_ICON_CHOICES
     ] == [
-        ["computer", "network", "recycle"],
+        ["computer", "inbox", "recycle"],
         [],
+        ["computer", "inbox", "recycle"],
         ["computer", "network", "recycle"],
         ["computer", "documents", "network", "recycle"],
     ]

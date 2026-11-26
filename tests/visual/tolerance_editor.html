@@ -69,7 +69,7 @@ figcaption .legend{font-weight:400;font-size:.88rem;margin-left:.7rem}.remaining
 <label>Find a capture<input id="search" type="search" placeholder="Theme, surface, or backdrop"></label>
 <div id="capture-list"></div>
 </nav>
-<div>
+<div id="capture-detail">
 <section class="tools" aria-label="Drawing tools">
 <h2 id="active-capture"></h2>
 <div class="row">
@@ -109,7 +109,7 @@ figcaption .legend{font-weight:400;font-size:.88rem;margin-left:.7rem}.remaining
 </section>
 <form id="review-form" class="review" aria-labelledby="review-title">
 <h2 id="review-title">Whole-image review</h2>
-<p class="muted">Record whether this capture looks right and what needs fixing. The review is separate from the pixel comparison.</p>
+<p class="muted">Saving an approval lets the test accept the displayed render’s exact colors at the reviewed pixels. Pending and Reject remove this approval.</p>
 <fieldset>
 <legend>Decision</legend>
 <div class="row">
@@ -212,13 +212,13 @@ function announceCount(id, count) {
     const row = caseRows.get(id);
     if (!row) return;
     const remaining = counts.get(id);
-    const pendingCount = remaining === undefined && policy.cases[id]?.regions.length > 0;
+    const entry = policy.cases[id];
+    const pendingCount = remaining === undefined && (entry?.regions.length > 0 || !!entry?.approved_pixels);
     const value = remaining ?? captures[id].changed;
     row.count.textContent = number.format(value);
     row.count.title = pendingCount ? "Exact differences before applying saved edits" : "Differences left";
     row.count.dataset.clear = value === 0;
     row.count.dataset.pending = pendingCount;
-    const entry = policy.cases[id];
     const review = entry?.review;
     const decision = review?.status ?? "pending";
     const reviewLabel = decision === "pending" ? (review?.comment ? "Feedback" : "") : title(decision);
@@ -258,6 +258,9 @@ function group(parent, name, id, open) {
     parent.append(details);
     return details;
 }
+function capturePassed(id) {
+    return captures[id].passed ?? captures[id].changed === 0;
+}
 function fillChoices(query = "") {
     if (!query) {
         for (const node of elements["capture-list"].querySelectorAll("details[open]")) expanded.add(node.dataset.group);
@@ -272,6 +275,7 @@ function fillChoices(query = "") {
     const first = ordered.findIndex(id => id.startsWith(activeTopic));
     ordered.splice(first < 0 ? ids.indexOf(key) : first, 0, key);
     for (const id of ordered) {
+        if (!captures[id] || capturePassed(id)) continue;
         const [theme, topic, label] = captureLabels(id);
         const entry = policy.cases[id];
         const review = entry?.review;
@@ -304,7 +308,8 @@ function fillChoices(query = "") {
         caseRows.set(id, {button, count, label, review:reviewBadge, theme:themeGroup, topic:topicGroup});
         announceCount(id);
     }
-    if (!caseRows.size) sidebar.textContent = "No matching captures.";
+    if (!caseRows.size) sidebar.textContent = ids.some(id => !capturePassed(id))
+        ? "No matching captures." : "No captures left to review.";
 }
 function updateStats() {
     const {remaining, exact, painted, undo} = picture;
@@ -317,9 +322,9 @@ function updateStats() {
 function drawDifference() {
     frameRequest = undefined;
     if (!picture) return;
-    const {maxima, tolerance, frame, width} = picture;
+    const {maxima, tolerance, approved, frame, width} = picture;
     for (let i = 0; i < maxima.length; i++) {
-        const fails = maxima[i] > tolerance[i];
+        const fails = maxima[i] > tolerance[i] && !approved[i];
         const accepted = !fails && maxima[i] > 0;
         const p = i * 4;
         frame.data[p] = fails ? Math.min(255, 75 + 8 * maxima[i]) : accepted ? 52 : 18;
@@ -449,17 +454,60 @@ function applyMask(id, image, tolerance) {
         }
     }
 }
-function loadMask() {
-    const {tolerance, maxima} = picture;
-    applyMask(key, picture, tolerance);
+function recount() {
+    const {tolerance, maxima, approved} = picture;
     picture.remaining = 0;
     picture.painted = 0;
     for (let i = 0; i < tolerance.length; i++) {
-        picture.remaining += maxima[i] > tolerance[i];
+        picture.remaining += maxima[i] > tolerance[i] && !approved[i];
         picture.painted += tolerance[i] > 0;
     }
-    picture.undo = [];
     refresh();
+}
+function loadMask() {
+    applyMask(key, picture, picture.tolerance);
+    picture.undo = [];
+    recount();
+}
+function makeApproval(image) {
+    const {width:w, height:h, reference, rendered, maxima} = image;
+    const canvas = document.createElement("canvas");
+    canvas.width = 2 * w;
+    canvas.height = h;
+    const context = canvas.getContext("2d");
+    const approved = context.createImageData(w, h);
+    approved.data.set(reference.data);
+    for (let i = 0; i < maxima.length; i++) {
+        if (maxima[i]) approved.data.set(rendered.data.subarray(4*i, 4*i+4), 4*i);
+    }
+    context.putImageData(reference, 0, 0);
+    context.putImageData(approved, w, 0);
+    return canvas.toDataURL("image/png").split(",")[1];
+}
+async function decodeApproval(encoded, w, h) {
+    const image = new Image();
+    image.src = "data:image/png;base64," + encoded;
+    await image.decode();
+    if (image.naturalWidth !== 2*w || image.naturalHeight !== h) throw Error("Unexpected approved image size");
+    const canvas = document.createElement("canvas");
+    canvas.width = 2*w;
+    canvas.height = h;
+    const context = canvas.getContext("2d");
+    context.drawImage(image, 0, 0);
+    return [context.getImageData(0, 0, w, h).data, context.getImageData(w, 0, w, h).data];
+}
+async function approvedMask(entry, capture) {
+    const {width:w, height:h, reference, rendered, maxima} = capture;
+    const accepted = new Uint8Array(maxima.length);
+    if (entry?.review?.status !== "approved" || !entry.approved_pixels) return accepted;
+    const [approvedReference, approvedRender] = await decodeApproval(entry.approved_pixels, w, h);
+    if (!approvedReference.every((value, index) => value === reference.data[index])) return accepted;
+    for (let i = 0; i < maxima.length; i++) {
+        const p = 4*i;
+        accepted[i] = !!maxima[i] && rendered.data[p] === approvedRender[p] &&
+            rendered.data[p+1] === approvedRender[p+1] && rendered.data[p+2] === approvedRender[p+2];
+    }
+    return accepted;
 }
 const reviewForm = elements["review-form"];
 const reviewStatus = reviewForm.elements.namedItem("review-status");
@@ -472,7 +520,8 @@ function loadReview() {
 }
 function updateReviewNote() {
     const dirty = reviewDrafts.has(key);
-    elements["save-review"].disabled = !picture || !dirty;
+    elements["save-review"].disabled = !picture || (!dirty && reviewStatus.value !== "approved");
+    elements["save-review"].textContent = reviewStatus.value === "approved" ? "Approve current capture" : "Save review";
     elements["review-note"].textContent = dirty ? "Unsaved review" : "";
 }
 reviewForm.oninput = () => {
@@ -485,17 +534,23 @@ reviewForm.oninput = () => {
 };
 reviewForm.onsubmit = event => {
     event.preventDefault();
-    const review = reviewDrafts.get(key);
+    const review = reviewDrafts.get(key) ?? (reviewStatus.value === "approved" ? policy.cases[key]?.review : null);
     if (!picture || !review) return;
     finishStroke();
+    const approved = review.status === "approved";
+    const approvedPixels = approved ? makeApproval(picture) : null;
     const {width:w, height:h} = picture;
     const entry = policy.cases[key] ??= {size:[w,h], regions:[]};
     if (review.status === "pending" && !review.comment) delete entry.review;
     else entry.review = review;
+    if (approvedPixels) entry.approved_pixels = approvedPixels;
+    else delete entry.approved_pixels;
+    picture.approved = picture.maxima.map(delta => approved && delta > 0);
     discardEmptyEntry();
     reviewDrafts.delete(key);
-    announceCount(key);
+    recount();
     updateReviewNote();
+    fillChoices(elements.search.value);
     if (!server) elements["review-note"].textContent = "Review saved in this browser";
     save(key);
 };
@@ -556,6 +611,7 @@ async function openCapture(next) {
     elements.stats.textContent = "Loading capture…";
     elements.pixel.textContent = "Point at a pixel for its RGB values.";
     const decoded = await decodeCapture(next);
+    const approved = await approvedMask(policy.cases[next], decoded);
     if (sequence !== loadSequence) return;
     const {width:w, height:h, reference, rendered} = decoded;
     for (const canvas of canvases) {
@@ -564,7 +620,7 @@ async function openCapture(next) {
     }
     elements.reference.getContext("2d").putImageData(reference, 0, 0);
     elements.rendered.getContext("2d").putImageData(rendered, 0, 0);
-    picture = {...decoded, tolerance:new Uint8Array(w*h), frame:differenceContext.createImageData(w,h)};
+    picture = {...decoded, approved, tolerance:new Uint8Array(w*h), frame:differenceContext.createImageData(w,h)};
     resizeView();
     loadMask();
     loadReview();
@@ -573,13 +629,15 @@ async function openCapture(next) {
 }
 async function refreshSavedCounts() {
     for (const id of Object.keys(policy.cases)) {
-        if (!captures[id] || id === key || !policy.cases[id].regions.length) continue;
+        const entry = policy.cases[id];
+        if (!captures[id] || capturePassed(id) || id === key || (!entry.regions.length && !entry.approved_pixels)) continue;
         const decoded = await decodeCapture(id);
+        const approved = await approvedMask(entry, decoded);
         if (id === key) continue;
         const tolerance = new Uint8Array(decoded.maxima.length);
         applyMask(id, decoded, tolerance);
         let remaining = 0;
-        for (let i = 0; i < tolerance.length; i++) remaining += decoded.maxima[i] > tolerance[i];
+        for (let i = 0; i < tolerance.length; i++) remaining += decoded.maxima[i] > tolerance[i] && !approved[i];
         announceCount(id, remaining);
     }
 }
@@ -596,13 +654,14 @@ function inspect(point) {
     const i = y * picture.width + x;
     const rgb = image => [...image.data.subarray(4*i, 4*i+3)].join(", ");
     elements.pixel.textContent = [x + ", " + y, "Windows (" + rgb(picture.reference) + ")",
-        "Render (" + rgb(picture.rendered) + ")", "Δ " + picture.maxima[i], "Limit " + picture.tolerance[i]].join(" · ");
+        "Render (" + rgb(picture.rendered) + ")", "Δ " + picture.maxima[i],
+        picture.approved[i] ? "Approved color" : "Limit " + picture.tolerance[i]].join(" · ");
 }
 function setPixel(i, limit) {
     const old = picture.tolerance[i];
     if (old === limit) return;
     const delta = picture.maxima[i];
-    picture.remaining += Number(delta > limit) - Number(delta > old);
+    if (!picture.approved[i]) picture.remaining += Number(delta > limit) - Number(delta > old);
     picture.painted += Number(limit > 0) - Number(old > 0);
     picture.tolerance[i] = limit;
 }
@@ -806,17 +865,23 @@ elements.file.onchange = async () => {
                 (captures[id] && String(entry.size) !== String(captures[id].size)) ||
                 !Array.isArray(entry.regions) || !entry.regions.every(r => validSpan(r, ...entry.size)) ||
                 ("review" in entry && !validReview(entry.review)) ||
+                ("approved_pixels" in entry && (entry.review?.status !== "approved" ||
+                    typeof entry.approved_pixels !== "string" || !/^[A-Za-z0-9+/]+={0,2}$/.test(entry.approved_pixels))) ||
                 ("annotations" in entry && (!Array.isArray(entry.annotations) ||
                     !entry.annotations.every(note => validBox(note, ...entry.size) &&
                        typeof note.text === "string" && note.text.trim().length > 0 && note.text.length <= 10000)))) {
                 throw Error("Invalid region or dimensions for " + id);
             }
+            if (entry.approved_pixels) await decodeApproval(entry.approved_pixels, ...entry.size);
         }
         finishStroke();
         if (server) {
             for (const [id, entry] of Object.entries(candidate.cases)) {
                 if (!captures[id]) continue;
                 if (!entry.review && policy.cases[id]?.review) entry.review = policy.cases[id].review;
+                if (entry.review?.status === "approved" && !entry.approved_pixels && policy.cases[id]?.approved_pixels) {
+                    entry.approved_pixels = policy.cases[id].approved_pixels;
+                }
                 if (!entry.annotations && policy.cases[id]?.annotations) entry.annotations = policy.cases[id].annotations;
                 policy.cases[id] = entry;
                 counts.delete(id);
@@ -830,12 +895,9 @@ elements.file.onchange = async () => {
             save();
         }
         if (picture) {
-            loadMask();
-            loadReview();
-            selectedNote = null;
-            renderAnnotations();
-            refreshMarks();
+            await openCapture(key);
         }
+        fillChoices(elements.search.value);
         void refreshSavedCounts().catch(error => notice(error.message));
         notice("Tolerance JSON imported.");
     } catch (error) {
@@ -856,7 +918,6 @@ function validReview(review) {
         typeof review.comment === "string" && review.comment.length <= 10000;
 }
 const requested = new URLSearchParams(location.search).get("case");
-key = captures[requested] ? requested : captures[captionKey] ? captionKey : ids[0];
 async function initialize() {
     if (server) {
         elements.export.hidden = true;
@@ -873,7 +934,13 @@ async function initialize() {
         event.preventDefault();
         event.returnValue = "";
     });
+    key = captures[requested] ? requested : captures[captionKey] && !capturePassed(captionKey)
+        ? captionKey : ids.find(id => !capturePassed(id)) ?? "";
     fillChoices();
+    if (!key) {
+        elements["capture-detail"].hidden = true;
+        return;
+    }
     choose(key);
     await refreshSavedCounts();
 }
