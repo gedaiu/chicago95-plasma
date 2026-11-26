@@ -44,6 +44,7 @@ from test_caption_states_reference import (
     state_buttons,
     visible_pixels,
 )
+from tolerance_editor import publish_run
 from visual_tolerances import approval_for, tolerance_for
 
 THEMES = {folder.name: (folder, metadata) for folder, metadata in theme_references(REFERENCES)}
@@ -488,9 +489,11 @@ def test_win7_gtk4_caption_button_spacing_matches_windows(live_gtk):
     assert gtk_caption_cluster_spacing(directory).tolist() == expected
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def visual_output(tmp_path_factory):
-    return tmp_path_factory.getbasetemp() / "visual"
+    run = tmp_path_factory.getbasetemp()
+    yield run / "visual"
+    publish_run(run)
 
 
 def exact(expected, actual, directory, mask=None):

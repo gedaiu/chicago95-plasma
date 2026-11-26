@@ -2,14 +2,18 @@
 
 import argparse
 import base64
+import hashlib
 import json
+import os
+import shutil
 import sys
+from fcntl import LOCK_EX, LOCK_SH, flock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, gettempdir
 from threading import Lock
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from PIL import Image
 from report import RETIRED_CASES
@@ -18,10 +22,56 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from visual_tolerances import DEFAULT_POLICY, approval_image  # noqa: E402
 
 EMPTY_POLICY = {"version": 1, "cases": {}}
+CHECKOUT = hashlib.sha256(os.fsencode(Path(__file__).resolve().parents[2])).hexdigest()[:12]
+LATEST = Path(gettempdir()) / f"chicago95-visual-{os.getuid()}-{CHECKOUT}"
+CAPTURE_FILES = (
+    "rendered.png", "comparison.png", "comparison-reference.png", "comparison-rendered.png",
+    "comparison.metrics.json",
+)
 
 
-def collect(directories, reviewed=(), initial=None):
-    cases = {key: capture for key, capture in (initial or {}).items() if key not in RETIRED_CASES}
+def publish_run(run, latest=LATEST):
+    """Keep the latest comparison for each case after pytest prunes its run directory."""
+    if run.resolve() == latest.resolve():
+        return
+    latest.mkdir(mode=0o700, parents=True, exist_ok=True)
+    with (latest / ".lock").open("a") as lock:
+        flock(lock, LOCK_EX)
+        for measured in sorted((run / "visual").rglob("comparison.metrics.json")):
+            target = latest / measured.parent.relative_to(run)
+            target.mkdir(parents=True, exist_ok=True)
+            for name in CAPTURE_FILES:
+                path = measured.with_name(name)
+                if path.is_file():
+                    with NamedTemporaryFile(dir=target, delete=False) as staging:
+                        temporary = Path(staging.name)
+                        try:
+                            with path.open("rb") as source:
+                                shutil.copyfileobj(source, staging)
+                            staging.close()
+                            temporary.replace(target / name)
+                        finally:
+                            temporary.unlink(missing_ok=True)
+                else:
+                    (target / name).unlink(missing_ok=True)
+
+
+def panel_bytes(files):
+    if "panel" in files:
+        return files["panel"].read_bytes()
+    # Older exact matches only saved the rendered image.
+    with Image.open(files["match"]) as rendered:
+        w, h = rendered.size
+        match = Image.new("RGB", (w * 3, h))
+        match.paste(rendered, (0, 0))
+        match.paste(rendered, (w, 0))
+    stream = BytesIO()
+    match.save(stream, format="PNG")
+    return stream.getvalue()
+
+
+def collect(directories, *, embed=True):
+    cases = {}
     for directory in directories:
         visual = directory / "visual"
         for metrics in sorted(visual.rglob("comparison.metrics.json")):
@@ -30,39 +80,43 @@ def collect(directories, reviewed=(), initial=None):
                 continue
             try:
                 data = json.loads(metrics.read_text())
+                revision = metrics.stat().st_mtime_ns
             except FileNotFoundError:
                 continue  # pytest may be resetting the capture directory
             size = data["reference_size"]
-            if size != data["rendered_size"]:
-                cases.pop(key, None)
-                continue
-            if data["changed_pixels"]:
-                try:
-                    panel = metrics.with_name("comparison.png").read_bytes()
-                except FileNotFoundError:
-                    continue
-            elif key in reviewed and data["compared_pixels"] == size[0] * size[1]:
-                # Keep the review available once all pixels match. The strict
-                # test only writes a comparison panel when it finds differences.
-                try:
-                    with Image.open(metrics.with_name("rendered.png")) as rendered:
-                        match = Image.new("RGB", (size[0] * 3, size[1]))
-                        match.paste(rendered, (0, 0))
-                        match.paste(rendered, (size[0], 0))
-                except FileNotFoundError:
-                    continue
-                stream = BytesIO()
-                match.save(stream, format="PNG")
-                panel = stream.getvalue()
+            geometry = size != data["rendered_size"]
+            panel = metrics.with_name("comparison.png")
+            if geometry:
+                files = {part: metrics.with_name(f"comparison-{part}.png") for part in ("reference", "rendered")}
+            elif panel.is_file() or data["changed_pixels"]:
+                files = {"panel": panel}
             else:
-                cases.pop(key, None)
+                files = {"match": metrics.with_name("rendered.png")}
+            if not all(file.is_file() for file in files.values()):
                 continue
-            cases[key] = {
+            case = {
                 "size": size,
                 "changed": data["changed_pixels"],
-                "passed": data.get("pixels_over_tolerance", data["changed_pixels"]) == 0,
-                "png": base64.b64encode(panel).decode("ascii"),
+                "passed": not geometry and data.get("pixels_over_tolerance", data["changed_pixels"]) == 0,
+                "revision": str(revision),
             }
+            if geometry:
+                case["renderedSize"] = data["rendered_size"]
+            if embed:
+                try:
+                    case["images"] = {
+                        part: base64.b64encode(value).decode("ascii")
+                        for part, value in (
+                            ((part, path.read_bytes()) for part, path in files.items())
+                            if geometry else (("panel", panel_bytes(files)),)
+                        )
+                    }
+                except FileNotFoundError:
+                    continue
+            else:
+                case["files"] = files
+                case["metrics"] = metrics
+            cases[key] = case
     return cases
 
 
@@ -97,7 +151,10 @@ def valid_entry(entry, size):
         ):
             return False
     for rule in entry["regions"]:
-        if not valid_box(rule, size) or type(rule.get("max_channel_delta")) is not int or not 0 <= rule["max_channel_delta"] <= 255:
+        if not valid_box(rule, size):
+            return False
+        limit = rule.get("max_channel_delta")
+        if type(limit) is not int or not 0 <= limit <= 255:
             return False
     if "approved_pixels" in entry:
         if entry.get("review", {}).get("status") != "approved" or not isinstance(entry["approved_pixels"], str):
@@ -134,14 +191,17 @@ def render_page(captures, *, server):
     return page.replace("/* SERVER */", json.dumps(server))
 
 
-def serve(captures, policy_path, port, *, directories=()):
+def serve(directories, policy_path, port):
     origin = f"http://127.0.0.1:{port}"
     if not policy_path.exists():
         write_policy(policy_path, EMPTY_POLICY)
     load_policy(policy_path)
     writes = Lock()
-    initial = captures = collect((), initial=captures)
-    page = render_page(captures, server=True).encode()
+    LATEST.mkdir(mode=0o700, parents=True, exist_ok=True)
+    lock_path = LATEST / ".lock"
+    directories = (*directories, LATEST)
+    captures = {}
+    page = render_page({}, server=True).encode()
 
     class EditorHandler(BaseHTTPRequestHandler):
         def respond(self, status, content_type, content):
@@ -157,17 +217,48 @@ def serve(captures, policy_path, port, *, directories=()):
 
         def do_GET(self):
             nonlocal captures
+            url = urlsplit(self.path)
             if self.headers.get("Host") != f"127.0.0.1:{port}":
                 self.send_error(403)
-            elif urlsplit(self.path).path == "/":
-                if directories:
-                    reviewed = load_policy(policy_path)["cases"]
-                    latest = collect(directories, reviewed, initial=initial)
-                    captures = latest
-                    self.respond(200, "text/html; charset=utf-8", render_page(latest, server=True).encode())
+            elif url.path == "/":
+                self.respond(200, "text/html; charset=utf-8", page)
+            elif url.path == "/api/captures":
+                with lock_path.open("a") as lock:
+                    flock(lock, LOCK_SH)
+                    latest = collect(directories, embed=False)
+                captures = latest
+                payload = {
+                    key: {name: value for name, value in case.items() if name not in ("files", "metrics")}
+                    for key, case in latest.items()
+                }
+                encoded = json.dumps(payload).encode()
+                revision = hashlib.sha256(encoded).hexdigest()
+                if parse_qs(url.query).get("since") == [revision]:
+                    self.respond(204, "application/json", b"")
                 else:
-                    self.respond(200, "text/html; charset=utf-8", page)
-            elif self.path == "/api/policy":
+                    self.json_response(200, {"revision": revision, "captures": payload})
+            elif url.path == "/api/image":
+                args = parse_qs(url.query)
+                key = args.get("case", [""])[0]
+                part = args.get("part", ["panel"])[0]
+                case = captures.get(key)
+                if case is None or part not in (("reference", "rendered") if "renderedSize" in case else ("panel",)):
+                    self.send_error(404)
+                    return
+                with lock_path.open("a") as lock:
+                    flock(lock, LOCK_SH)
+                    try:
+                        revision = str(case["metrics"].stat().st_mtime_ns)
+                        if args.get("revision") != [revision] or case["revision"] != revision:
+                            self.send_error(409, "A newer capture is available")
+                            return
+                        files = case["files"]
+                        image = panel_bytes(files) if part == "panel" else files[part].read_bytes()
+                    except FileNotFoundError:
+                        self.send_error(404)
+                        return
+                self.respond(200, "image/png", image)
+            elif url.path == "/api/policy":
                 try:
                     policy = load_policy(policy_path)
                 except (OSError, ValueError) as error:
@@ -190,7 +281,10 @@ def serve(captures, policy_path, port, *, directories=()):
                     raise ValueError("Invalid policy request size")
                 request = json.loads(self.rfile.read(length))
                 key, entry, previous = (request[field] for field in ("case", "entry", "previous"))
-                if key not in captures or (entry is not None and not valid_entry(entry, captures[key]["size"])):
+                case = captures.get(key)
+                if case is None or "renderedSize" in case:
+                    raise ValueError("Invalid capture")
+                if entry is not None and not valid_entry(entry, case["size"]):
                     raise ValueError("Invalid capture, painted pixels, or review")
             except (ValueError, KeyError, TypeError) as error:
                 self.json_response(400, {"error": str(error)})
@@ -200,7 +294,9 @@ def serve(captures, policy_path, port, *, directories=()):
                     policy = load_policy(policy_path)
                     saved = policy["cases"].get(key)
                     if saved != previous and saved != entry:
-                        self.json_response(409, {"error": "This capture changed in another tab. Reload to see the saved edits."})
+                        self.json_response(
+                            409, {"error": "This capture changed in another tab. Reload to see the saved edits."},
+                        )
                         return
                     if saved != entry:
                         if entry is None:
@@ -214,7 +310,7 @@ def serve(captures, policy_path, port, *, directories=()):
                 self.json_response(200, {"saved": True})
 
     with ThreadingHTTPServer(("127.0.0.1", port), EditorHandler) as server:
-        print(f"{origin}/ · {len(captures)} captures · saves to {policy_path}", flush=True)
+        print(f"{origin}/ · saves to {policy_path}", flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:
@@ -223,19 +319,19 @@ def serve(captures, policy_path, port, *, directories=()):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("directories", nargs="+", type=Path)
+    parser.add_argument("directories", nargs="*", type=Path)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--output", type=Path, help="build a standalone HTML file")
     mode.add_argument("--serve", action="store_true", help="start the localhost editor with autosave")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--policy", type=Path, default=DEFAULT_POLICY, help="JSON file saved by the local server")
     args = parser.parse_args()
-    cases = collect(args.directories, load_policy(args.policy)["cases"])
-    if not cases:
-        parser.error("no same-size mismatches or reviewed matches found")
     if args.serve:
-        serve(cases, args.policy.resolve(), args.port, directories=args.directories)
+        serve(args.directories, args.policy.resolve(), args.port)
     else:
+        cases = collect((*args.directories, LATEST))
+        if not cases:
+            parser.error("no visual comparisons found")
         args.output.write_text(render_page(cases, server=False))
         print(f"{args.output} · {len(cases)} captures")
 

@@ -37,7 +37,7 @@ def compare(original, actual, output, mask=None, *, record_metrics=False, tolera
         failures &= np.any(observed != approval, axis=-1)
     remaining = int((failures if mask is None else failures[mask]).sum())
     has_policy = tolerance is not None or approval is not None
-    if changed or geometry:
+    if changed or geometry or record_metrics:
         if mask is not None:
             delta[~mask] = 0
         # Left to right: original, current render, absolute RGB error amplified 4x.

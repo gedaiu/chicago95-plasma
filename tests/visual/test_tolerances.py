@@ -7,7 +7,7 @@ import pytest
 from original_pixels import compare
 from PIL import Image
 from report import measurements
-from tolerance_editor import collect, valid_entry
+from tolerance_editor import collect, publish_run, valid_entry
 from visual_tolerances import approval_for, tolerance_for, tolerance_map
 
 
@@ -21,11 +21,11 @@ def test_retired_win95_gtk4_navigation_is_omitted_from_old_captures(tmp_path):
         directory.mkdir(parents=True)
         with pytest.raises(pytest.fail.Exception):
             compare(native, rendered, directory / "comparison.png", record_metrics=True)
-    assert set(collect([tmp_path], initial={retired: {}})) == {caption}
+    assert set(collect([tmp_path])) == {caption}
     assert [key.parent.as_posix() for _, _, key, _ in measurements(tmp_path)] == [caption]
 
 
-def test_editor_keeps_a_review_visible_after_the_pixels_match(tmp_path):
+def test_editor_includes_exact_matches(tmp_path):
     case = "win95/run/qt"
     directory = tmp_path / "visual" / case
     directory.mkdir(parents=True)
@@ -33,11 +33,10 @@ def test_editor_keeps_a_review_visible_after_the_pixels_match(tmp_path):
     captured.save(directory / "rendered.png")
     compare(captured, captured, directory / "comparison.png", record_metrics=True)
 
-    assert collect([tmp_path]) == {}
-    result = collect([tmp_path], {case})[case]
+    result = collect([tmp_path])[case]
     assert result["changed"] == 0
     assert result["passed"]
-    with Image.open(BytesIO(b64decode(result["png"]))) as panel:
+    with Image.open(BytesIO(b64decode(result["images"]["panel"]))) as panel:
         assert panel.size == (9, 1)
         assert np.asarray(panel)[0].tolist() == [[192, 192, 192]] * 6 + [[0, 0, 0]] * 3
 
@@ -60,6 +59,33 @@ def test_editor_uses_latest_measured_result_even_when_a_passing_capture_differs(
     passed = collect([failed_run, passing_run])[case]
     assert passed["changed"] == 1 and passed["passed"]
     assert not collect([passing_run, failed_run])[case]["passed"]
+
+
+def test_editor_publishes_each_cases_latest_result_including_geometry_failures(tmp_path):
+    reference = Image.new("RGB", (3, 1), "#c0c0c0")
+    latest = tmp_path / "published"
+    size_case = "win95/run/qt"
+    other_case = "win98/run/qt"
+    first, second = tmp_path / "first", tmp_path / "second"
+    for case in (size_case, other_case):
+        directory = first / "visual" / case
+        directory.mkdir(parents=True)
+        compare(reference, reference, directory / "comparison.png", record_metrics=True)
+    publish_run(first, latest)
+    directory = second / "visual" / size_case
+    directory.mkdir(parents=True)
+    with pytest.raises(pytest.fail.Exception, match="Reference size"):
+        compare(reference, reference.crop((0, 0, 2, 1)), directory / "comparison.png", record_metrics=True)
+    publish_run(second, latest)
+
+    cases = collect([latest])
+    assert cases[other_case]["passed"]
+    assert not cases[size_case]["passed"]  # The common pixels still match.
+    assert cases[size_case]["changed"] == 0
+    assert cases[size_case]["size"] == [3, 1] and cases[size_case]["renderedSize"] == [2, 1]
+    with Image.open(BytesIO(b64decode(cases[size_case]["images"]["rendered"]))) as image:
+        assert image.size == (2, 1)
+    assert not (latest / "visual" / size_case / "comparison.png").exists()
 
 
 def test_reviewed_region_allows_only_its_channel_limit(tmp_path, monkeypatch):

@@ -201,15 +201,18 @@ run directories with the latest reruns last. The report counts dimension mismatc
 to each same-size comparison when averaging its percentage of matching pixels. Pytest still reports
 motion and coverage results.
 
-Start the local tolerance editor from the same capture directories. Open the localhost URL printed by the server.
+Start the local tolerance editor and open the localhost URL printed by the server.
 
 ```sh
-python3 tests/visual/tolerance_editor.py /tmp/chicago95-parity --serve
+python3 tests/visual/tolerance_editor.py --serve
 ```
 
-Reload the editor after a rerun in one of its capture directories. Captures disappear from the list
-once their latest comparison passes, regardless of review status, and return if a later comparison
-fails. Their reviews and annotations stay in the policy file.
+Each finished parity run publishes its newest comparisons to the local editor, including runs without
+`--basetemp`. An open browser picks up the results automatically after any in-progress edits are saved.
+Pass capture directories before `--serve` to include older results.
+**Failed only** hides passing comparisons regardless of review status. **All captures** also shows passes.
+Size mismatches display both images at their recorded dimensions and have no paint or approval controls.
+Reviews and annotations stay in the policy file.
 
 Use the pencil to paint a tolerance on the Windows reference, current render, or difference image. The pencil
 marks only differing pixels. A limit of 255 ignores them. The eraser restores exact matching, and the sidebar
