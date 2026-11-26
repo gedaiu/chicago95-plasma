@@ -1330,10 +1330,13 @@ def desktop_scenes(installed, visual_output):
             x, y = width // 3, height // 3
             opening = right_click_at(x, y)
             if scene == "hover":
-                row_offset = 120 if look == "aero" else 100
+                # Use a regular command, so hovering never opens a cascade.
+                # On Aero sample Screen resolution, the focused native row.
+                physical_row = {"1995": 33, "1998": 94, "2000": 89, "2001": 35, "luna": 36, "aero": 170}[look]
+                row_offset = round(physical_row * (1 if look == "aero" else 0.8))
                 hovered = show(
                     session, windows=[], scale=scale,
-                    pointer_steps=(*opening, *hover_steps((x + 100, y + row_offset))),
+                    pointer_steps=(*opening, *hover_steps((x + 60, y + row_offset))),
                 )
                 hovered.save(output / "hover-screen.png")
                 return hovered
@@ -2827,18 +2830,46 @@ def test_radio_indicator(theme, version, state, live_gtk, visual_output):
             # The marker starts at (12, 36) and the indicator at (12, 12).
             scale = metadata["radio_scale"]
             x, y = int(columns.min()), int(rows.min())
-            gtk = gtk.crop((x - 3, y - round(28 * scale), x + round(22 * scale), y - round(5 * scale)))
+            if metadata["look"] == "aero" and version == "3.0":
+                # The Aero high-density SVG paints a 19-unit square within
+                # its 20-unit viewBox, displayed as a 13px logical image.
+                # The checked widget also paints a rim beneath the indicator.
+                extent = round(13 * scale * 19 / 20)
+                top = y - round(24 * scale)
+                gtk = gtk.crop((x, top, x + extent, top + extent))
+            else:
+                gtk = gtk.crop((x - 3, y - round(28 * scale), x + round(22 * scale), y - round(5 * scale)))
         elif version == "3.0":
             # GTK 3 captures the decorated window's client, including the showcase margins.
             margin = round(12 * metadata["radio_scale"])
             client = gtk.getpixel((margin // 2, margin // 2))
             gtk = Image.alpha_composite(Image.new("RGBA", gtk.size, client), gtk)
             gtk = gtk.crop((margin, margin, gtk.width - margin, gtk.height - margin))
-        # Find the indicator's painted bounds against the background or the transparent GTK 4 snapshot.
         background = gtk.getpixel((0, 0))
-        rows, columns = np.where(np.any(np.asarray(gtk) != background, axis=2))
-        assert len(rows), f"Missing GTK radio face in {rendered.filename}"
-        face = gtk.crop((columns.min(), rows.min(), columns.max() + 1, rows.max() + 1))
+        if metadata["look"] == "aero" and version == "3.0":
+            face = gtk
+        else:
+            # Find the indicator against the background or the transparent snapshot.
+            rows, columns = np.where(np.any(np.asarray(gtk) != background, axis=2))
+            assert len(rows), f"Missing GTK radio face in {rendered.filename}"
+            face = gtk.crop((columns.min(), rows.min(), columns.max() + 1, rows.max() + 1))
+        # At 120 DPI the Classic and Luna CSS assets have fixed physical
+        # dimensions. Counting every non-background pixel can include an
+        # adjacent low-coverage row or column after compositor resampling.
+        if metadata["radio_scale"] == 1.25 and metadata["look"] in (*CLASSIC, "luna"):
+            from gtk_inputs import classic_radio_svg
+
+            extent = 16 if metadata["look"] == "luna" else classic_radio_svg(metadata["look"])[0]
+            strength = np.abs(np.asarray(face, dtype=int) - background).max(axis=2)
+            left, top = 0, 0
+            width, height = face.size
+            if width == extent + 1:
+                left = int(strength[:, 0].sum() < strength[:, -1].sum())
+                width = extent
+            if height == extent + 1:
+                top = int(strength[0].sum() < strength[-1].sum())
+                height = extent
+            face = face.crop((left, top, left + width, top + height))
         backdrop = Image.new("RGBA", face.size, expected.getpixel((0, 0)))
         backdrop.alpha_composite(face)
     actual = backdrop.convert("RGB")

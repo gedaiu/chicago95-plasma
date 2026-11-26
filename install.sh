@@ -3,6 +3,7 @@
 # Chicago95 for Plasma: Setup.
 #
 #   ./install.sh                 interactive, Chicago95 Setup look
+#   ./install.sh --gui           graphical wizard with component and option previews
 #   ./install.sh --yes           every default component, no questions
 #   ./install.sh --components base,look,taskbar,startmenu
 #   ./install.sh --yes --components=icons --icons=windows7
@@ -27,6 +28,11 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+for ((i = 1; i <= $#; i++)); do
+  if [ "${!i}" = --gui ]; then
+    exec python3 "$REPO/installer/wizard.py" "${@:1:i-1}" "${@:i+1}"
+  fi
+done
 SETUP_YES=0
 SETUP_DRY_RUN=0
 UI_MODE=screen

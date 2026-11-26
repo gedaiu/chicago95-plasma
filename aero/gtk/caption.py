@@ -8,14 +8,20 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "aurorae"))
 from make_aero_aurorae import AURORAE_STATES, BUTTON_FACES, button_state, caption_rim, palette  # noqa: E402
 
-CELL_WIDTHS = {
-    **palette.BUTTON_WIDTHS,
-    "maximize": palette.BUTTON_WIDTHS["maximize"] - 1,
-    "restore": 40 / 1.5,
-}
 FACE_HEIGHT = palette.BUTTON_HEIGHT
 GTK4_CAPTION_TOP = 4
 MAXIMIZED_CAPTION_TOP = -2 / 3
+GTK4_144_DPI_OFFSETS = {"minimize": 4 / 3, "maximize": 2 / 3}
+
+
+def caption_widths(gtk4, dpi):
+    widths = dict(palette.BUTTON_WIDTHS)
+    widths["restore"] = 40 / 1.5 if gtk4 or dpi == 144 else widths["maximize"]
+    if dpi == 144:
+        widths["maximize"] = 40 / 1.5
+    elif gtk4:
+        widths["maximize"] -= 1
+    return widths
 
 
 def write_face(directory, kind, state, width, artwork, large_artwork=None):
@@ -55,14 +61,13 @@ def gtk4_disabled_close_glass(width):
     )
 
 
-def write_caption_faces(directory, gtk4=False):
+def write_caption_faces(directory, gtk4=False, dpi=96):
     directory.mkdir(parents=True, exist_ok=True)
+    widths = caption_widths(gtk4, dpi)
     for kind in BUTTON_FACES:
-        width = CELL_WIDTHS[kind] if gtk4 else palette.BUTTON_WIDTHS["maximize" if kind == "restore" else kind]
+        width = widths[kind]
         for state, (window, look) in AURORAE_STATES.items():
             defs, shapes = button_state(kind, window, look, "face", cell_width=width)
-            # GTK 3's wider Maximize cell uses the existing fractional-scale
-            # ring. The narrow GTK 4 cell benefits from the aligned version.
             pixel_density = 2 if gtk4 or kind in ("minimize", "restore") else None
             large_defs, large_shapes = button_state(
                 kind, window, look, "face", large=True, cell_width=width, pixel_density=pixel_density,
@@ -84,7 +89,7 @@ def write_caption_faces(directory, gtk4=False):
             )
 
 
-def caption_css(directory, gtk4):
+def caption_css(directory, gtk4, dpi=96):
     rules = [
         """
 headerbar, headerbar.titlebar, .titlebar.default-decoration {
@@ -132,6 +137,14 @@ headerbar windowcontrols button, headerbar windowcontrols button:disabled {{
   background-position: center {GTK4_CAPTION_TOP}px;
 }}
 """)
+        if dpi == 144:
+            # GtkWindowControls rounds the allocation of each button up to a
+            # whole logical pixel. Realign the restored faces on the device grid.
+            for kind, offset in GTK4_144_DPI_OFFSETS.items():
+                rules.append(
+                    f"window:not(.maximized) headerbar windowcontrols button.{kind} "
+                    f"{{ transform: translateX({offset:.6f}px); }}"
+                )
     else:
         rules.append("""
 headerbar.titlebar { padding: 0 5px; }
@@ -174,13 +187,15 @@ window.maximized:not(.nautilus-window) headerbar button.titlebutton.maximize {{
   background-position: right {MAXIMIZED_CAPTION_TOP:.6f}px;
 }}
 """)
+    widths = caption_widths(gtk4, dpi)
     for kind in BUTTON_FACES:
         button = "maximize" if kind == "restore" else kind
         prefix = "window.maximized " if kind == "restore" else ""
         selectors = [
             prefix + "headerbar " + part + "." + button for part in ("windowcontrols button", "button.titlebutton")
         ]
-        width = CELL_WIDTHS[kind] if gtk4 else palette.BUTTON_WIDTHS[button]
+        width = widths[kind]
+        minimum_width = math.ceil(width) if dpi == 144 else math.floor(width)
         for state, (window, look) in AURORAE_STATES.items():
             suffix = (":backdrop" if window == "inactive" else "") + {
                 "normal": "",
@@ -192,7 +207,7 @@ window.maximized:not(.nautilus-window) headerbar button.titlebutton.maximize {{
             graphic = (directory / f"{kind}-{state}.svg").as_uri()
             hidpi = (directory / f"{kind}-{state}@2x.svg").as_uri()
             rules.append(
-                f"{selector} {{ min-width: {math.floor(width)}px; min-height: {FACE_HEIGHT}px; "
+                f"{selector} {{ min-width: {minimum_width}px; min-height: {FACE_HEIGHT}px; "
                 f'background-image: -gtk-scaled(url("{graphic}"), url("{hidpi}")); '
                 f"background-size: {width}px {FACE_HEIGHT}px; }}"
             )
@@ -202,9 +217,11 @@ window.maximized:not(.nautilus-window) headerbar button.titlebutton.maximize {{
 if __name__ == "__main__":
     if sys.argv[1] == "--write-buttons":
         directory = Path(sys.argv[2])
-        write_caption_faces(directory, gtk4=True)
-        write_caption_faces(directory / "gtk3")
+        dpi = int(sys.argv[3]) if len(sys.argv) > 3 else 96
+        write_caption_faces(directory, gtk4=True, dpi=dpi)
+        write_caption_faces(directory / "gtk3", dpi=dpi)
     else:
         directory = Path(sys.argv[1])
+        dpi = int(sys.argv[2]) if len(sys.argv) > 2 else 96
         gtk4 = os.environ.get("GTK_VERSION") == "4.0"
-        print(caption_css(directory if gtk4 else directory / "gtk3", gtk4))
+        print(caption_css(directory if gtk4 else directory / "gtk3", gtk4, dpi))

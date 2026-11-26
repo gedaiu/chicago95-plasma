@@ -146,6 +146,7 @@ STYLES = {
     ),
     "2000": dict(
         row=32,
+        extra_width=19,
         text_gap=4,
         text_drop=2,
         icon_x=30,
@@ -178,6 +179,7 @@ STYLES["2001"] = inherit(
     banner_start=10,
     banner_embolden=0,
     text_drop=1,
+    extra_width=21,
     separator_offset=3,
 )
 
@@ -285,6 +287,7 @@ def launch(command):
 SHUTDOWN_TOOL = os.path.expanduser("~/.local/bin/chicago95-shutdown")
 LOG_OFF_COMMAND = [SHUTDOWN_TOOL, "--log-off"]
 SHUT_DOWN_COMMAND = [SHUTDOWN_TOOL]
+COMPACT_SEPARATOR_POINT_SIZE = 1
 
 
 class RetroMenuStyle(chicago95ui.ClassicStyle):
@@ -320,8 +323,9 @@ class RetroMenuStyle(chicago95ui.ClassicStyle):
         result = super().sizeFromContents(kind, option, size, widget)
         if (
             kind == QStyle.CT_MenuItem and isinstance(widget, RetroMenu) and widget.banner
-            and self.look == "1998" and widget.devicePixelRatioF() == 1
+            and widget.devicePixelRatioF() == 1
             and option.menuItemType == QStyleOptionMenuItem.MenuItemType.Separator
+            and (self.look == "1998" or option.font.pointSize() == COMPACT_SEPARATOR_POINT_SIZE)
         ):
             result.setHeight(result.height() - 1)
         if kind == QStyle.CT_MenuItem and isinstance(widget, RetroMenu) and size.height() > 2:
@@ -941,7 +945,13 @@ def build_root_menu():
     root.addMenu(find)
     add_entry(root, label("help"), root_icon("help", style), lambda: launch(["khelpcenter"]))
     add_entry(root, label("run"), root_icon("run", style), lambda: launch(run_command()))
-    root.addSeparator()
+    power_separator = root.addSeparator()
+    if style in ("2000", "2001"):
+        # Give the power separator its own bevel height. Qt includes the
+        # action font in the style option even for an unlabelled separator.
+        separator_font = root.font()
+        separator_font.setPointSize(COMPACT_SEPARATOR_POINT_SIZE)
+        power_separator.setFont(separator_font)
     if style == "1995" and suspend_available():
         add_entry(root, label("suspend"), root_icon("suspend", style), lambda: launch(["systemctl", "suspend"]))
     add_entry(root, label("log_off"), root_icon("log_off", style), lambda: launch(LOG_OFF_COMMAND))

@@ -30,7 +30,7 @@ LUNA_CAPTION_CROPS = CAPTION_CROPS and THEME == "Chicago95Luna"
 NATIVE_CAPTION = AERO_CAPTION_CROPS or CLASSIC_CAPTION_CROPS or LUNA_CAPTION_CROPS
 if AERO_CAPTION_CROPS:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from aero.gtk.caption import CELL_WIDTHS, FACE_HEIGHT, GTK4_CAPTION_TOP, MAXIMIZED_CAPTION_TOP, palette
+    from aero.gtk.caption import FACE_HEIGHT, GTK4_CAPTION_TOP, MAXIMIZED_CAPTION_TOP, caption_widths
 elif CLASSIC_CAPTION_CROPS:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from lib.gtk_header import CAPTION_H, CAPTION_H_120, CAPTION_W, CLOSE_OFFSET_120
@@ -517,8 +517,8 @@ def gtk_caption_regions(header, root, label, scale, origin):
                 width -= margin.left + margin.right
                 height -= margin.top + margin.bottom
             if AERO_CAPTION_CROPS:
-                face_kind = "restore" if V4 and label == "caption restore" and kind == "maximize" else kind
-                image_width, image_height = (CELL_WIDTHS if V4 else palette.BUTTON_WIDTHS)[face_kind], FACE_HEIGHT
+                face_kind = "restore" if label == "caption restore" and kind == "maximize" else kind
+                image_width, image_height = caption_widths(V4, round(96 * scale))[face_kind], FACE_HEIGHT
             elif LUNA_CAPTION_CROPS:
                 image_width = image_height = LUNA_CAPTION_PIXELS_120 / scale if V4 and scale == 1.25 else LUNA_CAPTION_SIZE
             else:
@@ -538,14 +538,24 @@ def gtk_caption_regions(header, root, label, scale, origin):
             if AERO_CAPTION_CROPS and label == "caption restore":
                 vertical_inset = MAXIMIZED_CAPTION_TOP
             top = (y + vertical_inset) * scale
-            # Include edge pixels with even fractional coverage. The exact
-            # comparison will flag pixel alignment and clipping separately.
-            faces[kind] = [
-                math.floor(left),
-                math.floor(max(y * scale, top)),
-                math.ceil(left + image_width * scale),
-                math.ceil(top + image_height * scale),
-            ]
+            # Compare at the size of the painted face, sampling the pixels
+            # whose centers lie inside it. Partial coverage and KWin's
+            # resampling still affect the RGB values on the sampled edges.
+            visible_top = max(y * scale, top)
+            if LUNA_CAPTION_CROPS and not V4 and scale == 1.25:
+                # The GTK 3 Luna design uses a 21-logical-pixel cell to
+                # preserve the sharp glyph. Its 26.25px face occupies
+                # 27 physical pixels including the antialiased outer edge.
+                faces[kind] = [
+                    math.floor(left), math.floor(visible_top),
+                    math.ceil(left + image_width * scale), math.ceil(top + image_height * scale),
+                ]
+                continue
+            x0, y0, physical_width, physical_height = (
+                math.floor(value + 0.5 + 1e-8)
+                for value in (left, visible_top, image_width * scale, top + image_height * scale - visible_top)
+            )
+            faces[kind] = [x0, y0, x0 + physical_width, y0 + physical_height]
         else:
             faces[kind] = allocation
     return allocations, faces

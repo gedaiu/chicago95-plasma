@@ -25,9 +25,11 @@ from bevel import (  # noqa: E402
     CAPTION_H_120,
     CAPTION_W,
     CAPTION_W_120,
+    HILIGHT,
     caption_button_120,
     caption_face,
     caption_glyph,
+    caption_glyph_120,
     disabled_caption_glyph,
     svg,
 )
@@ -87,6 +89,39 @@ def raster_caption(source, converter):
     return output
 
 
+def gtk3_win9x_caption_120(kind, colours, pressed, disabled):
+    """Fit the 9x face to GTK 3's 2× backing grid at 120 DPI."""
+    face, _light, shadow, dark = colours
+    if pressed:
+        rim = (
+            f'<path d="M0 0H20V1.25H.75V18H0z" fill="{dark}"/>'
+            f'<path d="M.75 1.25H19V2.15H1.75V18H.75z" fill="{shadow}"/>'
+        )
+    else:
+        rim = (
+            f'<path d="M0 0H20V1.25H.75V18H0z" fill="{HILIGHT}"/>'
+            f'<path d="M19 1.25H20V18H.75V16.75H19z" fill="{shadow}"/>'
+        )
+    # Cairo snaps the solid bevel and glyph before KWin scales the window to
+    # 125%. The button spacing puts the glyphs at different pixel phases.
+    if kind == "maximize":
+        x, y = (-0.4, 0.25) if pressed else (-0.75, 0.375)
+    else:
+        x = -0.25
+        y = 0 if not pressed and kind in ("minimize", "restore") else 0.375
+    if disabled:
+        glyph = caption_glyph_120(kind, HILIGHT, 1) + caption_glyph_120(kind, shadow, 0)
+    else:
+        glyph = caption_glyph_120(kind, "#000000", int(pressed))
+    body = (
+        '<g shape-rendering="crispEdges">'
+        f'<rect width="20" height="18" fill="{face}"/>'
+        f'{rim}<g transform="translate({x:g} {y:g})">{glyph}</g>'
+        "</g>"
+    )
+    return svg(CAPTION_W * 2, CAPTION_H_120 * 2 / 1.25, body, view_size=(CAPTION_W_120, CAPTION_H_120))
+
+
 def face_url(kind, colours, pressed, disabled, assets, high_dpi, gtk4, converter):
     shift = 1 if pressed else 0
     if high_dpi:
@@ -109,7 +144,10 @@ def face_url(kind, colours, pressed, disabled, assets, high_dpi, gtk4, converter
         if high_dpi and not gtk4:
             # GTK 3 selects assets for its integer-scale backing buffer.
             doubled = path.with_name(f"{path.stem}@2x.svg")
-            doubled.write_text(svg(CAPTION_W_120 * 2, CAPTION_H_120 * 2, body, view_size=view_size))
+            if colours[-1] == "#000000":
+                doubled.write_text(gtk3_win9x_caption_120(kind, colours, pressed, disabled))
+            else:
+                doubled.write_text(svg(CAPTION_W_120 * 2, CAPTION_H_120 * 2, body, view_size=view_size))
             return f'-gtk-scaled({image}, url("{doubled.resolve().as_uri()}"))'
         if gtk4 and high_dpi and converter:
             return f'url("{raster_caption(path, converter).resolve().as_uri()}")'

@@ -180,7 +180,7 @@ def _caption_face_120(colours, pressed):
     )
 
 
-def _caption_glyph_120(kind, color, offset):
+def caption_glyph_120(kind, color, offset):
     """The 120-DPI glyph outlines measured on the Classic guest captions."""
     return (
         f'<path d="{CAPTION_120_GLYPHS[kind]}" fill="{color}" fill-rule="evenodd"'
@@ -191,5 +191,5 @@ def _caption_glyph_120(kind, color, offset):
 def caption_button_120(kind, colours, pressed, disabled):
     body = _caption_face_120(colours, pressed)
     if disabled:
-        return body + _caption_glyph_120(kind, HILIGHT, 1) + _caption_glyph_120(kind, colours[2], 0)
-    return body + _caption_glyph_120(kind, "#000000", int(pressed))
+        return body + caption_glyph_120(kind, HILIGHT, 1) + caption_glyph_120(kind, colours[2], 0)
+    return body + caption_glyph_120(kind, "#000000", int(pressed))

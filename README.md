@@ -152,10 +152,16 @@ cd ~/src/chicago95-plasma
 ./install.sh
 ```
 
+Run `./install.sh --gui` to open the graphical installer from a Plasma desktop session.
+It uses Python 3 and PySide6. After selecting components, choose a Windows theme or **My Linux setup**. The Linux option previews the current display settings and supported Plasma font, pointer size and file manager preferences. It uses distribution branding and fills the remaining settings from your saved Chicago95 configuration or the standard defaults.
+**Lightly customize** walks through five common settings. **Customize all** walks through
+every setting. Each step includes a preview and a button to restore the theme default.
+The review page offers **Dry run** and **Install**. The checklist follows the running installer through file copying and final tasks. A successful installation opens the completion page, where you can inspect the log and click **Finish**. To try the wizard with installation disabled, run `./install.sh --gui --dry-run`.
+
 To install parts without Setup, or to see what goes where, follow
 [Setting up Chicago95 by hand](docs/manual-setup.md).
 
-Setup runs as a full-screen text installer in the classic
+By default, Setup runs as a full-screen text installer in the classic
 style: it collects information about the computer, lets you pick
 components and options, copies files with a progress bar, and reloads
 Plasma.

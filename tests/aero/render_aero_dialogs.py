@@ -13,6 +13,7 @@ from PySide6.QtGui import QFont, QFontDatabase, QIcon
 from PySide6.QtQuick import QQuickView
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QMenu, QTabWidget
+from reference import grab_client, screenshot
 from screencast_stubs import write_stubs
 
 
@@ -67,7 +68,10 @@ def render(out, scale, *, run_only=False):
             # Capture the settled menu after its visible theme icons have arrived.
             while widget.model.loader.isActive():
                 app.processEvents()
-        picture = widget.grab()
+        if name == "run" and run_only:
+            picture = grab_client(widget, screenshot("themes/win7/run").size)
+        else:
+            picture = widget.grab()
         assert picture.devicePixelRatio() == scale
         assert picture.save(str(out / f"{name}.png"))
 

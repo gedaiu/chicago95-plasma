@@ -288,6 +288,8 @@ The restored caption spacing checks measure the left edges of the painted button
 captures with the original inter-button gaps intact for the Classic and Luna themes, and the native
 Windows 7 cluster widths for Aero. The fractional GTK 3 layout checks allow one physical pixel of
 rounding per gap. The face comparisons still require exact dimensions and RGB values.
+At fractional scales, caption crops use the authored face dimensions on the physical pixel grid.
+The compositor's edge blending still appears in the pixel comparison.
 At 120 DPI, Setup can render the Classic GTK 4 SVGs into 20×18 PNGs when
 `rsvg-convert` is available. The source SVGs remain alongside the generated files.
 For Luna at 120 DPI, Setup selects the larger SVG glyphs for both GTK and Aurorae. The live comparisons

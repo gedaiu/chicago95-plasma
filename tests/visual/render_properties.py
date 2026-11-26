@@ -14,7 +14,7 @@ from PySide6.QtCore import QElapsedTimer, QPoint, QRect, QSize, Qt, QTimer  # no
 from PySide6.QtGui import QIcon  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QFrame, QLabel, QMessageBox, QPushButton, QTabWidget, QToolButton  # noqa: E402
-from reference import installed_look, qimage_to_pil  # noqa: E402
+from reference import grab_client, installed_look, qimage_to_pil  # noqa: E402
 from showcase import themed  # noqa: E402
 
 
@@ -225,7 +225,7 @@ def capture_shutdown_radio_states(dialog, box, output):
     sheet.save(output)
 
 
-def capture_shutdown_combo(dialog, component, metadata, output, app):
+def capture_shutdown_combo(dialog, component, metadata, output, app, size):
     combo = dialog.combo
     assert dialog.focusWidget() is combo
     if component.startswith("shutdown-dropdown"):
@@ -240,7 +240,7 @@ def capture_shutdown_combo(dialog, component, metadata, output, app):
                 QTest.keyClick(combo.view(), Qt.Key_Down)
             assert combo.view().currentIndex().row() == row
             app.processEvents()
-        assert popup.grab().save(output)
+        assert grab_client(popup, size).save(output)
         combo.hidePopup()
         return
 
@@ -260,7 +260,7 @@ def capture_shutdown_combo(dialog, component, metadata, output, app):
     sheet.save(output)
 
 
-def capture_shutdown(app, metadata, component, output, scale):
+def capture_shutdown(app, metadata, component, output, scale, size):
     import chicago95ui
 
     look = metadata["look"]
@@ -313,9 +313,9 @@ def capture_shutdown(app, metadata, component, output, scale):
             capture_shutdown_radio_states(dialog, metadata["shutdown_radio_states"]["crop"], output)
             return
         if component.startswith("shutdown-dropdown") or component == "shutdown-choices":
-            capture_shutdown_combo(dialog, component, metadata["shutdown_combo_states"], output, app)
+            capture_shutdown_combo(dialog, component, metadata["shutdown_combo_states"], output, app, size)
             return
-        shot = dialog.grab()
+        shot = grab_client(dialog, size)
         assert shot.devicePixelRatio() == scale
         assert shot.save(output)
     finally:
@@ -326,6 +326,7 @@ def render(manifest, component, output, width, height, scale_override=None):
     import chicago95ui
 
     metadata = json.loads(Path(manifest).read_text())
+    size = int(width), int(height)
     look = metadata["look"]
     hover = component == "control-panel-hover"
     hover_exit = component == "control-panel-hover-exit"
@@ -342,7 +343,7 @@ def render(manifest, component, output, width, height, scale_override=None):
             chicago95ui.apply_style(app)
             QIcon.setThemeName("Windows-7-SVG")
         if component.startswith("shutdown"):
-            capture_shutdown(app, metadata, component, output, scale)
+            capture_shutdown(app, metadata, component, output, scale, size)
             return
         if component.startswith("run-history-"):
             history = json.loads((Path(manifest).parent / "run/history.json").read_text())["entries"]
@@ -387,11 +388,11 @@ def render(manifest, component, output, width, height, scale_override=None):
                     button = dialog.buttons[held]
                     QTest.keyPress(button, Qt.Key_Space)
                     assert button.isDown() and dialog.isVisible()
-                    assert dialog.grab().save(output)
+                    assert grab_client(dialog, size).save(output)
                     QTest.keyRelease(button, Qt.Key_Space)
                     assert not dialog.isVisible()
                 else:
-                    assert dialog.grab().save(output)
+                    assert grab_client(dialog, size).save(output)
             finally:
                 dialog.close()
             return
@@ -517,10 +518,10 @@ def render(manifest, component, output, width, height, scale_override=None):
                     QTest.keyClick(saver, Qt.Key_Down)
                     assert saver.currentData() == "blank" and target.page.apply_button.isEnabled()
                     if saver_settings:
-                        capture_saver_settings(saver_tab, app, output)
+                        capture_saver_settings(saver_tab, app, output, size)
                         return
             app.processEvents()
-            shot = target.grab()
+            shot = grab_client(target, size)
             assert shot.devicePixelRatio() == scale
             assert shot.save(output)
             if component.startswith("display-properties") and look != "aero":
@@ -538,7 +539,7 @@ def render(manifest, component, output, width, height, scale_override=None):
             window.close()
 
 
-def capture_saver_settings(tab, app, output):
+def capture_saver_settings(tab, app, output, size):
     captured = False
 
     def capture():
@@ -548,7 +549,7 @@ def capture_saver_settings(tab, app, output):
             captured = (
                 isinstance(dialog, QMessageBox)
                 and dialog.windowTitle() == "Blank Screen Saver"
-                and dialog.grab().save(output)
+                and grab_client(dialog, size).save(output)
             )
             dialog.close()
 

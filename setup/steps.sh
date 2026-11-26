@@ -652,7 +652,10 @@ apply_icon_set() {
   se98) install_icon_pack se98 && theme=SE98 ;;
   classicos2000)
     install_icon_pack se98
-    install_icon_pack classicos2000 && theme=ClassicOS-2000
+    if install_icon_pack classicos2000; then
+      theme=ClassicOS-2000
+      run python3 -I "$REPO/setup/classic_icon_fallbacks.py" "$HOME/.local/share/icons/$theme/index.theme" || return 1
+    fi
     ;;
   windowsxp)
     install_icon_pack windowsxp && theme=Windows-XP && xp_icon_fallback
@@ -1414,7 +1417,7 @@ gtk_gradient() { # gtk_gradient <colour[,colour]>   a CSS background for a title
 # decoration gets the XP gradient, rounded top corners and caption instead.
 gtk_titlebar_rules() {
   if [ "$SETUP_DECORATION" = aero ]; then
-    python3 "$REPO/aero/gtk/caption.py" "$STATE_DIR/gtk4-caption"
+    python3 "$REPO/aero/gtk/caption.py" "$STATE_DIR/gtk4-caption" "${SETUP_DPI:-96}"
     return
   fi
   if [ "$SETUP_DECORATION" = luna ]; then
@@ -1447,7 +1450,7 @@ write_gtk_titlebar_css() {
   if [ "$SETUP_DECORATION" = aero ]; then
     local buttons="$STATE_DIR/gtk4-caption"
     backup "$buttons"
-    run python3 "$REPO/aero/gtk/caption.py" --write-buttons "$buttons" || return 1
+    run python3 "$REPO/aero/gtk/caption.py" --write-buttons "$buttons" "${SETUP_DPI:-96}" || return 1
     record "$buttons"
   elif [ "$SETUP_DECORATION" = luna ]; then
     local buttons="$STATE_DIR/gtk-luna-caption"

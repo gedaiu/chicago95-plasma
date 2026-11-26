@@ -63,6 +63,25 @@ def qimage_to_pil(qimage):
     return Image.open(io.BytesIO(bytes(buffer.data()))).convert("RGB")
 
 
+def grab_client(widget, reference_size):
+    """Capture the client on its device grid, excluding a trailing half-pixel.
+
+    Qt rounds the backing store up at a half-pixel. A native capture may
+    end before that partial pixel. Other size differences remain visible.
+    """
+    from math import isclose
+
+    shot = widget.grab()
+    ratio = shot.devicePixelRatio()
+    width, height = (
+        wanted if painted == wanted + 1 and isclose(logical * ratio, wanted + 0.5) else painted
+        for wanted, painted, logical in zip(
+            reference_size, (shot.width(), shot.height()), (widget.width(), widget.height()), strict=True,
+        )
+    )
+    return shot.toImage().copy(0, 0, width, height)
+
+
 def differing_pixels(reference, ours, masks, diff_path, threshold=0.1):
     """pixelmatch count of differing pixels outside the masked boxes; the diff image is saved for failures."""
     from pixelmatch.contrib.PIL import pixelmatch

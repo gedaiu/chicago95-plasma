@@ -977,9 +977,26 @@ def install_desktop_folder_view(setup):
             '    <entry name="chicago95Win98Positioned" type="Bool"><default>false</default></entry>\n'
             '    <entry name="chicago95Win2000Positioned" type="Bool"><default>false</default></entry>\n'
             '    <entry name="chicago95NativeDesktopFont" type="Bool"><default>true</default></entry>\n'
+            '    <entry name="chicago95MenuStyle" type="String"><default></default></entry>\n'
             '    <entry name="chicago95IconScale" type="Double"><default>1</default></entry>',
         },
         "ui/FolderView.qml": {
+            "    property Folder.FolderModel model: dir": """    DesktopContextMenu {
+        id: chicago95DesktopMenu
+        folder: dir
+        desktopConfiguration: Plasmoid.configuration
+        look: Plasmoid.configuration.chicago95MenuStyle
+    }
+
+    property Folder.FolderModel model: dir""",
+            "// If it's the desktop, fall through to the desktop context menu plugin": """if (dir.usedByContainment && main.isRootView && chicago95DesktopMenu.look
+                        && !dir.creatingNewItems && !(mouse.modifiers & Qt.ShiftModifier)) {
+                        chicago95DesktopMenu.showAt(mapToItem(main, mouse.x, mouse.y));
+                        mouse.accepted = true;
+                        return;
+                    }
+
+                    // If it's the desktop, fall through to the desktop context menu plugin""",
             "signal pressed()": """readonly property string classicDesktopFont: {
         if (!Plasmoid.isContainment
             || !Plasmoid.configuration.chicago95NativeDesktopFont) return "";
@@ -1084,7 +1101,7 @@ def install_desktop_folder_view(setup):
             file.write_text(text)
         for name, target in zip(folders, targets, strict=True):
             if name == folders[0]:
-                for asset in ("Win95DesktopFocus.qml", "win95-focus.frag.qsb"):
+                for asset in ("Win95DesktopFocus.qml", "win95-focus.frag.qsb", "DesktopContextMenu.qml"):
                     shutil.copyfile(setup.repo / "data/desktop-icons" / asset, stage / name / "contents/ui" / asset)
             setup.put_tree(stage / name, target)
     return True
@@ -1131,7 +1148,7 @@ def desktop_icons(setup):
             if choices.get("EXPLORER", "thunar") == "dolphin" or choices.get("HAS_THUNAR", "0") != "1":
                 setup.run("sed", "-i", "s|^Exec=.*|Exec=dolphin computer:/|", target)
             setup.run("chmod", "+x", target)
-    themed_icons = style in ("1995", "1998", "2000", "2001", "luna") and install_desktop_folder_view(setup)
+    themed_icons = install_desktop_folder_view(setup)
     if not setup.dry_run and choices["IN_PLASMA"] != "1":
         setup.status("Plasma is not running; the desktop's icon layout is unchanged")
         return
@@ -1143,6 +1160,7 @@ def desktop_icons(setup):
         f'    desktop.writeConfig("chicago95Win2000Icons", {json.dumps(themed_icons and style == "2000")});\n'
         f'    desktop.writeConfig("chicago95XpClassicIcons", {json.dumps(themed_icons and style == "2001")});\n'
         f'    desktop.writeConfig("chicago95XpLunaIcons", {json.dumps(themed_icons and style == "luna")});\n'
+        f'    desktop.writeConfig("chicago95MenuStyle", {json.dumps(style if themed_icons else "")});\n'
         f'    desktop.writeConfig("chicago95NativeDesktopFont", {json.dumps(native_font)});\n'
         f'    desktop.writeConfig("chicago95IconScale", {1.25 if choices.get("DPI") == "120" else 1});\n'
         '    desktop.reloadConfig();',

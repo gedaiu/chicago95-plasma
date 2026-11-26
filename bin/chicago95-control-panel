@@ -1372,7 +1372,8 @@ def show_message(parent, title, text):
     if label is not None:
         label.setMinimumHeight(31)
         label.setAlignment(Qt.AlignLeading | Qt.AlignVCenter)
-    box.layout().setContentsMargins(11, 11, 11, 12)
+    left_margin = 12 if chicago95ui.window_scale(box) == 1.25 else 11
+    box.layout().setContentsMargins(left_margin, 11, 11, 12)
     button = box.button(QMessageBox.Ok)
     button.setStyle(chicago95ui.classic_style())
     button.setFixedSize(80, 24)
