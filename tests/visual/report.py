@@ -7,6 +7,12 @@ from pathlib import Path
 from statistics import mean
 
 
+RETIRED_CASES = frozenset({
+    "win95/file-manager/gtk4/navigation",
+    "win98/file-manager/gtk4/navigation",
+})
+
+
 def measurements(directory):
     for path in sorted(directory.rglob("comparison.metrics.json")):
         for parent in path.parents:
@@ -15,6 +21,8 @@ def measurements(directory):
                 if len(key.parts) == 5 and key.parts[0].endswith("dpi") and key.parts[0][:-3].isdecimal():
                     dpi, theme, component, renderer, filename = key.parts
                     key = Path(theme, component, renderer, dpi, filename)
+                if key.parent.as_posix() in RETIRED_CASES:
+                    break
                 theme, component, *_ = key.parts
                 yield theme, component, key, json.loads(path.read_text())
                 break

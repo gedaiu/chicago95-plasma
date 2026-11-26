@@ -429,7 +429,7 @@ def test_without_a_compositor_the_screen_is_unknown_and_kscreen_doctor_is_never_
 
 
 @pytest.mark.parametrize("scale", ["1", "1.25", "1.5", "2"])
-@pytest.mark.parametrize("look", ["1998", "aero", "luna"])
+@pytest.mark.parametrize("look", ["1998", "2001", "aero", "luna"])
 def test_display_tabs_fit_at_desktop_scales(tmp_path, scale, look):
     import os
     import subprocess
@@ -447,14 +447,14 @@ import os
 os.environ["QT_SCALE_FACTOR"] = sys.argv[2]
 panel = conftest.load_script("chicago95-control-panel")
 look = sys.argv[3]
-panel.chicago95ui.widget_style = lambda: "classic" if look == "1998" else look
+panel.chicago95ui.widget_style = lambda: "classic" if look in ("1998", "2001") else look
 app = panel.chicago95ui.make_app("Display Properties")
 assert app.devicePixelRatio() == float(sys.argv[2])
 settings = {**panel.LOOK_PRESETS[look], "LOOK": look}
 names = ("Background", "Screen Saver", "Appearance", "Effects", "Settings")
 actions = panel.Actions(list_screensavers=lambda: [], lock_timeout_minutes=lambda: 60)
 entries = (
-    panel.luna_display_tabs(settings, actions) if look == "luna"
+    panel.xp_display_tabs(settings, actions) if look in ("2001", "luna")
     else [(name, panel.build_tab("Display", name, settings, actions)) for name in names]
 )
 page = panel.PropertiesPage("Display", entries, lambda _: True)

@@ -63,9 +63,10 @@ def test_a_saved_choice_picks_the_icons_and_an_empty_choice_or_an_unknown_name_g
     ) == (["recycle", "computer"], [], [])
 
 
-def test_luna_defaults_to_the_recycle_bin_and_preserves_chosen_icons():
-    assert chosen(START_MENU_STYLE="luna") == ["recycle"]
-    assert chosen(START_MENU_STYLE="luna", DESKTOP_ICONS="computer,documents") == ["computer", "documents"]
+def test_xp_defaults_to_the_recycle_bin_and_preserves_chosen_icons():
+    for look in ("2001", "luna"):
+        assert chosen(START_MENU_STYLE=look) == ["recycle"]
+        assert chosen(START_MENU_STYLE=look, DESKTOP_ICONS="computer,documents") == ["computer", "documents"]
 
 
 def test_win95_installs_the_native_inbox_icon_and_a_local_inbox(tmp_path):

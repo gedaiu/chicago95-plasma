@@ -137,19 +137,18 @@ def main():
                     style = "Bold" if bold else "Regular"
                     file = Path(scratch) / f"MS-Sans-Serif-{dpi}-{style}.ttf"
                     write_font(strike, file, family, dpi, bold)
-            if args.edition == "95":
-                desktop = ansi_strike(libraries[96], 96, point_size=10)
-                # Keep the 96 DPI glyph grid when Qt renders at 125% scale.
-                for dpi, size, suffix in ((96, 13, ""), (120, 11, " 120 DPI")):
-                    family = f"Chicago95 Windows 95 Desktop{suffix}"
-                    file = Path(scratch) / f"MS-Sans-Serif-Desktop-{dpi}-Regular.ttf"
-                    write_font(desktop, file, family, dpi, bold=False, pixel_size=size)
-                for dpi, name, suffix in ((96, "vgasys.fon", ""), (120, "8514sys.fon", " 120 DPI")):
-                    if name in sources:
-                        system = ansi_strike(sources[name], dpi, point_size=10, face=b"System")
-                        family = f"Chicago95 Windows 95 System{suffix}"
-                        file = Path(scratch) / f"System-{dpi}-Regular.ttf"
-                        write_font(system, file, family, dpi, bold=False, pixel_size=13)
+            desktop = ansi_strike(libraries[96], 96, point_size=10)
+            # Keep the 96 DPI glyph grid when Qt renders at 125% scale.
+            for dpi, size, suffix in ((96, 13, ""), (120, 11, " 120 DPI")):
+                family = f"Chicago95 Windows {args.edition} Desktop{suffix}"
+                file = Path(scratch) / f"MS-Sans-Serif-Desktop-{dpi}-Regular.ttf"
+                write_font(desktop, file, family, dpi, bold=False, pixel_size=size)
+            for dpi, name, suffix in ((96, "vgasys.fon", ""), (120, "8514sys.fon", " 120 DPI")):
+                if name in sources:
+                    system = ansi_strike(sources[name], dpi, point_size=10, face=b"System")
+                    family = f"Chicago95 Windows {args.edition} System{suffix}"
+                    file = Path(scratch) / f"System-{dpi}-Regular.ttf"
+                    write_font(system, file, family, dpi, bold=False, pixel_size=13)
             for file in Path(scratch).iterdir():
                 file.replace(destination / file.name)
     except (KeyError, OSError, ValueError, struct.error) as error:

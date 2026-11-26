@@ -1,0 +1,42 @@
+/* Keep Thunar's address field and icon buttons compact like the Win95 toolbar. */
+.thunar menubar {
+  min-height: 19px;
+  border-width: 0;
+  padding: 0;
+}
+
+.thunar menubar > menuitem {
+  min-height: 0;
+  border-width: 0;
+  margin: 0;
+  padding: 0 6px 0 5px;
+}
+
+.thunar menubar spinner {
+  min-height: 16px;
+}
+
+.thunar menubar > menuitem > label {
+  font-size: 9pt;
+  margin-top: -1px;
+  margin-bottom: 1px;
+}
+
+.thunar toolbar {
+  -GtkToolbar-max-child-expand: 0;
+  padding: 0 0 2px;
+}
+
+.thunar toolbar entry {
+  min-width: 181px;
+  min-height: 16px;
+  margin-left: -5px;
+  padding: 0 2px;
+}
+
+.thunar toolbar toolbutton button {
+  min-width: 18px;
+  min-height: 18px;
+  margin: 0 1px;
+  padding: 0;
+}

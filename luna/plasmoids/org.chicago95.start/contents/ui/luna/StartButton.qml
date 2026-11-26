@@ -23,7 +23,7 @@ Item {
     readonly property int flagTop: 6
     readonly property size flagInk: Qt.size(20, 18)
     readonly property int flagShadowPadding: 4
-    readonly property int inkLeft: 35
+    readonly property int inkLeft: at120Dpi ? 36 : 35
     readonly property int inkWidth: at120Dpi ? 38 : 37
     readonly property int inkHeight: 12
     readonly property int baselineRow: at120Dpi ? 20 : 21

@@ -6,8 +6,23 @@ import numpy as np
 import pytest
 from original_pixels import compare
 from PIL import Image
+from report import measurements
 from tolerance_editor import collect, valid_entry
 from visual_tolerances import approval_for, tolerance_for, tolerance_map
+
+
+def test_retired_win95_gtk4_navigation_is_omitted_from_old_captures(tmp_path):
+    retired = "win95/file-manager/gtk4/navigation"
+    caption = "win95/file-manager/gtk4/caption-seam"
+    native = Image.new("RGB", (2, 1))
+    rendered = Image.new("RGB", (2, 1), "#ffffff")
+    for case in (retired, caption):
+        directory = tmp_path / "visual" / case
+        directory.mkdir(parents=True)
+        with pytest.raises(pytest.fail.Exception):
+            compare(native, rendered, directory / "comparison.png", record_metrics=True)
+    assert set(collect([tmp_path], initial={retired: {}})) == {caption}
+    assert [key.parent.as_posix() for _, _, key, _ in measurements(tmp_path)] == [caption]
 
 
 def test_editor_keeps_a_review_visible_after_the_pixels_match(tmp_path):

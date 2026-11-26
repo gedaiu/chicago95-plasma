@@ -365,6 +365,8 @@ if sys.argv[3] == "Chicago95":
     if sys.argv[5]:
         block += classic_radio_css(Path(sys.argv[5]), sys.argv[6])
     if sys.argv[4] == "3.0":  # GTK 3 warns on every start about properties only GTK 4 knows
+        if sys.argv[6] == "1995":
+            block += source.with_name("gtk-thunar-win95.css").read_text()
         block = without_gtk4_properties(block)
 elif sys.argv[3] == "Chicago95Luna" and sys.argv[7] == "120":
     theme = Path.home() / ".themes/Chicago95Luna"
@@ -1524,7 +1526,7 @@ step_explorer() {
     sleep 1
     put_file "$REPO/config/thunar/thunar.xml" "$thunar_xml"
   fi
-  local -a navigation=(--style "$SETUP_WIDGET_STYLE")
+  local -a navigation=(--style "$SETUP_WIDGET_STYLE" --look "${SETUP_LOOK:-}")
   if [ "${SETUP_IN_PLASMA:-0}" = 1 ] && command -v xfconf-query >/dev/null 2>&1; then
     navigation+=(--live)
   fi

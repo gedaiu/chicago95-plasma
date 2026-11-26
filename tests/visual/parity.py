@@ -29,6 +29,7 @@ from plasma_session import (
     work_folder,
 )
 from reference import REFERENCES, bounding_box, qimage_to_pil, render_start_menu, rgb555, rgb565, theme_references
+from report import RETIRED_CASES
 from showcase import start_menus, themed
 from test_caption_states_reference import (
     BUTTONS,
@@ -956,10 +957,10 @@ def test_run_luna_browse_mnemonic_matches_native_glyphs_at_120dpi(qt_app, native
     np.testing.assert_array_equal(*masks)
 
 
-def test_run_win98_high_dpi_frame_keeps_native_pixel_width(native_run_states):
+def test_run_win98_high_dpi_frame_and_icon_keep_native_pixel_width(native_run_states):
     expected, actual, _ = native_run_states("win98", "empty")
     w, h = expected.size
-    for bounds in ((0, 0, w, 3), (0, 3, 4, h - 3), (w - 4, 3, w, h - 3), (0, h - 3, w, h)):
+    for bounds in ((0, 0, w, 3), (0, 3, 4, h - 3), (w - 4, 3, w, h - 3), (0, h - 3, w, h), (5, 34, 65, 94)):
         np.testing.assert_array_equal(np.asarray(expected.crop(bounds)), np.asarray(actual.crop(bounds)))
 
 
@@ -969,8 +970,8 @@ def test_run_win98_high_dpi_caption_matches_native_font(qt_app, native_run_state
     if "Chicago95 Windows 98 120 DPI" not in QFontDatabase.families():
         pytest.skip("Import the fonts from the reference VM with setup/import-win9x-fonts.py")
     expected, actual, _ = native_run_states("win98", "empty")
-    bounds = (4, 4, 50, 25)
-    np.testing.assert_array_equal(np.asarray(actual.crop(bounds)), np.asarray(expected.crop(bounds)))
+    for bounds in ((4, 4, 50, 25), (68, 48, 427, 84)):
+        np.testing.assert_array_equal(np.asarray(actual.crop(bounds)), np.asarray(expected.crop(bounds)))
 
 
 @pytest.mark.parametrize("state", ("empty", "typed"))
@@ -993,6 +994,20 @@ def test_winxp_run_focus_dots_match_native(native_run_states, visual_output):
         for focus, base in zip(focused, typed, strict=True)
     ]
     exact(*deltas, visual_output / "winxp/run/qt/ok-focus-dots")
+
+
+def test_winxp_run_buttons_match_native_left_edge_and_height(native_run_states):
+    expected, actual, _ = native_run_states("winxp", "typed")
+    for left, right in ((106, 198), (200, 294), (296, 391)):
+        bounds = (left, 137, right, 170)
+        boxes = []
+        for frame in (expected, actual):
+            crop = frame.crop(bounds)
+            background = Image.new("RGB", crop.size, frame.getpixel((0, 0)))
+            box = ImageChops.difference(crop, background).getbbox()
+            assert box is not None
+            boxes.append((box[0], box[1], box[3]))
+        assert boxes[0] == boxes[1]
 
 
 def test_winxp_run_default_rim_follows_keyboard_focus(native_run_states, visual_output):
@@ -1295,7 +1310,7 @@ def desktop_scenes(installed, visual_output):
         if samples != "desktop_samples":
             output /= samples
         output.mkdir(parents=True, exist_ok=True)
-        settings = ()
+        settings = tuple(spec["run"].get("settings", {}).items()) if scene == "run" else ()
         if scene == "focused-wallpaper":
             backdrop_file = output / "focus-wallpaper.png"
             image = Image.new("RGB", (width, height), "#305068")
@@ -1307,6 +1322,7 @@ def desktop_scenes(installed, visual_output):
             look, scale, aero_background=backdrop, screen=(width, height),
             components=components, launchers=tuple(spec["launchers"]), settings=settings,
         )
+        focus_computer = ("move:40,18", "click:left", "move:400,300", "wait:0.5")
         if scene in ("menu", "hover"):
             x, y = width // 3, height // 3
             opening = right_click_at(x, y)
@@ -1324,11 +1340,11 @@ def desktop_scenes(installed, visual_output):
             idle.save(output / "idle-screen.png")
             menu.save(output / "menu-screen.png")
             # The clock and desktop icons are outside the part occupied by the popup.
-            region = (round(x * scale) - 10, 0, menu.width, menu.height - 52)
+            region = (round(x * scale) - 10, max(round(y * scale) - 10, 0), menu.width, menu.height - 52)
             changed = ImageChops.difference(idle.crop(region), menu.crop(region)).getbbox()
             assert changed is not None, f"The desktop right click opened no menu. See {output}"
             left, top, right, bottom = changed
-            bounds = (left + region[0], top, right + region[0], bottom)
+            bounds = (left + region[0], top + region[1], right + region[0], bottom + region[1])
             return idle, menu.crop(bounds), bounds
         if scene == "run":
             history = session.work / HOME_AFTER_SETUP / ".config/chicago95/run-history"
@@ -1337,7 +1353,7 @@ def desktop_scenes(installed, visual_output):
             left, top, right, bottom = (round(value / scale) for value in spec["run"]["bounds"])
             result = show(
                 session, windows=[("Run", "run", (left, top, right - 1, bottom - 1))], scale=scale,
-                active_window="", window_state=True,
+                active_window="", window_state=True, pointer_steps=focus_computer,
             )
             windows = [
                 json.loads(line.split("c95-window ", 1)[1])
@@ -1350,7 +1366,7 @@ def desktop_scenes(installed, visual_output):
             before_focus = ("move:400,300", "wait:0.5", "snapshot:before-focus") if scene == "focused-wallpaper" else ()
             result = show(
                 session, windows=[], scale=scale,
-                pointer_steps=(*before_focus, "move:40,18", "click:left", "move:400,300", "wait:0.5"),
+                pointer_steps=(*before_focus, *focus_computer),
             )
             if scene == "focused-wallpaper":
                 with Image.open(session.work / "before-focus.png") as before:
@@ -1427,17 +1443,30 @@ def test_win95_populated_taskbar_captions(qt_app, desktop_scenes):
         np.testing.assert_array_equal(np.asarray(actual.crop(caption)), np.asarray(expected.crop(caption)))
 
 
-def test_win95_desktop_computer_has_native_size_and_no_shadow(desktop_scenes, visual_output):
-    folder, _ = THEMES["win95"]
-    actual = desktop_scenes("win95", "focused-desktop")
+@pytest.mark.parametrize(("theme", "scene"), (("win95", "focused-desktop"), ("win98", "run")))
+def test_win9x_desktop_computer_has_native_size_and_no_shadow(theme, scene, desktop_scenes, visual_output):
+    folder, _ = THEMES[theme]
+    actual = desktop_scenes(theme, scene)
     # The crop includes the teal around all four edges, where the icon shadow
     # used to be visible.
     bounds = (0, 0, 96, 36)
     with Image.open(folder / "desktop.png") as expected:
         exact(
             expected.convert("RGB").crop(bounds), actual.crop(bounds),
-            visual_output / "win95/desktop/plasma/idle/my-computer-icon",
+            visual_output / theme / "desktop/plasma/idle/my-computer-icon",
         )
+
+
+@pytest.mark.parametrize(("icon", "top", "bottom"), (
+    ("my-documents", 0, 36), ("my-computer", 92, 129), ("my-network-places", 187, 223),
+))
+def test_win2k_desktop_icons_match_native_pixels(icon, top, bottom, desktop_scenes, visual_output):
+    folder, _ = THEMES["win2k"]
+    bounds = (0, top, 80, bottom)
+    actual = rgb565(desktop_scenes("win2k", "menu")[0])
+    with Image.open(folder / "desktop.png") as expected:
+        exact(expected.convert("RGB").crop(bounds), actual.crop(bounds),
+              visual_output / "win2k/desktop/plasma/idle" / f"{icon}-icon")
 
 
 def test_win95_desktop_computer_label_has_focus_without_a_shadow(desktop_scenes):
@@ -1683,6 +1712,18 @@ def device_manager_command_band(request, tmp_path_factory):
 def test_device_manager(device_manager_command_band, visual_output):
     theme, expected, actual = device_manager_command_band
     exact(expected, actual, visual_output / theme / "device-manager" / "qt")
+
+
+@pytest.mark.parametrize("device_manager_command_band", ("winxp",), indirect=True)
+def test_luna_device_manager_menu_text_matches_native(device_manager_command_band, qt_app):
+    from PySide6.QtGui import QFontDatabase
+
+    if not QFontDatabase.hasFamily("Tahoma"):
+        pytest.skip("Import the original font with setup/import-windows-nt-fonts.py")
+    _, expected, actual = device_manager_command_band
+    bounds = (0, 3, 150, 20)
+    masks = [np.all(np.asarray(image.crop(bounds)) == 0, axis=2) for image in (expected, actual)]
+    np.testing.assert_array_equal(*masks)
 
 
 def test_win9x_device_manager_refresh_caption_matches_native(device_manager_command_band, qt_app):
@@ -2899,7 +2940,7 @@ def test_file_manager_navigation(theme, installed, visual_output):
     thunar_log = session.work / "thunar.log"
     if thunar_log.is_file():
         shutil.copyfile(thunar_log, output / thunar_log.name)
-    with Image.open(folder / "file-manager/navigation.png") as reference:
+    with Image.open(folder / metadata.get("file_manager_gtk3_reference", "file-manager/navigation.png")) as reference:
         expected = reference.convert("RGB")
     assert frame.is_file(), f"Missing Thunar capture. See {output}"
     with Image.open(frame) as screen:
@@ -2988,7 +3029,11 @@ def gtk4_file_manager(installed, visual_output):
     return capture
 
 
-@pytest.mark.parametrize("theme", [name for name, (_, meta) in THEMES.items() if "file_manager_scale" in meta])
+@pytest.mark.parametrize(
+    "theme",
+    [name for name, (_, meta) in THEMES.items()
+     if "file_manager_scale" in meta and f"{name}/file-manager/gtk4/navigation" not in RETIRED_CASES],
+)
 def test_file_manager_navigation_gtk4(theme, gtk4_file_manager):
     folder, metadata = THEMES[theme]
     screen, output = gtk4_file_manager(theme)

@@ -67,10 +67,10 @@ RunLayout = namedtuple(
 LAYOUTS = {
     "aero": RunLayout((379, 194), (12, 22), (60, 21), (12, 82), (60, 77), 305, 22, 147, (104, 194, 284), 0, 35),
     "classic": RunLayout((341, 139), (11, 19), (55, 18), (11, 66), (54, 61), 275, 21, 103, (93, 174, 255), 1, 30),
-    "win98-hidpi": RunLayout((362, 136), (10, 16), (57, 17), (11, 65), (57, 60), 293, 19, 101, (99, 185, 271), 1, 30),
+    "win98-hidpi": RunLayout((362, 136), (10, 18), (57, 17), (11, 65), (57, 60), 293, 19, 101, (99, 185, 271), 1, 30),
     "nt-classic": RunLayout((341, 155), (11, 19), (54, 18), (11, 66), (54, 61), 275, 21, 115, (93, 174, 255), 1, 30),
     "luna": RunLayout((341, 154), (11, 19), (54, 18), (11, 66), (54, 60), 275, 21, 114, (93, 174, 255), 0, 30),
-    "luna-hidpi": RunLayout((318, 152), (9, 17), (49, 16), (8, 63), (50, 59), 256, 19, 112, (88, 163, 239), 0, 30),
+    "luna-hidpi": RunLayout((318, 152), (9, 17), (49, 16), (8, 63), (50, 59), 256, 19, 112, (87, 162, 238), 0, 30),
 }
 NT_PROMPT = "Type the name of a program, folder, document, or\nInternet resource, and {os} will open it for you."
 PROMPTS = {
@@ -234,6 +234,50 @@ class DefaultOutline(QWidget):
         painter.fillRect(self.rect(), QColor("#000000"))
 
 
+class NativeRunIcon(QLabel):
+    """Keep the original 32 physical pixels on the screen grid at 120 DPI."""
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        transform = painter.deviceTransform()
+        scale = transform.m11()
+        origin = transform.map(QPointF())
+        painter.translate((round(origin.x()) - origin.x() + 1) / scale,
+                          (round(origin.y()) - origin.y()) / scale)
+        painter.scale(1 / scale, 1 / scale)
+        painter.drawPixmap(0, 0, self.pixmap())
+
+
+class NativeRunPrompt(QLabel):
+    """Wrap the prompt using the same pixel advances used to draw its letters."""
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        scale = painter.deviceTransform().m11()
+        font = self.font()
+        font_text = chicago95ui.win9x_bitmap_text
+        lines = []
+        for paragraph in self.text().splitlines():
+            line = ""
+            for word in paragraph.split():
+                candidate = f"{line} {word}" if line else word
+                if line and font_text(candidate, font, scale, mnemonics=False)[1] > self.width() * scale:
+                    lines.append(line)
+                    line = word
+                else:
+                    line = candidate
+            lines.append(line)
+        if not lines:
+            return
+        _, _, ascent, descent = font_text(lines[0], font, scale, mnemonics=False)
+        line_height = ascent + descent
+        baseline = (round(self.height() * scale) - len(lines) * line_height) // 2 + ascent
+        painter.setPen(self.palette().windowText().color())
+        for line in lines:
+            chicago95ui.paint_win9x_bitmap_text(painter, line, font, 0, baseline / scale, mnemonics=False)
+            baseline += line_height
+
+
 class AeroRunContent(QWidget):
     def paintEvent(self, _event):
         painter = QPainter(self)
@@ -269,7 +313,7 @@ class LunaRunButton(QPushButton):
         painter = QPainter(self)
         transform = painter.deviceTransform()
         inverse, _ = transform.inverted()
-        frame = transform.mapRect(QRectF(self.rect())).toRect().adjusted(2, 3, -2, -3)
+        frame = transform.mapRect(QRectF(self.rect())).toRect().adjusted(3, 3, -2, -3)
         x, y, right, bottom = frame.getCoords()
         # XP uses the dialog face as an XOR mask for its one-pixel focus dots.
         painter.setCompositionMode(QPainter.RasterOp_SourceXorDestination)
@@ -324,6 +368,26 @@ class RunHistoryField(QComboBox):
         if self.count():
             self.opening.emit()
         super().showPopup()
+
+
+class AeroRunHistoryField(RunHistoryField):
+    """Draw the edit border on the 144-DPI device grid."""
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        transform = painter.deviceTransform()
+        bounds = transform.mapRect(QRectF(self.rect())).toRect()
+        inverse, _ = transform.inverted()
+        x, y, width, height = bounds.getRect()
+        edges = (
+            (x, y, width, 1, "#3D7BAD"),
+            (x, y + 1, 1, height - 2, "#B5CFE7"),
+            (x + width - 1, y + 1, 1, height - 2, "#A4C9E3"),
+            (x, y + height - 1, width, 1, "#B7D9ED"),
+        )
+        for left, top, wide, tall, colour in edges:
+            painter.fillRect(inverse.mapRect(QRectF(left, top, wide, tall)), QColor(colour))
 
 
 class RunHistoryScrollBar(QScrollBar):
@@ -447,7 +511,7 @@ class RunBehaviour:
             self.resize_body(*self.layout.body)
         if self.luna_hidpi:
             self.layout = LAYOUTS["luna-hidpi"]
-            self.button_size = (69, 22)
+            self.button_size = (70, 22)
             self.resize_body(*self.layout.body)
         elif self.layout_scale == 1.25 and self.style in ("2000", "2001"):
             self.layout = self.layout._replace(field_width=256)
@@ -502,7 +566,7 @@ class RunBehaviour:
             body.setFont(font)
         elif self.native_font is not None:
             body.setFont(self.native_font)
-        icon = QLabel(body)
+        icon = NativeRunIcon(body) if self.win98_hidpi else QLabel(body)
         filenames = {"aero": "aero-run.svg", "2001": "xp-run.svg", "luna": "xp-run.svg"}
         filename = filenames.get(self.style, "classic-run.svg")
         roots = (Path(__file__).resolve().parents[1] / "data/run", Path.home() / ".local/share/chicago95/run")
@@ -516,11 +580,8 @@ class RunBehaviour:
         if self.win98_hidpi:
             # At 120 DPI the native hourglass keeps its 32 physical pixels.
             pixmap = graphic.pixmap(QSize(32, 32), 1.0)
-            pixmap.setDevicePixelRatio(scale)
             icon.setPixmap(pixmap)
-            side = ceil(32 / scale)
-            icon.setFixedSize(side, side)
-            icon.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+            icon.setFixedSize(ceil(33 / scale), ceil(32 / scale))
         else:
             pixmap = graphic.pixmap(QSize(32, 32), scale)
             if self.style == "aero" and scale == 1.5 and asset and asset.suffix == ".png":
@@ -531,7 +592,8 @@ class RunBehaviour:
             icon.setPixmap(pixmap)
             icon.setFixedSize(32, 32)
         icon.move(*layout.icon_at)
-        prompt = QLabel(chicago95ui.fill_placeholders(PROMPTS[self.style], self.look), body)
+        prompt_class = NativeRunPrompt if self.win98_hidpi and self.native_font is not None else QLabel
+        prompt = prompt_class(chicago95ui.fill_placeholders(PROMPTS[self.style], self.look), body)
         prompt.setWordWrap(True)
         prompt.setGeometry(
             layout.text_at[0], layout.text_at[1], layout.body[0] - layout.text_at[0] - 12, layout.prompt_height
@@ -542,7 +604,7 @@ class RunBehaviour:
             prompt.move(prompt.pos() - QPoint(1, 1))
             open_label.move(open_label.pos() - QPoint(0, 2))
         elif self.native_font is not None:
-            prompt.move(prompt.pos() + QPoint(1, -1))
+            prompt.move(prompt.pos() + QPoint(0 if self.win98_hidpi else 1, -1))
             open_label.move(open_label.pos() - QPoint(0, 2))
         elif native_tahoma and self.layout_scale == 1:
             rise = 2 if self.style == "luna" else 1
@@ -553,13 +615,16 @@ class RunBehaviour:
             open_label.move(open_label.pos() + QPoint(1, -1))
         elif self.style == "aero" and QFontDatabase.hasFamily("Segoe UI"):
             prompt.move(prompt.pos() + QPoint(-1, 1))
-        self.field = chicago95ui.classic_combo(RunHistoryField(body))
+        field_type = AeroRunHistoryField if self.style == "aero" and scale == 1.5 else RunHistoryField
+        self.field = chicago95ui.classic_combo(field_type(body))
         open_label.setBuddy(self.field)
         self.field.setEditable(True)
         self.field.setInsertPolicy(QComboBox.NoInsert)
         self.field.addItems(self.history)
         self.field.setGeometry(*layout.field_at, layout.field_width, layout.field_height)
-        if native_96dpi and self.style == "1995":
+        if self.win98_hidpi:
+            self.field.lineEdit().setTextMargins(-2, 0, 0, 0)
+        elif native_96dpi and self.style == "1995":
             # The original edit control starts its insertion caret next to the inner bevel.
             self.field.lineEdit().setTextMargins(-2, -1, 0, 1)
         if self.style in ("1995", "1998"):
@@ -589,12 +654,18 @@ class RunBehaviour:
             palette.setColor(QPalette.WindowText, QColor("#000000"))
             popup.setPalette(palette)
         if self.aero_content is not None:
-            arrow = asset.with_name("aero-down.svg").as_posix()
-            self.field.setStyleSheet("""
-                QComboBox { background: #ffffff; border: 1px solid #b5cfe7;
-                            border-top-color: #3d7db7; padding-left: 3px; }
-                QComboBox::drop-down { border: none; width: 15px; }
-            """ + f'QComboBox::down-arrow {{ image: url("{arrow}"); width: 8px; height: 6px; }}')
+            arrow = next((root / "aero-down.svg" for root in roots if (root / "aero-down.svg").is_file()), None)
+            arrow_rule = (
+                f'QComboBox::down-arrow {{ image: url("{arrow.as_posix()}"); width: 8px; height: 6px; }}'
+                if arrow is not None else ""
+            )
+            border = "transparent" if field_type is AeroRunHistoryField else "#b5cfe7"
+            top = "transparent" if field_type is AeroRunHistoryField else "#3d7db7"
+            self.field.setStyleSheet(f"""
+                QComboBox {{ background: #ffffff; border: 1px solid {border};
+                             border-top-color: {top}; padding-left: 3px; }}
+                QComboBox::drop-down {{ border: none; width: 15px; }}
+            """ + arrow_rule)
             self.field.lineEdit().setFont(body.font())
         self.field.lineEdit().textEdited.connect(self.search)
         self.field.lineEdit().installEventFilter(self)

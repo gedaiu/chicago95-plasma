@@ -466,6 +466,8 @@ def large_caption_glyph(kind, colours, prefix, x0, pixel_density=None, *, crisp=
                 (10.5 / 14, 223),
                 (13.5 / 14, 216),
             )
+        if crisp and kind == "close":
+            samples = tuple((at, min(255, shade + 2)) for at, shade in samples)
         stops_markup = "".join(
             f'<stop offset="{at}" stop-color="#{shade:02x}{shade:02x}{shade:02x}"/>' for at, shade in samples
         )

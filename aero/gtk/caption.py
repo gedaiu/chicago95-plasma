@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "aurorae"))
-from make_aero_aurorae import AURORAE_STATES, BUTTON_FACES, button_state, palette  # noqa: E402
+from make_aero_aurorae import AURORAE_STATES, BUTTON_FACES, button_state, caption_rim, palette  # noqa: E402
 
 CELL_WIDTHS = {
     **palette.BUTTON_WIDTHS,
@@ -28,6 +28,33 @@ def write_face(directory, kind, state, width, artwork, large_artwork=None):
         (directory / f"{kind}-{state}{suffix}.svg").write_text(svg)
 
 
+def gtk4_close_highlight(width, look):
+    """Keep the optical Close highlight visible on GTK's client-side glass."""
+    pixel = FACE_HEIGHT / 30
+    if look == "disabled":
+        return (
+            f'<path d="M{2 * pixel:g} {pixel / 2:g}H{width - 2 * pixel:g}" '
+            f'stroke="#F5F7F9" stroke-width="{pixel:g}"/>'
+        )
+    if look not in ("hot", "pressed"):
+        return ""
+    return (
+        f'<path d="M{pixel:g} {FACE_HEIGHT - pixel / 2:g}H{width - 3:g}" '
+        f'stroke="#EC9C8C" stroke-width="{pixel:g}"/>'
+    )
+
+
+def gtk4_disabled_close_glass(width):
+    """Supply the lit glass below the disabled face where GTK has no DWM backdrop."""
+    rim = caption_rim(0, 0, width, FACE_HEIGHT, 0, 2) + "Z"
+    return (
+        '<linearGradient id="disabledGlass" x2="0" y2="1">'
+        '<stop stop-color="#76A4C9"/><stop offset="1" stop-color="#6696BF"/>'
+        '</linearGradient>',
+        f'<path d="{rim}" fill="url(#disabledGlass)"/>',
+    )
+
+
 def write_caption_faces(directory, gtk4=False):
     directory.mkdir(parents=True, exist_ok=True)
     for kind in BUTTON_FACES:
@@ -41,6 +68,12 @@ def write_caption_faces(directory, gtk4=False):
                 kind, window, look, "face", large=True, cell_width=width, pixel_density=pixel_density,
                 crisp_glyph=gtk4 and kind == "close" and look in ("hot", "pressed"),
             )
+            if gtk4 and kind == "close" and window == "active":
+                if look == "disabled":
+                    glass_defs, glass = gtk4_disabled_close_glass(width)
+                    large_defs += glass_defs
+                    large_shapes = glass + large_shapes
+                large_shapes += gtk4_close_highlight(width, look)
             write_face(
                 directory,
                 kind,

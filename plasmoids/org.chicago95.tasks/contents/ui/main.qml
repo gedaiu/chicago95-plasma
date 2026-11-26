@@ -493,8 +493,7 @@ PlasmoidItem {
                         target: cell.item
                         property: "iconSize"
                         when: Plasmoid.configuration.taskbarStyle === "classic"
-                        value: Plasmoid.configuration.look === "1998" && Plasmoid.configuration.referenceDpi === 120
-                            ? 16 / 1.25 : 16
+                        value: root.metrics.iconSize
                     }
                     Binding {
                         target: cell.item

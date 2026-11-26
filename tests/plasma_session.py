@@ -478,6 +478,7 @@ def install(
         systemd_run.chmod(0o755)
     link_user_assets(home)
     (home / ".config/plasma-welcomerc").write_text("[General]\nShouldShow=false\nLastSeenVersion=99.0.0\n")
+    (home / ".config/networkmanagement.notifyrc").write_text("[Event/LimitedConnectivity]\nAction=\n")
     for size in TEST_ICON_SIZES:
         folder = work / f"data/icons/hicolor/{size}x{size}/apps"
         folder.mkdir(parents=True, exist_ok=True)

@@ -30,6 +30,8 @@ Item {
     readonly property bool win95DeviceGrid: look === "1995" && pixelScale === 1.25
     readonly property bool usesWin98Inset: look === "1998" && pixelScale === 1.25
     readonly property string nativeStartFont: {
+        if (isXpClassic)
+            return Qt.fontFamilies().includes("Tahoma") ? "Tahoma" : "";
         if (pixelScale !== 1.25 || (look !== "1995" && look !== "1998"))
             return "";
         const family = "Chicago95 Windows " + look.slice(2) + " 120 DPI";
@@ -47,7 +49,7 @@ Item {
     readonly property int trailingFace: bevel !== "2000" ? 0 : isXpClassic ? -2 : 1
     // The text's advance runs 3px past its last stroke: the original's face before the bevel.
     implicitWidth: contentX + content.implicitWidth + (label.visible ? 0 : 3) + 2 + trailingFace
-        + (win95DeviceGrid ? -1 / pixelScale : nativeStartFont ? 2 : 0)
+        + (win95DeviceGrid ? -1 / pixelScale : usesWin98Inset && nativeStartFont ? 2 : 0)
     implicitHeight: buttonHeight
 
     Item {
@@ -174,9 +176,11 @@ Item {
                 font.pixelSize: 11
                 font.letterSpacing: button.nativeStartFont ? 0 : 0.5
                 leftPadding: button.win95DeviceGrid && button.nativeStartFont ? 0.125 : 0
-                font.hintingPreference: button.nativeStartFont ? Font.PreferNoHinting : Font.PreferDefaultHinting
+                font.hintingPreference: button.nativeStartFont
+                    ? (button.isXpClassic ? Font.PreferFullHinting : Font.PreferNoHinting)
+                    : Font.PreferDefaultHinting
                 transform: Translate {
-                    x: button.nativeStartFont ? -1 / button.pixelScale : 0
+                    x: button.nativeStartFont && !button.isXpClassic ? -1 / button.pixelScale : 0
                     y: x
                 }
                 color: button.textColor

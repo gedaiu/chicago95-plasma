@@ -308,11 +308,26 @@ def crisp_icon(icon):
     return QIcon(CrispIconEngine(icon))
 
 
-def bitmap_icon(path):
-    """Load a PNG and its sibling frames named with a size in pixels."""
-    icon = QIcon(str(path))
-    for variant in sorted(path.parent.glob(f"{path.stem}-*px.png")):
-        icon.addFile(str(variant))
+RGB555_LEVELS = bytes((value & 248) | (value >> 5) for value in range(256))
+
+
+def bitmap_icon(path, *, rgb555=False):
+    """Load a PNG and its sized variants, with the original ImageList colour depth when requested."""
+    icon = QIcon()
+    for variant in (path, *sorted(path.parent.glob(f"{path.stem}-*px.png"))):
+        if not rgb555:
+            icon.addFile(str(variant))
+            continue
+        image = QImage(str(variant)).convertToFormat(QImage.Format_RGBA8888)
+        if image.isNull():
+            continue
+        # Windows 2000's Control Panel ImageList expands its 15-bit colours
+        # on display, retaining the transparent mask from the icon resource.
+        pixels = bytearray(image.bits())
+        for channel in range(3):
+            pixels[channel::4] = pixels[channel::4].translate(RGB555_LEVELS)
+        image.bits()[:] = pixels
+        icon.addPixmap(QPixmap.fromImage(image))
     return icon
 
 
@@ -568,9 +583,9 @@ def win9x_ui_font(look, scale):
 
 
 @functools.lru_cache(maxsize=64)
-def win9x_bitmap_text(text, font, scale):
+def win9x_bitmap_text(text, font, scale, *, mnemonics=True):
     """Build the imported strike's glyphs and mnemonic on the device-pixel grid."""
-    label, _, mnemonic = text.partition("&")
+    label, _, mnemonic = text.partition("&") if mnemonics else (text, "", "")
     raw = QRawFont.fromFont(font)
     raw.setPixelSize(font.pixelSize() * scale)
     glyphs = raw.glyphIndexesForString(label + mnemonic)
@@ -586,11 +601,11 @@ def win9x_bitmap_text(text, font, scale):
     return path, x, round(raw.ascent()), round(raw.descent())
 
 
-def paint_win9x_bitmap_text(painter, text, font, x, baseline):
+def paint_win9x_bitmap_text(painter, text, font, x, baseline, *, mnemonics=True):
     """Draw the strike from a baseline snapped to a physical pixel."""
     transform = painter.deviceTransform()
     scale = transform.m11()
-    path, _, _, _ = win9x_bitmap_text(text, font, scale)
+    path, _, _, _ = win9x_bitmap_text(text, font, scale, mnemonics=mnemonics)
     origin = transform.map(QPointF(x, baseline))
     painter.save()
     painter.translate(x + (floor(origin.x() + 0.5) - origin.x()) / scale,
@@ -629,6 +644,13 @@ def ui_font(pixel_size=11, bold=False, *, look=None):
     if family == UI_FONT_FAMILY:  # said either way: a font that leaves it open inherits the application font's choice
         font.setStyleStrategy(QFont.NoAntialias if float(screen_scale()).is_integer() else QFont.PreferAntialias)
     return font
+
+
+def device_grid_font(font, scale):
+    """Use the nearest whole-pixel strike when painting text in device coordinates."""
+    snapped = QFont(font)
+    snapped.setPixelSize(round(font.pixelSize() * scale))
+    return snapped
 
 
 def apply_style(app):
@@ -1557,7 +1579,14 @@ class ClassicDialog(QDialog):
             painter.fillRect(w - 1 - depth, depth, 1, h - 2 * depth, bottom_right)
         painter.restore()
         title, close = self.title_rect(), self.close_rect()
-        gradient = QLinearGradient(title.left(), 0, close.left() - 2, 0)
+        gradient_start, gradient_end = title.left(), close.left() - 2
+        if self.help_button and self.style in NT_CLASSIC_FONT_FAMILIES:
+            gradient_end = self.help_rect().left() - 2
+            if self.style == "2001":
+                # Match XP's blend across the face behind the caption buttons.
+                gradient_start += 1.5
+                gradient_end += 3.25
+        gradient = QLinearGradient(gradient_start, 0, gradient_end, 0)
         state = (
             "active" if self.isActiveWindow() else "inactive"
         )  # only the active window's title is in the active colours

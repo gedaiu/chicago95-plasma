@@ -419,6 +419,8 @@ def render(manifest, component, output, width, height, scale_override=None):
         )
         settings = Path(output).with_name("look.conf")
         choices = {**panel.LOOK_PRESETS[look], "LOOK": look}
+        if component == "display-properties":
+            choices.update(metadata.get("display_appearance_colours", {}))
         if blank_saver:
             choices.update(SAVER="deepstars", IDLE_MIN="10")
         panel.write_settings(settings, choices)

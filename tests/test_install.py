@@ -2776,7 +2776,8 @@ def test_thunar_restores_its_standard_navigation_after_leaving_aero(tmp_path, st
     }
 
 
-def test_thunar_leaves_custom_navigation_alone_outside_aero(tmp_path):
+@pytest.mark.parametrize(("style", "look"), (("luna", "luna"), ("classic", "1995")))
+def test_thunar_leaves_custom_navigation_alone_outside_aero(tmp_path, style, look):
     profile = tmp_path / ".config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml"
     profile.parent.mkdir(parents=True)
     saved = (
@@ -2784,8 +2785,24 @@ def test_thunar_leaves_custom_navigation_alone_outside_aero(tmp_path):
         '<property name="last-toolbar-items" type="string" value="back:1,location-bar:1,menu:1"/></channel>'
     )
     profile.write_text(saved)
-    run_bash_with_steps(tmp_path, "SETUP_HAS_THUNAR=1 SETUP_WIDGET_STYLE=luna step_explorer")
+    run_bash_with_steps(tmp_path, f"SETUP_HAS_THUNAR=1 SETUP_WIDGET_STYLE={style} SETUP_LOOK={look} step_explorer")
     assert profile.read_text() == saved
+
+
+def test_thunar_win95_places_the_address_before_the_actions_and_restores_the_default(tmp_path):
+    from xml.etree import ElementTree
+
+    profile = tmp_path / ".config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml"
+    profile.parent.mkdir(parents=True)
+    profile.write_text('<channel><property name="last-view" type="string" value="ThunarDetailsView"/></channel>')
+    run_bash_with_steps(tmp_path, "SETUP_HAS_THUNAR=1 SETUP_WIDGET_STYLE=classic SETUP_LOOK=1995 step_explorer")
+    values = {item.get("name"): item.get("value") for item in ElementTree.parse(profile).getroot()}
+    assert values["last-toolbar-items"].startswith("location-bar:1,open-parent:1,undo:1,")
+    assert values["misc-small-toolbar-icons"] == "true"
+    run_bash_with_steps(tmp_path, "SETUP_HAS_THUNAR=1 SETUP_WIDGET_STYLE=classic SETUP_LOOK=1998 step_explorer")
+    assert {item.get("name"): item.get("value") for item in ElementTree.parse(profile).getroot()} == {
+        "last-view": "ThunarDetailsView",
+    }
 
 
 def test_choosing_windows_7_frames_after_the_luna_look_selects_the_aero_decoration(tmp_path):

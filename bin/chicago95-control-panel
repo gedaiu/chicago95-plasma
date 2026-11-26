@@ -65,6 +65,8 @@ from PySide6.QtGui import (
     QPalette,
     QPen,
     QPixmap,
+    QTextLayout,
+    QTextOption,
 )
 from PySide6.QtQuickWidgets import QQuickWidget
 from PySide6.QtSvg import QSvgRenderer
@@ -797,7 +799,7 @@ AERO_CATEGORY_STYLE = (
 )
 
 # Minimum card heights measured by the native heading intervals, excluding the 6 px gap.
-AERO_CATEGORY_HEIGHTS = (80, 80, 102, 0, 61, 83, 0, 0)
+AERO_CATEGORY_HEIGHTS = (80, 80, 98, 0, 61, 80, 0, 0)
 # Windows 7 lists these categories down the left column, then down the right.
 AERO_CATEGORIES = {
     "System and Security": (
@@ -3129,10 +3131,10 @@ class AppearancePreview(QWidget):
     def show_colors(self, active, inactive, desktop, look):
         self.active, self.inactive, self.desktop, self.look = active, inactive, desktop, look
         if self.classic_sheet and look in ("1995", "1998", "2000"):
-            # At 120 DPI the Win95 border starts between two logical pixels.
+            # At 120 DPI the Win9x border starts between two logical pixels.
             # Reserve enough logical width to paint the whole left edge.
             size = self.CLASSIC_SHEET_SIZE
-            self.setFixedSize(size + QSize(1, 0) if look == "1995" else size)
+            self.setFixedSize(size + QSize(1, 0) if look in ("1995", "1998") else size)
             self.sample_windows = self.CLASSIC_SHEET_WINDOWS
         elif look == "1998":
             # Native 96-DPI Display Properties, measured from the SE guest.
@@ -3155,15 +3157,15 @@ class AppearancePreview(QWidget):
                 return native
         return chicago95ui.ui_font(size, bold=bold)
 
-    def native_win95_font(self, system=False):
-        if not self.classic_sheet or self.look != "1995":
+    def native_win9x_font(self, system=False):
+        if not self.classic_sheet or self.look not in ("1995", "1998"):
             return None
         scale = chicago95ui.window_scale(self)
         if not system:
             return chicago95ui.win9x_ui_font(self.look, scale)
         if scale not in (1, 1.25):
             return None
-        family = "Chicago95 Windows 95 System" + (" 120 DPI" if scale == 1.25 else "")
+        family = f"Chicago95 Windows {self.look[-2:]} System" + (" 120 DPI" if scale == 1.25 else "")
         if not QFontDatabase.hasFamily(family):
             return None
         font = QFont(family)
@@ -3173,8 +3175,8 @@ class AppearancePreview(QWidget):
 
     def paintEvent(self, _event):
         painter = QPainter(self)
-        if self.classic_sheet and self.look == "1995" and painter.deviceTransform().m11() == 1.25:
-            self.paint_win95_preview(painter)
+        if self.classic_sheet and self.look in ("1995", "1998", "2000") and painter.deviceTransform().m11() == 1.25:
+            self.paint_classic_preview(painter)
             return
         painter.fillRect(self.rect(), QColor(self.desktop.split(",")[0]))
         self.sunken(painter, self.rect())
@@ -3185,8 +3187,8 @@ class AppearancePreview(QWidget):
         self.window(painter, message, "Message Box", self.active, buttons=1)
         self.message(painter, message)
 
-    def paint_win95_preview(self, painter):
-        """The Win95 property sheet draws its preview frame and controls in device pixels."""
+    def paint_classic_preview(self, painter):
+        """Draw the classic property sheet preview on its device-pixel grid."""
         preview = QRect(0, 0, 474, 238)
         transform = painter.deviceTransform()
         scale = transform.m11()
@@ -3213,11 +3215,11 @@ class AppearancePreview(QWidget):
                 painter.fillRect(rect.adjusted(1, 1, -2, -2), face)
 
         def text(caption, x, baseline, colour, *, bold=False, system=False):
-            font = self.native_win95_font(system)
+            font = self.native_win9x_font(system)
             if font is None:
-                font = self.sample_font(13 if system else 11, bold=bold)
-                font.setPixelSize(round(font.pixelSize() * scale))
-                painter.setFont(font)
+                system_size = system and self.look != "2000"
+                font = self.sample_font(13 if system_size else 11, bold=bold or system and self.look == "2000")
+                painter.setFont(chicago95ui.device_grid_font(font, scale))
                 painter.setPen(colour)
                 painter.drawText(x, baseline, caption)
                 return
@@ -3261,12 +3263,17 @@ class AppearancePreview(QWidget):
                                   round(active.width() / scale), round(active.height() / scale))
         title(active, "Active Window", self.active, 3, 20, 58, white)
 
-        chosen = self.palette().highlight()
-        painter.fillRect(QRect(149, 66, 70, 22), chosen)
+        selected = QRect(143, 66, 67, 22) if self.look == "2000" else QRect(149, 66, 70, 22)
+        if self.look != "1995":
+            bevel(selected, shadow, white)
+            painter.fillRect(selected.adjusted(1, 1, -1, -1), face)
+        else:
+            painter.fillRect(selected, self.palette().highlight())
         text("Normal", 26, 81, black)
         text("Disabled", 87, 82, white)
         text("Disabled", 86, 81, shadow)
-        text("Selected", 157, 81, self.palette().highlightedText().color())
+        text("Selected", selected.left() + 8, 81,
+             black if self.look != "1995" else self.palette().highlightedText().color())
 
         client = QRect(18, 89, 446, 113)
         bevel(client, shadow, white)
@@ -3318,7 +3325,7 @@ class AppearancePreview(QWidget):
         title = QRect(rect.left() + 4, rect.top() + 4, rect.width() - 8, self.TITLE_HEIGHT)
         self.fill_preview_title(painter, title, colours)
         painter.setPen(QColor("#FFFFFF") if colours is self.active else QColor(LOOK_FACES.get(self.look, CLASSIC_FACE)))
-        font = self.native_win95_font()
+        font = self.native_win9x_font()
         if font is not None:
             font.setBold(True)
             baseline = title.top() + 12 - (0.8 if buttons == 1 else 0)
@@ -3359,7 +3366,7 @@ class AppearancePreview(QWidget):
     def menu_and_text(self, painter, rect):
         menu = QRect(rect.left() + 4, rect.top() + 4 + self.TITLE_HEIGHT + 1, rect.width() - 8, 18)
         painter.setFont(self.sample_font())
-        caption_pixel = 1 / painter.deviceTransform().m22() if self.native_win95_font() else 0
+        caption_pixel = 1 / painter.deviceTransform().m22() if self.native_win9x_font() else 0
         x = menu.left() + 6
         for word, kind in (("Normal", "normal"), ("Disabled", "disabled"), ("Selected", "selected")):
             width = painter.fontMetrics().horizontalAdvance(word) + 12
@@ -3405,7 +3412,7 @@ class AppearancePreview(QWidget):
                     arrow.center().x() - half_width, arrow.top() + 6 + row, 2 * half_width + 1, 1, Qt.black
                 )
         painter.setPen(QColor("#000000"))
-        system = self.native_win95_font(system=True)
+        system = self.native_win9x_font(system=True)
         if system is not None:
             chicago95ui.paint_win9x_bitmap_text(painter, "Window Text", system, text.left(), text.top() + 14)
         else:
@@ -3415,7 +3422,7 @@ class AppearancePreview(QWidget):
     def message(self, painter, rect):
         painter.setFont(self.sample_font())
         painter.setPen(QColor("#000000"))
-        if font := self.native_win95_font():
+        if font := self.native_win9x_font():
             chicago95ui.paint_win9x_bitmap_text(painter, "Message Text", font, rect.left() + 5, rect.top() + 33.5)
         else:
             painter.drawText(rect.adjusted(8, 4 + self.TITLE_HEIGHT + 4, 0, 0), Qt.AlignTop | Qt.AlignLeft, "Message Text")
@@ -3513,7 +3520,7 @@ class TabRows(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.names, self.selected, self.rows = [], 0, []
-        self.native_win95_captions = False
+        self.native_win9x_captions = False
 
     def add_tab(self, name):
         self.names.append(name)
@@ -3526,8 +3533,8 @@ class TabRows(QWidget):
     def relayout(self):
         metrics = QFontMetrics(self.font())
         widths = [tab_width(metrics, name) for name in self.names]
-        if self.native_win95_captions:
-            # Win95's Display tabs allow five logical pixels on either side.
+        if self.native_win9x_captions:
+            # The Win9x Display tabs allow five logical pixels on either side.
             widths = [width - 2 for width in widths]
         self.rows = rows_for_selected(tab_rows(widths, max(self.width() - 2 * TAB_INSET, 1)), self.selected)
         self.setFixedHeight(len(self.rows) * TAB_ROW_HEIGHT + TAB_RISE + TAB_SEAM)
@@ -3564,7 +3571,7 @@ class TabRows(QWidget):
                 rect = rect.adjusted(0, 0, 0, -TAB_SEAM)
             paint_tab(painter, rect, self.palette(), index == self.selected)
             caption = self.names[index]
-            if self.native_win95_captions:
+            if self.native_win9x_captions:
                 painter.setPen(self.palette().windowText().color())
                 scale = painter.deviceTransform().m11()
                 _, width, _, _ = chicago95ui.win9x_bitmap_text(caption, self.font(), scale)
@@ -3719,7 +3726,7 @@ class AeroCategoryHeading(QPushButton):
         self.setAutoDefault(True)
         self.setCursor(Qt.PointingHandCursor)
         font = self.font()
-        font.setStretch(98)
+        font.setStretch(108)
         self.setFont(font)
 
     def event(self, event):
@@ -3803,14 +3810,15 @@ class AeroCategoryView(QWidget):
 class ClassicAppletDelegate(QStyledItemDelegate):
     """Draw applet art on the native icon grid at fractional desktop scales."""
 
-    def __init__(self, view, artwork, *, xp_classic=False, win9x=False, win2000=False):
+    def __init__(self, view, artwork, *, xp_classic=False, xp_luna=False, win9x=False, win2000=False):
         super().__init__(view)
         self.artwork = artwork
         self.xp_classic = xp_classic
+        self.xp_luna = xp_luna
         self.win9x = win9x
         self.win2000 = win2000
 
-    def win2000_icon_origin(self, transform, item_rect, icon, side):
+    def device_icon_origin(self, transform, item_rect, icon, side):
         view = self.parent()
         grid = view.gridSize()
         scroll_x, scroll_y = view.horizontalOffset(), view.verticalOffset()
@@ -3823,6 +3831,22 @@ class ClassicAppletDelegate(QStyledItemDelegate):
             round(origin.x() - side / 2) + column * round(grid.width() * transform.m11()),
             round(origin.y()) + row * round(grid.height() * transform.m22()),
         )
+
+    @staticmethod
+    def paint_device_caption(painter, caption, font, centre, top, width, colour):
+        options = QTextOption(Qt.AlignHCenter)
+        options.setWrapMode(QTextOption.WrapAtWordBoundaryOrAnywhere)
+        for paragraph in caption.splitlines():
+            layout = QTextLayout(paragraph, font)
+            layout.setTextOption(options)
+            layout.beginLayout()
+            while (line := layout.createLine()).isValid():
+                line.setLineWidth(width)
+                line.setPosition(QPointF(0, top))
+                top += round(line.height())
+            layout.endLayout()
+            painter.setPen(colour)
+            layout.draw(painter, QPointF(centre - width / 2, 0))
 
     def paint(self, painter, option, index):
         art = self.artwork.get(index.data(Qt.UserRole).name)
@@ -3838,6 +3862,15 @@ class ClassicAppletDelegate(QStyledItemDelegate):
         icon = style.subElementRect(QStyle.SE_ItemViewItemDecoration, item, item.widget)
         artwork = QIcon(item.icon)
         item.icon = QIcon()
+        scale = painter.deviceTransform().m11()
+        view = self.parent()
+        xp = self.xp_classic or self.xp_luna
+        look = "2001" if xp else "2000"
+        native_caption = ((self.win2000 or xp) and view.viewMode() == QListView.IconMode
+                          and scale == 1.25 and item.font.family() == chicago95ui.NT_CLASSIC_FONT_FAMILIES[look])
+        caption = item.text
+        if native_caption:
+            item.text = ""
         style.drawControl(QStyle.CE_ItemViewItem, item, painter, item.widget)
 
         transform = painter.deviceTransform()
@@ -3848,11 +3881,13 @@ class ClassicAppletDelegate(QStyledItemDelegate):
         left = round(centre.x() - side / 2)
         top = round(centre.y() - side / 2)
         if self.xp_classic and transform.m11() == 1.25:
-            # XP Classic's 120-DPI icon grid is one device pixel to the left.
-            left -= 1
-        view = self.parent()
-        if self.win2000 and view.viewMode() == QListView.IconMode and not view.gridSize().isEmpty():
-            left, top = self.win2000_icon_origin(transform, option.rect, icon, side)
+            # XP Classic's icon grid uses one extra device row above the glyph.
+            top += 1
+        device_grid = self.win2000 or (self.xp_luna and scale == 1.25)
+        if device_grid and view.viewMode() == QListView.IconMode and not view.gridSize().isEmpty():
+            left, top = self.device_icon_origin(transform, option.rect, icon, side)
+            if self.xp_luna:
+                top += 1
         elif self.win9x and view.viewMode() == QListView.IconMode and not view.horizontalScrollBar().value():
             # Explorer rounds the cell pitch in device pixels before advancing to the next column.
             width = view.gridSize().width()
@@ -3864,6 +3899,21 @@ class ClassicAppletDelegate(QStyledItemDelegate):
         inverse, _ = transform.inverted()
         bitmap = artwork.pixmap(QSize(side, side), 1.0)
         painter.drawPixmap(inverse.mapRect(square), bitmap, QRectF(bitmap.rect()))
+        if native_caption:
+            painter.save()
+            painter.setTransform(inverse, True)
+            font = chicago95ui.device_grid_font(item.font, scale)
+            if self.xp_luna:
+                font.setStyleStrategy(QFont.NoAntialias)
+                font.setHintingPreference(QFont.PreferFullHinting)
+                font.setKerning(False)
+            caption_gap = 6 if xp else 3
+            self.paint_device_caption(
+                painter, caption, font,
+                left + side / 2, top + side + caption_gap, round(view.gridSize().width() * scale),
+                item.palette.text().color(),
+            )
+            painter.restore()
 
 
 class AeroAppletDelegate(QStyledItemDelegate):
@@ -3970,9 +4020,10 @@ class PropertiesPage(QWidget):
         self.tabs = window_chrome().tab_control()
         self.settings_tabs = [tab for _name, tab in tabs]
         self.classic_display = title == "Display" and bool(tabs) and is_classic_display(self.settings_tabs[0].saved)
-        win95_display = self.classic_display and self.settings_tabs[0].saved.get("LOOK") == "1995"
+        display_look = self.settings_tabs[0].saved.get("LOOK") if self.classic_display else None
         native_font = None
         self.luna_display = title == "Display" and chicago95ui.luna_widgets()
+        xp_display = self.luna_display or display_look == "2001"
         aero_taskbar = title == "Taskbar" and chicago95ui.widget_style() == "aero"
         if self.luna_display:
             font = chicago95ui.ui_font()
@@ -3983,14 +4034,14 @@ class PropertiesPage(QWidget):
             font = chicago95ui.ui_font()
             font.setFamilies(["Segoe UI", "Selawik", "Noto Sans"])
             self.setFont(font)
-        elif win95_display:
+        elif display_look in ("1995", "1998"):
             # The preview already uses the imported strike. Give the sheet's
             # tabs and controls the same font and let them size to its metrics.
-            native_font = chicago95ui.win9x_ui_font("1995", chicago95ui.window_scale(self))
+            native_font = chicago95ui.win9x_ui_font(display_look, chicago95ui.window_scale(self))
             if native_font is not None:
                 self.setFont(native_font)
                 if isinstance(self.tabs, TabControl):
-                    self.tabs.bar.native_win95_captions = True
+                    self.tabs.bar.native_win9x_captions = True
         for name, tab in tabs:
             area = tab if title == "Themes" else scrolling(tab)
             if title == "Display":
@@ -3998,7 +4049,7 @@ class PropertiesPage(QWidget):
                 area.setMinimumSize(tab.minimumSizeHint().expandedTo(tab.minimumSize()))
             self.tabs.addTab(area, name)
             tab.changed.connect(self.refresh_apply_button)
-            if name == "Appearance" and getattr(tab, "win95_appearance", False):
+            if name == "Appearance" and getattr(tab, "focus_scheme_on_entry", False):
                 index = self.tabs.count() - 1
 
                 def focus_scheme(current, appearance=index, scheme=tab.scheme):
@@ -4006,7 +4057,7 @@ class PropertiesPage(QWidget):
                         scheme.setFocus(Qt.TabFocusReason)
 
                 self.tabs.currentChanged.connect(focus_scheme)
-            if self.luna_display and name == "Settings":
+            if xp_display and name == "Settings":
                 def queue_slider_focus(_index, slider=tab.screen_area.slider):
                     def focus_slider():
                         if slider.isVisible():
@@ -4022,7 +4073,7 @@ class PropertiesPage(QWidget):
         self.preview_timer.timeout.connect(self.refresh_previews)
         self.refresh_previews()
         self.ok_button = chicago95ui.dialog_button("OK")
-        if self.luna_display or aero_taskbar:
+        if xp_display or aero_taskbar or display_look == "2000":
             self.ok_button.setDefault(True)
         self.cancel_button = chicago95ui.dialog_button("Cancel")
         self.apply_button = chicago95ui.dialog_button("&Apply", enabled=False)
@@ -4213,8 +4264,8 @@ def control_panel_asset(name):
     return (checkout if checkout.is_dir() else CHICAGO95_DATA / "control-panel") / name
 
 
-def control_panel_bitmap_icon(name):
-    return chicago95ui.bitmap_icon(control_panel_asset(name))
+def control_panel_bitmap_icon(name, *, xp_grid=False):
+    return chicago95ui.bitmap_icon(control_panel_asset(name), rgb555=xp_grid or name.startswith("native/win2k/"))
 
 
 def control_panel_art(name):
@@ -4900,18 +4951,22 @@ def appearance_tab(settings, actions, *, luna_sheet=False):
     colours, Scheme with Save As and Delete, and Item with the chosen part's settings."""
     tab = SettingsTab(settings, actions)
     classic_sheet = is_classic_display(settings) and settings.get("LOOK") != "2001"
-    win95 = tab.win95_appearance = classic_sheet and settings.get("LOOK") == "1995"
-    tab.outer.setContentsMargins(*(13 if win95 else 14, 8, 13, 8) if classic_sheet else (12, PAGE_INSETS[1], 12, PAGE_INSETS[3]))
+    look = settings.get("LOOK")
+    win95 = classic_sheet and look == "1995"
+    win9x = classic_sheet and look in ("1995", "1998")
+    win2000 = classic_sheet and look == "2000"
+    compact = tab.focus_scheme_on_entry = win9x or win2000
+    tab.outer.setContentsMargins(*(13, 8, 13, 8) if classic_sheet else (12, PAGE_INSETS[1], 12, PAGE_INSETS[3]))
     if classic_sheet:
         tab.outer.setSpacing(9)
-        tab.form.setVerticalSpacing(4 if win95 else 5)
+        tab.form.setVerticalSpacing(4)
     start = LOOK_PRESETS["1995"]
     tab.preview = AppearanceSwitch(classic_sheet, luna_sheet=luna_sheet)
     tab.previews.append(tab.preview)
-    tab.outer.insertWidget(0, tab.preview, alignment=Qt.AlignRight if win95 else Qt.Alignment())
+    tab.outer.insertWidget(0, tab.preview, alignment=Qt.AlignRight if win9x else Qt.Alignment())
     tab.scheme = chicago95ui.classic_combo(QComboBox())
     for label, value in [*START_MENU_STYLES, ("Custom", "custom")]:
-        tab.scheme.addItem("Windows Standard" if win95 and value == "1995" else label, value)
+        tab.scheme.addItem("Windows Standard" if (win95 or win2000) and value == look else label, value)
     tab.save_as_button = chicago95ui.dialog_button("Sa&ve As...", enabled=False)
     tab.delete_button = chicago95ui.dialog_button("&Delete", enabled=False)
     tab.items = chicago95ui.classic_combo(QComboBox())
@@ -4958,14 +5013,14 @@ def appearance_tab(settings, actions, *, luna_sheet=False):
         scheme_row.setSpacing(0)
         tab.save_as_button.setFixedSize(80, 22)
         tab.delete_button.setFixedSize(80, 22)
-    if win95 and chicago95ui.win9x_ui_font("1995", chicago95ui.window_scale(tab)) is not None:
+    if win9x and chicago95ui.win9x_ui_font(look, chicago95ui.window_scale(tab)) is not None:
         tab.scheme.setProperty("classicLabelDeviceOffset", QPoint(-1, -1))
         tab.items.setProperty("classicLabelDeviceOffset", QPoint(-2, 0))
         for button in (tab.save_as_button, tab.delete_button):
             button.setProperty("classicLabelDeviceOffset", QPoint(0, -2))
-    if win95:
+    if compact:
         tab.scheme.setFixedHeight(19)
-    scheme_row.addWidget(tab.scheme, 1, Qt.AlignTop if win95 else Qt.Alignment())
+    scheme_row.addWidget(tab.scheme, 1, Qt.AlignTop if compact else Qt.Alignment())
     if classic_sheet:
         scheme_row.addSpacing(7)
     scheme_row.addWidget(tab.save_as_button)
@@ -4977,12 +5032,12 @@ def appearance_tab(settings, actions, *, luna_sheet=False):
         item_row.setSpacing(7)
     scheme_label = buddy_label("&Scheme:", tab.scheme)
     if classic_sheet:
-        scheme_label.setIndent(0 if win95 else 1)
+        scheme_label.setIndent(0)
     tab.form.addRow(scheme_label)
     tab.form.addRow(scheme_row)
     if classic_sheet:
-        item_row.setContentsMargins(0, 3 if win95 else 5, 0, 0)
-        item_row.addLayout(appearance_column("&Item:", tab.items, 208, indent=0 if win95 else 1))
+        item_row.setContentsMargins(0, 3, 0, 0)
+        item_row.addLayout(appearance_column("&Item:", tab.items, 208, indent=0))
         item_row.addWidget(tab.item_editors, 1, Qt.AlignBottom)
     else:
         tab.form.addRow(buddy_label("&Item:", tab.items))
@@ -4993,14 +5048,14 @@ def appearance_tab(settings, actions, *, luna_sheet=False):
     font = chicago95ui.classic_combo(QComboBox())
     font.setEnabled(False)
     if classic_sheet:
-        font_row.setContentsMargins(0, 5 if win95 else 6, 0, 0)
+        font_row.setContentsMargins(0, 5, 0, 0)
         font_row.setSpacing(7)
         sizes, colours = disabled_appearance_combo(), disabled_appearance_combo()
-        if win95:
+        if compact:
             for combo in (font, sizes, colours):
                 combo.setFixedHeight(19)
-        font_row.addLayout(appearance_column("&Font:", font, 208, indent=0 if win95 else 1,
-                                              label_enabled=True if win95 else None))
+        font_row.addLayout(appearance_column("&Font:", font, 208, indent=0,
+                                              label_enabled=True if win9x else None))
         font_row.addLayout(appearance_column("Size:", sizes, 60))
         font_row.addLayout(appearance_column("Color:", colours, 44))
         style_row = QHBoxLayout()
@@ -5015,7 +5070,7 @@ def appearance_tab(settings, actions, *, luna_sheet=False):
     for caption in ("B", "I"):
         style_button = QPushButton(caption)
         style_button.setFixedSize(20, 21)
-        if win95:
+        if compact:
             style_font = style_button.font()
             style_font.setItalic(caption == "I")
             style_button.setFont(style_font)
@@ -5263,7 +5318,8 @@ def display_settings_tab(settings, actions):
     luna = chicago95ui.luna_widgets()
     xp = luna or (is_classic_display(settings) and settings.get("LOOK") == "2001")
     if xp:
-        tab.outer.setContentsMargins(14, 32, 14, 3 if luna else 9)
+        side_margin = 14 if luna else 13
+        tab.outer.setContentsMargins(side_margin, 32, side_margin, 3 if luna else 9)
         tab.monitor = QSvgWidget()
         desktop = desktop_colour(settings).split(",")[0]
         art = control_panel_art("xp-display-monitor.svg").replace(b"#3a6ea5", desktop.encode("ascii"))
@@ -5294,7 +5350,7 @@ def display_settings_tab(settings, actions):
         colour_combo.addItem("Unknown" if xp else "True Color (32 bit)")
     colour_layout.addWidget(colour_combo)
     if xp:
-        tab.outer.insertSpacing(1, 32 if luna else 35)
+        tab.outer.insertSpacing(1, 32)
         tab.form.setVerticalSpacing(3)
         tab.form.addRow(QLabel("Display:"))
         tab.form.addRow(tab.display_name)
@@ -5311,10 +5367,13 @@ def display_settings_tab(settings, actions):
     area_layout = QVBoxLayout(area)
     area_layout.addWidget(tab.screen_area)
     row = QHBoxLayout()
+    if xp and not luna:
+        row.setSpacing(12)
     row.addWidget(area if xp else colours, 1)
     row.addWidget(colours if xp else area, 1)
     if xp:
-        tab.outer.insertSpacing(tab.outer.count() - 1, 6 if luna else 11)
+        if not luna:
+            tab.outer.insertSpacing(tab.outer.count() - 1, 8)
         area_layout.setContentsMargins(7 if luna else 9, 2, 9, 9)
         tab.screen_area.slider.setTickPosition(QSlider.TicksBelow)
     tab.outer.insertLayout(tab.outer.count() - 1, row)
@@ -5655,7 +5714,7 @@ def effects_tab(settings, actions):
     classic_display = is_classic_display(settings)
     compact = luna_display or classic_display
     if compact:
-        margin = 4 if classic_display and settings.get("LOOK") == "1995" else 6
+        margin = 4 if classic_display else 6
         tab.outer.setContentsMargins(10, margin, 10, margin)
         tab.outer.setSpacing(3)
     tab.classic_button = chicago95ui.dialog_button("&Classic")
@@ -5691,7 +5750,7 @@ def effects_tab(settings, actions):
     return tab
 
 
-def luna_display_tabs(settings, actions):
+def xp_display_tabs(settings, actions):
     """The XP Display sheet places Themes first and opens Effects from Appearance."""
     appearance = appearance_tab(settings, actions, luna_sheet=True)
     themes = SettingsTab(settings, actions)
@@ -5833,14 +5892,15 @@ def background_tab(settings, actions, *, colour_field=None):
     Wallpaper list with (None) first, Browse..., Pattern... and Display. The desktop colour is Appearance's."""
     tab = SettingsTab(settings, actions)
     luna = chicago95ui.luna_widgets()
-    if luna:
+    xp = luna or colour_field is not None
+    if xp:
         tab.outer.setContentsMargins(14, 31, 14, 8)
         tab.outer.insertSpacing(0, 16)
         tab.form.setVerticalSpacing(4)
     patterns = background_patterns(settings)
-    tab.monitor = MonitorPreview(desktop_colour(settings), luna=luna)
+    tab.monitor = MonitorPreview(desktop_colour(settings), luna=xp)
     tab.outer.insertWidget(0, tab.monitor, 0, Qt.AlignHCenter)
-    if not luna:
+    if not xp:
         tab.group("Wallpaper")
     tab.wallpapers = QListWidget()
     tab.wallpapers.addItem(QListWidgetItem(QIcon.fromTheme("dialog-cancel"), "(None)"))
@@ -5853,7 +5913,7 @@ def background_tab(settings, actions, *, colour_field=None):
         tab.display.addItem(label, value)
     side = QVBoxLayout()
     side.addWidget(browse)
-    if luna:
+    if xp:
         tab.wallpapers.setIconSize(QSize(16, 16))
         tab.wallpapers.setFixedHeight(112)
         browse.setFixedSize(78, 21)
@@ -5878,9 +5938,9 @@ def background_tab(settings, actions, *, colour_field=None):
     row = QHBoxLayout()
     row.addWidget(tab.wallpapers, 1)
     row.addLayout(side)
-    tab.form.addRow(buddy_label("&Background:" if luna else "&Select a picture:", tab.wallpapers))
+    tab.form.addRow(buddy_label("&Background:" if xp else "&Select a picture:", tab.wallpapers))
     tab.form.addRow(row)
-    if luna:
+    if xp:
         tab.form.addRow(tab.pattern_button)
     pattern = {"name": "none"}
 
@@ -6594,7 +6654,9 @@ class ControlPanel(QMainWindow):
             view.setItemDelegate(AeroAppletDelegate(view))
         elif self.xp:
             art_by_applet = XP_APPLET_ART
-            view.setItemDelegate(ClassicAppletDelegate(view, art_by_applet, xp_classic=not self.xp_luna))
+            view.setItemDelegate(
+                ClassicAppletDelegate(view, art_by_applet, xp_classic=not self.xp_luna, xp_luna=self.xp_luna)
+            )
         elif self.win95 or self.uses_web_view:
             art_by_applet = WIN95_APPLET_ART if self.win95 else WIN98_APPLET_ART if self.win98 else WIN2000_APPLET_ART
             view.setItemDelegate(
@@ -6609,7 +6671,7 @@ class ControlPanel(QMainWindow):
         view.setLineWidth(2)
         for applet in self.applets:
             art = art_by_applet.get(applet.name)
-            icon = control_panel_bitmap_icon(art) if art else themed_icon(applet.icon_names)
+            icon = control_panel_bitmap_icon(art, xp_grid=self.xp) if art else themed_icon(applet.icon_names)
             item = QListWidgetItem(icon, applet.name)
             item.setData(Qt.UserRole, applet)
             view.addItem(item)
@@ -6862,7 +6924,9 @@ class ControlPanel(QMainWindow):
         widget.setStyleSheet(AERO_CATEGORY_STYLE)
         widget.setObjectName("categoryView")
         layout = QHBoxLayout(widget)
-        layout.setContentsMargins(70, 12, 70, 12)
+        # At 144 DPI the native two-column inset leaves the middle split a
+        # physical pixel farther left than Qt's equally rounded columns.
+        layout.setContentsMargins(70, 13, 72 if chicago95ui.window_scale(widget) == 1.5 else 70, 12)
         layout.setSpacing(0)
         for offset in (0, 4):
             column = QVBoxLayout()
@@ -6874,8 +6938,9 @@ class ControlPanel(QMainWindow):
                 card = AeroCategoryCard()
                 card.setMinimumHeight(AERO_CATEGORY_HEIGHTS[index])
                 row = QHBoxLayout(card)
-                row.setContentsMargins(1, 2, 2, 2)
-                row.setSpacing(11)
+                clock = category == "Clock, Language, and Region"
+                row.setContentsMargins(2 if offset == 0 else 0, 2, 2, 0 if clock else 2)
+                row.setSpacing(10 if offset == 0 else 11)
                 picture = QToolButton()
                 picture.setAccessibleName(category)
                 picture.setIcon(control_panel_bitmap_icon(icon))
@@ -6885,10 +6950,13 @@ class ControlPanel(QMainWindow):
                 picture.setFocusPolicy(Qt.NoFocus)
                 row.addWidget(picture, 0, Qt.AlignTop)
                 tasks = QVBoxLayout()
-                tasks.setSpacing(1)
+                tasks.setSpacing(0 if clock else 1)
                 row.addLayout(tasks, 1)
                 row.setAlignment(tasks, Qt.AlignTop)
                 heading = AeroCategoryHeading(category)
+                if chicago95ui.window_scale(widget) == 1:
+                    # Match the native heading baseline on the 96-DPI device grid.
+                    heading.setStyleSheet("padding-bottom: 3px;")
                 tasks.addWidget(heading)
                 heading.clicked.connect(lambda _, title=category: self.navigate(HOME_PAGE + (title,)))
                 picture.clicked.connect(heading.click)
@@ -6899,7 +6967,7 @@ class ControlPanel(QMainWindow):
                     button.clicked.connect(lambda _, name=applet, section=tab: self.open_category_task(name, section))
                     tasks.addWidget(button)
                 column.addWidget(card)
-                if category != "Clock, Language, and Region":
+                if not clock:
                     column.addSpacing(6)
             column.addStretch()
         return widget
@@ -7448,8 +7516,10 @@ class ControlPanel(QMainWindow):
 
     def build_sheet(self, applet_name):
         settings = read_settings(self.settings_path)
-        if applet_name == "Display" and chicago95ui.luna_widgets():
-            tabs = luna_display_tabs(settings, self.actions)
+        if applet_name == "Display" and (
+            chicago95ui.luna_widgets() or settings.get("LOOK") == "2001" and is_classic_display(settings)
+        ):
+            tabs = xp_display_tabs(settings, self.actions)
         else:
             names = PAGE_TABS[applet_name]
             if applet_name == "Display" and settings.get("LOOK") == "1995" and is_classic_display(settings):

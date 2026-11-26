@@ -6,6 +6,7 @@
   "desktop_samples": {"screen": [1024, 768], "scale": 1.25, "launchers": [], "cursor": [512, 384, 534, 408]},
   "desktop_menu_96dpi": {"screen": [640, 480], "scale": 1, "launchers": []},
   "file_manager_scale": 1.25,
+  "file_manager_gtk3_reference": "file-manager/navigation-toolbar.png",
   "radio_scale": 1,
   "session_screens": {
     "sign-in": {

@@ -12,6 +12,7 @@ from threading import Lock
 from urllib.parse import urlsplit
 
 from PIL import Image
+from report import RETIRED_CASES
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from visual_tolerances import DEFAULT_POLICY, approval_image  # noqa: E402
@@ -20,11 +21,13 @@ EMPTY_POLICY = {"version": 1, "cases": {}}
 
 
 def collect(directories, reviewed=(), initial=None):
-    cases = dict(initial or {})
+    cases = {key: capture for key, capture in (initial or {}).items() if key not in RETIRED_CASES}
     for directory in directories:
         visual = directory / "visual"
         for metrics in sorted(visual.rglob("comparison.metrics.json")):
             key = metrics.parent.relative_to(visual).as_posix()
+            if key in RETIRED_CASES:
+                continue
             try:
                 data = json.loads(metrics.read_text())
             except FileNotFoundError:
@@ -137,7 +140,7 @@ def serve(captures, policy_path, port, *, directories=()):
         write_policy(policy_path, EMPTY_POLICY)
     load_policy(policy_path)
     writes = Lock()
-    initial = captures
+    initial = captures = collect((), initial=captures)
     page = render_page(captures, server=True).encode()
 
     class EditorHandler(BaseHTTPRequestHandler):

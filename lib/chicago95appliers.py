@@ -828,7 +828,7 @@ def desktop_icon_defaults(choices):
         "aero": "recycle",
         "luna": "recycle",
         "1995": "computer,inbox,recycle",
-        "2001": "documents,computer,network,recycle",
+        "2001": "recycle",
     }.get(choices["START_MENU_STYLE"], "computer,documents,network,recycle")
 
 
@@ -888,8 +888,8 @@ DESKTOP_SCRIPT = """desktops().forEach(desktop => {
 """
 
 
-def install_win95_folder_view(setup):
-    """Apply the Win95 icon presentation through a user-local Plasma package."""
+def install_desktop_folder_view(setup):
+    """Apply the desktop icon presentation through a user-local Plasma package."""
     folders = ("org.kde.desktopcontainment", "org.kde.plasma.folder")
     data_dirs = setup.environment.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":")
     source = next(
@@ -901,14 +901,17 @@ def install_win95_folder_view(setup):
     targets = [data_home / "plasma/plasmoids" / name for name in folders]
     if source is None or any((target.exists() or target.is_symlink()) and not setup.installed_by_setup(target)
                              for target in targets):
-        setup.status("Win95 desktop icon styling requires the stock Plasma Folder View package")
+        setup.status("Desktop icon styling requires the stock Plasma Folder View package")
         return False
 
-    # Only the Win95 root Folder View uses these bindings. Keep the upstream
+    # Only the themed root Folder View uses these bindings. Keep the upstream
     # package's interactions and settings for every other view.
-    classic = "Plasmoid.isContainment && Plasmoid.configuration.chicago95Win95Icons"
-    focus_outline = """Win95DesktopFocus {
-                    visible: main.win95Icons && main.selected && label.visible
+    classic = ("Plasmoid.isContainment && (Plasmoid.configuration.chicago95Win95Icons "
+               "|| Plasmoid.configuration.chicago95Win98Icons || Plasmoid.configuration.chicago95Win2000Icons "
+               "|| Plasmoid.configuration.chicago95XpClassicIcons)")
+    native_size = f"({classic}) || (Plasmoid.isContainment && Plasmoid.configuration.chicago95XpLunaIcons)"
+    label_selection = """Win95DesktopFocus {
+                    visible: main.classicIcons && !main.ntIcons && main.selected && label.visible
                     wallpaper: visible ? (Plasmoid.wallpaperGraphicsObject as Item) : null
                     scaleFactor: Plasmoid.configuration.chicago95IconScale
                     itemPosition: Qt.point(main.x, main.y)
@@ -919,15 +922,34 @@ def install_win95_folder_view(setup):
                     height: snap(label.contentHeight + 2)
                 }
 
+                Rectangle {
+                    visible: main.ntIcons && main.selected && label.visible
+                    anchors.centerIn: label
+                    z: label.z - 1
+                    width: Math.min(label.contentWidth, label.width) + 4
+                    height: label.contentHeight + 2
+                    color: Kirigami.Theme.highlightColor
+                }
+
                 """
-    # Place the three Win95 shortcuts once when they occupy the leading slots.
-    arrange_inbox = """onCountChanged: Qt.callLater(placeWin95Inbox)
-                function placeWin95Inbox() {
-                    if (!Plasmoid.isContainment || !Plasmoid.configuration.chicago95Win95Icons
-                        || Plasmoid.configuration.chicago95InboxPositioned || !positioner.enabled
-                        || count < 3 || dir.status !== Folder.FolderModel.Ready) return;
+    # Arrange the supplied shortcuts once when they already occupy the leading slots.
+    arrange_shortcuts = """onCountChanged: Qt.callLater(placeChicago95Shortcuts)
+                function placeChicago95Shortcuts() {
+                    const settings = Plasmoid.configuration;
+                    if (!Plasmoid.isContainment || !positioner.enabled
+                        || dir.status !== Folder.FolderModel.Ready) return;
+                    const win98 = settings.chicago95Win98Icons;
+                    const win2000 = settings.chicago95Win2000Icons;
+                    const positionKey = win2000 ? "chicago95Win2000Positioned"
+                        : win98 ? "chicago95Win98Positioned" : "chicago95InboxPositioned";
+                    if (settings[positionKey] || !(win98 || win2000 || settings.chicago95Win95Icons)) return;
+                    const desired = win2000
+                        ? ["My Documents", "My Computer", "My Network Places", "Recycle Bin"]
+                        : win98
+                        ? ["My Computer", "My Documents", "Recycle Bin", "Network Neighborhood"]
+                        : ["My Computer", "Inbox", "Recycle Bin"];
+                    if (count < desired.length) return;
                     forceLayout();
-                    const desired = ["My Computer", "Inbox", "Recycle Bin"];
                     const current = desired.map((_name, index) => itemAtIndex(index)?.display);
                     if (!desired.every(name => current.includes(name))) return;
                     const moves = [];
@@ -935,8 +957,11 @@ def install_win95_folder_view(setup):
                         const from = current.indexOf(name);
                         if (from !== index) moves.push(from, index);
                     });
-                    Plasmoid.configuration.chicago95InboxPositioned = true;
-                    if (moves.length) positioner.move(moves);
+                    settings[positionKey] = true;
+                    if (moves.length) {
+                        positioner.move(moves);
+                        if (win2000) dir.clearSelection();
+                    }
                 }
 
                 """
@@ -944,15 +969,26 @@ def install_win95_folder_view(setup):
         "config/main.xml": {
             '<group name="General">': '<group name="General">\n'
             '    <entry name="chicago95Win95Icons" type="Bool"><default>false</default></entry>\n'
+            '    <entry name="chicago95Win98Icons" type="Bool"><default>false</default></entry>\n'
+            '    <entry name="chicago95Win2000Icons" type="Bool"><default>false</default></entry>\n'
+            '    <entry name="chicago95XpClassicIcons" type="Bool"><default>false</default></entry>\n'
+            '    <entry name="chicago95XpLunaIcons" type="Bool"><default>false</default></entry>\n'
             '    <entry name="chicago95InboxPositioned" type="Bool"><default>false</default></entry>\n'
+            '    <entry name="chicago95Win98Positioned" type="Bool"><default>false</default></entry>\n'
+            '    <entry name="chicago95Win2000Positioned" type="Bool"><default>false</default></entry>\n'
             '    <entry name="chicago95NativeDesktopFont" type="Bool"><default>true</default></entry>\n'
             '    <entry name="chicago95IconScale" type="Double"><default>1</default></entry>',
         },
         "ui/FolderView.qml": {
-            "signal pressed()": """readonly property string win95DesktopFont: {
-        if (!Plasmoid.isContainment || !Plasmoid.configuration.chicago95Win95Icons
+            "signal pressed()": """readonly property string classicDesktopFont: {
+        if (!Plasmoid.isContainment
             || !Plasmoid.configuration.chicago95NativeDesktopFont) return "";
-        const family = "Chicago95 Windows 95 Desktop"
+        if (Plasmoid.configuration.chicago95Win2000Icons || Plasmoid.configuration.chicago95XpClassicIcons) {
+            const family = Plasmoid.configuration.chicago95XpClassicIcons ? "Tahoma" : "Chicago95 Windows 2000 Tahoma";
+            return Qt.fontFamilies().includes(family) ? family : "";
+        }
+        const edition = Plasmoid.configuration.chicago95Win98Icons ? "98" : "95";
+        const family = "Chicago95 Windows " + edition + " Desktop"
             + (Plasmoid.configuration.chicago95IconScale === 1.25 ? " 120 DPI" : "");
         return Qt.fontFamilies().includes(family) ? family : "";
     }
@@ -961,65 +997,73 @@ def install_win95_folder_view(setup):
             "readonly property int iconSize: root.useListViewMode":
             "readonly property real iconSize: root.useListViewMode",
             ": FolderTools.iconSizeFromTheme(Plasmoid.configuration.iconSize)":
-            f": ({classic} && isRootView\n"
+            f": (({native_size}) && isRootView\n"
             "                    ? 32 / Plasmoid.configuration.chicago95IconScale\n"
             "                    : FolderTools.iconSizeFromTheme(Plasmoid.configuration.iconSize))",
             "const iconHeight = iconSize +":
             f"if ({classic} && isRootView) return 75;\n                        const iconHeight = iconSize +",
-            "currentIndex: -1": arrange_inbox + "currentIndex: -1",
+            "const iconWidth = iconSize +":
+            "if (root.isContainment && isRootView && (Plasmoid.configuration.chicago95Win2000Icons"
+            " || Plasmoid.configuration.chicago95XpClassicIcons)) return 60;\n"
+            "                        const iconWidth = iconSize +",
+            "currentIndex: -1": arrange_shortcuts + "currentIndex: -1",
             "onListingCompleted: {":
-            "onListingCompleted: {\n                Qt.callLater(gridView.placeWin95Inbox);",
+            "onListingCompleted: {\n                Qt.callLater(gridView.placeChicago95Shortcuts);",
             "delegate: FolderItemDelegate {":
-            "delegate: FolderItemDelegate {\n                    win95DesktopFont: main.win95DesktopFont",
+            "delegate: FolderItemDelegate {\n                    classicDesktopFont: main.classicDesktopFont",
         },
         "ui/FolderItemDelegate.qml": {
             "property bool isOnRootView: false":
-            "property bool isOnRootView: false\n    property string win95DesktopFont: \"\"\n"
-            f"    readonly property bool win95Icons: isOnRootView && {classic}",
+            "property bool isOnRootView: false\n    property string classicDesktopFont: \"\"\n"
+            f"    readonly property bool classicIcons: isOnRootView && {classic}\n"
+            f"    readonly property bool nativeIconSize: isOnRootView && ({native_size})\n"
+            "    readonly property bool ntIcons: classicIcons && (Plasmoid.configuration.chicago95Win2000Icons"
+            " || Plasmoid.configuration.chicago95XpClassicIcons)",
             "renderShadow: main.isOnRootView && !renaming":
-            "renderShadow: main.isOnRootView && !renaming && !main.win95Icons",
+            "renderShadow: main.isOnRootView && !renaming && !main.classicIcons",
             "x: root.useListViewMode ? 0 : Kirigami.Units.smallSpacing":
             "x: root.useListViewMode ? 0 : Kirigami.Units.smallSpacing"
-            " + (main.win95Icons ? 1 / Plasmoid.configuration.chicago95IconScale : 0)",
+            " + (main.classicIcons ? (main.ntIcons ? -1 : Plasmoid.configuration.chicago95Win98Icons ? 2 : 1)"
+            " / Plasmoid.configuration.chicago95IconScale : 0)",
             "y: root.useListViewMode ? 0 : Kirigami.Units.smallSpacing":
-            "y: root.useListViewMode ? 0 : main.win95Icons ? 1 / Plasmoid.configuration.chicago95IconScale"
+            "y: root.useListViewMode ? 0 : main.classicIcons ? 1 / Plasmoid.configuration.chicago95IconScale"
             " : Kirigami.Units.smallSpacing",
             "topMargin: Kirigami.Units.smallSpacing\n                        leftMargin:":
-            "topMargin: main.win95Icons ? 1 / Plasmoid.configuration.chicago95IconScale"
+            "topMargin: main.classicIcons ? 1 / Plasmoid.configuration.chicago95IconScale"
             " : Kirigami.Units.smallSpacing\n                        leftMargin:",
             "height: main.GridView.view.iconSize":
             "height: main.GridView.view.iconSize\n"
-            "                    Binding on roundToIconSize { when: main.win95Icons; value: false }",
+            "                    Binding on roundToIconSize { when: main.nativeIconSize; value: false }",
             "label.width: label.parent.width - Kirigami.Units.smallSpacing":
-            "label.width: label.useWin95DesktopFont ? Math.max(84, label.parent.width)\n"
-            "                                    : label.parent.width + (main.win95Icons ? 4 : -Kirigami.Units.smallSpacing)",
+            "label.width: main.ntIcons ? 58 : label.useClassicDesktopFont ? Math.max(84, label.parent.width)\n"
+            "                                    : label.parent.width + (main.classicIcons ? 4 : -Kirigami.Units.smallSpacing)",
             "label.anchors.topMargin: Kirigami.Units.smallSpacing":
-            "label.anchors.topMargin: Kirigami.Units.smallSpacing - (label.useWin95DesktopFont\n"
+            "label.anchors.topMargin: Kirigami.Units.smallSpacing - (label.useClassicDesktopFont\n"
             "                                    ? 1 / label.Plasmoid.configuration.chicago95IconScale : 0)",
             "font.italic: main.isLink":
-            """readonly property bool useWin95DesktopFont: main.win95Icons && main.win95DesktopFont !== ""
+            """readonly property bool useClassicDesktopFont: main.classicIcons && main.classicDesktopFont !== ""
                     // Keep the centered glyph advances from rounding down at 125% scale.
-                    leftPadding: useWin95DesktopFont && Plasmoid.configuration.chicago95IconScale === 1.25 ? 0.125 : 0
-                    Binding on font.italic { when: !label.useWin95DesktopFont; value: main.isLink }
+                    leftPadding: useClassicDesktopFont && Plasmoid.configuration.chicago95IconScale === 1.25 ? 0.125 : 0
+                    Binding on font.italic { when: !label.useClassicDesktopFont; value: main.isLink }
                     Binding on font {
-                        when: label.useWin95DesktopFont
+                        when: label.useClassicDesktopFont
                         value: Qt.font({
-                            family: main.win95DesktopFont,
-                            pixelSize: Plasmoid.configuration.chicago95IconScale === 1.25 ? 11 : 13,
+                            family: main.classicDesktopFont,
+                            pixelSize: main.ntIcons || Plasmoid.configuration.chicago95IconScale === 1.25 ? 11 : 13,
                             italic: main.isLink,
                             kerning: false,
-                            hintingPreference: Font.PreferNoHinting
+                            hintingPreference: main.ntIcons ? Font.PreferFullHinting : Font.PreferNoHinting
                         })
                     }
 """
-            "                    Binding on renderType { when: main.win95Icons; value: Text.NativeRendering }\n"
-            "                    Binding on antialiasing { when: main.win95Icons; value: false }",
+            "                    Binding on renderType { when: main.classicIcons; value: Text.NativeRendering }\n"
+            "                    Binding on antialiasing { when: main.classicIcons; value: false }",
             "if (Plasmoid.isContainment && main.GridView.view.isRootView":
-            "if (!main.win95Icons && Plasmoid.isContainment && main.GridView.view.isRootView",
+            "if (!main.classicIcons && Plasmoid.isContainment && main.GridView.view.isRootView",
             "visible: this === frameLoader.item":
-            "visible: this === frameLoader.item && !main.win95Icons",
+            "visible: this === frameLoader.item && !main.classicIcons",
             "Component {\n                    id: frameComponent":
-            focus_outline + "Component {\n                    id: frameComponent",
+            label_selection + "Component {\n                    id: frameComponent",
         },
     }
     with tempfile.TemporaryDirectory() as directory:
@@ -1055,7 +1099,7 @@ def desktop_icons(setup):
         obsolete.append(("network-neighborhood", "network"))
     if "inbox" not in icons:
         obsolete.append(("inbox", "inbox"))
-    if style == "aero" or (style == "luna" and choices.unset_or("DESKTOP_ICONS", "auto") == "auto"):
+    if style == "aero" or (style in ("2001", "luna") and choices.unset_or("DESKTOP_ICONS", "auto") == "auto"):
         obsolete.extend((("my-computer", "computer"), ("my-documents", "documents"),
                          ("my-network-places", "network"), ("network-neighborhood", "network")))
     for name, icon in obsolete:
@@ -1087,19 +1131,23 @@ def desktop_icons(setup):
             if choices.get("EXPLORER", "thunar") == "dolphin" or choices.get("HAS_THUNAR", "0") != "1":
                 setup.run("sed", "-i", "s|^Exec=.*|Exec=dolphin computer:/|", target)
             setup.run("chmod", "+x", target)
-    win95_icons = style == "1995" and install_win95_folder_view(setup)
+    themed_icons = style in ("1995", "1998", "2000", "2001", "luna") and install_desktop_folder_view(setup)
     if not setup.dry_run and choices["IN_PLASMA"] != "1":
         setup.status("Plasma is not running; the desktop's icon layout is unchanged")
         return
     native_font = choices.unset_or("FONT", "MS W98 UI") == "MS W98 UI" and choices["FONT_SCOPE"] == "everywhere"
     script = DESKTOP_SCRIPT.replace(
         '    desktop.reloadConfig();',
-        f'    desktop.writeConfig("chicago95Win95Icons", {json.dumps(win95_icons)});\n'
+        f'    desktop.writeConfig("chicago95Win95Icons", {json.dumps(themed_icons and style == "1995")});\n'
+        f'    desktop.writeConfig("chicago95Win98Icons", {json.dumps(themed_icons and style == "1998")});\n'
+        f'    desktop.writeConfig("chicago95Win2000Icons", {json.dumps(themed_icons and style == "2000")});\n'
+        f'    desktop.writeConfig("chicago95XpClassicIcons", {json.dumps(themed_icons and style == "2001")});\n'
+        f'    desktop.writeConfig("chicago95XpLunaIcons", {json.dumps(themed_icons and style == "luna")});\n'
         f'    desktop.writeConfig("chicago95NativeDesktopFont", {json.dumps(native_font)});\n'
         f'    desktop.writeConfig("chicago95IconScale", {1.25 if choices.get("DPI") == "120" else 1});\n'
         '    desktop.reloadConfig();',
     )
-    if win95_icons and "inbox" in icons:
+    if themed_icons and style in ("1995", "1998", "2000") and set(desktop_icon_defaults(choices).split(",")).issubset(icons):
         script = script.replace(
             '    desktop.reloadConfig();',
             '    if (Number(desktop.readConfig("sortMode", 0)) === 0) desktop.writeConfig("sortMode", -1);\n'

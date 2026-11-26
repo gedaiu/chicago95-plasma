@@ -20,8 +20,14 @@ Item {
     readonly property real pixelScale: Window.window?.devicePixelRatio ?? Screen.devicePixelRatio
     readonly property bool win95Grid: win9x120 && look === "1995" && pixelScale === 1.25
     readonly property real pixel: 1 / pixelScale
-    readonly property string nativeFont: win95Grid && Qt.fontFamilies().includes("Chicago95 Windows 95 120 DPI")
-        ? "Chicago95 Windows 95 120 DPI" : ""
+    readonly property string nativeFont: {
+        if (look === "2000" || look === "2001") {
+            const family = look === "2001" ? "Tahoma" : "Chicago95 Windows 2000 Tahoma";
+            return Qt.fontFamilies().includes(family) ? family : "";
+        }
+        const family = "Chicago95 Windows " + look.slice(-2) + " 120 DPI";
+        return win9x120 && pixelScale === 1.25 && Qt.fontFamilies().includes(family) ? family : "";
+    }
 
     readonly property int buttonHeight: 22
     readonly property int iconLeft: 4
@@ -88,7 +94,9 @@ Item {
             font.family: task.nativeFont || "MS W98 UI"
             font.pixelSize: 11
             font.bold: task.pressed
-            font.hintingPreference: task.nativeFont ? Font.PreferNoHinting : Font.PreferDefaultHinting
+            font.hintingPreference: task.nativeFont
+                ? (task.look === "2000" || task.look === "2001" ? Font.PreferFullHinting : Font.PreferNoHinting)
+                : Font.PreferDefaultHinting
             color: task.textColor
             elide: Text.ElideRight
             // A pixel font: drawn without smoothing, like the original's text.

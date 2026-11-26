@@ -65,6 +65,10 @@ System Properties, from other pages:
 
 Desktop icons, Run, and the taskbar's menu:
 
+The packaged Windows 2000 desktop icons use the original resource masks and the
+15-bit ImageList palette visible in the guest's RGB565 desktop capture. The
+resource IDs are recorded in `data/desktop-icons/native/sources.tsv`.
+
 | File | Source |
 | --- | --- |
 | `win95emptydesktop.png` | https://guidebookgallery.org/pics/gui/desktop/empty/win95.png (GUIdebook: the Windows 95 desktop with its icons down the left) |
@@ -327,6 +331,11 @@ captures of My Computer opened with Windows+E. Each crop starts at the
 Explorer client and includes its original navigation band. Windows 95
 shows the menu and pane headers with the toolbar hidden. Windows 7 uses
 the 96-DPI navigation strip at `(7, 31)–(527, 63)` from `win7explorer1.png`.
+
+`themes/win95/file-manager/navigation-toolbar.png` is the Windows 95 OSR2
+Explorer client from the local QEMU guest at 800×600, 120 DPI and 256
+colors. The crop at `(58, 82)–(578, 133)` shows the menu and toolbar with
+View > Toolbar enabled. GTK 3 uses this capture for its toolbar comparison.
 
 The `run/history-open.png` and `run/history-down.png` files are unscaled
 guest framebuffer crops of the Run history list after Alt+Down and after

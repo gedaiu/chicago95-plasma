@@ -22,7 +22,7 @@ from pathlib import Path
 
 import chicago95ui  # noqa: E702
 from PySide6.QtCore import QEvent, QItemSelectionModel, QPoint, QPointF, QRect, QRectF, QSize, Qt, QThread
-from PySide6.QtGui import QActionGroup, QBrush, QColor, QFont, QIcon, QPainter, QPen, QPolygon
+from PySide6.QtGui import QActionGroup, QBrush, QColor, QFont, QFontMetrics, QIcon, QPainter, QPalette, QPen, QPolygon
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
     QApplication,
@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
     QRadioButton,
     QStyle,
     QStyleOptionButton,
+    QStyleOptionMenuItem,
     QStyleOptionToolButton,
     QTabWidget,
     QToolBar,
@@ -695,9 +696,9 @@ class XPConsoleBands(QWidget):
             button = self.toolbar.widgetForAction(action)
             if button is None or button.isHidden():
                 continue
-            if action.isSeparator() and not self.luna and scale == 1.25:
+            if action.isSeparator() and not self.luna and scale in (1, 1.25):
                 center = button.mapTo(self, QPoint()).x() + button.width() / 2
-                left = round(center * scale) * pixel
+                left = int(center) if scale == 1 else round(center * scale) * pixel
                 top = seam + 3 * pixel
                 palette = self.palette()
                 painter.fillRect(QRectF(left, top, pixel, 18 * pixel), palette.dark())
@@ -729,6 +730,58 @@ class XPConsoleBands(QWidget):
             pixel = 1 / scale
             rect = QRectF(left, top, width, bottom - top - pixel)
             paint_classic_command(painter, rect, self.palette(), pixel, down, checked, stipple_offset=pixel)
+
+
+class ClassicConsoleMenu(QMenuBar):
+    """The MMC menu captions measured at each Classic reference's DPI."""
+
+    def __init__(self, look, *, luna=False):
+        super().__init__()
+        self.look = look
+        self.luna = luna
+        self.reference_scale = 1.25 if look == "2000" else 1
+
+    def paintEvent(self, event):
+        if (self.devicePixelRatioF() != self.reference_scale
+                or self.font().family() != chicago95ui.NT_CLASSIC_FONT_FAMILIES[self.look]):
+            super().paintEvent(event)
+            return
+        painter = QPainter(self)
+        scale = painter.deviceTransform().m11()
+        for action in self.actions():
+            if not action.isVisible():
+                continue
+            item = QStyleOptionMenuItem()
+            self.initStyleOption(item, action)
+            item.rect = self.actionGeometry(action)
+            label = item.text
+            item.text = ""
+            self.style().drawControl(QStyle.CE_MenuBarItem, item, painter, self)
+            caption = label.replace("&", "")
+            self.paint_caption(painter, item, caption, scale, mnemonic=label.startswith("&"))
+
+    def paint_caption(self, painter, item, caption, scale, *, mnemonic):
+        origin = painter.deviceTransform().map(QPointF(item.rect.topLeft()))
+        font = chicago95ui.device_grid_font(self.font(), scale)
+        metrics = QFontMetrics(font)
+        win2000 = self.look == "2000"
+        inset, baseline = (4, 15) if self.luna else (10, 16)
+        if win2000:
+            inset, baseline = 6.5, 4 + metrics.ascent()
+        x = round(origin.x() + inset) - origin.x()
+        y = round(origin.y()) - origin.y() + baseline
+        colour = item.palette.color(QPalette.Active if item.state & QStyle.State_Enabled else QPalette.Disabled,
+                                    QPalette.ButtonText)
+        painter.save()
+        painter.translate(item.rect.x() + x / scale, item.rect.y() + y / scale)
+        painter.scale(1 / scale, 1 / scale)
+        painter.setFont(font)
+        painter.setPen(colour)
+        painter.drawText(0, 0, caption)
+        if (mnemonic and caption and (win2000 or self.hasFocus())
+                and self.style().styleHint(QStyle.SH_UnderlineShortcut, item, self)):
+            painter.fillRect(0, 1, metrics.horizontalAdvance(caption[0]), 1, colour)
+        painter.restore()
 
 
 class ClassicConsoleBand(QFrame):
@@ -940,7 +993,11 @@ class DeviceManagerWindow(QWidget):
         single_band = console_style == "2000"
         xp_console = console_style in ("2001", "luna")
         scale = self.devicePixelRatioF()
-        menus = QMenuBar()
+        luna_native_menu = console_style == "luna" and scale == 1
+        if classic_nt or luna_native_menu:
+            menus = ClassicConsoleMenu("2001" if luna_native_menu else console_style, luna=luna_native_menu)
+        else:
+            menus = QMenuBar()
         menus.setNativeMenuBar(False)
         menus.setFixedHeight(23)
         toolbar = AeroCommandBar() if self.aero else QToolBar()
@@ -967,7 +1024,8 @@ class DeviceManagerWindow(QWidget):
                 "background: transparent; border: 0;" if single_band
                 else "background: transparent; border-top: 1px solid transparent; border-bottom: 1px solid transparent;"
             )
-            menus.setStyleSheet("QMenuBar {" + bands + "} QMenuBar::item { padding: 2px 6px; }")
+            padding = 8 if console_style == "2001" and scale == 1 else 6
+            menus.setStyleSheet("QMenuBar {" + bands + f"}} QMenuBar::item {{ padding: 2px {padding}px; }}")
             toolbar.setStyleSheet(
                 "QToolBar {" + bands + "padding-left: 2px; spacing: 1px; } "
                 "QToolButton { border: 0; } QToolButton:hover { background: palette(highlight); } "
@@ -988,6 +1046,14 @@ class DeviceManagerWindow(QWidget):
                 QToolBar::separator { width: 7px; }
                 """
             )
+            if luna_native_menu:
+                font = menus.font()
+                font.setPixelSize(11)
+                font.setStyleStrategy(QFont.NoAntialias)
+                font.setHintingPreference(QFont.PreferFullHinting)
+                font.setKerning(False)
+                menus.setFont(font)
+                menus.setStyleSheet(menus.styleSheet() + "QMenuBar::item { padding: 2px 5px; }")
         else:
             menus.setStyleSheet("""
                 QMenuBar { color: black; padding-left: 2px; border-bottom: 1px solid #b4b4b4;
@@ -1011,8 +1077,7 @@ class DeviceManagerWindow(QWidget):
         toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)
         if single_band:
             menus.setFixedWidth(80)
-            font = chicago95ui.ui_font(10, look="2000")
-            font.setHintingPreference(QFont.PreferFullHinting)
+            font = chicago95ui.ui_font(11, look="2000")
             if scale == 1.25:
                 font.setStyleStrategy(QFont.NoAntialias)
             menus.setFont(font)
@@ -1141,8 +1206,8 @@ class DeviceManagerWindow(QWidget):
         )
         if scale == 1.25:
             base += "QToolBar { border: 0; } QToolButton { padding: 0; }"
-            if not luna:
-                base += "QToolBar::separator { border: 0; background: transparent; }"
+        if not luna and scale in (1, 1.25):
+            base += "QToolBar::separator { border: 0; background: transparent; }"
         states = "QToolButton:pressed, QToolButton:checked { padding-left: 2px; }"
         toolbar.setStyleSheet(toolbar.styleSheet() + base + states)
         if scale == 1.25:
@@ -1238,11 +1303,7 @@ class DeviceManagerWindow(QWidget):
             button.setFixedSize(width, 22 if matched_dpi else chicago95ui.DIALOG_BUTTON_SIZE[1])
             if action_font is not None:
                 button.setFont(action_font)
-            button.native_caption = native_font is not None and look == "1995"
-            if native_font is not None and not button.native_caption:
-                # Align the imported strike to the guest's physical caption baseline.
-                left = -2 if matched_dpi and button.isEnabled() else -1
-                button.setProperty("classicLabelDeviceOffset", QPoint(left, -1))
+            button.native_caption = native_font is not None
             action_row.addWidget(button)
         action_row.addStretch()
         layout.addLayout(action_row)

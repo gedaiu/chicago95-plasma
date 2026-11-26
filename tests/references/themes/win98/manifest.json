@@ -9,7 +9,11 @@
     "scale": 1.25,
     "launchers": ["user-desktop", "web-browser", "mail-client"],
     "cursor": [640, 512, 662, 536],
-    "run": {"bounds": [5, 787, 465, 987], "text": "esk.cpl"}
+    "run": {
+      "bounds": [5, 787, 465, 987],
+      "text": "esk.cpl",
+      "settings": {"TITLE_INACTIVE": "#808080", "BANNER_TEXT": "Windows 98"}
+    }
   },
   "file_manager_scale": 1.25,
   "session_screens": {
@@ -50,6 +54,7 @@
   },
   "control_panel_selection": "Display",
   "display_page": "Appearance",
+  "display_appearance_colours": {"TITLE_ACTIVE": "#000080", "TITLE_INACTIVE": "#808080"},
   "display_resolution": "1280x1024",
   "shutdown_scale": 1,
   "shutdown_os_name": "Windows 98",
