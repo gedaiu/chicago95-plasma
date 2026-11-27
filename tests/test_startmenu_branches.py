@@ -1,6 +1,8 @@
 import json
 import os
 import signal
+import subprocess
+import sys
 import time
 
 import chicago95ui
@@ -603,6 +605,22 @@ def test_signal_running_instance_signals_the_process_in_the_pid_file(startmenu, 
         signal.signal(signal.SIGUSR1, previous)
 
     assert (signalled, received) == (True, [signal.SIGUSR1])
+
+
+def test_warm_start_button_click_can_toggle_without_loading_qt(startmenu, tmp_path):
+    # The panel runs the CLI even when the menu is already resident.
+    # -S excludes site packages, so this client cannot import PySide6.
+    received = []
+    previous = signal.signal(signal.SIGUSR1, lambda number, frame: received.append(number))
+    (tmp_path / "chicago95-startmenu.pid").write_text(str(os.getpid()))
+    try:
+        subprocess.run(
+            [sys.executable, "-S", startmenu.__file__], env={**os.environ, "XDG_RUNTIME_DIR": str(tmp_path)},
+            check=True, timeout=5,
+        )
+    finally:
+        signal.signal(signal.SIGUSR1, previous)
+    assert received == [signal.SIGUSR1]
 
 
 @pytest.mark.parametrize("content", [None, "not a pid", "99999999"])

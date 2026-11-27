@@ -180,6 +180,14 @@ def test_a_click_reports_where_it_landed_inside_the_item_so_a_menu_can_open_at_t
     assert (recorded(root, "taps"), recorded(root, "tapPoints")) == ([int(Qt.RightButton.value)], [[7, 9]])
 
 
+def test_first_click_after_dropping_outside_the_taskbar_still_activates_the_button(qt_app, harness):
+    view, root = harness
+    drag(qt_app, view, (5, 14), (5, -15))
+    assert recorded(root, "taps") == []
+    QTest.mouseClick(view, Qt.LeftButton, Qt.NoModifier, QPoint(5, 14))
+    assert recorded(root, "taps") == [int(Qt.LeftButton.value)]
+
+
 def test_the_dragged_item_cannot_leave_its_section(qt_app, harness):
     view, root = harness
     dragged = named(root, "cell0")

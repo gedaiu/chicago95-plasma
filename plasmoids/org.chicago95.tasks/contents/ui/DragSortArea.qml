@@ -41,8 +41,14 @@ MouseArea {
     }
 
     onPressed: mouse => {
+        // A release outside sends no clicked signal. Start this gesture with its own drag state.
+        state.dragged = false;
         state.pressPoint = Qt.point(mouse.x, mouse.y);
         state.grabOffset = mouse.x;
+    }
+    onCanceled: {
+        state.dragging = false;
+        state.slides = true;
     }
     onPositionChanged: mouse => {
         if (!(pressedButtons & Qt.LeftButton))

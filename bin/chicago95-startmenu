@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """Chicago95 style cascading Start menu for Plasma.
 
-The first launch stays resident; later launches just signal it (SIGUSR1) to
-toggle the menu, so the menu opens instantly. Runs under XWayland so the popup
-can be pinned to the screen corner.
+The first launch stays resident. Later launches signal it (SIGUSR1) to toggle the menu.
 """
 
 import configparser
@@ -17,6 +15,26 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
+
+RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
+PID_FILE = RUNTIME_DIR / "chicago95-startmenu.pid"
+
+
+def signal_running_instance():
+    try:
+        other = int(PID_FILE.read_text().strip())
+        if other <= 0:
+            return False
+        os.kill(other, signal.SIGUSR1)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+# A warm click only needs the PID file. Sizing and preview requests need their own Qt instance.
+if __name__ == "__main__" and not {"--root-height", "--screenshot"}.intersection(sys.argv):
+    if signal_running_instance():
+        sys.exit(0)
 
 DEFAULT_BANNER = {
     "bannerText": "Chicago95",
@@ -85,6 +103,7 @@ from PySide6.QtCore import (
     QPropertyAnimation,
     QRect,
     QRectF,
+    QSocketNotifier,
     QStandardPaths,
     Qt,
     QTimer,
@@ -106,8 +125,6 @@ from PySide6.QtGui import (
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QApplication, QMenu, QStyle, QStyleOptionMenuItem, QWidget
 
-RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
-PID_FILE = RUNTIME_DIR / "chicago95-startmenu.pid"
 VISIBLE_BUS_NAME = "org.chicago95.StartMenu.Visible"
 CACHE_FILE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "chicago95-startmenu.json"
 BANNER_WIDTH = round(21 * UI_SCALE)
@@ -1191,15 +1208,6 @@ class StartMenu(QObject):
         self.shield.hide()
 
 
-def signal_running_instance():
-    try:
-        other = int(PID_FILE.read_text().strip())
-        os.kill(other, signal.SIGUSR1)
-        return True
-    except (OSError, ValueError):
-        return False
-
-
 def drawn_root_menu():
     """The root menu with the current settings, laid out but not shown."""
     app = QApplication(sys.argv)
@@ -1237,15 +1245,35 @@ def main():
     app.setDesktopFileName("chicago95-startmenu")
     app.setQuitOnLastWindowClosed(False)
     apply_retro_look(app)
-    PID_FILE.write_text(str(os.getpid()))
     controller = StartMenu(app)
-    signal.signal(signal.SIGUSR1, lambda *_: QTimer.singleShot(0, controller.toggle))
-    heartbeat = chicago95ui.quit_on_signals(app, signal.SIGTERM)  # noqa: F841  kept alive for the event loop
-    if "--daemon" not in sys.argv:
-        QTimer.singleShot(0, controller.show)
-    code = app.exec()
-    PID_FILE.unlink(missing_ok=True)
-    return code
+    # Wake Qt's idle event dispatcher on a click instead of polling for Python signals.
+    read_fd, write_fd = os.pipe2(os.O_NONBLOCK | os.O_CLOEXEC)
+    notifier = QSocketNotifier(read_fd, QSocketNotifier.Read)
+
+    def dispatch():
+        for number in os.read(read_fd, 4096):
+            if number == signal.SIGUSR1:
+                controller.toggle()
+            elif number == signal.SIGTERM:
+                app.quit()
+                return
+
+    notifier.activated.connect(dispatch)
+    previous_fd = signal.set_wakeup_fd(write_fd)
+    previous_handlers = {s: signal.signal(s, lambda *_: None) for s in (signal.SIGUSR1, signal.SIGTERM)}
+    try:
+        PID_FILE.write_text(str(os.getpid()))
+        if "--daemon" not in sys.argv:
+            QTimer.singleShot(0, controller.show)
+        return app.exec()
+    finally:
+        PID_FILE.unlink(missing_ok=True)
+        notifier.setEnabled(False)
+        signal.set_wakeup_fd(previous_fd)
+        for number, handler in previous_handlers.items():
+            signal.signal(number, handler)
+        os.close(read_fd)
+        os.close(write_fd)
 
 
 if __name__ == "__main__":
