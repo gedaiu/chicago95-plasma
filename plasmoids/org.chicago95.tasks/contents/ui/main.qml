@@ -657,6 +657,12 @@ PlasmoidItem {
                             }
                             Binding {
                                 target: tip.item
+                                property: "look"
+                                when: Plasmoid.configuration.taskbarStyle === "classic" && tip.item !== null
+                                value: Plasmoid.configuration.look
+                            }
+                            Binding {
+                                target: tip.item
                                 property: "bevel"
                                 value: tip.bevel
                             }

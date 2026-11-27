@@ -1606,18 +1606,36 @@ def test_classic_desktop_menu_face_matches_the_vm(theme, desktop_scenes):
         assert face(rgb565(rendered)) == face(expected)
 
 
-def test_win95_desktop_menu_lettering_matches_vm(qt_app, desktop_scenes):
+@pytest.mark.parametrize(("theme", "bands"), [
+    ("win95", ((3, 43), (54, 95), (105, 126), (136, 156))),
+    ("win98", ((4, 21), (35, 52), (55, 72), (86, 103), (117, 134), (137, 154), (168, 185), (199, 216))),
+])
+def test_win9x_desktop_menu_lettering_matches_vm(theme, bands, qt_app, desktop_scenes):
     from PySide6.QtGui import QFontDatabase
 
-    if not QFontDatabase.hasFamily("Chicago95 Windows 95 120 DPI"):
+    if not QFontDatabase.hasFamily(f"Chicago95 Windows {theme[-2:]} 120 DPI"):
         pytest.skip("Import the VM fonts with setup/import-win9x-fonts.py")
-    _, actual, _ = desktop_scenes("win95", "menu")
-    with Image.open(THEMES["win95"][0] / "desktop/context-menu.png") as frame:
+    _, actual, _ = desktop_scenes(theme, "menu")
+    with Image.open(THEMES[theme][0] / "desktop/context-menu.png") as frame:
         expected = frame.convert("RGB")
     # All commands, including mnemonic underlines and the white relief on disabled Paste commands.
-    for top, bottom in ((3, 43), (54, 95), (105, 126), (136, 156)):
+    for top, bottom in bands:
         bounds = (22, top, 117, bottom)
         np.testing.assert_array_equal(np.asarray(actual.crop(bounds)), np.asarray(expected.crop(bounds)))
+
+
+def test_win98_desktop_menu_arrows_and_separators_match_vm(desktop_scenes):
+    _, menu, _ = desktop_scenes("win98", "menu")
+    with Image.open(THEMES["win98"][0] / "desktop/context-menu.png") as frame:
+        expected = frame.convert("RGB")
+    assert menu.size == expected.size
+    # Include the empty gutter around each arrow and both ends of every etched rule.
+    arrows = [(118, top, menu.width, top + 20) for top in (2, 33, 166)]
+    separators = [(0, top, menu.width, top + 5) for top in (25, 76, 107, 158, 189)]
+    for bounds in arrows + separators:
+        np.testing.assert_array_equal(
+            np.asarray(menu.crop(bounds)), np.asarray(expected.crop(bounds)), err_msg=f"Menu region {bounds}"
+        )
 
 
 def desktop_hover_row(theme, desktop_scenes, samples="desktop_samples"):
@@ -2387,6 +2405,26 @@ def test_win95_control_panel_menu_grid_and_status_match_vm(state, qt_app, tmp_pa
         np.testing.assert_array_equal(
             np.asarray(actual.crop(bounds)), np.asarray(expected.crop(bounds)), err_msg=f"{state} {region}"
         )
+
+
+@pytest.mark.parametrize("state", ("home", "display-selected"))
+def test_win98_control_panel_applet_grid_matches_vm(state, qt_app, tmp_path):
+    from PySide6.QtGui import QFontDatabase
+
+    if not QFontDatabase.hasFamily("Chicago95 Windows 98 120 DPI"):
+        pytest.skip("Import the VM fonts with setup/import-win9x-fonts.py")
+    folder, _ = THEMES["win98"]
+    home = state == "home"
+    reference = "control-panel.png" if home else "control-panel/display-selected.png"
+    with Image.open(folder / reference) as frame:
+        expected = frame.convert("RGB")
+    output = tmp_path / "panel.png"
+    render_properties(folder, "control-panel" if home else "control-panel-selection", output, expected.size)
+    with Image.open(output) as frame:
+        actual = frame.convert("RGB")
+    # Explorer's right pane contains all 22 applets, their captions and the keyboard focus.
+    viewport = (238, 105, 790, 681)
+    np.testing.assert_array_equal(np.asarray(actual.crop(viewport)), np.asarray(expected.crop(viewport)))
 
 
 @pytest.mark.parametrize("theme", [theme for theme, (_, data) in THEMES.items() if data.get("control_panel_end")])

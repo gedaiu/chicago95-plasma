@@ -192,6 +192,13 @@ def test_start_menu_rows_and_frame_against_vga_guests(startmenu, qt_app, tmp_pat
     native = screenshot(guest + "-start")
     settings = STYLES["1998"]["settings"] if look == "1998" else "[StartMenu]\nstyle=1995\nbannerText=Windows95\n"
     ours = render_start_menu(startmenu, qt_app, tmp_path, settings)
+    from PySide6.QtGui import QFontDatabase
+
+    if QFontDatabase.hasFamily(f"Chicago95 Windows {look[-2:]}"):
+        # The Windows 98 menu has Windows Update above Programs.
+        row = 3 if look == "1995" else 43
+        caption = (66, row + 4, 122, row + 27)
+        assert ours.crop(caption).tobytes() == native.crop(caption).tobytes()
     assert row_pitch(ours) == row_pitch(native) == 32
     assert abs(text_left(ours) - text_left(native)) <= 1
     for x, y in [(0, 20), (1, 20), (-2, 20), (-1, 20), (60, -2), (60, -1)]:

@@ -113,7 +113,6 @@ from PySide6.QtGui import (
     QAction,
     QColor,
     QFont,
-    QFontDatabase,
     QFontMetrics,
     QIcon,
     QKeyEvent,
@@ -138,6 +137,7 @@ ITEM_LEFT_PAD = round(6 * UI_SCALE)
 STYLES = {
     "1995": dict(
         row=32,
+        native_extra_width=19,
         text_gap=5,
         text_drop=1,
         icon_x=34,
@@ -153,6 +153,7 @@ STYLES = {
         text_gap=4,
         text_drop=2,
         extra_width=16,
+        native_extra_width=16,
         icon_x=30,
         banner_font=18,
         banner_stretch=100,
@@ -164,6 +165,7 @@ STYLES = {
     "2000": dict(
         row=32,
         extra_width=19,
+        native_extra_width=16,
         text_gap=4,
         text_drop=2,
         icon_x=30,
@@ -197,6 +199,7 @@ STYLES["2001"] = inherit(
     banner_embolden=0,
     text_drop=1,
     extra_width=21,
+    native_extra_width=9,
     separator_offset=3,
 )
 
@@ -312,6 +315,7 @@ class RetroMenuStyle(chicago95ui.ClassicStyle):
 
     underline_shortcuts = True  # 2000 hides the shortcut letters' underlines until Alt is pressed
     look = "1995"
+    native_font = False
 
     def styleHint(self, hint, option=None, widget=None, returnData=None):
         if hint == QStyle.SH_UnderlineShortcut:
@@ -351,7 +355,9 @@ class RetroMenuStyle(chicago95ui.ClassicStyle):
                 # Give the scaled icon room at higher densities.
                 height = round(style_of(widget)["row"] * UI_SCALE / widget.devicePixelRatioF())
                 result.setHeight(max(ROOT_ICON + 2, height))
-                result.setWidth(result.width() + round(style_of(widget).get("extra_width", 20) * UI_SCALE))
+                style = style_of(widget)
+                margin = style["native_extra_width"] if self.native_font else style.get("extra_width", 20)
+                result.setWidth(result.width() + round(margin * UI_SCALE))
             else:
                 result.setWidth(result.width() + round(16 * UI_SCALE))
                 if self.look in ("1995", "1998") and widget.devicePixelRatioF() == 1.25:
@@ -407,8 +413,10 @@ class RetroMenuStyle(chicago95ui.ClassicStyle):
                 )
                 option.icon = QIcon()
                 style = style_of(widget)
-                drop = round(style["text_drop"] * UI_SCALE)
-                option.rect = option.rect.adjusted(ITEM_LEFT_PAD + round(style["text_gap"] * UI_SCALE), drop, 0, drop)
+                # Qt positions the native faces two pixels below Explorer's root-menu baseline.
+                drop = round((style["text_drop"] - (2 if self.native_font else 0)) * UI_SCALE)
+                gap = style["text_gap"] + (1 if self.native_font and self.look == "2001" else 0)
+                option.rect = option.rect.adjusted(ITEM_LEFT_PAD + round(gap * UI_SCALE), drop, 0, drop)
             else:
                 option.rect = option.rect.adjusted(ITEM_LEFT_PAD, 0, 0, 0)
         super().drawControl(element, option, painter, widget)
@@ -426,6 +434,8 @@ class RetroMenuStyle(chicago95ui.ClassicStyle):
             painter.setPen(Qt.NoPen)
             color = option.palette.color(QPalette.HighlightedText if selected else QPalette.WindowText)
             left, top = widget.width() - round(13 * UI_SCALE), option.rect.center().y() - round(5 * UI_SCALE)
+            if self.native_font:
+                top += round(2 * UI_SCALE)
             unit = max(1, round(UI_SCALE))
             for column in range(4):
                 painter.fillRect(left + column * unit, top + column * unit, unit, (7 - 2 * column) * unit, color)
@@ -534,6 +544,7 @@ class RetroMenu(QMenu):
                 raw_text.strip() if gap is not None else raw_text
             )  # fixed gaps between the parts instead of spaces (2000)
             banner_font = QFont("Arial")
+            banner_font.setHintingPreference(QFont.PreferDefaultHinting)
             size, stretch = (
                 (style["banner_font"], style["banner_stretch"])
                 if bold
@@ -782,7 +793,7 @@ CLASSIC_ROOT_LABELS = {
     "shut_down": "Sh&ut Down...",
 }
 ROOT_LABELS = {
-    "1995": {**CLASSIC_ROOT_LABELS, "suspend": "S&uspend"},
+    "1995": {**CLASSIC_ROOT_LABELS, "suspend": "Suspe&nd"},
     "1998": {
         **CLASSIC_ROOT_LABELS,
         "update": "Windows Update",
@@ -1090,11 +1101,9 @@ def apply_classic_menu_look(app):
     style.underline_shortcuts = style.look != "2000"
     app.setStyle(style)
     app.setPalette(chicago95ui.retro_palette(chicago95ui.read_scheme()))
-    family = "MS W98 UI" if "MS W98 UI" in QFontDatabase.families() else "Noto Sans"
-    # classic menus use an 11px face regardless of DPI; a point size would grow with Xft.dpi 144.
-    menu_font = QFont(family)
-    menu_font.setPixelSize(round(11 * UI_SCALE))
-    menu_font.setStyleStrategy(QFont.NoAntialias)  # a pixel font, drawn with hard edges like the original
+    menu_font = chicago95ui.classic_ui_font(style.look, round(11 * UI_SCALE))
+    menu_font.setStyleStrategy(QFont.NoAntialias)
+    style.native_font = menu_font.family() not in (chicago95ui.UI_FONT_FAMILY, "Noto Sans")
     app.setFont(menu_font)
 
 

@@ -3,6 +3,7 @@
 
 import argparse
 import os
+import shutil
 import struct
 from itertools import groupby
 from pathlib import Path
@@ -149,6 +150,11 @@ def main():
                     family = f"Chicago95 Windows {args.edition} System{suffix}"
                     file = Path(scratch) / f"System-{dpi}-Regular.ttf"
                     write_font(system, file, family, dpi, bold=False, pixel_size=13)
+            # Windows 98's Explorer Web View uses Verdana for the HTML pane.
+            if args.edition == "98":
+                for name in ("verdana.ttf", "verdanab.ttf"):
+                    if name in sources:
+                        shutil.copyfile(sources[name], Path(scratch) / name)
             for file in Path(scratch).iterdir():
                 file.replace(destination / file.name)
     except (KeyError, OSError, ValueError, struct.error) as error:

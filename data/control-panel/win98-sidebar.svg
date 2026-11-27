@@ -1,20 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 174 124" preserveAspectRatio="none">
-  <defs>
-    <linearGradient id="haze" gradientUnits="userSpaceOnUse" x1="12" y1="4" x2="108" y2="90">
-      <stop stop-color="#99cff7"/>
-      <stop offset=".4" stop-color="#ccecff"/>
-      <stop offset=".76" stop-color="#fff"/>
-    </linearGradient>
-    <linearGradient id="reflection" gradientUnits="userSpaceOnUse" x1="18" y1="12" x2="89" y2="75">
-      <stop stop-color="#9ecbf0" stop-opacity=".8"/>
-      <stop offset="1" stop-color="#f5faff" stop-opacity="0"/>
-    </linearGradient>
-  </defs>
-  <path d="M0 0h174v124H0z" fill="url(#haze)"/>
-  <path d="M0 0h110L23 88 0 101z" fill="url(#reflection)"/>
-  <path d="M67 0h15L30 67l-11 7zM117 0h32L62 53z" fill="#fff" opacity=".24"/>
-  <path d="M0 99h42v1H0z" fill="#ff3000"/>
-  <path d="M42 99h49v1H42z" fill="#ffcf00"/>
-  <path d="M91 99h43v1H91z" fill="#67cf30"/>
-  <path d="M134 99h40v1h-40z" fill="#009fff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 1" preserveAspectRatio="none" shape-rendering="crispEdges">
+  <path d="M0 0h1v1H0z" fill="#ff3000"/>
+  <path d="M1 0h1v1H1z" fill="#ffcf00"/>
+  <path d="M2 0h1v1H2z" fill="#67cf30"/>
+  <path d="M3 0h1v1H3z" fill="#0098ff"/>
 </svg>

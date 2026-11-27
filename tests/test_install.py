@@ -415,14 +415,17 @@ def test_saved_settings_load_back_to_the_same_values(tmp_path):
 
 def taskbar_script_written(tmp_path, assignments=""):
     log = tmp_path / "setup.log"
+    gdbus = tmp_path / "gdbus"
+    gdbus.write_text('#!/bin/sh\nfor arg do last="$arg"; done\nprintf "%s\\n" "$last"\n')
+    gdbus.chmod(0o755)
     script = (
-        f'REPO={REPO}; source {REPO}/setup/steps.sh; plasma_script() {{ printf "%s\\n" "$1"; }}; '
+        f"REPO={REPO}; source {REPO}/setup/steps.sh; "
         f"SETUP_IN_PLASMA=1 SETUP_DRY_RUN=0 SETUP_LOG={log} {assignments} apply_taskbar"
     )
     subprocess.run(
         ["bash", "-c", script],
         timeout=30,
-        env={"PATH": "/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path)},
+        env={"PATH": f"{tmp_path}:/usr/bin:/bin", "SETUP_OS_RELEASE": "/dev/null", "HOME": str(tmp_path)},
         check=False,
     )
     return log.read_text()

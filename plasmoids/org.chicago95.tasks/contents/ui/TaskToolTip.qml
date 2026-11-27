@@ -1,4 +1,5 @@
 import QtQuick
+import "classicFonts.js" as ClassicFonts
 import org.kde.pipewire as PipeWire
 import org.kde.taskmanager as TaskManager
 
@@ -12,6 +13,7 @@ Item {
     property string title
     property var windowId
     property int previewSize: 0
+    property string look: "1995"
     property string bevel: "1995"
     property color face: "#C0C0C0"
 
@@ -56,7 +58,8 @@ Item {
         x: tip.frame + tip.padding
         y: tip.frame + tip.padding
         text: tip.title
-        font.family: "MS W98 UI"
+        font.family: ClassicFonts.nativeFamily(tip.look,
+            tip.Window.window?.devicePixelRatio ?? Screen.devicePixelRatio, Qt.fontFamilies()) || "MS W98 UI"
         font.pixelSize: 11
         color: "#000000"
         renderType: Text.NativeRendering

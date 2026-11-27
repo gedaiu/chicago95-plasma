@@ -52,7 +52,7 @@ def test_1995_shows_suspend_on_supported_machines(startmenu, qt_app, monkeypatch
     monkeypatch.setattr(startmenu, "launch", calls.append)
     menu = startmenu.build_root_menu()
     actions = menu.actions()
-    suspend = next(index for index, action in enumerate(actions) if action.text() == "S&uspend")
+    suspend = next(index for index, action in enumerate(actions) if action.text() == "Suspe&nd")
     assert actions[suspend - 1].isSeparator()
     actions[suspend].trigger()
     assert calls == [["systemctl", "suspend"]]

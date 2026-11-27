@@ -89,4 +89,4 @@ def test_the_start_menus_style_keeps_the_classic_controls_for_everything_else(st
     try:
         assert (isinstance(qt_app.style(), chicago95ui.ClassicStyle), tabs.tabBar().height()) == (True, 22)
     finally:
-        qt_app.setStyle(chicago95ui.classic_style())
+        chicago95ui.apply_style(qt_app)

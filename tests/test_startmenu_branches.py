@@ -37,7 +37,7 @@ def retro_look(startmenu, qt_app, tmp_path, monkeypatch):
 
     yield apply
     settings_file.unlink(missing_ok=True)
-    qt_app.setStyle(chicago95ui.classic_style())
+    chicago95ui.apply_style(qt_app)
 
 
 def test_banner_stops_spread_two_colours_from_top_to_bottom(startmenu):
@@ -663,11 +663,15 @@ def test_xp_menus_prefer_original_artwork_to_theme_approximations(startmenu, qt_
         image = QPixmap(24, 24)
         image.fill(QColor(colour))
         image.save(str(folder / "system-log-out.png"))
+    # Exercise icon-pack lookup when there is no packaged VM resource for the item.
+    monkeypatch.setattr(startmenu, "native_menu_icon", lambda *_: startmenu.QIcon())
     monkeypatch.setattr(startmenu, "ICON_SET_DIRS", [tmp_path])
     icon = startmenu.luna_icon("system-log-out") if style == "luna" else startmenu.root_icon("log_off", style)
     assert icon.pixmap(24, 24).toImage().pixelColor(12, 12).name() == "#ffd000"
 
 
 def test_luna_icon_keeps_theme_fallback_when_original_is_absent(startmenu, qt_app, tmp_path, monkeypatch):
+    # Exercise icon-pack lookup when there is no packaged VM resource for the item.
+    monkeypatch.setattr(startmenu, "native_menu_icon", lambda *_: startmenu.QIcon())
     monkeypatch.setattr(startmenu, "ICON_SET_DIRS", [tmp_path])
     assert startmenu.luna_icon("system-log-out").name() == startmenu.themed_icon("system-log-out").name()

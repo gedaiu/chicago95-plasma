@@ -44,3 +44,14 @@ def test_clock_applet_formats_its_time_with_the_clock_format_library():
         "ClockFormat.timeFormat(Plasmoid.configuration.hourFormat, Qt.locale().timeFormat(Locale.ShortFormat))"
         in main_qml
     )
+
+
+@pytest.mark.parametrize(("look", "scale", "expected"), [
+    ("1995", 1, "Chicago95 Windows 95"), ("1998", 1.25, "Chicago95 Windows 98 120 DPI"),
+    ("1998", 1.5, ""), ("2000", 1.25, "Chicago95 Windows 2000 Tahoma"), ("2001", 1, "Tahoma"),
+])
+def test_classic_plasma_font_matches_the_look_and_dpi(qt_app, look, scale, expected):
+    library = load_js_library(CLOCK_APPLET / "ui/classicFonts.js")
+    families = ["Chicago95 Windows 95", "Chicago95 Windows 98 120 DPI", "Chicago95 Windows 2000 Tahoma", "Tahoma"]
+    assert call(library, "nativeFamily", look, scale, families) == expected
+    assert call(library, "nativeFamily", look, scale, []) == ""

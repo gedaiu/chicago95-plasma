@@ -1,4 +1,5 @@
 import QtQuick
+import "classicFonts.js" as ClassicFonts
 import QtQuick.Layouts
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
@@ -20,7 +21,10 @@ PlasmoidItem {
     readonly property bool isAero: Plasmoid.configuration.taskbarStyle === "aero"  // two lines, then Show desktop
     readonly property bool isXpClassic: Plasmoid.configuration.look === "2001"
     readonly property int cellWidth: isAero ? (aeroClock.face?.implicitWidth || 80) : isLuna ? 68 : Plasmoid.configuration.bevel === "2000" && !isXpClassic ? 69 : 60
-    readonly property int textTop: isXpClassic ? 8 : 9   // the lettering's top row in the applet, which starts 2px into the taskbar
+    readonly property string nativeFont: ClassicFonts.nativeFamily(Plasmoid.configuration.look,
+        root.Window.window?.devicePixelRatio ?? Screen.devicePixelRatio, Qt.fontFamilies())
+    // At the original sizes both imported faces place their baseline two rows lower in Qt.
+    readonly property int textTop: (isXpClassic ? 8 : 9) - (nativeFont && !isLuna ? 2 : 0)
     // Windows 7's Show desktop strip ends at the screen's edge: the clock reaches over the panel's last 4px.
     readonly property int panelMarginOverlap: isAero ? 4 : 0
     property date now: new Date()
@@ -75,7 +79,9 @@ PlasmoidItem {
         y: root.textTop
         // Locales put a narrow no-break space before AM and PM; the originals have a full space.
         text: Qt.formatTime(root.now, ClockFormat.timeFormat(Plasmoid.configuration.hourFormat, Qt.locale().timeFormat(Locale.ShortFormat))).replace(/[\u00a0\u202f]/g, " ")
-        font.family: "MS W98 UI"
+        font.family: root.nativeFont || "MS W98 UI"
+        // Match the four-pixel gap before AM/PM in the XP Classic tray.
+        font.wordSpacing: root.isXpClassic && root.nativeFont && !root.isLuna ? -1 : 0
         font.pixelSize: 11
         color: Kirigami.Theme.textColor
         renderType: Text.NativeRendering

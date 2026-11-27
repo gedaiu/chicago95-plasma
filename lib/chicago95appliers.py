@@ -1101,7 +1101,7 @@ def install_desktop_folder_view(setup):
             file.write_text(text)
         for name, target in zip(folders, targets, strict=True):
             if name == folders[0]:
-                for asset in ("Win95DesktopFocus.qml", "win95-focus.frag.qsb", "DesktopContextMenu.qml"):
+                for asset in ("Win95DesktopFocus.qml", "win95-focus.frag.qsb", "DesktopContextMenu.qml", "classicFonts.js"):
                     shutil.copyfile(setup.repo / "data/desktop-icons" / asset, stage / name / "contents/ui" / asset)
             setup.put_tree(stage / name, target)
     return True

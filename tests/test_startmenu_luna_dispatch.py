@@ -116,6 +116,7 @@ def test_the_start_menu_takes_its_icons_from_the_set_under_the_toolbar_theme(sta
     name = QIcon.themeName()
     startmenu.apply_retro_look(qt_app)
     chosen = QIcon.themeName()
+    startmenu.chicago95ui.apply_style(qt_app)
     QIcon.setThemeName(name)
 
     assert chosen == "under Chicago95-Toolbar"

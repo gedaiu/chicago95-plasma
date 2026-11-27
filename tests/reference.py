@@ -109,7 +109,7 @@ def render_start_menu(
     settings_dir,
     chicago95rc,
     kdeglobals="",
-    without=("&Log Off...", "S&uspend"),
+    without=("&Log Off...", "Suspe&nd"),
     active=None,
     extra_top=(),
 ):
@@ -129,7 +129,7 @@ def render_start_menu(
         return grab_root_menu(startmenu, without, active, extra_top)
     finally:  # the menu's colours and palette stay its own: the tests after this one see the defaults again
         startmenu.SETTINGS_FILE, chicago95ui.KDEGLOBALS = previous
-        startmenu.apply_retro_look(app)
+        chicago95ui.apply_style(app)
 
 
 def grab_root_menu(startmenu, without, active, extra_top):

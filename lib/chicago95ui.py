@@ -556,14 +556,14 @@ import functools
 screen_scale = functools.lru_cache(maxsize=None)(screen_scale)  # kscreen-doctor is asked once per process
 
 
-def window_scale(widget):
+def window_scale(widget=None):
     """Use the output scale until Wayland has configured the window."""
-    handle = widget.windowHandle()
+    handle = widget.windowHandle() if widget is not None else None
     if QApplication.platformName().startswith("wayland") and (handle is None or not handle.isExposed()):
         scale = screen_scale()
         if scale != 1:
             return scale
-    return widget.devicePixelRatioF()
+    return widget.devicePixelRatioF() if widget is not None else QApplication.primaryScreen().devicePixelRatio()
 
 
 def win9x_ui_font(look, scale):
@@ -627,7 +627,19 @@ def ui_font(pixel_size=11, bold=False, *, look=None):
         font.setStyleStrategy(QFont.PreferAntialias)
         return font
     if look is None:
-        look = look_settings()["style"]
+        settings = configparser.ConfigParser(interpolation=None, strict=False)
+        settings.read(CHICAGO95RC)
+        look = settings.get("StartMenu", "style", fallback=None)
+    return classic_ui_font(look, pixel_size, bold)
+
+
+def classic_ui_font(look, pixel_size=11, bold=False):
+    if look in ("1995", "1998"):
+        font = win9x_ui_font(look, window_scale())
+        if font is not None:
+            font.setPixelSize(pixel_size)
+            font.setBold(bold)
+            return font
     native = NT_CLASSIC_FONT_FAMILIES.get(look)
     if native and QFontDatabase.hasFamily(native):
         font = QFont(native)

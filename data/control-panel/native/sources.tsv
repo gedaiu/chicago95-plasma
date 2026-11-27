@@ -52,6 +52,7 @@ win95/system.png	SYSDM.CPL	600	4
 win98/accessibility-options.png	ACCESS.CPL	110	4
 win98/add-hardware.png	SYSDM.CPL	602	4
 win98/add-programs.png	APPWIZ.CPL	1500	4
+win98/control-panel.png	SHELL32.DLL	36	4
 win98/date-time.png	TIMEDATE.CPL	200	4
 win98/display.png	DESK.CPL	100	4
 win98/fonts.png	MAIN.CPL	400	4
@@ -61,6 +62,7 @@ win98/keyboard.png	MAIN.CPL	200	4
 win98/modems.png	MODEM.CPL	1000	4
 win98/mouse.png	MAIN.CPL	100	4
 win98/multimedia.png	MMSYS.CPL	99	4
+win98/my-computer.png	EXPLORER.EXE	100	4
 win98/network.png	NETCPL.CPL	100	4
 win98/odbc.png	ODBCCP32.CPL	1439	4
 win98/passwords.png	PASSWORD.CPL	1000	4

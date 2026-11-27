@@ -1,3 +1,4 @@
+import os
 import signal
 import subprocess
 import sys
@@ -44,6 +45,46 @@ def test_idle_app_ignores_sigterm_with_a_handler_but_no_wakeup_slot():
     assert run_idle_app_and_send_sigterm(setup) == "still running 3 s after SIGTERM"
 
 
+@pytest.mark.parametrize(("look", "family", "scale"), [
+    ("1995", "Chicago95 Windows 95", 1), ("1998", "Chicago95 Windows 98", 1),
+    ("1995", "Chicago95 Windows 95 120 DPI", 1.25), ("1998", "Chicago95 Windows 98 120 DPI", 1.25),
+    ("2000", "Chicago95 Windows 2000 Tahoma", 1), ("2001", "Tahoma", 1),
+])
+def test_classic_dialog_popups_and_start_menu_use_the_look_font(qt_app, tmp_path, look, family, scale):
+    from PySide6.QtGui import QFontDatabase
+
+    if not QFontDatabase.hasFamily(family):
+        pytest.skip(f"Import {family} from the VM")
+    (tmp_path / "chicago95rc").write_text(f"[StartMenu]\nstyle={look}\n[Look]\nwidgetStyle=classic\n")
+    # Both entry points set an application-wide style. Use a fresh Qt process at the requested scale.
+    script = """
+import os, runpy, sys
+from pathlib import Path
+import chicago95ui
+from PySide6.QtGui import QFontInfo
+from PySide6.QtWidgets import QLabel, QMenu
+app = chicago95ui.make_app("Control Panel")
+for widget in (QLabel("System Properties"), QMenu("File")):
+    assert QFontInfo(widget.font()).family() == sys.argv[1]
+if sys.argv[2] in ("1995", "1998"):
+    panel = runpy.run_path("bin/chicago95-control-panel")
+    settings = Path(os.environ["XDG_CONFIG_HOME"]) / "look.conf"
+    panel["write_settings"](settings, dict(panel["LOOK_PRESETS"][sys.argv[2]], LOOK=sys.argv[2]))
+    window = panel["ControlPanel"](settings_path=settings)
+    menus = window.findChildren(QMenu)
+    assert menus and all(QFontInfo(menu.font()).family() == sys.argv[1] for menu in menus)
+runpy.run_path("bin/chicago95-startmenu")["apply_classic_menu_look"](app)
+assert QFontInfo(QMenu("Programs").font()).family() == sys.argv[1]
+"""
+    env = {
+        **os.environ,
+        "XDG_CONFIG_HOME": str(tmp_path),
+        "QT_SCALE_FACTOR": str(scale),
+        "PYTHONPATH": str(REPO / "lib"),
+    }
+    subprocess.run([sys.executable, "-c", script, family, look], cwd=REPO, check=True, env=env)
+
+
 @pytest.mark.parametrize("scale, sharp", [(1.0, True), (2.0, True), (1.5, False), (1.25, False)])
 def test_ui_font_is_drawn_unsmoothed_only_at_whole_scales(qt_app, monkeypatch, scale, sharp):
     """The pixel font's 11px grid lands on whole screen pixels at 1x and 2x only; at 1.5x it is left to
@@ -51,6 +92,7 @@ def test_ui_font_is_drawn_unsmoothed_only_at_whole_scales(qt_app, monkeypatch, s
     import chicago95ui
     from PySide6.QtGui import QFont
 
+    monkeypatch.setattr(chicago95ui, "win9x_ui_font", lambda *_: None)
     monkeypatch.setattr(chicago95ui, "detect_scale", lambda: str(scale))
     chicago95ui.screen_scale.cache_clear()
     font = chicago95ui.ui_font()
@@ -71,6 +113,7 @@ def test_ui_font_asks_for_smoothing_explicitly_off_whole_scales(qt_app, monkeypa
     import chicago95ui
     from PySide6.QtGui import QFont
 
+    monkeypatch.setattr(chicago95ui, "win9x_ui_font", lambda *_: None)
     monkeypatch.setattr(chicago95ui, "detect_scale", lambda: "1.5")
     chicago95ui.screen_scale.cache_clear()
     assert bool(chicago95ui.ui_font().styleStrategy() & QFont.PreferAntialias)

@@ -130,6 +130,7 @@ def test_single_instance_ignores_a_connection_that_sends_nothing(qt_app, short_r
 
 
 def test_ui_font_is_left_to_the_application_when_its_family_is_not_installed(qt_app, monkeypatch):
+    monkeypatch.setattr(chicago95ui, "win9x_ui_font", lambda *_: None)
     monkeypatch.setattr(chicago95ui, "UI_FONT_FAMILY", "No Such Family Anywhere")
 
     font = chicago95ui.ui_font(11)
