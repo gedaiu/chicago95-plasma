@@ -178,3 +178,31 @@ def test_approval_matches_reviewed_pixels_and_keeps_windows_colors_valid(tmp_pat
     assert approval_for(directory, rendered) is None
     monkeypatch.setenv("CHICAGO95_VISUAL_TOLERANCES", "")
     assert approval_for(directory, reference) is None
+
+
+def test_sidebar_count_applies_regions_and_approval_only_inside_compared_pixels(tmp_path):
+    from tolerance_editor import remaining_count
+
+    directory = tmp_path / "visual/win98/control-panel/qt"
+    directory.mkdir(parents=True)
+    reference = Image.new("RGB", (4, 1))
+    rendered = Image.new("RGB", reference.size, (20, 0, 0))
+    mask = np.array([[True, True, True, False]])
+    with pytest.raises(pytest.fail.Exception):
+        compare(reference, rendered, directory / "comparison.png", mask, record_metrics=True)
+    case = collect([tmp_path], embed=False)["win98/control-panel/qt"]
+    entry = {"regions": [{"x": 0, "y": 0, "width": 1, "height": 1, "max_channel_delta": 20}]}
+    assert remaining_count(case, entry) == 2
+
+    approved = Image.new("RGB", (8, 1))
+    approved.putpixel((5, 0), (20, 0, 0))
+    def encode(image):
+        stream = BytesIO()
+        image.save(stream, format="PNG")
+        return b64encode(stream.getvalue()).decode()
+
+    entry.update(review={"status": "approved"}, approved_pixels=encode(approved))
+    assert remaining_count(case, entry) == 1
+    approved.putpixel((0, 0), (1, 0, 0))
+    entry["approved_pixels"] = encode(approved)
+    assert remaining_count(case, entry) == 2

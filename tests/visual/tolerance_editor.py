@@ -15,11 +15,12 @@ from tempfile import NamedTemporaryFile, gettempdir
 from threading import Lock
 from urllib.parse import parse_qs, urlsplit
 
+import numpy as np
 from PIL import Image
 from report import RETIRED_CASES
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from visual_tolerances import DEFAULT_POLICY, approval_image  # noqa: E402
+from visual_tolerances import DEFAULT_POLICY, approval_image, tolerance_map  # noqa: E402
 
 EMPTY_POLICY = {"version": 1, "cases": {}}
 CHECKOUT = hashlib.sha256(os.fsencode(Path(__file__).resolve().parents[2])).hexdigest()[:12]
@@ -37,6 +38,7 @@ def publish_run(run, latest=LATEST):
     latest.mkdir(mode=0o700, parents=True, exist_ok=True)
     with (latest / ".lock").open("a") as lock:
         flock(lock, LOCK_EX)
+        os.utime(lock.fileno())  # Invalidate the live index, including after a partial publication.
         for measured in sorted((run / "visual").rglob("comparison.metrics.json")):
             target = latest / measured.parent.relative_to(run)
             target.mkdir(parents=True, exist_ok=True)
@@ -120,6 +122,26 @@ def collect(directories, *, embed=True):
     return cases
 
 
+def remaining_count(case, entry):
+    """Apply the saved review to the pixels included in the test's difference panel."""
+    size = tuple(case["size"])
+    width, height = size
+    with Image.open(case["files"]["panel"]) as image:
+        if image.size != (3 * width, height):
+            raise ValueError("Comparison dimensions changed")
+        reference, rendered, difference = np.split(np.asarray(image.convert("RGB")), 3, axis=1)
+    remaining = np.any(difference, axis=2)
+    if entry["regions"]:
+        delta = np.abs(reference.astype(np.int16) - rendered).max(axis=2)
+        remaining &= delta > tolerance_map(size, entry["regions"])
+    if entry.get("approved_pixels") and entry.get("review", {}).get("status") == "approved":
+        approval = np.asarray(approval_image(entry["approved_pixels"], size))
+        original, accepted = np.split(approval, 2, axis=1)
+        if np.array_equal(reference, original):
+            remaining &= np.any(rendered != accepted, axis=2)
+    return int(remaining.sum())
+
+
 def load_policy(path):
     if not path.exists():
         return {"version": 1, "cases": {}}
@@ -199,7 +221,9 @@ def serve(directories, policy_path, port):
     writes = Lock()
     LATEST.mkdir(mode=0o700, parents=True, exist_ok=True)
     lock_path = LATEST / ".lock"
+    published_only = not directories
     directories = (*directories, LATEST)
+    cached_index = None
     captures = {}
     page = render_page({}, server=True).encode()
 
@@ -216,7 +240,7 @@ def serve(directories, policy_path, port):
             self.respond(status, "application/json; charset=utf-8", json.dumps(value).encode())
 
         def do_GET(self):
-            nonlocal captures
+            nonlocal captures, cached_index
             url = urlsplit(self.path)
             if self.headers.get("Host") != f"127.0.0.1:{port}":
                 self.send_error(403)
@@ -225,18 +249,47 @@ def serve(directories, policy_path, port):
             elif url.path == "/api/captures":
                 with lock_path.open("a") as lock:
                     flock(lock, LOCK_SH)
-                    latest = collect(directories, embed=False)
-                captures = latest
-                payload = {
-                    key: {name: value for name, value in case.items() if name not in ("files", "metrics")}
-                    for key, case in latest.items()
-                }
-                encoded = json.dumps(payload).encode()
-                revision = hashlib.sha256(encoded).hexdigest()
+                    generation = os.fstat(lock.fileno()).st_mtime_ns
+                    if published_only and cached_index and cached_index[0] == generation:
+                        _, revision, body = cached_index
+                    else:
+                        latest = collect(directories, embed=False)
+                        payload = {
+                            key: {k: v for k, v in case.items() if k not in ("files", "metrics")}
+                            for key, case in latest.items()
+                        }
+                        revision = hashlib.sha256(json.dumps(payload).encode()).hexdigest()
+                        body = json.dumps({"revision": revision, "captures": payload}).encode()
+                        captures = latest
+                        cached_index = generation, revision, body
                 if parse_qs(url.query).get("since") == [revision]:
                     self.respond(204, "application/json", b"")
                 else:
-                    self.json_response(200, {"revision": revision, "captures": payload})
+                    self.respond(200, "application/json; charset=utf-8", body)
+            elif url.path == "/api/counts":
+                # The sidebar can load before these comparisons are read. Only the
+                # selected capture needs to send image data to the browser.
+                current = captures
+                result = {}
+                try:
+                    policy = load_policy(policy_path)
+                    with lock_path.open("a") as lock:
+                        flock(lock, LOCK_SH)
+                        for key, entry in policy["cases"].items():
+                            case = current.get(key)
+                            if (not case or not case["changed"] or "renderedSize" in case
+                                    or case["size"] != entry["size"]
+                                    or not (entry["regions"] or entry.get("approved_pixels"))):
+                                continue
+                            try:
+                                if str(case["metrics"].stat().st_mtime_ns) == case["revision"]:
+                                    result[key] = [case["revision"], remaining_count(case, entry)]
+                            except (FileNotFoundError, ValueError):
+                                continue
+                except (OSError, ValueError) as error:
+                    self.json_response(500, {"error": str(error)})
+                else:
+                    self.json_response(200, result)
             elif url.path == "/api/image":
                 args = parse_qs(url.query)
                 key = args.get("case", [""])[0]

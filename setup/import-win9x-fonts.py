@@ -5,7 +5,7 @@ import argparse
 import os
 import shutil
 import struct
-from itertools import groupby
+from collections import defaultdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -46,28 +46,72 @@ def ansi_strike(path, dpi, point_size=8, face=b"MS Sans Serif"):
     raise ValueError(f"{path.name} has no {point_size}-point {face.decode()} strike at {dpi} DPI")
 
 
+def draw_strike_contours(pen, pixels, grid):
+    # Follow the exposed edges clockwise, keeping ink on the right. Internal
+    # scanline edges cause the monochrome rasterizer to drop parts of stems.
+    edges = defaultdict(set)
+    for x, y in sorted(pixels):
+        if (x - 1, y) not in pixels:
+            edges[x, y].add((x, y + 1))
+        if (x, y + 1) not in pixels:
+            edges[x, y + 1].add((x + 1, y + 1))
+        if (x + 1, y) not in pixels:
+            edges[x + 1, y + 1].add((x + 1, y))
+        if (x, y - 1) not in pixels:
+            edges[x + 1, y].add((x, y))
+
+    while edges:
+        previous = current = next(iter(edges))
+        path = {}
+        while current not in path:
+            options = edges[current]
+            x, y = current
+            dx, dy = x - previous[0], y - previous[1]
+            right_turn = (x + dy, y - dx)
+            # At a diagonal contact, turn around this pixel to keep the two
+            # strokes separate. Everywhere else there is just one way onward.
+            following = right_turn if right_turn in options else min(options)
+            path[current] = following
+            previous, current = current, following
+
+        # Two outlines can touch at a corner. Consume just the closed loop,
+        # leaving any leading edges for the other contour.
+        contour = []
+        while current in path:
+            contour.append(current)
+            following = path.pop(current)
+            edges[current].remove(following)
+            if not edges[current]:
+                del edges[current]
+            current = following
+
+        corners = []
+        for i, (x, y) in enumerate(contour):
+            before, after = contour[i - 1], contour[(i + 1) % len(contour)]
+            if before[0] != after[0] and before[1] != after[1]:
+                corners.append((x * grid, y * grid))
+        pen.moveTo(corners[0])
+        for point in corners[1:]:
+            pen.lineTo(point)
+        pen.closePath()
+
+
 def glyph_outline(strike, code, height, ascent, grid, bold):
     width, offset = struct.unpack_from("<HH", strike, 118 + 4 * (code - strike[95]))
     if offset + (width + 7) // 8 * height > len(strike):
         raise ValueError("Incomplete FON glyph bitmap")
+    pixels = {
+        (x, ascent - row - 1)
+        for row in range(height)
+        for x in range(width)
+        if strike[offset + x // 8 * height + row] & (0x80 >> (x % 8))
+    }
+    if bold:
+        # The GDI bitmap bold face expands the ink and advance one pixel to the right.
+        pixels |= {(x + 1, y) for x, y in pixels}
     pen = TTGlyphPen(None)
-    bearing = width
-    for row in range(height):
-        columns = {x for x in range(width) if strike[offset + x // 8 * height + row] & (0x80 >> (x % 8))}
-        if bold:
-            # The GDI bitmap bold face expands the ink and advance one pixel to the right.
-            columns |= {x + 1 for x in columns}
-        for _, run in groupby(enumerate(sorted(columns)), key=lambda pair: pair[1] - pair[0]):
-            span = [x for _, x in run]
-            bearing = min(bearing, span[0])
-            left, right = span[0] * grid, (span[-1] + 1) * grid
-            top, bottom = (ascent - row) * grid, (ascent - row - 1) * grid
-            pen.moveTo((left, bottom))
-            pen.lineTo((left, top))
-            pen.lineTo((right, top))
-            pen.lineTo((right, bottom))
-            pen.closePath()
-    bearing = bearing if pen.points else 0
+    draw_strike_contours(pen, pixels, grid)
+    bearing = min((x for x, _ in pixels), default=0)
     return pen.glyph(), ((width + int(bold)) * grid, bearing * grid)
 
 

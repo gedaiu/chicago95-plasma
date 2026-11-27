@@ -43,11 +43,11 @@ def rendering(tmp_path, pixel_size):
     }
 
 
-def fontconfig_environment(tmp_path):
+def fontconfig_environment(tmp_path, rule=RULE):
     config = tmp_path / "fonts.conf"
     config.write_text(
         f'<?xml version="1.0"?>\n<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">\n<fontconfig>\n'
-        f'  <include ignore_missing="yes">/etc/fonts/fonts.conf</include>\n  <include>{RULE}</include>\n</fontconfig>\n'
+        f'  <include ignore_missing="yes">/etc/fonts/fonts.conf</include>\n  <include>{rule}</include>\n</fontconfig>\n'
     )
     return {
         "PATH": "/usr/bin:/bin",
@@ -56,6 +56,26 @@ def fontconfig_environment(tmp_path):
         "FONTCONFIG_FILE": str(config),
         "XDG_CONFIG_HOME": str(tmp_path / "config"),
     }  # the user's fonts, not their fontconfig rules
+
+
+def test_thunar_monochrome_hinting_only_applies_to_small_tahoma(tmp_path):
+    rule = REPO / "config/fontconfig/62-chicago95-thunar-tahoma.conf"
+
+    def match(pattern):
+        return subprocess.check_output(
+            ["fc-match", "-f", "%{family[0]}|%{antialias}|%{hintstyle}", pattern], env=env, text=True
+        )
+
+    small = "Tahoma:prgname=thunar:pixelsize=17"
+    controls = ("Tahoma:prgname=other:pixelsize=17", "Tahoma:prgname=thunar:pixelsize=30",
+                "DejaVu Sans:prgname=thunar:pixelsize=17")
+    env = fontconfig_environment(tmp_path)
+    if not match(small).startswith("Tahoma|"):
+        pytest.skip("Requires the imported Tahoma font")
+    original = [match(pattern) for pattern in controls]
+    env = fontconfig_environment(tmp_path, rule)
+    assert match(small) == "Tahoma|False|3"
+    assert [match(pattern) for pattern in controls] == original
 
 
 RENDER_FIRST_COLUMNS = """

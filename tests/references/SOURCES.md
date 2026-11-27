@@ -332,6 +332,11 @@ Explorer client and includes its original navigation band. Windows 95
 shows the menu and pane headers with the toolbar hidden. Windows 7 uses
 the 96-DPI navigation strip at `(7, 31)–(527, 63)` from `win7explorer1.png`.
 
+`themes/win7/file-manager/menu-visible.png` is the idle menu bar of a maximized
+Computer window in the local Windows 7 Professional VM at 800×600 and 96 DPI.
+Explorer's **Always show menus** setting was enabled in a temporary copy of the
+guest. The native framebuffer crop is (0, 57)–(207, 78).
+
 `themes/win95/file-manager/navigation-toolbar.png` is the Windows 95 OSR2
 Explorer client from the local QEMU guest at 800×600, 120 DPI and 256
 colors. The crop at `(58, 82)–(578, 133)` shows the menu and toolbar with
@@ -368,6 +373,16 @@ supplies the popup crop. Its hover sample is a one-pixel column from the
 highlighted row's right gutter.
 Windows 98 uses the second native capture set with the plain teal desktop.
 The first set showed the guest's alternate navy desktop wallpaper.
+
+The Windows 98 Quick Launch artwork in `data/taskbar-icons/win98/16` comes
+from the guest's 16×16 four-bit RT_ICON resources. Show Desktop is
+`SHELL32.DLL` group 35, resource 293. Internet Explorer is `IEXPLORE.EXE`
+group 32528, resource 4. Outlook Express is `MSIMN.EXE` group 2, resource 3.
+The 20×20 Notepad icon and Start flag were captured independently at 640×480
+after restarting the guest at 120 DPI in 256 colors. The Notepad task button
+and caption provided white and navy backgrounds for recovering transparency.
+The flag uses the Start button's silver face as its transparent color.
+The pixel tests compare the installed Plasma panel to the 1280×1024 capture.
 
 The Windows 7 desktop reference uses the unoccupied top 220 rows of the
 1024×768 SP1 Aero Start capture. Its populated taskbar, desktop popup and

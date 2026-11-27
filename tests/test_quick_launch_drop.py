@@ -28,6 +28,10 @@ def test_insertion_index_is_the_nearest_gap_between_23px_cells(launchers, x, cou
     assert call(launchers, "insertionIndexAt", x, QUICK_LAUNCH_X, count) == expected
 
 
+def test_win98_drop_uses_the_displayed_120dpi_cell_pitch(launchers):
+    assert call(launchers, "insertionIndexAt", QUICK_LAUNCH_X + 28, QUICK_LAUNCH_X, FOUR_LAUNCHERS, 23 / 1.25) == 2
+
+
 @pytest.mark.parametrize(
     "x, y", [(QUICK_LAUNCH_X + 30, -30), (QUICK_LAUNCH_X + 30, TASKBAR_HEIGHT + 30), (TASKBAR_WIDTH + 40, 10)]
 )

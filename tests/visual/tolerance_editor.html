@@ -248,7 +248,8 @@ function choose(id) {
         notice("Save or cancel the annotation before switching captures.");
         return;
     }
-    for (const [name, row] of caseRows) row.button.setAttribute("aria-current", name === id);
+    caseRows.get(key)?.button.setAttribute("aria-current", false);
+    caseRows.get(id)?.button.setAttribute("aria-current", true);
     const row = caseRows.get(id);
     if (row) {
         row.theme.open = row.topic.open = true;
@@ -652,6 +653,7 @@ async function openCapture(next) {
     elements.stats.textContent = "Loading capture…";
     elements.pixel.textContent = "Point at a pixel for its RGB values.";
     const decoded = await decodeCapture(next);
+    if (sequence !== loadSequence) return;
     const approved = await approvedMask(policy.cases[next], decoded);
     if (sequence !== loadSequence) return;
     const {width:w, height:h, reference, rendered} = decoded;
@@ -668,7 +670,7 @@ async function openCapture(next) {
     refreshMarks();
     notice("");
 }
-async function refreshSavedCounts() {
+async function recountLocalEntries() {
     for (const id of Object.keys(policy.cases)) {
         const entry = policy.cases[id];
         if (!captures[id]?.changed || captures[id].renderedSize || counts.has(id) ||
@@ -686,6 +688,18 @@ async function refreshSavedCounts() {
             console.warn(id, error);
         }
     }
+}
+async function loadSavedCounts() {
+    const response = await fetch("/api/counts");
+    if (!response.ok) throw Error("Could not load saved review counts.");
+    let visibilityChanged = false;
+    for (const [id, [version, remaining]] of Object.entries(await response.json())) {
+        if (captures[id]?.revision !== version || counts.has(id) || id === key || pending.has(id)) continue;
+        const wasPassing = capturePassed(id);
+        announceCount(id, remaining);
+        if (wasPassing !== capturePassed(id)) visibilityChanged = true;
+    }
+    if (visibilityChanged && elements["capture-filter"].value === "failed") fillChoices(elements.search.value);
 }
 function position(event, canvas) {
     const rect = canvas.getBoundingClientRect();
@@ -945,7 +959,7 @@ elements.file.onchange = async () => {
         if (picture) {
             await openCapture(key);
         }
-        await refreshSavedCounts();
+        await recountLocalEntries();
         fillChoices(elements.search.value);
         notice("Tolerance JSON imported.");
     } catch (error) {
@@ -999,8 +1013,8 @@ async function refreshCaptures() {
             elements["capture-detail"].hidden = true;
         }
     }
-    await refreshSavedCounts();
     fillChoices(elements.search.value);
+    await loadSavedCounts();
 }
 async function followRuns() {
     try {
@@ -1034,10 +1048,11 @@ async function initialize() {
         await followRuns();
         return;
     }
-    await refreshSavedCounts();
     const next = preferredCapture();
     if (next) choose(next);
     fillChoices();
+    await recountLocalEntries();
+    fillChoices(elements.search.value);
 }
 initialize().catch(error => notice(error.message));
 </script>

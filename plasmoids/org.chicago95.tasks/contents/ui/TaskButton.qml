@@ -30,7 +30,7 @@ Item {
     }
 
     readonly property int buttonHeight: 22
-    readonly property int iconLeft: 4
+    readonly property real iconLeft: win9x120 && look === "1998" && pixelScale === 1.25 ? 4 * pixel : 4
     readonly property int iconTop: 3
     readonly property int labelLeft: look === "2001" ? 25 : bevel === "2000" ? 22 : 23
     readonly property int labelTop: 6

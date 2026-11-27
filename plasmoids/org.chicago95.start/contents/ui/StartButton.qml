@@ -155,8 +155,16 @@ Item {
             y: Math.round((parent.height - height) / 2) + (button.held ? 1 : 0)
 
             Image {
+                id: logoImage
                 visible: button.logoSource.toString() !== ""
-                source: button.logoSource
+                readonly property bool win98Flag: button.usesWin98Inset
+                    && button.logoSource.toString() === Qt.resolvedUrl("../images/logo-flag-16.png").toString()
+                source: win98Flag ? Qt.resolvedUrl("../images/logo-flag-win98-20.png") : button.logoSource
+                // Align the native frame to the physical grid inside the centered row.
+                transform: Translate {
+                    x: logoImage.win98Flag ? -1 / button.pixelScale : 0
+                    y: logoImage.win98Flag ? 0.5 / button.pixelScale : 0
+                }
                 Layout.preferredWidth: button.logoSize
                 Layout.preferredHeight: button.logoSize
                 // Pixel art (PNG) loads at its own size and is drawn unscaled when it is 16px, like the

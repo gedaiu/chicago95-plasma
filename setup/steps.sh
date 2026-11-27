@@ -337,15 +337,30 @@ import_gtk_progress() {
     backup "$radio_assets"
     record "$radio_assets"
   fi
+  local thunar_rule=62-chicago95-thunar-tahoma.conf thunar_tahoma=""
+  local fontconfig_dir="${XDG_CONFIG_HOME:-$HOME/.config}/fontconfig/conf.d"
+  case "$1:${SETUP_LOOK:-}:${SETUP_DPI:-96}" in
+    Chicago95:2000:120 | Chicago95:2001:120) thunar_tahoma=$SETUP_LOOK ;;
+    Chicago95Luna:*:120) thunar_tahoma=luna ;;
+  esac
+  if [ -n "$thunar_tahoma" ]; then
+    put_file "$REPO/config/fontconfig/$thunar_rule" "$fontconfig_dir/$thunar_rule"
+  elif cmp -s "$REPO/config/fontconfig/$thunar_rule" "$fontconfig_dir/$thunar_rule"; then
+    run rm -f "$fontconfig_dir/$thunar_rule"
+  fi
+  if [ "$1" = Chicago95 ] && [ "${SETUP_LOOK:-}" = 1998 ]; then
+    put_file "$REPO/config/win98-rebar.svg" "$HOME/.config/gtk-3.0/win98-rebar.svg"
+  fi
   for version in 3.0 4.0; do
     target=~/.config/gtk-$version/gtk.css
     backup "$target"
     mkdir -p "$(dirname "$target")"
     python3 - "$target" "$REPO/config/gtk-progress-classic.css" "$1" "$version" \
-      "$radio_assets" "${SETUP_LOOK:-}" "${SETUP_DPI:-96}" <<'PYPROGRESS'
+      "$radio_assets" "${SETUP_LOOK:-}" "${SETUP_DPI:-96}" "$thunar_tahoma" <<'PYPROGRESS'
 import re
 import sys
 from pathlib import Path
+from string import Template
 
 target, source = map(Path, sys.argv[1:3])
 sys.path.insert(0, str(source.parent.parent / "lib"))
@@ -363,15 +378,26 @@ if sys.argv[3] == "Chicago95":
     block = (source.read_text() + source.with_name("gtk-frames-classic.css").read_text()
              + input_css(Path.home() / ".themes/Chicago95", sys.argv[4]) + slider_css(sys.argv[4]))
     if sys.argv[5]:
-        block += classic_radio_css(Path(sys.argv[5]), sys.argv[6])
+        block += classic_radio_css(Path(sys.argv[5]), sys.argv[6], gtk3=sys.argv[4] == "3.0")
     if sys.argv[4] == "3.0":  # GTK 3 warns on every start about properties only GTK 4 knows
         if sys.argv[6] == "1995":
             block += source.with_name("gtk-thunar-win95.css").read_text()
+        elif sys.argv[6] == "1998":
+            block += source.with_name("gtk-thunar-win98.css").read_text()
         block = without_gtk4_properties(block)
 elif sys.argv[3] == "Chicago95Luna" and sys.argv[7] == "120":
     theme = Path.home() / ".themes/Chicago95Luna"
     rules = source.parent.parent / "luna/gtk/Chicago95Luna/radio-120dpi.css"
     block = rules.read_text().replace('url("radio-120dpi/', f'url("{theme.as_uri()}/radio-120dpi/')
+if sys.argv[4] == "3.0" and sys.argv[8]:
+    # Leading space for the 2000 grip, item insets, then the label size and baseline.
+    leading, left, right, size, top = {
+        "2000": (8, 6, 9, 0.88, -1),
+        "2001": (0, 7, 8, 0.88, -1),
+        "luna": (0, 5, 9, 0.945, 0),
+    }[sys.argv[8]]
+    rules = Template(source.with_name("gtk-thunar-tahoma-120.css.in").read_text())
+    block += rules.substitute(leading=leading, left=left, right=right, size=size, top=top, bottom=-top)
 if block:
     text = text.rstrip() + "\n" + begin + "\n" + block + end + "\n"
 target.write_text(text)
@@ -547,7 +573,8 @@ install_icon_pack() { # install_icon_pack se98|classicos2000|windowsxp   -> 0 wh
   if [ "$1" = classicos2000 ] && [ ! -d "$built" ]; then
     run bash -c "cd '$source' && ICON_THEME_NAME=ClassicOS-2000 MAKEFREEDESKTOP=TRUE MAKEPNG=FALSE ./build-icons.sh" >>"$SETUP_LOG" 2>&1
   fi
-  [ "${KEEP_INSTALLED:-0}" = 1 ] && [ -f "$HOME/.local/share/icons/$theme/index.theme" ] && return 0
+  [ "${KEEP_INSTALLED:-0}" = 1 ] && [ -f "$HOME/.local/share/icons/$theme/index.theme" ] &&
+    { [ "$1" != se98 ] || [ ! -L "$HOME/.local/share/icons/$theme" ]; } && return 0
   if [ -d "$built" ]; then put_tree "$built" "$HOME/.local/share/icons/$theme"; else show_copy "$built" "$HOME/.local/share/icons/$theme"; fi
 }
 
@@ -649,7 +676,12 @@ apply_icon_set() {
     done
     return
     ;;
-  se98) install_icon_pack se98 && theme=SE98 ;;
+  se98)
+    if install_icon_pack se98; then
+      theme=SE98
+      install_se98_taskbar_icons || return 1
+    fi
+    ;;
   classicos2000)
     install_icon_pack se98
     if install_icon_pack classicos2000; then
@@ -672,6 +704,29 @@ apply_icon_set() {
     kconf kdeglobals "$group" DefaultValue 1
     kconf kdeglobals "$group" ActiveEffect none
   done
+}
+
+# Keep the VM's small icon frames alongside SE98's large sizes so icon-theme lookup can choose either.
+install_se98_taskbar_icons() {
+  local dest="$HOME/.local/share/icons/SE98" index="$HOME/.local/share/icons/SE98/index.theme"
+  put_tree "$REPO/data/taskbar-icons/win98" "$dest/taskbar" || return 1
+  [ "${SETUP_DRY_RUN:-0}" = 1 ] && return 0
+  # SE98 calls the mail application internet-mail. Keep its larger frames available to both names.
+  local mail alias
+  for mail in "$dest"/apps/*/internet-mail.png; do
+    alias="${mail%/*}/mail-client.png"
+    if [ -f "$mail" ] && [ ! -e "$alias" ] && [ ! -L "$alias" ]; then
+      ln -s internet-mail.png "$alias" || return 1
+      record "$alias"
+    fi
+  done
+  if ! grep -qFx '[taskbar/16]' "$index"; then
+    sed -i '/^Directories=/s|=|=taskbar/16,taskbar/20,|' "$index" || return 1
+    local size
+    for size in 16 20; do
+      printf '\n[taskbar/%s]\nSize=%s\nContext=Applications\nType=Fixed\n' "$size" "$size"
+    done >>"$index"
+  fi
 }
 
 # Explorer's toolbar buttons as a small theme over the selected icon set.

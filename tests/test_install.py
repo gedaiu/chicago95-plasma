@@ -2170,6 +2170,34 @@ def test_progress_override_is_shared_idempotent_and_removed_for_luna(tmp_path):
         assert "spinbutton" not in (tmp_path / f".config/gtk-{version}/gtk.css").read_text()
 
 
+def test_win98_thunar_menu_installs_its_grip_and_switches_with_the_look(tmp_path):
+    apply = "import_gtk_progress Chicago95"
+    run_bash_with_steps(tmp_path, f"SETUP_LOOK=1998; {apply}; {apply}")
+    sheet = tmp_path / ".config/gtk-3.0/gtk.css"
+    grip = sheet.with_name("win98-rebar.svg")
+    assert grip.read_bytes() == (REPO / "config" / grip.name).read_bytes()
+    assert sheet.read_text().count(f'url("{grip.name}")') == 1
+    assert grip.name not in (tmp_path / ".config/gtk-4.0/gtk.css").read_text()
+    run_bash_with_steps(tmp_path, f"SETUP_LOOK=1995; {apply}")
+    assert grip.name not in sheet.read_text()
+    assert (REPO / "config/gtk-thunar-win95.css").read_text() in sheet.read_text()
+
+
+@pytest.mark.parametrize(("look", "style"), (("2000", "Chicago95"), ("2001", "Chicago95"), ("luna", "Chicago95Luna")))
+def test_thunar_tahoma_menu_follows_the_style_and_dpi(tmp_path, look, style):
+    apply = f"SETUP_LOOK={look} SETUP_DPI=120 import_gtk_progress {style}"
+    run_bash_with_steps(tmp_path, f"{apply}; {apply}")
+    config = tmp_path / ".config"
+    rule = config / "fontconfig/conf.d/62-chicago95-thunar-tahoma.conf"
+    assert rule.read_bytes() == (REPO / "config/fontconfig" / rule.name).read_bytes()
+    marker = "Windows 2000 and XP use Tahoma for Explorer"
+    assert (config / "gtk-3.0/gtk.css").read_text().count(marker) == 1
+    assert marker not in (config / "gtk-4.0/gtk.css").read_text()
+    run_bash_with_steps(tmp_path, f"SETUP_LOOK={look} SETUP_DPI=96 import_gtk_progress {style}")
+    assert not rule.exists()
+    assert marker not in (config / "gtk-3.0/gtk.css").read_text()
+
+
 def test_luna_radio_uses_120dpi_assets_in_both_gtk_versions(tmp_path):
     run_bash_with_steps(tmp_path, "SETUP_DPI=120; import_gtk_progress Chicago95Luna; import_gtk_progress Chicago95Luna")
     art = (tmp_path / ".themes/Chicago95Luna/radio-120dpi/face-normal.svg").as_uri()
@@ -2193,6 +2221,22 @@ def test_xp_classic_uses_xp_boot_and_icons_with_classic_logon(tmp_path):
 def test_xp_classic_installs_the_black_sign_in_backdrop(tmp_path):
     theme_conf = run_bash_with_steps(tmp_path, "apply_look 2001; sddm_theme_conf")
     assert "desktopColor=#000000" in theme_conf
+
+
+def test_se98_taskbar_frames_keep_large_icon_sizes_on_reinstall(tmp_path):
+    theme = tmp_path / ".local/share/icons/SE98"
+    large = theme / "apps/48/internet-mail.png"
+    large.parent.mkdir(parents=True)
+    large.write_bytes(b"upstream artwork")
+    index = theme / "index.theme"
+    index.write_text("[Icon Theme]\nDirectories=apps/48\n\n[apps/48]\nSize=48\n")
+    run_bash_with_steps(
+        tmp_path, "SETUP_LOG=/dev/null; ui_progress() { :; }; install_se98_taskbar_icons && install_se98_taskbar_icons"
+    )
+    assert index.read_text().count("[taskbar/16]") == index.read_text().count("[taskbar/20]") == 1
+    assert "Directories=taskbar/16,taskbar/20,apps/48" in index.read_text()
+    assert (large.parent / "mail-client.png").read_bytes() == large.read_bytes()
+    assert (theme / "taskbar/16/internet-mail.png").samefile(theme / "taskbar/16/mail-client.png")
 
 
 def test_nested_setup_keeps_mutable_icon_themes_inside_its_test_home(tmp_path, monkeypatch):

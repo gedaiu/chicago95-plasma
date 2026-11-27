@@ -1,9 +1,10 @@
 """Classic indicator artwork and native GTK input styling."""
 
+from math import ceil
 from pathlib import Path
 
 
-def classic_radio_svg(look, *, disabled=False, checked=False, colours=None):
+def classic_radio_svg(look, *, disabled=False, checked=False, colours=None, gtk3_2x=False):
     """Draw the Classic radio indicator from its native 120-DPI geometry."""
     if look == "2001":
         size = 14
@@ -29,27 +30,35 @@ def classic_radio_svg(look, *, disabled=False, checked=False, colours=None):
     rings = ((outline, face if disabled else base), (shadow, shade), (dark, border), (inset, face))
     art = (*rings, (dot, shade if disabled else ink)) if checked else rings
     shapes = "\n".join(f'  <path d="{shape}" fill="{colour}"/>' for shape, colour in art)
+    # GTK 3 paints to a 2× integer backing buffer at 125% output scale.
+    # Pad to a whole CSS pixel so Cairo draws the paths once on that grid.
+    logical = ceil(size / 1.25)
+    intrinsic = logical * 2 if gtk3_2x else size
+    extent = logical * 1.25 if gtk3_2x else size
+    rendering = ' shape-rendering="crispEdges"' if gtk3_2x else ""
     svg = (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}">\n'
-        f'{shapes}\n</svg>\n'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{intrinsic}" height="{intrinsic}" '
+        f'viewBox="0 0 {extent:g} {extent:g}"{rendering}>\n{shapes}\n</svg>\n'
     )
     return size, svg
 
 
-def classic_radio_css(assets, look):
+def classic_radio_css(assets, look, *, gtk3=False):
     """Give the Classic radio artwork its measured physical size at 120 DPI."""
     assets.mkdir(parents=True, exist_ok=True)
     styles = []
     for disabled, selected in ((False, False), (False, True), (True, False), (True, True)):
         state = ("-disabled" if disabled else "") + ("-checked" if selected else "")
-        path = assets / f"radio{state}.svg"
-        size, svg = classic_radio_svg(look, disabled=disabled, checked=selected)
+        suffix = "@2x" if gtk3 else ""
+        path = assets / f"radio{state}{suffix}.svg"
+        size, svg = classic_radio_svg(look, disabled=disabled, checked=selected, gtk3_2x=gtk3)
         path.write_text(svg)
+        image = f'url("{path.resolve().as_uri()}")'
         selector = (":disabled" if disabled else ":not(:disabled)") + (":checked" if selected else ":not(:checked)")
         selector += ":not(:indeterminate)"
         selectors = f"checkbutton > radio{selector}, radiobutton > radio{selector}"
-        styles.append(f'{selectors} {{ background-image: url("{path.resolve().as_uri()}"); -gtk-icon-source: none; }}')
-    logical = f"{size * 96 / 120:g}px"
+        styles.append(f'{selectors} {{ background-image: {image}; -gtk-icon-source: none; }}')
+    logical = f"{ceil(size / 1.25) if gtk3 else size / 1.25:g}px"
     return (
         "checkbutton > radio, radiobutton > radio { background-color: transparent;\n"
         f"  background-size: {logical} {logical}; "

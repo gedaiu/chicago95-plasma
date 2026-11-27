@@ -1499,6 +1499,22 @@ def test_desktop_surface(theme, state, desktop_scenes, visual_output):
     exact(expected, actual, output, mask)
 
 
+@pytest.mark.parametrize(("left", "top", "size"), [
+    pytest.param(6, 7, 20, id="start-flag"),
+    pytest.param(82, 9, 16, id="show-desktop"),
+    pytest.param(105, 9, 16, id="internet-explorer"),
+    pytest.param(128, 9, 16, id="outlook-express"),
+    pytest.param(167, 8, 20, id="notepad"),
+])
+def test_win98_populated_taskbar_icon(desktop_scenes, left, top, size):
+    folder, _ = THEMES["win98"]
+    screen = desktop_scenes("win98", "populated")
+    bounds = (left, top, left + size, top + size)
+    with Image.open(folder / "taskbar/populated.png") as reference:
+        bar = screen.crop((0, screen.height - reference.height, reference.width, screen.height))
+        np.testing.assert_array_equal(np.asarray(bar.crop(bounds)), np.asarray(reference.convert("RGB").crop(bounds)))
+
+
 def test_win95_populated_taskbar_captions(qt_app, desktop_scenes):
     from PySide6.QtGui import QFontDatabase
 
@@ -2944,17 +2960,7 @@ def test_classic_radio_svg_matches_windows(theme, state, qt_app, tmp_path, visua
     exact(expected, actual, visual_output / theme / "widget-controls" / "svg" / state)
 
 
-@pytest.mark.parametrize(
-    ("state", "version", "theme"),
-    [
-        pytest.param(state, version, theme, id=f"{state}-gtk{version[0]}-{theme}")
-        for theme, (_, metadata) in THEMES.items()
-        if "radio_scale" in metadata
-        for state in ("normal", "checked", *metadata.get("radio_extra_states", ()))
-        for version in ("3.0", "4.0")
-    ],
-)
-def test_radio_indicator(theme, version, state, live_gtk, visual_output):
+def radio_frames(theme, version, state, live_gtk):
     folder, metadata = THEMES[theme]
     directory = live_gtk(metadata["look"], metadata["radio_scale"], "radio") / f"radio-gtk-{version}"
     inventory = json.loads((directory / "manifest.json").read_text())
@@ -3016,7 +3022,30 @@ def test_radio_indicator(theme, version, state, live_gtk, visual_output):
     actual = backdrop.convert("RGB")
     if metadata.get("radio_rgb565"):
         actual = rgb565(actual)
+    return expected, actual
+
+
+@pytest.mark.parametrize(
+    ("state", "version", "theme"),
+    [
+        pytest.param(state, version, theme, id=f"{state}-gtk{version[0]}-{theme}")
+        for theme, (_, metadata) in THEMES.items()
+        if "radio_scale" in metadata
+        for state in ("normal", "checked", *metadata.get("radio_extra_states", ()))
+        for version in ("3.0", "4.0")
+    ],
+)
+def test_radio_indicator(theme, version, state, live_gtk, visual_output):
+    expected, actual = radio_frames(theme, version, state, live_gtk)
     exact(expected, actual, visual_output / theme / "widget-controls" / f"gtk{version[0]}" / state)
+
+
+def test_win98_gtk3_radio_selection_mark_matches_vm(live_gtk):
+    checked, rendered = radio_frames("win98", "3.0", "checked", live_gtk)
+    normal, _ = radio_frames("win98", "3.0", "normal", live_gtk)
+    mark = ImageChops.difference(checked, normal).getbbox()
+    assert mark is not None
+    np.testing.assert_array_equal(np.asarray(rendered.crop(mark)), np.asarray(checked.crop(mark)))
 
 
 @pytest.mark.parametrize("state", ("normal", "checked", *THEMES["winxp"][1]["radio_extra_states"]))
@@ -3052,8 +3081,7 @@ def test_winxp_luna_radio_indicator_qt(state, qt_app, visual_output):
     exact(expected, actual.crop(bounds), visual_output / "winxp/widget-controls/qt" / state)
 
 
-@pytest.mark.parametrize("theme", [name for name, (_, meta) in THEMES.items() if "file_manager_scale" in meta])
-def test_file_manager_navigation(theme, installed, visual_output):
+def capture_gtk3_navigation(theme, installed, visual_output, *, menu_visible=False):
     assert shutil.which("thunar"), "The GTK 3 file manager comparison requires Thunar"
     folder, metadata = THEMES[theme]
     scale = metadata["file_manager_scale"]
@@ -3073,6 +3101,11 @@ def test_file_manager_navigation(theme, installed, visual_output):
     )
     script = session.work / "file-manager.sh"
     destination = "/usr/share/icons" if look == "aero" else "/"
+    show_menu = (
+        'xfconf-query -c thunar -p /last-menubar-visible -s true\n'
+        "trap 'xfconf-query -c thunar -p /last-menubar-visible -s false' EXIT\n"
+        if menu_visible else ""
+    )
     script.write_text(
         '#!/bin/sh\nset -eu\n'
         'capture_toolbar() {\n'
@@ -3086,11 +3119,11 @@ def test_file_manager_navigation(theme, installed, visual_output):
         '  rm -f "$WORK/file-manager.png"\n'
         '  return 1\n'
         '}\n'
-        f'thunar {destination} >"$WORK/thunar.log" 2>&1 &\n'
+        f'{show_menu}thunar {destination} >"$WORK/thunar.log" 2>&1 &\n'
         'gdbus wait --session --timeout 15 org.xfce.Thunar\n'
         'capture_toolbar\n'
     )
-    if look == "aero":
+    if look == "aero" and not menu_visible:
         # The Explorer reference has Back enabled. Visit a parent breadcrumb to build that history.
         with script.open("a") as stream:
             stream.write(
@@ -3108,21 +3141,24 @@ def test_file_manager_navigation(theme, installed, visual_output):
     frame = session.work / "file-manager.png"
     frame.unlink(missing_ok=True)
     run_session(session.work, script, environment, session.screen, scale=scale)
-    output = visual_output / theme / "file-manager" / "gtk3" / "navigation"
+    output = visual_output / theme / "file-manager" / "gtk3" / ("menu-visible" if menu_visible else "navigation")
     output.mkdir(parents=True, exist_ok=True)
     for log in session.work.glob("*file-manager*.log"):
         shutil.copyfile(log, output / log.name)
     thunar_log = session.work / "thunar.log"
     if thunar_log.is_file():
         shutil.copyfile(thunar_log, output / thunar_log.name)
-    with Image.open(folder / metadata.get("file_manager_gtk3_reference", "file-manager/navigation.png")) as reference:
+    native = "file-manager/menu-visible.png" if menu_visible else metadata.get(
+        "file_manager_gtk3_reference", "file-manager/navigation.png"
+    )
+    with Image.open(folder / native) as reference:
         expected = reference.convert("RGB")
     assert frame.is_file(), f"Missing Thunar capture. See {output}"
     with Image.open(frame) as screen:
         screen.save(output / "screen.png")
         actual = screen.crop((0, 0, *expected.size)).convert("RGB")
     assert actual.getbbox(), f"Thunar did not render at the capture origin. See {output}"
-    if look == "aero":
+    if look == "aero" and not menu_visible:
         for left, right, enabled in ((3, 30, True), (34, 62, False)):
             icon = np.asarray(actual.crop((left, 0, right, 28)))
             # Enabled arrows have a white core. The disabled native lens still
@@ -3130,7 +3166,82 @@ def test_file_manager_navigation(theme, installed, visual_output):
             assert (icon.min(axis=2).max() > 248) == enabled, f"Unexpected Thunar history state. See {output}"
     if look in ("2000", "2001", "luna"):
         actual = rgb565(actual)
-    exact(expected, actual, output)
+    return expected, actual, output
+
+
+@pytest.fixture(scope="module")
+def gtk3_navigation(installed, visual_output):
+    @cache
+    def capture(theme, *, menu_visible=False):
+        return capture_gtk3_navigation(theme, installed, visual_output, menu_visible=menu_visible)
+
+    return capture
+
+
+@pytest.mark.parametrize("theme", [name for name, (_, meta) in THEMES.items() if "file_manager_scale" in meta])
+def test_file_manager_navigation(theme, gtk3_navigation):
+    exact(*gtk3_navigation(theme))
+
+
+def test_win98_thunar_menu_geometry(gtk3_navigation):
+    reference, rendered, _ = gtk3_navigation("win98")
+
+    def bevel(image, line):
+        values = np.asarray(image.crop(line).convert("L"), dtype=int) - 192
+        return np.where(values > 32, 1, np.where(values < -32, -1, 0))
+
+    def ink_bounds(image, left, right):
+        label = image.crop((left, 5, right, 24)).convert("L")
+        bounds = label.point(lambda value: 255 if value < 100 else 0).getbbox()
+        assert bounds is not None
+        return bounds
+
+    # Compare the light and dark strokes through the band and grip at 120 DPI.
+    # At the edges GTK can blend the bevel colour with the silver background.
+    for line in ((400, 0, 401, 28), (0, 12, 9, 13), (5, 3, 6, 24)):
+        np.testing.assert_array_equal(bevel(rendered, line), bevel(reference, line))
+
+    # File, Edit, View and Go are the four commands shared in this order.
+    for left, right in ((9, 46), (46, 86), (86, 132), (132, 166)):
+        expected = ink_bounds(reference, left, right)
+        np.testing.assert_allclose(ink_bounds(rendered, left, right), expected, atol=1, rtol=0)
+
+
+# Boundaries in the native Explorer captures, from File through View (through
+# Go on Windows 98). Stop above Windows' keyboard mnemonic underlines.
+THUNAR_MENU_LABELS = {
+    "win95": ((3, 37, 76, 122), 3, 17),
+    "win98": ((10, 46, 86, 132, 165), 6, 20),
+    "win2k": ((9, 43, 83, 125), 4, 21),
+    "winxp-classic": ((2, 34, 74, 116), 4, 21),
+    "winxp": ((1, 32, 72, 114), 2, 18),
+    "win7": ((2, 36, 72, 114), 2, 20),
+}
+
+
+@pytest.mark.parametrize("theme", [name for name, (_, meta) in THEMES.items() if "file_manager_scale" in meta])
+def test_thunar_menu_ink(theme, gtk3_navigation):
+    reference, rendered, _ = gtk3_navigation(theme, menu_visible=(theme == "win7"))
+    edges, top, bottom = THUNAR_MENU_LABELS[theme]
+
+    def label_ink(image, left, right):
+        band = np.asarray(image.crop((left, top, right, bottom)).convert("L"), dtype=float)
+        # Sample the face on each scanline so Aero's gradient is excluded.
+        face = np.quantile(band, 0.9, axis=1, keepdims=True)
+        return np.maximum(0, 1 - band / np.maximum(face, 1))
+
+    native_labels, gtk_labels = [], []
+    for left, right in zip(edges[:-1], edges[1:], strict=True):
+        native, gtk = (label_ink(image, left, right) for image in (reference, rendered))
+        assert 0.78 <= gtk.sum() / native.sum() <= 1.22, (theme, left, right)
+        native_labels.append(native)
+        gtk_labels.append(gtk)
+    native = np.concatenate(native_labels, axis=1)
+    gtk = np.concatenate(gtk_labels, axis=1)
+    # Fractional composition softens edges. Check both total coverage and
+    # dark cores, so substituting bold or painting diffuse grey strokes fails.
+    assert 0.9 <= gtk.sum() / native.sum() <= 1.1
+    assert (gtk > 0.8).sum() >= 0.5 * (native > 0.8).sum()
 
 
 @pytest.fixture(scope="module")

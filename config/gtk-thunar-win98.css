@@ -1,0 +1,27 @@
+/* Explorer's menu band has an etched edge and a grip before File. */
+.thunar menubar {
+  min-height: 17px;
+  border: 0;
+  padding: 3px 0 0 9px;
+  background-image: url("win98-rebar.svg"),
+    linear-gradient(to bottom,
+      @menu_bg_color 0.8px, #808080 0.8px, #808080 1.6px,
+      white 1.6px, white 2.4px, transparent 2.4px);
+  background-size: 9.6px 20px, 100% 100%;
+  background-position: left top;
+  background-repeat: no-repeat;
+}
+
+.thunar menubar > menuitem {
+  min-height: 0;
+  margin: 0;
+  padding: 1px 8px 0 5px;
+}
+
+.thunar menubar > menuitem > label {
+  font-size: 1.02em;
+}
+
+.thunar menubar spinner {
+  min-height: 16px;
+}

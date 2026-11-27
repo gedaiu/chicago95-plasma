@@ -12,6 +12,14 @@ scrollbar:disabled slider {
 checkbutton:disabled > check:checked { -gtk-icon-source: url("check-disabled.svg"); }
 checkbutton:disabled > check:indeterminate { -gtk-icon-source: url("mixed-disabled.svg"); }
 
+/* Explorer's optional menu bar uses dark Segoe UI text even on the glass theme. */
+.thunar menubar > menuitem {
+  padding: 2px 8px 2px 9px;
+}
+window.thunar:not(:backdrop) menubar > menuitem:not(:disabled):not(:hover):not(:selected):not(:active) > label {
+  color: #151515;
+}
+
 /* Thunar 4.20 exposes the navigation band as a GtkToolbar and the
  * address field as .path-bar. Keep its editable and overflow controls. */
 .thunar toolbar {

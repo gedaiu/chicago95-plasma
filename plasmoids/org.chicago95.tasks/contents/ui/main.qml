@@ -278,7 +278,7 @@ PlasmoidItem {
         width: root.pagesButtons ? root.width - x : Math.max(root.metrics.cellWidth, root.quickLaunchEnd - root.quickLaunchX)
         height: parent.height
         onDropped: drop => {
-            const insertAt = root.pagesButtons ? root.pageStart + Math.min(root.pageCount, Math.round(drop.x / root.metrics.cellWidth)) : root.firstShown + Launchers.insertionIndexAt(x + drop.x, root.quickLaunchX, root.shownLaunchers);
+            const insertAt = root.pagesButtons ? root.pageStart + Math.min(root.pageCount, Math.round(drop.x / root.metrics.cellWidth)) : root.firstShown + Launchers.insertionIndexAt(x + drop.x, root.quickLaunchX, root.shownLaunchers, root.metrics.cellWidth);
             drop.urls.forEach((url, offset) => {
                 const before = tasksModel.count;
                 tasksModel.requestAddLauncher(url);
@@ -453,7 +453,7 @@ PlasmoidItem {
             readonly property bool launcher: root.pagesButtons ? model.IsLauncher === true : index < root.launcherCount
             readonly property var modelIndex: tasksModel.makeModelIndex(index)
             readonly property bool fileManager: ["thunar.desktop", "org.kde.dolphin.desktop"].includes(String(model.LauncherUrlWithoutIcon ?? "").split(/[/:]/).pop())
-            readonly property int laidOutX: root.pagesButtons ? root.tasksX + slot % root.paging.perPage * (root.buttonWidth + root.gap) - (launcher ? 1 : 0) : launcher ? root.quickLaunchX + Band.cellsWidth(index - root.firstShown, root.metrics) : root.tasksX + slot % root.paging.perPage * (root.buttonWidth + root.gap)
+            readonly property real laidOutX: root.pagesButtons ? root.tasksX + slot % root.paging.perPage * (root.buttonWidth + root.gap) - (launcher ? 1 : 0) : launcher ? root.quickLaunchX + Band.cellsWidth(index - root.firstShown, root.metrics) : root.tasksX + slot % root.paging.perPage * (root.buttonWidth + root.gap)
             readonly property int slot: root.pagesButtons ? index : index - root.launcherCount
             // Dragged: the button follows the pointer; the others slide into their new places.
             property bool dragging: false
@@ -491,9 +491,9 @@ PlasmoidItem {
                     }
                     Binding {
                         target: cell.item
-                        property: "iconSize"
+                        property: "metrics"
                         when: Plasmoid.configuration.taskbarStyle === "classic"
-                        value: root.metrics.iconSize
+                        value: root.metrics
                     }
                     Binding {
                         target: cell.item

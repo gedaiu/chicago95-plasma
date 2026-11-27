@@ -1,7 +1,6 @@
 .pragma library
 .import "quickLaunchBand.js" as Band
 
-const CELL_WIDTH = Band.metrics().cellWidth;
 const REMOVE_DISTANCE = 12;
 
 // A launcher let go this far outside the taskbar is removed; dragging along it only sorts (DragSortArea.qml).
@@ -10,8 +9,9 @@ function releasedOffTaskbar(pointX, pointY, width, height) {
   return isBeyondEdge(pointX, width) || isBeyondEdge(pointY, height);
 }
 
-function insertionIndexAt(pointX, quickLaunchX, count) {
-  const gap = Math.round((pointX - quickLaunchX) / CELL_WIDTH);
+// eslint-disable-next-line max-params -- match the pitch of the visible launcher cells
+function insertionIndexAt(pointX, quickLaunchX, count, cellWidth = Band.metrics().cellWidth) {
+  const gap = Math.round((pointX - quickLaunchX) / cellWidth);
 
   return Math.max(0, Math.min(count, gap));
 }

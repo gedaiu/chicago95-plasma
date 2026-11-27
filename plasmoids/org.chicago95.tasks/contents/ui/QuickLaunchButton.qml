@@ -10,13 +10,14 @@ Item {
     property var icon
     property bool hovered
     property bool held
-    property real iconSize: 16
+    property var metrics: Band.metrics()
+    readonly property real iconSize: metrics.iconSize
     property color shadow: "#808080"
     property color white: "#ffffff"
 
-    readonly property int cellWidth: Band.metrics().cellWidth
+    readonly property real cellWidth: metrics.cellWidth
     readonly property int cellHeight: 22
-    readonly property int iconInset: Band.metrics().iconInset
+    readonly property real iconInset: metrics.iconInset
 
     implicitWidth: cellWidth
     implicitHeight: cellHeight
@@ -28,9 +29,10 @@ Item {
 
         Kirigami.Icon {
             x: cell.iconInset + (cell.held ? 1 : 0)
-            y: cell.iconInset + (16 - cell.iconSize) / 2 + (cell.held ? 1 : 0)
-            width: cell.iconSize
-            height: cell.iconSize
+            y: (cell.metrics.iconTop ?? cell.iconInset + (16 - cell.iconSize) / 2) + (cell.held ? 1 : 0)
+            // Kirigami requests an integer logical size before applying the screen scale.
+            width: Math.ceil(cell.iconSize)
+            height: width
             source: cell.icon
             roundToIconSize: false
         }

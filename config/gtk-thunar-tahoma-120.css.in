@@ -1,0 +1,12 @@
+/* Windows 2000 and XP use Tahoma for Explorer's menu at 120 DPI. */
+.thunar menubar {
+  padding-left: ${leading}px;
+}
+.thunar menubar > menuitem {
+  padding: 0 ${right}px 0 ${left}px;
+}
+.thunar menubar > menuitem > label {
+  font-size: ${size}em;
+  margin-top: ${top}px;
+  margin-bottom: ${bottom}px;
+}

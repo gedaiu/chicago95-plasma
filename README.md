@@ -131,9 +131,11 @@ Windows 95 and 98 can also use MS Sans Serif from your own VM. Copy
 into a local folder. With Python FontTools installed, run
 `python3 setup/import-win9x-fonts.py 95 /path/to/fonts` for Windows 95 or
 `python3 setup/import-win9x-fonts.py 98 /path/to/fonts` for Windows 98.
-The importer creates local TrueType fonts for 96 and 120 DPI. Run uses
-them on the matching look, and Setup selects them for KDE and GTK when
-the default font is selected at those scales. For Windows 95 it also
+The importer creates local TrueType fonts for 96 and 120 DPI. If an earlier
+import shows broken or pale strokes, rerun the importer and reopen the app
+to load the continuous glyph outlines. Run uses them on the matching look,
+and Setup selects them for KDE and GTK when the default font is selected
+at those scales. For Windows 95 it also
 imports the 10-point face used by desktop icon labels.
 Include `VGASYS.FON` and `8514SYS.FON` to import the System font used in
 the Windows 95 Appearance preview.
