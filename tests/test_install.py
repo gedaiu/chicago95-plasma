@@ -1457,13 +1457,8 @@ def test_the_look_paints_gtk_drawn_title_bars_in_its_active_and_inactive_colours
     gtk3 = (tmp_path / ".config/gtk-3.0/gtk.css").read_text()
     gtk4 = (tmp_path / ".config/gtk-4.0/gtk.css").read_text()
     caption = tmp_path / "gtk-classic-caption/close-disabled.svg"
-    caption4 = caption.with_name("close-disabled-gtk4.svg") if dpi == 120 else caption
-    assert caption.as_uri() in gtk3
-    generated_bitmap = dpi == 120 and shutil.which("rsvg-convert", path="/usr/bin:/bin")
-    rendered = caption4.with_suffix(".png") if generated_bitmap else caption4
-    assert rendered.is_file() and rendered.as_uri() in gtk4
-    for asset in (caption, caption4):
-        assert f'viewBox="0 0 {round(16 * dpi / 96)} {svg_height}"' in asset.read_text()
+    assert all(caption.as_uri() in sheet for sheet in (gtk3, gtk4))
+    assert f'viewBox="0 0 {round(16 * dpi / 96)} {svg_height}"' in caption.read_text()
     assert all(f"background-size: 16px {image_height}px;" in sheet for sheet in (gtk3, gtk4))
 
     assert (
@@ -2104,10 +2099,15 @@ def test_luna_decoration_writes_the_vertical_title_gradient_into_the_gtk_css(tmp
         assert f'url("{restore.as_uri()}")' in css
         size = "21.6px" if dpi == 120 and version == "4.0" else "21px"
         assert f"background-size: {size} {size};" in css
+        snapped_position = "background-position: calc(50% - 0.2px) calc(50% - 0.2px);"
+        assert (snapped_position in css) == (dpi == 120 and version == "4.0")
         doubled = restore.with_name("restore-active@2.svg")
         assert (doubled.as_uri() in css) == (dpi == 120 and version == "3.0")
     if dpi == 120:
         assert doubled.read_text() == restore.read_text().replace('width="27" height="27"', 'width="42" height="42"', 1)
+        close = (assets / caption_folder / "close-deactivated@2.svg").read_text()
+        assert 'width="44" height="44" viewBox="0 0 27.5 27.5"' in close
+        assert "background-size: 22px 22px;" in (tmp_path / ".config/gtk-3.0/gtk.css").read_text()
     else:
         assert not doubled.exists()
 

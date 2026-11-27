@@ -14,8 +14,6 @@ background, so the face keeps its size in any bar, and the symbolic glyph is hid
 import argparse
 import base64
 import re
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -45,6 +43,8 @@ CAPTION_BUTTONS = (
 CLOSE_GAP = 2
 # GtkHeaderBar's built-in GTK 3 controls have six logical pixels between them.
 GTK3_HEADER_SPACING = 6
+# Room to paint the left bevel without shifting the 16px face or its glyph.
+GTK3_MINIMIZE_GUTTER = 1
 # At 120 DPI the native gap is three device pixels. GTK's two logical
 # pixels leave the Close face half a pixel off the compositor grid.
 CLOSE_OFFSET_120 = 0.4
@@ -73,42 +73,35 @@ TOOLS = f"{STRIP} button.image-button, {STRIP} splitbutton > button"
 SPLIT_ARROW = f"{STRIP} splitbutton > menubutton > button"
 
 
-def raster_caption(source, converter):
-    """Render one SVG face at the physical 120-DPI dimensions for GTK 4."""
-    try:
-        png = subprocess.run(
-            [converter, "-w", str(CAPTION_W_120), "-h", str(CAPTION_H_120), str(source)],
-            capture_output=True,
-            check=True,
-            timeout=10,
-        ).stdout
-    except (OSError, subprocess.SubprocessError):
-        return source
-    output = source.with_suffix(".png")
-    output.write_bytes(png)
-    return output
-
-
-def gtk3_win9x_caption_120(kind, colours, pressed, disabled):
-    """Fit the 9x face to GTK 3's 2× backing grid at 120 DPI."""
+def gtk3_classic_caption_120(kind, colours, pressed, disabled):
+    """Fit the classic face to GTK 3's 2× backing grid at 120 DPI."""
     face, _light, shadow, dark = colours
+    is_9x = dark == "#000000"
+    close_9x = kind == "close" and is_9x
+    # At 125%, one pixel of the 2× backing buffer is 0.625 SVG units.
+    left = "-.625" if kind == "minimize" else "0"
+    rim = f'<path d="M{left} 0H20V1.25H.75V18H{left}z" fill="{dark if pressed else HILIGHT}"/>'
     if pressed:
-        rim = (
-            f'<path d="M0 0H20V1.25H.75V18H0z" fill="{dark}"/>'
-            f'<path d="M.75 1.25H19V2.15H1.75V18H.75z" fill="{shadow}"/>'
-        )
+        # The inset shadow stops above the last row of the pressed 9x Close face.
+        shadow_bottom = 17 if close_9x else 18
+        rim += f'<path d="M.75 1.25H19V2.15H1.75V{shadow_bottom}H.75z" fill="{shadow}"/>'
     else:
-        rim = (
-            f'<path d="M0 0H20V1.25H.75V18H0z" fill="{HILIGHT}"/>'
-            f'<path d="M19 1.25H20V18H.75V16.75H19z" fill="{shadow}"/>'
-        )
+        rim += f'<path d="M19 1.25H20V18H.75V16.75H19z" fill="{shadow}"/>'
     # Cairo snaps the solid bevel and glyph before KWin scales the window to
     # 125%. The button spacing puts the glyphs at different pixel phases.
-    if kind == "maximize":
-        x, y = (-0.4, 0.25) if pressed else (-0.75, 0.375)
+    if close_9x and not pressed:
+        x, y = -0.375, 0.2
+    elif kind == "minimize":
+        x, y = -0.5, 0.375 if pressed else 0
+    elif kind == "maximize":
+        x, y = -0.25, 0.2
+    elif kind == "restore" and not pressed:
+        # The maximized 9x and NT headers place Restore at different vertical phases.
+        x, y = -0.25, -0.25 if is_9x else 0.5
+    elif kind == "close" and not is_9x:
+        x, y = -0.25, 0
     else:
-        x = -0.25
-        y = 0 if not pressed and kind in ("minimize", "restore") else 0.375
+        x, y = -0.25, 0.375
     if disabled:
         glyph = caption_glyph_120(kind, HILIGHT, 1) + caption_glyph_120(kind, shadow, 0)
     else:
@@ -119,16 +112,24 @@ def gtk3_win9x_caption_120(kind, colours, pressed, disabled):
         f'{rim}<g transform="translate({x:g} {y:g})">{glyph}</g>'
         "</g>"
     )
+    if kind == "minimize":
+        width = CAPTION_W + GTK3_MINIMIZE_GUTTER
+        body = f'<g transform="translate({GTK3_MINIMIZE_GUTTER * 1.25:g} 0)">{body}</g>'
+        return svg(width * 2, 30, body, view_size=(width * 1.25, 18.75))
+    if kind == "maximize" or close_9x or disabled:
+        # Keep the 18-pixel face inside a whole 15-logical-pixel image.
+        # The transparent footer lets GTK load it at exactly 32×30.
+        return svg(32, 30, body, view_size=(CAPTION_W_120, 18.75))
     return svg(CAPTION_W * 2, CAPTION_H_120 * 2 / 1.25, body, view_size=(CAPTION_W_120, CAPTION_H_120))
 
 
-def face_url(kind, colours, pressed, disabled, assets, high_dpi, gtk4, converter):
+def face_url(kind, colours, pressed, disabled, assets, high_dpi, gtk4):
     shift = 1 if pressed else 0
     if high_dpi:
-        view_size = CAPTION_W_120, CAPTION_H_120
         body = caption_button_120(kind, colours, pressed, disabled)
-        display_size = (CAPTION_W, CAPTION_H_120 / 1.25) if gtk4 else view_size
-        artwork = svg(*display_size, body, view_size=view_size)
+        # GTK loads the SVG at its intrinsic size. At 125% the CSS size
+        # maps to this 20×18 device grid without enlarging the loaded image.
+        artwork = svg(CAPTION_W_120, CAPTION_H_120, body)
     else:
         glyph = (
             disabled_caption_glyph(kind, colours[2], 0, 0)
@@ -137,20 +138,17 @@ def face_url(kind, colours, pressed, disabled, assets, high_dpi, gtk4, converter
         artwork = svg(CAPTION_W, CAPTION_H, caption_face(0, 0, colours, pressed) + glyph)
     if assets is not None:
         state = "disabled" if disabled else "pressed" if pressed else "normal"
-        suffix = "-gtk4" if gtk4 and high_dpi else ""
-        path = assets / f"{kind}-{state}{suffix}.svg"
+        path = assets / f"{kind}-{state}.svg"
         path.write_text(artwork)
         image = f'url("{path.resolve().as_uri()}")'
         if high_dpi and not gtk4:
             # GTK 3 selects assets for its integer-scale backing buffer.
             doubled = path.with_name(f"{path.stem}@2x.svg")
-            if colours[-1] == "#000000":
-                doubled.write_text(gtk3_win9x_caption_120(kind, colours, pressed, disabled))
-            else:
-                doubled.write_text(svg(CAPTION_W_120 * 2, CAPTION_H_120 * 2, body, view_size=view_size))
+            doubled.write_text(gtk3_classic_caption_120(kind, colours, pressed, disabled))
+            if kind == "minimize":
+                # The CSS cell includes the gutter at either GTK buffer scale.
+                return f'url("{doubled.resolve().as_uri()}")'
             return f'-gtk-scaled({image}, url("{doubled.resolve().as_uri()}"))'
-        if gtk4 and high_dpi and converter:
-            return f'url("{raster_caption(path, converter).resolve().as_uri()}")'
         return image
     data = base64.b64encode(artwork.encode()).decode()
     return f'url("data:image/svg+xml;base64,{data}")'
@@ -173,7 +171,7 @@ def rule(selector, **properties):
     return f"{selector} {{\n{body}}}\n"
 
 
-def caption_css(face, light, shadow, dark, assets=None, dpi=96, *, gtk4=True, converter=None):
+def caption_css(face, light, shadow, dark, assets=None, dpi=96, *, gtk4=True):
     colours = (face, light, shadow, dark)
     high_dpi = dpi == 120
     face_height = CAPTION_H_120 * 96 / dpi if high_dpi else CAPTION_H
@@ -207,6 +205,23 @@ def caption_css(face, light, shadow, dark, assets=None, dpi=96, *, gtk4=True, co
         if high_dpi:
             rules.append(rule(buttons(".close"), transform=f"translateX({CLOSE_OFFSET_120:g}px)"))
     else:
+        if high_dpi and assets is not None:
+            close = ".close" if dark == "#000000" else ".close:disabled"
+            rules.append(rule(buttons(close), background_size=f"{CAPTION_W}px auto"))
+            width = CAPTION_W + GTK3_MINIMIZE_GUTTER
+            rules.append(
+                rule(
+                    buttons(".minimize"), min_width=f"{width}px",
+                    margin_left=f"{-GTK3_MINIMIZE_GUTTER}px", background_size=f"{width}px auto",
+                )
+            )
+            rules.append(
+                rule(
+                    f"{buttons('.maximize', 'window:not(.maximized) ')}, {buttons('.maximize:disabled')}",
+                    background_size=f"{CAPTION_W}px auto",
+                    background_position="center top",
+                )
+            )
         # The 120-DPI Windows pair has about one logical pixel of separation.
         # GTK 3 allocates the button positions in whole logical pixels.
         pair_gap = int(high_dpi)
@@ -215,6 +230,24 @@ def caption_css(face, light, shadow, dark, assets=None, dpi=96, *, gtk4=True, co
             margin = f"margin_{side}"
             rules.append(rule(f"{adjacent}:dir({direction})", **{margin: f"{pair_gap - GTK3_HEADER_SPACING}px"}))
             rules.append(rule(f"{adjacent}.close:dir({direction})", **{margin: f"{CLOSE_GAP - GTK3_HEADER_SPACING}px"}))
+            if high_dpi and assets is not None:
+                # Borrow the pair's one logical pixel of spacing so GTK can place the
+                # centered face on its half-logical-pixel backing grid without clipping.
+                if direction == "ltr":
+                    rules.append(
+                        rule(
+                            f"{adjacent}.minimize:dir(ltr)",
+                            margin_left=f"{pair_gap - GTK3_HEADER_SPACING - GTK3_MINIMIZE_GUTTER}px",
+                        )
+                    )
+                maximize = f"{adjacent}.maximize"
+                rules.append(
+                    rule(
+                        f"window:not(.maximized) {maximize}:dir({direction}), {maximize}:disabled:dir({direction})",
+                        min_width=f"{CAPTION_W + pair_gap}px",
+                        **{margin: f"{-GTK3_HEADER_SPACING}px"},
+                    )
+                )
     faces = [(kind, f".{kind}", "") for kind in ("minimize", "maximize", "close")]
     faces.append(("restore", ".maximize", "window.maximized "))
     for kind, suffix, ancestor in faces:
@@ -230,7 +263,7 @@ def caption_css(face, light, shadow, dark, assets=None, dpi=96, *, gtk4=True, co
                     border="none",
                     box_shadow="none",
                     background_color="transparent",
-                    background_image=face_url(kind, colours, pressed, disabled, assets, high_dpi, gtk4, converter),
+                    background_image=face_url(kind, colours, pressed, disabled, assets, high_dpi, gtk4),
                 )
             )
     return "".join(rules)
@@ -509,7 +542,6 @@ def main():
             args.caption_assets,
             args.dpi,
             gtk4=args.gtk == "4.0",
-            converter=shutil.which("rsvg-convert"),
         )
         + header_css(args.active, args.inactive, args.inactive_text, args.face, gtk4=args.gtk == "4.0")
         + path_bar_css(args.light, args.shadow, args.dark)

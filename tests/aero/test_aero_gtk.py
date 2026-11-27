@@ -594,6 +594,29 @@ def test_caption_svg_is_rasterized_at_the_button_size(aero_gtk_home, subdirector
             assert int(svg.get("height")) == density * 20
 
 
+def test_gtk4_caption_loads_device_sized_svgs_at_144_dpi(tmp_path):
+    import xml.etree.ElementTree as ET
+
+    run_bash_with_steps(
+        tmp_path,
+        'SETUP_DECORATION=aero; SETUP_DPI=144; write_gtk_titlebar_css "" "" ""',
+    )
+    assets = tmp_path / ".local/share/chicago95/gtk4-caption"
+    gtk4 = (tmp_path / ".config/gtk-4.0/gtk.css").read_text()
+    gtk3 = (tmp_path / ".config/gtk-3.0/gtk.css").read_text()
+    for kind, width in (("minimize", 45), ("maximize", 40), ("close", 75), ("restore", 40)):
+        asset = assets / f"{kind}-active.svg"
+        svg = ET.parse(asset).getroot()
+        assert (float(svg.get("width")), float(svg.get("height"))) == (width, 30)
+        assert f'background-image: url("{asset.as_uri()}")' in gtk4
+        assert (assets / "gtk3" / f"{kind}-active@2x.svg").as_uri() in gtk3
+    disabled = assets / "gtk3/close-deactivated.svg"
+    assert f'background-image: url("{disabled.as_uri()}")' in gtk3
+    svg = ET.parse(disabled).getroot()
+    assert (float(svg.get("width")), float(svg.get("height"))) == (75, 30)
+    assert svg.find(".//*[@id='disabledGlass']") is not None
+
+
 @pytest.mark.parametrize(("art", "capture", "limit"), [("normal", "normal", 9), ("checked-normal", "checked", 15)])
 def test_large_radio_svg_matches_144_dpi_display_settings(qt_app, art, capture, limit):
     from test_aero_buttons import rendered

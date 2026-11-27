@@ -465,7 +465,7 @@ def caption_art(color, index, large):
     return art
 
 
-def caption_face_svg(kind, index, large=False, *, intrinsic_size=None):
+def caption_face_svg(kind, index, large=False, *, intrinsic_size=None, padding=0):
     color = "red" if kind == "close" else "blue"
     index = caption_art_index(kind, index)
     art = caption_art(color, index, large)
@@ -473,7 +473,10 @@ def caption_face_svg(kind, index, large=False, *, intrinsic_size=None):
         geometry, tiles = large_face_tiles()
         definitions = geometry + face_definitions("s", art)
         body = large_face_art("s", art, tiles) + large_glyph_markup(kind, art["glyph"], index)
-        return linked_svg(LARGE_CAPTION, LARGE_CAPTION, f"<defs>{definitions}</defs>\n{body}", intrinsic_size=intrinsic_size)
+        if padding:
+            body = f'<g transform="translate({padding} {padding})">{body}</g>'
+        canvas = LARGE_CAPTION + 2 * padding
+        return linked_svg(canvas, canvas, f"<defs>{definitions}</defs>\n{body}", intrinsic_size=intrinsic_size)
     definitions = face_inset() + face_definitions("s", art)
     body = face_art("s", art) + glyph_markup(kind, art["glyph"])
     return linked_svg(BUTTON, BUTTON, f"<defs>{definitions}</defs>\n{body}", intrinsic_size=intrinsic_size)

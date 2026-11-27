@@ -11,6 +11,7 @@ from make_aero_aurorae import AURORAE_STATES, BUTTON_FACES, button_state, captio
 FACE_HEIGHT = palette.BUTTON_HEIGHT
 GTK4_CAPTION_TOP = 4
 MAXIMIZED_CAPTION_TOP = -2 / 3
+NATIVE_CAPTION_DPI = 144
 GTK4_144_DPI_OFFSETS = {"minimize": 4 / 3, "maximize": 2 / 3}
 
 
@@ -24,17 +25,15 @@ def caption_widths(gtk4, dpi):
     return widths
 
 
-def write_face(directory, kind, state, width, artwork, large_artwork=None):
-    for density, suffix in ((1, ""), (2, "@2x")):
-        face = large_artwork if density == 2 and large_artwork else artwork
-        svg = (
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="{density * width}" '
-            f'height="{density * FACE_HEIGHT}" viewBox="0 0 {width} {FACE_HEIGHT}">{face}</svg>'
-        )
-        (directory / f"{kind}-{state}{suffix}.svg").write_text(svg)
+def write_face(directory, kind, state, width, artwork, *, density=1, suffix=""):
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{density * width}" '
+        f'height="{density * FACE_HEIGHT}" viewBox="0 0 {width} {FACE_HEIGHT}">{artwork}</svg>'
+    )
+    (directory / f"{kind}-{state}{suffix}.svg").write_text(svg)
 
 
-def gtk4_close_highlight(width, look):
+def close_highlight(width, look):
     """Keep the optical Close highlight visible on GTK's client-side glass."""
     pixel = FACE_HEIGHT / 30
     if look == "disabled":
@@ -50,7 +49,7 @@ def gtk4_close_highlight(width, look):
     )
 
 
-def gtk4_disabled_close_glass(width):
+def disabled_close_glass(width):
     """Supply the lit glass below the disabled face where GTK has no DWM backdrop."""
     rim = caption_rim(0, 0, width, FACE_HEIGHT, 0, 2) + "Z"
     return (
@@ -61,31 +60,44 @@ def gtk4_disabled_close_glass(width):
     )
 
 
+def uses_native_face(gtk4, dpi, kind, state):
+    return dpi == NATIVE_CAPTION_DPI and (gtk4 or (kind, state) == ("close", "deactivated"))
+
+
 def write_caption_faces(directory, gtk4=False, dpi=96):
     directory.mkdir(parents=True, exist_ok=True)
     widths = caption_widths(gtk4, dpi)
     for kind in BUTTON_FACES:
         width = widths[kind]
+        # The 144-DPI glyphs and outlines already describe the device grid.
+        # GTK 4 can load them at the output size and paint them at the same size.
         for state, (window, look) in AURORAE_STATES.items():
-            defs, shapes = button_state(kind, window, look, "face", cell_width=width)
-            pixel_density = 2 if gtk4 or kind in ("minimize", "restore") else None
+            native = uses_native_face(gtk4, dpi, kind, state)
+            pixel_density = 2 if not native and (gtk4 or kind in ("minimize", "restore")) else None
+            if not native:
+                defs, shapes = button_state(kind, window, look, "face", cell_width=width)
+                write_face(directory, kind, state, width, f"<defs>{defs}</defs>{shapes}")
             large_defs, large_shapes = button_state(
                 kind, window, look, "face", large=True, cell_width=width, pixel_density=pixel_density,
                 crisp_glyph=gtk4 and kind == "close" and look in ("hot", "pressed"),
             )
-            if gtk4 and kind == "close" and window == "active":
+            if (gtk4 or native) and kind == "close" and window == "active":
                 if look == "disabled":
-                    glass_defs, glass = gtk4_disabled_close_glass(width)
+                    glass_defs, glass = disabled_close_glass(width)
                     large_defs += glass_defs
                     large_shapes = glass + large_shapes
-                large_shapes += gtk4_close_highlight(width, look)
+                large_shapes += close_highlight(width, look)
+            if native and not gtk4:
+                # Align the disabled face within GTK 3's integer-scale buffer.
+                large_shapes = f'<g transform="translate(0 0.375)">{large_shapes}</g>'
             write_face(
                 directory,
                 kind,
                 state,
                 width,
-                f"<defs>{defs}</defs>{shapes}",
                 f"<defs>{large_defs}</defs>{large_shapes}",
+                density=dpi / 96 if native else 2,
+                suffix="" if native else "@2x",
             )
 
 
@@ -137,7 +149,7 @@ headerbar windowcontrols button, headerbar windowcontrols button:disabled {{
   background-position: center {GTK4_CAPTION_TOP}px;
 }}
 """)
-        if dpi == 144:
+        if dpi == NATIVE_CAPTION_DPI:
             # GtkWindowControls rounds the allocation of each button up to a
             # whole logical pixel. Realign the restored faces on the device grid.
             for kind, offset in GTK4_144_DPI_OFFSETS.items():
@@ -204,11 +216,14 @@ window.maximized:not(.nautilus-window) headerbar button.titlebutton.maximize {{
                 "disabled": ":disabled",
             }[look]
             selector = ", ".join(s + suffix for s in selectors)
-            graphic = (directory / f"{kind}-{state}.svg").as_uri()
-            hidpi = (directory / f"{kind}-{state}@2x.svg").as_uri()
+            face = (directory / f"{kind}-{state}.svg").as_uri()
+            graphic = f'url("{face}")'
+            if not uses_native_face(gtk4, dpi, kind, state):
+                hidpi = (directory / f"{kind}-{state}@2x.svg").as_uri()
+                graphic = f'-gtk-scaled({graphic}, url("{hidpi}"))'
             rules.append(
                 f"{selector} {{ min-width: {minimum_width}px; min-height: {FACE_HEIGHT}px; "
-                f'background-image: -gtk-scaled(url("{graphic}"), url("{hidpi}")); '
+                f"background-image: {graphic}; "
                 f"background-size: {width}px {FACE_HEIGHT}px; }}"
             )
     return "\n".join(rules)

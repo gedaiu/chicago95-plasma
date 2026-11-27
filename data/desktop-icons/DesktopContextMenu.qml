@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls as Controls
+import QtQuick.Shapes
 
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.plasma5support as Plasma5Support
@@ -13,6 +14,16 @@ Controls.Menu {
     required property var desktopConfiguration
     property string look
     property string builtLook
+    readonly property bool win95: look === "1995"
+    // On Wayland, Screen rounds fractional scales up. The window has the scale used to draw the menu.
+    readonly property real windowScale: parent?.Window.window?.devicePixelRatio ?? Screen.devicePixelRatio
+    readonly property string win95Font: {
+        if (!win95 || !desktopConfiguration.chicago95NativeDesktopFont)
+            return "";
+        const scale = windowScale;
+        const family = "Chicago95 Windows 95" + (scale === 1.25 ? " 120 DPI" : "");
+        return (scale === 1 || scale === 1.25) && Qt.fontFamilies().includes(family) ? family : "";
+    }
     readonly property bool aero: look === "aero"
     readonly property bool luna: look === "luna"
     readonly property bool nt: look === "2000" || look === "2001"
@@ -24,7 +35,7 @@ Controls.Menu {
     readonly property color dark: aero ? "#979797" : luna ? "#aca899" : nt ? "#404040" : "#000000"
     readonly property var profiles: ({
         "1995": {width: 138, rows: ["arrange", "line-up", "", "paste", "paste-shortcut", "", "new", "", "properties"],
-                 heights: [22, 22, 7, 22, 22, 7, 24, 7, 22]},
+                 heights: [20, 20, 11, 20, 20, 11, 20, 11, 22]},
         "1998": {width: 143, rows: ["active", "", "arrange", "line-up", "", "refresh", "", "paste",
                                    "paste-shortcut", "", "new", "", "properties"],
                  heights: [21, 7, 22, 22, 7, 24, 7, 22, 22, 7, 24, 7, 25]},
@@ -45,6 +56,11 @@ Controls.Menu {
         "paste": qsTr("Paste"), "paste-shortcut": aero ? qsTr("Paste shortcut") : qsTr("Paste Shortcut"),
         "active": qsTr("Active Desktop"), "new": qsTr("New"), "properties": qsTr("Properties"),
         "resolution": qsTr("Screen resolution"), "gadgets": qsTr("Gadgets"), "personalize": qsTr("Personalize"),
+    })
+    readonly property var win95Labels: ({
+        "arrange": qsTr("Arrange &Icons"), "line-up": qsTr("Lin&e up Icons"),
+        "paste": qsTr("&Paste"), "paste-shortcut": qsTr("Paste &Shortcut"),
+        "new": qsTr("Ne&w"), "properties": qsTr("P&roperties"),
     })
     readonly property var submenus: ({
         "arrange": sorting, "arrange-by": sorting, "sort": sorting,
@@ -142,6 +158,24 @@ Controls.Menu {
         border.width: desktopMenu.unit
         border.color: desktopMenu.dark
         Rectangle {
+            visible: desktopMenu.win95
+            width: parent.width - desktopMenu.unit
+            height: parent.height - desktopMenu.unit
+            color: desktopMenu.face
+            Rectangle {
+                x: desktopMenu.unit
+                y: desktopMenu.unit
+                width: parent.width - x
+                height: parent.height - y
+                color: "#808080"
+                Rectangle {
+                    width: parent.width - desktopMenu.unit
+                    height: parent.height - desktopMenu.unit
+                    color: desktopMenu.face
+                }
+            }
+        }
+        Rectangle {
             visible: desktopMenu.aero
             x: 27
             y: desktopMenu.topPadding
@@ -153,7 +187,7 @@ Controls.Menu {
             visible: !desktopMenu.aero && !desktopMenu.luna
             x: desktopMenu.unit
             y: desktopMenu.unit
-            width: parent.width - 2 * desktopMenu.unit
+            width: parent.width - (desktopMenu.win95 ? 3 : 2) * desktopMenu.unit
             height: desktopMenu.unit
             color: "white"
         }
@@ -162,7 +196,7 @@ Controls.Menu {
             x: desktopMenu.unit
             y: desktopMenu.unit
             width: desktopMenu.unit
-            height: parent.height - 2 * desktopMenu.unit
+            height: parent.height - (desktopMenu.win95 ? 3 : 2) * desktopMenu.unit
             color: "white"
         }
     }
@@ -172,7 +206,7 @@ Controls.Menu {
         Controls.MenuItem {
             id: item
             property string command
-            text: desktopMenu.labels[command] ?? ""
+            text: (desktopMenu.win95 ? desktopMenu.win95Labels : desktopMenu.labels)[command] ?? ""
             enabled: command !== "paste-shortcut" && (command !== "paste" || (desktopMenu.folder.action("paste")?.enabled ?? false))
             onTriggered: if (!subMenu) desktopMenu.run(command)
             background: Rectangle {
@@ -195,6 +229,7 @@ Controls.Menu {
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 Text {
+                    visible: !desktopMenu.win95
                     x: (desktopMenu.aero ? 32 : 22) * desktopMenu.unit - item.leftPadding
                     anchors.verticalCenter: parent.verticalCenter
                     text: item.text
@@ -202,13 +237,67 @@ Controls.Menu {
                     font.family: desktopMenu.aero ? "Segoe UI" : desktopMenu.nt || desktopMenu.luna ? "Tahoma" : "MS W98 UI"
                     font.pixelSize: desktopMenu.aero ? 12 : 11
                 }
+                Repeater {
+                    model: desktopMenu.win95 ? 2 : 0
+                    Text {
+                        id: caption
+                        required property int index
+                        readonly property bool shadow: index === 0
+                        readonly property int mnemonic: item.text.indexOf("&")
+                        visible: !shadow || !item.enabled
+                        x: (22 + (shadow ? 1 : 0)) * desktopMenu.unit - item.leftPadding
+                        y: (2 + (shadow ? 1 : 0)) * desktopMenu.unit - item.topPadding
+                        text: item.text.replace("&", "")
+                        textFormat: Text.PlainText
+                        // Match the subpixel origin used by the other native 120 DPI Plasma labels.
+                        leftPadding: desktopMenu.win95Font && desktopMenu.windowScale === 1.25 ? 0.125 : 0
+                        font.family: desktopMenu.win95Font || "MS W98 UI"
+                        font.pixelSize: 11
+                        font.hintingPreference: Font.PreferNoHinting
+                        renderType: Text.NativeRendering
+                        antialiasing: false
+                        color: shadow || item.highlighted && item.enabled ? "white" : item.enabled ? "black" : "#808080"
+                        TextMetrics {
+                            id: prefix
+                            font: caption.font
+                            text: caption.text.slice(0, caption.mnemonic)
+                        }
+                        TextMetrics {
+                            id: letter
+                            font: caption.font
+                            text: caption.text.charAt(caption.mnemonic)
+                        }
+                        Rectangle {
+                            readonly property real scale: desktopMenu.windowScale
+                            visible: caption.mnemonic >= 0
+                            x: Math.round(prefix.advanceWidth * scale) / scale
+                            y: (Math.round(caption.baselineOffset * scale) + 1) / scale
+                            width: Math.round(letter.advanceWidth * scale) / scale
+                            height: 1 / scale
+                            color: caption.color
+                        }
+                    }
+                }
             }
             arrow: Text {
                 visible: !!item.subMenu
-                text: "▸"
-                x: parent.width - 14
-                anchors.verticalCenter: parent.verticalCenter
+                text: desktopMenu.win95 ? "" : "▸"
+                x: desktopMenu.win95 ? desktopMenu.availableWidth - 13 * desktopMenu.unit : parent.width - 14
+                y: desktopMenu.win95 ? 6 * desktopMenu.unit : 0
+                anchors.verticalCenter: desktopMenu.win95 ? undefined : parent.verticalCenter
                 color: item.highlighted && !desktopMenu.aero ? "#ffffff" : "#000000"
+                Shape {
+                    visible: desktopMenu.win95
+                    width: 4 * desktopMenu.unit
+                    height: 7 * desktopMenu.unit
+                    ShapePath {
+                        strokeWidth: -1
+                        fillColor: item.highlighted ? "white" : "black"
+                        startX: 0; startY: -0.5 * desktopMenu.unit
+                        PathLine { x: 4 * desktopMenu.unit; y: 3.5 * desktopMenu.unit }
+                        PathLine { x: 0; y: 7.5 * desktopMenu.unit }
+                    }
+                }
             }
         }
     }
@@ -218,11 +307,26 @@ Controls.Menu {
         Controls.MenuSeparator {
             contentItem: Item {
                 Rectangle {
+                    visible: !desktopMenu.win95
                     anchors.verticalCenter: parent.verticalCenter
                     x: desktopMenu.aero ? 28 : 0
                     width: parent.width - x
                     height: desktopMenu.unit
                     color: desktopMenu.luna ? "#aca899" : desktopMenu.aero ? "#d7d7d7" : "#808080"
+                }
+            }
+            Rectangle {
+                visible: desktopMenu.win95
+                x: desktopMenu.unit
+                y: 5 * desktopMenu.unit
+                width: desktopMenu.availableWidth - 3 * x
+                height: desktopMenu.unit
+                color: "#808080"
+                Rectangle {
+                    y: parent.height
+                    width: parent.width
+                    height: parent.height
+                    color: "white"
                 }
             }
         }

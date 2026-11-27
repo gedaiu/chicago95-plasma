@@ -1503,10 +1503,24 @@ class MenuBandStyle(chicago95ui.ClassicStyle):
     """The menu bar's captions centred in its 22-row band (tests/test_control_panel_header_reference.py):
     Qt sizes its items to the font and sits them against the top."""
 
-    def __init__(self, base, *, item_height=MENU_BAR_HEIGHT, win2000=False):
+    def __init__(self, base, *, item_height=MENU_BAR_HEIGHT, win2000=False, win95=False):
         super().__init__(base)
         self.item_height = item_height
         self.win2000 = win2000
+        self.win95 = win95
+
+    @staticmethod
+    def menu_edges(widget, caption, font, scale):
+        # Accumulate widths in device pixels before mapping hit targets back to Qt.
+        edge = 0
+        for action in widget.actions():
+            if action.isVisible():
+                _, width, _, _ = chicago95ui.win9x_bitmap_text(action.text(), font, scale)
+                next_edge = edge + width + 2 * round(6 * scale)
+                if action.text() == caption:
+                    return edge, next_edge
+                edge = next_edge
+        return None
 
     def sizeFromContents(self, contents, option, size, widget=None):
         grown = super().sizeFromContents(contents, option, size, widget)
@@ -1514,11 +1528,38 @@ class MenuBandStyle(chicago95ui.ClassicStyle):
             grown.setHeight(self.item_height)
             if self.win2000:
                 grown.setWidth(grown.width() + 1)
+            elif self.win95 and widget is not None:
+                scale = chicago95ui.window_scale(widget)
+                font = chicago95ui.win9x_ui_font("1995", scale)
+                if font is not None:
+                    edges = self.menu_edges(widget, option.text, font, scale)
+                    if edges:
+                        left, right = edges
+                        grown.setWidth(round(right / scale) - round(left / scale))
         return grown
 
     def drawControl(self, element, option, painter, widget=None):
+        if self.win95 and element == QStyle.CE_MenuBarEmptyArea:
+            painter.fillRect(option.rect, option.palette.window())
+            return
         if element == QStyle.CE_MenuBarItem:  # the caption's top row 8 below the etched line, as the original's
             option = QStyleOptionMenuItem(option)
+            scale = painter.deviceTransform().m11()
+            font = chicago95ui.win9x_ui_font("1995", scale) if self.win95 else None
+            if font is not None:
+                caption = option.text
+                option.text = ""
+                super().drawControl(element, option, painter, widget)
+                painter.save()
+                painter.setPen(option.palette.buttonText().color())
+                _, _, ascent, descent = chicago95ui.win9x_bitmap_text(caption, font, scale)
+                baseline = (round((option.rect.height() * scale - ascent - descent) / 2) + ascent) / scale
+                edges = self.menu_edges(widget, caption, font, scale)
+                edge = edges[0] if edges else 0
+                left = option.rect.x() - round(edge / scale) + (edge + round(6 * scale)) / scale
+                chicago95ui.paint_win9x_bitmap_text(painter, caption, font, left, option.rect.y() + baseline)
+                painter.restore()
+                return
             if self.win2000:
                 option.rect.translate(2, -1)
             else:
@@ -1667,6 +1708,7 @@ class ClassicStatusBar(QStatusBar):
         super().__init__()
         self.setSizeGripEnabled(False)
         self.setFixedHeight(STATUS_BAR_HEIGHT)
+        self.pane_top = STATUS_PANE_TOP
         self.panes = panes
         self.stretches = (1,) if len(panes) == 1 else stretches
         for pane in panes:
@@ -1678,7 +1720,7 @@ class ClassicStatusBar(QStatusBar):
         super().resizeEvent(event)
         frames = status_pane_frames(self.width(), self.stretches)
         for pane, (left, width) in zip(self.panes, frames, strict=True):
-            pane.setGeometry(left, STATUS_PANE_TOP, width, self.height() - STATUS_PANE_TOP)
+            pane.setGeometry(left, self.pane_top, width, self.height() - self.pane_top)
         self.grip.move(self.width() - self.grip.width(), self.height() - self.grip.height())
         self.grip.raise_()
 
@@ -3915,6 +3957,121 @@ class ClassicAppletDelegate(QStyledItemDelegate):
                 item.palette.text().color(),
             )
             painter.restore()
+
+
+class Win95AppletView(QListWidget):
+    def updateGeometries(self):
+        super().updateGeometries()
+        if self.viewMode() != QListView.IconMode or self.gridSize().isEmpty() or not self.count():
+            return
+        # Explorer ends its scroll range at the last caption, even when the final
+        # grid row contains only one line of text and is much shorter than a cell.
+        bar = self.verticalScrollBar()
+        last = self.visualItemRect(self.item(self.count() - 1))
+        bottom = last.bottom()
+        for row in reversed(range(self.count() - 1)):
+            rect = self.visualItemRect(self.item(row))
+            if rect.top() != last.top():
+                break
+            bottom = max(bottom, rect.bottom())
+        bar.setMaximum(max(0, bottom + 2 + self.verticalOffset() - self.viewport().height()))
+
+
+class Win95ScrollStyle(chicago95ui.ClassicStyle):
+    def drawControl(self, element, option, painter, widget=None):
+        page = element in (QStyle.CE_ScrollBarSubPage, QStyle.CE_ScrollBarAddPage)
+        if page and not option.state & QStyle.State_Sunken:
+            painter.fillRect(option.rect, option.palette.base())
+            return
+        super().drawControl(element, option, painter, widget)
+
+
+class Win95AppletDelegate(ClassicAppletDelegate):
+    """Explorer centres each line on the icon and frames only the caption."""
+
+    def caption_lines(self, caption, font, scale):
+        limit = round(self.parent().gridSize().width() * scale) - 4
+        lines = []
+        line = ""
+        for word in caption.split():
+            candidate = f"{line} {word}" if line else word
+            if line and chicago95ui.win9x_bitmap_text(candidate, font, scale, mnemonics=False)[1] > limit:
+                lines.append(line)
+                candidate = word
+            line = candidate
+        return [chicago95ui.win9x_bitmap_text(text, font, scale, mnemonics=False) for text in (*lines, line)]
+
+    def sizeHint(self, option, index):
+        size = super().sizeHint(option, index)
+        view = self.parent()
+        scale = chicago95ui.window_scale(view)
+        font = chicago95ui.win9x_ui_font("1995", scale)
+        if font and view.viewMode() == QListView.IconMode and not view.gridSize().isEmpty():
+            lines = self.caption_lines(index.data(), font, scale)
+            _, _, ascent, descent = lines[0]
+            # Include the clearance below the focus frame when scrolling an item into view.
+            height = round(scale) + 32 + round(3 * scale) + len(lines) * (ascent + descent) + 3
+            width = max(32, max(line[1] for line in lines) + 4)
+            size = QSize(math.ceil(width / scale), math.ceil(height / scale))
+        return size
+
+    def paint(self, painter, option, index):
+        view = self.parent()
+        transform = painter.deviceTransform()
+        scale = transform.m11()
+        font = chicago95ui.win9x_ui_font("1995", scale)
+        if font is None or view.viewMode() != QListView.IconMode or view.gridSize().isEmpty():
+            return super().paint(painter, option, index)
+        item = QStyleOptionViewItem(option)
+        self.initStyleOption(item, index)
+        item.decorationSize = option.decorationSize
+        icon = view.style().subElementRect(QStyle.SE_ItemViewItemDecoration, item, view)
+        left, top = self.device_icon_origin(transform, option.rect, icon, 32)
+        selected = bool(item.state & QStyle.State_Selected)
+        palette = item.palette
+        painter.save()
+        inverse, _ = transform.inverted()
+        painter.setTransform(inverse, True)
+        pixmap = item.icon.pixmap(QSize(32, 32), 1.0)
+        if selected:
+            pixmap = pixmap.copy()
+            tint = QPainter(pixmap)
+            tint.setCompositionMode(QPainter.CompositionMode_SourceAtop)
+            tint.setBrushOrigin(1, 0)
+            tint.fillRect(pixmap.rect(), QBrush(palette.highlight().color(), Qt.Dense4Pattern))
+            tint.end()
+        painter.drawPixmap(QRect(left, top, 32, 32), pixmap)
+        lines = self.caption_lines(item.text, font, scale)
+        centre = left + 16
+        top += 32 + round(3 * scale)
+        width = max(line[1] for line in lines)
+        _, _, ascent, descent = lines[0]
+        frame = QRect(centre - width // 2 - 2, top, width + 4, (ascent + descent) * len(lines) + 2)
+        if selected:
+            painter.fillRect(frame, palette.highlight())
+        if item.state & QStyle.State_HasFocus:
+            painter.setPen(QColor(Qt.yellow) if selected else palette.text().color())
+            painter.drawRect(frame.adjusted(0, 0, -1, -1))
+        for path, width, ascent, descent in lines:
+            painter.save()
+            painter.translate(centre - width // 2, top + ascent)
+            painter.fillPath(path, palette.highlightedText() if selected else palette.text())
+            painter.restore()
+            top += ascent + descent
+        painter.restore()
+
+
+class Win95StatusLabel(QLabel):
+    def paintEvent(self, event):
+        scale = self.devicePixelRatioF()
+        font = chicago95ui.win9x_ui_font("1995", scale)
+        if font is None:
+            return super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setPen(self.palette().windowText().color())
+        _, _, ascent, descent = chicago95ui.win9x_bitmap_text(self.text(), font, scale, mnemonics=False)
+        baseline = (self.height() + (ascent - descent) / scale) / 2
+        chicago95ui.paint_win9x_bitmap_text(painter, self.text(), font, 0, baseline, mnemonics=False)
 
 
 class AeroAppletDelegate(QStyledItemDelegate):
@@ -6615,6 +6772,10 @@ class ControlPanel(QMainWindow):
         look = read_settings(self.settings_path).get("LOOK")
         self.aero = style == "aero"
         self.win95 = style == "classic" and look == "1995"
+        if self.win95:
+            native_font = chicago95ui.win9x_ui_font(look, chicago95ui.window_scale(self))
+            if native_font is not None:
+                self.setFont(native_font)
         self.win98 = style == "classic" and look == "1998"
         self.win2000 = style == "classic" and look == "2000"
         self.xp = look in ("2001", "luna") and style in ("classic", "luna")
@@ -6648,7 +6809,14 @@ class ControlPanel(QMainWindow):
         self.refresh_navigation()
 
     def build_icon_view(self):
-        view = QListWidget()
+        view = Win95AppletView() if self.win95 else QListWidget()
+        if self.win95:
+            view.setVerticalScrollMode(QListView.ScrollPerPixel)
+            view.setBackgroundRole(QPalette.Base)
+            view.setAutoFillBackground(True)
+            scroll_style = Win95ScrollStyle("Windows")
+            scroll_style.setParent(view)
+            view.verticalScrollBar().setStyle(scroll_style)
         art_by_applet = {}
         if self.aero:
             view.setMouseTracking(True)
@@ -6660,9 +6828,8 @@ class ControlPanel(QMainWindow):
             )
         elif self.win95 or self.uses_web_view:
             art_by_applet = WIN95_APPLET_ART if self.win95 else WIN98_APPLET_ART if self.win98 else WIN2000_APPLET_ART
-            view.setItemDelegate(
-                ClassicAppletDelegate(view, art_by_applet, win9x=self.win95 or self.win98, win2000=self.win2000)
-            )
+            delegate = Win95AppletDelegate if self.win95 else ClassicAppletDelegate
+            view.setItemDelegate(delegate(view, art_by_applet, win9x=self.win95 or self.win98, win2000=self.win2000))
             view.setSelectionMode(QListView.ExtendedSelection)
         view.setMovement(QListView.Static)
         view.setSpacing(0)
@@ -6717,11 +6884,16 @@ class ControlPanel(QMainWindow):
 
     def build_status_bar(self):
         """Windows 98's status bar: three sunken panes (the message, a spare one, the place) and a size grip."""
-        self.status_message = QLabel()
+        self.status_message = Win95StatusLabel() if self.win95 else QLabel()
         chrome = window_chrome()
         if self.win95:
             self.status_panes = (chrome.status_pane(self.status_message),)
-            self.setStatusBar(chrome.status_bar(self.status_panes))
+            bar = chrome.status_bar(self.status_panes)
+            if chicago95ui.window_scale(self) == 1.25:
+                bar.setFixedHeight(STATUS_BAR_HEIGHT - 1)
+                bar.pane_top = 1
+            self.status_panes[0].layout().setContentsMargins(2, 2, 1, 2)
+            self.setStatusBar(bar)
             return
         self.status_place_icon = QLabel()
         icon = themed_icon(("computer",))
@@ -6751,7 +6923,7 @@ class ControlPanel(QMainWindow):
         if self.xp_luna:
             menu_height = XP_LUNA_MENU_HEIGHT
         self.menu_style = (
-            MenuBandStyle("Windows", item_height=menu_height, win2000=self.win2000)
+            MenuBandStyle("Windows", item_height=menu_height, win2000=self.win2000, win95=self.win95)
             if compact_menu else chrome.menu_style()
         )
         if self.win2000:

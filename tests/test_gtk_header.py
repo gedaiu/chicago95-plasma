@@ -2,7 +2,6 @@
 
 import base64
 import re
-import shutil
 
 import gtk_header
 import pytest
@@ -56,40 +55,57 @@ def test_a_window_button_paints_one_16_by_14_face_centred_in_the_bar(css):
     assert ("background-size: 16px 14px;" in body, "background-position: center;" in body) == (True, True)
 
 
-def test_120_dpi_caption_assets_keep_the_same_geometry_in_both_toolkits(tmp_path):
-    colours = ("#C0C0C0", "#DFDFDF", "#808080", "#000000")
+@pytest.mark.parametrize(
+    "colours",
+    (
+        ("#C0C0C0", "#DFDFDF", "#808080", "#000000"),
+        ("#D4D0C8", "#D4D0C8", "#808080", "#404040"),
+    ),
+    ids=("9x", "nt"),
+)
+def test_120_dpi_caption_assets_fit_each_toolkits_rendering_grid(tmp_path, colours):
     gtk3 = gtk_header.caption_css(*colours, tmp_path, dpi=120, gtk4=False)
     gtk4 = gtk_header.caption_css(*colours, tmp_path, dpi=120, gtk4=True)
-    for state in ("normal", "pressed", "disabled"):
-        filename = f"close-{state}"
-        asset3 = tmp_path / f"{filename}@2x.svg"
-        asset4 = tmp_path / f"{filename}-gtk4.svg"
-        svg3 = asset3.read_text()
-        svg4 = asset4.read_text()
-        assert 'width="40" height="36"' in svg3
-        assert 'width="16" height="14.4"' in svg4
-        assert 'viewBox="0 0 20 18"' in svg3 and 'viewBox="0 0 20 18"' in svg4
-        assert svg3.split("\n", 1)[1] == svg4.split("\n", 1)[1]
-        assert asset3.as_uri() in gtk3
-        assert asset4.as_uri() in gtk4
+    for kind in ("minimize", "maximize", "close", "restore"):
+        for state in ("normal", "pressed", "disabled"):
+            filename = f"{kind}-{state}"
+            asset3 = tmp_path / f"{filename}@2x.svg"
+            asset4 = tmp_path / f"{filename}.svg"
+            svg3 = asset3.read_text()
+            svg4 = asset4.read_text()
+            close_9x = kind == "close" and colours[-1] == "#000000"
+            if kind == "minimize":
+                assert 'width="34" height="30"' in svg3
+                assert 'viewBox="0 0 21.25 18.75"' in svg3
+                assert 'width="20" height="18"' in svg3
+                cell = rule_body(gtk3, "headerbar button.titlebutton.minimize")
+                assert "min-width: 17px;" in cell and "margin-left: -1px;" in cell
+                assert "background-size: 17px auto;" in cell
+            elif kind == "maximize" or state == "disabled" or close_9x:
+                assert 'width="32" height="30"' in svg3
+                assert 'viewBox="0 0 20 18.75"' in svg3
+                assert 'width="20" height="18"' in svg3
+                button = "maximize" if kind == "restore" else kind
+                selector = f"headerbar button.titlebutton.{button}"
+                if button == "maximize" and state != "disabled":
+                    selector = f"window:not(.maximized) {selector}"
+                elif button == "maximize" or (kind == "close" and colours[-1] != "#000000"):
+                    selector += ":disabled"
+                assert "background-size: 16px auto;" in rule_body(gtk3, selector)
+            else:
+                assert 'width="32" height="28.8"' in svg3
+                assert 'viewBox="0 0 20 18"' in svg3
+            assert '<g shape-rendering="crispEdges">' in svg3
+            assert 'width="20" height="18"' in svg4
+            assert 'viewBox="0 0 20 18"' in svg4
+            assert asset3.as_uri() in gtk3
+            assert asset4.as_uri() in gtk4
     assert "-gtk-scaled(" in gtk3
+    assert not list(tmp_path.glob("*.png"))
     assert "background-position: left top;" in gtk3
     assert "background-position: left top;" in gtk4
     assert "transform: translateX(0.4px);" in gtk4
     assert "translateX" not in gtk3
-
-
-@pytest.mark.skipif(not shutil.which("rsvg-convert"), reason="requires librsvg command-line renderer")
-def test_gtk4_uses_generated_20_by_18_faces_at_120_dpi(tmp_path):
-    colours = ("#C0C0C0", "#DFDFDF", "#808080", "#000000")
-    css = gtk_header.caption_css(*colours, tmp_path, dpi=120, converter=shutil.which("rsvg-convert"))
-    for state in ("normal", "pressed", "disabled"):
-        svg = tmp_path / f"close-{state}-gtk4.svg"
-        assert svg.is_file()
-        bitmap = svg.with_suffix(".png")
-        image = QImage(str(bitmap))
-        assert (image.width(), image.height()) == (20, 18)
-        assert bitmap.as_uri() in css
 
 
 def test_the_close_button_draws_the_decorations_x_on_the_face(qt_app, css):

@@ -432,6 +432,70 @@ def gtk_face(directory, state, index):
     return screen.crop((x0 + dx, y0 + dy, x1 + dx, y1 + dy))
 
 
+@pytest.mark.parametrize("theme", ("win95", "win98"))
+@pytest.mark.parametrize("state", ("rest", "hover", "pressed", "disabled"))
+def test_9x_gtk3_close_face_reaches_the_windows_bottom_edge(theme, state, live_gtk):
+    _, metadata = THEMES[theme]
+    look = metadata["look"]
+    directory = live_gtk(look, metadata["caption_scale"]) / "caption-gtk-3.0"
+    index = BUTTONS.index("close")
+    expected, _ = face_region(caption_reference(look), look, state, index)
+    actual = gtk_face(directory, state, index)
+    # Check the straight edges between the corners and clear of the guest pointer.
+    width, height = expected.size
+    for y in (0, height - 1):
+        edge = (1, y, width - 6, y + 1)
+        np.testing.assert_array_equal(np.asarray(actual.crop(edge)), np.asarray(expected.crop(edge)))
+
+
+@pytest.mark.parametrize("theme", ("win95", "win98"))
+@pytest.mark.parametrize(
+    ("kind", "state"),
+    [(kind, state) for kind in ("minimize", "maximize") for state in ("rest", "hover", "pressed")]
+    + [("maximize", "disabled")],
+)
+def test_9x_gtk3_caption_face_keeps_title_bar_color_out(theme, kind, state, live_gtk):
+    _, metadata = THEMES[theme]
+    look = metadata["look"]
+    directory = live_gtk(look, metadata["caption_scale"]) / "caption-gtk-3.0"
+    records = json.loads((directory / "caption-crops.json").read_text())
+    resting = records["caption normal"]["faces"]
+    suffix = f"-{kind}" if state in ("hover", "pressed") else ""
+    record = records[f"caption {GTK_STATES[state]}{suffix}"]
+    assert record["faces"] == resting
+    screen, dx, dy = gtk_compositor_frame(directory, record)
+    left, top, right, bottom = resting[kind]
+    face = screen.crop((left + dx, top + dy, right + dx, bottom + dy))
+    expected, _ = face_region(caption_reference(look), look, state, BUTTONS.index(kind))
+    assert face.size == expected.size
+    # The whole Windows face is neutral, including its one-pixel bevel.
+    np.testing.assert_array_equal(np.ptp(np.asarray(face), axis=2), np.ptp(np.asarray(expected), axis=2))
+
+
+@pytest.mark.parametrize("theme", ("win95", "win98"))
+def test_9x_gtk3_resting_minimize_bar_has_native_contrast(theme, live_gtk):
+    _, metadata = THEMES[theme]
+    look = metadata["look"]
+    directory = live_gtk(look, metadata["caption_scale"]) / "caption-gtk-3.0"
+    index = BUTTONS.index("minimize")
+    expected, _ = face_region(caption_reference(look), look, "rest", index)
+    actual = gtk_face(directory, "rest", index)
+    # Include one pixel of face around the 8×2 bar to catch halos as well as faded ink.
+    bar_and_edges = (4, 12, 14, 16)
+    error = ImageChops.difference(actual.crop(bar_and_edges), expected.crop(bar_and_edges))
+    assert max(high for _, high in error.getextrema()) <= 2
+
+
+def test_win95_gtk3_resting_minimize_is_pixel_exact_at_96_dpi(live_gtk):
+    folder, metadata = THEMES["win95"]
+    index = BUTTONS.index("minimize")
+    actual = gtk_face(live_gtk(metadata["look"], 1) / "caption-gtk-3.0", "rest", index)
+    # The 96-DPI VM cluster has five pixels of title bar before the first 16×14 button.
+    with Image.open(folder / "caption/cluster.png") as cluster:
+        expected = cluster.convert("RGB").crop((5, 0, 21, 14))
+    np.testing.assert_array_equal(np.asarray(actual), np.asarray(expected))
+
+
 def gtk_caption_cluster_spacing(directory):
     record = json.loads((directory / "caption-crops.json").read_text())["caption normal"]
     screen, dx, dy = gtk_compositor_frame(directory, record)
@@ -1542,6 +1606,20 @@ def test_classic_desktop_menu_face_matches_the_vm(theme, desktop_scenes):
         assert face(rgb565(rendered)) == face(expected)
 
 
+def test_win95_desktop_menu_lettering_matches_vm(qt_app, desktop_scenes):
+    from PySide6.QtGui import QFontDatabase
+
+    if not QFontDatabase.hasFamily("Chicago95 Windows 95 120 DPI"):
+        pytest.skip("Import the VM fonts with setup/import-win9x-fonts.py")
+    _, actual, _ = desktop_scenes("win95", "menu")
+    with Image.open(THEMES["win95"][0] / "desktop/context-menu.png") as frame:
+        expected = frame.convert("RGB")
+    # All commands, including mnemonic underlines and the white relief on disabled Paste commands.
+    for top, bottom in ((3, 43), (54, 95), (105, 126), (136, 156)):
+        bounds = (22, top, 117, bottom)
+        np.testing.assert_array_equal(np.asarray(actual.crop(bounds)), np.asarray(expected.crop(bounds)))
+
+
 def desktop_hover_row(theme, desktop_scenes, samples="desktop_samples"):
     _, idle, menu_bounds = desktop_scenes(theme, "menu", samples)
     highlighted = desktop_scenes(theme, "hover", samples).crop(menu_bounds)
@@ -2284,6 +2362,31 @@ def test_win95_control_panel_keyboard_case_and_keys_match_native(control_panel_i
     left, top, right, _bottom = crops["keyboard"]
     bounds = (left, top + 12, right, top + 29)
     np.testing.assert_array_equal(np.asarray(actual.crop(bounds)), np.asarray(expected.crop(bounds)))
+
+
+@pytest.mark.parametrize("state", ("home", "end"))
+def test_win95_control_panel_menu_grid_and_status_match_vm(state, qt_app, tmp_path):
+    from PySide6.QtGui import QFontDatabase
+
+    if not QFontDatabase.hasFamily("Chicago95 Windows 95 120 DPI"):
+        pytest.skip("Import the VM fonts with setup/import-win9x-fonts.py")
+    folder, _ = THEMES["win95"]
+    home = state == "home"
+    reference = "control-panel.png" if home else "control-panel/end.png"
+    with Image.open(folder / reference) as frame:
+        expected = frame.convert("RGB")
+    output = tmp_path / "panel.png"
+    render_properties(folder, "control-panel" if home else "control-panel-end", output, expected.size)
+    with Image.open(output) as frame:
+        actual = frame.convert("RGB")
+    for region, bounds in {
+        "menu": (0, 0, 407, 25),
+        "applet viewport": (2, 27, 385, 284),
+        "status message": (0, 286, 389, 309),
+    }.items():
+        np.testing.assert_array_equal(
+            np.asarray(actual.crop(bounds)), np.asarray(expected.crop(bounds)), err_msg=f"{state} {region}"
+        )
 
 
 @pytest.mark.parametrize("theme", [theme for theme, (_, data) in THEMES.items() if data.get("control_panel_end")])

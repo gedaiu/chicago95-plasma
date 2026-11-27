@@ -33,7 +33,7 @@ if AERO_CAPTION_CROPS:
     from aero.gtk.caption import FACE_HEIGHT, GTK4_CAPTION_TOP, MAXIMIZED_CAPTION_TOP, caption_widths
 elif CLASSIC_CAPTION_CROPS:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib.gtk_header import CAPTION_H, CAPTION_H_120, CAPTION_W, CLOSE_OFFSET_120
+    from lib.gtk_header import CAPTION_H, CAPTION_H_120, CAPTION_W, CLOSE_OFFSET_120, GTK3_MINIMIZE_GUTTER
 elif LUNA_CAPTION_CROPS:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "luna/aurorae"))
     from make_luna_aurorae import BUTTON as LUNA_CAPTION_SIZE
@@ -525,7 +525,11 @@ def gtk_caption_regions(header, root, label, scale, origin):
                 image_width = CAPTION_W
                 image_height = CAPTION_H_120 / scale if scale == 1.25 else CAPTION_H
             top_left = CLASSIC_CAPTION_CROPS and scale == 1.25
-            left = (x if top_left else x + (width - image_width) / 2) * scale
+            # GTK 3 centers the classic Maximize face in its backing cell.
+            centered_x = not top_left or (not V4 and kind == "maximize" and label != "caption restore")
+            left = (x + ((width - image_width) / 2 if centered_x else 0)) * scale
+            if top_left and not V4 and kind == "minimize":
+                left += GTK3_MINIMIZE_GUTTER * scale
             if V4 and AERO_CAPTION_CROPS and label == "caption restore" and kind == "maximize":
                 left = (x + width) * scale - image_width * scale
             if V4 and top_left and kind == "close":

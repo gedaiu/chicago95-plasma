@@ -663,6 +663,9 @@ def titlebar_state(state, gradient, overlay, caption):
 
 
 CAPTION_KINDS = aurorae.DPI_CAPTION_KINDS
+# A 22-unit GTK 3 background at 125% leaves a quarter device pixel on
+# each side of the 27-pixel disabled Close face.
+GTK3_DISABLED_CLOSE_SIZE = 22
 CAPTION_STATES = (
     ("", 0),
     (":backdrop", 4),
@@ -725,6 +728,13 @@ def caption_controls(assets, *, gtk3=False, dpi=96):
         css_kind = "maximize" if kind == "restore" else kind
         parent = "window.maximized headerbar" if kind == "restore" else "headerbar"
         bases = (f"{parent} button.titlebutton.{css_kind}", f"{parent} windowcontrols button.{css_kind}")
+        position = "center"
+        if high_dpi and not gtk3:
+            # The 23-unit pitch paints 28.75 pixels at 125%. Move the outer
+            # faces by a quarter pixel to keep the native 29-pixel spacing.
+            # Raise every face by the same amount to align its vertical position.
+            horizontal = {"minimize": "calc(50% - 0.2px)", "close": "calc(50% + 0.2px)"}
+            position = f"{horizontal.get(kind, 'center')} calc(50% - 0.2px)"
         rules.append(
             block(
                 ", ".join(bases),
@@ -736,13 +746,16 @@ def caption_controls(assets, *, gtk3=False, dpi=96):
                 border_radius="0",
                 background_color="transparent",
                 background_repeat="no-repeat",
-                background_position="center",
+                background_position=position,
                 background_size=f"{size} {size}",
                 box_shadow="none",
             )
         )
         if not gtk3:
             rules.append(block(bases[1], margin="0"))
+        elif high_dpi and kind == "close":
+            side = f"{GTK3_DISABLED_CLOSE_SIZE}px"
+            rules.append(block(", ".join(base + ":disabled" for base in bases), background_size=f"{side} {side}"))
         rules.append(block(", ".join(base + " image" for base in bases), opacity="0"))
         for state, index in CAPTION_STATES:
             asset = assets / caption_filename(kind, index)
@@ -1262,7 +1275,12 @@ def write_caption_faces(folder, large, *, density=1):
             path = folder / caption_filename(kind, index)
             if density > 1:
                 path = path.with_name(f"{path.stem}@{density}.svg")
-            path.write_text(aurorae.caption_face_svg(kind, index, large, intrinsic_size=intrinsic))
+            if large and density > 1 and kind == "close" and index == 3:
+                size = (density * GTK3_DISABLED_CLOSE_SIZE,) * 2
+                face = aurorae.caption_face_svg(kind, index, large, intrinsic_size=size, padding=0.25)
+            else:
+                face = aurorae.caption_face_svg(kind, index, large, intrinsic_size=intrinsic)
+            path.write_text(face)
 
 
 def write_theme(out):

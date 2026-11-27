@@ -290,12 +290,15 @@ Windows 7 cluster widths for Aero. The fractional GTK 3 layout checks allow one 
 rounding per gap. The face comparisons still require exact dimensions and RGB values.
 At fractional scales, caption crops use the authored face dimensions on the physical pixel grid.
 The compositor's edge blending still appears in the pixel comparison.
-At 120 DPI, Setup can render the Classic GTK 4 SVGs into 20×18 PNGs when
-`rsvg-convert` is available. The source SVGs remain alongside the generated files.
+At 120 DPI, GTK 4 loads the classic caption SVGs at their intrinsic 20×18 pixel size.
+Setup keeps the CSS size at 16×14.4 logical pixels so the faces map to the output grid at 125%.
 For Luna at 120 DPI, Setup selects the larger SVG glyphs for both GTK and Aurorae. The live comparisons
 pass the reference scale to Setup so the comparison uses the artwork that would be installed at that DPI.
 The larger faces preserve the five-pixel edge regions from Luna's sizing margins, with shared vector paths
 and gradients filling the corners, edges, and centre.
+At 125%, GTK 4 places the Luna faces 29 device pixels apart and raises the artwork by a quarter pixel to
+reduce filtering along the horizontal edges. At 150%, GTK 4 loads the Aero faces at their native 144-DPI
+pixel dimensions.
 The SVG generator regression tests also cover the standard 96 DPI vectors.
 At fractional KWin scales, the Luna decoration snaps the SVG face to the physical pixel grid.
 The capture accounts for KWin rounding the window origin separately from the face's position in the title bar.
