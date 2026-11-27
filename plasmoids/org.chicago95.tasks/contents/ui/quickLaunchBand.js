@@ -22,8 +22,12 @@ const SMALL_ICONS_120 = Object.assign({}, METRICS, { cellWidth: 19, iconSize: 16
 const WIN98_120 = Object.assign({}, SMALL_ICONS_120, {
   cellWidth: 23 / 1.25,
   separatorLead: 0,
-  separatorBody: 9,
-  iconInset: 2 / 1.25,
+  // The 120-DPI rebar has 11 device pixels from the etched line to the next cell.
+  bandOverlap: 1 / 1.25,
+  separatorBody: 11 / 1.25,
+  gapBeforeRightSeparator: 4 / 1.25,
+  separatorImage: "../images/quick-launch-grip-98.svg",
+  iconInset: 3 / 1.25,
   iconTop: 5.4,
 });
 // The Windows 7 superbar: 60-pixel buttons two pixels apart (win7screenres.png), pinned programs straight after Start

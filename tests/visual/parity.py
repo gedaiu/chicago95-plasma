@@ -1499,6 +1499,13 @@ def test_desktop_surface(theme, state, desktop_scenes, visual_output):
     exact(expected, actual, output, mask)
 
 
+def assert_win98_taskbar_region(desktop_scenes, bounds):
+    screen = desktop_scenes("win98", "populated")
+    with Image.open(THEMES["win98"][0] / "taskbar/populated.png") as reference:
+        bar = screen.crop((0, screen.height - reference.height, reference.width, screen.height))
+        np.testing.assert_array_equal(np.asarray(bar.crop(bounds)), np.asarray(reference.convert("RGB").crop(bounds)))
+
+
 @pytest.mark.parametrize(("left", "top", "size"), [
     pytest.param(6, 7, 20, id="start-flag"),
     pytest.param(82, 9, 16, id="show-desktop"),
@@ -1507,12 +1514,18 @@ def test_desktop_surface(theme, state, desktop_scenes, visual_output):
     pytest.param(167, 8, 20, id="notepad"),
 ])
 def test_win98_populated_taskbar_icon(desktop_scenes, left, top, size):
-    folder, _ = THEMES["win98"]
-    screen = desktop_scenes("win98", "populated")
-    bounds = (left, top, left + size, top + size)
-    with Image.open(folder / "taskbar/populated.png") as reference:
-        bar = screen.crop((0, screen.height - reference.height, reference.width, screen.height))
-        np.testing.assert_array_equal(np.asarray(bar.crop(bounds)), np.asarray(reference.convert("RGB").crop(bounds)))
+    assert_win98_taskbar_region(desktop_scenes, (left, top, left + size, top + size))
+
+
+@pytest.mark.parametrize("left", (67, 150), ids=("beside-start", "beside-tasks"))
+def test_win98_quick_launch_separator(desktop_scenes, left):
+    # Include the face around the full-height etched line and the shorter raised grip.
+    assert_win98_taskbar_region(desktop_scenes, (left, 3, left + 11, 32))
+
+
+def test_win98_active_task_button_placement(desktop_scenes):
+    # Include the surrounding face so moving an otherwise identical button also fails.
+    assert_win98_taskbar_region(desktop_scenes, (161, 3, 325, 32))
 
 
 def test_win95_populated_taskbar_captions(qt_app, desktop_scenes):

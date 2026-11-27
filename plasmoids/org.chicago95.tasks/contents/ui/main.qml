@@ -43,7 +43,8 @@ PlasmoidItem {
     readonly property bool showsGrip: Plasmoid.configuration.taskbarStyle === "aero" && !Plasmoid.configuration.locked
     readonly property int gripWidth: 12
     readonly property int bandStart: -Kirigami.Units.smallSpacing   // the panel's gap between applets
-    readonly property int contentX: bandStart + (showsGrip ? gripWidth : 0)
+    readonly property real contentX: bandStart + (showsGrip ? gripWidth : 0)
+        - (showsSeparators && dock === "left" ? (metrics.bandOverlap ?? 0) : 0)
     readonly property bool showQuickLaunch: QuickLaunch.shown(Plasmoid.configuration.quickLaunch, Plasmoid.configuration.look)
     readonly property int maxButtonWidth: Sizing.maxButtonWidth(Plasmoid.configuration.maxButtonWidth, Plasmoid.configuration.look)
     readonly property int styledMaxButtonWidth: Sizing.styledButtonWidth(
@@ -69,9 +70,9 @@ PlasmoidItem {
     readonly property int bandShift: bandCarried ? Band.carriedShift(carriedGripX, band, dock, width, contentX, metrics) : 0
     readonly property int shownLaunchers: band.shown
     readonly property int firstShown: band.firstShown   // the launchers before it are behind the chevron
-    readonly property int quickLaunchX: band.cellsX + bandShift
+    readonly property real quickLaunchX: band.cellsX + bandShift
     readonly property int quickLaunchEnd: quickLaunchX + Band.cellsWidth(shownLaunchers, metrics)
-    readonly property int tasksX: band.tasksX
+    readonly property real tasksX: band.tasksX
     // "Group similar taskbar buttons": a program's windows combine into one button always, once more windows are open
     // than buttons fit at their full width, or never (grouping.js).
     readonly property string groupingMode: Grouping.mode(Plasmoid.configuration.grouping, Plasmoid.configuration.taskbarStyle)
@@ -312,25 +313,23 @@ PlasmoidItem {
             imagePath: "widgets/panel-background"
         }
     }
-    SeparatorSeam {
-        id: leftSeparator
+    component BandSeparator: SeparatorSeam {
         luna: root.isLuna
+        artwork: root.metrics.separatorImage ?? ""
         visible: root.showsSeparators
-        x: root.band.leftSeparatorX + root.bandShift
         z: 5
+        width: Band.separatorWidth(lead, root.metrics)
         height: parent.height
+    }
+    BandSeparator {
+        x: root.band.leftSeparatorX + root.bandShift
         lead: root.dock === "left" ? root.lead : root.metrics.separatorLead
         onDragged: gripX => root.separatorDragged("leftSeparatorX", gripX)
         onReleased: gripX => root.separatorReleased("leftSeparatorX", gripX)
     }
-    SeparatorSeam {
-        id: rightSeparator
-        luna: root.isLuna
-        lead: root.metrics.separatorLead
-        visible: root.showsSeparators
+    BandSeparator {
         x: root.band.rightSeparatorX + root.bandShift
-        z: 5
-        height: parent.height
+        lead: root.metrics.separatorLead
         onDragged: gripX => root.separatorDragged("rightSeparatorX", gripX)
         onReleased: gripX => root.separatorReleased("rightSeparatorX", gripX)
     }

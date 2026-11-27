@@ -8,6 +8,7 @@ import "quickLaunchBand.js" as Band
 // A draggable one shows the left-right cursor and reports where its left edge is dragged to, in its parent.
 Item {
     id: separator
+    property url artwork
     property bool draggable: false
     signal dragged(int x)
     signal released(int x)
@@ -21,7 +22,18 @@ Item {
     implicitWidth: Band.separatorWidth(lead)
     implicitHeight: lineHeight
 
+    Image {
+        id: gripImage
+        source: separator.artwork
+        visible: source.toString() !== ""
+        x: separator.lead
+        // The native 120-DPI rail is bottom-aligned, two device pixels above the panel edge.
+        y: separator.height - height + 1 / 1.25
+        smooth: false
+    }
+
     Item {
+        visible: !gripImage.visible
         x: separator.lead
         y: separator.height - separator.lineHeight
         width: 7

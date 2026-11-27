@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="8" height="24" viewBox="0 0 10 30" shape-rendering="crispEdges">
+  <!-- Whole logical dimensions keep the 10 × 30 device grid sharp at 125%. -->
+  <path fill="#808080" d="M0 3h1v27H0z M6 5h1v23H4v-1h2z"/>
+  <path fill="#fff" d="M1 3h1v27H1z M4 5h2v1H5v21H4z"/>
+</svg>

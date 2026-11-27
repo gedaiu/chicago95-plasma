@@ -2,6 +2,7 @@ import QtQuick
 
 Loader {
     id: seam
+    property url artwork
     property bool luna
     property int lead
     signal dragged(int gripX)
@@ -18,6 +19,12 @@ Loader {
         target: seam.item
         property: "draggable"
         value: true
+    }
+    Binding {
+        target: seam.item
+        property: "artwork"
+        when: !seam.luna && seam.item !== null
+        value: seam.artwork
     }
     Connections {
         target: seam.item

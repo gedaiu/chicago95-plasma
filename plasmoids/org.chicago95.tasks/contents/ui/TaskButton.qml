@@ -18,7 +18,8 @@ Item {
     property int referenceDpi: 96
     readonly property bool win9x120: referenceDpi === 120 && (look === "1995" || look === "1998")
     readonly property real pixelScale: Window.window?.devicePixelRatio ?? Screen.devicePixelRatio
-    readonly property bool win95Grid: win9x120 && look === "1995" && pixelScale === 1.25
+    readonly property bool win9xGrid: win9x120 && pixelScale === 1.25
+    readonly property bool win98Grid: win9xGrid && look === "1998"
     readonly property real pixel: 1 / pixelScale
     readonly property string nativeFont: {
         if (look === "2000" || look === "2001") {
@@ -30,8 +31,8 @@ Item {
     }
 
     readonly property int buttonHeight: 22
-    readonly property real iconLeft: win9x120 && look === "1998" && pixelScale === 1.25 ? 4 * pixel : 4
-    readonly property int iconTop: 3
+    readonly property real iconLeft: win98Grid ? 4 * pixel : 4
+    readonly property real iconTop: win98Grid ? 3 - pixel : 3
     readonly property int labelLeft: look === "2001" ? 25 : bevel === "2000" ? 22 : 23
     readonly property int labelTop: 6
     readonly property int labelRight: 4
@@ -39,8 +40,8 @@ Item {
 
     Item {
         id: surface
-        readonly property bool nativePressed: task.win95Grid && task.pressed
-        y: task.height - task.buttonHeight + (task.win95Grid ? task.pixel : 0)
+        readonly property bool nativePressed: task.win9xGrid && task.pressed
+        y: task.height - task.buttonHeight + (task.win9xGrid ? task.pixel : 0)
         width: task.width
         height: task.buttonHeight
         KSvg.FrameSvgItem {
@@ -87,7 +88,9 @@ Item {
         }
         Text {
             id: label
-            x: task.labelLeft - (task.nativeFont ? task.pixel : 0)
+            readonly property real inset: task.labelLeft - (task.nativeFont ? task.pixel : 0)
+            // The Windows 98 bitmap caption starts 28 physical pixels inside the button.
+            x: task.win98Grid && task.nativeFont ? Math.round(inset * task.pixelScale) * task.pixel : inset
             y: task.labelTop + task.shift - (task.nativeFont ? 2 * task.pixel : 0)
             width: Math.max(0, parent.width - x - task.labelRight)
             leftPadding: task.nativeFont ? -0.125 : 0
