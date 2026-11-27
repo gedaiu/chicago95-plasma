@@ -18,11 +18,18 @@ Item {
     property int referenceDpi: 96
     readonly property bool win9x120: referenceDpi === 120 && (look === "1995" || look === "1998")
     readonly property real pixelScale: Window.window?.devicePixelRatio ?? Screen.devicePixelRatio
-    readonly property bool win9xGrid: win9x120 && pixelScale === 1.25
-    readonly property bool win98Grid: win9xGrid && look === "1998"
+    readonly property bool ntClassic: look === "2000" || look === "2001"
+    readonly property bool classicGrid: pixelScale === 1.25 && (win9x120 || (ntClassic && referenceDpi === 120))
+    readonly property bool ntGrid: classicGrid && ntClassic
+    readonly property bool win98Grid: classicGrid && look === "1998"
     readonly property real pixel: 1 / pixelScale
+    readonly property string strikeFamily: "Chicago95 Windows " + (look === "2000" ? "2000" : "XP") + " Taskbar 120 DPI"
+    readonly property bool hasTaskStrike: ntGrid && Qt.fontFamilies().includes(strikeFamily)
+    // Use the full Tahoma font for titles that need shaping or glyphs outside the imported strike.
+    readonly property bool useStrike: hasTaskStrike && pressed && !/[^ -~\u00a0-\u00ff\u2026]/.test(text)
     readonly property string nativeFont: {
-        if (look === "2000" || look === "2001") {
+        if (useStrike) return strikeFamily;
+        if (ntClassic) {
             const family = look === "2001" ? "Tahoma" : "Chicago95 Windows 2000 Tahoma";
             return Qt.fontFamilies().includes(family) ? family : "";
         }
@@ -30,18 +37,18 @@ Item {
         return win9x120 && pixelScale === 1.25 && Qt.fontFamilies().includes(family) ? family : "";
     }
 
-    readonly property int buttonHeight: 22
-    readonly property real iconLeft: win98Grid ? 4 * pixel : 4
-    readonly property real iconTop: win98Grid ? 3 - pixel : 3
-    readonly property int labelLeft: look === "2001" ? 25 : bevel === "2000" ? 22 : 23
-    readonly property int labelTop: 6
-    readonly property int labelRight: 4
+    readonly property real buttonHeight: ntGrid && look === "2001" ? 22 - pixel : 22
+    readonly property real iconLeft: win98Grid || (ntGrid && look === "2000") ? 4 * pixel : 4
+    readonly property real iconTop: win98Grid || ntGrid ? 3 - pixel : 3
+    readonly property int labelLeft: look === "2001" ? (ntGrid ? 24 : 25) : bevel === "2000" ? 22 : 23
+    readonly property real labelTop: ntGrid ? 6 - (look === "2000" ? pixel : 2 * pixel) : 6
+    readonly property real labelRight: ntGrid ? 2 * pixel : 4
     readonly property int shift: pressed ? 1 : 0
 
     Item {
         id: surface
-        readonly property bool nativePressed: task.win9xGrid && task.pressed
-        y: task.height - task.buttonHeight + (task.win9xGrid ? task.pixel : 0)
+        readonly property bool nativePressed: task.classicGrid && task.pressed
+        y: task.height - task.buttonHeight + (task.classicGrid ? task.pixel : 0)
         width: task.width
         height: task.buttonHeight
         KSvg.FrameSvgItem {
@@ -57,12 +64,12 @@ Item {
             Rectangle {
                 width: parent.width - task.pixel
                 height: parent.height - task.pixel
-                color: "#000000"
+                color: task.ntGrid ? "#404040" : "#000000"
             }
             Rectangle {
                 anchors.fill: parent
                 anchors.margins: task.pixel
-                color: "#c0c0c0"
+                color: task.ntGrid ? "#d4d0c8" : "#c0c0c0"
             }
             Rectangle {
                 x: task.pixel
@@ -75,6 +82,20 @@ Item {
                 anchors.fill: parent
                 anchors.margins: 2 * task.pixel
                 color: "#ffffff"
+                Image {
+                    anchors.fill: parent
+                    source: task.ntGrid ? "../images/task-checker.svg" : ""
+                    fillMode: Image.Tile
+                    horizontalAlignment: Image.AlignLeft
+                    verticalAlignment: Image.AlignTop
+                    smooth: false
+                }
+                Rectangle {
+                    visible: task.ntGrid && task.look === "2000"
+                    width: parent.width
+                    height: task.pixel
+                    color: "white"
+                }
             }
         }
 
@@ -88,17 +109,19 @@ Item {
         }
         Text {
             id: label
-            readonly property real inset: task.labelLeft - (task.nativeFont ? task.pixel : 0)
+            readonly property real inset: task.labelLeft + (task.nativeFont
+                ? (task.ntClassic && task.pixelScale === 1 ? task.pixel : -task.pixel) : 0)
             // The Windows 98 bitmap caption starts 28 physical pixels inside the button.
-            x: task.win98Grid && task.nativeFont ? Math.round(inset * task.pixelScale) * task.pixel : inset
-            y: task.labelTop + task.shift - (task.nativeFont ? 2 * task.pixel : 0)
+            x: task.useStrike ? inset + task.pixel
+                : task.win98Grid && task.nativeFont ? Math.round(inset * task.pixelScale) * task.pixel : inset
+            y: task.labelTop + task.shift - (task.useStrike ? task.pixel : task.nativeFont ? 2 * task.pixel : 0)
             width: Math.max(0, parent.width - x - task.labelRight)
             leftPadding: task.nativeFont ? -0.125 : 0
             font.family: task.nativeFont || "MS W98 UI"
             font.pixelSize: 11
             font.bold: task.pressed
             font.hintingPreference: task.nativeFont
-                ? (task.look === "2000" || task.look === "2001" ? Font.PreferFullHinting : Font.PreferNoHinting)
+                ? (task.ntClassic && !task.useStrike ? Font.PreferFullHinting : Font.PreferNoHinting)
                 : Font.PreferDefaultHinting
             color: task.textColor
             elide: Text.ElideRight

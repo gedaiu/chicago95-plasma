@@ -1,9 +1,12 @@
+import sys
 from runpy import run_path
+from unittest.mock import patch
 
 from conftest import REPO
 from fontTools.pens.pointInsidePen import PointInsidePen
 
-glyph_outline = run_path(str(REPO / "setup/import-win9x-fonts.py"))["glyph_outline"]
+with patch.object(sys, "path", [str(REPO / "setup"), *sys.path]):
+    glyph_outline = run_path(str(REPO / "setup/import-win9x-fonts.py"))["glyph_outline"]
 
 
 def test_stroke_outline_preserves_hole_diagonal_contact_and_bold_advance():

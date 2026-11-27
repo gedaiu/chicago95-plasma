@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 10 10" shape-rendering="crispEdges">
+  <defs>
+    <pattern id="checker" width="2" height="2" patternUnits="userSpaceOnUse">
+      <path fill="#d4d0c8" d="M0 0h1v1H0z M1 1h1v1H1z"/>
+    </pattern>
+  </defs>
+  <rect width="10" height="10" fill="url(#checker)"/>
+</svg>

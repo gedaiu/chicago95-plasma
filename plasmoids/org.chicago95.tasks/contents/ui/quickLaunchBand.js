@@ -18,18 +18,25 @@ const LUNA_METRICS = Object.assign({}, METRICS, {
   separatorLead: 4,
   separatorBody: 10,
 });
-const SMALL_ICONS_120 = Object.assign({}, METRICS, { cellWidth: 19, iconSize: 16 / 1.25 });
-const WIN98_120 = Object.assign({}, SMALL_ICONS_120, {
+const CLASSIC_REBAR_120 = Object.assign({}, METRICS, {
+  iconSize: 16 / 1.25,
   cellWidth: 23 / 1.25,
   separatorLead: 0,
   // The 120-DPI rebar has 11 device pixels from the etched line to the next cell.
   bandOverlap: 1 / 1.25,
   separatorBody: 11 / 1.25,
   gapBeforeRightSeparator: 4 / 1.25,
-  separatorImage: "../images/quick-launch-grip-98.svg",
+  separatorImage: "../images/quick-launch-grip.svg",
   iconInset: 3 / 1.25,
   iconTop: 5.4,
 });
+const WIN2K_120 = Object.assign({}, CLASSIC_REBAR_120, {
+  bandOverlap: 0,
+  separatorLeadAfterStart2000: 1,
+  iconTop: CLASSIC_REBAR_120.iconTop - 2 / 1.25,
+});
+const XP_CLASSIC_120 = Object.assign({}, METRICS, { gapWithoutQuickLaunch: 3 / 1.25 });
+const CLASSIC_120 = { "1998": CLASSIC_REBAR_120, "2000": WIN2K_120, "2001": XP_CLASSIC_120 };
 // The Windows 7 superbar: 60-pixel buttons two pixels apart (win7screenres.png), pinned programs straight after Start
 // and before the running ones. A pinned slot is a whole pitch with its button one pixel in.
 const AERO_METRICS = Object.assign({}, METRICS, {
@@ -46,8 +53,8 @@ const STYLE_METRICS = { luna: LUNA_METRICS, aero: AERO_METRICS };
 const FIT = -1;
 
 function metrics(taskbarStyle, look, dpi) {
-  if (taskbarStyle === "classic" && ["1998", "2000"].includes(look) && dpi === 120) {
-    return look === "1998" ? WIN98_120 : SMALL_ICONS_120;
+  if (taskbarStyle === "classic" && dpi === 120) {
+    return CLASSIC_120[look] ?? METRICS;
   }
   return STYLE_METRICS[taskbarStyle] ?? METRICS;
 }

@@ -62,6 +62,10 @@ def main():
         with TemporaryDirectory(dir=destination) as scratch:
             for name in files:
                 install_font(sources[name], Path(scratch) / name, args.edition)
+            if args.edition in ("2000", "xp"):
+                from make_nt_task_font import make_task_font
+
+                make_task_font(sources["tahomabd.ttf"], Path(scratch) / "Taskbar-120-Bold.ttf", args.edition.upper())
             for path in Path(scratch).iterdir():
                 path.replace(destination / path.name)
     except (OSError, ValueError) as error:

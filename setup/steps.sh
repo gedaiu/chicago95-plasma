@@ -574,7 +574,8 @@ install_icon_pack() { # install_icon_pack se98|classicos2000|windowsxp   -> 0 wh
     run bash -c "cd '$source' && ICON_THEME_NAME=ClassicOS-2000 MAKEFREEDESKTOP=TRUE MAKEPNG=FALSE ./build-icons.sh" >>"$SETUP_LOG" 2>&1
   fi
   [ "${KEEP_INSTALLED:-0}" = 1 ] && [ -f "$HOME/.local/share/icons/$theme/index.theme" ] &&
-    { [ "$1" != se98 ] || [ ! -L "$HOME/.local/share/icons/$theme" ]; } && return 0
+    [ ! -L "$HOME/.local/share/icons/$theme" ] && return 0
+  if [ -L "$built" ]; then built=$(readlink -f "$built") || return 1; fi
   if [ -d "$built" ]; then put_tree "$built" "$HOME/.local/share/icons/$theme"; else show_copy "$built" "$HOME/.local/share/icons/$theme"; fi
 }
 
@@ -686,11 +687,16 @@ apply_icon_set() {
     install_icon_pack se98
     if install_icon_pack classicos2000; then
       theme=ClassicOS-2000
+      install_taskbar_icon_frames "$theme" win2k || return 1
       run python3 -I "$REPO/setup/classic_icon_fallbacks.py" "$HOME/.local/share/icons/$theme/index.theme" || return 1
     fi
     ;;
   windowsxp)
-    install_icon_pack windowsxp && theme=Windows-XP && xp_icon_fallback
+    if install_icon_pack windowsxp; then
+      theme=Windows-XP
+      xp_icon_fallback
+      install_taskbar_icon_frames "$theme" winxp-classic || return 1
+    fi
     ;;
   esac
   [ "$theme" = Chicago95 ] && [ "${SETUP_ICONS:-chicago95}" != chicago95 ] && ui_status "That icon set is unavailable; keeping Chicago95"
@@ -706,10 +712,26 @@ apply_icon_set() {
   done
 }
 
-# Keep the VM's small icon frames alongside SE98's large sizes so icon-theme lookup can choose either.
+# Register the fixed-size VM frames in the selected pack alongside its larger artwork.
+install_taskbar_icon_frames() {
+  local dest="$HOME/.local/share/icons/$1" frames="$REPO/data/taskbar-icons/$2"
+  local index="$dest/index.theme" folder size added=""
+  put_tree "$frames" "$dest/taskbar" || return 1
+  [ "${SETUP_DRY_RUN:-0}" = 1 ] && return 0
+  for folder in "$frames"/*; do
+    size=${folder##*/}
+    grep -qFx "[taskbar/$size]" "$index" && continue
+    added+="taskbar/$size,"
+    printf '\n[taskbar/%s]\nSize=%s\nContext=Applications\nType=Fixed\n' "$size" "$size" >>"$index" || return 1
+  done
+  if [ -n "$added" ]; then
+    sed -i "/^Directories=/s|=|=$added|" "$index" || return 1
+  fi
+}
+
 install_se98_taskbar_icons() {
-  local dest="$HOME/.local/share/icons/SE98" index="$HOME/.local/share/icons/SE98/index.theme"
-  put_tree "$REPO/data/taskbar-icons/win98" "$dest/taskbar" || return 1
+  local dest="$HOME/.local/share/icons/SE98"
+  install_taskbar_icon_frames SE98 win98 || return 1
   [ "${SETUP_DRY_RUN:-0}" = 1 ] && return 0
   # SE98 calls the mail application internet-mail. Keep its larger frames available to both names.
   local mail alias
@@ -720,13 +742,6 @@ install_se98_taskbar_icons() {
       record "$alias"
     fi
   done
-  if ! grep -qFx '[taskbar/16]' "$index"; then
-    sed -i '/^Directories=/s|=|=taskbar/16,taskbar/20,|' "$index" || return 1
-    local size
-    for size in 16 20; do
-      printf '\n[taskbar/%s]\nSize=%s\nContext=Applications\nType=Fixed\n' "$size" "$size"
-    done >>"$index"
-  fi
 }
 
 # Explorer's toolbar buttons as a small theme over the selected icon set.
@@ -1217,8 +1232,28 @@ install_luna_plasmoid_files() {
   return 0
 }
 
+# Build only from the imported VM fonts. The standard Tahoma face remains the fallback.
+install_nt_task_fonts() {
+  local root="${XDG_DATA_HOME:-$HOME/.local/share}/fonts/Chicago95" edition source dest
+  for edition in 2000 XP; do
+    source="$root/Windows$edition/tahomabd.ttf"
+    dest="$root/Windows$edition/Taskbar-120-Bold.ttf"
+    [ -f "$source" ] || continue
+    if [[ "$dest" -nt "$source" && "$dest" -nt "$REPO/setup/make_nt_task_font.py" && "$dest" -nt "$REPO/setup/font_strikes.py" ]]; then
+      continue
+    fi
+    if run python3 "$REPO/setup/make_nt_task_font.py" "$source" "$dest" "$edition" &&
+      [ -f "$dest" ]; then
+      record "$dest"
+      run fc-cache "${dest%/*}"
+    fi
+  done
+  return 0
+}
+
 step_taskbar() {
   SHELL_CHANGED=1
+  install_nt_task_fonts
   for plasmoid in "$REPO"/plasmoids/org.chicago95.*; do put_tree "$plasmoid" ~/.local/share/plasma/plasmoids/"$(basename "$plasmoid")"; done
   put_file "$REPO/lib/chicago95recent.py" ~/.local/share/plasma/plasmoids/org.chicago95.tasks/contents/ui/chicago95recent.py
   install_luna_plasmoid_files

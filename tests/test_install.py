@@ -2239,6 +2239,30 @@ def test_se98_taskbar_frames_keep_large_icon_sizes_on_reinstall(tmp_path):
     assert (theme / "taskbar/16/internet-mail.png").samefile(theme / "taskbar/16/mail-client.png")
 
 
+def test_taskbar_frames_leave_linked_xp_icon_checkout_intact(tmp_path):
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    original_index = "[Icon Theme]\nDirectories=apps/48\n"
+    (checkout / "index.theme").write_text(original_index)
+    source = tmp_path / "src/Windows-XP"
+    source.parent.mkdir()
+    source.symlink_to(checkout)
+    theme = tmp_path / ".local/share/icons/Windows-XP"
+    theme.parent.mkdir(parents=True)
+    theme.symlink_to(checkout)
+
+    run_bash_with_steps(tmp_path, """
+        SETUP_LOG=/dev/null
+        KEEP_INSTALLED=1
+        ui_progress() { :; }
+        install_icon_pack windowsxp && install_taskbar_icon_frames Windows-XP winxp-classic
+    """)
+    assert not theme.is_symlink()
+    assert (theme / "taskbar/20/accessories-text-editor.png").is_file()
+    assert (checkout / "index.theme").read_text() == original_index
+    assert not (checkout / "taskbar").exists()
+
+
 def test_nested_setup_keeps_mutable_icon_themes_inside_its_test_home(tmp_path, monkeypatch):
     from plasma_session import link_user_assets
 

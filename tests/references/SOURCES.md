@@ -384,6 +384,15 @@ and caption provided white and navy backgrounds for recovering transparency.
 The flag uses the Start button's silver face as its transparent color.
 The pixel tests compare the installed Plasma panel to the 1280×1024 capture.
 
+The Windows 2000 and XP Classic small taskbar icons come from their local
+installer resources. Windows 2000 Show Desktop, Internet Explorer and
+Outlook Express use 16×16 frames from SHELL32.DLL (group 35, resource 316),
+IEXPLORE.EXE (32528, 5) and MSIMN.EXE (2, 4). Notepad uses the 16×16
+NOTEPAD.EXE group 2 frame, resource 8 on 2000 and 6 on XP. The shell samples
+that frame at the center of each destination pixel to draw the 20×20 icon.
+The Quick Launch images and XP Notepad use the shell image list’s 5-bit
+color channels. The Windows 2000 Notepad frame retains its source palette.
+
 The Windows 7 desktop reference uses the unoccupied top 220 rows of the
 1024×768 SP1 Aero Start capture. Its populated taskbar, desktop popup and
 22-row hover band come from `win7screenres.png` at 96 DPI.
