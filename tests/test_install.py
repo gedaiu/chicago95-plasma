@@ -2820,6 +2820,43 @@ def test_moving_a_window_shows_the_grabbing_hand_in_every_move_cursor_name(tmp_p
     assert [(cursors / name).read_bytes() for name in names] == [b"hand"] * 4
 
 
+def xcursor_frames(pixels_per_frame, delay=238, size=2):
+    import struct
+
+    chunks = [
+        struct.pack("<IIIIIIIII", 36, 0xFFFD0002, size, 1, size, size, 0, 0, delay)
+        + struct.pack(f"<{size * size}I", *pixels)
+        for pixels in pixels_per_frame
+    ]
+    header = struct.pack("<4sIII", b"Xcur", 16, 0x10000, len(chunks))
+    offset = 16 + 12 * len(chunks)
+    toc = b""
+    for chunk in chunks:
+        toc += struct.pack("<III", 0xFFFD0002, size, offset)
+        offset += len(chunk)
+    return header + toc + b"".join(chunks)
+
+
+def xcursor_pixels(data):
+    import struct
+
+    count = struct.unpack("<I", data[12:16])[0]
+    offsets = [struct.unpack("<I", data[16 + 12 * i + 8 : 16 + 12 * i + 12])[0] for i in range(count)]
+    return [struct.unpack("<4I", data[at + 36 : at + 52]) for at in offsets]
+
+
+def test_busy_cursor_keeps_only_its_coloured_frames_after_dropping_the_flat_black_white_first_frame(tmp_path):
+    cursors = tmp_path / ".icons/Chicago95_Animated_Hourglass_Cursors_HiDPI/cursors"
+    cursors.mkdir(parents=True)
+    mono, teal, grey = [0xFF000000, 0xFFFFFFFF, 0, 0xFF000000], [0xFF008080] * 4, [0xFFC0C0C0] * 4
+    for name in ("watch", "wait"):
+        (cursors / name).write_bytes(xcursor_frames([mono, teal, grey]))
+    run_bash_with_steps(tmp_path, "SETUP_LOG=/dev/null; drop_static_busy_frames")
+    assert [xcursor_pixels((cursors / name).read_bytes()) for name in ("watch", "wait")] == [
+        [tuple(teal), tuple(grey)]
+    ] * 2
+
+
 def test_thunar_opens_folders_through_kwriteconfig6_without_xdg_mime_which_needs_a_qtpaths_fedora_lacks(tmp_path):
     log = dry_run_log(tmp_path, "--components=explorer", "--explorer=thunar")
 

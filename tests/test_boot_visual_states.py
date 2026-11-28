@@ -123,7 +123,7 @@ def test_live_status_update_changes_only_the_message(qt_app, tmp_path):
         {"banner": banner, "statusText": "Loading your personal settings...", "stripPhase": 0},
     ) as view:
         before = grab(view, tmp_path / "starting.png")
-        view.rootObject().setProperty("statusText", "Waiting for desktop readiness...")
+        view.rootObject().setProperty("statusText", "Preparing desktop...")
         QTest.qWait(50)
         after = grab(view, tmp_path / "waiting.png")
         diff = ImageChops.difference(before, after)

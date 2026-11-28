@@ -329,6 +329,15 @@ grab_hand_for_moves() { # KWin draws its move pointer while it drags a window (C
   done
 }
 
+drop_static_busy_frames() { # the busy cursors open on a flat black/white frame that flashes before the coloured animation
+  local cursors=~/.icons/Chicago95_Animated_Hourglass_Cursors_HiDPI/cursors name
+  [ -d "$cursors" ] || return 0
+  for name in watch wait left_ptr_watch progress half-busy; do
+    [ -f "$cursors/$name" ] && run python3 -I "$REPO/setup/busy_cursor_frames.py" "$cursors/$name"
+  done
+  return 0
+}
+
 import_gtk_progress() {
   local version target radio_assets=""
   [ "${SETUP_DRY_RUN:-0}" = 1 ] && return 0
@@ -497,6 +506,7 @@ step_base() {
   run fc-cache -f ~/.local/share/fonts >/dev/null 2>&1 || true
   put_file "$(xsettingsd_source)" ~/.config/xsettingsd/xsettingsd.conf
   grab_hand_for_moves
+  drop_static_busy_frames
   apply_pointer_theme
   pkill -HUP xsettingsd 2>/dev/null || true
 }

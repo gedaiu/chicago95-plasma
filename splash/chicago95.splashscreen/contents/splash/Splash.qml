@@ -26,8 +26,9 @@ Rectangle {
     property string textBootName: Settings.brandText || "Windows 95"
     property url statusBanner: "brand-banner.png"
     property real statusStripPhase: -1
-    // KSplash stage is supplied by the session, not a timer or a fabricated service list.
-    property string sessionStatus: stage < 5 ? "Loading your personal settings..." : "Waiting for desktop readiness..."
+    // KSplash stage is supplied by the session; each stage names what the session is doing.
+    property var stageStatuses: ["Loading your personal settings...", "Loading your personal settings...", "Applying your personal settings...", "Starting session manager...", "Starting window manager...", "Preparing desktop..."]
+    property string sessionStatus: stageStatuses[Math.max(0, Math.min(stage, stageStatuses.length - 1))]
     function playBootPreview() {
         textFill.stop();
         bitmapTimer.stop();

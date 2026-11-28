@@ -68,7 +68,7 @@ def test_text_loader_visibly_fills_before_graphical_boot(qt_app, tmp_path):
 def test_live_2000_dialog_waits_for_session_stage_not_elapsed_time(qt_app, tmp_path):
     from PySide6.QtCore import QObject
 
-    with splash_view(qt_app, tmp_path, booting=False, logonStyle="2000") as view:
+    with splash_view(qt_app, tmp_path, booting=False, stage=1, logonStyle="2000") as view:
         root = view.rootObject()
         root.setProperty("statusBanner", QUrl.fromLocalFile(str(REPO / "data/2000-logon-banner.png")))
         root.setProperty("statusStripPhase", 0)
@@ -78,7 +78,7 @@ def test_live_2000_dialog_waits_for_session_stage_not_elapsed_time(qt_app, tmp_p
         assert label.property("text") == "Loading your personal settings..."
         before = qimage_to_pil(view.grabWindow()).convert("RGB")
         root.setProperty("stage", 5)
-        assert label.property("text") == "Waiting for desktop readiness..."
+        assert label.property("text") == "Preparing desktop..."
         QTest.qWait(50)
         dialog = root.findChild(QObject, "startupStatus")
         after = qimage_to_pil(view.grabWindow()).convert("RGB")
@@ -86,6 +86,25 @@ def test_live_2000_dialog_waits_for_session_stage_not_elapsed_time(qt_app, tmp_p
         assert bounds is not None
         assert bounds[1] >= label.mapToScene(QPointF()).y()
         assert bounds[3] < dialog.mapToScene(QPointF(0, dialog.height())).y()
+
+
+# KSplash counts startplasma "initial" and "kcminit", ksmserver, the window manager and plasmashell "desktop".
+@pytest.mark.parametrize("stage, text", [
+    (0, "Loading your personal settings..."),
+    (1, "Loading your personal settings..."),
+    (2, "Applying your personal settings..."),
+    (3, "Starting session manager..."),
+    (4, "Starting window manager..."),
+    (5, "Preparing desktop..."),
+    (6, "Preparing desktop..."),
+])
+def test_live_2000_dialog_names_what_plasma_is_doing(qt_app, tmp_path, stage, text):
+    from PySide6.QtCore import QObject
+
+    with splash_view(qt_app, tmp_path, booting=False, logonStyle="2000") as view:
+        root = view.rootObject()
+        root.setProperty("stage", stage)
+        assert root.findChild(QObject, "sessionStatusText").property("text") == text
 
 
 def test_2000_status_dialog_fits_the_loading_preview(qt_app, tmp_path):
